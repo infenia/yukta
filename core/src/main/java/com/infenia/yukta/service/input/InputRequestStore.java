@@ -4,6 +4,7 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponse;
+import com.infenia.yukta.service.input.delivery.InputDelivery;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
@@ -17,6 +18,7 @@ import reactor.core.publisher.Mono;
  * <p>Every change to a request goes through {@link #compareAndSet}, so two changes at once produce
  * one winner. A terminal request never changes.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 public interface InputRequestStore {
 
   /**
@@ -96,6 +98,30 @@ public interface InputRequestStore {
    * @return non-terminal requests whose deadline or tier deadline is {@code now} or earlier
    */
   Flux<InputRequest> dueBefore(Instant now);
+
+  /**
+   * Queues a delivery to an external responder.
+   *
+   * @param delivery the delivery
+   * @return the stored delivery
+   */
+  Mono<InputDelivery> enqueueDelivery(InputDelivery delivery);
+
+  /**
+   * Lists the deliveries that are due.
+   *
+   * @param now the time to compare with
+   * @return pending deliveries whose next attempt is {@code now} or earlier, oldest first
+   */
+  Flux<InputDelivery> dueDeliveries(Instant now);
+
+  /**
+   * Replaces a delivery after a try.
+   *
+   * @param delivery the delivery as it is now
+   * @return completes when it is stored
+   */
+  Mono<Void> saveDelivery(InputDelivery delivery);
 
   /**
    * Removes finished requests, and their answers, last changed before a time.

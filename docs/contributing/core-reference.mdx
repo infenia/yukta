@@ -676,7 +676,7 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 - The default rules, in order: `audience`, `tier` (until routes exist the targets are `supervisor:*` and `role:OPERATOR`), `risk` (answers only: `HIGH` only a human, a supervisor needs `canAnswer` and a `maxRisk` that reaches the request), `scope` (a supervisor's scope, a key's sessions) and `separation` (a supervisor cannot answer for a run whose start payload names it under `yukta.supervisor.id`). Escalating needs no right to answer. A bean of type `AnswerAuthorizer` replaces the rules.
 - The sender is read from the actor kind the caller authenticated as (`ControlActor.KIND_KEY`: `KEY`, `SUPERVISOR`, `TOKEN`), never from the shape of the actor string, so a key named like a supervisor gains none of its rights. A call with an actor but no kind, or with no identity where keys are required, has no rights.
 
-**Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys` · `yukta.input.routes.<name>`
+**Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys` · `yukta.input.routes.<name>` · `yukta.input.responders.<name>` · `yukta.input.token-secret`
 
 **Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor` `AnswerAuthorizer` `DefaultAnswerAuthorizer` `ActorResolver` `InputCommandGuard` `AnswerShape` `SchemaSubset` `AnswerInputCommandProcessor` `EscalateInputCommandProcessor`
 
@@ -1128,6 +1128,8 @@ All meters are Micrometer. Tags in braces.
 | `yukta.input.open` | gauge | [CTL-09](#ctl-09-input-requests) | Input requests open or escalated now |
 | `yukta.input.denied` `{rule}` | counter | [CTL-09](#ctl-09-input-requests) | Asks refused: ttl, open-per-execution, open-per-session |
 | `yukta.input.escalations` `{tier}` | counter | [CTL-09](#ctl-09-input-requests) | Requests handed up, by the tier they moved into |
+| `yukta.input.delivery` `{responder,outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Deliveries to external responders: sent, retry, failed |
+| `yukta.input.token` `{outcome}` | counter | [CTL-09](#ctl-09-input-requests) | One-time token answers: accepted, failed, invalid, replay, refused |
 | `yukta.control.approval` `{outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Control commands parked for approval: requested, approved, rejected, expired, cancelled |
 | `yukta.workers` · `yukta.worker.slots` | gauge | [SCL-01](#scl-01-remote-workers) | Connected workers and free slots |
 | `yukta.leader` | gauge | [SCL-02](#scl-02-active/standby-high-availability) | 1 on the leader |
