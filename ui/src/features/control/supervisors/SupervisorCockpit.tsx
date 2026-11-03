@@ -23,7 +23,14 @@ const outcomeClass: Record<string, string> = {
   rejected: 'text-destructive',
   'dry-run': 'text-primary',
   'rate-limited': 'text-warning',
+  arbitrated: 'text-attention',
+  coalesced: 'text-attention',
+  'flapping-blocked': 'text-attention',
+  'awaiting-approval': 'text-primary',
 };
+
+/** Outcomes without a colour of their own, including ones a newer server adds. */
+const NEUTRAL = 'text-on-surface-variant';
 
 /** The newest decisions of every supervisor, newest first. */
 function DecisionFeed() {
@@ -54,7 +61,9 @@ function DecisionFeed() {
                 {new Date(d.time).toLocaleTimeString()}
               </time>
               <span className="font-mono">{d.supervisorId}</span>
-              <span className={outcomeClass[d.outcome]}>{d.outcome}</span>
+              <span className={outcomeClass[d.outcome] ?? NEUTRAL}>
+                {d.outcome}
+              </span>
               <span>{d.command}</span>
               <span className="text-on-surface-variant">{d.executionId}</span>
               {d.reason && (

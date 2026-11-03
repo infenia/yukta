@@ -276,6 +276,29 @@ describe('the supervisor cockpit', () => {
     expect(row).toHaveTextContent('(no)');
   });
 
+  it('shows the newer outcomes, and an unknown one in a neutral colour', async () => {
+    const decision = (outcome: string) => ({
+      time: new Date().toISOString(),
+      supervisorId: 'b1',
+      outcome,
+      command: `Cmd-${outcome}`,
+      executionId: 'run-9',
+      reason: null,
+    });
+    decisions = [
+      decision('arbitrated'),
+      decision('awaiting-approval'),
+      decision('something-new'),
+    ];
+    renderWithProviders(<SupervisorCockpit />);
+
+    expect(await screen.findByText('arbitrated')).toHaveClass('text-attention');
+    expect(screen.getByText('awaiting-approval')).toHaveClass('text-primary');
+    expect(screen.getByText('something-new')).toHaveClass(
+      'text-on-surface-variant'
+    );
+  });
+
   it('creates a profile from validated JSON settings', async () => {
     renderWithProviders(<SupervisorCockpit />);
     const user = userEvent.setup();
