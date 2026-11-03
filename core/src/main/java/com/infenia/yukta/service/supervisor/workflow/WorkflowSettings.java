@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor.workflow;
 
 import com.infenia.yukta.plugin.control.SupervisorProfile;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -22,6 +23,9 @@ import org.springframework.expression.spel.standard.SpelExpressionParser;
  * @param timeout how long one run may take
  * @param when optional read-only SpEL condition over the (redacted) event map, or {@code null}
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "a parsed SpEL expression is immutable in use")
 public record WorkflowSettings(
     String sessionId,
     String workflowId,
