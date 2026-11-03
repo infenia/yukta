@@ -261,6 +261,40 @@ class AskInputProcessorTest {
   }
 
   @Test
+  void contextFactsAreResolvedAndMessageIdIsKept() {
+    final VariableResolver variables = mock(VariableResolver.class);
+    when(variables.resolve(any(), any()))
+        .thenAnswer(
+            call -> Mono.just(((String) call.getArgument(0)).replace("${start.issue}", "7")));
+    final StaticListableBeanFactory beans = new StaticListableBeanFactory();
+    beans.addBean("resolver", variables);
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(
+            new AskInputProcessor(
+                InputFakes.provider(gateway), beans.getBeanProvider(VariableResolver.class)),
+            config(
+                "context",
+                Map.of("issue", "${start.issue}", "messageId", "spoofed", "run_id", "r1")))
+        .blockLast();
+    final var context = gateway.asked.getFirst().context();
+    assertThat(context).containsEntry("issue", "7").containsEntry("run_id", "r1");
+    assertThat(context.get("messageId")).isNotEqualTo("spoofed");
+  }
+
+  @Test
+  void contextMustBeASmallMap() {
+    final AskInputProcessor processor = processor(null);
+    assertThatThrownBy(() -> processor.validateConfig(config("context", "text")).block())
+        .isInstanceOf(IllegalArgumentException.class);
+    final Map<String, Object> many = new java.util.HashMap<>();
+    for (int i = 0; i < 17; i++) {
+      many.put("k" + i, "v");
+    }
+    assertThatThrownBy(() -> processor.validateConfig(config("context", many)).block())
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
   void metadataOfThePluginIsDescribed() {
     final AskInputProcessor processor = processor(null);
     assertThat(processor.getType()).isEqualTo("ASK_INPUT");
@@ -281,7 +315,8 @@ class AskInputProcessorTest {
             "responseSchema",
             "audience",
             "name",
-            "route");
+            "route",
+            "context");
     assertThat(processor.describe().usagePattern()).contains("input.decision");
   }
 
