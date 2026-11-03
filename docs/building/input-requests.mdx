@@ -240,6 +240,21 @@ Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `y
 
 Requests are kept **in memory**. A restart, or a high-availability takeover, cancels the runs that were waiting and loses their open requests; nobody can answer them afterwards. An answer is also recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) run that replays the same message reuses it. A durable store for requests (PostgreSQL) is planned.
 
+## Coming from the signal API
+
+Releases before `0.1.0-alpha.4` answered a waiting node with a *signal*. The signal API is removed in the same release that adds input requests (a breaking change; the pre-1.0 versioning allows it). `WAIT_FOR_SIGNAL` and `requireApproval` keep working: they now ask a request of risk `HIGH`.
+
+| Before | Now |
+|---|---|
+| `POST /api/executions/{id}/nodes/{node}/signal` | `POST /api/executions/{id}/inputs/{requestId}/answer` |
+| `GET /api/approvals` | `GET /api/inputs` |
+| `GET /api/sessions/{s}/approvals`, MCP `list_pending_approvals` | `GET /api/sessions/{s}/inputs`, MCP `list_pending_inputs` |
+| MCP `signal_node` | MCP `answer_input` (and `escalate_input`) |
+| `yukta-cli approvals` | `yukta-cli inputs list`, `inputs answer`, `inputs escalate` |
+| A signal answer `approve` or `reject` | The same decisions, plus `rationale` and `confidence`; a request carries its own id, so look it up first |
+
+Plugin authors: see [Waiting for a person](/plugins/writing-a-plugin#waiting-for-a-person-from-signalwaits-to-the-input-gateway).
+
 ## Next steps
 
 <Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">

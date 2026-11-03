@@ -113,15 +113,49 @@ Two shared helpers are part of the contract so that plugins need no engine inter
 | Run budgets | A ledger of what the model and tool calls of one execution have used: tokens, cost and call count, optionally under an agent name. A plugin checks it before a call, adds the usage after it, and ends the run when a hard stop is set. `LLM_CALL` and `MCP_TOOL_CALL` share it. The ledger lives in the server's memory |
 | Signal waits | A named wait for a human decision, per execution and node. A plugin waits on it and delivers incoming signals to it. `WAIT_FOR_SIGNAL` and the approvals of `MCP_TOOL_CALL` use it |
 
+## Waiting for a person: from `SignalWaits` to the input gateway
+
+`SignalWaits` and the signal endpoint, CLI command and MCP tool are gone. A node that waits for a decision asks an **input request** on the `InputGateway`. The run and the node that ask come from the engine, so a plugin never passes an execution or node id.
+
+| Before | Now |
+|---|---|
+| `SignalWaits.shared().await(executionId, nodeId, name, timeout)` returns a `Decision(decision, data)` | `InputAsk.ask(gatewaySupplier, spec)` returns an `InputResponse(decision, text, data, responder, rationale, confidence, ...)` |
+| The signal name | `InputRequestSpec.key()`; asking again with the same key joins the open request or returns the earlier answer |
+| `TimeoutException` after the timeout | `InputExpiredException` (use `InputAsk.isTimeout(error)`); the spec's `ttl` and `onTimeout` say how long and what then |
+| `POST .../signal`, MCP `signal_node` | `POST /api/executions/{executionId}/inputs/{requestId}/answer`, `yukta-cli inputs answer`, MCP `answer_input` (list with `list_pending_inputs`) |
+| `GET .../approvals`, `yukta-cli approvals`, MCP `list_pending_approvals` | `GET /api/sessions/{sessionId}/inputs`, `yukta-cli inputs list`, MCP `list_pending_inputs` |
+| A `signal` control message in the plugin | None: the gateway completes the waiting call |
+
+Before:
+
+```java
+return signalWaits
+    .await(executionId, nodeId, "approve", Duration.ofHours(1))
+    .map(decision -> "approve".equals(decision.decision()) ? message : null);
+```
+
+After:
+
+```java
+final InputRequestSpec spec =
+    new InputRequestSpec(
+        key, InputKind.APPROVAL, "Deploy build 42?", Map.of("env", "staging"),
+        List.of(), null, InputRisk.HIGH, Audience.CURRENT_TIER,
+        Duration.ofHours(1), TimeoutAction.FAIL, null, null, "MY_PLUGIN");
+return InputAsk.ask(gatewayProvider::getIfAvailable, spec)
+    .map(answer -> "approve".equals(answer.decision()) ? message : null);
+```
+
+Take the gateway through an `ObjectProvider<InputGateway>`, use it only while the node runs, and build `key` from the message id so a [resumed](/operations/checkpoints-and-resume) run finds its earlier answer. A request of risk `HIGH` can only be answered by a person. See [Input requests](/building/input-requests).
+
 ## Control commands and signals
 
 The engine runs execution commands itself: pause and resume a workflow or node, stop, skip, step mode, breakpoints, restart, restart from a node, set limits and set priority. A plugin does not implement these. See [Run controls](/running/run-controls).
 
-A plugin receives only messages addressed to its node through its control-signal operation:
+A plugin receives only messages addressed to its node through its control-signal operation. There is no `signal` command any more: a node that waits for a person or another system asks an [input request](/building/input-requests) through the input gateway instead.
 
 | Message | Source | Expected behaviour |
 |---|---|---|
-| A `signal` command, with the payload `{executionId, nodeId, name, decision, data}` | The signal endpoint, the CLI or the MCP tool | Answer `ACCEPTED` when a wait took it, `QUEUED` when it arrived before its wait and was kept, `NOT_WAITING` otherwise. The caller gets `409` for `NOT_WAITING` |
 | A node command sent through the control bus | The `yukta-cli controlbus command` CLI command | Plugin-defined. `MCP_TOOL_CALL` accepts the payload `reset` and drops its cached sessions |
 
 Return nothing for a message the plugin does not understand.
