@@ -183,6 +183,24 @@ GET /api/supervisors
 
 This reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The web UI's Control page shows the same.
 
+## When supervisors disagree
+
+Supervisors run in parallel and do not see each other, so two of them can pause and resume one run in turn. The **command arbiter** settles that. A stop, and any command that cannot conflict, is sent at once. These can conflict, and wait for a short window per target (a run, or a node of a run): pause and resume, skip and unskip, step mode on and off, and two different priorities. When the window closes:
+
+- the supervisor with the lowest `order` wins, and its side is sent once; the same command from other supervisors is `coalesced`;
+- the supervisors on the other side get `arbitrated`;
+- a stop seen on the run in the last second cancels a pause or resume for it (`arbitrated`);
+- a supervisor that turns one target around more than `flap-limit` times in `flap-period` is blocked from conflicting commands on it for `flap-cooldown` (`flapping-blocked`).
+
+Each outcome is in the decision list, the control audit and `yukta.supervisor.commands{id,outcome}`. A window of `0` turns the arbiter off and keeps the old behaviour. While it is on, a conflicting command waits for its window, so a supervisor sees about `window` of delay on those commands.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `yukta.supervisor.arbiter.window` | `500ms` | How long conflicting commands wait for each other; `0` turns it off |
+| `yukta.supervisor.arbiter.flap-period` | `60s` | The period in which turn-arounds are counted |
+| `yukta.supervisor.arbiter.flap-limit` | `4` | Most turn-arounds of one target by one supervisor in the period |
+| `yukta.supervisor.arbiter.flap-cooldown` | `5m` | How long a supervisor over the limit is blocked |
+
 ## Settings
 
 | Setting | Default | Meaning |

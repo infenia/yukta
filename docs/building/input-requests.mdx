@@ -180,6 +180,50 @@ In a `QUORUM` or `UNANIMOUS` tier the supervisors **vote**: each votes once, the
 
 Metrics: `yukta.input.escalations{tier}`. Not yet: the delivery of requests to external responders and one-time answer tokens (the next change), and routing of runs raised by a supervisor (phase 8).
 
+## External responders: webhooks and one-time tokens
+
+A tier can name an **external responder** that the server calls when a request reaches it, such as a chat bot, a ticket system or another AI agent, so nobody needs an API key to be asked. Write it as `external:webhook:<name>` in the tier's `responders`; the named target lives under `yukta.input.responders.<name>`.
+
+```yaml
+yukta.input.routes.default:
+  tiers:
+    - name: ops
+      responders: ["external:webhook:slack-ops"]
+      timeout: 1h
+      type: HUMAN
+  on-final-timeout: FAIL
+yukta.input.responders.slack-ops:
+  url: https://hooks.example.com/yukta
+  headers:
+    Authorization: "Bearer ${SLACK_TOKEN}"
+  timeout: 10s
+  signing-secret: ${YUKTA_HOOK_SECRET}
+  answer-url: https://yukta.example.com/api/inputs/token-answer
+yukta.input.token-secret: ${YUKTA_TOKEN_SECRET}
+```
+
+The server posts JSON with `requestId`, `executionId`, `sessionId`, `workflowId`, `kind`, `prompt`, `context`, `options`, `risk`, `tier`, `advice`, `deadline`, `answerUrl`, `token` and `tokenExpires`. The prompt and context are the redacted ones; an answer is never in it. With a `signing-secret` the header `X-Yukta-Signature: sha256=<hex HMAC-SHA256 of the body>` lets the receiver check who sent it. The URL must pass the egress rules (`yukta.egress.*`) and redirects are not followed.
+
+Delivery is **at least once**: a failed post is tried again after 1 s, then twice as long each time up to 5 minutes, and given up after 10 tries (`yukta.input.delivery{responder,outcome}`, log entries `INPUT_DELIVERED` and `INPUT_DELIVERY_FAILED`). The receiver must treat a repeated `requestId` as the same request. Only the leader delivers, and deliveries are kept in memory, so a restart loses the ones not yet sent.
+
+### Answer with the token
+
+The receiver answers without an API key, once, until `tokenExpires`:
+
+```bash
+curl -X POST https://yukta.example.com/api/inputs/token-answer \
+  -H 'Content-Type: application/json' \
+  -d '{"requestId":"<requestId>","tier":"ops","expires":<tokenExpires>,"token":"<token>","decision":"approve"}'
+```
+
+The token is bound to the request and the tier; it is a bearer credential, so anyone who holds it can answer, and it does not fix the decision. Every refusal (unknown request, wrong tier, bad, expired or used token) is the same `403 Invalid or expired token`, and the call is limited per address and per request. The answer goes through the same review, audit and rules as any other, as the actor `token:<tier>`. A `HIGH` request can be answered this way only when the tier is of type `HUMAN`.
+
+Use HTTPS only. Set `yukta.input.token-secret` to a long random value; without it the server makes a random one at start-up and tokens stop working after a restart. Behind a proxy the per-address limit sees the proxy, so the per-request limit is the one that counts.
+
+### Pull instead of push
+
+An external agent that cannot be called can ask: list the open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follow `GET /api/events/stream?type=InputRequested,InputEscalated`, and answer with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [`examples/input-pull`](https://github.com/infenia/yukta/tree/main/examples/input-pull) is a `curl` script that does it.
+
 ## Timeouts and defaults
 
 | Setting | Default | Meaning |
