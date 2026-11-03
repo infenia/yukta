@@ -198,7 +198,8 @@ t.add(ok("done"))
 t.chain([(pe("intake", ["github", "intake", S("issue")], 120), "the issue is not eligible (not open, assigned to you and Ready, or no acceptance criteria) or asks for something forbidden")], "init")
 t.chain([(pe("init", ["init", S("issue"), "--run-id", S("runId"), "--root", S("project")], 300), "init failed or the issue is skipped (the branch or worktree exists)"),
          (pe("claim", ["github", "claim", S("issue")], 120), "the issue could not be moved to In progress")], "route")
-t.chain([(pe("route", ["route", RUN], 120), "route failed")], "architect1", dead=True)
+t.chain([(pe("route", ["route", RUN], 120), "route failed"),
+         (pe("triage", ["decision", "triage", RUN], 180), "triage failed")], "architect1", dead=True)  # the static rules decide in shadow mode
 # the architect, with validate-spec errors fed back, twice at most
 for k in (1, 2, 3):
     t.add(pe(f"architect{k}", ["call", "architect", RUN, *W], 2400, json_out=True, claude=True), pe(f"validate_spec{k}", ["validate-spec", RUN, *W], 300))
@@ -240,7 +241,7 @@ for k in range(1, ROUNDS + 1):
     t.link(pp, aa, "success"); t.fail(pp, "the human packet could not be written")
     t.link(aa, ap); t.link(ap, f"paused_rejected{k}", "reject"); t.link(ap, ack, "approve"); t.link(ack, f"round{k + 1}", "success"); t.fail(ack, "the pause could not be acknowledged")
 # merge gate by policy, then the draft PR
-t.add(pe("need_merge", ["ladder", "need-approval", RUN, "merge"], 60, json_out=True), select("merge_ask?", "ask", {"true": "ask"}, "skip"),
+t.add(pe("need_merge", ["ladder", "need-approval", RUN, "merge", *W], 60, json_out=True), select("merge_ask?", "ask", {"true": "ask"}, "skip"),
       ask("approve_merge", "Open the PR for run ${start.runId}? The change is on its branch, reviewed and green."), rejected("merge_decision?"), terminal("merge_rejected", "a person declined the PR"))
 t.link("need_merge", "merge_ask?", "success"); t.fail("need_merge", "approval policy failed")
 t.link("merge_ask?", "approve_merge", "ask"); t.link("merge_ask?", "finish", "skip")

@@ -179,6 +179,67 @@
           }
         },
         {
+          "nodeId": "triage",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "decision",
+              "triage",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+            },
+            "timeout": 180,
+            "timeoutSeconds": 180,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "triage.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "triage failed"
+          }
+        },
+        {
+          "nodeId": "triage.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "triage",
+              "--reason",
+              "triage failed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
           "nodeId": "architect1",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -1779,7 +1840,9 @@
               "ladder",
               "need-approval",
               "${start.run}",
-              "merge"
+              "merge",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1951,7 +2014,7 @@
         },
         {
           "source": "route",
-          "target": "architect1",
+          "target": "triage",
           "sourcePort": "success"
         },
         {
@@ -1962,6 +2025,20 @@
         {
           "source": "route.dead",
           "target": "route.failed"
+        },
+        {
+          "source": "triage",
+          "target": "architect1",
+          "sourcePort": "success"
+        },
+        {
+          "source": "triage",
+          "target": "triage.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "triage.dead",
+          "target": "triage.failed"
         },
         {
           "source": "architect1",

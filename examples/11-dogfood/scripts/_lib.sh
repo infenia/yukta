@@ -521,6 +521,16 @@ record_durations() {
     | group_by(.stage)[] | "\($p.workflowId)\t\(.[0].stage)\t\(map(.secs) | add * 1000 | round / 1000)"')
 }
 
+# triage_conf KEY (url | model): the triage model of heal. YUKTA_TRIAGE_<KEY> beats $DEV_HOME/triage.json (this machine: {"url": "http://my-lan:11434"}),
+# which beats heal.json (the repo's default, a LAN address that is not everyone's).
+triage_conf() {
+  local v="YUKTA_TRIAGE_${1^^}" r
+  r="${!v:-}"
+  [[ -n "$r" ]] || r="$(jq -r --arg k "$1" '.[$k] // empty' "$DEV_HOME/triage.json" 2>/dev/null || true)"
+  [[ -n "$r" ]] || r="$(jq -r --arg k "$1" '.triage[$k]' "$(dirname "${BASH_SOURCE[0]}")/../heal.json")"
+  echo "$r"
+}
+
 # ---- the optional decision model (System One via Ollama), see decisions.json. Everything here fails open: with no model, a stale model,
 # a slow answer or too big a digest the caller takes the path it took before, and gets one WARN line.
 # YUKTA_DECISION=shadow|on|off (default shadow) sets the mode of every decision, YUKTA_DECISION_<NAME> of one; YUKTA_DECISION_MODEL, YUKTA_DECISION_URL, YUKTA_DECISION_MAX_INPUT override decisions.json.
