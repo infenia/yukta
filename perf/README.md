@@ -1,6 +1,6 @@
 # Performance tests (k6)
 
-Three tests share one engine (`k6/lib.js`): `perf.js` (baseline latency at a fixed rate, for comparing commits),
+Three tests share one engine (`k6/lib.js`; the input requests test below has its own script): `perf.js` (baseline latency at a fixed rate, for comparing commits),
 `load.js` (ramp to a peak rate) and `soak.js` (steady rate for hours, with JVM trend). Each registers one session
 per workflow from `k6/workflows.js`, then picks one in turn (round-robin), `POST /api/workflow/start` and polls
 `GET /api/executions/{id}` until it ends. Select with `-e WORKFLOWS=mapper,chain10`. Default:
@@ -19,6 +19,18 @@ Two checks catch what a pass on latency hides, both must be 0:
 `LENIENT` (default false) counts a run as done once all nodes except `CONSOLE_TERMINAL` ended; it hides runs whose
 own status never turns final, so leave it off. Open problems found by these tests are in
 [KNOWN-ISSUES.md](KNOWN-ISSUES.md).
+
+## Input requests (`k6/inputs.js`)
+
+`perf/run.sh inputs` starts 1,000 runs (`OPEN_REQUESTS`, spread over `SESSIONS`=25 sessions because a session may
+have 50 open requests) that each wait on an `ASK_INPUT` node, waits until all 1,000 requests are open, then in
+10 seconds (`ANSWER_SECONDS`) answers 500 of them (`ANSWERS`) over REST while 50 clients (`READERS`) list the
+open requests once a second. Thresholds (they fail the nightly run): answer p95 under 500 ms, read p95 under 1 s, at
+least 99% of the answers sent and accepted, no request lost (500 stay open), none of the answered runs still
+`RUNNING` after `GRACE` seconds, heap under 1.5 GB. Not covered: supervisors that follow the SSE feed (k6 cannot
+read a stream), and the cost of a sweeper tick, which has no meter. A run on a development machine (jar, no
+resource limits): answer p95 10 ms, read p95 230 ms, heap 260 MB. The nightly run on the hosted runner is the one
+to compare against, not this.
 
 ## Benchmark with fixed resources (recommended)
 

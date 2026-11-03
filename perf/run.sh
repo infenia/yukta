@@ -10,8 +10,8 @@
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
-type=${1:?usage: run.sh <perf|load|soak> [k6 args]}; shift
-[[ $type =~ ^(perf|load|soak)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
+type=${1:?usage: run.sh <perf|load|soak|inputs> [k6 args]}; shift
+[[ $type =~ ^(perf|load|soak|inputs)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
