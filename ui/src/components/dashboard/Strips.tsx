@@ -11,7 +11,7 @@ export interface HeatCell {
   failureRatio?: number;
 }
 
-/** One cell per interval, shaded by volume and tinted red by the share that failed. */
+/** One cell per interval, shaded by volume; a share of failures tints it red and hatches it. */
 export function HeatStrip({
   cells,
   columns,
@@ -29,19 +29,23 @@ export function HeatStrip({
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {cells.map((c, i) => {
-        const base =
-          c.failureRatio && c.failureRatio > 0.05
-            ? 'var(--destructive)'
-            : 'var(--chart-1)';
+        const failing = !!c.failureRatio && c.failureRatio > 0.05;
+        const base = failing ? 'var(--destructive)' : 'var(--chart-1)';
         return (
           <span
             key={i}
             title={c.label}
+            data-failing={failing || undefined}
             className="bg-muted aspect-square rounded-[2px]"
             style={{
               backgroundColor:
                 c.volume > 0
                   ? `color-mix(in oklab, ${base} ${Math.round(15 + c.volume * 85)}%, transparent)`
+                  : undefined,
+              // a hatch on top, so a failing minute does not rest on red alone
+              backgroundImage:
+                c.volume > 0 && failing
+                  ? 'repeating-linear-gradient(45deg, transparent 0 2px, color-mix(in oklab, var(--foreground) 45%, transparent) 2px 3px)'
                   : undefined,
             }}
           />

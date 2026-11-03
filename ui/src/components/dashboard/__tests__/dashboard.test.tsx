@@ -138,6 +138,23 @@ describe('strips', () => {
     expect(screen.getByRole('img', { name: 'Runs' }).children).toHaveLength(2);
   });
 
+  it('HeatStrip marks a cell with many failures apart from its colour', () => {
+    render(
+      <HeatStrip
+        label="Runs"
+        columns={3}
+        cells={[
+          { label: 'ok', volume: 1, failureRatio: 0 },
+          { label: 'bad', volume: 1, failureRatio: 0.5 },
+          { label: 'idle', volume: 0, failureRatio: 1 },
+        ]}
+      />
+    );
+    const [ok, bad] = screen.getByRole('img', { name: 'Runs' }).children;
+    expect(ok).not.toHaveAttribute('data-failing');
+    expect(bad).toHaveAttribute('data-failing', 'true');
+  });
+
   it('StatusMatrix says each state in text, not only colour', () => {
     render(
       <StatusMatrix items={[{ id: 'a', label: 'node-a', state: 'stale' }]} />
