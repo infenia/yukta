@@ -9,7 +9,8 @@
     "go_test": "yk tool -C cli go test ./...",
     "ui_test": "yk tool -C ui npx --no-install vitest run",
     "ui_typecheck": "yk tool -C ui npx --no-install tsc --noEmit",
-    "mutation": "yk gradle :{module}:pitest -Pmutation -PmutationTargets={classes}"
+    "mutation": "yk gradle :{module}:pitest -Pmutation -PmutationTargets={classes}",
+    "heal_stage": "yk check --stage {stage} --base {base}"
   },
   "conventions_sources": {
     "java": [
@@ -161,5 +162,18 @@
     "**/go.mod",
     "**/go.sum",
     "settings.gradle.kts"
-  ]
+  ],
+  "limits": {
+    "attempts_per_step": 3,
+    "revisions_per_run": 2,
+    "spec_retries": 2
+  },
+  "budgets": {
+    "wall_clock_minutes": {
+      "S": 60,
+      "M": 120,
+      "L": 240
+    }
+  },
+  "merge_gate": "high_risk"
 }

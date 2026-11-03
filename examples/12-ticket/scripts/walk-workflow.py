@@ -4,19 +4,20 @@
 """walk-workflow.py SESSION WORKFLOW PAYLOAD.json: runs a generated workflow without a server (a test stand-in for the engine).
 
 Supports what gen-ticket.py emits: CONSTANT_SOURCE, PROCESS_EXECUTOR (exit code routing, JSON output, ${start.x} in command and env),
-BRANCH (SELECT_KEY on payload['output'][key]), SUB_WORKFLOW (payload mapping), OUTCOME_TERMINAL, CONSOLE_TERMINAL. Prints one
+BRANCH (SELECT_KEY on payload['output'][key]; the decision expression, answered by $TEST_ASK), ASK_INPUT, SUB_WORKFLOW (payload mapping), OUTCOME_TERMINAL, CONSOLE_TERMINAL. Prints one
 `NODE <id> <port>` line per node run and `OUTCOME <SUCCESS|FAILED> <reason>`; exit 0 on SUCCESS. __TICKET__ is the folder of ticketkit."""
 import json, os, pathlib, re, subprocess, sys
 
 KIT = str(pathlib.Path(__file__).resolve().parent.parent)
 
 
-def sub(v, start):
+def sub(v, start, out=None):
     if isinstance(v, str):
-        return re.sub(r"\$\{start\.(\w+)\}", lambda m: str(start[m.group(1)]), v.replace("__TICKET__", KIT))
+        v = re.sub(r"\$\{payload\.output\.(\w+)\}", lambda m: str((out or {}).get(m.group(1))), v)
+        return re.sub(r"\$\{start\.(\w+)\}", lambda m: str(start.get(m.group(1), "-")), v.replace("__TICKET__", KIT))
     if isinstance(v, list):
-        return [sub(x, start) for x in v]
-    return {k: sub(x, start) for k, x in v.items()} if isinstance(v, dict) else v
+        return [sub(x, start, out) for x in v]
+    return {k: sub(x, start, out) for k, x in v.items()} if isinstance(v, dict) else v
 
 
 def walk(wfs, name, start):
@@ -39,11 +40,17 @@ def walk(wfs, name, start):
             port = "success" if r.returncode == 0 else "failure"
             if r.returncode:
                 print((r.stdout + r.stderr)[-600:], file=sys.stderr)
+        elif t == "ASK_INPUT":
+            port = None
+            print(f"ASK {cur}", file=sys.stderr)
+        elif t == "BRANCH" and c["mode"] == "EXPRESSION":  # metadata['input.decision'] == 'reject', answered by $TEST_ASK
+            port = next(iter(c["cases"].values())) if os.environ.get("TEST_ASK", "approve") == "reject" else c["defaultPort"]
         elif t == "BRANCH":
             key = re.search(r"\['output'\]\['(\w+)'\]", c["selector"]).group(1)
-            port = c["cases"].get(str((out or {}).get(key)), c["defaultPort"])
+            val = (out or {}).get(key)
+            port = c["cases"].get(json.dumps(val) if isinstance(val, bool) else str(val), c["defaultPort"])
         elif t == "SUB_WORKFLOW":
-            outcome, why = walk(wfs, c["workflowId"], sub(c["payload"], start))
+            outcome, why = walk(wfs, c["workflowId"], dict(start, **sub(c["payload"], start, out)))
             port = "success" if outcome == "SUCCESS" else "failure"
         else:
             port = None
