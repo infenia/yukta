@@ -72,6 +72,11 @@ PR naming it and no `issue/<n>` branch on the remote. With several idle sessions
 state dir). The dev server runs the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill
 that works an issue is `.claude/skills/pickup/SKILL.md`.
 
+**Questions of a ticket run (`yk pickup bridge`, #1920).** Keep `yk pickup bridge` running (a terminal or a background task): it follows the server's event feed and,
+when a ticket-run question (route `ticket`) reaches the `session` tier, pushes one short event (`<channel kind=input request_id=..>`) to the session that is busy with
+that issue, and a second one when it escalates to the `human` tier. The event never takes the session's busy slot. The session reads and answers over the Yukta MCP
+(`list_pending_inputs`, `answer_input`). No owning session: nothing is sent, `yk approve` and the UI still answer. Design: `design/plans/ticket-input-routing.md`.
+
 **Which session gets the issue.** The oldest idle one, or the one you pin. A session counts as busy only while it holds an issue the channel
 handed over: one busy with your own work is still idle for the channel, and its event waits until its current turn ends (events queue). To
 keep a session out of pickup, do not open it with `yk pickup session`; to stop pickup altogether, `yk pickup off`. A manual `/pickup <n>`

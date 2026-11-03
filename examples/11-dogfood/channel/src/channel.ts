@@ -255,14 +255,17 @@ export class Channel {
       const seen = this.keys.get(key)
       if (seen) return { status: 200, body: { event_id: seen.eventId, duplicate: true } }
     }
+    // a notification about the work in flight (meta.kind "input", from the input bridge) is not another unit of work: it is neither refused while
+    // busy nor does it take the slot
+    const notify = meta.kind === 'input'
     const cur = this.current()
-    if (this.options.exclusive && cur) {
+    if (this.options.exclusive && cur && !notify) {
       return { status: 409, body: { error: 'busy', event_id: cur.id, meta: cur.meta, since: cur.since } }
     }
     if (!this.connected) return { status: 503, body: { error: 'not connected to Claude Code' } }
     const id = randomUUID().slice(0, 8)
     const attrs: Meta = { ...meta, event_id: id, ...(sender === undefined ? {} : { sender }) }
-    if (this.options.exclusive) this.inFlight = { id, since: now, meta: attrs }
+    if (this.options.exclusive && !notify) this.inFlight = { id, since: now, meta: attrs }
     try {
       await this.server.notification({ method: 'notifications/claude/channel', params: { content, meta: attrs } })
     } catch (e) {

@@ -19,6 +19,7 @@
 //   (check, gradle, tool) --detach --notify  also post the RESULT into the Claude Code session that started the run when it ends (YUKTA_NOTIFY=off: never)
 //   yk ticket run <issue> [--detach [--notify]] | status|resume|stop <issue|execution>  an issue with acceptance criteria to a tested change (examples/12-ticket)
 //   yk pickup session [--name N]             open an interactive Claude Code session that receives issues through its yukta-pickup channel (several may be open)
+//   yk pickup bridge                         push the questions of ticket runs to the session that works the ticket (input-bridge.ts, #1920); runs until stopped
 //   yk pickup on|off|now [--to N]|status     the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once)
 //
 // A run's last line is machine readable; exit 0 only on success:
@@ -292,6 +293,7 @@ async function cmdPickup(argv: string[]): Promise<number> {
       if (a.length) die('usage: yk pickup now [--to NAME]')
       return (await import('./pickup.ts')).main(['tick'])
     }
+    case 'bridge': return (await import('./input-bridge.ts')).watch().then(() => 0)
     case 'status': {
       let e: string
       if (await pickupAlive()) e = `on (execution ${text(join(DEV_HOME, 'pickup.exec')).trim()})`
