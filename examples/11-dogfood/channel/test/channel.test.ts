@@ -116,6 +116,16 @@ describe('exclusive channel', () => {
     expect((await r.post('/v1/events', { content: 'two' })).status).toBe(202)
   })
 
+  test('a notification of kind input is neither refused while busy nor takes the slot', async () => {
+    r = await rig({ exclusive: true })
+    const a = await r.post('/v1/events', { content: 'issue 7', meta: { issue: '7' } })
+    const n = await r.post('/v1/events', { content: 'question', meta: { kind: 'input', request_id: 'r1' } })
+    expect(n.status).toBe(202)
+    expect((await r.get('/v1/status')).body).toMatchObject({ busy: true, event_id: a.body.event_id })
+    await r.client.callTool({ name: 'done', arguments: { event_id: a.body.event_id } })
+    expect((await r.get('/v1/status')).body.busy).toBe(false)
+  })
+
   test('a channel that is not exclusive takes every event', async () => {
     r = await rig()
     expect((await r.post('/v1/events', { content: 'one' })).status).toBe(202)
