@@ -77,7 +77,7 @@ class SessionInfoProviderTest {
 
   @Test
   void testListSessionsSkipsFailingSession() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("s1", "s2"));
     final var wf =
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
     final var config =
@@ -87,7 +87,7 @@ class SessionInfoProviderTest {
     when(sessionService.getSessionConfig("s2"))
         .thenReturn(Mono.error(new RuntimeException("fail")));
 
-    StepVerifier.create(provider.listSessions())
+    StepVerifier.create(provider.listSessions(false))
         .expectNextMatches(
             sessions ->
                 sessions.size() == 1
@@ -98,7 +98,7 @@ class SessionInfoProviderTest {
 
   @Test
   void testListSessionsMultiple() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2", "s3"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("s1", "s2", "s3"));
     final var wf =
         new com.infenia.yukta.model.workflow.WorkflowDefinition("wf", "d", List.of(), List.of());
     final var config1 =
@@ -114,7 +114,7 @@ class SessionInfoProviderTest {
     when(sessionService.getSessionConfig("s2")).thenReturn(Mono.just(config2));
     when(sessionService.getSessionConfig("s3")).thenReturn(Mono.just(config3));
 
-    StepVerifier.create(provider.listSessions())
+    StepVerifier.create(provider.listSessions(false))
         .expectNextMatches(sessions -> sessions.size() == 3)
         .verifyComplete();
   }

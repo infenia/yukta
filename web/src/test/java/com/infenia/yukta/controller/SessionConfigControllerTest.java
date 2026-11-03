@@ -144,7 +144,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testListSessionsIsBareSortedAndPaged() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("c", "a", "b"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("c", "a", "b"));
 
     client
         .get()
@@ -170,7 +170,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testSummariesLoadOnlyTheRequestedPage() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("a", "b", "c"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "b", "c"));
     when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
     when(sessionService.getSessionConfig("b")).thenReturn(Mono.just(config("b")));
 
@@ -193,7 +193,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testSummariesCarryEachSessionsNewestRun() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("a", "b", "c"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "b", "c"));
     for (final String id : List.of("a", "b", "c")) {
       when(sessionService.getSessionConfig(id)).thenReturn(Mono.just(config(id)));
     }
@@ -232,7 +232,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testSummariesSkipSessionsThatFailToLoad() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("a", "bad"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a", "bad"));
     when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
     when(sessionService.getSessionConfig("bad")).thenReturn(Mono.error(new RuntimeException("io")));
 
@@ -327,7 +327,7 @@ class SessionConfigControllerTest {
 
   @Test
   void testLastSummariesPageHasNoNextCursor() {
-    when(sessionService.getSessionIds()).thenReturn(Flux.just("a"));
+    when(sessionService.getSessionIds(false)).thenReturn(Flux.just("a"));
     when(sessionService.getSessionConfig("a")).thenReturn(Mono.just(config("a")));
 
     client

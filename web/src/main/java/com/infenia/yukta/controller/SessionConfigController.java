@@ -170,6 +170,7 @@ public class SessionConfigController {
    *
    * @param limit page size (default 500, at most 1000)
    * @param cursor the last session ID of the previous page
+   * @param includeInternal true to list internal sessions (supervisor workflows) too
    * @return one page of session IDs in alphabetical order
    */
   @GetMapping
@@ -180,9 +181,10 @@ public class SessionConfigController {
               + " X-Next-Cursor header.")
   public Mono<ResponseEntity<ApiResponse<List<String>>>> listSessions(
       @RequestParam(required = false) final Integer limit,
-      @RequestParam(required = false) final String cursor) {
+      @RequestParam(required = false) final String cursor,
+      @RequestParam(defaultValue = "false") final boolean includeInternal) {
     return sessionService
-        .getSessionIds()
+        .getSessionIds(includeInternal)
         .sort()
         .collectList()
         .map(
@@ -195,6 +197,7 @@ public class SessionConfigController {
    *
    * @param limit page size (default 500, at most 1000)
    * @param cursor the last session ID of the previous page
+   * @param includeInternal true to list internal sessions (supervisor workflows) too
    * @return one page of summaries; only the sessions on the page are read from storage
    */
   @GetMapping("/summaries")
@@ -206,9 +209,10 @@ public class SessionConfigController {
               + " header.")
   public Mono<ResponseEntity<ApiResponse<List<SessionListItem>>>> listSessionSummaries(
       @RequestParam(required = false) final Integer limit,
-      @RequestParam(required = false) final String cursor) {
+      @RequestParam(required = false) final String cursor,
+      @RequestParam(defaultValue = "false") final boolean includeInternal) {
     return sessionService
-        .getSessionIds()
+        .getSessionIds(includeInternal)
         .sort()
         .collectList()
         .flatMap(

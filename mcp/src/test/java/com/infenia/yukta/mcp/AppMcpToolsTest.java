@@ -110,9 +110,9 @@ class AppMcpToolsTest {
   @Test
   void testListSessions() {
     var summaries = List.of(new SessionSummary("s1", 2));
-    when(sessionInfoProvider.listSessions()).thenReturn(Mono.just(summaries));
+    when(sessionInfoProvider.listSessions(false)).thenReturn(Mono.just(summaries));
 
-    StepVerifier.create(mcpTools.listSessions())
+    StepVerifier.create(mcpTools.listSessions(null))
         .expectNext(new SessionList(summaries))
         .verifyComplete();
   }

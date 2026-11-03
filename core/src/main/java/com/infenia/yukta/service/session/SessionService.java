@@ -68,6 +68,22 @@ public class SessionService {
   /** Detaches the supervisors of a deleted session; absent where there are none. */
   @Nullable private SupervisorService supervisors;
 
+  /** Tells which sessions are internal; absent where nothing is hidden. */
+  @Nullable private InternalSessions internalSessions;
+
+  /**
+   * Lets the service hide internal sessions from lists and forget what it knew when one changes.
+   *
+   * @param internal the lookup
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared lookup, which is meant to be held")
+  public void setInternalSessions(final InternalSessions internal) {
+    this.internalSessions = internal;
+  }
+
   /**
    * Lets a deleted session take its attached supervisors with it.
    *
@@ -92,6 +108,16 @@ public class SessionService {
    * @return Mono that completes when the configuration is successfully applied and persisted
    */
   public Mono<Void> applyConfig(@Valid final SessionConfigData data) {
+    return applyConfigNow(data)
+        .doFinally(
+            _ -> {
+              if (internalSessions != null) {
+                internalSessions.invalidate(data.sessionId());
+              }
+            });
+  }
+
+  private Mono<Void> applyConfigNow(final SessionConfigData data) {
     final Mono<Void> staleWorkflowCleanup =
         Mono.defer(() -> workflowDefinitionStore.findAll(data.sessionId()))
             .flatMapMany(existing -> Flux.fromIterable(existing.keySet()))
@@ -237,7 +263,13 @@ public class SessionService {
         .then(
             Mono.defer(
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
-        .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
+        .doOnSuccess(
+            _ -> {
+              preparedWorkflowCache.invalidateAll(sessionId);
+              if (internalSessions != null) {
+                internalSessions.invalidate(sessionId);
+              }
+            })
         .then(Mono.defer(() -> audited(command, sessionId)))
         .onErrorResume(error -> auditedFailure(error, command, sessionId))
         .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, null));
@@ -326,6 +358,19 @@ public class SessionService {
         .doOnNext(sessionId -> log.atTrace().log("Found session: {}", sessionId))
         .doOnComplete(() -> log.atDebug().log("Session ID retrieval completed"))
         .doOnError(err -> log.atError().setCause(err).log("Failed to retrieve session IDs"));
+  }
+
+  /**
+   * The session ids, with or without the internal sessions.
+   *
+   * @param includeInternal true to list internal sessions too
+   * @return the ids
+   */
+  public Flux<String> getSessionIds(final boolean includeInternal) {
+    final InternalSessions internal = internalSessions;
+    return includeInternal || internal == null
+        ? getSessionIds()
+        : getSessionIds().filterWhen(id -> internal.isInternal(id).map(hidden -> !hidden));
   }
 
   /**

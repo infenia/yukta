@@ -245,8 +245,14 @@ public class AppMcpTools {
       description = "List all available Yukta sessions with their workflow counts",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
-  public Mono<SessionList> listSessions() {
-    return sessionInfoProvider.listSessions().map(SessionList::new);
+  public Mono<SessionList> listSessions(
+      @McpToolParam(
+              required = false,
+              description = "True to list internal sessions (supervisor workflows) too")
+          final Boolean includeInternal) {
+    return sessionInfoProvider
+        .listSessions(Boolean.TRUE.equals(includeInternal))
+        .map(SessionList::new);
   }
 
   /**
