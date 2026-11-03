@@ -49,9 +49,9 @@ const ok = (nodeId = 'ok'): Json => ({ nodeId, type: 'CONSOLE_TERMINAL', config:
 const select = (nodeId: string, key: string, cases: Json, def: string): Json => ({ nodeId, type: 'BRANCH', config: { mode: 'SELECT_KEY', selector: `payload['output']['${key}']`, cases, defaultPort: def } })
 // every question of a run goes on the route `ticket` and says which issue and run it is about (design/plans/ticket-input-routing.md 3.5): the input bridge finds the
 // Claude Code session that works the issue from context.issue
-const ask = (nodeId: string, prompt: string, ttl = 86400, kind = 'APPROVAL'): Json => ({
+const ask = (nodeId: string, prompt: string, ttl = 86400, kind = 'APPROVAL', risk = 'HIGH'): Json => ({
   nodeId, type: 'ASK_INPUT',
-  config: { prompt, kind, risk: 'MEDIUM', ttlSeconds: ttl, onTimeout: 'FAIL', route: 'ticket', context: { issue: S('issue'), run_id: S('runId'), gate: nodeId } },
+  config: { prompt, kind, risk, ttlSeconds: ttl, onTimeout: 'FAIL', route: 'ticket', context: { issue: S('issue'), run_id: S('runId'), gate: nodeId } },
 })
 const rejected = (nodeId: string): Json => ({ nodeId, type: 'BRANCH', config: { mode: 'EXPRESSION', cases: { "metadata['input.decision'] == 'reject'": 'reject' }, defaultPort: 'approve' } })
 
@@ -213,7 +213,7 @@ for (const k of [1, 2, 3]) {
     // a NEEDS_CLARIFICATION answer (exit 2) asks one multi-question request; the answers go into the next architect attempt
     const [c, cs, ca, cr, cp] = [`clarify${k}`, `clarify_ask${k}?`, `ask_clarify${k}`, `clarify_decision${k}?`, `apply_clarify${k}`]
     t.add(pe(c, ['ladder', 'clarification', RUN], 60, { json: true }), select(cs, 'ask', { true: 'ask' }, 'fail'),
-      ask(ca, '${payload.output.prompt}', 86400, 'TEXT'), rejected(cr), terminal(`clarify_rejected${k}`, 'a person declined to answer the architect'),
+      ask(ca, '${payload.output.prompt}', 86400, 'TEXT', 'MEDIUM'), rejected(cr), terminal(`clarify_rejected${k}`, 'a person declined to answer the architect'),
       pe(cp, ['ladder', 'apply-clarification', RUN, "${metadata['input.text']}"], 60), deadEnd(`architect${k}`, 'the architect failed or stayed invalid'), terminal(`architect${k}.failed`, 'the architect failed, did not ask or stayed invalid'))
     t.link(`architect${k}`, c, 'failure'); t.link(c, cs, 'success'); t.fail(c, 'the clarification could not be read', true)
     t.link(cs, ca, 'ask'); t.link(cs, `architect${k}.dead`, 'fail'); t.link(`architect${k}.dead`, `architect${k}.failed`)

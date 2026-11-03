@@ -1199,7 +1199,7 @@
           "config": {
             "prompt": "Approve the spec of run ${start.runId} (high risk)? spec/spec.json in ${start.run}",
             "kind": "APPROVAL",
-            "risk": "MEDIUM",
+            "risk": "HIGH",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -1452,7 +1452,7 @@
           "config": {
             "prompt": "Run ${start.runId} is paused over a budget; human-packet.md is in ${start.run}. Approve to continue with doubled budgets.",
             "kind": "APPROVAL",
-            "risk": "MEDIUM",
+            "risk": "HIGH",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -1759,7 +1759,7 @@
           "config": {
             "prompt": "Run ${start.runId} is paused over a budget; human-packet.md is in ${start.run}. Approve to continue with doubled budgets.",
             "kind": "APPROVAL",
-            "risk": "MEDIUM",
+            "risk": "HIGH",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -2066,7 +2066,7 @@
           "config": {
             "prompt": "Run ${start.runId} is paused over a budget; human-packet.md is in ${start.run}. Approve to continue with doubled budgets.",
             "kind": "APPROVAL",
-            "risk": "MEDIUM",
+            "risk": "HIGH",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -2363,7 +2363,7 @@
           "config": {
             "prompt": "Open the PR for run ${start.runId}? The change is on its branch, reviewed and green.",
             "kind": "APPROVAL",
-            "risk": "MEDIUM",
+            "risk": "HIGH",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",

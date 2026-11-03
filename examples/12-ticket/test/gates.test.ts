@@ -15,7 +15,8 @@ test('every ASK_INPUT of the ticket workflow is on the route ticket and names it
   const asks = Object.values<any>(wf).flatMap(w => w.nodes).filter((n: any) => n.type === 'ASK_INPUT')
   expect(asks.map((n: any) => n.nodeId)).toEqual(expect.arrayContaining(['approve_spec', 'approve_merge', 'ask_pause1', 'ask_clarify1', 'ask_clarify2']))
   for (const n of asks) expect(n.config, n.nodeId).toMatchObject({ route: 'ticket', context: { issue: '${start.issue}', run_id: '${start.runId}', gate: n.nodeId } })
-  expect(asks.find((n: any) => n.nodeId === 'ask_clarify1').config.kind).toBe('TEXT')
+  expect(asks.find((n: any) => n.nodeId === 'ask_clarify1').config).toMatchObject({ kind: 'TEXT', risk: 'MEDIUM' })
+  for (const id of ['approve_spec', 'ask_pause1', 'approve_merge']) expect(asks.find((n: any) => n.nodeId === id).config.risk, `${id} is for a person`).toBe('HIGH')
 })
 
 test('clarification: no question, one prompt with every question, at most two rounds, the reply reaches the architect', () => {
