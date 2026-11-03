@@ -27,6 +27,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ShortMethodName"})
 class CompositeServiceTest {
 
   private final SupervisorHost host = mock(SupervisorHost.class);

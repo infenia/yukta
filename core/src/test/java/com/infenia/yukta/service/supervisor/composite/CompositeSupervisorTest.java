@@ -25,7 +25,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.ShortMethodName"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ShortMethodName"
+})
 class CompositeSupervisorTest {
 
   private static final ExecutionControlCommand PAUSE =
