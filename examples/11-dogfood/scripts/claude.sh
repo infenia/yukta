@@ -6,10 +6,12 @@
 #   YK_MODEL haiku|sonnet|opus   YK_EFFORT low|medium|high   YK_BUDGET USD   YK_RULES system prompt file   YK_SCHEMA JSON schema of the answer
 #   YK_STAGE the failed stage: picks the role file fixer-rules/<kind>.md appended to YK_RULES (none for a stage without one)
 #   YK_ROLE architect|test_writer|implementer|reviewer: a ticket-pipeline role, picks fixer-rules/ticket-<role>.md (wins over YK_STAGE)
+#   YK_TOOLS readonly: Read, Grep and Glob only   YK_MAX_TURNS turn cap
 #   YK_SESSION session id   YK_ADVISOR advisor model (experimental, off when unset)   YK_CLAUDE_BIN a stand-in for `claude` (tests)
 set -uo pipefail
+[[ "${1:-}" != --role ]] || { export YK_ROLE="${2:?--role needs a role}"; shift 2; }  # claude.sh --role implementer: the same as YK_ROLE=implementer
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-for v in YK_MODEL YK_EFFORT YK_BUDGET YK_RULES YK_SCHEMA YK_SESSION YK_CLAUDE_BIN YK_ADVISOR YK_STAGE YK_ROLE; do [[ "${!v:-}" == - ]] && unset "$v"; done
+for v in YK_TOOLS YK_MAX_TURNS YK_MODEL YK_EFFORT YK_BUDGET YK_RULES YK_SCHEMA YK_SESSION YK_CLAUDE_BIN YK_ADVISOR YK_STAGE YK_ROLE; do [[ "${!v:-}" == - ]] && unset "$v"; done
 prompt="$(jq -r '.prompt // empty')"
 [[ -n "$prompt" ]] || { echo "claude.sh: no prompt on stdin" >&2; exit 2; }
 # shellcheck source=_claude.sh

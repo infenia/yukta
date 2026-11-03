@@ -30,21 +30,26 @@ _yk_mcp_deny=(start_workflow control_workflow control_node set_node_breakpoint s
   set_scheduler_limits create_session)
 
 yk_claude() {
-  local mode="$1" prompt="$2" rules="$3" budget="$4" out="$5" sid="${6:-}" session model mcp=() allow=() deny=() t
+  local mode="$1" prompt="$2" rules="$3" budget="$4" out="$5" sid="${6:-}" session model tools allow_tools mcp=() allow=() deny=() t
   if [[ -n "${YK_MCP_URL:-}" && -n "${YK_MCP_KEY:-}" ]]; then
     mcp=(--mcp-config "$(jq -nc --arg u "$YK_MCP_URL" '{mcpServers: {yukta: {type: "http", url: $u, headers: {"X-API-Key": "${YK_MCP_KEY}"}}}}')")
     for t in "${_yk_mcp_read[@]}"; do allow+=("mcp__yukta__$t"); done
     for t in "${_yk_mcp_deny[@]}"; do deny+=("mcp__yukta__$t"); done
   fi
+  # $YK_TOOLS=readonly (architect, reviewer): Read, Grep and Glob only. $YK_MAX_TURNS caps the turns of the session.
+  tools=Read,Edit,Write,Grep,Glob,Bash
+  allow_tools=("Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" "Bash(make:*)" "Bash(go test:*)" "Bash(go vet:*)" "Bash(node_modules/.bin/*:*)" "Bash(reuse:*)" "Bash(actionlint:*)" "Bash(mint:*)" "Bash(cd:*)")
+  if [[ "${YK_TOOLS:-}" == readonly ]]; then tools=Read,Grep,Glob allow_tools=("Read" "Grep" "Glob"); fi
   model=(--model "$mode")
+  [[ -z "${YK_MAX_TURNS:-}" ]] || model+=(--max-turns "$YK_MAX_TURNS")
   [[ -z "${YK_EFFORT:-}" ]] || model+=(--effort "$YK_EFFORT")
   [[ -z "${YK_ADVISOR:-}" ]] || model+=(--advisor "$YK_ADVISOR")
   if [[ -n "$sid" ]]; then session=(--session-id "$sid"); else session=(--no-session-persistence); fi
   env "${_yk_env_u[@]}" YUKTA_HEAL_FIXER=1 "${YUKTA_CLAUDE_BIN:-claude}" -p "$prompt" "${model[@]}" "${session[@]}" \
     --setting-sources project --strict-mcp-config "${mcp[@]}" --disable-slash-commands \
     --exclude-dynamic-system-prompt-sections \
-    --tools Read,Edit,Write,Grep,Glob,Bash --permission-mode auto --permission-prompts none \
-    --allowedTools "Read" "Edit" "Write" "Grep" "Glob" "Bash(./gradlew:*)" "Bash(make:*)" "Bash(go test:*)" "Bash(go vet:*)" "Bash(node_modules/.bin/*:*)" "Bash(reuse:*)" "Bash(actionlint:*)" "Bash(mint:*)" "Bash(cd:*)" "${allow[@]}" \
+    --tools "$tools" --permission-mode auto --permission-prompts none \
+    --allowedTools "${allow_tools[@]}" "${allow[@]}" \
     --disallowedTools "Bash(git commit:*)" "Bash(git push:*)" "${deny[@]}" \
     --append-system-prompt "$(cat "$rules")" --max-budget-usd "$budget" \
     --output-format json --json-schema "${YK_SCHEMA:?YK_SCHEMA is the answer schema}" 2>>"$out"
