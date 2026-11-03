@@ -66,6 +66,7 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
               POSTGRES,
               Edition.PLUS,
               POSTGRES_HINT),
+          new Gate("yukta.input.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.ha.mode", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.workers.token", null, WORKERS, Edition.PLUS, WORKERS_HINT),
           new Gate("yukta.workers.control-plane", null, WORKERS, Edition.PLUS, WORKERS_HINT));

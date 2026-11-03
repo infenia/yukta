@@ -36,9 +36,10 @@ The default is right for trying things out: nothing to set up, and a restart giv
 | Checkpoints (node outputs) | `yukta.restart.dir` or `yukta.restart.store-type` | Memory by default. A directory keeps them as files. `postgres` keeps them in PostgreSQL |
 | `KV_STORE` node state | `yukta.kv.store-type` | `memory` (default), `postgres` |
 | `SESSION_MEMORY` chat history | `yukta.session-memory.dir` or `yukta.session-memory.store-type` | Memory by default. A directory keeps files. `postgres` keeps a table |
+| Input requests, their answers and queued deliveries | `yukta.input.store-type` | `memory` (default): open requests are lost when the server restarts. `postgres` keeps them, with their deadlines, votes and queued deliveries |
 | Leader lease | `yukta.ha.mode` | `postgres` enables [high availability](/operations/high-availability) |
 
-The PostgreSQL stores are created only when `yukta.session.store-type=postgres`. The `postgres` profile sets it. The other PostgreSQL switches (`yukta.restart.store-type`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.ha.mode`) then choose which further data moves to the database.
+The PostgreSQL stores are created only when `yukta.session.store-type=postgres`. The `postgres` profile sets it. The other PostgreSQL switches (`yukta.restart.store-type`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.input.store-type`, `yukta.ha.mode`) then choose which further data moves to the database.
 
 ## Start with your workflows (all editions)
 
