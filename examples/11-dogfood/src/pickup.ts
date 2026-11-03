@@ -18,6 +18,9 @@ const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
 const OWNER = process.env.YUKTA_PICKUP_OWNER ?? 'infenia'
 const ONLY = process.env.YUKTA_PICKUP_ONLY ?? ''
 const MODE = process.env.YUKTA_PICKUP_MODE || text(join(DEV_HOME, 'pickup-mode')).trim() || 'session'
+// YUKTA_PICKUP_VIA=ticket (or `ticket` in $DEV_HOME/pickup-via): the session runs the ticket pipeline (`yk ticket run`) and answers its questions instead of implementing
+// the issue itself (meta.via = ticket; the pickup skill, #1922). Default: the session implements.
+const VIA = process.env.YUKTA_PICKUP_VIA || text(join(DEV_HOME, 'pickup-via')).trim() || 'direct'
 const YK = process.env.YUKTA_PICKUP_YK || join(HERE, 'yk')
 
 class Stop extends Error {}
@@ -51,6 +54,17 @@ async function sessions(): Promise<{ idle: Idle[]; busy: string[]; registered: n
 function gh(args: string[], what: string): string {
   const r = run(['gh', ...args])
   return r.code ? fail(`${what}`) : r.stdout
+}
+
+/** The channel event for an issue: meta.issue is what the input bridge matches to find the session. */
+export function eventFor(n: number | string, title: string, url: string, via = VIA): { content: string; meta: Record<string, string> } {
+  const ticket = via === 'ticket'
+  return {
+    content: ticket
+      ? `Run the ticket pipeline for issue #${n}: ${title}\n${url}\nUse the pickup skill, ticket pipeline mode: yk ticket run ${n} --detach --notify, then answer its questions.`
+      : `Pick up issue #${n}: ${title}\n${url}`,
+    meta: { issue: String(n), url, title, ...(ticket ? { via: 'ticket' } : {}) },
+  }
 }
 
 export async function tick(): Promise<number> {
@@ -91,7 +105,7 @@ export async function tick(): Promise<number> {
       handed++
       break
     }
-    const body = JSON.stringify({ content: `Pick up issue #${n}: ${title}\n${url}`, meta: { issue: String(n), url, title } })
+    const body = JSON.stringify(eventFor(n, title, url))
     // the first idle session that takes it; one that answers busy meanwhile is out for this round
     while (idle.length) {
       const { name, port } = idle.shift()!

@@ -19,7 +19,7 @@ let frames: string[] = []
 
 const env = (type: string, tier: string, over: Record<string, unknown> = {}): any => ({
   type,
-  event: { request: { id: 'r1', tier, spec: { routeName: 'ticket', risk: 'MEDIUM', prompt: 'Approve the spec?', context: { issue: '7', run_id: 'run-1' }, ...over } } },
+  event: { request: { id: 'r1', sessionId: 's-1', executionId: 'x-1', tier, spec: { routeName: 'ticket', risk: 'MEDIUM', prompt: 'Approve the spec?', context: { issue: '7', run_id: 'run-1' }, ...over } } },
 })
 
 beforeAll(() => {
@@ -43,7 +43,7 @@ beforeAll(() => {
 afterAll(() => { channel.stop(true); feed.stop(true); rmSync(home, { recursive: true, force: true }) })
 
 test('notice: only the ticket route at the session or human tier, with an issue', () => {
-  expect(bridge.notice(env('InputRequested', 'session'))).toMatchObject({ issue: '7', idempotency_key: 'input-r1-session', meta: { kind: 'input', request_id: 'r1', run: 'run-1', phase: 'session' } })
+  expect(bridge.notice(env('InputRequested', 'session'))).toMatchObject({ issue: '7', idempotency_key: 'input-r1-session', meta: { kind: 'input', request_id: 'r1', session_id: 's-1', execution_id: 'x-1', run: 'run-1', phase: 'session' } })
   expect(bridge.notice(env('InputEscalated', 'human'))?.content).toContain('Ask the person')
   expect(bridge.notice(env('InputRequested', 'supervisor'))).toBeUndefined()
   expect(bridge.notice(env('InputRequested', 'session', { routeName: 'other' }))).toBeUndefined()
@@ -74,4 +74,12 @@ test('the stream: frames are read, only the matching one reaches the channel', a
   await bridge.readStream(`http://127.0.0.1:${feed.port}/`, 'k', async e => { seen.push(e.type); await bridge.deliver(e) })
   expect(seen).toEqual(['InputRequested', 'InputRequested'])
   expect(posted.length).toBe(1)
+})
+
+test('pickup: the event for a ticket-pipeline session says so and carries the issue the bridge matches', async () => {
+  const { eventFor } = await import('../src/pickup.ts')
+  expect(eventFor(7, 'feat: x', 'u', 'ticket')).toMatchObject({ meta: { issue: '7', via: 'ticket' }, content: expect.stringContaining('yk ticket run 7 --detach --notify') })
+  const direct = eventFor(7, 'feat: x', 'u', 'direct')
+  expect(direct.meta).toEqual({ issue: '7', url: 'u', title: 'feat: x' })
+  expect(direct.content).toStartWith('Pick up issue #7')
 })
