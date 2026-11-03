@@ -12,7 +12,11 @@
       "workflowId": "low-risk-answers",
       "description": "Starts on InputRequested. Approves a LOW risk request; hands anything else up (ESCALATE).",
       "nodes": [
-        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
         {
           "nodeId": "gate",
           "type": "BRANCH",
@@ -35,14 +39,67 @@
             }
           }
         },
-        { "nodeId": "answered", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS", "reason": "low risk" } },
-        { "nodeId": "hand-up", "type": "OUTCOME_TERMINAL", "config": { "outcome": "ESCALATE", "reason": "not low risk; a person or a supervisor above should decide" } }
+        {
+          "nodeId": "answered",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "low risk"
+          }
+        },
+        {
+          "nodeId": "hand-up",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "ESCALATE",
+            "reason": "not low risk; a person or a supervisor above should decide"
+          }
+        }
       ],
       "edges": [
-        { "source": "trigger", "target": "gate" },
-        { "source": "gate", "target": "approve", "sourcePort": "low" },
-        { "source": "gate", "target": "hand-up", "sourcePort": "other" },
-        { "source": "approve", "target": "answered" }
+        {
+          "source": "trigger",
+          "target": "gate"
+        },
+        {
+          "source": "gate",
+          "target": "approve",
+          "sourcePort": "low"
+        },
+        {
+          "source": "gate",
+          "target": "hand-up",
+          "sourcePort": "other"
+        },
+        {
+          "source": "approve",
+          "target": "answered"
+        }
+      ]
+    },
+    "section-triage": {
+      "workflowId": "section-triage",
+      "description": "Starts on InputRequested for the nodes of a section. Adds a note and hands the request up (ESCALATE) to the supervisor above.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "hand-up",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "ESCALATE",
+            "reason": "section supervisor: not mine to decide; the supervisor above should"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "hand-up"
+        }
       ]
     }
   }

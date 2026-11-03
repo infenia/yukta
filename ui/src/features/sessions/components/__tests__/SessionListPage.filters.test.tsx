@@ -128,6 +128,28 @@ describe('SessionListPage Tag and Initiator filters', () => {
     expect(window.location.search).toContain('initiator=bob&initiator=alice');
   });
 
+  it('hides system sessions until System is switched on, and keeps it in the URL', async () => {
+    const user = userEvent.setup();
+    data = [
+      ...sessions,
+      createMockSession({
+        sessionId: 's4',
+        name: 'Delta',
+        tags: ['yukta.internal'],
+      }),
+    ];
+    renderWithProviders(<SessionListPage />);
+    await screen.findByText('Alpha');
+    expect(screen.queryByText('Delta')).toBeNull();
+
+    await user.click(screen.getByRole('button', { name: /show system/i }));
+    expect(await screen.findByText('Delta')).toBeInTheDocument();
+    expect(window.location.search).toBe('?system=1');
+
+    await user.click(screen.getByRole('button', { name: /show system/i }));
+    await waitFor(() => expect(screen.queryByText('Delta')).toBeNull());
+  });
+
   it('filters by the kind of last run, and keeps it in the URL', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionListPage />);

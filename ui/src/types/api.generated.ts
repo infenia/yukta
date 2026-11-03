@@ -4737,6 +4737,7 @@ export interface operations {
             query: {
                 sessionId?: string;
                 limit?: number;
+                includeInternal?: boolean;
                 filter: components["schemas"]["HistoryFilter"];
             };
             header?: never;

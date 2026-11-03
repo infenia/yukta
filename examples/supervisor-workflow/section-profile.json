@@ -1,0 +1,17 @@
+{
+  "id": "section-workflow",
+  "type": "workflow",
+  "dryRun": false,
+  "settings": {
+    "sessionId": "supervisors",
+    "workflowId": "section-triage",
+    "events": [
+      "InputRequested"
+    ],
+    "maxConcurrent": 1,
+    "timeout": 30,
+    "allowedCommands": [
+      "EscalateInputCommand"
+    ]
+  }
+}

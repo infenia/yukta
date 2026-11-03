@@ -124,6 +124,16 @@ export function SessionsFilterBar({
         selected={filters.lastRuns}
         onChange={(lastRuns) => onFiltersChange({ ...filters, lastRuns })}
       />
+      <button
+        type="button"
+        aria-pressed={filters.system}
+        aria-label="Show system sessions"
+        onClick={() => onFiltersChange({ ...filters, system: !filters.system })}
+        className="border-border bg-card text-label-md text-on-surface hover:bg-muted aria-pressed:bg-primary/10 flex h-8 items-center gap-1.5 rounded-full border px-3"
+      >
+        <span className="material-symbols-outlined text-base">settings</span>
+        System
+      </button>
       <span className="text-body-sm text-on-surface-variant ml-auto hidden sm:inline">
         Filters are kept in the URL
       </span>
