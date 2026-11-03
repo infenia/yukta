@@ -109,7 +109,7 @@ Some steps can ask a small System One model for a decision (a label with a proba
 model, a stale one, a slow answer or a digest over the cap, the step takes the path it took before and prints one
 `WARN decision model unavailable: <why and the fix>`. Settings are in `decisions.json`; `YUKTA_DECISION_MODEL`,
 `YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
-No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
+No model is assumed: set `YUKTA_DECISION_MODEL`. To use hosted Jev (free tier) instead of Ollama: `YUKTA_DECISION_URL=https://opencode.ai/inference/systemone`, `YUKTA_DECISION_MODEL=jev-1.13-free`, and the OpenCode key in `~/.local/state/yukta-dev/decision-key` (mode 600, never in the repo) or `YUKTA_DECISION_API_KEY`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
 version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide NAME STATE QUESTION
 CRITERIA-JSON` from `src/lib.ts`. A decision runs in **shadow** by default: the model is asked and `{label, probability, input hash,
 latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still decides. `YUKTA_DECISION=shadow|on|off` sets the mode of all,
