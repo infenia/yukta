@@ -409,7 +409,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(NotLeaderException.class)
   public ResponseEntity<ApiResponse<Object>> handleNotLeader(
       final NotLeaderException exception, final ServerHttpRequest request) {
-    return buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), request);
+    final ResponseEntity<ApiResponse<Object>> response =
+        buildErrorResponse(HttpStatus.SERVICE_UNAVAILABLE, exception.getMessage(), request);
+    return ResponseEntity.status(response.getStatusCode())
+        .header("Retry-After", "5")
+        .body(response.getBody());
   }
 
   /**

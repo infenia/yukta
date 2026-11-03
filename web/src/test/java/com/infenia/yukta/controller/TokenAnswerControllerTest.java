@@ -90,6 +90,18 @@ class TokenAnswerControllerTest {
   }
 
   @Test
+  void standbyAnswers503WithRetryAfter() {
+    when(service.answer(any()))
+        .thenReturn(Mono.error(new com.infenia.yukta.service.leader.NotLeaderException()));
+
+    post(open, "/api/inputs/token-answer", BODY.formatted("r1"))
+        .expectStatus()
+        .isEqualTo(503)
+        .expectHeader()
+        .valueEquals("Retry-After", "5");
+  }
+
+  @Test
   void bodyThatIsNotAnAnswerIsRefused() {
     post(open, "/api/inputs/token-answer", "{\"requestId\":\"r1\"}").expectStatus().isBadRequest();
   }
