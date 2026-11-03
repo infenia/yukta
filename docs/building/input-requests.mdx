@@ -81,10 +81,6 @@ A refused answer leaves the request open: `403` with the rule that failed (`audi
 
 Requests are listed, read, answered and escalated through the REST API, the MCP tools, the CLI and the web UI. Answers always go through the same ordered, reviewed and audited command path.
 
-<Note>
-  The endpoints, tools and commands below are being added (issue #1793), and the Inputs panel of the web UI with them (#1794). Until they ship, answer with the control bus gateway or, for approvals of `WAIT_FOR_SIGNAL`, with the signal endpoint as before.
-</Note>
-
 | Surface | List | Answer | Escalate |
 |---|---|---|---|
 | REST | `GET /api/sessions/{sessionId}/inputs?state=&workflowId=&executionId=` and `GET /api/executions/{executionId}/inputs/{requestId}` | `POST /api/executions/{executionId}/inputs/{requestId}/answer` with `{decision, text?, data?, rationale?, expectedVersion?}` | `POST /api/executions/{executionId}/inputs/{requestId}/escalate` with `{reason, advice?}` |

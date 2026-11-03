@@ -625,7 +625,7 @@ Found by comparing the web controllers with the commands. Each is a candidate fo
 | ?limit= and ?cursor= on list endpoints | Paging with an X-Next-Cursor response header. | Seeing beyond the first 500 items. |
 | Idempotency-Key header on POST /api/workflow/start | Repeat-safe starts. | Safe retries in pipelines. |
 | Last-Event-ID header on streams | Resume a stream without repeats. | Reconnecting watchers. |
-| GET /api/sessions/\{sid\}/approvals, POST .../versions/note, rollback, diff | Pending approvals and workflow versions. | Operating approval steps and rolling back from the terminal. |
+| GET /api/sessions/\{sid\}/inputs and POST .../inputs/\{id\}/answer, POST .../versions/note, rollback, diff | Open input requests and workflow versions. | Answering approval steps and rolling back from the terminal. |
 | GET /api/executions (run search), GET /api/control/audit | Search runs across sessions; list control commands with the actor. | Finding a run and seeing who did what. |
 | POST /api/executions/\{eid\}/recover | Resume a run that a restart aborted. | Recovery after a crash. |
 | GET /api/workers | Lists connected remote workers. | Operations. |

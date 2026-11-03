@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Use case: triage a batch of security scanner findings. Each one is validated, stripped of leaked secret
 # values, scored with fixed weights (severity x reachability x exposure), and (unless it is low) decided by
-# an engineer. This script plays the engineer through the signal API.
+# an engineer. This script plays the engineer through the input requests API.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
@@ -26,7 +26,7 @@ answer() {
       e=$(jq -r .executionId <<<"$r")
       [[ "$ANSWERED" == *" $e "* ]] && continue
       [[ "$(api GET "/api/executions/$e" | jq -r .data.rootExecutionId)" == "$RUN" ]] && { row=$r; break; }
-    done < <(api GET "/api/sessions/$SID/approvals" | jq -c '.data[] | select(.name == "decision")')
+    done < <(api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -c '.data[] | select(.context.signal == "decision")')
     [[ -n "$row" ]] && break
     sleep 0.5
   done
@@ -34,7 +34,7 @@ answer() {
   e=$(jq -r .executionId <<<"$row"); ANSWERED+="$e "
   CHILD_RUNS+=("$e")
   echo "    engineer: $1 on $(jq -r .nodeId <<<"$row") of $e"
-  api POST "/api/executions/$e/nodes/$(jq -r .nodeId <<<"$row")/signal?name=decision&decision=$1" >/dev/null
+  api POST "/api/executions/$e/inputs/$(jq -r .id <<<"$row")/answer" "$(jq -n --arg d "$1" --argjson v "$(jq .version <<<"$row")" '{decision: $d, expectedVersion: $v}')" >/dev/null
 }
 
 finish() {

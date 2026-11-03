@@ -46,12 +46,16 @@ wait_done() {  # [SECONDS] -> STATUS, LOGS
 wait_approval() {  # NODE
   local i
   for ((i = 0; i < 40; i++)); do
-    api GET "/api/sessions/$SID/approvals" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
+    api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
     sleep 1
   done
   echo "    FAIL: node $1 never started waiting"; exit 1
 }
-signal() { api POST "/api/executions/$EID/nodes/$1/signal?name=$2&decision=$3" >/dev/null; }  # NODE NAME DECISION
+signal() {  # NODE NAME DECISION: answer the open input request of NODE
+  local row
+  row=$(api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -c --arg e "$EID" --arg n "$1" '[.data[] | select(.executionId == $e and .nodeId == $n)][0]')
+  api POST "/api/executions/$EID/inputs/$(jq -r .id <<<"$row")/answer" "$(jq -n --arg d "$3" --argjson v "$(jq .version <<<"$row")" '{decision: $d, expectedVersion: $v}')" >/dev/null
+}
 outcome_of() {  # NODE: the outcome the terminal NODE reported, empty when it was not reached
   api GET "/api/executions/$EID" | jq -r --arg n "$1" '.data.tasks[] | select(.nodeId == $n and .metadata.reached == true) | .metadata.outcome'
 }

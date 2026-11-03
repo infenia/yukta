@@ -106,8 +106,9 @@ curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/jso
 Acknowledge as the on-call (the pending approval also shows in the UI):
 
 ```bash
-curl localhost:9858/api/sessions/example-08-alert-triage/approvals
-curl -X POST "localhost:9858/api/executions/<executionId>/nodes/wait-ack/signal?name=ack&decision=approve"
+curl localhost:9858/api/sessions/example-08-alert-triage/inputs?state=OPEN
+curl -X POST "localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer" \
+  -H 'Content-Type: application/json' -d '{"decision":"approve"}'
 ```
 
 ## Run
