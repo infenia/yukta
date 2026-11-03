@@ -231,6 +231,62 @@ class DefaultAnswerAuthorizerTest {
   }
 
   @Test
+  void tokenActorStandsForTheTierItsRequestWasDeliveredTo() {
+    final InputRequest base = request(InputRisk.HIGH);
+    final InputRequest delivered =
+        new InputRequest(
+            base.id(),
+            base.key(),
+            base.sessionId(),
+            base.workflowId(),
+            base.executionId(),
+            base.nodeId(),
+            base.spec(),
+            base.state(),
+            base.version(),
+            "hook",
+            List.of("external:webhook:ops"),
+            null,
+            base.deadline(),
+            base.createdAt(),
+            base.updatedAt());
+
+    // the token endpoint only lets an external actor in for a HIGH request when the tier is HUMAN
+    StepVerifier.create(
+            authorizer.authorize(new AnswerContext(delivered, ActorInfo.external("hook"), false)))
+        .verifyComplete();
+    StepVerifier.create(
+            authorizer.authorize(new AnswerContext(delivered, ActorInfo.external("other"), false)))
+        .expectErrorSatisfies(
+            error -> assertThat(((InputForbiddenException) error).rule()).isEqualTo("audience"))
+        .verify();
+
+    // a tier of operators only is not an external responder, whatever the token says
+    final InputRequest operators =
+        new InputRequest(
+            base.id(),
+            base.key(),
+            base.sessionId(),
+            base.workflowId(),
+            base.executionId(),
+            base.nodeId(),
+            base.spec(),
+            base.state(),
+            base.version(),
+            "hook",
+            List.of("role:OPERATOR"),
+            null,
+            base.deadline(),
+            base.createdAt(),
+            base.updatedAt());
+    StepVerifier.create(
+            authorizer.authorize(new AnswerContext(operators, ActorInfo.external("hook"), false)))
+        .expectErrorSatisfies(
+            error -> assertThat(((InputForbiddenException) error).rule()).isEqualTo("audience"))
+        .verify();
+  }
+
+  @Test
   void requestsOwnTierTargetsDecideTheTierRule() {
     // an audience that admits operators, on a tier whose targets are admins only
     final InputRequest open = request(InputRisk.LOW, new Audience(List.of("role:OPERATOR")));

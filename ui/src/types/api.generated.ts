@@ -709,6 +709,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/inputs/token-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer an input request with a one-time token
+         * @description No API key. The token of a delivery lets its receiver answer once, until the tier's deadline. An unknown request, a wrong tier, a bad, expired or used token all answer 403 'Invalid or expired token'. 429 when called too often.
+         */
+        post: operations["answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/me": {
         parameters: {
             query?: never;
@@ -2991,6 +3011,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseObject: {
+            /** @description The response data */
+            data?: unknown;
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseProfileBody: {
             /** @description The response data */
             data?: components["schemas"]["ProfileBody"];
@@ -4133,6 +4186,20 @@ export interface components {
             pluginTypes?: string[];
             summary?: string;
             title?: string;
+        };
+        /** @description An answer sent with the one-time token of a delivery */
+        TokenAnswerRequest: {
+            data?: {
+                [key: string]: unknown;
+            };
+            decision: string;
+            /** Format: int64 */
+            expires?: number;
+            rationale?: string;
+            requestId: string;
+            text?: string;
+            tier: string;
+            token: string;
         };
         UiDesign: {
             color?: string;
@@ -5363,6 +5430,30 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListInputRequestView"];
+                };
+            };
+        };
+    };
+    answer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TokenAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseObject"];
                 };
             };
         };

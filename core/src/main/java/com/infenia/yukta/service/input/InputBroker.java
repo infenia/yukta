@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.input.Vote;
+import com.infenia.yukta.service.input.delivery.InputDelivery;
 import com.infenia.yukta.service.input.route.FinalAction;
 import com.infenia.yukta.service.input.route.InputRoute;
 import com.infenia.yukta.service.input.route.Mode;
@@ -604,8 +605,28 @@ public class InputBroker {
         .flatMap(
             change -> {
               escalated(change.request(), reason, by);
-              return skipUnreachable(change.request(), route);
+              return queueDeliveries(change.request())
+                  .then(Mono.defer(() -> skipUnreachable(change.request(), route)));
             });
+  }
+
+  /** Queues a delivery for each external responder the tier of the request targets. */
+  private Mono<Void> queueDeliveries(final InputRequest request) {
+    return Flux.fromIterable(request.targets())
+        .filter(target -> target.startsWith("external:"))
+        .concatMap(
+            target ->
+                store.enqueueDelivery(
+                    new InputDelivery(
+                        UUID.randomUUID().toString(),
+                        request.id(),
+                        request.tier(),
+                        target,
+                        InputDelivery.State.PENDING,
+                        0,
+                        clock.instant(),
+                        null)))
+        .then();
   }
 
   /** The scopes a {@code supervisor:above} tier must strictly cover. */
@@ -769,7 +790,8 @@ public class InputBroker {
                             .flatMap(
                                 stored ->
                                     stored.id().equals(created.id())
-                                        ? skipUnreachable(stored, route)
+                                        ? queueDeliveries(stored)
+                                            .then(Mono.defer(() -> skipUnreachable(stored, route)))
                                         : Mono.just(stored));
                       });
             });
@@ -1166,6 +1188,18 @@ public class InputBroker {
     meters
         .timer(WAIT_METRIC, "tier", request.tier())
         .record(Duration.between(request.createdAt(), request.updatedAt()));
+  }
+
+  /**
+   * Writes a delivery to the execution log under the run of the request.
+   *
+   * @param request the request that was delivered
+   * @param event {@code INPUT_DELIVERED} or {@code INPUT_DELIVERY_FAILED}
+   * @param facts what to record
+   */
+  public void logDelivery(
+      final InputRequest request, final String event, final Map<String, Object> facts) {
+    record(request, event, facts);
   }
 
   private void count(final InputRequest request, final String outcome) {
