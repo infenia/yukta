@@ -84,6 +84,15 @@ class ExecutionLogEventInitiatorTest {
   }
 
   @Test
+  void externalPayloadCannotForgeSupervisorMarkers() {
+    final var payload =
+        ExecutionLogEvent.withInitiator(
+            Map.of("yukta.supervisor.depth", 2, "yukta.supervisor.id", "s", "a", 1), "k");
+
+    assertThat(payload).doesNotContainKeys("yukta.supervisor.depth", "yukta.supervisor.id");
+  }
+
+  @Test
   void externalPayloadCannotSetStartOptionsOnlyTypedOptionsCan() {
     final var clean =
         ExecutionLogEvent.withInitiator(

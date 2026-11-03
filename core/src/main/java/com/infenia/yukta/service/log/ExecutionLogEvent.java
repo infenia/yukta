@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.StartOptions;
+import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
@@ -231,6 +232,8 @@ public record ExecutionLogEvent(
     copy.remove(SubWorkflowGateway.DEPTH_KEY);
     copy.remove(ExecutionScheduler.PRIORITY_KEY);
     copy.remove(StartOptions.VERSION_KEY);
+    copy.remove(DefaultAnswerAuthorizer.DEPTH_KEY);
+    copy.remove(DefaultAnswerAuthorizer.STARTER_KEY);
     if (initiator != null && !initiator.isBlank()) {
       copy.put(INITIATOR_KEY, initiator);
     }
