@@ -27,6 +27,7 @@ import org.springframework.stereotype.Component;
  */
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
 public class CompositeSupervisorFactory implements SupervisorFactory {
 
   /** The supervisor type in a profile. */
@@ -42,7 +43,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
 
   @Override
   public ExecutionSupervisor create(final SupervisorProfile profile) {
-    final CompositeSettings settings = CompositeSettings.of(profile);
+    final CompositeSettings settings = CompositeSettings.read(profile);
     final SupervisorResolver resolver = resolvers.getObject();
     checkTree(resolver, profile, new LinkedHashSet<>());
     final List<ExecutionSupervisor> children = new ArrayList<>();
@@ -72,7 +73,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
       throw new IllegalArgumentException(
           "Composites nest at most " + CompositeSettings.MAX_DEPTH + " deep");
     }
-    for (final String childId : CompositeSettings.of(node).children()) {
+    for (final String childId : CompositeSettings.read(node).children()) {
       final SupervisorProfile child =
           resolver
               .profile(childId)

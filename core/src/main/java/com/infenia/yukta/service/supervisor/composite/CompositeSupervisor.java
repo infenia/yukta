@@ -14,12 +14,13 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -27,6 +28,7 @@ import reactor.core.publisher.Mono;
  * Runs other supervisors as one. The children are not bound separately, so nothing is subscribed
  * twice and the composite has one id and one scope (the binding's).
  */
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.CouplingBetweenObjects"})
 @SuppressFBWarnings(
     value = "EI_EXPOSE_REP2",
     justification = "the children are built for this composite and not shared")
@@ -96,7 +98,7 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
   public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
     return switch (settings.mode()) {
       case CHAIN, FIRST_MATCH ->
-          events.concatMap(this::decide).concatMapIterable(d -> d.commands());
+          events.concatMap(this::decide).concatMapIterable(ControlDecision::commands);
       case PARALLEL ->
           Flux.defer(
               () -> {
@@ -125,7 +127,8 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
   /** Sends a command once enough children have sent an equal one within the window. */
   private Flux<ExecutionControlCommand> quorum(final Flux<ExecutionEvent> events) {
     final Flux<ExecutionEvent> shared = events.publish().autoConnect(children.size());
-    final Map<ExecutionControlCommand, Votes> open = new HashMap<>();
+    final Map<ExecutionControlCommand, Votes> open = new ConcurrentHashMap<>();
+    final ReentrantLock lock = new ReentrantLock();
     final List<Flux<Vote>> votes = new ArrayList<>();
     for (int index = 0; index < children.size(); index++) {
       final int voter = index;
@@ -135,7 +138,8 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
         .<ExecutionControlCommand>handle(
             (vote, sink) -> {
               final Instant now = clock.instant();
-              synchronized (open) {
+              lock.lock();
+              try {
                 final Iterator<Votes> expired = open.values().iterator();
                 while (expired.hasNext()) {
                   if (expired.next().opened().plus(settings.window()).isBefore(now)) {
@@ -147,6 +151,8 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
                 if (seen.voters().add(vote.voter()) && seen.voters().size() == settings.quorum()) {
                   sink.next(vote.command());
                 }
+              } finally {
+                lock.unlock();
               }
             });
   }
@@ -175,8 +181,8 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
               .next()
               .map(Verdict::denial)
               .defaultIfEmpty(Decision.ALLOW);
-      case ANY -> Flux.merge(reviews).collectList().map(list -> any(list));
-      case MAJORITY -> Flux.merge(reviews).collectList().map(list -> majority(list));
+      case ANY -> Flux.merge(reviews).collectList().map(CompositeSupervisor::any);
+      case MAJORITY -> Flux.merge(reviews).collectList().map(CompositeSupervisor::majority);
     };
   }
 
@@ -196,7 +202,7 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
 
   /** One child's review. */
   private record Verdict(String child, Decision decision) {
-    Decision denial() {
+    /* default */ Decision denial() {
       return Decision.deny(child + ": " + decision.reason());
     }
   }
@@ -206,7 +212,7 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
 
   /** The children that sent one command since it was first seen. */
   private record Votes(Instant opened, Set<Integer> voters) {
-    Votes(final Instant opened) {
+    /* default */ Votes(final Instant opened) {
       this(opened, new HashSet<>());
     }
   }

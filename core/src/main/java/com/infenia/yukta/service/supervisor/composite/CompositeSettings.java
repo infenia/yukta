@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * The settings of a profile of type {@code composite}, checked once.
@@ -50,7 +51,7 @@ public record CompositeSettings(
    * @return the settings
    * @throws IllegalArgumentException if a setting is missing or out of range
    */
-  public static CompositeSettings of(final SupervisorProfile profile) {
+  public static CompositeSettings read(final SupervisorProfile profile) {
     final Map<String, Object> settings = profile.settings();
     final CompositeMode mode = enumOf(CompositeMode.class, settings.get("mode"), "mode", null);
     final List<String> children = children(settings.get("children"));
@@ -60,6 +61,7 @@ public record CompositeSettings(
     return new CompositeSettings(mode, children, review, quorum, window(settings.get("window")));
   }
 
+  @SuppressWarnings("PMD.CyclomaticComplexity")
   private static List<String> children(final Object value) {
     if (!(value instanceof List<?> list) || list.isEmpty()) {
       throw new IllegalArgumentException("Setting 'children' must be a list of profile ids");
@@ -68,8 +70,9 @@ public record CompositeSettings(
       throw new IllegalArgumentException("A composite has at most " + MAX_CHILDREN + " children");
     }
     final List<String> ids = new ArrayList<>();
+    final Set<String> seen = new HashSet<>();
     for (final Object item : list) {
-      if (!(item instanceof String id) || id.isBlank() || !new HashSet<>(ids).add(id)) {
+      if (!(item instanceof String id) || id.isBlank() || !seen.add(id)) {
         throw new IllegalArgumentException("Children must be distinct, non-blank profile ids");
       }
       ids.add(id);

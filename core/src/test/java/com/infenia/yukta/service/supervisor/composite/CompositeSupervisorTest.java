@@ -231,7 +231,7 @@ class CompositeSupervisorTest {
   }
 
   private static CompositeSettings settings(final Map<String, Object> map) {
-    return CompositeSettings.of(new SupervisorProfile("p", "composite", map, false));
+    return CompositeSettings.read(new SupervisorProfile("p", "composite", map, false));
   }
 
   @Test

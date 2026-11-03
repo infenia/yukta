@@ -97,17 +97,16 @@ public class SupervisorResolver {
       return false;
     }
     final Object children = composite.settings().get("children");
-    if (!(children instanceof List<?> list)) {
-      return false;
-    }
-    return list.stream()
-        .anyMatch(
-            child ->
-                id.equals(child)
-                    || child instanceof String childId
-                        && profile(childId)
-                            .filter(p -> CompositeSupervisorFactory.PROFILE_TYPE.equals(p.type()))
-                            .map(p -> uses(p, id, depth + 1))
-                            .orElse(false));
+    return children instanceof List<?> list
+        && list.stream()
+            .anyMatch(
+                child ->
+                    id.equals(child)
+                        || child instanceof String childId
+                            && profile(childId)
+                                .filter(
+                                    p -> CompositeSupervisorFactory.PROFILE_TYPE.equals(p.type()))
+                                .map(p -> uses(p, id, depth + 1))
+                                .orElse(false));
   }
 }
