@@ -16,6 +16,7 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.expression.Expression;
 import org.springframework.expression.spel.support.MapAccessor;
 import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import reactor.core.publisher.Mono;
@@ -216,17 +217,16 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   /** True when there is no {@code when} condition or it holds; one that cannot be read is false. */
   private boolean matches(final ExecutionEvent event) {
-    if (settings.when() == null) {
+    final Expression when = settings.when();
+    if (when == null) {
       return true;
     }
     try {
       return Boolean.TRUE.equals(
-          settings
-              .when()
-              .getValue(
-                  SimpleEvaluationContext.forPropertyAccessors(new MapAccessor()).build(),
-                  payload(event).get("event"),
-                  Boolean.class));
+          when.getValue(
+              SimpleEvaluationContext.forPropertyAccessors(new MapAccessor()).build(),
+              payload(event).get("event"),
+              Boolean.class));
     } catch (final org.springframework.expression.EvaluationException e) {
       return false;
     }

@@ -208,7 +208,7 @@ class WorkflowSupervisorTest {
   }
 
   @Test
-  void whenConditionDecidesWhichEventsStartARun() {
+  void whenConditionDecidesWhichEventsStartRuns() {
     ends(success(Map.of("type", "PauseWorkflow")));
 
     StepVerifier.create(supervisorWhen("request.id == 'r1'").decide(requested("r1")))
