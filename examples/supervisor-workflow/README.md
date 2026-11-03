@@ -9,6 +9,7 @@ starts the workflow with the event (secrets masked) and reads what the workflow 
 | `session.json` | The internal session `supervisors` and its workflow `low-risk-answers`. |
 | `profile.json` | A profile of type `workflow` that starts it on `InputRequested`. It may send only `AnswerInputCommand` and `EscalateInputCommand`; a workflow supervisor sends nothing until its profile names commands. |
 | `binding.json` | Attaches the profile to one session (change `my-session`). |
+| `section-profile.json`, `section-binding.json` | A second, narrower supervisor: the workflow `section-triage` bound to the section `build.*` of `my-workflow`. It only escalates. |
 
 The workflow ends in an `OUTCOME_TERMINAL`:
 
@@ -18,17 +19,26 @@ The workflow ends in an `OUTCOME_TERMINAL`:
 - `ESCALATE` hands the request in the event up, with the outcome reason as advice.
 - `RETRY` runs it once more. `FAILED`, a timeout or an unreadable result mean no opinion.
 
+**The chain.** A request from a node `build.test` goes to the section supervisor first. It ends with `ESCALATE`, so the request moves
+to the next tier, where `supervisor:above` selects the supervisors whose scope strictly covers the section: here the session
+supervisor `low-risk-workflow`, which approves a LOW risk request. Anything else goes on to a person. A scope that strictly
+covers another cannot be covered back, so the chain cannot loop. Route the request with
+`yukta.input.routes.default` tiers `supervisor:*`, `supervisor:above`, then a `HUMAN` tier (see `docs/building/input-requests.mdx`).
+
 ```bash
 # the session is internal, so ask for it with includeInternal
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
 curl -X POST localhost:9858/api/supervisors/profiles -H 'Content-Type: application/json' -d @profile.json
 curl -X POST localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' -d @binding.json
+curl -X POST localhost:9858/api/supervisors/profiles -H 'Content-Type: application/json' -d @section-profile.json
+curl -X POST localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' -d @section-binding.json
 curl 'localhost:9858/api/sessions?includeInternal=true'
 ```
 
 Defining sessions and attaching supervisors needs an `ADMIN` key. A request raised by a supervisor workflow itself reaches only people and
-supervisors whose scope strictly covers the supervisor that started it, and that supervisor may not answer it. Status: this example
-was written against the unit-tested pieces and has not been run end to end.
+supervisors whose scope strictly covers the supervisor that started it, and that supervisor may not answer it. Status: `WorkflowSupervisorAcceptanceTest` (in `boot`) runs `session.json` and `profile.json`
+end to end: a LOW risk request is approved and the run goes on, a MEDIUM one is handed up with the reason as advice. The section
+profile and binding are not part of that test.
 
 To make the decision with more than a rule, put an `LLM_CALL` node, or an `MCP_TOOL_CALL` that reads other runs with a **VIEWER** key,
 in front of the terminal.
