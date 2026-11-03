@@ -192,6 +192,30 @@ A session whose tags contain `"yukta.internal": "true"` is **internal**: it hold
 
 The answer is cached for 30 seconds and dropped when this server saves or deletes the session. A session that cannot be read counts as internal.
 
+## Workflow supervisors
+
+A profile of type `workflow` makes a supervisor out of a workflow in an [internal session](#internal-sessions). For each event of a listed type the server starts the workflow with the event (secrets masked), the request if the event has one, and the supervisor and binding ids, then reads how it ended. See `examples/supervisor-workflow`.
+
+| Setting | Meaning |
+|---|---|
+| `sessionId` | An internal session; checked when the profile is saved and before each run |
+| `workflowId` | A workflow of that session; must exist when the profile is saved |
+| `events` | Event types that start it, such as `InputRequested` |
+| `maxConcurrent` | Runs of this supervisor at once; default 2, at most the reserved slots |
+| `timeout` | Seconds one run may take, 1 to 600; default 60 |
+| `allowedCommands`, `canAnswer`, `maxRisk` | As for any profile. A workflow supervisor may send **no** command until `allowedCommands` names some |
+
+How the run ends decides what happens: `SUCCESS` with `{"commands": [...]}` sends them (at most 10 per run), `ESCALATE` hands the request in the event up with the reason as advice, `RETRY` runs once more, and a failure, a timeout or a result that cannot be read is no opinion (`yukta.supervisor.workflow{outcome}`). `AnswerInput`, `EscalateInput`, `PauseWorkflow`, `ResumeWorkflow`, `PauseNode`, `ResumeNode` and `SetPriority` can always be mapped; `StopWorkflow`, `StopNode`, `SkipNode`, `Restart`, `RestartFromNode`, `SetLimits` and `SetBreakpoint` only when `allowedCommands` names them; other types are dropped. The commands still pass the scope check, `allowedCommands` and the answer rules.
+
+Guards against loops and deadlocks:
+
+- Events of internal sessions do not reach supervisors unless the profile sets `observeInternal`.
+- A run carries `yukta.supervisor.depth` and `yukta.supervisor.id`. Supervisors nested deeper than `yukta.supervisor.max-depth` (2) are refused. An input request raised by such a run goes only to people and to supervisors whose scope **strictly covers** the scope of the supervisor that started it, so it never waits for itself or for an equal or narrower one.
+- A supervisor may not answer a request raised by a run it started.
+- Runs take no slot of the normal pool, so a saturated server still runs its supervisors; they hold one of `yukta.supervisor.reserved-slots` (4) slots of their own, so they cannot starve normal work. A run that finds no free slot within its timeout is skipped.
+
+Not yet there: a `when` condition on the profile (let the workflow decide and end with an empty result), and the request is passed to the workflow only as part of the event.
+
 ## When supervisors disagree
 
 Supervisors run in parallel and do not see each other, so two of them can pause and resume one run in turn. The **command arbiter** settles that. A stop, and any command that cannot conflict, is sent at once. These can conflict, and wait for a short window per target (a run, or a node of a run): pause and resume, skip and unskip, step mode on and off, and two different priorities. When the window closes:

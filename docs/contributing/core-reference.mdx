@@ -638,7 +638,7 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 - **Scope enforcement:** `SupervisorHost` resolves a command's target with `DirectiveDispatcher.target` (session and workflow of the live or archived run; the command's node, or the node of the input request for an answer or escalation) and sends it only when the supervisor's scope matches; otherwise `outcome=out-of-scope`, before the rate limit and also in dry-run. A command that belongs to no run is in scope for `Global` only.
 - Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL).
 
-**Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file`
+**Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file` · `yukta.supervisor.reserved-slots` · `yukta.supervisor.max-depth`
 
 **Source:** `SupervisorHost` `ExecutionEventFeed` `SupervisorInfo` `ExecutionSupervisor` `SupervisorScope` `CommandTarget`
 
@@ -1046,6 +1046,8 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.version` (start payload key) | current | [DEF-01](#def-01-definition-store-and-versions) | Run a saved version of the workflow |
 | `yukta.stop.drain-timeout` | 30s | [CTL-03](#ctl-03-stop-modes) | Deadline for `DRAIN` stop |
 | `yukta.supervisor.max-commands-per-second` | 20 | [CTL-07](#ctl-07-supervisors) | Rate limit per supervisor |
+| `yukta.supervisor.reserved-slots` | 4 | [CTL-07](#ctl-07-supervisors) | Slots of their own for workflow supervisor runs |
+| `yukta.supervisor.max-depth` | 2 | [CTL-07](#ctl-07-supervisors) | Deepest nesting of supervisor workflows |
 | `yukta.supervisor.dry-run` | false | [CTL-07](#ctl-07-supervisors) | Record supervisor commands without applying |
 | `yukta.supervisor.rules.file` | unset | [CTL-07](#ctl-07-supervisors) | Enable the rule supervisor (module: rule-supervisor) |
 | `yukta.input.default-ttl` | 1h | [CTL-09](#ctl-09-input-requests) | Lifetime of a request that does not say |

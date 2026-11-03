@@ -6,6 +6,7 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -79,5 +80,15 @@ public class InputRedactor {
         spec.defaultDecision(),
         spec.routeName(),
         spec.requester());
+  }
+
+  /**
+   * Masks secrets in a map, for example an event handed to a supervisor workflow.
+   *
+   * @param map the map
+   * @return a copy with secrets masked
+   */
+  public Map<String, Object> map(final Map<String, Object> map) {
+    return redactor.redactMap(map);
   }
 }

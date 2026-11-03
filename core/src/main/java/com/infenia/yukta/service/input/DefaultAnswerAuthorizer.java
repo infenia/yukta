@@ -38,6 +38,9 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   /** Start payload key under which a run names the supervisor that started it (written later). */
   public static final String STARTER_KEY = "yukta.supervisor.id";
 
+  /** Start payload key under which a supervisor's run records how deep supervisors are nested. */
+  public static final String DEPTH_KEY = "yukta.supervisor.depth";
+
   /** Counter of denied answers, shared with the broker's caps. */
   private static final String DENIED_METRIC = "yukta.input.denied";
 

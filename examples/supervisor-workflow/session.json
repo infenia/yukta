@@ -1,0 +1,49 @@
+{
+  "sessionId": "supervisors",
+  "name": "Supervisor workflows",
+  "description": "Internal session: the workflows that supervise other sessions. Hidden from the default lists, and its events never reach a supervisor unless one asks for them.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "yukta.internal": "true"
+  },
+  "workflows": {
+    "low-risk-answers": {
+      "workflowId": "low-risk-answers",
+      "description": "Starts on InputRequested. Approves a LOW risk request; hands anything else up (ESCALATE).",
+      "nodes": [
+        { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+        {
+          "nodeId": "gate",
+          "type": "BRANCH",
+          "config": {
+            "mode": "EXPRESSION",
+            "cases": {
+              "payload.request.spec.risk == 'LOW'": "low",
+              "payload.request.spec.risk != 'LOW'": "other"
+            },
+            "strictMode": true
+          }
+        },
+        {
+          "nodeId": "approve",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "commands": "{ {type: 'AnswerInput', requestId: payload.request.id, decision: 'approve', rationale: 'low risk, approved by the supervisor workflow', confidence: 1.0} }"
+            }
+          }
+        },
+        { "nodeId": "answered", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS", "reason": "low risk" } },
+        { "nodeId": "hand-up", "type": "OUTCOME_TERMINAL", "config": { "outcome": "ESCALATE", "reason": "not low risk; a person or a supervisor above should decide" } }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "gate" },
+        { "source": "gate", "target": "approve", "sourcePort": "low" },
+        { "source": "gate", "target": "hand-up", "sourcePort": "other" },
+        { "source": "approve", "target": "answered" }
+      ]
+    }
+  }
+}

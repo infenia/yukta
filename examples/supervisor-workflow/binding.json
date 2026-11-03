@@ -1,0 +1,6 @@
+{
+  "id": "low-risk-workflow-binding",
+  "profileId": "low-risk-workflow",
+  "scope": "session:my-session",
+  "enabled": true
+}
