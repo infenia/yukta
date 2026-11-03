@@ -5,6 +5,7 @@ package com.infenia.yukta.service.input;
 import static com.infenia.yukta.service.input.InputTestSupport.limits;
 import static com.infenia.yukta.service.input.InputTestSupport.who;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -276,7 +277,11 @@ class InputBrokerRoutesTest {
     assertThat(second.version()).isEqualTo(1);
     assertThat(second.targets()).containsExactly("role:OPERATOR");
     assertThat(second.tierDeadline()).isEqualTo(clock.instant().plus(Duration.ofHours(1)));
-    assertThat(events).anyMatch(ExecutionEvent.InputEscalated.class::isInstance);
+    // the feed delivers to its subscribers on another thread
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> assertThat(events).anyMatch(ExecutionEvent.InputEscalated.class::isInstance));
 
     clock.advance(Duration.ofMinutes(61));
     broker.sweep().block();
