@@ -12,6 +12,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
@@ -137,7 +138,7 @@ public class SupervisorWorkflowRunner {
               .flatMap(
                   result ->
                       counted(
-                          result, result.outcome() == null ? result.status() : result.outcome()));
+                          result, Objects.requireNonNullElse(result.outcome(), result.status())));
         });
   }
 
