@@ -97,10 +97,10 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
         request.spec().audience().isCurrentTier()
             ? tierTargets
             : request.spec().audience().selectors();
-    if (!matchesAny(actor, audience)) {
+    if (!matchesAny(actor, audience, request.tier())) {
       throw deny(request, RULE_AUDIENCE, actor, "is not in the audience of the request");
     }
-    if (!matchesAny(actor, tierTargets)) {
+    if (!matchesAny(actor, tierTargets, request.tier())) {
       throw deny(request, RULE_TIER, actor, "is not a target of tier '" + request.tier() + "'");
     }
     if (!context.escalation()) {
@@ -155,7 +155,12 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
 
   private void checkRisk(final InputRequest request, final ActorInfo actor) {
     final InputRisk risk = request.spec().risk();
-    if (risk == InputRisk.HIGH && actor.type() != ActorInfo.Type.HUMAN) {
+    // an external actor only exists for a one-time token, which the token endpoint accepts for a
+    // HIGH
+    // request only in a tier of type HUMAN
+    if (risk == InputRisk.HIGH
+        && actor.type() != ActorInfo.Type.HUMAN
+        && actor.type() != ActorInfo.Type.EXTERNAL) {
       throw deny(request, RULE_RISK, actor, "may not answer a request of risk HIGH; only a human");
     }
     if (actor.type() == ActorInfo.Type.SUPERVISOR) {
@@ -211,11 +216,12 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
     }
   }
 
-  private static boolean matchesAny(final ActorInfo actor, final List<String> selectors) {
-    return selectors.stream().anyMatch(selector -> matches(actor, selector));
+  private static boolean matchesAny(
+      final ActorInfo actor, final List<String> selectors, final String tier) {
+    return selectors.stream().anyMatch(selector -> matches(actor, selector, tier));
   }
 
-  private static boolean matches(final ActorInfo actor, final String selector) {
+  private static boolean matches(final ActorInfo actor, final String selector, final String tier) {
     return switch (actor.type()) {
       case HUMAN ->
           ("key:" + actor.id()).equals(selector)
@@ -224,7 +230,10 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
               || ("role:ADMIN".equals(selector) && actor.role() == ApiRole.ADMIN);
       case SUPERVISOR ->
           "supervisor:*".equals(selector) || ("supervisor:" + actor.id()).equals(selector);
-      case EXTERNAL -> ("external:" + actor.id()).equals(selector);
+      // a token stands for the tier it was delivered to, so it matches any external responder of it
+      case EXTERNAL ->
+          ("external:" + actor.id()).equals(selector)
+              || (actor.id().equals(tier) && selector.startsWith("external:"));
       case UNAUTHENTICATED -> false;
     };
   }
