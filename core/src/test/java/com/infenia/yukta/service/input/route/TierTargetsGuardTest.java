@@ -23,17 +23,20 @@ class TierTargetsGuardTest {
   private static final EligibleSupervisors.Candidate REFUSED =
       new EligibleSupervisors.Candidate("no", new SupervisorScope.Global());
 
+  private static final EligibleSupervisors.Candidate ELSEWHERE =
+      new EligibleSupervisors.Candidate("far", new SupervisorScope.Session("other"));
+
   /** Knows two supervisors and refuses one. */
   private static final EligibleSupervisors BOUND =
       new EligibleSupervisors() {
         @Override
         public List<Candidate> bound() {
-          return List.of(ALLOWED, REFUSED);
+          return List.of(ALLOWED, REFUSED, ELSEWHERE);
         }
 
         @Override
         public boolean mayReceive(final Candidate candidate, final InputRequest request) {
-          return candidate.equals(ALLOWED);
+          return !candidate.equals(REFUSED);
         }
       };
 

@@ -137,10 +137,11 @@ class SupervisorResultMapperTest {
             Map.of("no", "type"),
             entry("Nonsense"),
             entry("PauseNode", "nodeId", " "),
+            entry("PauseNode", "nodeId", 5),
             entry("SetPriority"),
             entry("PauseWorkflow"));
     assertThat(mapped.commands()).hasSize(1);
-    assertThat(mapped.dropped()).isEqualTo(5);
+    assertThat(mapped.dropped()).isEqualTo(6);
   }
 
   @Test
