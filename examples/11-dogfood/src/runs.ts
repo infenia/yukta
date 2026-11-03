@@ -422,7 +422,7 @@ export function cmdDetail(argv: string[]): number {
   let t = failedOutput(session, target)
   if (!t) { console.log(`no failed stage output for ${target} (it did not fail, or it is not a check or tool run)`); return 0 }
   let ls = lines(t)
-  if (grep) ls = ls.filter(l => new RegExp(grep).test(l))
+  if (grep) ls = ls.filter(l => l.includes(grep)) // a plain substring: the pattern comes from the command line
   if (head) ls = ls.slice(0, Number(head))
   if (tail) ls = ls.slice(-Number(tail))
   t = ls.join('\n')

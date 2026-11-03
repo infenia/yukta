@@ -190,7 +190,7 @@ export function notifyText(session: string, exec: string, log: string): string {
   const result = ls.filter(l => l.startsWith('RESULT ')).pop()
   if (!result) return `[yk] run ${exec} ended without a RESULT line (stopped?). yk watch ${session} ${exec} shows where it is.`
   const problems = ls.filter(l => /^(ERROR|FAILED|OUTPUT) /.test(l)).slice(-12).map(l => l.slice(0, 300)).join('\n')
-  return `[yk] run finished: ${result}\n${problems}${problems ? '\n' : ''}\nMore: yk detail ${session} ${exec}\n`.replace(/\n$/, '\n')
+  return `[yk] run finished: ${result}\n${problems}${problems ? '\n' : ''}\nMore: yk detail ${session} ${exec}\n`
 }
 
 // ---- http
