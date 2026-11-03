@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowSupervisorChecksTest {
 
   private final InternalSessions internal = mock(InternalSessions.class);

@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class SupervisorResultMapperTest {
 
   private static Map<String, Object> entry(final String type, final Object... pairs) {
@@ -129,7 +129,7 @@ class SupervisorResultMapperTest {
   }
 
   @Test
-  void aResultWithoutCommandsGivesNothing() {
+  void resultWithoutCommandsGivesNothing() {
     assertThat(SupervisorResultMapper.map(List.of(), Set.of(), "run", 10).commands()).isEmpty();
     assertThat(
             SupervisorResultMapper.map(List.of("x", Map.of("a", 1)), Set.of(), "run", 10).dropped())

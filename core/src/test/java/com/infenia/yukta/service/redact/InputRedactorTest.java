@@ -44,7 +44,7 @@ class InputRedactorTest {
   }
 
   @Test
-  void aMapIsCleanedLikeAContext() {
+  void mapIsCleanedLikeContext() {
     assertThat(redactor.map(Map.of("customerNote", "private", "fine", "kept")))
         .containsEntry("customerNote", SecretRedactor.REDACTED)
         .containsEntry("fine", "kept");

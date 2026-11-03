@@ -23,6 +23,9 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 class AttachedSupervisorsDirectoryTest {
 
+  private static final InputRequest REQUEST =
+      InputTestSupport.request("r", InputTestSupport.spec("k"));
+
   @Test
   void listsEveryAttachedSupervisorWithItsScope() {
     final BoundSupervisor bound = mock(BoundSupervisor.class);
@@ -56,11 +59,8 @@ class AttachedSupervisorsDirectoryTest {
     return store;
   }
 
-  private static final InputRequest REQUEST =
-      InputTestSupport.request("r", InputTestSupport.spec("k"));
-
   @Test
-  void aRequestFromASupervisorRunGoesOnlyToSupervisorsThatRankAbove() {
+  void requestFromSupervisorRunGoesOnlyToHigherRank() {
     final AttachedSupervisors attached = mock(AttachedSupervisors.class);
     when(attached.stream())
         .thenAnswer(
@@ -81,7 +81,7 @@ class AttachedSupervisorsDirectoryTest {
   }
 
   @Test
-  void aSupervisorThatIsGoneLeavesOnlyPeople() {
+  void goneSupervisorLeavesOnlyPeople() {
     final AttachedSupervisors attached = mock(AttachedSupervisors.class);
     when(attached.stream()).thenAnswer(_ -> Stream.<BoundSupervisor>empty());
     final var directory =

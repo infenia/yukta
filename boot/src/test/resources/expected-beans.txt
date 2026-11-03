@@ -214,6 +214,9 @@ com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService
 com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory
 com.infenia.yukta.service.supervisor.composite.SupervisorResolver
+com.infenia.yukta.service.supervisor.workflow.SupervisorWorkflowRunner
+com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks
+com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory
 com.infenia.yukta.service.worker.RemoteNodes
 com.infenia.yukta.service.worker.WorkerRegistry
 com.infenia.yukta.service.workflow.ConfigRedactor

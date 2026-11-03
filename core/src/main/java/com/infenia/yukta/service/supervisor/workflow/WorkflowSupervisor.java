@@ -27,6 +27,12 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>It is a {@link ControlPlanePlugin}, so it also works as a child of a {@code CHAIN} composite.
  */
 @Slf4j
+@SuppressWarnings({
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidUsingVolatile",
+  "PMD.AvoidLiteralsInIfCondition",
+  "PMD.AvoidSynchronizedStatement"
+})
 public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   /** How many event keys are remembered to drop a redelivered event. */
@@ -35,7 +41,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
   /** The most commands taken from one run. */
-  static final int MAX_COMMANDS = 10;
+  private static final int MAX_COMMANDS = 10;
 
   private final String profileId;
 
@@ -190,8 +196,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   private Map<String, Object> payload(final ExecutionEvent event) {
     final Map<String, Object> asMap =
-        JSON.convertValue(
-            event, new tools.jackson.core.type.TypeReference<Map<String, Object>>() {});
+        JSON.convertValue(event, new tools.jackson.core.type.TypeReference<>() {});
     final Map<String, Object> redacted = redactor.map(asMap);
     final Map<String, Object> out = new java.util.HashMap<>();
     out.put("event", redacted);

@@ -29,6 +29,7 @@ import reactor.core.publisher.Mono;
  * deep are refused.
  */
 @Slf4j
+@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.UseObjectForClearerAPI"})
 @Component
 public class SupervisorWorkflowRunner {
 

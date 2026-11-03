@@ -25,6 +25,7 @@ import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings("PMD.TooManyStaticImports")
 class WorkflowServiceTest {
 
   private final SupervisorHost host = mock(SupervisorHost.class);
@@ -56,7 +57,7 @@ class WorkflowServiceTest {
   }
 
   @Test
-  void aProfileThatFailsTheChecksIsNotSaved() {
+  void profileFailingChecksIsNotSaved() {
     when(checks.check(any())).thenReturn(Mono.error(new IllegalArgumentException("not internal")));
 
     StepVerifier.create(service().saveProfile(profile()))

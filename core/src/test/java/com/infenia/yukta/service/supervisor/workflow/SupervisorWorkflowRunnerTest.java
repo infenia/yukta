@@ -26,7 +26,7 @@ import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyStaticImports")
 class SupervisorWorkflowRunnerTest {
 
   private static final Duration LONG = Duration.ofSeconds(5);
@@ -46,7 +46,7 @@ class SupervisorWorkflowRunnerTest {
   }
 
   @Test
-  void aRunCarriesDepthAndStarterAndReturnsItsOutcome() {
+  void runCarriesDepthAndStarter() {
     when(runs.findByExecutionId("e1")).thenReturn(Optional.empty());
     when(child.run(anyString(), anyString(), any(), anyString(), anyInt()))
         .thenReturn(
@@ -75,7 +75,7 @@ class SupervisorWorkflowRunnerTest {
   }
 
   @Test
-  void aRunInsideASupervisorRunIsRefusedPastTheDepthLimit() {
+  void runPastDepthLimitIsRefused() {
     final ExecutionControl control = mock(ExecutionControl.class);
     when(control.payload()).thenReturn(Map.of(DefaultAnswerAuthorizer.DEPTH_KEY, 2));
     when(runs.findByExecutionId("e1")).thenReturn(Optional.of(control));
@@ -88,7 +88,7 @@ class SupervisorWorkflowRunnerTest {
   }
 
   @Test
-  void aFailureAndATimeoutAreResultsNotErrors() {
+  void failureAndTimeoutAreResults() {
     when(runs.findByExecutionId("e1")).thenReturn(Optional.empty());
     when(child.run(anyString(), anyString(), any(), anyString(), anyInt()))
         .thenReturn(Mono.error(new IllegalStateException("boom")));
@@ -104,7 +104,7 @@ class SupervisorWorkflowRunnerTest {
   }
 
   @Test
-  void whenEverySlotIsBusyACallerWaitsThenGivesUp() {
+  void busySlotsMakeCallerWaitThenGiveUp() {
     when(runs.findByExecutionId("e1")).thenReturn(Optional.empty());
     when(child.run(anyString(), anyString(), any(), anyString(), anyInt()))
         .thenReturn(Mono.never());
@@ -120,7 +120,7 @@ class SupervisorWorkflowRunnerTest {
   }
 
   @Test
-  void aFreedSlotIsReused() {
+  void freedSlotIsReused() {
     when(runs.findByExecutionId("e1")).thenReturn(Optional.empty());
     when(child.run(anyString(), anyString(), any(), anyString(), anyInt()))
         .thenReturn(Mono.just(new SubWorkflowGateway.Result("c", List.of())));

@@ -85,6 +85,9 @@ public class SupervisorService {
   /** Lets composite profiles find their children; null without the composite factory. */
   @Nullable private SupervisorResolver resolver;
 
+  /** Checks workflow profiles against the stores; null where there are none. */
+  @Nullable private WorkflowSupervisorChecks workflowChecks;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -118,9 +121,6 @@ public class SupervisorService {
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
   }
-
-  /** Checks workflow profiles against the stores; null where there are none. */
-  @Nullable private WorkflowSupervisorChecks workflowChecks;
 
   /**
    * Lets {@code workflow} profiles be checked against the sessions and workflows.

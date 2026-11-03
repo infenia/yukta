@@ -30,7 +30,9 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyMethods",
-  "PMD.CouplingBetweenObjects"
+  "PMD.TooManyStaticImports",
+  "PMD.AvoidLiteralsInIfCondition",
+  "PMD.AvoidInstantiatingObjectsInLoops"
 })
 class WorkflowSupervisorTest {
 
@@ -115,7 +117,7 @@ class WorkflowSupervisorTest {
   }
 
   @Test
-  void aSessionThatIsNotInternalGivesNoOpinion() {
+  void sessionNotInternalGivesNoOpinion() {
     when(internal.checkInternal("sys")).thenReturn(Mono.just(false));
     final WorkflowSupervisor supervisor =
         new WorkflowSupervisor("p", SETTINGS, runner, internal, redactor, Set.of());
@@ -156,7 +158,7 @@ class WorkflowSupervisorTest {
   }
 
   @Test
-  void escalateOnAnEventWithoutARequestIsDropped() {
+  void escalateWithoutRequestIsDropped() {
     final WorkflowSupervisor supervisor =
         new WorkflowSupervisor(
             "p",
@@ -263,9 +265,6 @@ class WorkflowSupervisorTest {
     assertThat(factory.type()).isEqualTo("workflow");
     assertThat(factory.defaultAllowedCommands()).isEmpty();
     assertThat(factory.create(profile)).isInstanceOf(WorkflowSupervisor.class);
-    assertThat(
-            ((ControlDecision) new ControlDecision(List.of(), 1, ControlDecision.Source.RULE))
-                .commands())
-        .isEmpty();
+    assertThat(new ControlDecision(List.of(), 1, ControlDecision.Source.RULE).commands()).isEmpty();
   }
 }

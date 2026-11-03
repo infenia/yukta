@@ -55,9 +55,9 @@ class WorkflowSettingsTest {
     m.put("maxConcurrent", 1);
     m.put("timeout", 0);
     assertThatThrownBy(() -> read(m)).hasMessageContaining("timeout");
-    final Map<String, Object> notAList = base();
-    notAList.put("events", "InputRequested");
-    assertThatThrownBy(() -> read(notAList)).hasMessageContaining("events");
+    final Map<String, Object> notList = base();
+    notList.put("events", "InputRequested");
+    assertThatThrownBy(() -> read(notList)).hasMessageContaining("events");
     final Map<String, Object> noWorkflow = base();
     noWorkflow.put("workflowId", 7);
     assertThatThrownBy(() -> read(noWorkflow)).hasMessageContaining("workflowId");

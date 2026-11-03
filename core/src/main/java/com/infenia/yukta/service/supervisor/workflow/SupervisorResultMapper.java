@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * so a workflow can only ask for what is listed here: some types always, the others only when the
  * profile's {@code allowedCommands} names them. Everything else is dropped and counted.
  */
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 @UtilityClass
 public class SupervisorResultMapper {
 
@@ -104,7 +105,7 @@ public class SupervisorResultMapper {
     }
   }
 
-  @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.CognitiveComplexity"})
+  @SuppressWarnings({"PMD.CyclomaticComplexity", "PMD.AvoidDuplicateLiterals"})
   private static @Nullable ExecutionControlCommand build(
       final String name, final Map<String, Object> m, final String run) {
     return switch (name) {
