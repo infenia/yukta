@@ -32,3 +32,9 @@ dependencies {
     testImplementation(libs.awaitility)
 }
 
+
+// InputRequestFuzzTest: -PfuzzTries=<cases per target>, -PfuzzSeed=<number>|random (nightly), as for boot's fuzz test
+tasks.withType<Test>().configureEach {
+    providers.gradleProperty("fuzzTries").orNull?.let { systemProperty("yukta.fuzz.tries", it) }
+    providers.gradleProperty("fuzzSeed").orNull?.let { systemProperty("yukta.fuzz.seed", it) }
+}
