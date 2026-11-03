@@ -282,11 +282,21 @@ class AskInputProcessorTest {
   }
 
   @Test
-  void contextMustBeASmallMap() {
+  void contextFactsAreCleanedAsWrittenWithoutResolver() {
+    final Gateway gateway = InputFakes.answering("approve", null);
+    run(processor(gateway), config("context", Map.of("issue", "7\u0000", "run_id", "r1")))
+        .blockLast();
+    assertThat(gateway.asked.getFirst().context())
+        .containsEntry("issue", "7")
+        .containsEntry("run_id", "r1");
+  }
+
+  @Test
+  void contextMustBeSmallMap() {
     final AskInputProcessor processor = processor(null);
     assertThatThrownBy(() -> processor.validateConfig(config("context", "text")).block())
         .isInstanceOf(IllegalArgumentException.class);
-    final Map<String, Object> many = new java.util.HashMap<>();
+    final Map<String, Object> many = new HashMap<>();
     for (int i = 0; i < 17; i++) {
       many.put("k" + i, "v");
     }
