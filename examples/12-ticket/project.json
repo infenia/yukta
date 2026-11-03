@@ -12,23 +12,57 @@
     "mutation": "yk gradle :{module}:pitest -Pmutation -PmutationTargets={classes}"
   },
   "conventions_sources": {
-    "java": [".claude/rules/coding-standards.md", "build-logic/CLAUDE.md", ".claude/skills/tests/rules/java"],
-    "ui": ["ui/CLAUDE.md"],
-    "go": ["cli/CLAUDE.md"],
-    "shell": [".github/scripts"],
-    "git": [".claude/rules/git-workflow.md", ".git-commit-guide.md"]
+    "java": [
+      ".claude/rules/coding-standards.md",
+      "build-logic/CLAUDE.md",
+      ".claude/skills/tests/rules/java"
+    ],
+    "ui": [
+      "ui/CLAUDE.md"
+    ],
+    "go": [
+      "cli/CLAUDE.md"
+    ],
+    "shell": [
+      ".github/scripts"
+    ],
+    "git": [
+      ".claude/rules/git-workflow.md",
+      ".git-commit-guide.md"
+    ]
   },
   "high_risk_paths": [
-    "build-logic/**", "gradle/**", "config/**", ".github/**", ".claude/**", "examples/11-dogfood/**", "examples/12-ticket/**",
-    "release/**", "plus/**", "ui/e2e/**", "boot/**/META-INF/native-image/**",
-    "settings.gradle.kts", "build.gradle.kts", "gradle.properties",
-    "ui/package.json", "ui/pnpm-lock.yaml", "cli/go.mod", "cli/go.sum", "**/security/**"
+    "build-logic/**",
+    "gradle/**",
+    "config/**",
+    ".github/**",
+    ".claude/**",
+    "examples/11-dogfood/**",
+    "examples/12-ticket/**",
+    "release/**",
+    "plus/**",
+    "ui/e2e/**",
+    "boot/**/META-INF/native-image/**",
+    "settings.gradle.kts",
+    "build.gradle.kts",
+    "gradle.properties",
+    "ui/package.json",
+    "ui/pnpm-lock.yaml",
+    "cli/go.mod",
+    "cli/go.sum",
+    "**/security/**"
   ],
   "denied_read": [
-    "**/pnpm-lock.yaml", "**/openapi.json", "**/*.generated.*",
-    "**/META-INF/native-image/**/*", "**/11-dogfood/session.json", "**/12-ticket/session.json"
+    "**/pnpm-lock.yaml",
+    "**/openapi.json",
+    "**/*.generated.*",
+    "**/META-INF/native-image/**/*",
+    "**/11-dogfood/session.json",
+    "**/12-ticket/session.json"
   ],
-  "denied_write": ["docs/api/openapi.json"],
+  "denied_write": [
+    "docs/api/openapi.json"
+  ],
   "generated": [
     {
       "glob": "ui/openapi.json",
@@ -46,18 +80,86 @@
       "regen": "python3 scripts/gen-ticket.py"
     }
   ],
-  "default_limits": { "max_diff_lines": 200, "max_files_per_step": 4 },
-  "tests": { "max_cases_total": 25, "max_test_lines": 150, "case_tag_format": "[{id}]", "report_format": "junit-xml|vitest-json|go-test-json" },
+  "default_limits": {
+    "max_diff_lines": 200,
+    "max_files_per_step": 4
+  },
+  "tests": {
+    "max_cases_total": 25,
+    "max_test_lines": 150,
+    "case_tag_format": "[{id}]",
+    "report_format": "junit-xml|vitest-json|go-test-json"
+  },
   "tier_mode": "two_tier",
   "implementer_override": null,
   "max_parallel": 2,
   "run_dir": ".yukta-dev/ticket",
   "efforts": {
-    "low": { "timeoutSeconds": 600, "budget": 0.5 },
-    "medium": { "timeoutSeconds": 1200, "budget": 1 },
-    "high": { "timeoutSeconds": 1800, "budget": 2 }
+    "low": {
+      "timeoutSeconds": 600,
+      "budget": 0.5
+    },
+    "medium": {
+      "timeoutSeconds": 1200,
+      "budget": 1
+    },
+    "high": {
+      "timeoutSeconds": 1800,
+      "budget": 2
+    }
   },
-  "github": { "repo": "infenia/yukta", "project_owner": "infenia", "project_number": 5, "ready": "Ready", "in_progress": "In progress" },
-  "git": { "branch": "issue/{n}", "worktree": "../yukta-issue-{n}", "pr_draft": true, "pr_body_must_contain": ["Fixes #{n}", "RESULT"] },
-  "budgets_usd": { "S": 2, "M": 6, "L": 15 }
+  "github": {
+    "repo": "infenia/yukta",
+    "project_owner": "infenia",
+    "project_number": 5,
+    "ready": "Ready",
+    "in_progress": "In progress"
+  },
+  "git": {
+    "branch": "issue/{n}",
+    "worktree": "../yukta-issue-{n}",
+    "pr_draft": true,
+    "pr_body_must_contain": [
+      "Fixes #{n}",
+      "RESULT"
+    ]
+  },
+  "budgets_usd": {
+    "S": 2,
+    "M": 6,
+    "L": 15
+  },
+  "module_labels": {
+    "boot": "java",
+    "core": "java",
+    "web": "java",
+    "mcp": "java",
+    "messaging": "java",
+    "plugin-api": "java",
+    "plugins": "java",
+    "processors": "java",
+    "triggers": "java",
+    "terminals": "java",
+    "supervisors": "java",
+    "control-planes": "java",
+    "plus": "java",
+    "workers": "java",
+    "persistence-postgres": "java",
+    "ui": "ui",
+    "cli": "cli"
+  },
+  "free_fix": {
+    "java": "yk gradle spotlessApply",
+    "ui": "yk tool -C ui npx --no-install prettier --write {files}",
+    "go": "yk tool -C cli make fmt"
+  },
+  "dependency_files": [
+    "**/build.gradle.kts",
+    "gradle/libs.versions.toml",
+    "**/package.json",
+    "**/pnpm-lock.yaml",
+    "**/go.mod",
+    "**/go.sum",
+    "settings.gradle.kts"
+  ]
 }
