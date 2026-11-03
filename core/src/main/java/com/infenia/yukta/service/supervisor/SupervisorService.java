@@ -243,8 +243,7 @@ public class SupervisorService {
     return refreshResolver()
         .then(
             Mono.defer(
-                () ->
-                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
+                () -> workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
         .then(Mono.fromRunnable(() -> validate(profile)))
         .then(Mono.defer(() -> store.saveProfile(profile)))
         .then(Mono.defer(this::refreshResolver))
