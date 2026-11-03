@@ -64,8 +64,14 @@ def prompt_for(role, run, step, attempt, wt):
                 + block("packet", (run / "steps" / step / "packet.json").read_text()))
     base = (run / "steps" / step / "base").read_text().strip() if step and (run / "steps" / step / "base").is_file() else "origin/main"
     stat = git("diff", "--stat", base, cwd=wt, check=False).stdout[-3000:]
+    mut = ""
+    mf = run / "review" / "mutation.json"
+    if mf.is_file() and load(mf).get("exceeds"):  # a pre-computed finding: the tests let too many mutants of the changed classes survive
+        m = load(mf)
+        mut = "\n" + block("mutation_finding", f"{m['survivors']} of {m['total']} mutants survived ({m['rate']:.0%}, threshold {m['threshold']:.0%}) in {m['classes']} changed classes. "
+                                               "Treat it as a finding: say which behaviour the tests do not pin down.")
     return ("Review the change against the spec: does it meet every acceptance criterion, and do the tests prove the cases?\n"
-            + block("spec", json.dumps(spec, sort_keys=True, indent=1)) + "\n" + block("diff_stat", stat))
+            + block("spec", json.dumps(spec, sort_keys=True, indent=1)) + "\n" + block("diff_stat", stat) + mut)
 
 
 def run_claude(role, prompt, routing, wt, out, run=None, step=None):

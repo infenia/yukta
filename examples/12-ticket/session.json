@@ -33,7 +33,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -69,7 +70,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -102,7 +104,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -134,7 +137,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -171,7 +175,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -195,7 +200,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 180,
             "timeoutSeconds": 180,
@@ -232,7 +238,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -258,7 +265,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -288,7 +296,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -325,7 +334,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -351,7 +361,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -381,7 +392,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -418,7 +430,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -444,7 +457,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -474,7 +488,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -511,7 +526,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -547,7 +563,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -573,7 +590,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -614,7 +632,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -639,7 +658,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -676,7 +696,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -702,7 +723,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -739,7 +761,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -764,7 +787,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -844,7 +868,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -868,7 +893,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -905,7 +931,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -929,6 +956,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -951,7 +979,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -990,6 +1019,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1012,7 +1042,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1059,7 +1090,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1104,7 +1136,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1132,7 +1165,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1176,7 +1210,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1216,6 +1251,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1238,7 +1274,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1277,6 +1314,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1299,7 +1337,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1346,7 +1385,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1391,7 +1431,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1419,7 +1460,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1463,7 +1505,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1503,6 +1546,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1525,7 +1569,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1564,6 +1609,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1586,7 +1632,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1633,7 +1680,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1678,7 +1726,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1706,7 +1755,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1750,7 +1800,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1790,6 +1841,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -1824,7 +1876,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -1851,7 +1904,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -1929,7 +1983,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 600,
             "timeoutSeconds": 600,
@@ -1964,7 +2019,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -2583,6 +2639,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -2605,6 +2662,7 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}"
             }
@@ -2663,7 +2721,7 @@
     },
     "steps_round": {
       "workflowId": "steps_round",
-      "description": "Run the steps whose depends_on are DONE, one step workflow each, in order.",
+      "description": "Run the ready steps, one or two at a time, in order.",
       "nodes": [
         {
           "nodeId": "trigger",
@@ -2683,8 +2741,8 @@
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -2694,7 +2752,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -2704,13 +2763,14 @@
           }
         },
         {
-          "nodeId": "more1",
+          "nodeId": "mode1",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -2732,9 +2792,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair1",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -2743,7 +2827,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -2755,13 +2839,21 @@
           }
         },
         {
+          "nodeId": "pair1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next2",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -2771,7 +2863,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -2781,13 +2874,14 @@
           }
         },
         {
-          "nodeId": "more2",
+          "nodeId": "mode2",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -2809,9 +2903,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair2",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -2820,7 +2938,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -2832,13 +2950,21 @@
           }
         },
         {
+          "nodeId": "pair2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next3",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -2848,7 +2974,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -2858,13 +2985,14 @@
           }
         },
         {
-          "nodeId": "more3",
+          "nodeId": "mode3",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -2886,9 +3014,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair3",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -2897,7 +3049,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -2909,13 +3061,21 @@
           }
         },
         {
+          "nodeId": "pair3.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next4",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -2925,7 +3085,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -2935,13 +3096,14 @@
           }
         },
         {
-          "nodeId": "more4",
+          "nodeId": "mode4",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -2963,9 +3125,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair4",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -2974,7 +3160,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -2986,13 +3172,21 @@
           }
         },
         {
+          "nodeId": "pair4.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next5",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -3002,7 +3196,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -3012,13 +3207,14 @@
           }
         },
         {
-          "nodeId": "more5",
+          "nodeId": "mode5",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -3040,9 +3236,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair5",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -3051,7 +3271,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -3063,13 +3283,21 @@
           }
         },
         {
+          "nodeId": "pair5.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next6",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -3079,7 +3307,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -3089,13 +3318,14 @@
           }
         },
         {
-          "nodeId": "more6",
+          "nodeId": "mode6",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -3117,9 +3347,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair6",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -3128,7 +3382,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -3140,13 +3394,21 @@
           }
         },
         {
+          "nodeId": "pair6.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next7",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -3156,7 +3418,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -3166,13 +3429,14 @@
           }
         },
         {
-          "nodeId": "more7",
+          "nodeId": "mode7",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -3194,9 +3458,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair7",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -3205,7 +3493,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -3217,13 +3505,21 @@
           }
         },
         {
+          "nodeId": "pair7.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
+        },
+        {
           "nodeId": "next8",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
               "__TICKET__/ticketkit",
-              "ladder",
-              "next-step",
+              "waves",
+              "next-wave",
               "${start.run}"
             ],
             "workingDir": "${start.project}",
@@ -3233,7 +3529,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -3243,13 +3540,14 @@
           }
         },
         {
-          "nodeId": "more8",
+          "nodeId": "mode8",
           "type": "BRANCH",
           "config": {
             "mode": "SELECT_KEY",
-            "selector": "payload['output']['more']",
+            "selector": "payload['output']['mode']",
             "cases": {
-              "true": "go"
+              "single": "single",
+              "pair": "pair"
             },
             "defaultPort": "none"
           }
@@ -3271,9 +3569,33 @@
               "stateDir": "${start.stateDir}",
               "healCmd": "${start.healCmd}",
               "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
               "runId": "${start.runId}",
               "events": "${start.events}",
               "step": "${payload.output.step}"
+            }
+          }
+        },
+        {
+          "nodeId": "pair8",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "wave",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "worktree": "${start.worktree}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}"
             }
           }
         },
@@ -3282,7 +3604,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "next-step failed"
+            "reason": "next-wave failed"
           }
         },
         {
@@ -3292,12 +3614,20 @@
             "outcome": "FAILED",
             "reason": "a step ended without DONE (escalation.json says what to do)"
           }
+        },
+        {
+          "nodeId": "pair8.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "a wave failed (escalation.json says what to do)"
+          }
         }
       ],
       "edges": [
         {
           "source": "next1",
-          "target": "more1",
+          "target": "mode1",
           "sourcePort": "success"
         },
         {
@@ -3306,12 +3636,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more1",
+          "source": "mode1",
           "target": "run1",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more1",
+          "source": "mode1",
+          "target": "pair1",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode1",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3326,8 +3661,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair1",
+          "target": "next2",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair1",
+          "target": "pair1.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next2",
-          "target": "more2",
+          "target": "mode2",
           "sourcePort": "success"
         },
         {
@@ -3336,12 +3681,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more2",
+          "source": "mode2",
           "target": "run2",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more2",
+          "source": "mode2",
+          "target": "pair2",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode2",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3356,8 +3706,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair2",
+          "target": "next3",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair2",
+          "target": "pair2.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next3",
-          "target": "more3",
+          "target": "mode3",
           "sourcePort": "success"
         },
         {
@@ -3366,12 +3726,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more3",
+          "source": "mode3",
           "target": "run3",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more3",
+          "source": "mode3",
+          "target": "pair3",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode3",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3386,8 +3751,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair3",
+          "target": "next4",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair3",
+          "target": "pair3.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next4",
-          "target": "more4",
+          "target": "mode4",
           "sourcePort": "success"
         },
         {
@@ -3396,12 +3771,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more4",
+          "source": "mode4",
           "target": "run4",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more4",
+          "source": "mode4",
+          "target": "pair4",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode4",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3416,8 +3796,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair4",
+          "target": "next5",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair4",
+          "target": "pair4.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next5",
-          "target": "more5",
+          "target": "mode5",
           "sourcePort": "success"
         },
         {
@@ -3426,12 +3816,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more5",
+          "source": "mode5",
           "target": "run5",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more5",
+          "source": "mode5",
+          "target": "pair5",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode5",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3446,8 +3841,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair5",
+          "target": "next6",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair5",
+          "target": "pair5.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next6",
-          "target": "more6",
+          "target": "mode6",
           "sourcePort": "success"
         },
         {
@@ -3456,12 +3861,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more6",
+          "source": "mode6",
           "target": "run6",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more6",
+          "source": "mode6",
+          "target": "pair6",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode6",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3476,8 +3886,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair6",
+          "target": "next7",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair6",
+          "target": "pair6.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next7",
-          "target": "more7",
+          "target": "mode7",
           "sourcePort": "success"
         },
         {
@@ -3486,12 +3906,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more7",
+          "source": "mode7",
           "target": "run7",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more7",
+          "source": "mode7",
+          "target": "pair7",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode7",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3506,8 +3931,18 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair7",
+          "target": "next8",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair7",
+          "target": "pair7.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "next8",
-          "target": "more8",
+          "target": "mode8",
           "sourcePort": "success"
         },
         {
@@ -3516,12 +3951,17 @@
           "sourcePort": "failure"
         },
         {
-          "source": "more8",
+          "source": "mode8",
           "target": "run8",
-          "sourcePort": "go"
+          "sourcePort": "single"
         },
         {
-          "source": "more8",
+          "source": "mode8",
+          "target": "pair8",
+          "sourcePort": "pair"
+        },
+        {
+          "source": "mode8",
           "target": "ok",
           "sourcePort": "none"
         },
@@ -3536,8 +3976,239 @@
           "sourcePort": "failure"
         },
         {
+          "source": "pair8",
+          "target": "ok",
+          "sourcePort": "success"
+        },
+        {
+          "source": "pair8",
+          "target": "pair8.failed",
+          "sourcePort": "failure"
+        },
+        {
           "source": "trigger",
           "target": "next1"
+        }
+      ]
+    },
+    "wave": {
+      "workflowId": "wave",
+      "description": "Two independent steps in parallel worktrees, merged in step order, then a post-wave check.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "CONSTANT_SOURCE",
+          "config": {}
+        },
+        {
+          "nodeId": "ok",
+          "type": "CONSOLE_TERMINAL",
+          "config": {
+            "displayOutput": true
+          }
+        },
+        {
+          "nodeId": "prepare",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "waves",
+              "prepare",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "split",
+          "type": "SPLITTER",
+          "config": {
+            "itemsPath": "payload.output.items"
+          }
+        },
+        {
+          "nodeId": "runw",
+          "type": "SUB_WORKFLOW",
+          "config": {
+            "workflowId": "step",
+            "timeoutSeconds": 21600,
+            "routeByOutcome": true,
+            "payload": {
+              "project": "${start.project}",
+              "run": "${start.run}",
+              "claudeBin": "${start.claudeBin}",
+              "gateStep": "${start.gateStep}",
+              "gateFinal": "${start.gateFinal}",
+              "stateDir": "${start.stateDir}",
+              "healCmd": "${start.healCmd}",
+              "baselineCmd": "${start.baselineCmd}",
+              "gateWave": "${start.gateWave}",
+              "runId": "${start.runId}",
+              "events": "${start.events}",
+              "step": "${payload.step}",
+              "worktree": "${payload.worktree}"
+            },
+            "concurrency": 2
+          }
+        },
+        {
+          "nodeId": "join",
+          "type": "AGGREGATE",
+          "config": {
+            "size": 2,
+            "timeoutMs": 21600000
+          }
+        },
+        {
+          "nodeId": "merge",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "waves",
+              "merge",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 300,
+            "timeoutSeconds": 300,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "wave_check",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "waves",
+              "check",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "prepare.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the wave could not be prepared"
+          }
+        },
+        {
+          "nodeId": "merge.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the wave could not be merged (a conflict is an escalation)"
+          }
+        },
+        {
+          "nodeId": "wave_check.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the merged wave fails its post-wave check"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "prepare",
+          "target": "split",
+          "sourcePort": "success"
+        },
+        {
+          "source": "prepare",
+          "target": "prepare.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "split",
+          "target": "runw"
+        },
+        {
+          "source": "runw",
+          "target": "join",
+          "sourcePort": "success"
+        },
+        {
+          "source": "runw",
+          "target": "join",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "join",
+          "target": "merge"
+        },
+        {
+          "source": "merge",
+          "target": "wave_check",
+          "sourcePort": "success"
+        },
+        {
+          "source": "merge",
+          "target": "merge.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "wave_check",
+          "target": "ok",
+          "sourcePort": "success"
+        },
+        {
+          "source": "wave_check",
+          "target": "wave_check.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "trigger",
+          "target": "prepare"
         }
       ]
     },
@@ -3585,7 +4256,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -3623,7 +4295,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -3654,7 +4327,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -3700,7 +4374,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -3728,7 +4403,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -3796,7 +4472,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -3827,7 +4504,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -3856,7 +4534,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -3903,7 +4582,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -3934,7 +4614,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -3980,7 +4661,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4008,7 +4690,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4076,7 +4759,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4107,7 +4791,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4136,7 +4821,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4183,7 +4869,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -4214,7 +4901,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -4260,7 +4948,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4288,7 +4977,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4356,7 +5046,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4387,7 +5078,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4416,7 +5108,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4463,7 +5156,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -4494,7 +5188,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -4540,7 +5235,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4568,7 +5264,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4636,7 +5333,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4667,7 +5365,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -4696,7 +5395,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,
@@ -4719,6 +5419,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "the ladder could not decide"
+          }
+        },
+        {
+          "nodeId": "warm",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "waves",
+              "warm-wait",
+              "${start.run}",
+              "${start.step}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 400,
+            "timeoutSeconds": 400,
+            "failureMode": "CONTINUE"
           }
         }
       ],
@@ -5135,6 +5861,10 @@
         },
         {
           "source": "trigger",
+          "target": "warm"
+        },
+        {
+          "source": "warm",
           "target": "begin1"
         }
       ]
@@ -5190,7 +5920,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -5215,10 +5946,38 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "mutation",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "flow",
+              "mutation",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
             "failureMode": "CONTINUE"
           }
         },
@@ -5243,7 +6002,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -5280,7 +6040,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -5313,8 +6074,12 @@
       "edges": [
         {
           "source": "full_checks",
-          "target": "review",
+          "target": "mutation",
           "sourcePort": "success"
+        },
+        {
+          "source": "mutation",
+          "target": "review"
         },
         {
           "source": "full_checks",
@@ -5394,7 +6159,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -5429,7 +6195,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -5466,7 +6233,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 60,
             "timeoutSeconds": 60,
@@ -5500,7 +6268,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 300,
             "timeoutSeconds": 300,
@@ -5535,7 +6304,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 2400,
             "timeoutSeconds": 2400,
@@ -5573,7 +6343,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 3700,
             "timeoutSeconds": 3700,
@@ -5608,7 +6379,8 @@
               "TICKET_GATE_FINAL": "${start.gateFinal}",
               "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
               "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}"
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
             },
             "timeout": 120,
             "timeoutSeconds": 120,

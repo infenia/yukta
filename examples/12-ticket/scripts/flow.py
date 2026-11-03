@@ -43,6 +43,49 @@ def fail_digest(run, step, attempt, stage, text, cmd, cls=None, rc=1):
     print(f"ERROR {step} {stage}: {(r.stdout or r.stderr).strip()[:400]}")
 
 
+def attempt_event(run, sid, attempt, status, cls="-"):
+    """One telemetry line per attempt outcome: what the tuning report groups by (model, effort, complexity)."""
+    routing, spec = load(run / "routing.json"), load(run / "spec" / "spec.json")
+    mf = run / "steps" / sid / "model.json"
+    m = load(mf) if mf.is_file() else routing["models"]["implementer"]
+    cx = next((x.get("complexity", "standard") for x in spec["steps"] if x["id"] == sid), "standard")
+    kit("event", str(run), "role=validate", f"step_id={sid}", f"attempt={attempt}", f"status={status}", f"fail_class={cls}", f"model={m['model']}", f"effort={m['effort']}", f"complexity={cx}")
+
+
+def mutation(run, wt):
+    """pitest on the changed classes (design 15.6), only at medium or high risk, never for :boot, :plus:* or :test-support. Survivors above the
+    threshold go to the reviewer as a finding (review/mutation.json). Never fails the run: a missing tool is a note."""
+    import xml.etree.ElementTree as ET
+    p, routing = load(run / "project.json"), load(run / "routing.json")
+    out = run / "review" / "mutation.json"
+    out.parent.mkdir(exist_ok=True)
+    if routing["risk"] == "low":
+        save(out, {"skipped": "low risk"}); print("SKIPPED mutation: low risk"); return
+    bases = sorted((run / "steps").glob("*/base"))
+    first = bases[0].read_text().strip() if bases else "origin/main"
+    files = [f for f in git("diff", "--name-only", first, "HEAD", cwd=wt).stdout.split() if "/src/main/java/" in f and f.endswith(".java")]
+    mods = {}
+    for f in files:
+        mod, _, rest = f.partition("/src/main/java/")
+        if mod.split("/")[0] in ("boot", "plus", "test-support") or mod.startswith("test-support"):
+            continue
+        mods.setdefault(mod.replace("/", ":"), []).append(rest[:-5].replace("/", "."))
+    if not mods:
+        save(out, {"skipped": "no mutable Java classes changed"}); print("SKIPPED mutation: nothing to mutate"); return
+    survived = total = 0
+    for mod, classes in sorted(mods.items()):
+        cmd = os.environ.get("TICKET_MUTATION_CMD", "-")
+        cmd = p["commands"]["mutation"] if cmd in ("", "-") else cmd
+        shell(cmd.format(module=mod, classes=",".join(classes)), wt)
+        for rep_ in (wt / mod.replace(":", "/")).glob("build/reports/pitest/**/mutations.xml"):
+            for m in ET.parse(rep_).getroot().iter("mutation"):
+                total += 1; survived += m.get("status") == "SURVIVED"
+    thr = p.get("mutation", {}).get("max_survivor_rate", 0.25)
+    rate = survived / total if total else 0.0
+    save(out, {"modules": sorted(mods), "classes": sum(len(c) for c in mods.values()), "survivors": survived, "total": total, "rate": round(rate, 2), "threshold": thr, "exceeds": total > 0 and rate > thr})
+    print(f"MUTATION survivors={survived}/{total} threshold={thr}")
+
+
 def baseline_fails(wt, stage):
     """Does STAGE also fail on a clean origin/main? (TICKET_BASELINE_CMD, else yk check --stage, in a detached worktree)"""
     cmd = os.environ.get("TICKET_BASELINE_CMD", "-")
@@ -121,10 +164,12 @@ def main():
                 sc = load(sd / "scope.json") if (sd / "scope.json").is_file() else {}
                 errs = sc.get("errors") or [{}]
                 fail_digest(run, o.step, o.attempt, "scope", r.stdout + r.stderr, sub, cls=errs[0].get("class", "scope_violation"), rc=r.returncode)
+                attempt_event(run, o.step, o.attempt, "fail", errs[0].get("class", "scope_violation"))
                 sys.exit(1)
         kit("free-fix", str(run), "--base", base, "--worktree", str(wt))
         rc = gate(run, wt, o.step, o.attempt, p["commands"]["gate_step"], "TICKET_GATE_STEP", "tests")
         save(ad / "validation.json", {"ok": rc == 0, "base": base})
+        attempt_event(run, o.step, o.attempt, "pass" if rc == 0 else "fail", "-" if rc == 0 else load(ad / "failure.json").get("class", "-"))
         sys.exit(1 if rc else 0)
     elif o.action == "commit-step":
         spec = load(run / "spec" / "spec.json")
@@ -135,6 +180,8 @@ def main():
         print(f"DONE {o.step}")
     elif o.action == "full-checks":
         sys.exit(1 if gate(run, wt, None, 1, p["commands"]["gate_final"], "TICKET_GATE_FINAL", "full") else 0)
+    elif o.action == "mutation":
+        mutation(run, wt)
     elif o.action == "close":
         by, total = cost_by_role(run)
         lines = (run / "events.jsonl").read_text().splitlines() if (run / "events.jsonl").is_file() else []

@@ -27,7 +27,7 @@ grep -q "core/src/main/java/A.java" "$run/steps/S1/attempt-1/diff.patch" || fail
 [[ "$(jq -r '.acceptance_criteria|length' "$run/ticket.json")" == 2 ]] || fail "only the two criteria count"
 [[ -s "$d/events.jsonl" ]] || fail "the global ticket-events.jsonl was not written"
 roles="$(jq -r .role "$d/events.jsonl" | sort -u | tr '\n' ' ')"
-[[ "$roles" == "architect implementer pack reviewer " ]] || fail "events carry a role per call: $roles"
+[[ "$roles" == "architect implementer pack reviewer validate " ]] || fail "events carry a role per call: $roles"
 jq -e 'select(.role=="implementer") | .cache_read_tokens == 900 and .cache_write_tokens == 100 and .model == "haiku" and .cost_usd == 0.02' "$d/events.jsonl" >/dev/null || fail "events carry model and cache fields"
 [[ "$(git --git-dir="$d/remote.git" rev-parse main)" == "$main0" ]] || fail "main must not move on the remote"
 # --- the GitHub flow (#1880): claim, plan comment, draft PR

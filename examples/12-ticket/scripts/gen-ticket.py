@@ -28,7 +28,7 @@ KIT = "__TICKET__/ticketkit"
 S = lambda k: "${start.%s}" % k
 RUN = S("run")
 W = ["--worktree", S("worktree")]
-START_KEYS = ("project", "run", "worktree", "claudeBin", "gateStep", "gateFinal", "stateDir", "healCmd", "baselineCmd", "runId", "events")
+START_KEYS = ("project", "run", "worktree", "claudeBin", "gateStep", "gateFinal", "stateDir", "healCmd", "baselineCmd", "gateWave", "runId", "events")
 
 
 def edges(src, dst, *ports):
@@ -37,7 +37,7 @@ def edges(src, dst, *ports):
 
 def pe(node_id, args, timeout=300, json_out=False, claude=False, routed=True):
     env = {"YK_CLAUDE_BIN": S("claudeBin"), "TICKET_GATE_STEP": S("gateStep"), "TICKET_GATE_FINAL": S("gateFinal"), "YUKTA_DEV_STATE_DIR": S("stateDir"),
-           "TICKET_HEAL_CMD": S("healCmd"), "TICKET_BASELINE_CMD": S("baselineCmd")}
+           "TICKET_HEAL_CMD": S("healCmd"), "TICKET_BASELINE_CMD": S("baselineCmd"), "TICKET_GATE_WAVE": S("gateWave")}
     cfg = {"command": [KIT, *args], "workingDir": S("project"), "env": env, "timeout": timeout, "timeoutSeconds": timeout, "failureMode": "CONTINUE"}
     if routed:
         cfg["routeByExitCode"] = True
@@ -68,9 +68,12 @@ def rejected(node_id):
     return {"nodeId": node_id, "type": "BRANCH", "config": {"mode": "EXPRESSION", "cases": {"metadata['input.decision'] == 'reject'": "reject"}, "defaultPort": "approve"}}
 
 
-def sub(node_id, wf, keys=START_KEYS, **extra):
-    payload = {k: S(k) for k in keys} | extra
-    return {"nodeId": node_id, "type": "SUB_WORKFLOW", "config": {"workflowId": wf, "timeoutSeconds": 21600, "routeByOutcome": True, "payload": payload}}
+def sub(node_id, wf, keys=START_KEYS, concurrency=None, **extra):
+    payload = {k: S(k) for k in keys if k not in extra} | extra
+    cfg = {"workflowId": wf, "timeoutSeconds": 21600, "routeByOutcome": True, "payload": payload}
+    if concurrency:
+        cfg["concurrency"] = concurrency
+    return {"nodeId": node_id, "type": "SUB_WORKFLOW", "config": cfg}
 
 
 def dead_end(node_id, why):
@@ -141,27 +144,42 @@ for k in range(1, ATTEMPTS + 1):
     st.link(ac, h, "heal"); st.link(h, vh, "success"); st.fail(h, "heal could not run")
     st.link(vh, "commit", "success"); st.link(vh, dh, "failure"); st.link(dh, "escalate", "success"); st.fail(dh, "the ladder could not decide")
 STEP_WF = st.workflow("step", "One step of a ticket: up to four attempts with the retry ladder, heal for mechanical failures, escalation.")
-STEP_WF["edges"] = [e for e in STEP_WF["edges"]] + edges("trigger", "begin1")
+STEP_WF["nodes"].append(pe("warm", ["waves", "warm-wait", RUN, S("step")], 400, routed=False))  # the second step of a wave waits for the cache to be warm
+STEP_WF["edges"] = [e for e in STEP_WF["edges"]] + edges("trigger", "warm") + edges("warm", "begin1")
 
-# ---------------------------------------------------------------- steps_round: every step whose depends_on are DONE, in order (8 slots, the sizing lint caps a spec at 8)
+# ---------------------------------------------------------------- wave: two steps in parallel, each in its own worktree from the same base (design 11.2)
+wv = G()
+wv.add(ok("ok"), pe("prepare", ["waves", "prepare", RUN, *W], 120, json_out=True), {"nodeId": "split", "type": "SPLITTER", "config": {"itemsPath": "payload.output.items"}},
+       sub("runw", "step", concurrency=2, step="${payload.step}", worktree="${payload.worktree}"), {"nodeId": "join", "type": "AGGREGATE", "config": {"size": 2, "timeoutMs": 21600000}},
+       pe("merge", ["waves", "merge", RUN, *W], 300), pe("wave_check", ["waves", "check", RUN, *W], 3700))
+wv.link("prepare", "split", "success"); wv.fail("prepare", "the wave could not be prepared")
+wv.link("split", "runw"); wv.link("runw", "join", "success", "failure"); wv.link("join", "merge")
+wv.link("merge", "wave_check", "success"); wv.fail("merge", "the wave could not be merged (a conflict is an escalation)")
+wv.link("wave_check", "ok", "success"); wv.fail("wave_check", "the merged wave fails its post-wave check")
+WAVE_WF = wv.workflow("wave", "Two independent steps in parallel worktrees, merged in step order, then a post-wave check.")
+WAVE_WF["edges"] += edges("trigger", "prepare")
+
+# ---------------------------------------------------------------- steps_round: wave after wave (8 slots, the sizing lint caps a spec at 8 steps)
 SLOTS = 8
 sr = G()
 sr.add(ok("ok"))
 for k in range(1, SLOTS + 1):
-    nx, more, run = f"next{k}", f"more{k}", f"run{k}"
-    sr.add(pe(nx, ["ladder", "next-step", RUN], 60, json_out=True), select(more, "more", {"true": "go"}, "none"),
-           sub(run, "step", step="${payload.output.step}"))
-    sr.link(nx, more, "success"); sr.fail(nx, "next-step failed")
-    sr.link(more, run, "go"); sr.link(more, "ok", "none")
-    sr.link(run, f"next{k + 1}" if k < SLOTS else "ok", "success"); sr.fail(run, "a step ended without DONE (escalation.json says what to do)")
-STEPS_WF = sr.workflow("steps_round", "Run the steps whose depends_on are DONE, one step workflow each, in order.")
+    nx, mode, run, pair = f"next{k}", f"mode{k}", f"run{k}", f"pair{k}"
+    sr.add(pe(nx, ["waves", "next-wave", RUN], 60, json_out=True), select(mode, "mode", {"single": "single", "pair": "pair"}, "none"),
+           sub(run, "step", step="${payload.output.step}"), sub(pair, "wave"))
+    follow = f"next{k + 1}" if k < SLOTS else "ok"
+    sr.link(nx, mode, "success"); sr.fail(nx, "next-wave failed")
+    sr.link(mode, run, "single"); sr.link(mode, pair, "pair"); sr.link(mode, "ok", "none")
+    sr.link(run, follow, "success"); sr.fail(run, "a step ended without DONE (escalation.json says what to do)")
+    sr.link(pair, follow, "success"); sr.fail(pair, "a wave failed (escalation.json says what to do)")
+STEPS_WF = sr.workflow("steps_round", "Run the ready steps, one or two at a time, in order.")
 STEPS_WF["edges"] += edges("trigger", "next1")
 
 # ---------------------------------------------------------------- finalize: full checks, reviewer, verdict
 fz = G()
 fz.add(ok("ok"), terminal("changes.failed", "the reviewer requested changes (escalation.json)"), terminal("full_checks.failed", "the final gate failed"))
 fz.add(pe("full_checks", ["flow", "full-checks", RUN, *W], 3700, ), pe("final_fail", ["ladder", "final-fail", RUN], 60, routed=False))
-fz.link("full_checks", "review", "success"); fz.link("full_checks", "final_fail", "failure"); fz.link("final_fail", "full_checks.failed")
+fz.link("full_checks", "mutation", "success"); fz.add(pe("mutation", ["flow", "mutation", RUN, *W], 3700, routed=False)); fz.link("mutation", "review"); fz.link("full_checks", "final_fail", "failure"); fz.link("final_fail", "full_checks.failed")
 fz.add(pe("review", ["call", "reviewer", RUN, "--step", "S1", *W], 2400, json_out=True, claude=True))
 fz.fail("review", "the reviewer failed")
 fz.link("review", "verdict", "success")
@@ -262,7 +280,7 @@ def check(wfs):
                 assert n["config"]["workflowId"] in wfs, (wid, n["nodeId"])
 
 
-WORKFLOWS = {"ticket": TICKET_WF, "attempt_round": ROUND_WF, "steps_round": STEPS_WF, "step": STEP_WF, "finalize": FINAL_WF, "escalate": ESC_WF}
+WORKFLOWS = {"ticket": TICKET_WF, "attempt_round": ROUND_WF, "steps_round": STEPS_WF, "wave": WAVE_WF, "step": STEP_WF, "finalize": FINAL_WF, "escalate": ESC_WF}
 check(WORKFLOWS)
 out = json.dumps({"workflows": WORKFLOWS}, indent=2) + "\n"
 if "--check" in sys.argv:
