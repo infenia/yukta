@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.mock.env.MockEnvironment;
 
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class FeatureGateEnvironmentPostProcessorTest {
 
   @ParameterizedTest
