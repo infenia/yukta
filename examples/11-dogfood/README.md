@@ -45,12 +45,12 @@ switched off while the loop is rebuilt; their pieces are in `backup/`, and `back
 A detached run outlives the command that started it, so nothing told Claude when it ended. With `--detach --notify` (and in the mod's `/yk-check`),
 `yk` posts the result into the Claude Code session it was started from, through [cross-session messaging](https://code.claude.com/docs/en/cross-session-messaging.md):
 Claude Code exports `CLAUDE_CODE_MESSAGING_SOCKET` and `CLAUDE_CODE_MESSAGING_TOKEN` to the hooks and Bash commands of a session, and
-`notify_session` (`scripts/_lib.sh`, the only place that knows the wire format: an auth line, then a `{"type":"user",...}` line) writes to that socket.
+`notify_session` (`src/lib.ts`, the only place that knows the wire format: an auth line, then a `{"type":"user",...}` line) writes to that socket.
 The message arrives as "Another Claude session sent a message": `[yk] run finished: RESULT status=... ` plus up to 12 problem lines.
 Not started from such a session (no socket), or `YUKTA_NOTIFY=off`: the run goes on without it. `.yukta-dev/notify-<execution>.log` is the notifier's output.
 Limits: it needs a Claude Code with messaging on (v2.1.224 or later); per the Claude Code docs, a session that bypasses permission prompts holds a message it cannot verify came from its own child process
 until you approve it (the token in the auth line is how it verifies one after the sender exited; only a session that prompts was tried here); the heal fixers have the socket
-variables removed (`scripts/_claude.sh`) and never post. A received message is a teammate's request, not your approval: it cannot answer a prompt.
+variables removed (`src/claude.ts`) and never post. A received message is a teammate's request, not your approval: it cannot answer a prompt.
 ## Pickup session (channel, research preview)
 `yk pickup session [--name N]` opens an interactive Claude Code session (default name `yukta-pickup`) that spawns the `yukta-pickup` channel
 (the `pickup` profile of the generic channel in `channel/`, TypeScript on Bun: see `channel/README.md`). Open as many as you like, each in its own terminal or worktree. Each channel listens on a free
@@ -62,7 +62,7 @@ the allowlist, so each session starts with `--dangerously-load-development-chann
 sessions must be interactive and stay open.
 
 `yk pickup on|off|now [--to N]|status` drives the schedule: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in
-`scripts/gen-pickup.py`) runs `scripts/pickup.sh tick`. A tick reads the registry (an entry whose pid is dead is deleted), asks each session
+`src/gen-session.ts`) runs `src/pickup.ts tick`. A tick reads the registry (an entry whose pid is dead is deleted), asks each session
 for its `/status`, and hands the next issue to the **oldest idle session**: the first assigned, Ready issue by Priority (P0 first) with no open
 PR naming it and no `issue/<n>` branch on the remote. With several idle sessions and several such issues one tick hands one issue to each
 (`PICKUP handed=#<n> to=<name>`, one line per issue). It skips (`PICKUP skipped=<why>`, exit 0) when no session is registered, all are busy
@@ -83,7 +83,7 @@ that are assigned to you and Ready on the project are handed over. There is no p
 mode (`auto` recommended) and a prompt waits at the terminal. Never start it with `--dangerously-skip-permissions`.
 
 ## Prerequisites
-`git`, `jq`, `curl`, `flock`, `python3`, `bun` (the channel), Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
+`git`, `bun` (everything here is TypeScript on Bun), `curl`, Java 25, Go (the CLI is built with the server). Optional: `opengrep`, `trivy`
 (skipped when absent), `gh` + `cosign` for `yk up --release`, `mint` (docs links), `reuse`, `actionlint`, Ollama with the
 triage model for the heal triage (without it heal starts at the average level).
 
@@ -111,12 +111,12 @@ model, a stale one, a slow answer or a digest over the cap, the step takes the p
 `YUKTA_DECISION_URL`, `YUKTA_DECISION_MAX_INPUT` (characters, question included) override them and `YUKTA_DECISION=off` disables it.
 No model is assumed: set `YUKTA_DECISION_MODEL`. `yk decision` (and `yk status`, from a 10 minute cache) probes Ollama: reachable,
 version, model present and not in an old format, and the time of a small and a 1 KB digest. Scripts call `decide NAME STATE QUESTION
-CRITERIA-JSON` from `scripts/_lib.sh`. A decision runs in **shadow** by default: the model is asked and `{label, probability, input hash,
+CRITERIA-JSON` from `src/lib.ts`. A decision runs in **shadow** by default: the model is asked and `{label, probability, input hash,
 latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still decides. `YUKTA_DECISION=shadow|on|off` sets the mode of all,
 `YUKTA_DECISION_<NAME>` or `decisions.<name>.mode` of one. `decision_outcome NAME STATE LABEL` records what really happened; `yk stats
 --decisions` joins the two and prints agreement, a calibration table and whether the `bar` of the decision in `decisions.json` is met
-(a decision below it stays in shadow); `scripts/test-decision.sh` tests it against `fake-ollama.py`.
-`yk advise` (`scripts/advise.sh`, tested by `scripts/test-advise.sh`) recommends a test tier (CLAUDE.md "Test Execution Policy") for the current changes: a deterministic floor from the paths, then one `decide` over a per-file digest (path, lines added/removed, kind; no diff) that can only widen it (`public-contract` to tier 2, `build-or-config` to 3, unsure to one more). No model, an error or an oversized digest leaves the floor. It is advice only; nothing is skipped because of it.
+(a decision below it stays in shadow); `test/decision.test.ts` tests it against `fake-ollama.ts`.
+`yk advise` (`src/advise.ts`, tested by `scripts/test-src/advise.ts`) recommends a test tier (CLAUDE.md "Test Execution Policy") for the current changes: a deterministic floor from the paths, then one `decide` over a per-file digest (path, lines added/removed, kind; no diff) that can only widen it (`public-contract` to tier 2, `build-or-config` to 3, unsure to one more). No model, an error or an oversized digest leaves the floor. It is advice only; nothing is skipped because of it.
 
 ## Self-healing check
 
@@ -133,22 +133,21 @@ latency}` goes to `.yukta-dev/decisions.tsv`, but the caller's static path still
 5. **Guard**: what changed on disk decides, not what Claude says. After the rules, the `guard` decision (decisions.json, shadow by default) asks the decision model once about per-file facts, never the diff; once it is `on` it can only reject (`GUARD: model:`), at probability >= `minProbability`. Rejected: edits to `config/`, `build-logic/`, `gradle/`,
    `.github/`, `.claude/` or this folder, added suppressions, removed assertions, test expectations changed with no code
    change, a claimed fix with no change. Fixers never commit.
-   **MCP for fixers**: a fixer reads more of the failed run on demand instead of being handed all of it. `claude.sh` gives it the server's `/mcp` with the read tools only (`get_node_output`, `get_execution_tree`, `get_execution_logs`, `get_execution_result`, `get_workflow_status`, `get_workflow_history`, `get_workflow_details`); the mutating tools are denied in `_claude.sh` and the key is a named `VIEWER` key (`fixer-key` in the dev state dir, added to `server.properties` when `yk up` starts the server, so a server started before this change needs a restart), which the server enforces. `YUKTA_FIXER_MCP=off` turns it off; another server needs `YUKTA_SERVER_URL` and a `VIEWER` key in `YUKTA_FIXER_MCP_KEY`. Without a key a fixer has no MCP, as before. `scripts/test-claude-mcp.sh` tests the arguments.
+   **MCP for fixers**: a fixer reads more of the failed run on demand instead of being handed all of it. claude.ts gives it the server's `/mcp` with the read tools only (`get_node_output`, `get_execution_tree`, `get_execution_logs`, `get_execution_result`, `get_workflow_status`, `get_workflow_history`, `get_workflow_details`); the mutating tools are denied in `claude.ts` and the key is a named `VIEWER` key (`fixer-key` in the dev state dir, added to `server.properties` when `yk up` starts the server, so a server started before this change needs a restart), which the server enforces. `YUKTA_FIXER_MCP=off` turns it off; another server needs `YUKTA_SERVER_URL` and a `VIEWER` key in `YUKTA_FIXER_MCP_KEY`. Without a key a fixer has no MCP, as before. `test/claude-mcp.test.ts` tests the arguments.
 6. **Verify**: if anything was healed, the Gradle tasks of all stages run once more; a failure goes back to heal.
 
 `licenses` and `security` are never healed. `--no-heal` ends the run at the first failing stage. With two or more Gradle stages planned, a `fast` step first runs all their tasks as one Gradle invocation (one start-up, one task graph); when it passes the Gradle stages are no-ops, when it fails the stages run one by one as before, so the failing stage, `failed_node` and the healing are unchanged. `--no-fast` skips it. `--models haiku,sonnet`
 leaves a model out (its rungs stop at once).
 
-Fixers run through `scripts/claude.sh` / `scripts/_claude.sh`: `--permission-mode auto --permission-prompts none` with a command
+Fixers run through `src/claude.ts` / `src/claude.ts`: `--permission-mode auto --permission-prompts none` with a command
 allowlist, the models pinned to `claude-haiku-5-5` and `claude-sonnet-5-5`, no user plugins, skills, MCP servers or CLAUDE.md,
-a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by default) gives a fixer an advisor model. `YUKTA_BUDGET_CHECK` (USD, default `checkBudget` in `heal.json`, $5) caps what all attempts of one check may cost together: once spent, no further rung starts and the stage ends as the ladder does. The prompt of an attempt carries 12-line excerpts around the `file:line` spots in the problem lines (up to 6). The free fix of `reuse` is `scripts/fix-reuse.sh` (the project header on every file `reuse lint` reports, a `.license` sidecar for types it cannot comment), so `healed=reuse:auto` costs no model call.
+a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by default) gives a fixer an advisor model. `YUKTA_BUDGET_CHECK` (USD, default `checkBudget` in `heal.json`, $5) caps what all attempts of one check may cost together: once spent, no further rung starts and the stage ends as the ladder does. The prompt of an attempt carries 12-line excerpts around the `file:line` spots in the problem lines (up to 6). The free fix of `reuse` is `scripts/fix-reuse.ts` (the project header on every file `reuse lint` reports, a `.license` sidecar for types it cannot comment), so `healed=reuse:auto` costs no model call.
 
 ### Configuration
 - `heal.json`: ladders per level, efforts (budget, time box), triage model and URL, the healable stages with their free fixes,
   the extra tools (ui, docs, reuse, actionlint). `YUKTA_TRIAGE_MODEL` and `YUKTA_TRIAGE_URL` override the triage model and URL.
-- `fixer-rules.md`: the common system prompt of every fixer. `fixer-rules/<kind>.md` is appended for the failed stage (`style` → `pmd`, `spotbugs`, `tests` → `junit`, `coverage`, `compile`, `ui_vitest` → `vitest`, other `ui_*` → `ui`, `cli_*` → `go`); any other stage gets the common prompt alone. One constant file per kind, so the prompt cache holds. To add a role, add the file and a line in the `case` of `scripts/claude.sh`.
-- `session.json` is **generated**: after editing `heal.json`, run `python3 scripts/gen-heal.py` and `python3 scripts/gen-check.py`,
-  then commit it.
+- `fixer-rules.md`: the common system prompt of every fixer. `fixer-rules/<kind>.md` is appended for the failed stage (`style` → `pmd`, `spotbugs`, `tests` → `junit`, `coverage`, `compile`, `ui_vitest` → `vitest`, other `ui_*` → `ui`, `cli_*` → `go`); any other stage gets the common prompt alone. One constant file per kind, so the prompt cache holds. To add a role, add the file and a line in the `case` of `src/claude.ts`.
+- `session.json` is **generated**: after editing `heal.json`, run `bun src/gen-session.ts` (through `yk tool -C examples/11-dogfood bun src/gen-session.ts`), then commit it.
 - Events of every heal step: `~/.local/state/yukta-dev/heal-events.jsonl`; records of one run: `<checkout>/.yukta-dev/heal/`.
 
 ## Layout
@@ -156,20 +155,21 @@ a per-effort budget and time box. `YK_ADVISOR=sonnet` (experimental, off by defa
 |---|---|
 | `yk` | the one entry point |
 | `session.json` | the five workflows: `tool`, `claude`, `attempt`, `heal`, `check` (generated) |
-| `scripts/plan.sh` | the changes → stages, commands and free fixes |
-| `scripts/gen-heal.py`, `scripts/gen-check.py` | generate the workflows into `session.json` |
-| `scripts/yukta-heal.sh` | the script steps of heal and attempt, and the guard |
-| `scripts/claude.sh`, `scripts/_claude.sh` | the slim headless Claude launcher |
-| `scripts/test-fixer-role.sh` | offline test that a stage gets its fixer role |
-| `scripts/_lib.sh` | server, session and watch helpers |
-| `scripts/test-heal.sh` | the end-to-end test of check and heal against a fake claude (`yk up` first; no API cost) |
-| `scripts/test-hooks.sh` | the Claude Code hooks |
-| `scripts/test-notify.sh` | offline test of `notify_session` (auth and user line to a stub socket, off switches, never fails), the message text and the `--notify` flag check |
+| `src/plan.ts` | the changes → stages, commands and free fixes |
+| `src/gen-session.ts` | generate the workflows into `session.json` |
+| `src/heal.ts` | the script steps of heal and attempt, and the guard |
+| `src/claude.ts` | the slim headless Claude launcher |
+| `test/claude.test.ts` | offline test of the MCP access of the fixers and that a stage gets its fixer role |
+| `src/lib.ts` | server, session and watch helpers |
+| `test/heal.online.test.ts` | the end-to-end test of check and heal against a fake claude (`YK_ONLINE=1`, `yk up` first; no API cost) and `test/heal.test.ts` the offline tests of the guard and the no-progress check |
+| `../../.claude/hooks/yk-hook.test.ts` | the Claude Code hooks |
+| `test/notify.test.ts` | offline test of `notify_session` (auth and user line to a stub socket, off switches, never fails), the message text and the `--notify` flag check |
 | `channel/` | the generic Claude Code channel (Bun, TypeScript): an HTTP API to send events into a session and read Claude's replies, with permission relay; its `pickup` profile hands one GitHub issue at a time to an open session (`yk pickup session`). See `channel/README.md` |
-| `scripts/pickup.sh`, `scripts/gen-pickup.py` | `tick` (hand the next assigned, Ready issue to the channel) and the generator of the `pickup` workflow in `session.json` |
-| `scripts/test-pickup.sh` | offline test of `tick` (real channel, fake `gh`) and of `busy()` ignoring the schedule |
-| `scripts/test-yk.sh` | interrupt, detach and `--stages` of `yk` against the dev server (no cost) |
-| `eval/triage/` | the triage model evaluation |
+| `src/pickup.ts`, `src/gen-session.ts` | `tick` (hand the next assigned, Ready issue to the channel) and the generator of the `pickup` workflow in `session.json` |
+| `test/pickup.test.ts` | offline test of `tick` (real channel, fake `gh`), the ticket mode and `busy()` ignoring the schedule |
+| `test/yk.online.test.ts` | interrupt, detach and `--stages` of `yk` against the dev server (`YK_ONLINE=1`, no cost) |
+| `eval/triage/` | the triage model evaluation (`eval.ts`, `collect.ts`) |
+| `package.json`, `tsconfig.json` | the Bun package of `src/` and `test/` (`yk tool -C examples/11-dogfood bun test`) |
 | `backup/` | the previous implementation, kept while the loop is rebuilt |
 
 ## Notes

@@ -43,7 +43,7 @@ func isWarnOrError(e client.ExecutionEvent) bool {
 	return e.Severity == "WARN" || e.Severity == "ERROR"
 }
 
-// healPrefix starts the one-line report a self-healing fix step prints (yukta-heal.sh), which
+// healPrefix starts the one-line report a self-healing fix step prints (src/heal.ts), which
 // --quiet always shows: it is how a watcher learns that a failure was handled.
 const healPrefix = "HEAL "
 

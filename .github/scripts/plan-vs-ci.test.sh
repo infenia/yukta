@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# `yk check` (examples/11-dogfood/scripts/plan.sh) and CI (ci-tasks.sh) each decide which Gradle modules a
+# `yk check` (examples/11-dogfood/src/plan.ts) and CI (ci-tasks.sh) each decide which Gradle modules a
 # change affects. This test makes them agree: for the same changed file, in a copy of the real module graph,
-# both must name the same JVM modules (cli and ui are other ecosystems, which plan.sh plans separately), and
+# both must name the same JVM modules (cli and ui are other ecosystems, which plan.ts plans separately), and
 # both must rebuild every module for a build-logic change (ci-tasks.sh does the same for a test-support change,
 # which every module depends on, so the two lists are equal there too). It fails the moment one of them gets a new rule the other lacks.
 set -euo pipefail
@@ -12,7 +12,7 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 src=$(cd "$here/../.." && pwd)
 ci="$src/.github/scripts/ci-tasks.sh"
-plan_script="$src/examples/11-dogfood/scripts/plan.sh"
+plan_script="$src/examples/11-dogfood/src/plan.ts"
 
 repo=$(mktemp -d)
 trap 'rm -rf "$repo"' EXIT
@@ -21,9 +21,6 @@ git ls-files settings.gradle.kts '*build.gradle.kts' | while read -r f; do
   mkdir -p "$repo/$(dirname "$f")"
   cp "$f" "$repo/$f"
 done
-mkdir -p "$repo/examples/11-dogfood/scripts"
-cp "$plan_script" "$repo/examples/11-dogfood/scripts/"
-cp "$src/examples/11-dogfood/heal.json" "$repo/examples/11-dogfood/"
 cd "$repo"
 git init -q
 git add -A
@@ -32,7 +29,7 @@ git -c user.email=t@t -c user.name=t commit -qm graph
 failures=0
 fail() {
   echo "FAIL $1"
-  echo "  plan.sh:  $2"
+  echo "  plan.ts:  $2"
   echo "  ci-tasks: $3"
   failures=$((failures + 1))
 }
@@ -42,10 +39,10 @@ all_modules() {
   sed -n 's/^include("\(.*\)")/:\1/p' settings.gradle.kts | grep -v -e '^:cli$' -e '^:ui$' | sort -u
 }
 
-# The JVM modules plan.sh would build for the current working tree, one per line, sorted.
+# The JVM modules plan.ts would build for the current working tree, one per line, sorted.
 plan_modules() {
   local out
-  out=$(examples/11-dogfood/scripts/plan.sh --base HEAD)
+  out=$(YUKTA_REPO_ROOT="$repo" bun "$plan_script" --base HEAD)
   if grep -q '^# gradle: every stage' <<<"$out"; then
     all_modules
   else
@@ -87,7 +84,7 @@ rm -rf build-logic
 
 [ "$checked" -gt 0 ] || { echo "FAIL no modules found in settings.gradle.kts"; exit 1; }
 if [ "$failures" -gt 0 ]; then
-  echo "$failures plan(s) differ between plan.sh and ci-tasks.sh"
+  echo "$failures plan(s) differ between plan.ts and ci-tasks.sh"
   exit 1
 fi
-echo "ok   plan.sh and ci-tasks.sh agree on $checked modules and on a build-logic change"
+echo "ok   plan.ts and ci-tasks.sh agree on $checked modules and on a build-logic change"

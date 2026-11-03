@@ -9,7 +9,7 @@ const PLAN = [
   'compile\t.\t./gradlew compileJava -q --console=plain\t',
   '# ui: 6 files',
   'ui.tsc\tui\tnode_modules/.bin/tsc --noEmit\t',
-  "reuse\t.\t'reuse' 'lint'\tfix-reuse.sh",
+  "reuse\t.\t'reuse' 'lint'\tfix-reuse.ts",
 ].join('\n')
 
 test('the plan is parsed into grouped stages', () => {

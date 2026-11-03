@@ -1,4 +1,4 @@
-// The registry of running channels: $DIR/<name>.json = {name, port, pid, started}. A reader (scripts/pickup.sh, `yk pickup status`) drops
+// The registry of running channels: $DIR/<name>.json = {name, port, pid, started}. A reader (src/pickup.ts, `yk pickup status`) drops
 // the entries whose pid is dead; the channel removes its own entry on exit.
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

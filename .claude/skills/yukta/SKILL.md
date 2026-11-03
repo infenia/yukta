@@ -79,7 +79,7 @@ Levels of output: a green run is a few lines ending in `RESULT`; a red run adds 
 ## Headless fixers read more over MCP
 A fixer's prompt carries the failure in short (the L1 digest) and its session id. With the dev server's read-only `fixer` key it can call
 `mcp__yukta__get_workflow_history` / `get_node_output` (tail, grep, page) for more, so it asks for detail instead of receiving it. It cannot
-start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/scripts/_claude.sh`). `YUKTA_FIXER_MCP=off` disables it.
+start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/src/claude.ts`). `YUKTA_FIXER_MCP=off` disables it.
 
 ## Pickup (scheduled issue hand-over)
 `yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. An event

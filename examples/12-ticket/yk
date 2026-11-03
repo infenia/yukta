@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
-# SPDX-License-Identifier: Apache-2.0
-# SPDX-FileCopyrightText: 2026 Infenia Private Limited
-# The entry of the ticket pipeline: `examples/12-ticket/yk run 123` is `yk ticket run 123` (yk-ticket.sh holds the commands).
-exec "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../11-dogfood/yk" ticket "$@"
+#!/usr/bin/env bun
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+// The entry of the ticket pipeline: `examples/12-ticket/yk run 123` is `yk ticket run 123` (src/yk-ticket.ts holds the commands).
+import { main } from '../11-dogfood/src/yk.ts'
+
+process.exit(await main(['ticket', ...process.argv.slice(2)]))

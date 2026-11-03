@@ -1,0 +1,15 @@
+{
+  "name": "yukta-dogfood",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "yk and the dogfood scripts: develop Yukta with Yukta (build, test, check and heal through the dev server)",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4",
+    "typescript": "^5.6.0"
+  }
+}
