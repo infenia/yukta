@@ -6,7 +6,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionsFilterBar } from '../SessionsFilterBar';
 
-const NO_FILTERS = { tags: [], initiators: [], lastRuns: [] };
+const NO_FILTERS = { tags: [], initiators: [], lastRuns: [], system: false };
 
 describe('SessionsFilterBar', () => {
   it('should render search input', () => {

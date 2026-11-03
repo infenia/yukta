@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidUsingHardCodedIP",
+  "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert"
 })
 class TokenAnswerControllerTest {
@@ -87,6 +88,18 @@ class TokenAnswerControllerTest {
           .jsonPath("$.message")
           .isEqualTo("Invalid or expired token");
     }
+  }
+
+  @Test
+  void standbyAnswers503WithRetryAfter() {
+    when(service.answer(any()))
+        .thenReturn(Mono.error(new com.infenia.yukta.service.leader.NotLeaderException()));
+
+    post(open, "/api/inputs/token-answer", BODY.formatted("r1"))
+        .expectStatus()
+        .isEqualTo(503)
+        .expectHeader()
+        .valueEquals("Retry-After", "5");
   }
 
   @Test

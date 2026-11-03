@@ -10,11 +10,12 @@ const MAX_PAGES = 50;
 
 /**
  * Every session summary. The server returns one page at a time (500 by default), so a longer
- * list would be cut off silently; this follows the cursor until the end.
+ * list would be cut off silently; this follows the cursor until the end. Internal (system)
+ * sessions are included; the list page hides them until asked.
  */
 export async function getSessionSummaries(): Promise<SessionListItem[]> {
   return fetchAllPages<SessionListItem>(
-    '/api/sessions/summaries',
+    '/api/sessions/summaries?includeInternal=true',
     PAGE_SIZE,
     MAX_PAGES
   );
