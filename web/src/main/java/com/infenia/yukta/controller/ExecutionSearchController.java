@@ -81,6 +81,7 @@ public class ExecutionSearchController {
    *
    * @param sessionId only this session
    * @param limit most runs returned (default 100, at most 1000)
+   * @param includeInternal true to include the runs of internal sessions (supervisor workflows)
    * @param filter narrows the runs by workflow, status, text in the execution id, and start range
    * @return the matching runs
    */
@@ -94,10 +95,11 @@ public class ExecutionSearchController {
   public Mono<ApiResponse<List<Hit>>> search(
       @RequestParam(required = false) final String sessionId,
       @RequestParam(required = false) final Integer limit,
+      @RequestParam(defaultValue = "false") final boolean includeInternal,
       final HistoryFilter filter) {
     final int max = limit == null ? DEFAULT_LIMIT : Math.clamp(limit, 1, MAX_LIMIT);
     return sessions
-        .getSessionIds()
+        .getSessionIds(includeInternal)
         .filter(id -> sessionId == null || sessionId.equals(id))
         .concatMap(
             id ->
@@ -130,7 +132,7 @@ public class ExecutionSearchController {
   public Mono<ApiResponse<Counts>> counts(@RequestParam(defaultValue = "24") final int hours) {
     final Instant since = Instant.now().minus(Math.max(hours, 0), ChronoUnit.HOURS);
     return sessions
-        .getSessionIds()
+        .getSessionIds(false)
         .concatMap(id -> controlBus.getHistory(id).flatMapIterable(history -> history))
         .collectList()
         .map(

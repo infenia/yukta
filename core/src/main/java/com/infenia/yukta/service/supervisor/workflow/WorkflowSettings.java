@@ -3,11 +3,15 @@
 package com.infenia.yukta.service.supervisor.workflow;
 
 import com.infenia.yukta.plugin.control.SupervisorProfile;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
+import org.springframework.expression.Expression;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
 
 /**
  * The settings of a profile of type {@code workflow}, checked once.
@@ -17,9 +21,20 @@ import java.util.Set;
  * @param events the event types (simple class names such as {@code InputRequested}) that start it
  * @param maxConcurrent how many runs of this supervisor may go at once
  * @param timeout how long one run may take
+ * @param when optional read-only SpEL condition over the (redacted) event map, or {@code null}
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "a parsed SpEL expression is immutable in use")
 public record WorkflowSettings(
-    String sessionId, String workflowId, Set<String> events, int maxConcurrent, Duration timeout) {
+    String sessionId,
+    String workflowId,
+    Set<String> events,
+    int maxConcurrent,
+    Duration timeout,
+    @Nullable Expression when) {
+
+  private static final SpelExpressionParser PARSER = new SpelExpressionParser();
 
   /** Default for {@code maxConcurrent}. */
   public static final int DEFAULT_CONCURRENT = 2;
@@ -31,6 +46,24 @@ public record WorkflowSettings(
   public static final int MAX_TIMEOUT_SECONDS = 600;
 
   /**
+   * Settings without a {@code when} condition.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param events the event types
+   * @param maxConcurrent the concurrency
+   * @param timeout the time limit
+   */
+  public WorkflowSettings(
+      final String sessionId,
+      final String workflowId,
+      final Set<String> events,
+      final int maxConcurrent,
+      final Duration timeout) {
+    this(sessionId, workflowId, events, maxConcurrent, timeout, null);
+  }
+
+  /**
    * Keeps an immutable copy of the events.
    *
    * @param sessionId the session
@@ -38,6 +71,7 @@ public record WorkflowSettings(
    * @param events the event types
    * @param maxConcurrent the concurrency
    * @param timeout the time limit
+   * @param when the condition, or {@code null}
    */
   public WorkflowSettings {
     events = Set.copyOf(events);
@@ -70,7 +104,23 @@ public record WorkflowSettings(
         text(m.get("workflowId"), "workflowId"),
         events(m.get("events")),
         concurrent,
-        Duration.ofSeconds(seconds));
+        Duration.ofSeconds(seconds),
+        when(m.get("when")));
+  }
+
+  private static @Nullable Expression when(final Object value) {
+    if (value == null) {
+      return null;
+    }
+    if (value instanceof String s && !s.isBlank()) {
+      try {
+        return PARSER.parseExpression(s);
+      } catch (final org.springframework.expression.ParseException e) {
+        throw new IllegalArgumentException(
+            "Setting 'when' is not valid SpEL: " + e.getMessage(), e);
+      }
+    }
+    throw new IllegalArgumentException("Setting 'when' must be a SpEL text");
   }
 
   private static Set<String> events(final Object value) {

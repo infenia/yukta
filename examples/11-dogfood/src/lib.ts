@@ -580,13 +580,15 @@ export function triageConf(key: 'url' | 'model'): string {
 const dec = (): Json => readJson(join(HERE, 'decisions.json'))
 export const decisionModel = (): string => process.env.YUKTA_DECISION_MODEL || dec().model || ''
 export const decisionUrl = (): string => process.env.YUKTA_DECISION_URL || dec().url || ''
+/** Bearer key for a hosted System One endpoint (Jev): YUKTA_DECISION_API_KEY or $DEV_HOME/decision-key (outside the repo, mode 600). '' = none (Ollama). */
+const decisionKey = (): string => process.env.YUKTA_DECISION_API_KEY || (isFile(join(DEV_HOME, 'decision-key')) ? text(join(DEV_HOME, 'decision-key')).trim() : '')
 
 async function decisionCall(url: string, body: Json): Promise<{ code: string; ms: number; body: string }> {
   const t0 = Date.now()
-  const r = await http('POST', `${url}/v1/systemone`, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), timeoutMs: 60000 })
+  const r = await http('POST', `${url}/v1/systemone`, { headers: { 'Content-Type': 'application/json', ...(decisionKey() ? { Authorization: `Bearer ${decisionKey()}` } : {}) }, body: JSON.stringify(body), timeoutMs: 60000 })
   return { code: r.code === 0 ? '000' : String(r.code), ms: r.code === 0 ? 0 : Date.now() - t0, body: r.body }
 }
-const decisionBody = (model: string, state: string, question: string, criteria: Json): Json => ({ model, state, questions: { q: { type: 'choice', instructions: question, criteria } }, keep_alive: '10m' })
+const decisionBody = (model: string, state: string, question: string, criteria: Json): Json => ({ model, state, questions: { q: { type: 'choice', instructions: question, criteria } }, ...(decisionKey() ? {} : { keep_alive: '10m' }) })
 
 /** shadow (default: ask, record, and let the caller's static path decide), on (use the answer) or off (do not ask). */
 export function decisionMode(name: string): string {
@@ -642,6 +644,12 @@ export async function decisionProbe(fresh = false): Promise<[string, boolean]> {
   }
   const crit = { ok: 'the probe', no: 'never' }
   let line: string
+  if (decisionKey()) {
+    const r = await decisionCall(url, decisionBody(model, 'Is this a probe? Yes.', 'Is this a probe?', crit))
+    line = r.code === '200' ? `decision: ok ${model} at ${url} (hosted), ${r.ms} ms` : `decision: unavailable, HTTP ${r.code}: ${r.body.slice(0, 160)}`
+    try { mkdirp(DEV_HOME); writeFileSync(cache, `${model} ${url}\n${line}\n`) } catch { /* best effort */ }
+    return [line, r.code === '200']
+  }
   const tags = await http('GET', `${url}/api/tags`, { timeoutMs: 3000 })
   const verRes = await http('GET', `${url}/api/version`, { timeoutMs: 3000 })
   const ver = tryJson(verRes.body)?.version as string | undefined

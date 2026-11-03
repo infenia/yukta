@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.TaskStatus;
@@ -37,7 +39,7 @@ class ExecutionSearchControllerTest {
   }
 
   private void history() {
-    when(sessions.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
@@ -50,6 +52,16 @@ class ExecutionSearchControllerTest {
                 List.of(
                     run("b1", "other", TaskStatus.SUCCESS, NOON.plus(Duration.ofHours(1))),
                     run("b2", "wf", TaskStatus.QUEUED, null))));
+  }
+
+  @Test
+  void internalSessionsAreLeftOutUnlessAsked() {
+    history();
+
+    client.get().uri("/api/executions").exchange().expectStatus().isOk();
+    verify(sessions).getSessionIds(false);
+    client.get().uri("/api/executions?includeInternal=true").exchange().expectStatus().isOk();
+    verify(sessions).getSessionIds(true);
   }
 
   @Test
@@ -102,7 +114,7 @@ class ExecutionSearchControllerTest {
 
   @Test
   void workflowFilter_isAskedOfTheTrackerPerSession() {
-    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1", "wf"))
         .thenReturn(Mono.just(List.of(run("a1", "wf", TaskStatus.SUCCESS, NOON))));
 
@@ -119,7 +131,7 @@ class ExecutionSearchControllerTest {
 
   @Test
   void hitsCarryWhoStartedTheRun() {
-    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
@@ -159,7 +171,7 @@ class ExecutionSearchControllerTest {
 
   @Test
   void hitsCarryNodeProgress() {
-    when(sessions.getSessionIds()).thenReturn(Flux.just("s1"));
+    when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
@@ -191,7 +203,7 @@ class ExecutionSearchControllerTest {
   @Test
   void countsRunningAndQueuedNow_andFailuresInTheWindow() {
     final Instant now = Instant.now();
-    when(sessions.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
+    when(sessions.getSessionIds(anyBoolean())).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1"))
         .thenReturn(
             Mono.just(
