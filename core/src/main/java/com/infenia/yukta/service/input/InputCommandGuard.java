@@ -107,7 +107,7 @@ public class InputCommandGuard {
     final Responder.Type type =
         switch (actor.type()) {
           case SUPERVISOR -> Responder.Type.SUPERVISOR;
-          case EXTERNAL -> Responder.Type.EXTERNAL;
+          case EXTERNAL, AGENT -> Responder.Type.EXTERNAL;
           case HUMAN, UNAUTHENTICATED -> Responder.Type.HUMAN;
         };
     return new Responder(type, actor.id());

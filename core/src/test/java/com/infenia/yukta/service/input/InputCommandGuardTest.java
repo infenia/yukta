@@ -8,7 +8,10 @@ import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.Responder;
+import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
+import com.infenia.yukta.security.CallerIdentity;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -19,6 +22,7 @@ import reactor.util.context.Context;
 /** The guard maps the sender to a responder, and a replacement authoriser takes over the rules. */
 @NoArgsConstructor
 class InputCommandGuardTest {
+  private static final String EXEC = "exec";
 
   private final InputFlow flow = new InputFlow();
 
@@ -44,7 +48,7 @@ class InputCommandGuardTest {
     // a token caller the default rules would refuse: the replacement lets it through
     StepVerifier.create(
             guard
-                .clear("exec", request.id(), false)
+                .clear(EXEC, request.id(), false)
                 .contextWrite(
                     Context.of(
                         ControlActor.CONTEXT_KEY,
@@ -70,9 +74,7 @@ class InputCommandGuardTest {
         new InputCommandGuard(flow.leader, flow.broker, flow.actors, context -> Mono.empty());
 
     StepVerifier.create(
-            allowAll
-                .clear("exec", request.id(), true)
-                .contextWrite(InputFlow.asSupervisor("guard")))
+            allowAll.clear(EXEC, request.id(), true).contextWrite(InputFlow.asSupervisor("guard")))
         .assertNext(
             cleared ->
                 assertThat(cleared.responder())
@@ -80,12 +82,36 @@ class InputCommandGuardTest {
         .verifyComplete();
     StepVerifier.create(
             allowAll
-                .clear("exec", request.id(), false)
+                .clear(EXEC, request.id(), false)
                 .contextWrite(InputFlow.asKey("alice", ApiRole.ADMIN)))
         .assertNext(
             cleared ->
                 assertThat(cleared.responder())
                     .isEqualTo(new Responder(Responder.Type.HUMAN, "alice")))
+        .verifyComplete();
+  }
+
+  @Test
+  void agentKeyBecomesAnExternalResponder() {
+    final InputRequest request = ask();
+    final InputCommandGuard allowAll =
+        new InputCommandGuard(flow.leader, flow.broker, flow.actors, context -> Mono.empty());
+
+    StepVerifier.create(
+            allowAll
+                .clear(EXEC, request.id(), false)
+                .contextWrite(
+                    Context.of(
+                        ControlActor.CONTEXT_KEY,
+                        "key:claude",
+                        ControlActor.KIND_KEY,
+                        ControlActor.Kind.KEY,
+                        CallerIdentity.CONTEXT_KEY,
+                        new ApiKeys.Match("claude", ApiRole.OPERATOR, Set.of(), true))))
+        .assertNext(
+            cleared ->
+                assertThat(cleared.responder())
+                    .isEqualTo(new Responder(Responder.Type.EXTERNAL, "claude")))
         .verifyComplete();
   }
 }

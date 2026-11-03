@@ -55,6 +55,23 @@ class ApiKeysTest {
     assertThat(team.role()).isEqualTo(ApiRole.OPERATOR);
     assertThat(team.reaches("a")).isTrue();
     assertThat(team.reaches("c")).isFalse();
+    assertThat(team.agent()).isFalse();
+  }
+
+  @Test
+  void read_marksAnAgentKey() {
+    final var env =
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].name", "claude")
+            .withProperty("yukta.api-keys[0].key", "agent-secret")
+            .withProperty("yukta.api-keys[0].role", "OPERATOR")
+            .withProperty("yukta.api-keys[0].sessions", "dogfood")
+            .withProperty("yukta.api-keys[0].agent", "true");
+
+    final var match = ApiKeys.read(env, null).find("agent-secret");
+
+    assertThat(match.agent()).isTrue();
+    assertThat(match.reaches("dogfood")).isTrue();
   }
 
   @Test

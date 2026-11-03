@@ -69,6 +69,23 @@ class ActorResolverTest {
   }
 
   @Test
+  void agentKeyIsAnAgentWithItsRoleAndSessions() {
+    final ActorInfo actor =
+        resolver.resolve(
+            Context.of(
+                ControlActor.CONTEXT_KEY,
+                "key:claude",
+                ControlActor.KIND_KEY,
+                ControlActor.Kind.KEY,
+                CallerIdentity.CONTEXT_KEY,
+                new ApiKeys.Match("claude", ApiRole.OPERATOR, Set.of("dogfood"), true)));
+
+    assertThat(actor.type()).isEqualTo(ActorInfo.Type.AGENT);
+    assertThat(actor.id()).isEqualTo("claude");
+    assertThat(actor.sessions()).containsExactly("dogfood");
+  }
+
+  @Test
   void supervisorIsFoundByIdWithItsCapabilitiesAndScope() {
     attach("guard", true);
 
