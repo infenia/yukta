@@ -41,12 +41,12 @@ export function notice(env: Json): { issue: string; idempotency_key: string; con
   const prompt = String(spec.prompt ?? '').slice(0, MAX_PROMPT)
   const content = human
     ? `Ask the person at this terminal (ticket #${issue}, ${spec.risk}): ${prompt}\nThen answer request ${req.id} with answer_input.`
-    : `Question for ticket #${issue} (${spec.risk}, tier ${req.tier}): ${prompt}\nRead it with list_pending_inputs and answer request ${req.id} with answer_input, or ask the person.`
+    : `Question for ticket #${issue} (${spec.risk}, tier ${req.tier}): ${prompt}\nRead it with list_pending_inputs and answer request ${req.id} with answer_input, or ask the person.\nanswer_input needs session_id and execution_id from this event's attributes.`
   return {
     issue,
     idempotency_key: `input-${req.id}-${req.tier}`,
     content,
-    meta: { kind: 'input', request_id: String(req.id), run: String(spec.context?.run_id ?? ''), issue, risk: String(spec.risk), tier: String(req.tier), phase: human ? 'human' : 'session' },
+    meta: { kind: 'input', request_id: String(req.id), session_id: String(req.sessionId), execution_id: String(req.executionId), run: String(spec.context?.run_id ?? ''), issue, risk: String(spec.risk), tier: String(req.tier), phase: human ? 'human' : 'session' },
   }
 }
 

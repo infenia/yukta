@@ -77,6 +77,11 @@ when a ticket-run question (route `ticket`) reaches the `session` tier, pushes o
 that issue, and a second one when it escalates to the `human` tier. The event never takes the session's busy slot. The session reads and answers over the Yukta MCP
 (`list_pending_inputs`, `answer_input`). No owning session: nothing is sent, `yk approve` and the UI still answer. Design: `design/plans/ticket-input-routing.md`.
 
+**Running the ticket pipeline from the session (`YUKTA_PICKUP_VIA=ticket`, #1922).** Set `YUKTA_PICKUP_VIA=ticket` (or write `ticket` into `$DEV_HOME/pickup-via`) and `pickup tick`
+hands the issue with `meta.via=ticket`: the session runs `yk ticket run <n> --detach --notify` instead of implementing, and, with `yk pickup bridge` running, receives the
+questions of the run as `kind=input` events (they do not take the busy slot). It answers over the Yukta MCP or asks the person; the rules are in the `pickup` skill, section
+"Ticket pipeline mode". Default is unchanged (the session implements). Not the same as `YUKTA_PICKUP_MODE=ticket`, where the tick runs the pipeline itself with no session.
+
 **Which session gets the issue.** The oldest idle one, or the one you pin. A session counts as busy only while it holds an issue the channel
 handed over: one busy with your own work is still idle for the channel, and its event waits until its current turn ends (events queue). To
 keep a session out of pickup, do not open it with `yk pickup session`; to stop pickup altogether, `yk pickup off`. A manual `/pickup <n>`
