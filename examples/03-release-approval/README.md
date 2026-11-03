@@ -56,8 +56,9 @@ message to the `error` port, which leads straight to `rejected`. Only a terminal
 curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
   -d "{\"sessionId\":\"example-03-release-approval\",\"workflowId\":\"release\",\"payload\":$(cat payload.json)}"
 
-curl localhost:9858/api/sessions/example-03-release-approval/approvals
-curl -X POST "localhost:9858/api/executions/<executionId>/nodes/approve/signal?name=approve-release&decision=approve"
+curl localhost:9858/api/sessions/example-03-release-approval/inputs?state=OPEN
+curl -X POST "localhost:9858/api/executions/<executionId>/inputs/<requestId>/answer" \
+  -H 'Content-Type: application/json' -d '{"decision":"approve"}'
 ```
 
 ## How to run

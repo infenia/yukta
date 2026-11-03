@@ -292,13 +292,15 @@ A decision of `reject` (any capitalisation) is a rejection. Any other decision, 
 
 The wait is an input request (kind `APPROVAL`, risk `HIGH`), so it is listed with the pending inputs and only a person can answer it. Without an input gateway the node fails with a clear message.
 
-Send the signal to the waiting node of a running execution:
+Answer the input request of the waiting node:
 
 ```http
-POST /api/executions/{executionId}/nodes/{nodeId}/signal?name=approve&decision=approve&data=ok
+POST /api/executions/{executionId}/inputs/{requestId}/answer
+
+{"decision": "approve", "text": "ok"}
 ```
 
-The request answers `409` when the node is not waiting for that name. List the nodes that wait now with `GET /api/sessions/{sessionId}/approvals`.
+The request answers `409` when it is no longer open. List the open requests with `GET /api/sessions/{sessionId}/inputs?state=OPEN`.
 
 Signal behaviour:
 

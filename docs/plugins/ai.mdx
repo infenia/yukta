@@ -178,7 +178,7 @@ The payload is `{"success", "tool", "text", "content", "structured", "error"}`: 
 
 Every call carries the message id and the attempt number in its request metadata (`yukta/messageId` and `yukta/attempt`), so a tool server can recognise a repeated call. The node keeps one MCP session per server and set of credentials and sends progress as heartbeats so a long call is not timed out while it reports progress.
 
-An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_signal): answer the waiting node with the signal endpoint of its execution, using `name` equal to `approvalSignal`. A `decision` of `reject` refuses the call and any other decision allows it. See [Approvals and signals](/building/approvals-and-signals).
+An approval works like [`WAIT_FOR_SIGNAL`](/plugins/routing-and-flow#wait_for_signal): answer its [input request](/building/input-requests) (`POST /api/executions/{executionId}/inputs/{requestId}/answer`); the request's `context.signal` equals `approvalSignal`. A `decision` of `reject` refuses the call and any other decision allows it. See [Approvals and signals](/building/approvals-and-signals).
 
 ### Server settings
 
