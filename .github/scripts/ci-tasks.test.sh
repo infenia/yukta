@@ -50,7 +50,7 @@ expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform plugins
 # The deepest module owns a path: plus/workers is not plus.
 expect 'plus/workers/src/A.java' "$affected" '":boot :plus:workers"'
 expect 'plus/workers/src/A.java' "$shards" '"platform infra workers-acceptance"'
-expect 'plus/src/A.java' "$shards" '"platform infra plus-acceptance"'
+expect 'plus/src/A.java' "$shards" '"platform infra postgres-acceptance plus-acceptance"'
 expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra postgres-acceptance"'
 
 # Leaf modules: the UI rebuilds boot (which embeds it) and runs E2E; the CLI stands alone.
