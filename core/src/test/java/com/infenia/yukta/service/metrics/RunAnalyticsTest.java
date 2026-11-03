@@ -345,11 +345,12 @@ class RunAnalyticsTest {
                     new ExecutionEvent.WorkflowStatusChanged(
                         "x", "s1", "w1", SUCCESS, T0.plusMillis(10)));
                 assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS");
+                // the retried publishes may leave a later RUNNING still in flight
+                assertThat(analytics.liveRuns()).isEmpty();
               });
     } finally {
       analytics.stop();
     }
-    assertThat(analytics.liveRuns()).isEmpty();
   }
 
   @Test
