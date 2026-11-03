@@ -164,6 +164,7 @@ com.infenia.yukta.service.input.InputBroker
 com.infenia.yukta.service.input.InputCommandGuard
 com.infenia.yukta.service.input.InputDeadlineSweeper
 com.infenia.yukta.service.input.InputRequestQueries
+com.infenia.yukta.service.input.InputRetention
 com.infenia.yukta.service.input.delivery.InputDeliveryWorker
 com.infenia.yukta.service.input.delivery.WebhookInputResponder
 com.infenia.yukta.service.input.route.RouteResolver
