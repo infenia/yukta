@@ -43,6 +43,13 @@ class InputRedactorTest {
     assertThat(clean.context().toString()).doesNotContain("private", "zzzz1234");
   }
 
+  @Test
+  void aMapIsCleanedLikeAContext() {
+    assertThat(redactor.map(Map.of("customerNote", "private", "fine", "kept")))
+        .containsEntry("customerNote", SecretRedactor.REDACTED)
+        .containsEntry("fine", "kept");
+  }
+
   private static InputRequestSpec withContext(final Map<String, Object> context) {
     final InputRequestSpec base = InputTestSupport.spec("k");
     return new InputRequestSpec(

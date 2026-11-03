@@ -48,7 +48,7 @@ public class TierTargets {
     for (final String selector : tier.responders()) {
       if (ABOVE.equals(selector)) {
         bound.bound().stream()
-            .filter(c -> watches(c, request))
+            .filter(c -> watches(c, request) && bound.mayReceive(c, request))
             .filter(c -> references.stream().anyMatch(c.scope()::strictlyCovers))
             .forEach(c -> out.add(PREFIX + c.id()));
       } else {
@@ -70,7 +70,7 @@ public class TierTargets {
       final InputRequest request, final List<String> selectors, final EligibleSupervisors bound) {
     final boolean any = selectors.contains(ANY);
     return bound.bound().stream()
-        .filter(c -> watches(c, request))
+        .filter(c -> watches(c, request) && bound.mayReceive(c, request))
         .filter(c -> any || selectors.contains(PREFIX + c.id()))
         .toList();
   }

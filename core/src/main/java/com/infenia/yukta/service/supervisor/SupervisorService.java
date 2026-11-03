@@ -17,6 +17,8 @@ import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
+import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -115,6 +117,19 @@ public class SupervisorService {
   @Autowired(required = false)
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
+  }
+
+  /** Checks workflow profiles against the stores; null where there are none. */
+  @Nullable private WorkflowSupervisorChecks workflowChecks;
+
+  /**
+   * Lets {@code workflow} profiles be checked against the sessions and workflows.
+   *
+   * @param checks the checks
+   */
+  @Autowired(required = false)
+  public void setWorkflowChecks(final WorkflowSupervisorChecks checks) {
+    this.workflowChecks = checks;
   }
 
   /**
@@ -226,6 +241,10 @@ public class SupervisorService {
    */
   public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
     return refreshResolver()
+        .then(
+            Mono.defer(
+                () ->
+                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
         .then(Mono.fromRunnable(() -> validate(profile)))
         .then(Mono.defer(() -> store.saveProfile(profile)))
         .then(Mono.defer(this::refreshResolver))
@@ -462,10 +481,14 @@ public class SupervisorService {
   }
 
   private void start(final SupervisorBinding binding, final SupervisorProfile profile) {
+    final ExecutionSupervisor made = create(profile);
+    if (made instanceof WorkflowSupervisor workflow) {
+      workflow.bindTo(binding.id());
+    }
     host.attach(
         new BoundSupervisor(
             binding,
-            create(profile),
+            made,
             profile.dryRun(),
             capabilities(profile),
             Boolean.TRUE.equals(profile.settings().get("observeInternal"))));

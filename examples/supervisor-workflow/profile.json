@@ -1,0 +1,15 @@
+{
+  "id": "low-risk-workflow",
+  "type": "workflow",
+  "dryRun": false,
+  "settings": {
+    "sessionId": "supervisors",
+    "workflowId": "low-risk-answers",
+    "events": ["InputRequested"],
+    "maxConcurrent": 2,
+    "timeout": 30,
+    "allowedCommands": ["AnswerInputCommand", "EscalateInputCommand"],
+    "canAnswer": true,
+    "maxRisk": "LOW"
+  }
+}
