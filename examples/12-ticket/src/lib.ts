@@ -114,8 +114,17 @@ export function testsModeFor(kind: string, complexity: string, risk: string): st
 
 export type Proc = { code: number; stdout: string; stderr: string }
 
+/** The programs these tools launch by name. Anything else must be this runtime, or a binary the environment names on purpose (YUKTA_BIN, YUKTA_CLAUDE_BIN, YK_CLAUDE_BIN, YUKTA_PICKUP_YK). */
+const PROGRAMS = new Set(['git', 'gh', 'bun', 'bash', 'sh', 'claude', 'cp', 'mv', 'ln', 'tar', 'cosign', 'reuse', 'pgrep', 'yukta-cli', 'java', 'make'])
+function checkProgram(program: string): void {
+  const named = [process.execPath, process.env.YUKTA_BIN, process.env.YUKTA_CLAUDE_BIN, process.env.YK_CLAUDE_BIN, process.env.YUKTA_PICKUP_YK]
+  if (PROGRAMS.has(program.split('/').pop()!) || named.includes(program) || /(^|\/)yukta-cli(-[a-z0-9-]+)?$/.test(program) || /(^|\/)claude(\.ts)?$/.test(program)) return
+  throw new Error(`refusing to run '${program}': not a program of the dogfood tooling`)
+}
+
 /** Runs a program without a shell; never throws (a missing program is code 127). */
 export function run(cmd: string[], opts: { cwd?: string; input?: string; env?: Record<string, string | undefined> } = {}): Proc {
+  try { checkProgram(cmd[0]!) } catch (e) { return { code: 126, stdout: '', stderr: (e as Error).message } }
   const r = spawnSync(cmd[0]!, cmd.slice(1), { cwd: opts.cwd, input: opts.input, encoding: 'utf8', env: opts.env ? { ...process.env, ...opts.env } : process.env, maxBuffer: 1 << 28 })
   if (r.error) return { code: 127, stdout: '', stderr: String(r.error.message) }
   return { code: r.status ?? 1, stdout: r.stdout ?? '', stderr: r.stderr ?? '' }
