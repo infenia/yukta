@@ -10,6 +10,37 @@
           "config": {}
         },
         {
+          "nodeId": "intake",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "intake",
+              "${start.issue}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "intake.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the issue is not eligible (not open, assigned to you and Ready, or no acceptance criteria) or asks for something forbidden"
+          }
+        },
+        {
           "nodeId": "init",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -40,7 +71,38 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "init failed or the issue is skipped (no acceptance criteria, branch or worktree exists)"
+            "reason": "init failed or the issue is skipped (the branch or worktree exists)"
+          }
+        },
+        {
+          "nodeId": "claim",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "claim",
+              "${start.issue}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "claim.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the issue could not be moved to In progress"
           }
         },
         {
@@ -71,6 +133,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "route failed"
+          }
+        },
+        {
+          "nodeId": "route.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "route",
+              "--reason",
+              "route failed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
           }
         },
         {
@@ -111,6 +199,32 @@
           }
         },
         {
+          "nodeId": "architect.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "architect",
+              "--reason",
+              "the architect failed, asked for clarification or stayed invalid"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
           "nodeId": "validate_spec",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -140,6 +254,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "the spec is not valid (spec/validation.json)"
+          }
+        },
+        {
+          "nodeId": "validate_spec.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "validate_spec",
+              "--reason",
+              "the spec is not valid (spec/validation.json)"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
           }
         },
         {
@@ -180,6 +320,32 @@
           }
         },
         {
+          "nodeId": "test_writer.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "test_writer",
+              "--reason",
+              "the test writer failed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
           "nodeId": "gate_tests",
           "type": "PROCESS_EXECUTOR",
           "config": {
@@ -209,6 +375,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "the tests did not pass the red check"
+          }
+        },
+        {
+          "nodeId": "gate_tests.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "gate_tests",
+              "--reason",
+              "the tests did not pass the red check"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
           }
         },
         {
@@ -243,6 +435,89 @@
           }
         },
         {
+          "nodeId": "preflight.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "preflight",
+              "--reason",
+              "the walking skeleton cannot run this spec (high risk or more than one step)"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "plan_comment",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "plan-comment",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "plan_comment.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the plan could not be posted on the issue"
+          }
+        },
+        {
+          "nodeId": "plan_comment.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "plan_comment",
+              "--reason",
+              "the plan could not be posted on the issue"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
           "nodeId": "steps",
           "type": "SUB_WORKFLOW",
           "config": {
@@ -267,6 +542,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "a step failed (yk tree shows which)"
+          }
+        },
+        {
+          "nodeId": "steps.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "steps",
+              "--reason",
+              "a step failed (BLOCKED or it did not pass validation)"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
           }
         },
         {
@@ -300,6 +601,32 @@
           "config": {
             "outcome": "FAILED",
             "reason": "the final gate failed"
+          }
+        },
+        {
+          "nodeId": "full_checks.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "full_checks",
+              "--reason",
+              "the final gate failed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
           }
         },
         {
@@ -342,6 +669,32 @@
           }
         },
         {
+          "nodeId": "review.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "review",
+              "--reason",
+              "the reviewer failed"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
           "nodeId": "verdict?",
           "type": "BRANCH",
           "config": {
@@ -354,11 +707,70 @@
           }
         },
         {
-          "nodeId": "changes",
+          "nodeId": "changes.failed",
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
             "reason": "the reviewer requested changes"
+          }
+        },
+        {
+          "nodeId": "changes.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "changes",
+              "--reason",
+              "the reviewer requested changes"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "finish",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "__TICKET__/ticketkit",
+              "github",
+              "finish",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}"
+            },
+            "timeout": 600,
+            "timeoutSeconds": 600,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "finish.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the draft PR could not be opened"
           }
         },
         {
@@ -397,16 +809,36 @@
       "edges": [
         {
           "source": "trigger",
-          "target": "init"
+          "target": "intake"
+        },
+        {
+          "source": "intake",
+          "target": "init",
+          "sourcePort": "success"
+        },
+        {
+          "source": "intake",
+          "target": "intake.failed",
+          "sourcePort": "failure"
         },
         {
           "source": "init",
-          "target": "route",
+          "target": "claim",
           "sourcePort": "success"
         },
         {
           "source": "init",
           "target": "init.failed",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "claim",
+          "target": "route",
+          "sourcePort": "success"
+        },
+        {
+          "source": "claim",
+          "target": "claim.failed",
           "sourcePort": "failure"
         },
         {
@@ -416,8 +848,12 @@
         },
         {
           "source": "route",
-          "target": "route.failed",
+          "target": "route.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "route.dead",
+          "target": "route.failed"
         },
         {
           "source": "architect",
@@ -426,8 +862,12 @@
         },
         {
           "source": "architect",
-          "target": "architect.failed",
+          "target": "architect.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "architect.dead",
+          "target": "architect.failed"
         },
         {
           "source": "validate_spec",
@@ -436,8 +876,12 @@
         },
         {
           "source": "validate_spec",
-          "target": "validate_spec.failed",
+          "target": "validate_spec.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "validate_spec.dead",
+          "target": "validate_spec.failed"
         },
         {
           "source": "test_writer",
@@ -446,8 +890,12 @@
         },
         {
           "source": "test_writer",
-          "target": "test_writer.failed",
+          "target": "test_writer.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "test_writer.dead",
+          "target": "test_writer.failed"
         },
         {
           "source": "gate_tests",
@@ -456,18 +904,40 @@
         },
         {
           "source": "gate_tests",
-          "target": "gate_tests.failed",
+          "target": "gate_tests.dead",
           "sourcePort": "failure"
         },
         {
+          "source": "gate_tests.dead",
+          "target": "gate_tests.failed"
+        },
+        {
           "source": "preflight",
-          "target": "steps",
+          "target": "plan_comment",
           "sourcePort": "success"
         },
         {
           "source": "preflight",
-          "target": "preflight.failed",
+          "target": "preflight.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "preflight.dead",
+          "target": "preflight.failed"
+        },
+        {
+          "source": "plan_comment",
+          "target": "steps",
+          "sourcePort": "success"
+        },
+        {
+          "source": "plan_comment",
+          "target": "plan_comment.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "plan_comment.dead",
+          "target": "plan_comment.failed"
         },
         {
           "source": "steps",
@@ -476,8 +946,12 @@
         },
         {
           "source": "steps",
-          "target": "steps.failed",
+          "target": "steps.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "steps.dead",
+          "target": "steps.failed"
         },
         {
           "source": "full_checks",
@@ -486,8 +960,12 @@
         },
         {
           "source": "full_checks",
-          "target": "full_checks.failed",
+          "target": "full_checks.dead",
           "sourcePort": "failure"
+        },
+        {
+          "source": "full_checks.dead",
+          "target": "full_checks.failed"
         },
         {
           "source": "review",
@@ -496,18 +974,36 @@
         },
         {
           "source": "review",
-          "target": "review.failed",
+          "target": "review.dead",
           "sourcePort": "failure"
         },
         {
+          "source": "review.dead",
+          "target": "review.failed"
+        },
+        {
           "source": "verdict?",
-          "target": "close",
+          "target": "finish",
           "sourcePort": "approved"
         },
         {
           "source": "verdict?",
-          "target": "changes",
+          "target": "changes.dead",
           "sourcePort": "changes"
+        },
+        {
+          "source": "changes.dead",
+          "target": "changes.failed"
+        },
+        {
+          "source": "finish",
+          "target": "close",
+          "sourcePort": "success"
+        },
+        {
+          "source": "finish",
+          "target": "finish.failed",
+          "sourcePort": "failure"
         },
         {
           "source": "close",

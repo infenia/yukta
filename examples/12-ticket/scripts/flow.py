@@ -14,7 +14,7 @@
 TICKET_GATE_STEP / TICKET_GATE_FINAL (a shell command, {base} replaced) override the project's commands; the offline tests use them."""
 import argparse, json, os, pathlib, re, subprocess, sys
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
-from ticketlib import KIT, die, git, load, save
+from ticketlib import KIT, cost_by_role, die, git, load, save
 
 STEPKIT = [sys.executable, str(KIT / "scripts" / "stepkit.py")]
 TYPES = {"feature": "feat", "bug": "fix", "refactor": "refactor", "docs": "docs", "chore": "chore"}
@@ -48,6 +48,9 @@ def gate(run, wt, step, attempt, template, override, stage_default):
     cmd = template.format(base=base) if cmd in ("", "-") else cmd.format(base=base)
     r = shell(cmd, wt)
     text = r.stdout + r.stderr
+    if step is None:
+        res = [l for l in text.splitlines() if l.startswith("RESULT ")]
+        (run / "final-result.txt").write_text((res[-1] if res else "") + "\n")
     if r.returncode:
         m = re.search(r"failed_node=(\S+)", text)
         fail_digest(run, step or "S0", attempt, (m.group(1) if m and m.group(1) != "-" else stage_default), text, cmd, rc=r.returncode)
@@ -103,12 +106,8 @@ def main():
     elif o.action == "full-checks":
         sys.exit(1 if gate(run, wt, None, 1, p["commands"]["gate_final"], "TICKET_GATE_FINAL", "full") else 0)
     elif o.action == "close":
-        by, total = {}, 0.0
+        by, total = cost_by_role(run)
         lines = (run / "events.jsonl").read_text().splitlines() if (run / "events.jsonl").is_file() else []
-        for l in lines:
-            e = json.loads(l)
-            if e.get("cost_usd"):
-                by[e["role"]] = by.get(e["role"], 0) + e["cost_usd"]; total += e["cost_usd"]
         if o.events and lines:
             pathlib.Path(o.events).parent.mkdir(parents=True, exist_ok=True)
             with open(o.events, "a") as f:

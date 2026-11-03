@@ -94,3 +94,15 @@ def git(*args, cwd=None, check=True):
     if check and r.returncode:
         die(f"git {' '.join(args)}: {r.stderr.strip()}")
     return r
+
+
+def cost_by_role(run):
+    """({role: usd}, total) from RUN/events.jsonl."""
+    by, total = {}, 0.0
+    f = pathlib.Path(run) / "events.jsonl"
+    for l in (f.read_text().splitlines() if f.is_file() else []):
+        e = json.loads(l)
+        if e.get("cost_usd"):
+            by[e["role"]] = by.get(e["role"], 0) + e["cost_usd"]
+            total += e["cost_usd"]
+    return by, total

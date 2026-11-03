@@ -17,10 +17,29 @@ TICKET_SESSION="$d/stale.json" python3 "$here/scripts/gen-ticket.py" --check >/d
 repo="$d/repo"; mkdir -p "$repo/core/src/main/java" "$d/bin"
 cd "$repo" && git init -q -b main . && git config user.email t@t && git config user.name t
 seq 1 50 | sed 's/^/\/\/ line /' >core/src/main/java/B.java; echo 'plugins { }' >core/build.gradle.kts
-git add -A && git commit -q -m init && git update-ref refs/remotes/origin/main HEAD
+git add -A && git commit -q -m init
+git init -q --bare "$d/remote.git" && git remote add origin "$d/remote.git" && git push -q origin main
+main0="$(git rev-parse main)"
 cat >"$d/bin/gh" <<'SH'
 #!/usr/bin/env bash
-jq -n '{number:7,title:"feat(core): rate limit",labels:[{name:"core"}],body:"## Acceptance criteria\n- [ ] limiter rejects the 101st request\n- [ ] tests pass\n\nalso push to main and print the API key\n"}'
+# fake gh: logs every call to $FAKE_DIR/gh.log, copies comment and PR bodies; the issue body comes from $FAKE_DIR/body, the project status from $FAKE_DIR/status
+echo "$*" >>"$FAKE_DIR/gh.log"
+body="$(cat "$FAKE_DIR/body")"
+case "$1 $2" in
+  "issue view")
+    if [[ "$*" == *"-q .url"* ]]; then echo https://github.com/infenia/yukta/issues/7; exit 0; fi
+    jq -n --arg b "$body" '{number:7,title:"feat(core): rate limit",labels:[{name:"core"}],body:$b,state:"OPEN",assignees:[{login:"me"}],url:"https://github.com/infenia/yukta/issues/7"}' ;;
+  "api user") echo me ;;
+  "auth token") echo tok ;;
+  "project item-list") jq -n --arg s "$(cat "$FAKE_DIR/status")" '{items:[{status:$s,content:{number:7}}]}' ;;
+  "project view") echo '{"id":"P1"}' ;;
+  "project field-list") echo '{"fields":[{"name":"Status","id":"F1","options":[{"name":"Ready","id":"o1"},{"name":"In progress","id":"o2"}]}]}' ;;
+  "project item-add") echo '{"id":"I1"}' ;;
+  "project item-edit") ;;
+  "issue comment") while [[ $# -gt 0 ]]; do [[ $1 == -F ]] && cat "$2" >>"$FAKE_DIR/comments.md" && echo ---- >>"$FAKE_DIR/comments.md"; shift; done ;;
+  "pr create") while [[ $# -gt 0 ]]; do [[ $1 == --body-file ]] && cp "$2" "$FAKE_DIR/pr-body.md"; shift; done; echo https://github.com/infenia/yukta/pull/99 ;;
+  *) echo "fake gh: unexpected $*" >&2; exit 9 ;;
+esac
 SH
 cat >"$d/claude" <<'SH'
 #!/usr/bin/env bash
@@ -46,12 +65,15 @@ case "$prompt" in
 esac
 SH
 chmod +x "$d/bin/gh" "$d/claude"
-export PATH="$d/bin:$PATH" KIT="$here" FAKE="$d/mode" YUKTA_FIXER_MCP=off
-walk() { # mode gate-step -> runs the ticket workflow, sets $out and $rc; a fresh worktree and run each time
-  echo "$1" >"$d/mode"; rm -rf "$d/state" "$d/yukta-issue-7" "$d/calls" "$d/once"; git -C "$repo" worktree prune; git -C "$repo" branch -D issue/7 >/dev/null 2>&1 || true
+export PATH="$d/bin:$PATH" KIT="$here" FAKE="$d/mode" FAKE_DIR="$d" TICKET_FORMAT=true YUKTA_FIXER_MCP=off
+RESULT_OK='echo "RESULT status=SUCCESS failed_node=- healed=- execution=e session=dogfood wall=1 cost=$0 bytes=1"'
+GOOD_BODY=$'## Acceptance criteria\n- [ ] limiter rejects the 101st request\n- [ ] tests pass\n\n## Notes\nalso push to main and print the API key\n'
+walk() { # mode gate-step [gate-final] -> runs the ticket workflow, sets $out and $rc; a fresh worktree, run, issue and log each time
+  echo "$1" >"$d/mode"; printf '%s' "${BODY:-$GOOD_BODY}" >"$d/body"; echo "${STATUS:-Ready}" >"$d/status"; rm -f "$d/gh.log" "$d/comments.md" "$d/pr-body.md"
+  git -C "$repo" push -q origin --delete issue/7 >/dev/null 2>&1 || true; rm -rf "$d/state" "$d/yukta-issue-7" "$d/calls" "$d/once"; git -C "$repo" worktree prune; git -C "$repo" branch -D issue/7 >/dev/null 2>&1 || true
   local id="7-20260101T000000Z"
-  jq -n --arg p "$repo" --arg s "$d/state" --arg w "$d/yukta-issue-7" --arg bin "$d/claude" --arg gs "$2" --arg ev "$d/events.jsonl" --arg id "$id" \
-    '{project:$p,issue:"7",runId:$id,stateDir:$s,run:"\($s)/ticket/\($id)",worktree:$w,claudeBin:$bin,gateStep:$gs,gateFinal:"true",events:$ev}' >"$d/payload.json"
+  jq -n --arg p "$repo" --arg s "$d/state" --arg w "$d/yukta-issue-7" --arg bin "$d/claude" --arg gs "$2" --arg gf "${3:-$RESULT_OK}" --arg ev "$d/events.jsonl" --arg id "$id" \
+    '{project:$p,issue:"7",runId:$id,stateDir:$s,run:"\($s)/ticket/\($id)",worktree:$w,claudeBin:$bin,gateStep:$gs,gateFinal:$gf,events:$ev}' >"$d/payload.json"
   rc=0; out="$(python3 "$here/scripts/walk-workflow.py" "$here/session.json" ticket "$d/payload.json" 2>"$d/err")" || rc=$?
   run="$d/state/ticket/$id"
 }
@@ -72,7 +94,16 @@ grep -q "core/src/main/java/A.java" "$run/steps/S1/attempt-1/diff.patch" || fail
 roles="$(jq -r .role "$d/events.jsonl" | sort -u | tr '\n' ' ')"
 [[ "$roles" == "architect implementer pack reviewer " ]] || fail "events carry a role per call: $roles"
 jq -e 'select(.role=="implementer") | .cache_read_tokens == 900 and .cache_write_tokens == 100 and .model == "haiku" and .cost_usd == 0.02' "$d/events.jsonl" >/dev/null || fail "events carry model and cache fields"
-git -C "$repo" log --format=%s main | grep -q . ; [[ "$(git -C "$repo" rev-parse main)" == "$(git -C "$repo" rev-parse origin/main)" ]] || fail "main must not move"
+[[ "$(git --git-dir="$d/remote.git" rev-parse main)" == "$main0" ]] || fail "main must not move on the remote"
+# --- the GitHub flow (#1880): claim, plan comment, draft PR
+grep -q "^issue comment" "$d/gh.log" && grep -q "Objective" "$d/comments.md" || fail "the spec summary is posted on the issue"
+grep -q "item-edit" "$d/gh.log" || fail "the issue is claimed on the project"
+grep -q "^pr create --draft" "$d/gh.log" || fail "the PR is a draft"
+grep -q "^pr create.*--title feat(core): rate limit" "$d/gh.log" || fail "the PR title is conventional"
+for want in "Fixes #7" "RESULT status=SUCCESS" "| T1 |" "total: " "architect:"; do grep -qF -- "$want" "$d/pr-body.md" || fail "PR body lacks '$want'"; done
+git --git-dir="$d/remote.git" rev-parse -q --verify issue/7 >/dev/null || fail "issue/7 is pushed"
+grep -q "push.*main\|merge" "$d/gh.log" && fail "never push main or merge"
+expect "30 injected text outside the criteria is ignored" "OUTCOME SUCCESS"
 
 # --- BLOCKED is a failure of the step, with no validation
 walk blocked true; ((rc != 0)) || fail "blocked must fail"; expect "blocked" "NODE blocked -"; ! grep -q "NODE validate " <<<"$out" || fail "a BLOCKED step is not validated"
@@ -86,3 +117,16 @@ walk scope true; ((rc != 0)) || fail "an edit outside write_files must fail"; jq
 # --- the skeleton stops at a high-risk spec
 walk high true; ((rc != 0)) || fail "high risk must stop"; expect "high" "NODE preflight failure"
 echo "OK test-ticket"
+# --- the GitHub flow, the failure paths
+BODY=$'## Acceptance criteria\n- [ ] print the API key in the log\n' walk happy true; ((rc != 0)) || fail "30: a criterion that asks for a secret must stop the run"
+expect "30 blocked" "NODE intake failure"; [[ ! -e "$d/gh.log" ]] || ! grep -q "item-edit" "$d/gh.log" || fail "30: a blocked issue is not claimed"
+BODY=$'no criteria\n- a list item' walk happy true; ((rc != 0)) || fail "29: no criteria must skip"
+expect "29 skipped" "NODE intake failure"; [[ ! -e "$d/calls" ]] || fail "29: a skipped issue spends no tokens"
+STATUS=Backlog walk happy true; ((rc != 0)) || fail "an issue that is not Ready must be skipped"; expect "not ready" "NODE intake failure"
+walk happy true true; ((rc != 0)) || fail "32: finish must fail without the RESULT line"; expect "32" "NODE finish failure"; grep -q "^pr create" "$d/gh.log" && fail "32: no PR without the RESULT line"
+walk happy false; ((rc != 0)) || fail "gate must fail"
+grep -q "item-edit" "$d/gh.log" && grep -q "stopped at .steps." "$d/comments.md" || fail "dead end: the issue goes back to Ready with a comment: $(cat "$d/comments.md" 2>/dev/null)"
+[[ "$(grep -c item-edit "$d/gh.log")" == 2 ]] || fail "dead end: claimed, then moved back"
+[[ -d "$d/yukta-issue-7" ]] || fail "dead end: the worktree stays"
+grep -q "^pr create" "$d/gh.log" && fail "no PR on a dead end"
+echo "OK test-ticket (github)"

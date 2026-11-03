@@ -90,4 +90,5 @@ def main():
     print(f"RUN_DIR={run}\nWORKTREE={wt}\nRUN_ID={run_id}")
 
 
-main()
+if __name__ == "__main__":
+    main()
