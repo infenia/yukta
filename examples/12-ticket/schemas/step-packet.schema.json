@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StepPacket",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "spec_hash",
+    "step",
+    "cases",
+    "global",
+    "context_files",
+    "prior_attempts"
+  ],
+  "properties": {
+    "run_id": {
+      "type": "string"
+    },
+    "spec_hash": {
+      "type": "string",
+      "pattern": "^sha256:"
+    },
+    "step": {
+      "$ref": "ticket-spec.schema.json#/$defs/step"
+    },
+    "cases": {
+      "type": "array",
+      "items": {
+        "$ref": "ticket-spec.schema.json#/$defs/test_case"
+      }
+    },
+    "global": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "global",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "forbidden_imports",
+        "allow_new_dependencies",
+        "locked_files",
+        "conventions_digest"
+      ],
+      "properties": {
+        "forbidden_imports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "allow_new_dependencies": {
+          "type": "boolean"
+        },
+        "locked_files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "conventions_digest": {
+          "type": "string"
+        }
+      }
+    },
+    "context_files": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "context_file",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "content"
+        ],
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "lines": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "prior_attempts": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "prior_attempt",
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "attempt",
+          "failure_digest"
+        ],
+        "properties": {
+          "attempt": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "failure_digest": {
+            "type": "string",
+            "maxLength": 2048
+          }
+        }
+      }
+    }
+  },
+  "$id": "step-packet.schema.json"
+}

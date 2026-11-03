@@ -1,0 +1,11 @@
+{
+  "verdict": "APPROVE",
+  "criteria_results": [
+    {
+      "id": "AC1",
+      "met": true,
+      "evidence": "x"
+    }
+  ],
+  "findings": []
+}

@@ -1,0 +1,10 @@
+{
+  "status": "OK",
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "Per user or global?",
+      "why_blocking": "changes the key"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "step_id": "S1",
+  "attempt": 2,
+  "stage": "tests",
+  "class": "test_fail",
+  "command": "yk gradle :core:test",
+  "exit_code": 1,
+  "failing": [
+    "ATest"
+  ],
+  "frames": [
+    "A.java:42"
+  ],
+  "diff_stat": {
+    "files": 1,
+    "added": 3,
+    "removed": 0
+  }
+}

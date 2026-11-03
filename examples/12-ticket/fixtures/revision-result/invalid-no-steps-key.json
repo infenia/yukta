@@ -1,0 +1,17 @@
+{
+  "reason": "split",
+  "replace_test_cases": [
+    {
+      "id": "T1",
+      "title": "rejects 101st request",
+      "given": "100 requests in window",
+      "when": "request 101 arrives",
+      "expect": "rejected",
+      "kind": "unit",
+      "critical": false
+    }
+  ],
+  "remove_test_case_ids": [],
+  "scaffold_patch_addendum": null,
+  "new_assumptions": []
+}

@@ -1,0 +1,82 @@
+{
+  "spec_version": 1,
+  "ticket_id": "1",
+  "objective": "Limit requests",
+  "risk": "low",
+  "assumptions": [],
+  "scope": {
+    "allowed_globs": [
+      "core/src/main/java/**"
+    ],
+    "forbidden_globs": [],
+    "forbidden_imports": [],
+    "allow_new_dependencies": false
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "tests pass",
+      "verification": {
+        "kind": "command",
+        "command": "yk gradle :core:test"
+      }
+    }
+  ],
+  "tests_mode": "cases_to_code",
+  "test_cases": [
+    {
+      "id": "T1",
+      "title": "rejects 101st request",
+      "given": "100 requests in window",
+      "when": "request 101 arrives",
+      "expect": "rejected",
+      "kind": "unit",
+      "critical": false
+    }
+  ],
+  "locked_files": [
+    "core/src/test/java/ATest.java"
+  ],
+  "scaffold_patch": "spec/scaffold.patch",
+  "steps": [
+    {
+      "id": "S1",
+      "title": "Add limiter",
+      "depends_on": [],
+      "covers": [
+        "T1"
+      ],
+      "complexity": "standard",
+      "write_files": [
+        "core/src/main/java/A.java"
+      ],
+      "read_files": [
+        {
+          "path": "core/src/main/java/B.java",
+          "lines": "1-40"
+        }
+      ],
+      "instructions": [
+        "Add class A"
+      ],
+      "contracts": [
+        {
+          "path": "core/src/main/java/A.java",
+          "symbol": "A.allow",
+          "signature": "boolean allow()"
+        }
+      ],
+      "constraints": [],
+      "non_goals": [],
+      "done_when": {
+        "commands": [
+          "yk gradle :core:test --tests com.infenia.A"
+        ]
+      },
+      "limits": {
+        "max_diff_lines": 100,
+        "max_files": 2
+      }
+    }
+  ]
+}
