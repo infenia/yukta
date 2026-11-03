@@ -501,6 +501,10 @@ class SupervisorHostTest {
                 "GLOBAL",
                 null,
                 null,
+                null,
+                0,
+                0,
+                0,
                 null));
     assertThat(status.get(1).applied()).isZero();
     assertThat(status.getFirst().type()).contains("SupervisorHostTest");

@@ -52,7 +52,11 @@ class SupervisorProviderTest {
                     "SECTION",
                     "A",
                     "w",
-                    List.of("build.*"))));
+                    List.of("build.*"),
+                    0,
+                    0,
+                    0,
+                    null)));
     when(service.bindings())
         .thenReturn(
             Flux.just(new SupervisorBinding("b1", "p", new SupervisorScope.Session("A"), true)));

@@ -16,6 +16,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -79,6 +80,9 @@ public class SupervisorService {
   /** Tells whether this server is the leader; null on a single server. */
   @Nullable private LeaderElection election;
 
+  /** Lets composite profiles find their children; null without the composite factory. */
+  @Nullable private SupervisorResolver resolver;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -111,6 +115,23 @@ public class SupervisorService {
   @Autowired(required = false)
   public void setAuditSink(final AuditSink sink) {
     this.auditSink = sink;
+  }
+
+  /**
+   * Lets composite profiles find their children.
+   *
+   * @param supervisorResolver the resolver
+   */
+  @Autowired(required = false)
+  public void setResolver(final SupervisorResolver supervisorResolver) {
+    this.resolver = supervisorResolver;
+  }
+
+  /** Gives the resolver the stored profiles before a composite is validated or started. */
+  private Mono<Void> refreshResolver() {
+    return resolver == null
+        ? Mono.empty()
+        : store.profiles().collectList().doOnNext(resolver::refresh).then();
   }
 
   /**
@@ -149,7 +170,7 @@ public class SupervisorService {
     restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
-    Flux.defer(store::bindings)
+    Flux.defer(() -> refreshResolver().thenMany(store.bindings()))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorBinding::enabled)
         .filter(SupervisorService::validStoredId)
@@ -204,15 +225,37 @@ public class SupervisorService {
    *     unknown type or invalid settings
    */
   public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
-    return Mono.fromRunnable(() -> validate(profile))
+    return refreshResolver()
+        .then(Mono.fromRunnable(() -> validate(profile)))
         .then(Mono.defer(() -> store.saveProfile(profile)))
+        .then(Mono.defer(this::refreshResolver))
         .then(
             store
                 .bindings()
-                .filter(binding -> binding.enabled() && binding.profileId().equals(profile.id()))
-                .doOnNext(binding -> start(binding, profile))
+                .filter(binding -> binding.enabled() && usesProfile(binding, profile.id()))
+                .concatMap(binding -> restart(binding, profile))
                 .then())
         .thenReturn(profile);
+  }
+
+  /** Whether the binding's profile is this one or a composite that lists it. */
+  private boolean usesProfile(final SupervisorBinding binding, final String profileId) {
+    return binding.profileId().equals(profileId)
+        || resolver != null && resolver.compositesUsing(profileId).contains(binding.profileId());
+  }
+
+  /** Starts a binding again from its own profile, which may be a composite of the saved one. */
+  private Mono<Void> restart(final SupervisorBinding binding, final SupervisorProfile saved) {
+    if (binding.profileId().equals(saved.id())) {
+      start(binding, saved);
+      return Mono.empty();
+    }
+    return store
+        .profiles()
+        .filter(profile -> profile.id().equals(binding.profileId()))
+        .next()
+        .doOnNext(profile -> start(binding, profile))
+        .then();
   }
 
   /**
@@ -223,6 +266,22 @@ public class SupervisorService {
    *     ConflictException} when a binding still uses it
    */
   public Mono<Void> deleteProfile(final String id) {
+    return refreshResolver()
+        .then(
+            Mono.defer(
+                () -> {
+                  final List<String> composites =
+                      resolver == null ? List.of() : resolver.compositesUsing(id);
+                  return composites.isEmpty()
+                      ? Mono.<Void>empty()
+                      : Mono.error(
+                          new ConflictException(
+                              "Profile " + id + " is a child of composite " + composites));
+                }))
+        .then(Mono.defer(() -> deleteUnused(id)));
+  }
+
+  private Mono<Void> deleteUnused(final String id) {
     return store
         .bindings()
         .filter(binding -> binding.profileId().equals(id))
@@ -273,6 +332,10 @@ public class SupervisorService {
   }
 
   private Mono<SupervisorBinding> attachChecked(final SupervisorBinding binding) {
+    return refreshResolver().then(Mono.defer(() -> attachResolved(binding)));
+  }
+
+  private Mono<SupervisorBinding> attachResolved(final SupervisorBinding binding) {
     return store
         .profiles()
         .filter(profile -> profile.id().equals(binding.profileId()))
