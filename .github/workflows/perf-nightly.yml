@@ -97,6 +97,26 @@ jobs:
           python3 -I perf/compare.py "${reports[-1]}" --baseline "$RUNNER_TEMP/none.json" \
             --findings findings-soak.json
 
+      # 1,000 open input requests, a burst of 500 answers in 10 s and 50 clients reading the open requests.
+      # The thresholds are in perf/k6/inputs.js (answer p95 under 500 ms, read p95 under 1 s, no lost request,
+      # no answered run left running, heap under 1.5 GB); a missed one fails the step.
+      - name: Input requests under load
+        id: inputs
+        continue-on-error: true
+        run: |
+          for candidate in boot/build/libs/boot-*.jar; do
+            case $candidate in *-plain.jar) ;; *) JAR=$candidate ;; esac
+          done
+          export JAR
+          perf/run.sh inputs
+
+      - name: Name the input requests finding
+        if: steps.inputs.outcome == 'failure'
+        run: |
+          jq -n '[{key: "perf#inputs", title: "Input requests under load: a threshold failed", severity: "High",
+                   module: "core", detail: "A threshold of perf/k6/inputs.js failed; see k6.log in the perf-nightly artifact.",
+                   repro: "perf/run.sh inputs"}]' > findings-inputs.json
+
       # One issue per finding (.github/scripts/auto-found.sh), then the job fails so the run is red.
       - name: File what was found
         if: always()
@@ -112,7 +132,7 @@ jobs:
           CONCLUSION=$([ "$FAILED" = true ] && echo failure || echo success) .github/scripts/auto-found.sh < findings.json
 
       - name: Fail when a check failed
-        if: steps.compare-perf.outcome == 'failure' || steps.compare-soak.outcome == 'failure'
+        if: steps.compare-perf.outcome == 'failure' || steps.compare-soak.outcome == 'failure' || steps.inputs.outcome == 'failure'
         run: exit 1
 
       # Only a run that passed every step becomes the next baseline (the cache is saved by the post step).
