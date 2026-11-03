@@ -211,6 +211,8 @@ com.infenia.yukta.service.supervisor.ExecutionEventFeed
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService
+com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory
+com.infenia.yukta.service.supervisor.composite.SupervisorResolver
 com.infenia.yukta.service.worker.RemoteNodes
 com.infenia.yukta.service.worker.WorkerRegistry
 com.infenia.yukta.service.workflow.ConfigRedactor
