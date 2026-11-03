@@ -3,12 +3,14 @@
 package com.infenia.yukta.config;
 
 import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
+import com.infenia.yukta.service.input.route.RouteSettings;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -162,6 +164,8 @@ public record YuktaProperties(
    * @param memoryMax most finished requests the in-memory store keeps, oldest evicted first
    * @param sweepInterval how often the sweeper looks for requests past their deadline
    * @param redactKeys context keys whose value is replaced, besides the built-in secret names
+   * @param routes the named routes (tiers of responders); the one called {@code default} applies
+   *     when a request and its session name none
    */
   public record Input(
       @NotNull @DefaultValue("1h") Duration defaultTtl,
@@ -170,7 +174,8 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("50") int maxOpenPerSession,
       @Min(1) @DefaultValue("10000") int memoryMax,
       @NotNull @DefaultValue("1s") Duration sweepInterval,
-      @NotNull @DefaultValue List<String> redactKeys) {
+      @NotNull @DefaultValue List<String> redactKeys,
+      @NotNull @DefaultValue Map<String, RouteSettings> routes) {
 
     /** Checks that the durations are positive and that the default ttl fits the maximum. */
     public Input {
@@ -182,6 +187,9 @@ public record YuktaProperties(
             "yukta.input.max-ttl must not be shorter than yukta.input.default-ttl");
       }
       redactKeys = List.copyOf(redactKeys);
+      routes = Map.copyOf(routes);
+      // checks every route at start-up: a bad tier or responder stops the application
+      routes.forEach((name, settings) -> settings.named(name));
     }
 
     private static void requirePositive(final String name, final Duration value) {

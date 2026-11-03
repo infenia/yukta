@@ -832,7 +832,7 @@ Read from `infenia/yukta` at commit `2769ea4` (2026-11-01): `CLAUDE.md`, module 
 | 1 Calling Claude | Not an LLM node: `PROCESS_EXECUTOR` running `scripts/claude.sh` (prompt JSON on stdin; env `YK_MODEL`, `YK_EFFORT`, `YK_SCHEMA`, `YK_RULES`, `YK_STAGE`, `YK_SESSION`, `YK_CLAUDE_BIN`); structured output via `YK_SCHEMA`. |
 | 2 Ollama for decisions | `decide` helper and `decisions.json`/`heal.json` (`triage.model`, `triage.url`, overrides `YUKTA_TRIAGE_MODEL`, `YUKTA_TRIAGE_URL`, `YUKTA_DECISION_*`). The `triage.url` in `heal.json` is a fixed LAN address; make it an override per machine. |
 | 3 Edge ports, templating | `{"source","target","sourcePort"}`; `${start.key}`; `engine: {onError: "ROUTE"}`; `routeByExitCode`, `routeByOutcome`, `failureMode: CONTINUE`. |
-| 4 Fan-out | `SUB_WORKFLOW` with `workflowId`, `payload`, `timeoutSeconds`, `routeByOutcome`; concurrency via `engine.concurrencyGroup` (`tool` has 2 places; `claude` is its own group). Parallel waves: **VERIFY** whether a splitter plus `SUB_WORKFLOW` works, else run waves as two fixed branches. |
+| 4 Fan-out | `SUB_WORKFLOW` with `workflowId`, `payload`, `timeoutSeconds`, `routeByOutcome`; concurrency via `engine.concurrencyGroup` (`tool` has 2 places; `claude` is its own group). Parallel waves: `SPLITTER` plus `SUB_WORKFLOW` with `concurrency` works (confirmed in `examples/12-ticket/verify.md`). |
 | 5 Executor allowlist | Allowlist is server config; dogfood scripts run under `yk`. **VERIFY** exact property for `ticketkit` scripts. |
 | 6 Tool-using implementer | Headless Claude Code through `claude.sh` (already the repo's pattern). |
 | 7 Approvals | `yk approve|reject`, `--notify` posts approvals into the Claude Code session. |
@@ -913,7 +913,7 @@ New in `examples/12-ticket/`, mirroring `11-dogfood`: `yk ticket run <issue>`, `
 }
 ```
 
-Notes: `docs/api/openapi.json` is a second API snapshot (denied for reading); its regeneration command is not in the files I read (**VERIFY**). `budgets_usd` are my starting guesses, not measured. The repo's existing cap is $5 per `yk check` (`checkBudget`).
+Notes: `docs/api/openapi.json` is a hand-kept second API snapshot (denied for reading) that nothing regenerates; steps must not edit it (`examples/12-ticket/verify.md`). `budgets_usd` are my starting guesses, not measured. The repo's existing cap is $5 per `yk check` (`checkBudget`).
 
 Module routing (deterministic, from the changed path, same classification as `plan.sh`):
 

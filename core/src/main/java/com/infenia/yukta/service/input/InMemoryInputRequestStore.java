@@ -174,8 +174,12 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   /** Tells whether an open request has a deadline that is not after the given time. */
   private static boolean isDue(final InputRequest request, final Instant now) {
-    final Instant deadline = request.deadline();
-    return !request.state().isTerminal() && deadline != null && !deadline.isAfter(now);
+    return !request.state().isTerminal()
+        && (reached(request.deadline(), now) || reached(request.tierDeadline(), now));
+  }
+
+  private static boolean reached(final Instant deadline, final Instant now) {
+    return deadline != null && !deadline.isAfter(now);
   }
 
   @Override

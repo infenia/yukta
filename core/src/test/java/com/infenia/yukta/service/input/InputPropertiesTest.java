@@ -16,7 +16,8 @@ class InputPropertiesTest {
 
   private static YuktaProperties.Input input(
       final Duration defaultTtl, final Duration maxTtl, final Duration sweep) {
-    return new YuktaProperties.Input(defaultTtl, maxTtl, 5, 50, 100, sweep, List.of());
+    return new YuktaProperties.Input(
+        defaultTtl, maxTtl, 5, 50, 100, sweep, List.of(), java.util.Map.of());
   }
 
   @Test
