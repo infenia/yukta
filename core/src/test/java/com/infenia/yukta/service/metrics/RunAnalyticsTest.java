@@ -351,6 +351,7 @@ class RunAnalyticsTest {
     } finally {
       analytics.stop();
     }
+    assertThat(analytics.liveRuns()).isEmpty();
   }
 
   @Test
