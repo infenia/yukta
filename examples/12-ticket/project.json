@@ -147,5 +147,19 @@
     "persistence-postgres": "java",
     "ui": "ui",
     "cli": "cli"
-  }
+  },
+  "free_fix": {
+    "java": "yk gradle spotlessApply",
+    "ui": "yk tool -C ui npx --no-install prettier --write {files}",
+    "go": "yk tool -C cli make fmt"
+  },
+  "dependency_files": [
+    "**/build.gradle.kts",
+    "gradle/libs.versions.toml",
+    "**/package.json",
+    "**/pnpm-lock.yaml",
+    "**/go.mod",
+    "**/go.sum",
+    "settings.gradle.kts"
+  ]
 }
