@@ -17,6 +17,7 @@ export function startFakeOllama(portFile: string): { port: number; stop: () => v
     async fetch(req) {
       const url = new URL(req.url)
       if (req.method === 'GET') return Response.json(url.pathname === '/api/version' ? { version: '0.40.1' } : { models: [{ name: 'fake' }] })
+      writeFileSync(`${portFile}.auth`, `${req.headers.get('authorization') ?? ''} keep_alive=${((await req.clone().json()) as { keep_alive?: string }).keep_alive ?? ''}`) // tests: what the last request carried
       const body = (await req.json()) as { state?: string; model: string; questions: Record<string, { criteria: Record<string, string> }> }
       const state = body.state ?? ''
       const [name, question] = Object.entries(body.questions)[0]!
