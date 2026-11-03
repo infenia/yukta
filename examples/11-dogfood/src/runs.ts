@@ -3,7 +3,7 @@
 // The runs of the dev server as `yk` shows and steers them: the tree of runs, control and approvals, watching a run until it ends, and its RESULT line.
 import { type Subprocess, spawn } from 'bun'
 import {
-  DEV_HOME, DEV_URL, HERE, type Json, REPO_ROOT, STATE_DIR, appendFileSync, changesSum, checkSession, cliJson, die, emitResult, failedOutput, findCli, healRecords, healedStages, http,
+  DEV_HOME, DEV_URL, HERE, type Json, REPO_ROOT, STATE_DIR, appendFileSync, changesSum, cliJson, die, emitResult, failedOutput, findCli, healRecords, healedStages, http,
   isFile, join, keyHeader, mkdirp, nodeStage, notifySession, notifyText, readFileSync, recordRun, run, runWall, secs, shq, sleep, text, tryJson, writeFileSync,
 } from './lib.ts'
 import { mkdtempSync, openSync, closeSync, readdirSync, rmSync, statSync } from 'node:fs'
@@ -315,11 +315,11 @@ export async function cmdWatch(session: string, target: string, mode = ''): Prom
   process.env.YUKTA_SERVER_URL ??= DEV_URL
   // a checkpoint that waits for an answer is news too: say so, once, while the run is watched
   const seen = new Set<string>()
-  let stopAnnounce = false
+  const announce = { stop: false }
   const announcer = (async (): Promise<void> => {
-    while (!stopAnnounce) {
+    while (!announce.stop) {
       await sleep(3000)
-      if (stopAnnounce) return
+      if (announce.stop) return
       try {
         for (const line of await signalLines(target)) {
           const key = line.split(' since')[0]!
@@ -346,7 +346,7 @@ export async function cmdWatch(session: string, target: string, mode = ''): Prom
   procs.push(eachLine(w as never, l => { if (!quiet || !NOISE.test(l)) out(l) }))
   await Promise.all(procs)
   process.env.YUKTA_WATCHED_BYTES = String(shownBytes)
-  stopAnnounce = true
+  announce.stop = true
   await announcer
   recordDurations(session, target, process.env.YUKTA_SCOPE ?? '-')
   return printResult(session, target)

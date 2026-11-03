@@ -286,7 +286,7 @@ export function main(argv: string[]): number {
     } else {
       for (const [r, x] of news) console.log(`${r}: ${x}`)
       for (const [r, x, n] of regress) console.log(`${r}: REGRESSION, #${n} is closed but it fired again: ${x}`)
-      for (const [r, x, n] of tracked) console.log(`${r}: tracked in #${n}`)
+      for (const [r, , n] of tracked) console.log(`${r}: tracked in #${n}`)
       if (!(news.length || tracked.length || regress.length)) console.log('no findings')
     }
     return news.length || regress.length ? 1 : 0

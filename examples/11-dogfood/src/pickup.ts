@@ -55,16 +55,15 @@ function gh(args: string[], what: string): string {
 
 export async function tick(): Promise<number> {
   let idle: Idle[] = []
-  let registered = 0
   let busy: string[] = []
   if (MODE === 'ticket') {
     // one headless run at a time: a run of this checkout that is still going holds the schedule
     if (run(['pgrep', '-f', '[w]orkflow start dogfood ticket']).code === 0) skip('a ticket run is going')
     idle = [{ name: 'ticket', port: 0 }]
-    registered = 1
   } else {
-    ;({ idle, busy, registered } = await sessions())
-    if (registered === 0) skip(`no channel${ONLY ? ` named ${ONLY}` : ''} (open one with: yk pickup session)`)
+    const found = await sessions()
+    ;({ idle, busy } = found)
+    if (found.registered === 0) skip(`no channel${ONLY ? ` named ${ONLY}` : ''} (open one with: yk pickup session)`)
     if (!idle.length) skip(`all busy (${busy.join(',')})`)
   }
   const mine = tryJson(gh(['issue', 'list', '-R', REPO, '--assignee', '@me', '--state', 'open', '--limit', '200', '--json', 'number,title,url'], 'gh issue list'))

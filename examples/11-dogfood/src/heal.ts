@@ -24,7 +24,7 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import {
-  HERE, type Json, appendFileSync, basename, decide, dirname, existsSync, git, isDir, isFile, join, mkdirp, readFileSync, readJson, readdirSync, rmSync, run, sha1, statSync, text, tryJson, writeFileSync,
+  HERE, type Json, appendFileSync, basename, decide, dirname, git, isDir, isFile, join, mkdirp, readFileSync, readJson, readdirSync, rmSync, run, sha1, statSync, text, tryJson, writeFileSync,
 } from './lib.ts'
 
 // Paths a fixer must not touch: the rules it is being measured against, the build and this tooling.
