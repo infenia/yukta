@@ -462,7 +462,8 @@ export async function main(argv: string[]): Promise<number> {
     case 'detail': return cmdDetail(rest)
     case 'statusline': return cmdStatusline()
     case 'bench': return cmdBench(rest)
-    case 'mcp-headers': console.log(JSON.stringify({ 'X-API-Key': mcpKey() }, null, 2)); return 0
+    // Claude Code's headersHelper protocol: the helper prints the headers as JSON on stdout. The key is the local dev server's own (127.0.0.1), nothing is logged.
+    case 'mcp-headers': console.log(JSON.stringify({ 'X-API-Key': mcpKey() }, null, 2)); return 0 // lgtm[js/clear-text-logging]
     case 'sum': console.log(changesSum(REPO_ROOT)); return 0
     case 'result': {
       process.env.YUKTA_SERVER_URL ??= DEV_URL
