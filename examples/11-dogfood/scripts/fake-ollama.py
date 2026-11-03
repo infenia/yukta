@@ -7,7 +7,7 @@ Listens on a free port on 127.0.0.1 and writes it to PORT_FILE. POST /v1/systemo
 the state after "difficulty:" (for example a failing check whose output says "difficulty: hard"), else "average" at 0.7. A state
 that says "difficulty: uncertain" gets 0.1 for every level (below the confidence floor); one that says "difficulty: boom" gets an HTTP 500.
 """
-import http.server, json, sys
+import http.server, json, pathlib, sys
 
 
 class H(http.server.BaseHTTPRequestHandler):
@@ -21,7 +21,10 @@ class H(http.server.BaseHTTPRequestHandler):
             self.send_response(500); self.end_headers(); self.wfile.write(b"'stale' was downloaded in a format that is no longer supported. To re-download, run 'ollama pull stale'"); return
         if body["model"] == "missing":
             self.send_response(404); self.end_headers(); self.wfile.write(b"model 'missing' not found"); return
-        if "difficulty:" in state:
+        hint = pathlib.Path(sys.argv[1] + ".hint")  # tests: answer this label whatever the state says
+        if hint.is_file():
+            want = hint.read_text().strip()
+        elif "difficulty:" in state:
             want = state.split("difficulty:")[1].split()[0].strip(".,;")
         if want == "boom":
             self.send_response(500); self.end_headers(); self.wfile.write(b"boom"); return

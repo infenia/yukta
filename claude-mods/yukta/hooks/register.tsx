@@ -2,14 +2,14 @@ import type { EngineInterface as Engine, PluginOptions, Register } from 'claude-
 
 type Run = { sessionId: string; executionId: string; workflowId: string; status: string; startTime?: string }
 type Insights = { queued: number; failed: number; sample: number; successPct: number; medianSec: number; top: string }
-type Approval = { sessionId: string; executionId: string; workflowId: string; nodeId: string; name: string }
+type Approval = { sessionId: string; id: string; version: number; executionId: string; workflowId: string; nodeId: string }
 
 const PANE = 'yukta-runs'
 const TITLE = ['#2F6BFF', '#5E7FE8', '#9E7A9B', '#E8742E', '#E85D0C']
 const SPIN = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']
 const TIPS = [
   'Define a workflow once as JSON nodes and edges, then run it from REST, the web UI or MCP.',
-  'An approval step waits for a signal: approve it here, or from the band above the prompt.',
+  'An approval step waits for an input request: approve it here, or from the band above the prompt.',
   'Swagger UI lives at /swagger-ui.html on the server.',
   'Extend Yukta with Trigger, Processor and Terminal plugins through plugin-api.',
   'Stop ends a run and every sub-workflow it started.',
@@ -58,10 +58,15 @@ const resolveHeaders = async ($: Engine) => {
   return key ? { 'X-API-Key': key } : {}
 }
 
-const api = async ($: Engine, path: string, method = 'GET') => {
+const api = async ($: Engine, path: string, method = 'GET', json?: unknown) => {
   // a failed lookup is not cached: the next tick asks again
   headers ??= await resolveHeaders($)
-  const res = await $.http.fetch(`${base}/api${path}`, { method, headers })
+  const res = await $.http.fetch(
+    `${base}/api${path}`,
+    json === undefined
+      ? { method, headers }
+      : { method, headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(json) },
+  )
   if (res.status === 401 || res.status === 403) {
     headers = undefined
     throw new Error(`HTTP ${res.status}: set api_key or headers_command in /config`)
@@ -86,7 +91,7 @@ const tick = async ($: Engine) => {
     const sessions = [...new Set(running.map(r => r.sessionId))]
     const pending: Approval[] = []
     for (const sessionId of sessions) {
-      const list = (await api($, `/sessions/${encodeURIComponent(sessionId)}/approvals`)) ?? []
+      const list = (await api($, `/sessions/${encodeURIComponent(sessionId)}/inputs?state=OPEN`)) ?? []
       pending.push(...list.map((a: Approval) => ({ ...a, sessionId })))
     }
     const stillRunning = new Set(running.map(r => r.executionId))
@@ -142,8 +147,7 @@ const animate = async ($: Engine) => {
 }
 
 const decide = async ($: Engine, a: Approval, decision: 'approve' | 'reject') => {
-  const q = `name=${encodeURIComponent(a.name)}&decision=${decision}`
-  await api($, `/executions/${a.executionId}/nodes/${a.nodeId}/signal?${q}`, 'POST')
+  await api($, `/executions/${a.executionId}/inputs/${a.id}/answer`, 'POST', { decision, expectedVersion: a.version })
   await tick($)
 }
 
@@ -252,7 +256,7 @@ export const register: Register = (on, options) => {
           >
             <Text bold color={wait}>⏸ approval needed</Text>
             <Text>
-              {a.workflowId} <Text dimColor>at</Text> {a.nodeId} <Text dimColor>({a.name})</Text>
+              {a.workflowId} <Text dimColor>at</Text> {a.nodeId} <Text dimColor>({a.id.slice(0, 8)})</Text>
             </Text>
             <Box>
               <Button key={`ok-${a.executionId}-${a.nodeId}`} label="✓ Approve" onPress={() => decide($, a, 'approve')} />

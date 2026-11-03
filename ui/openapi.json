@@ -3384,8 +3384,26 @@
             "format" : "int64",
             "type" : "integer"
           },
+          "arbitrated" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "children" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "coalesced" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
           "dryRun" : {
             "type" : "boolean"
+          },
+          "flappingBlocked" : {
+            "format" : "int64",
+            "type" : "integer"
           },
           "id" : {
             "type" : "string"

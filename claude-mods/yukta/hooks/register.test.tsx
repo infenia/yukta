@@ -15,8 +15,8 @@ test('the pane lists a running execution and a pending approval, on every surfac
   on('clock.every', () => ({ value: undefined }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('http.fetch', (_, e) => {
-    if (e.url.includes('/approvals')) {
-      return reply([{ executionId: 'e1234567890', workflowId: 'wf', nodeId: 'gate', name: 'approve' }])
+    if (e.url.includes('/inputs')) {
+      return reply([{ executionId: 'e1234567890', workflowId: 'wf', nodeId: 'gate', id: 'r1', version: 1 }])
     }
     return reply([{ sessionId: 's1', executionId: 'e1234567890', workflowId: 'wf', status: 'RUNNING' }])
   })

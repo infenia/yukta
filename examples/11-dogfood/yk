@@ -16,6 +16,7 @@
 #   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
 #   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 #   (check, gradle, tool) --detach --notify  also post the RESULT into the Claude Code session that started the run when it ends (YUKTA_NOTIFY=off: never)
+#   yk ticket run <issue> [--detach [--notify]] | status|resume|stop <issue|execution>  an issue with acceptance criteria to a tested change (examples/12-ticket)
 #   yk pickup session [--name N]             open an interactive Claude Code session that receives issues through its yukta-pickup channel (several may be open)
 #   yk pickup on|off|now [--to N]|status     the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once)
 #
@@ -276,8 +277,8 @@ cmd_check() {
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start "$session" check --payload "$(jq -nc --arg p "$root" --arg d "$healdir" --arg ev "${events:--}" --arg m "${modules:--}" \
       --arg models "${models:--}" --arg heal "$heal" --arg triage "$triage" --arg rules "$here/fixer-rules.md" \
-      --arg budget "${YUKTA_BUDGET_CHECK:-$(jq -r '.checkBudget' "$here/heal.json")}" --arg fast "$fast" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "${YUKTA_TRIAGE_MODEL:-$(jq -r '.triage.model' "$here/heal.json")}" \
-      --arg turl "${YUKTA_TRIAGE_URL:-$(jq -r '.triage.url' "$here/heal.json")}" --argjson c "$cmds" '
+      --arg budget "${YUKTA_BUDGET_CHECK:-$(jq -r '.checkBudget' "$here/heal.json")}" --arg fast "$fast" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg tmodel "$(triage_conf model)" \
+      --arg turl "$(triage_conf url)" --argjson c "$cmds" '
       {project: $p, timeout: 3600, healDir: $d, events: $ev, modules: $m, models: $models, heal: $heal, triage: $triage,
        rules: $rules, claudeBin: $bin, budgetCheck: $budget, triageModel: $tmodel, triageUrl: $turl,
        verifyCommand: (if $c.verifyTasks == "" then "true" else "./gradlew --continue \($c.verifyTasks) -q --console=plain" end),
@@ -727,6 +728,7 @@ case "$cmd" in
   gradle) cmd_gradle "$@" ;;
   tool) cmd_tool "$@" ;;
   pickup) cmd_pickup "$@" ;;
+  ticket) source "$here/../12-ticket/yk-ticket.sh"; cmd_ticket "$@" ;;
   plan) exec "$here/scripts/plan.sh" "$@" ;;
   advise) exec "$here/scripts/advise.sh" "$@" ;;
   heal) need python3; exec python3 -I "$here/scripts/heal-report.py" "$@" ;;

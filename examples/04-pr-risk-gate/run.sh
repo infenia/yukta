@@ -31,13 +31,16 @@ wait_done() {
 wait_approval() {
   local i
   for ((i = 0; i < 30; i++)); do
-    api GET "/api/sessions/$SID/approvals" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
+    api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
     sleep 1
   done
   echo "    FAIL: node $1 never started waiting"; exit 1
 }
-# signal NODE NAME DECISION
-signal() { api POST "/api/executions/$EID/nodes/$1/signal?name=$2&decision=$3" >/dev/null; }
+signal() {  # NODE NAME DECISION: answer the open input request of NODE
+  local row
+  row=$(api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -c --arg e "$EID" --arg n "$1" '[.data[] | select(.executionId == $e and .nodeId == $n)][0]')
+  api POST "/api/executions/$EID/inputs/$(jq -r .id <<<"$row")/answer" "$(jq -n --arg d "$3" --argjson v "$(jq .version <<<"$row")" '{decision: $d, expectedVersion: $v}')" >/dev/null
+}
 # expect NAME TEXT...  (status must be SUCCESS and every TEXT must be in the logs)
 expect() {
   local name=$1 t ok=1; shift

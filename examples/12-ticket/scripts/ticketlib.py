@@ -94,3 +94,24 @@ def git(*args, cwd=None, check=True):
     if check and r.returncode:
         die(f"git {' '.join(args)}: {r.stderr.strip()}")
     return r
+
+
+def cost_by_role(run):
+    """({role: usd}, total) from RUN/events.jsonl."""
+    by, total = {}, 0.0
+    f = pathlib.Path(run) / "events.jsonl"
+    for l in (f.read_text().splitlines() if f.is_file() else []):
+        e = json.loads(l)
+        if e.get("cost_usd"):
+            by[e["role"]] = by.get(e["role"], 0) + e["cost_usd"]
+            total += e["cost_usd"]
+    return by, total
+
+
+def resolve_attempt(sd, v):
+    """An attempt number from 'cur' (the highest existing, 1 when none), 'next' (one more; its dir is created) or an integer."""
+    nums = [int(m.group(1)) for d in pathlib.Path(sd).glob("attempt-*") if (m := re.fullmatch(r"attempt-(\d+)", d.name))]
+    n = max(nums, default=0)
+    n = n + 1 if v == "next" else max(n, 1) if v == "cur" else int(v)
+    (pathlib.Path(sd) / f"attempt-{n}").mkdir(parents=True, exist_ok=True)
+    return n

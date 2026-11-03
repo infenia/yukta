@@ -210,6 +210,20 @@ Each outcome is in the decision list, the control audit and `yukta.supervisor.co
 | `yukta.supervisor.arbiter.flap-limit` | `4` | Most turn-arounds of one target by one supervisor in the period |
 | `yukta.supervisor.arbiter.flap-cooldown` | `5m` | How long a supervisor over the limit is blocked |
 
+## Composite supervisors
+
+A profile of type `composite` runs other profiles as one supervisor: one id, one scope (the binding's) and one set of metrics. Settings:
+
+| Setting | Meaning |
+|---|---|
+| `mode` | `CHAIN` (first child with a non-empty decision wins), `FIRST_MATCH` (stops at the first child that returns any decision), `PARALLEL` (all command streams merged; the arbiter settles conflicts), `QUORUM` (a command is sent when `quorum` children send an equal one within `window`) |
+| `children` | Profile ids, 1 to 10 |
+| `review` | `ALL` (default; the first denial wins and names the child), `ANY`, `MAJORITY` |
+| `quorum` | For `QUORUM`, 2 to the number of children; default a majority |
+| `window` | For `QUORUM`, milliseconds, default 500 |
+
+`CHAIN` and `FIRST_MATCH` need control planes as children, because only they decide one event at a time. Saving checks that the children exist, that composites do not form a cycle and nest at most 3 deep. Saving a child restarts the bindings of every composite that lists it; a child of a composite cannot be deleted. `GET /api/supervisors` shows a composite with kind `COMPOSITE` and its `children`, and the counts `arbitrated`, `coalesced` and `flappingBlocked`.
+
 ## Settings
 
 | Setting | Default | Meaning |

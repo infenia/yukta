@@ -44,6 +44,7 @@ def main():
     a.add_argument("--state-dir", default=None)
     a.add_argument("--base", default="origin/main")
     a.add_argument("--no-worktree", action="store_true")
+    a.add_argument("--run-id", help="use this run id (the workflow computes it first so every node knows the run dir)")
     o = a.parse_args()
     if bool(o.issue) == bool(o.ticket_file):
         die("usage: ticketkit init ISSUE | --ticket-file F")
@@ -64,9 +65,11 @@ def main():
     branch, wt = project["git"]["branch"].format(n=n), (root / project["git"]["worktree"].format(n=n)).resolve()
     if git("rev-parse", "--verify", "-q", branch, cwd=root, check=False).returncode == 0 or wt.exists():
         print(f"SKIPPED branch {branch} or worktree {wt} exists"); sys.exit(3)
-    run_id = f"{n}-{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}"
+    run_id = o.run_id or f"{n}-{datetime.datetime.now(datetime.timezone.utc):%Y%m%dT%H%M%SZ}"
     state = pathlib.Path(o.state_dir or os.environ.get("YUKTA_DEV_STATE_DIR") or root / ".yukta-dev")
     base_id, k = run_id, 1
+    if o.run_id and (state / "ticket" / run_id).exists():
+        die(f"run {run_id} exists")
     while (state / "ticket" / run_id).exists():  # two runs of one issue in the same second
         k += 1
         run_id = f"{base_id}-{k}"
@@ -87,4 +90,5 @@ def main():
     print(f"RUN_DIR={run}\nWORKTREE={wt}\nRUN_ID={run_id}")
 
 
-main()
+if __name__ == "__main__":
+    main()

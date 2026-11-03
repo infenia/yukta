@@ -8,12 +8,16 @@
 # Exit 0 for every skip; non-zero only for a real error (gh not signed in, an answer that is not JSON, a refused POST).
 # Env: YUKTA_PICKUP_ONLY (hand only to the session of that name), YUKTA_PICKUP_REPO (infenia/yukta), YUKTA_PICKUP_PROJECT (5),
 # YUKTA_PICKUP_OWNER (infenia), YUKTA_DEV_HOME.
+# YUKTA_PICKUP_MODE=ticket (or the word `ticket` in $DEV_HOME/pickup-mode): no interactive session; the top issue starts `yk ticket run <n> --detach`
+# (headless, examples/12-ticket) -> "PICKUP handed=#<n> to=ticket", at most one run at a time (YUKTA_PICKUP_YK: another yk, for tests).
 set -euo pipefail
 DEV_HOME="${YUKTA_DEV_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/yukta-dev}"
 REPO="${YUKTA_PICKUP_REPO:-infenia/yukta}"
 PROJECT="${YUKTA_PICKUP_PROJECT:-5}"
 OWNER="${YUKTA_PICKUP_OWNER:-infenia}"
 ONLY="${YUKTA_PICKUP_ONLY:-}"
+MODE="${YUKTA_PICKUP_MODE:-$(cat "$DEV_HOME/pickup-mode" 2>/dev/null || echo session)}"
+YK="${YUKTA_PICKUP_YK:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/yk}"
 
 fail() { echo "PICKUP error: $*" >&2; exit 1; }
 skip() { echo "PICKUP skipped=$*"; exit 0; }
@@ -43,15 +47,21 @@ sessions() {
 tick() {
   local mine ready open_prs n title url ref body code name port handed=0 work cands
   local idle=() busy_names=() registered=0
-  sessions
-  ((registered > 0)) || skip "no channel${ONLY:+ named $ONLY} (open one with: yk pickup session)"
-  ((${#idle[@]} > 0)) || skip "all busy ($(IFS=,; echo "${busy_names[*]}"))"
+  if [[ "$MODE" == ticket ]]; then
+    # one headless run at a time: a run of this checkout that is still going holds the schedule
+    if pgrep -f "[w]orkflow start dogfood ticket" >/dev/null 2>&1; then skip "a ticket run is going"; fi
+    idle=("ticket 0") registered=1
+  else
+    sessions
+    ((registered > 0)) || skip "no channel${ONLY:+ named $ONLY} (open one with: yk pickup session)"
+    ((${#idle[@]} > 0)) || skip "all busy ($(IFS=,; echo "${busy_names[*]}"))"
+  fi
 
   mine="$(gh issue list -R "$REPO" --assignee @me --state open --limit 200 --json number,title,url)" || fail "gh issue list"
   ready="$(gh project item-list "$PROJECT" --owner "$OWNER" --limit 5000 --format json)" || fail "gh project item-list"
   open_prs="$(gh pr list -R "$REPO" --state open --limit 200 --json headRefName,title,body)" || fail "gh pr list"
   jq -e . >/dev/null <<<"$mine$ready$open_prs" 2>&1 || fail "gh answered something that is not JSON"
-  [[ -s "$DEV_HOME/pickup-token" ]] || fail "no $DEV_HOME/pickup-token (yk pickup session creates it)"
+  [[ "$MODE" == ticket || -s "$DEV_HOME/pickup-token" ]] || fail "no $DEV_HOME/pickup-token (yk pickup session creates it)"
 
   # assigned AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number. The project has thousands of items:
   # the JSON goes to jq in files, never as an argument (one argument is cut at 128 KB: "Argument list too long")
@@ -72,6 +82,10 @@ tick() {
     fi
     ref="$(gh api "repos/$REPO/git/matching-refs/heads/issue/$n")" || fail "gh api matching-refs"
     jq -e 'length > 0' <<<"$ref" >/dev/null 2>&1 && continue
+    if [[ "$MODE" == ticket ]]; then
+      "$YK" ticket run "$n" --detach >/dev/null || fail "yk ticket run $n failed"
+      echo "PICKUP handed=#$n to=ticket"; handed=$((handed + 1)); break
+    fi
     body="$(jq -nc --argjson n "$n" --arg t "$title" --arg u "$url" '{content: "Pick up issue #\($n): \($t)\n\($u)", meta: {issue: ($n | tostring), url: $u, title: $t}}')"
     # the first idle session that takes it; one that answers busy meanwhile is out for this round
     while ((${#idle[@]} > 0)); do

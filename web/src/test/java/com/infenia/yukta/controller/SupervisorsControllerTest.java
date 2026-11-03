@@ -34,6 +34,10 @@ class SupervisorsControllerTest {
             "GLOBAL",
             null,
             null,
+            null,
+            0,
+            0,
+            0,
             null);
     when(host.status()).thenReturn(List.of(info));
 
