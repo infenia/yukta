@@ -112,6 +112,18 @@ function devSecret(name: string): string {
 export const devKey = (): string => devSecret('api-key')
 /** A second, named VIEWER key of the dev server for the headless fixers (they may read a run over MCP, never change it). */
 export const fixerKey = (): string => devSecret('fixer-key')
+export const sessionKey = (): string => devSecret('session-key')
+/** Whether the server built from origin/main knows `agent` on an API key (a property it does not know stops it from starting). */
+export const agentKeysSupported = (): boolean => text(join(DEV_HOME, 'main/core/src/main/java/com/infenia/yukta/security/ApiKeys.java')).includes('boolean agent')
+/** The key of the Yukta MCP: the Claude Code session of `yk pickup session` (YUKTA_MCP_KEY=session) gets an OPERATOR agent key limited to the dogfood session, which may
+ * not answer a request of risk HIGH; every other session keeps the dev key. */
+export const mcpKey = (): string => (process.env.YUKTA_MCP_KEY === 'session' && agentKeysSupported() ? sessionKey() : devKey())
+/** The properties file of the dev server: its keys. */
+export function serverProperties(): string {
+  const keys = ['yukta.api-key=' + devKey(), 'yukta.api-keys[0].name=fixer', 'yukta.api-keys[0].key=' + fixerKey(), 'yukta.api-keys[0].role=VIEWER', 'yukta.api-keys[0].sessions=*']
+  if (agentKeysSupported()) keys.push('yukta.api-keys[1].name=claude-session', 'yukta.api-keys[1].key=' + sessionKey(), 'yukta.api-keys[1].role=OPERATOR', 'yukta.api-keys[1].sessions=dogfood', 'yukta.api-keys[1].agent=true')
+  return keys.join('\n') + '\n'
+}
 /** Hands the key to the yukta CLI (YUKTA_TOKEN) when it talks to the dev server. */
 export function useDevKey(): void {
   if (!process.env.YUKTA_TOKEN && (process.env.YUKTA_SERVER_URL ?? DEV_URL) === DEV_URL) process.env.YUKTA_TOKEN = devKey()
@@ -316,8 +328,7 @@ export async function serverLaunch(kind: string, id: string, label: string, rule
   rmSync(join(DEV_HOME, 'server.pid'), { force: true })
   const par = process.env.YUKTA_DEV_GRADLE_PARALLEL ?? '2'
   // The key goes in a file, not the environment: the server's children (the gradle stages and their test JVMs) inherit its environment.
-  writeFileSync(join(DEV_HOME, 'server.properties'),
-    `yukta.api-key=${devKey()}\nyukta.api-keys[0].name=fixer\nyukta.api-keys[0].key=${fixerKey()}\nyukta.api-keys[0].role=VIEWER\nyukta.api-keys[0].sessions=*\n`, { mode: 0o600 })
+  writeFileSync(join(DEV_HOME, 'server.properties'), serverProperties(), { mode: 0o600 })
   const logFd = openSync(join(DEV_HOME, 'server.log'), 'w')
   const child = spawn(cmd[0]!, [...cmd.slice(1), `--spring.config.additional-location=file:${join(DEV_HOME, 'server.properties')}`], {
     cwd: DEV_HOME, detached: true, stdio: ['ignore', logFd, logFd],

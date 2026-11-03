@@ -38,7 +38,7 @@ import {
   api, cmdAnswer, cmdBreak, cmdDetail, cmdNodeControl, cmdNotifyRun, cmdRunControl, cmdSignals, cmdStep, cmdTree, cmdWatch, refreshActivity, startNotifier, watchOwned, printResult,
 } from './runs.ts'
 import {
-  DEV_HOME, DEV_PORT, DEV_URL, HERE, type Json, REPO_ROOT, STATE_DIR, busy, changesSum, checkSession, cliJson, decisionProbe, devKey, die, ensureServer, existsSync, filterPlan, findCli,
+  DEV_HOME, DEV_PORT, DEV_URL, HERE, type Json, REPO_ROOT, STATE_DIR, busy, changesSum, checkSession, cliJson, decisionProbe, devKey, mcpKey, die, ensureServer, existsSync, filterPlan, findCli,
   git, healEventsFile, healthy, isDir, isFile, join, lockHeld, mkdirp, need, onPath, ours, pickupAlive, pickupStart, readJson, renderSession, rmSync, run, serverEnv, serverStop, serverUp,
   shq, sleep, sq, statSync, text, triageConf, tryJson, tryLock, useDevKey, writeFileSync,
 } from './lib.ts'
@@ -272,7 +272,7 @@ async function cmdPickup(argv: string[]): Promise<number> {
       const env: Record<string, string> = { YUKTA_CHANNEL_PROFILE: 'pickup', YUKTA_DEV_HOME: DEV_HOME, YUKTA_PICKUP_NAME: name }
       if (process.env.YUKTA_PICKUP_PORT) env.YUKTA_PICKUP_PORT = process.env.YUKTA_PICKUP_PORT
       const cfg = JSON.stringify({ mcpServers: { 'yukta-pickup': { command: 'bun', args: ['run', join(HERE, 'channel/src/main.ts')], env } } })
-      const p = Bun.spawnSync(['claude', '--name', name, '--mcp-config', cfg, '--dangerously-load-development-channels', 'server:yukta-pickup'], { cwd: REPO_ROOT, stdio: ['inherit', 'inherit', 'inherit'] })
+      const p = Bun.spawnSync(['claude', '--name', name, '--mcp-config', cfg, '--dangerously-load-development-channels', 'server:yukta-pickup'], { cwd: REPO_ROOT, env: { ...process.env, YUKTA_MCP_KEY: 'session' }, stdio: ['inherit', 'inherit', 'inherit'] })
       return p.exitCode ?? 1
     }
     case 'on': {
@@ -462,7 +462,7 @@ export async function main(argv: string[]): Promise<number> {
     case 'detail': return cmdDetail(rest)
     case 'statusline': return cmdStatusline()
     case 'bench': return cmdBench(rest)
-    case 'mcp-headers': console.log(JSON.stringify({ 'X-API-Key': devKey() }, null, 2)); return 0
+    case 'mcp-headers': console.log(JSON.stringify({ 'X-API-Key': mcpKey() }, null, 2)); return 0
     case 'sum': console.log(changesSum(REPO_ROOT)); return 0
     case 'result': {
       process.env.YUKTA_SERVER_URL ??= DEV_URL
