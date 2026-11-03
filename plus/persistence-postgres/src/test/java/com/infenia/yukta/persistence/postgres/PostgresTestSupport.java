@@ -88,10 +88,26 @@ abstract class PostgresTestSupport {
     db = DatabaseClient.create(connectionFactory);
   }
 
+  /**
+   * The database client, with the schema migrated, for a test that cannot extend this class (it
+   * extends a shared contract suite instead).
+   *
+   * @return the client
+   */
+  /* default */ static DatabaseClient prepared() {
+    if (db == null) {
+      migrate();
+    }
+    return db;
+  }
+
   @BeforeEach
   void emptyTables() {
     for (final String table :
         new String[] {
+          "input_delivery",
+          "input_response",
+          "input_request",
           "workflow_definition_revision",
           "workflow_definition",
           "session_config",

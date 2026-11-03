@@ -93,6 +93,22 @@ class PostgresPersistenceAutoConfigurationTest {
   }
 
   @Test
+  void withInputStoreTypePostgres_theInputRequestsAreDatabaseBacked() {
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres", "yukta.input.store-type=postgres")
+        .run(
+            context ->
+                assertThat(context.getBean(com.infenia.yukta.service.input.InputRequestStore.class))
+                    .isInstanceOf(R2dbcInputRequestStore.class));
+    runner
+        .withPropertyValues("yukta.session.store-type=postgres")
+        .run(
+            context ->
+                assertThat(context)
+                    .doesNotHaveBean(com.infenia.yukta.service.input.InputRequestStore.class));
+  }
+
+  @Test
   void supervisorProfilesAndBindingsAreDatabaseBacked() {
     runner
         .withPropertyValues("yukta.session.store-type=postgres")

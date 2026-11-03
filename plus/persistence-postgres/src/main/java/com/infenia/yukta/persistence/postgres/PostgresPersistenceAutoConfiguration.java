@@ -7,6 +7,7 @@ import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.store.SessionHistoryStore;
+import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
@@ -170,6 +171,21 @@ public class PostgresPersistenceAutoConfiguration {
       final ObjectMapper mapper,
       @Value("${yukta.session-memory.ttl:#{null}}") final java.time.Duration ttl) {
     return new R2dbcSessionHistoryStore(client, mapper, ttl);
+  }
+
+  /**
+   * Input requests, their answers and queued deliveries, when {@code
+   * yukta.input.store-type=postgres}; otherwise they stay in memory and are lost on a restart.
+   *
+   * @param client runs the statements
+   * @param mapper reads and writes the JSON columns
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnProperty(name = "yukta.input.store-type", havingValue = "postgres")
+  public InputRequestStore inputRequestStore(
+      final DatabaseClient client, final ObjectMapper mapper) {
+    return new R2dbcInputRequestStore(client, mapper);
   }
 
   /**

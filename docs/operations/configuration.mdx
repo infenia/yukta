@@ -143,6 +143,7 @@ See [Persistence](/operations/persistence) and [Checkpoints and resume](/operati
 | `yukta.restart.store-type` | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL |
 | `yukta.kv.store-type` | `memory` | `postgres` keeps the state of `KV_STORE` nodes in PostgreSQL |
 | `yukta.session-memory.store-type` | `memory` | `postgres` keeps `SESSION_MEMORY` chat history in PostgreSQL |
+| `yukta.input.store-type` | `memory` | `postgres` keeps input requests, answers and queued deliveries in PostgreSQL (table `input_request`, migration V9), so they survive a restart. Needs `yukta.session.store-type=postgres` |
 | `yukta.session-memory.dir` | unset | Keep chat history as files in this directory |
 | `yukta.session-memory.ttl` | unset | Drop a session's chat history from memory after this idle time; with PostgreSQL history, also delete the stored rows |
 | `yukta.session-memory.max-sessions` | `10000` | Most chat sessions kept in memory, least recently used first. With files or PostgreSQL an evicted session is read back on its next use; with memory only its history is lost |
