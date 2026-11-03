@@ -25,6 +25,7 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.AvoidUsingHardCodedIP",
+  "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert"
 })
 class TokenAnswerControllerTest {
