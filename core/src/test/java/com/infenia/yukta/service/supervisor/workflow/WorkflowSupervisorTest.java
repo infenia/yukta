@@ -189,6 +189,43 @@ class WorkflowSupervisorTest {
         .verifyComplete();
   }
 
+  private WorkflowSupervisor supervisorWhen(final String condition) {
+    when(internal.checkInternal("sys")).thenReturn(Mono.just(true));
+    return new WorkflowSupervisor(
+        "p",
+        new WorkflowSettings(
+            "sys",
+            "wf",
+            Set.of("InputRequested"),
+            1,
+            Duration.ofSeconds(5),
+            new org.springframework.expression.spel.standard.SpelExpressionParser()
+                .parseExpression(condition)),
+        runner,
+        internal,
+        redactor,
+        Set.of());
+  }
+
+  @Test
+  void whenConditionDecidesWhichEventsStartARun() {
+    ends(success(Map.of("type", "PauseWorkflow")));
+
+    StepVerifier.create(supervisorWhen("request.id == 'r1'").decide(requested("r1")))
+        .assertNext(d -> assertThat(d.commands()).hasSize(1))
+        .verifyComplete();
+    StepVerifier.create(supervisorWhen("request.id == 'r1'").decide(requested("r2")))
+        .verifyComplete();
+  }
+
+  @Test
+  void whenConditionThatCannotBeEvaluatedDoesNotMatch() {
+    ends(success(Map.of("type", "PauseWorkflow")));
+
+    StepVerifier.create(supervisorWhen("request.nothing.deeper").decide(requested("r1")))
+        .verifyComplete();
+  }
+
   @Test
   void retryRunsOnceMoreAndOnlyOnce() {
     final WorkflowSupervisor supervisor = supervisor(Set.of());

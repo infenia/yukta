@@ -16,6 +16,8 @@ import java.util.Set;
 import java.util.concurrent.Semaphore;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.expression.spel.support.MapAccessor;
+import org.springframework.expression.spel.support.SimpleEvaluationContext;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -124,7 +126,9 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   @Override
   public Mono<ControlDecision> decide(final ExecutionEvent event) {
-    if (!settings.events().contains(event.getClass().getSimpleName()) || !fresh(event)) {
+    if (!settings.events().contains(event.getClass().getSimpleName())
+        || !matches(event)
+        || !fresh(event)) {
       return Mono.empty();
     }
     return internal
@@ -208,6 +212,24 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
     out.put("supervisorId", bindingId);
     out.put("bindingId", bindingId);
     return out;
+  }
+
+  /** True when there is no {@code when} condition or it holds; one that cannot be read is false. */
+  private boolean matches(final ExecutionEvent event) {
+    if (settings.when() == null) {
+      return true;
+    }
+    try {
+      return Boolean.TRUE.equals(
+          settings
+              .when()
+              .getValue(
+                  SimpleEvaluationContext.forPropertyAccessors(new MapAccessor()).build(),
+                  payload(event).get("event"),
+                  Boolean.class));
+    } catch (final org.springframework.expression.EvaluationException e) {
+      return false;
+    }
   }
 
   /** True the first time an event is seen: a redelivered event does not start a second run. */

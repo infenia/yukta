@@ -70,4 +70,16 @@ class WorkflowSettingsTest {
     noEvents.put("events", List.of(1));
     assertThatThrownBy(() -> read(noEvents)).hasMessageContaining("events");
   }
+
+  @Test
+  void whenIsParsedAndBadTextIsRefused() {
+    assertThat(read(base()).when()).isNull();
+    final Map<String, Object> m = base();
+    m.put("when", "request.spec.risk == 'LOW'");
+    assertThat(read(m).when()).isNotNull();
+    m.put("when", "request.(");
+    assertThatThrownBy(() -> read(m)).hasMessageContaining("when");
+    m.put("when", 5);
+    assertThatThrownBy(() -> read(m)).hasMessageContaining("when");
+  }
 }
