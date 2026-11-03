@@ -28,3 +28,9 @@ test('a server build that knows agent: the session key is an OPERATOR agent key 
   expect(lib('console.log(l.mcpKey() === l.devKey())')).toBe('true')
   expect(lib('console.log(new Set([l.devKey(), l.fixerKey(), l.sessionKey()]).size)')).toBe('3')
 })
+
+test('the route ticket is written only for a server build that knows routes (an unknown route would be refused, a missing one refuses the first question)', () => {
+  put(join(d, 'home/main/core/src/main/java/com/infenia/yukta/service/input/route/RouteSettings.java'), 'record RouteSettings() {}')
+  const props = lib('console.log(l.serverProperties())')
+  for (const line of ['yukta.input.routes.ticket.tiers[0].responders[0]=supervisor:*', 'yukta.input.routes.ticket.tiers[1].name=session', 'yukta.input.routes.ticket.tiers[2].type=HUMAN', 'yukta.input.routes.ticket.on-final-timeout=FAIL']) expect(props).toContain(line)
+})

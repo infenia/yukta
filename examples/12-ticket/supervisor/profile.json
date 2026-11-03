@@ -1,0 +1,16 @@
+{
+  "id": "dogfood-ticket-advice",
+  "type": "workflow",
+  "dryRun": false,
+  "settings": {
+    "sessionId": "supervisors",
+    "workflowId": "dogfood-ticket-advice",
+    "events": ["InputRequested"],
+    "when": "request.spec.routeName == 'ticket'",
+    "maxConcurrent": 2,
+    "timeout": 60,
+    "allowedCommands": ["EscalateInputCommand"],
+    "canAnswer": false,
+    "maxRisk": "LOW"
+  }
+}
