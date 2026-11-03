@@ -424,12 +424,21 @@ class DefaultAnswerAuthorizerTest {
   private DefaultAnswerAuthorizer withRoute(final ResponderType type) {
     final Tier tier =
         new Tier("hook", List.of("external:webhook:ops"), null, Mode.FIRST, 0, 0, type, null);
+    final Tier first =
+        new Tier(
+            "first", List.of("supervisor:*"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
     final RouteResolver routes =
-        new RouteResolver(Map.of("r", new InputRoute("r", List.of(tier), FinalAction.FAIL)), null);
+        new RouteResolver(
+            Map.of("r", new InputRoute("r", List.of(first, tier), FinalAction.FAIL)), null);
     return new DefaultAnswerAuthorizer(runs, meters, CommandProposals.NONE, routes);
   }
 
   private static InputRequest inTier(final InputRisk risk, final String tier, final String route) {
+    return inTier(risk, tier, route, "external:webhook:ops");
+  }
+
+  private static InputRequest inTier(
+      final InputRisk risk, final String tier, final String route, final String target) {
     final InputRequest base =
         InputTestSupport.request(
             "r1",
@@ -458,7 +467,7 @@ class DefaultAnswerAuthorizerTest {
         base.state(),
         base.version(),
         tier,
-        List.of("external:webhook:ops"),
+        List.of(target),
         null,
         base.deadline(),
         base.createdAt(),
@@ -482,12 +491,18 @@ class DefaultAnswerAuthorizerTest {
                     .isInstanceOf(InputForbiddenException.class)
                     .hasMessageContaining("tier made for people"))
         .verify();
-    // a tier the route does not have is no tier for people either
+  }
+
+  @Test
+  void personIsNotAskedForTierType() {
     StepVerifier.create(
-            withRoute(ResponderType.HUMAN)
-                .authorize(new AnswerContext(inTier(InputRisk.HIGH, "gone", "r"), token, false)))
-        .expectError(InputForbiddenException.class)
-        .verify();
+            withRoute(ResponderType.AUTO)
+                .authorize(
+                    new AnswerContext(
+                        inTier(InputRisk.HIGH, "hook", "r", "role:OPERATOR"),
+                        ActorInfo.human(OP, ApiRole.OPERATOR, Set.of()),
+                        false)))
+        .verifyComplete();
   }
 
   @Test
