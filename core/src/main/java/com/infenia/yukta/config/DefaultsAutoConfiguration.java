@@ -13,6 +13,7 @@ import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputRequestStore;
+import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -112,6 +113,7 @@ public class DefaultsAutoConfiguration {
    * @param runs finds the start payload of a run
    * @param meters counts denied answers
    * @param proposals the parked control commands, looked up per answer
+   * @param routes finds the route of a request, to check the tier type for a token answer
    * @return the default rules
    */
   @Bean
@@ -119,11 +121,13 @@ public class DefaultsAutoConfiguration {
   public DefaultAnswerAuthorizer defaultAnswerAuthorizer(
       final ObjectProvider<ExecutionControlStore> runs,
       final ObjectProvider<MeterRegistry> meters,
-      final ObjectProvider<CommandProposals> proposals) {
+      final ObjectProvider<CommandProposals> proposals,
+      final ObjectProvider<RouteResolver> routes) {
     return new DefaultAnswerAuthorizer(
         runs.getIfAvailable(InMemoryExecutionControlStore::new),
         meters.getIfAvailable(SimpleMeterRegistry::new),
-        requestId -> proposals.getIfAvailable(() -> CommandProposals.NONE).find(requestId));
+        requestId -> proposals.getIfAvailable(() -> CommandProposals.NONE).find(requestId),
+        routes.getIfAvailable());
   }
 
   /**

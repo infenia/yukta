@@ -109,8 +109,9 @@ class TokenAnswerControllerTest {
 
   @Test
   void oneRequestCannotBeHammered() {
+    when(service.answer(any())).thenReturn(Mono.error(new InvalidAnswerTokenException()));
     for (int i = 0; i < 10; i++) {
-      post(open, "/api/inputs/token-answer", BODY.formatted("same")).expectStatus().isOk();
+      post(open, "/api/inputs/token-answer", BODY.formatted("same")).expectStatus().isForbidden();
     }
 
     post(open, "/api/inputs/token-answer", BODY.formatted("same"))
@@ -122,6 +123,7 @@ class TokenAnswerControllerTest {
 
   @Test
   void theAddressOfTheCallerIsWhatIsLimited() {
+    when(service.answer(any())).thenReturn(Mono.error(new InvalidAnswerTokenException()));
     final TokenAnswerController controller = new TokenAnswerController(service);
     final org.springframework.mock.http.server.reactive.MockServerHttpRequest call =
         org.springframework.mock.http.server.reactive.MockServerHttpRequest.post(
@@ -134,7 +136,7 @@ class TokenAnswerControllerTest {
             "r1", "hook", 4_102_444_800L, "abc", "approve", null, null, null);
 
     for (int i = 0; i < 10; i++) {
-      controller.answer(body, exchange).block();
+      controller.answer(body, exchange).onErrorResume(_ -> Mono.empty()).block();
     }
 
     org.assertj.core.api.Assertions.assertThat(
@@ -146,11 +148,20 @@ class TokenAnswerControllerTest {
 
   @Test
   void oneAddressCannotTryManyRequests() {
+    when(service.answer(any())).thenReturn(Mono.error(new InvalidAnswerTokenException()));
     for (int i = 0; i < 30; i++) {
-      post(open, "/api/inputs/token-answer", BODY.formatted("r" + i)).expectStatus().isOk();
+      post(open, "/api/inputs/token-answer", BODY.formatted("r" + i)).expectStatus().isForbidden();
     }
 
     post(open, "/api/inputs/token-answer", BODY.formatted("another")).expectStatus().isEqualTo(429);
+  }
+
+  @Test
+  void goodAnswersFromOneAddressAreNotLimited() {
+    // a reverse proxy puts every receiver behind one address; only refused calls use the allowance
+    for (int i = 0; i < 60; i++) {
+      post(open, "/api/inputs/token-answer", BODY.formatted("r" + i)).expectStatus().isOk();
+    }
   }
 
   @Test

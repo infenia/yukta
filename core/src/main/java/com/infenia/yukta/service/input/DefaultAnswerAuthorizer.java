@@ -9,12 +9,15 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.route.ResponderType;
+import com.infenia.yukta.service.input.route.RouteResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Mono;
 
 /**
@@ -60,6 +63,9 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   /** Finds the parked command behind an approval request. */
   private final CommandProposals proposals;
 
+  /** Finds the type of a tier; {@code null} when the check is off. */
+  private final @Nullable RouteResolver routes;
+
   /**
    * Creates the authoriser for requests of plugins only.
    *
@@ -77,19 +83,68 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
    * @param meters counts denials
    * @param proposals finds the parked command behind an approval request
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public DefaultAnswerAuthorizer(
       final ExecutionControlStore runs,
       final MeterRegistry meters,
       final CommandProposals proposals) {
+    this(runs, meters, proposals, null);
+  }
+
+  /**
+   * Creates the rules that also look up the type of the tier a request is in.
+   *
+   * @param runs finds the run of a request, for the separation rule
+   * @param meters counts denied answers
+   * @param proposals the parked control commands, looked up per answer
+   * @param routes finds the route of a request, to tell whether its tier is for a person; without
+   *     it an external actor on a HIGH request is accepted as the token endpoint passed it
+   */
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
+  public DefaultAnswerAuthorizer(
+      final ExecutionControlStore runs,
+      final MeterRegistry meters,
+      final CommandProposals proposals,
+      final @Nullable RouteResolver routes) {
     this.runs = runs;
     this.meters = meters;
     this.proposals = proposals;
+    this.routes = routes;
   }
 
   @Override
   public Mono<Void> authorize(final AnswerContext context) {
-    return Mono.fromRunnable(() -> check(context));
+    return Mono.fromRunnable(() -> check(context)).then(Mono.defer(() -> humanTier(context)));
+  }
+
+  /**
+   * An external actor (a one-time token) answers a HIGH request only in a tier made for people. The
+   * token service checks it too; this keeps the rule if another caller ever writes that actor.
+   */
+  private Mono<Void> humanTier(final AnswerContext context) {
+    final InputRequest request = context.request();
+    final ActorInfo actor = context.actor();
+    if (routes == null
+        || context.escalation()
+        || actor.type() != ActorInfo.Type.EXTERNAL
+        || request.spec().risk() != InputRisk.HIGH) {
+      return Mono.empty();
+    }
+    return routes
+        .resolve(request.spec(), request.sessionId())
+        .doOnNext(
+            route -> {
+              final boolean person =
+                  route.tiers().stream()
+                      .anyMatch(
+                          tier ->
+                              tier.name().equals(request.tier())
+                                  && tier.type() == ResponderType.HUMAN);
+              if (!person) {
+                throw deny(
+                    request, RULE_RISK, actor, "may answer HIGH only in a tier made for people");
+              }
+            })
+        .then();
   }
 
   private void check(final AnswerContext context) {

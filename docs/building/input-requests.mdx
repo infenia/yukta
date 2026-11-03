@@ -212,7 +212,7 @@ curl -X POST https://yukta.example.com/api/inputs/token-answer \
   -d '{"requestId":"<requestId>","tier":"ops","expires":<tokenExpires>,"token":"<token>","decision":"approve"}'
 ```
 
-The token is bound to the request and the tier; it is a bearer credential, so anyone who holds it can answer, and it does not fix the decision. Every refusal (unknown request, wrong tier, bad, expired or used token) is the same `403 Invalid or expired token`, and the call is limited per address and per request. The answer goes through the same review, audit and rules as any other, as the actor `token:<tier>`. A `HIGH` request can be answered this way only when the tier is of type `HUMAN`.
+The token is bound to the request and the tier; it is a bearer credential, so anyone who holds it can answer, and it does not fix the decision. Every refusal (unknown request, wrong tier, bad, expired or used token) is the same `403 Invalid or expired token`, and an address that has had 30 calls refused in a minute (or a request 10) gets `429`; accepted calls do not count. The answer goes through the same review, audit and rules as any other, as the actor `token:<tier>`. A `HIGH` request can be answered this way only when the tier is of type `HUMAN`.
 
 Use HTTPS only. Set `yukta.input.token-secret` to a long random value; without it the server makes a random one at start-up and tokens stop working after a restart. Behind a proxy the per-address limit sees the proxy, so the per-request limit is the one that counts.
 

@@ -178,7 +178,8 @@ A node, an AI agent or a supervisor can ask for a decision and wait for the answ
 - A `HIGH` risk request is answered by a person (an API key) or by a tier marked `HUMAN`, never by a supervisor or a model. A supervisor needs `canAnswer` and a `maxRisk` at or above the request's risk, and may send only the commands its profile allows.
 - The run that asked cannot answer its own request, and a supervisor cannot answer a request raised by a run it started.
 - With no API key configured every caller counts as a person: the same trust as the rest of the control endpoints.
-- `POST /api/inputs/token-answer` is the one path under `/api/inputs/` that needs no API key. It takes a one-time token that the server made for one request and one tier, rejects a replayed, changed, expired or unknown token with the same `403`, and is rate limited per address and per request. Serve it over HTTPS only.
+- `POST /api/inputs/token-answer` is the one path under `/api/inputs/` that needs no API key. It takes a one-time token that the server made for one request and one tier, rejects a replayed, changed, expired or unknown token with the same `403`, and answers `429` once an address has had 30 calls refused in a minute (or one request 10). Calls that were accepted do not count, so receivers behind one reverse proxy do not use up each other's allowance. For the address to be the caller's, not the proxy's, set `server.forward-headers-strategy=framework` and make sure the proxy replaces `X-Forwarded-For`, not appends to it. Serve it over HTTPS only.
+- A `HIGH` request is answered with a token only in a tier made for people; the authoriser checks this itself, besides the token service.
 - Prompts and context are redacted before they are stored, put on the event feed, logged or sent to a webhook, and the execution log records who answered, handed up, expired or cancelled each request.
 
 ## Process execution
