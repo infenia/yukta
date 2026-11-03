@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { Donut } from '@/components/dashboard/Gauges';
+import { Donut, type DonutSegment } from '@/components/dashboard/Gauges';
 import { Button } from '@/components/ui/button';
 import { InlineError } from '@/components/common/InlineError';
 import { ApiError } from '@/lib/apiClient';
@@ -86,6 +86,7 @@ export function SupervisorCard({
               value: running.rateLimited,
               tone: 'warning',
             },
+            ...arbiterSegments(running),
           ]}
         />
       ) : (
@@ -171,4 +172,15 @@ function scopeOfRunning(running?: Supervisor): string {
   return running.scope === 'SECTION'
     ? `${workflow}//${(running.scopeNodes ?? []).join(',')}`
     : workflow;
+}
+
+/** The arbiter's counters, shown only when something was dropped, merged or blocked. */
+function arbiterSegments(running: Supervisor): DonutSegment[] {
+  return [
+    { label: 'Arbitrated', value: running.arbitrated ?? 0 },
+    { label: 'Coalesced', value: running.coalesced ?? 0 },
+    { label: 'Flapping-blocked', value: running.flappingBlocked ?? 0 },
+  ]
+    .filter((s) => s.value > 0)
+    .map((s) => ({ ...s, tone: 'attention' as const }));
 }

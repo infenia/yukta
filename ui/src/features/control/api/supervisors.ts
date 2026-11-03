@@ -20,6 +20,12 @@ export interface Supervisor {
   scopeWorkflowId: string | null;
   /** The node selectors of a `SECTION` scope (node ids and `<prefix>.*`), otherwise null. */
   scopeNodes?: string[] | null;
+  /** Commands the arbiter dropped in favour of another supervisor. */
+  arbitrated?: number;
+  /** Commands merged into an equal one from another supervisor. */
+  coalesced?: number;
+  /** Commands blocked because the supervisor kept turning a target around. */
+  flappingBlocked?: number;
 }
 
 /** A reusable supervisor setup. Values under secret-looking keys come back as `***`. */
@@ -51,7 +57,14 @@ export interface Decision {
     | 'dry-run'
     | 'rate-limited'
     | 'forbidden'
-    | 'out-of-scope';
+    | 'out-of-scope'
+    | 'arbitrated'
+    | 'coalesced'
+    | 'flapping-blocked'
+    | 'not-owner'
+    | 'awaiting-approval'
+    // a newer server may name more; the UI shows them in a neutral colour
+    | (string & {});
   command: string;
   executionId: string;
   reason: string | null;

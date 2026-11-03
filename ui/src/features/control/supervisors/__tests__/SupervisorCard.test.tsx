@@ -71,6 +71,28 @@ describe('SupervisorCard', () => {
     expect(screen.getByText('Global')).toBeInTheDocument();
   });
 
+  it('adds the arbiter counters to the donut only when they are not zero', () => {
+    const { unmount } = card({ binding, profile, running: running as never });
+    expect(screen.getByRole('img').getAttribute('aria-label')).not.toMatch(
+      /Arbitrated/
+    );
+    unmount();
+
+    card({
+      binding,
+      profile,
+      running: {
+        ...running,
+        arbitrated: 2,
+        coalesced: 1,
+        flappingBlocked: 4,
+      } as never,
+    });
+    expect(screen.getByRole('img')).toHaveAccessibleName(
+      /Arbitrated 2, Coalesced 1, Flapping-blocked 4/
+    );
+  });
+
   it('shows not running when there is no live supervisor', () => {
     card({ binding, profile });
     expect(screen.getByText('Not running.')).toBeInTheDocument();
