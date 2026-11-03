@@ -1,6 +1,6 @@
 {
-  "url": "http://localhost:11434",
-  "model": "",
+  "url": "https://opencode.ai/inference/systemone",
+  "model": "jev-1.13-free",
   "maxInput": 1024,
   "slowMs": 3000,
   "minOllama": "0.35.0",

@@ -41,6 +41,12 @@ test('an oversized digest, the cap raised by YUKTA_DECISION_MAX_INPUT, YUKTA_DEC
   expect(decide('x', { YUKTA_DECISION: 'off' }).answer).toBeNull()
   expect(probe({ YUKTA_DECISION: 'off' })).toMatch(/^decision: off/)
 })
+test('a hosted endpoint: the key is sent as a Bearer token (no keep_alive); without a key the call is not made', () => {
+  expect(decide('difficulty: hard', { YUKTA_DECISION_API_KEY: 'k-123' }).answer).toEqual(['hard', '0.7'])
+  expect(read(join(d, 'port.auth'))).toBe('Bearer k-123 keep_alive=')
+  const o = decide('x', { YUKTA_DECISION_URL: 'https://example.invalid' })
+  expect(o.answer).toBeNull(); expect(o.err).toContain('no API key')
+})
 test('an unreachable Ollama', () => {
   const o = decide('x', { YUKTA_DECISION_URL: 'http://127.0.0.1:1' })
   expect(o.answer).toBeNull(); expect(o.err).toContain('not reachable')
