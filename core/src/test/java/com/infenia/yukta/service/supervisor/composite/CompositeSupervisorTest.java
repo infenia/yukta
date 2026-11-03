@@ -144,7 +144,7 @@ class CompositeSupervisorTest {
   }
 
   @Test
-  void quorumIgnoresALoneCommand() {
+  void quorumIgnoresLoneCommand() {
     final var c = composite(CompositeMode.QUORUM, emitting(PAUSE), emitting(STOP));
     StepVerifier.create(c.supervise(Flux.just(EVENT))).verifyComplete();
   }
@@ -186,7 +186,7 @@ class CompositeSupervisorTest {
   }
 
   @Test
-  void reviewErrorDeniesButAStopSurvivesATimeout() {
+  void reviewErrorDeniesButStopSurvivesTimeout() {
     final var broken = reviewing(_ -> Mono.error(new IllegalStateException("x")));
     final var hung = reviewing(_ -> Mono.never());
     StepVerifier.create(

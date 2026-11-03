@@ -80,7 +80,7 @@ class CompositeServiceTest {
   }
 
   @Test
-  void aCompositeNeedsItsChildrenSavedAndRestartsWhenOneChanges() {
+  void compositeNeedsSavedChildrenAndRestartsOnChange() {
     final SupervisorService service = service();
     StepVerifier.create(service.saveProfile(composite("kid")))
         .expectErrorMessage("Unknown child profile: kid")
@@ -103,7 +103,7 @@ class CompositeServiceTest {
   }
 
   @Test
-  void aChildOfACompositeCannotBeDeleted() {
+  void childOfCompositeCannotBeDeleted() {
     final SupervisorService service = service();
     service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)).block();
     service.saveProfile(composite("kid")).block();
