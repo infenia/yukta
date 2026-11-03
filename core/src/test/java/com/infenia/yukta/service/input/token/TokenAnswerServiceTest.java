@@ -20,7 +20,9 @@ import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
+import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
@@ -177,6 +179,47 @@ class TokenAnswerServiceTest {
 
     StepVerifier.create(service.answer(answer)).verifyComplete();
     expectRefused(answer);
+
+    verify(controlBus, times(1))
+        .answerInput(anyString(), anyString(), any(), anyString(), any(), any(), any(), any());
+  }
+
+  @Test
+  void replayAfterRestartIsRefusedBecauseTheRequestEnded() {
+    final InputRequest request = ask("e1", "human", InputRisk.MEDIUM);
+    // the control bus really answers: the request ends, as it does in the server
+    when(controlBus.answerInput(
+            anyString(), anyString(), any(), anyString(), any(), any(), any(), any()))
+        .thenAnswer(
+            call ->
+                broker
+                    .answer(
+                        request.id(),
+                        null,
+                        new InputResponse(
+                            request.id(),
+                            "approve",
+                            null,
+                            Map.of(),
+                            new Responder(Responder.Type.EXTERNAL, "token:hook"),
+                            null,
+                            null,
+                            clock.instant()))
+                    .then());
+    final TokenAnswerService.Answer answer = answer(request, expiry());
+    StepVerifier.create(service.answer(answer)).verifyComplete();
+
+    // a restart forgets which tokens were used; the same secret still makes the token good
+    final TokenAnswerService restarted =
+        new TokenAnswerService(
+            broker,
+            new AnswerTokens("test-secret", clock),
+            new RouteResolver(Map.of(), null),
+            controlBus,
+            new SimpleMeterRegistry());
+    StepVerifier.create(restarted.answer(answer))
+        .expectErrorMessage(InvalidAnswerTokenException.MESSAGE)
+        .verify();
 
     verify(controlBus, times(1))
         .answerInput(anyString(), anyString(), any(), anyString(), any(), any(), any(), any());

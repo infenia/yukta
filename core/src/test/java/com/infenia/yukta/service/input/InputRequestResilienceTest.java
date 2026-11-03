@@ -36,12 +36,13 @@ import reactor.test.StepVerifier;
 class InputRequestResilienceTest {
 
   private final InputRequestStore store = spy(new InMemoryInputRequestStore(1000));
+  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
   private final InputBroker broker =
       new InputBroker(
           store,
           new ExecutionEventFeed(),
           new InMemoryExecutionLogStore(),
-          new SimpleMeterRegistry(),
+          meters,
           new InputRedactor(List.of()),
           limits(),
           new MutableClock());
@@ -95,5 +96,13 @@ class InputRequestResilienceTest {
     final List<InputRequest> listed = broker.listOpen(null, null).collectList().block();
 
     assertThat(listed).hasSize(40).allMatch(request -> request.state() == InputState.OPEN);
+  }
+
+  @Test
+  void everySweepIsTimed() {
+    broker.sweep().block();
+    broker.sweep().block();
+
+    assertThat(meters.timer("yukta.input.sweep").count()).isEqualTo(2);
   }
 }

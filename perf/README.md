@@ -27,8 +27,8 @@ have 50 open requests) that each wait on an `ASK_INPUT` node, waits until all 1,
 10 seconds (`ANSWER_SECONDS`) answers 500 of them (`ANSWERS`) over REST while 50 clients (`READERS`) list the
 open requests once a second. Thresholds (they fail the nightly run): answer p95 under 500 ms, read p95 under 1 s, at
 least 99% of the answers sent and accepted, no request lost (500 stay open), none of the answered runs still
-`RUNNING` after `GRACE` seconds, heap under 1.5 GB. Not covered: supervisors that follow the SSE feed (k6 cannot
-read a stream), and the cost of a sweeper tick, which has no meter. A run on a development machine (jar, no
+`RUNNING` after `GRACE` seconds, heap under 1.5 GB, sweep mean under 250 ms. Not covered: supervisors that follow the SSE feed (k6 cannot
+read a stream), and 100 parked commands with section supervisors. The mean time of a deadline sweep (`yukta.input.sweep`) is a threshold. A run on a development machine (jar, no
 resource limits): answer p95 10 ms, read p95 230 ms, heap 260 MB. The nightly run on the hosted runner is the one
 to compare against, not this.
 

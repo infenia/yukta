@@ -34,6 +34,7 @@ const sid = (i) => `k6-inputs-${i}`;
 export const answerMs = new Trend('input_answer_ms', true);
 export const answerOk = new Rate('input_answer_ok');
 export const readMs = new Trend('input_read_ms', true);
+export const sweepMs = new Gauge('input_sweep_mean_ms'); // yukta.input.sweep: one deadline sweep, mean
 export const answersSent = new Counter('input_answers_sent');
 export const heapMb = new Gauge('input_heap_used_mb');
 export const lostRequests = new Counter('input_requests_lost'); // asked but never listed as open
@@ -68,6 +69,7 @@ export const options = {
     input_read_ms: ['p(95)<1000'],
     input_requests_lost: ['count==0'],
     input_stuck_runs: ['count==0'],
+    input_sweep_mean_ms: ['value<250'], // with 1,000 open requests a sweep reads them all (in memory)
     input_heap_used_mb: ['value<1500'], // 1,000 open requests are small; a leak is not
     dropped_iterations: ['count==0'],
   },
@@ -143,6 +145,8 @@ export function teardown(ctx) {
     if (r.status === 200) open += r.json('data').length;
   }
   lostRequests.add(Math.max(0, OPEN - ANSWERS - open));
+  const sweep = metric('yukta.input.sweep', '');
+  if (stat(sweep, 'COUNT')) sweepMs.add((stat(sweep, 'TOTAL_TIME') / stat(sweep, 'COUNT')) * 1000);
   heapMb.add(stat(metric('jvm.memory.used', 'area:heap'), 'VALUE') / 1048576);
   console.log(`INPUTS open=${open} (want ${OPEN - ANSWERS}) answered-runs-not-ended=${stuck}`);
 }
