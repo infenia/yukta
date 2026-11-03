@@ -16,6 +16,7 @@ import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -354,7 +355,7 @@ public class SupervisorHost {
                   supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
               return new SupervisorInfo(
                   supervisor.id(),
-                  real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR",
+                  kind(real),
                   typeName(real.getClass()),
                   supervisor.order(),
                   dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
@@ -368,9 +369,20 @@ public class SupervisorHost {
                   supervisor.scope().workflowId(),
                   supervisor.scope() instanceof SupervisorScope.Section section
                       ? List.copyOf(section.nodes())
-                      : null);
+                      : null,
+                  commands(supervisor.id(), "arbitrated"),
+                  commands(supervisor.id(), "coalesced"),
+                  commands(supervisor.id(), "flapping-blocked"),
+                  real instanceof CompositeSupervisor composite ? composite.childIds() : null);
             })
         .toList();
+  }
+
+  private static String kind(final ExecutionSupervisor real) {
+    if (real instanceof CompositeSupervisor) {
+      return "COMPOSITE";
+    }
+    return real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
   /** An anonymous class has no simple name. */
