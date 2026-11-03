@@ -4,7 +4,6 @@ package com.infenia.yukta.service.supervisor;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -25,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -38,7 +38,7 @@ class SupervisorHostInternalTest {
 
   private final SessionConfigStore configs = mock(SessionConfigStore.class);
 
-  private SupervisorHost host;
+  private SupervisorHost supervisorHost;
 
   private static ExecutionSupervisor watcher(final List<String> seen) {
     return new ExecutionSupervisor() {
@@ -76,7 +76,7 @@ class SupervisorHostInternalTest {
             1000);
     created.setInternalSessions(new InternalSessions(configs));
     created.start();
-    host = created;
+    supervisorHost = created;
     return created;
   }
 
@@ -101,17 +101,17 @@ class SupervisorHostInternalTest {
 
   @AfterEach
   void tearDown() {
-    if (host != null) {
-      host.stop();
+    if (supervisorHost != null) {
+      supervisorHost.stop();
     }
   }
 
   @Test
-  void aSupervisorDoesNotSeeInternalSessionsByDefault() {
+  void supervisorDoesNotSeeInternalSessionsByDefault() {
     final List<String> seen = new CopyOnWriteArrayList<>();
     attach(host(), seen, new SupervisorScope.Global(), false);
 
-    await()
+    Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
@@ -122,7 +122,32 @@ class SupervisorHostInternalTest {
   }
 
   @Test
-  void observeInternalNeedsAScopeThatNamesTheSession() {
+  void eventsWithoutSessionAreNotHiddenAsInternal() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    attach(host(), seen, new SupervisorScope.Global(), false);
+
+    Awaitility.await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(
+                  new ExecutionEvent.ControlOutcome(
+                      "e-none",
+                      null,
+                      null,
+                      "PauseWorkflowCommand",
+                      null,
+                      true,
+                      null,
+                      Instant.now()));
+              assertThat(seen).isNotEmpty();
+            });
+    // The watcher records String.valueOf(sessionId), so a missing session shows as "null".
+    assertThat(seen).contains("null");
+  }
+
+  @Test
+  void observeInternalNeedsScopeThatNamesTheSession() {
     final List<String> global = new CopyOnWriteArrayList<>();
     final List<String> named = new CopyOnWriteArrayList<>();
     final SupervisorHost created = host();
@@ -135,7 +160,7 @@ class SupervisorHostInternalTest {
             new SupervisorCapabilities(null, false, InputRisk.LOW),
             true));
 
-    await()
+    Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {

@@ -3,9 +3,7 @@
 package com.infenia.yukta.service.session;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,6 +18,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -36,22 +36,22 @@ class InternalSessionsTest {
   }
 
   @Test
-  void aSessionIsInternalWhenItsTagSaysTrue() {
+  void sessionIsInternalWhenItsTagSaysTrue() {
     tags("sys", Map.of(InternalSessions.TAG, "true"));
     tags("plain", Map.of("team", "a"));
     when(store.getTags("empty")).thenReturn(Mono.empty());
 
-    StepVerifier.create(internal.isInternal("sys")).expectNext(true).verifyComplete();
-    StepVerifier.create(internal.isInternal("plain")).expectNext(false).verifyComplete();
-    StepVerifier.create(internal.isInternal("empty")).expectNext(false).verifyComplete();
-    StepVerifier.create(internal.isInternal(null)).expectNext(false).verifyComplete();
+    StepVerifier.create(internal.checkInternal("sys")).expectNext(true).verifyComplete();
+    StepVerifier.create(internal.checkInternal("plain")).expectNext(false).verifyComplete();
+    StepVerifier.create(internal.checkInternal("empty")).expectNext(false).verifyComplete();
+    StepVerifier.create(internal.checkInternal(null)).expectNext(false).verifyComplete();
   }
 
   @Test
   void anUnreadableSessionCountsAsInternal() {
     when(store.getTags("x")).thenReturn(Mono.error(new IllegalStateException("down")));
 
-    StepVerifier.create(internal.isInternal("x")).expectNext(true).verifyComplete();
+    StepVerifier.create(internal.checkInternal("x")).expectNext(true).verifyComplete();
   }
 
   @Test
@@ -76,17 +76,17 @@ class InternalSessionsTest {
         });
     tags("s", Map.of());
 
-    internal.isInternal("s").block();
-    internal.isInternal("s").block();
-    verify(store, times(1)).getTags("s");
+    internal.checkInternal("s").block();
+    internal.checkInternal("s").block();
+    verify(store, Mockito.times(1)).getTags("s");
 
     internal.invalidate("s");
-    internal.isInternal("s").block();
-    verify(store, times(2)).getTags("s");
+    internal.checkInternal("s").block();
+    verify(store, Mockito.times(2)).getTags("s");
 
     now[0] = Clock.fixed(Instant.EPOCH.plus(Duration.ofSeconds(60)), ZoneOffset.UTC);
-    internal.isInternal("s").block();
-    verify(store, times(3)).getTags("s");
+    internal.checkInternal("s").block();
+    verify(store, Mockito.times(3)).getTags("s");
   }
 
   @Test
@@ -100,7 +100,7 @@ class InternalSessionsTest {
             mock(PreparedWorkflowCache.class),
             mock(WorkflowPreparator.class));
     when(configs.getSessionIds()).thenReturn(Flux.just("a", "sys", "b"));
-    when(configs.getTags(any()))
+    when(configs.getTags(ArgumentMatchers.any()))
         .thenAnswer(
             call ->
                 Mono.just(

@@ -30,7 +30,7 @@ public class InternalSessions {
   public static final String TAG = "yukta.internal";
 
   /** How long an answer is kept. */
-  static final int TTL_SECONDS = 30;
+  private static final int TTL_SECONDS = 30;
 
   /** Where the tags are read from. */
   private final SessionConfigStore store;
@@ -46,7 +46,7 @@ public class InternalSessions {
    *
    * @param newClock the clock
    */
-  void setClock(final Clock newClock) {
+  public void setClock(final Clock newClock) {
     this.clock = newClock;
   }
 
@@ -57,7 +57,7 @@ public class InternalSessions {
    * @param sessionId the session, or {@code null} (never internal)
    * @return true if internal
    */
-  public Mono<Boolean> isInternal(final String sessionId) {
+  public Mono<Boolean> checkInternal(final String sessionId) {
     if (sessionId == null) {
       return Mono.just(false);
     }

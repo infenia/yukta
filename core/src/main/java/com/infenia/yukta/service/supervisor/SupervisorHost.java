@@ -440,12 +440,13 @@ public class SupervisorHost {
   private Mono<Boolean> visible(
       final ExecutionEvent event, final SupervisorScope scope, final boolean observeInternal) {
     final InternalSessions internal = internalSessions;
-    if (internal == null || event.sessionId() == null) {
+    final String sessionId = event.sessionId();
+    if (internal == null || sessionId == null) {
       return Mono.just(true);
     }
     return internal
-        .isInternal(event.sessionId())
-        .map(hidden -> !hidden || observeInternal && event.sessionId().equals(scope.sessionId()));
+        .checkInternal(sessionId)
+        .map(hidden -> !hidden || observeInternal && sessionId.equals(scope.sessionId()));
   }
 
   /** A supervisor does not see the outcome of its own commands, so it cannot answer itself. */

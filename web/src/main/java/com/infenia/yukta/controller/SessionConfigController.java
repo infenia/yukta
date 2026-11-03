@@ -55,6 +55,9 @@ public class SessionConfigController {
   /** Session ID parameter description. */
   private static final String SESSION_ID = "The unique identifier of the session";
 
+  /** Default for the flags that are off unless asked for. */
+  private static final String FALSE_DEFAULT = "false";
+
   /** Workflow ID parameter description. */
   private static final String WORKFLOW_ID = "The unique identifier of the workflow";
 
@@ -87,7 +90,8 @@ public class SessionConfigController {
               + " limited to sessions may delete only its own. Recorded in the control audit.")
   public Mono<ResponseEntity<Void>> deleteSession(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
-      @Parameter(description = "Cancel active runs first") @RequestParam(defaultValue = "false")
+      @Parameter(description = "Cancel active runs first")
+          @RequestParam(defaultValue = FALSE_DEFAULT)
           final boolean force) {
     return sessionService
         .deleteSession(sessionId, force)
@@ -112,7 +116,8 @@ public class SessionConfigController {
   public Mono<ResponseEntity<Void>> deleteWorkflow(
       @Parameter(description = SESSION_ID) @PathVariable final String sessionId,
       @Parameter(description = WORKFLOW_ID) @PathVariable final String workflowId,
-      @Parameter(description = "Cancel active runs first") @RequestParam(defaultValue = "false")
+      @Parameter(description = "Cancel active runs first")
+          @RequestParam(defaultValue = FALSE_DEFAULT)
           final boolean force) {
     return sessionService
         .deleteWorkflow(sessionId, workflowId, force)
@@ -182,7 +187,7 @@ public class SessionConfigController {
   public Mono<ResponseEntity<ApiResponse<List<String>>>> listSessions(
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final String cursor,
-      @RequestParam(defaultValue = "false") final boolean includeInternal) {
+      @RequestParam(defaultValue = FALSE_DEFAULT) final boolean includeInternal) {
     return sessionService
         .getSessionIds(includeInternal)
         .sort()
@@ -210,7 +215,7 @@ public class SessionConfigController {
   public Mono<ResponseEntity<ApiResponse<List<SessionListItem>>>> listSessionSummaries(
       @RequestParam(required = false) final Integer limit,
       @RequestParam(required = false) final String cursor,
-      @RequestParam(defaultValue = "false") final boolean includeInternal) {
+      @RequestParam(defaultValue = FALSE_DEFAULT) final boolean includeInternal) {
     return sessionService
         .getSessionIds(includeInternal)
         .sort()
