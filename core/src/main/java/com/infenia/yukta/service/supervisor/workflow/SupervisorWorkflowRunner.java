@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.orchestrator.SubWorkflowRunner;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -30,6 +31,9 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.UseObjectForClearerAPI"})
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP2",
+    justification = "shared Spring beans, held on purpose")
 @Component
 public class SupervisorWorkflowRunner {
 
