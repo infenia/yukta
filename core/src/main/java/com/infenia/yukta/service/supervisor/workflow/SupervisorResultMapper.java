@@ -100,7 +100,7 @@ public class SupervisorResultMapper {
     raw.forEach((k, v) -> m.put(String.valueOf(k), v));
     try {
       return build(name, m, m.get("executionId") instanceof String e ? e : executionId);
-    } catch (IllegalArgumentException | ClassCastException e) {
+    } catch (IllegalArgumentException e) {
       return null;
     }
   }

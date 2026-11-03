@@ -59,7 +59,7 @@ class WorkflowSettingsTest {
     notList.put("events", "InputRequested");
     assertThatThrownBy(() -> read(notList)).hasMessageContaining("events");
     final Map<String, Object> noWorkflow = base();
-    noWorkflow.put("workflowId", 7);
+    noWorkflow.put("workflowId", " ");
     assertThatThrownBy(() -> read(noWorkflow)).hasMessageContaining("workflowId");
     final Map<String, Object> noSession = base();
     noSession.remove("sessionId");

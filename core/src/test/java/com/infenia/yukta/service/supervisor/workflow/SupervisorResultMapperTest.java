@@ -129,6 +129,21 @@ class SupervisorResultMapperTest {
   }
 
   @Test
+  void entriesThatAreNotCommandsAreDroppedBeforeTheCap() {
+    final var mapped =
+        map(
+            Set.of("NonsenseCommand"),
+            "not a map",
+            Map.of("no", "type"),
+            entry("Nonsense"),
+            entry("PauseNode", "nodeId", " "),
+            entry("SetPriority"),
+            entry("PauseWorkflow"));
+    assertThat(mapped.commands()).hasSize(1);
+    assertThat(mapped.dropped()).isEqualTo(5);
+  }
+
+  @Test
   void resultWithoutCommandsGivesNothing() {
     assertThat(SupervisorResultMapper.map(List.of(), Set.of(), "run", 10).commands()).isEmpty();
     assertThat(
