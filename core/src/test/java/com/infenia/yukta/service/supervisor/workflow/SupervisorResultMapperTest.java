@@ -18,7 +18,7 @@ class SupervisorResultMapperTest {
   private static Map<String, Object> entry(final String type, final Object... pairs) {
     final Map<String, Object> m = new HashMap<>();
     m.put("type", type);
-    for (int i = 0; i < pairs.length; i += 2) {
+    for (int i = 0; i + 1 < pairs.length; i += 2) {
       m.put((String) pairs[i], pairs[i + 1]);
     }
     return m;
