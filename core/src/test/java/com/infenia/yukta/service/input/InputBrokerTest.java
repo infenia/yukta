@@ -245,6 +245,7 @@ class InputBrokerTest {
                 2,
                 100,
                 Duration.ofSeconds(1),
+                Duration.ofDays(30),
                 List.of(),
                 Map.of()));
     small.ask(who("e1", "n1"), spec("k1")).subscribe();

@@ -219,6 +219,7 @@ A plugin can ask for a decision and wait for the answer; these settings bound th
 | `yukta.input.max-ttl` | `24h` | The longest ttl a request may ask for; a longer one is refused |
 | `yukta.input.max-open-per-execution` | `5` | Open requests one run may have |
 | `yukta.input.max-open-per-session` | `50` | Open requests one session may have |
+| `yukta.input.retention` | `30d` | How long a finished request and its answer are kept before the hourly purge (on the leader) removes them |
 | `yukta.input.memory-max` | `10000` | Finished requests the in-memory store keeps; the oldest are dropped first |
 | `yukta.input.sweep-interval` | `1s` | How often requests past their deadline are ended (leader only) |
 | `yukta.input.redact-keys` | none | Context keys whose value is replaced, besides names such as `password` and `token` |

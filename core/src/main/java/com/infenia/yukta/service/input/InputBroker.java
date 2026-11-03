@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.input.Vote;
+import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.delivery.InputDelivery;
 import com.infenia.yukta.service.input.route.FinalAction;
 import com.infenia.yukta.service.input.route.InputRoute;
@@ -73,7 +74,8 @@ import reactor.core.publisher.Sinks;
   "PMD.CouplingBetweenObjects",
   "PMD.GodClass",
   "PMD.CyclomaticComplexity",
-  "PMD.UseConcurrentHashMap"
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidUsingVolatile"
 })
 public class InputBroker {
 
@@ -162,6 +164,9 @@ public class InputBroker {
 
   /** Requests that are open or escalated now; the value of the open gauge. */
   private final AtomicInteger open = new AtomicInteger();
+
+  /** Tells which runs are alive here; {@code null} means no request is ever taken over. */
+  private volatile @Nullable ExecutionControlStore executionControlStore;
 
   /**
    * Creates the broker.
@@ -262,6 +267,18 @@ public class InputBroker {
     this.limits = limits;
     this.clock = clock;
     meters.gauge("yukta.input.open", open);
+  }
+
+  /**
+   * Lets a resumed run take over the open request of a run that is gone. Without it a request
+   * always stays with the run that raised it.
+   *
+   * @param runs the live runs of this server
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings("EI_EXPOSE_REP2") // the shared store is held on purpose
+  public void setExecutionControlStore(final ExecutionControlStore runs) {
+    this.executionControlStore = runs;
   }
 
   /**
@@ -768,7 +785,7 @@ public class InputBroker {
                       .findFirst()
                       .orElse(null);
               if (existing != null) {
-                return Mono.just(existing);
+                return takenOver(existing, who);
               }
               final String denial = denial(who, spec, inSession);
               if (denial != null) {
@@ -794,6 +811,55 @@ public class InputBroker {
                                             .then(Mono.defer(() -> skipUnreachable(stored, route)))
                                         : Mono.just(stored));
                       });
+            });
+  }
+
+  /**
+   * The open request an ask found by its key. If it was raised by a run that is gone (the server
+   * restarted, or a resumed run has a new execution id), the asking run takes it over: the request
+   * keeps its tier, advice, votes and deliveries, so a person is not asked twice.
+   */
+  private Mono<InputRequest> takenOver(final InputRequest existing, final InputIdentity who) {
+    final ExecutionControlStore runs = executionControlStore;
+    if (runs == null
+        || existing.executionId().equals(who.executionId())
+        || runs.findByExecutionId(existing.executionId()).isPresent()) {
+      return Mono.just(existing);
+    }
+    final InputRequest rebound =
+        new InputRequest(
+            existing.id(),
+            existing.key(),
+            existing.sessionId(),
+            existing.workflowId(),
+            who.executionId(),
+            existing.nodeId(),
+            existing.spec(),
+            existing.state(),
+            existing.version() + 1,
+            existing.tier(),
+            existing.targets(),
+            existing.advice(),
+            existing.deadline(),
+            existing.tierDeadline(),
+            existing.votes(),
+            existing.createdAt(),
+            clock.instant());
+    return store
+        .compareAndSet(existing.id(), existing.version(), rebound)
+        .flatMap(
+            changed -> {
+              if (!changed) {
+                // someone changed it first (an answer, or another take-over): use what is there now
+                return store.findById(existing.id()).defaultIfEmpty(existing);
+              }
+              meters.counter("yukta.input.taken-over").increment();
+              log.atInfo()
+                  .addKeyValue(LOG_REQUEST_ID, existing.id())
+                  .addKeyValue(LOG_EXECUTION_ID, who.executionId())
+                  .addKeyValue("previousExecutionId", existing.executionId())
+                  .log("Input request taken over by a resumed run");
+              return Mono.just(rebound);
             });
   }
 
