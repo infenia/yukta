@@ -78,12 +78,19 @@ def tier_up(models):
     return TIERS[i + 1] if i + 1 < len(TIERS) else None
 
 
+def ask_decision(*args):
+    """One decision of the local model through `ticketkit decision` (stderr, with its WARN line, passes through). The last JSON line, or None."""
+    r = subprocess.run([str(KIT / "ticketkit"), "decision", *args], stdout=subprocess.PIPE, text=True)
+    lines = [l for l in r.stdout.splitlines() if l.startswith("{")]
+    return json.loads(lines[-1]) if r.returncode == 0 and lines else None
+
+
 def decide(run, sid, after_heal, wt):
     p, routing = ctx(run)
     sd = run / "steps" / sid
     n = attempts_dirs(sd)[-1]
     ad = sd / f"attempt-{n}"
-    state = load(sd / "ladder.json") if (sd / "ladder.json").is_file() else {"healed": [], "infra": 0, "mech": 0}
+    state = {"healed": [], "infra": 0, "mech": 0, "flaky": 0} | (load(sd / "ladder.json") if (sd / "ladder.json").is_file() else {})
     mf = sd / "model.json"
     cur = load(mf) if mf.is_file() else routing["models"]["implementer"]
     res = load(ad / "result.json") if (ad / "result.json").is_file() else {}
@@ -127,6 +134,15 @@ def decide(run, sid, after_heal, wt):
     if cls in MECH_CLASSES and state["mech"] == 0:
         state["mech"] += 1
         return out("retry", f"{cls}: retry once with the digest")
+    if n >= 2 and cls in ("test_fail", "typecheck_fail") and stage in ("tests", "compile"):
+        d = ask_decision("cause", str(run), sid)  # D2: only for tests and compile failures from attempt 2
+        cause = d["label"] if d else "impl_bug"
+        if cause in ("spec_gap", "spec_conflict"):
+            return out("revise", f"cause: {cause}")
+        if cause == "flaky" and state["flaky"] == 0:
+            state["flaky"] += 1
+            subprocess.run([sys.executable, str(KIT / "scripts" / "stepkit.py"), "event", str(run), "role=cause", f"step_id={sid}", "flaky=1"], check=True)
+            return out("retry", "cause: flaky, rerun once unchanged")
     if n >= allowed:
         return out("revise", f"{n} attempts failed")
     if n == 2:
@@ -247,11 +263,15 @@ def final_fail(run):
     print("ESCALATED final gate"); return 0
 
 
-def need_approval(run, kind):
+def need_approval(run, kind, wt):
     p, routing = ctx(run)
     risk = routing["risk"]
     policy = p.get("merge_gate", "high_risk")
     ask = risk == "high" if kind == "spec" else policy == "always" or (policy == "high_risk" and risk == "high")
+    if kind == "merge":
+        d = ask_decision("merge_risk", str(run), "-", str(wt))  # shadow: logged only; in mode on a high score also asks
+        if d and d["source"] == "model" and int(d["label"]) >= p.get("merge_risk_ask", 7):
+            ask = True
     print(json.dumps({"ask": ask, "kind": kind, "risk": risk})); return 0
 
 
@@ -283,7 +303,7 @@ def main():
     f = {"decide": lambda: decide(run, o.arg, o.after_heal, pathlib.Path(o.worktree).resolve()), "heal": lambda: heal(run, o.arg, pathlib.Path(o.worktree).resolve()), "next-step": lambda: next_step(run),
          "route-failure": lambda: print(json.dumps(load(run / "escalation.json") if (run / "escalation.json").is_file() else {"action": "human", "trigger": "step_failed", "reason": "no escalation recorded"})) or 0,
          "build-revision": lambda: build_revision(run), "apply-revision": lambda: apply_revision(run), "review-verdict": lambda: review_verdict(run),
-         "final-fail": lambda: final_fail(run), "need-approval": lambda: need_approval(run, o.arg), "pause-packet": lambda: pause_packet(run), "ack-pause": lambda: ack_pause(run)}.get(o.action)
+         "final-fail": lambda: final_fail(run), "need-approval": lambda: need_approval(run, o.arg, pathlib.Path(o.worktree).resolve()), "pause-packet": lambda: pause_packet(run), "ack-pause": lambda: ack_pause(run)}.get(o.action)
     return f() if f else die(f"unknown action {o.action}")
 
 

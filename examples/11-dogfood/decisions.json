@@ -18,6 +18,71 @@
         "unrelated": "The change is mostly in files unrelated to the failure, or outside its module.",
         "weakens": "The change loosens a test, assertion, rule or threshold instead of fixing the code."
       }
+    },
+    "triage_complexity": {
+      "mode": "shadow",
+      "minProbability": 0.6,
+      "bar": {
+        "minN": 50,
+        "minAgreement": 0.9
+      },
+      "question": "How big is this ticket to implement?",
+      "criteria": {
+        "S": "One or two small acceptance criteria in one module.",
+        "M": "Several criteria, or more than one ecosystem.",
+        "L": "Many criteria or a wide change across modules."
+      }
+    },
+    "triage_risk": {
+      "mode": "shadow",
+      "minProbability": 0.6,
+      "bar": {
+        "minN": 50,
+        "minAgreement": 0.9
+      },
+      "question": "How risky is this ticket to change?",
+      "criteria": {
+        "low": "One known module and no sensitive path.",
+        "medium": "No known module, or an unclear scope.",
+        "high": "A risk or security label, a sensitive path, or more than one module."
+      }
+    },
+    "cause": {
+      "mode": "shadow",
+      "minProbability": 0.6,
+      "bar": {
+        "minN": 50,
+        "minAgreement": 0.9
+      },
+      "question": "Why did the step keep failing?",
+      "criteria": {
+        "impl_bug": "The code is wrong; the spec is fine.",
+        "spec_gap": "The spec leaves out something the step needs.",
+        "spec_conflict": "Two parts of the spec contradict each other.",
+        "flaky": "The failure looks unrelated to the change and may pass on a rerun."
+      }
+    },
+    "merge_risk": {
+      "mode": "shadow",
+      "minProbability": 0.3,
+      "bar": {
+        "minN": 50,
+        "minAgreement": 0.9
+      },
+      "question": "How risky is it to merge this change, 0 (none) to 10 (very)?",
+      "criteria": {
+        "0": "no risk",
+        "1": "risk 1",
+        "2": "risk 2",
+        "3": "risk 3",
+        "4": "risk 4",
+        "5": "risk 5",
+        "6": "risk 6",
+        "7": "risk 7",
+        "8": "risk 8",
+        "9": "risk 9",
+        "10": "very risky"
+      }
     }
   }
 }
