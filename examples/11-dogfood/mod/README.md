@@ -1,7 +1,7 @@
 # yukta-dogfood (Claude Code mod)
 
 Develops Yukta with Yukta. Needs the generic `yukta` mod (declared as a dependency). Replaces the former
-`.claude/hooks/yk-hook.sh` settings hooks; the old `statusLine` command is dropped.
+`.claude/hooks/yk-hook.ts` settings hooks; the old `statusLine` command is dropped.
 
 - session start: records the uncommitted changes the session began with, starts the dev server (`yk up --background`), puts `yk` on PATH, tells Claude how to build
 - denies `./gradlew`, `gradle`, `go test|vet|build|fmt`, `pnpm|npm|npx` and names the `yk` command to use (`bootRun`/`nativeRun` pass)
@@ -10,7 +10,7 @@ Develops Yukta with Yukta. Needs the generic `yukta` mod (declared as a dependen
 - TaskCompleted (agent teams, experimental): a **teammate** cannot complete a task while the shared checkout fails `yk check --no-heal`; see "Agent teams" below
 - `/yk-check` runs `yk check --detach` and follows its stages in a pane (Stop button), `/yk-plan` prints `yk plan`
 
-The enforcement (deny, Stop nudge) is also in `.claude/hooks/yk-hook.py`, registered in `.claude/settings.json`, so it works without installing this mod; the mod adds the panes and commands.
+The enforcement (deny, Stop nudge) is also in `.claude/hooks/yk-hook.ts`, registered in `.claude/settings.json`, so it works without installing this mod; the mod adds the panes and commands.
 
 Off: `YUKTA_DOGFOOD=off`. Headless fixers (`YUKTA_HEAL_FIXER=1`) are skipped.
 

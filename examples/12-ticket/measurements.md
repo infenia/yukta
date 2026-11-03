@@ -2,7 +2,7 @@
 
 ## Parallel steps against sequential steps (#1884)
 
-Measured once on 2026-11-03 with `scripts/test-waves.sh` (the generated `ticket` workflow walked offline, a fake Claude, a 3 s step gate): two steps on disjoint files.
+Measured once on 2026-11-03 with `test/waves.test.ts` (the generated `ticket` workflow walked offline, a fake Claude, a 3 s step gate): two steps on disjoint files.
 
 | Run | Wall clock |
 |---|---|

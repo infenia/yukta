@@ -73,6 +73,8 @@ jobs:
       - name: Test the shard planner
         run: .github/scripts/ci-tasks.test.sh
 
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+
       - name: Check yk check plans the same modules as CI
         run: .github/scripts/plan-vs-ci.test.sh
 

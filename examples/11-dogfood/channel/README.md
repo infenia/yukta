@@ -93,7 +93,7 @@ its `mcpServers` entry, as above.
 ## The `pickup` profile
 
 `YUKTA_CHANNEL_PROFILE=pickup` is what `yk pickup session` starts: name `yukta-pickup`, exclusive, token `pickup-token`, registry `pickup/`, and one tool,
-`pickup_done {issue, outcome: pr|blocked|skipped, url?, note?}`, which frees the channel and appends to `pickup.jsonl`. `scripts/pickup.sh tick` sends the
+`pickup_done {issue, outcome: pr|blocked|skipped, url?, note?}`, which frees the channel and appends to `pickup.jsonl`. `src/pickup.ts tick` sends the
 issue as `{content, meta: {issue, url, title}}`. Environment: `YUKTA_PICKUP_NAME`, `YUKTA_PICKUP_PORT`, `YUKTA_PICKUP_BUSY_LIMIT`. See `src/pickup.ts`:
 a new profile is a name, a token and registry location, instructions, and optional tools.
 
@@ -102,7 +102,7 @@ a new profile is a name, a token and registry location, instructions, and option
 ```bash
 yk tool -C examples/11-dogfood/channel bun test                      # unit tests (in-memory MCP client) and the stdio end-to-end test
 yk tool -C examples/11-dogfood/channel node_modules/.bin/tsc --noEmit
-yk tool bash examples/11-dogfood/scripts/test-pickup.sh              # pickup.sh tick against real channels
+yk tool -C examples/11-dogfood bun test pickup              # `pickup tick` against real channels
 ```
 
 | File | |

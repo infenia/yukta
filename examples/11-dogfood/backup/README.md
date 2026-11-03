@@ -29,3 +29,6 @@ Step 6 (cleanup): moved here, with the repo paths mirrored: `yk.run.sh` (`cmd_ru
 (`test-issue.sh`, `test-epic.sh`, `test-nav.sh`, `test-steer.sh`, `test-hooks.stop.sh` for the Stop nudge). The issue plumbing was
 removed from the live code: the `issueState`, `budgetIssue` and `navFile` start keys, `YK_NAV`, the nav.json lookup in `scripts/_claude.sh` and the issue
 budget check in `yukta-heal.sh prepare` (exit 5); restore them with the issue workflows. `test-steer.sh` and `fake-project.sh` (moved with them) use the old `yk check -p` flags.
+
+The shell and Python scripts that used to be kept here (`yk.full.sh`, `run.sh`, `scripts/*.sh`, `dot-claude/hooks/yk-hook.sh`) were removed when the dogfood moved to TypeScript on Bun
+(Epic #1872, #1911). They stay in git history; restoring a workflow means porting its piece to `src/` instead.

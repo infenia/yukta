@@ -84,7 +84,7 @@
           ]
         }
       ],
-      "auto": "@HERE@/scripts/fix-reuse.sh"
+      "auto": "bun @HERE@/src/fix-reuse.ts"
     },
     "actionlint": {
       "variants": [

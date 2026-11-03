@@ -26,9 +26,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "sh",
-              "-c",
-              "{ [ -n \"$YUKTA_TOOL_COMMAND\" ] && [ \"$YUKTA_TOOL_COMMAND\" != - ]; } || { echo \"tool $YUKTA_TOOL_LABEL: nothing to run\"; exit 0; }; eval \"$YUKTA_TOOL_COMMAND\""
+              "bun",
+              "__DOGFOOD__/src/tool.ts"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1516,7 +1515,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "healed"
             ],
             "workingDir": "${start.project}",
@@ -2217,7 +2217,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/claude.sh"
+              "bun",
+              "__DOGFOOD__/src/claude.ts"
             ],
             "workingDir": "${start.project}",
             "inputMode": "STDIN",
@@ -2290,7 +2291,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "prepare"
             ],
             "workingDir": "${start.project}",
@@ -2344,7 +2346,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "claimed"
             ],
             "workingDir": "${start.project}",
@@ -2386,7 +2389,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "judge"
             ],
             "workingDir": "${start.project}",
@@ -2429,7 +2433,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "report"
             ],
             "workingDir": "${start.project}",
@@ -2653,7 +2658,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "record-auto"
             ],
             "workingDir": "${start.project}",
@@ -2673,7 +2679,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "brief"
             ],
             "workingDir": "${start.project}",
@@ -2764,7 +2771,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "triage-log"
             ],
             "workingDir": "${start.project}",
@@ -2788,7 +2796,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "triage-log"
             ],
             "workingDir": "${start.project}",
@@ -2812,7 +2821,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "triage-log"
             ],
             "workingDir": "${start.project}",
@@ -2836,7 +2846,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "triage-log"
             ],
             "workingDir": "${start.project}",
@@ -2860,7 +2871,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__DOGFOOD__/scripts/yukta-heal.sh",
+              "bun",
+              "__DOGFOOD__/src/heal.ts",
               "triage-log"
             ],
             "workingDir": "${start.project}",
@@ -3254,8 +3266,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "bash",
-              "__DOGFOOD__/scripts/pickup.sh",
+              "bun",
+              "__DOGFOOD__/src/pickup.ts",
               "tick"
             ],
             "workingDir": "__PROJECT_PATH__",

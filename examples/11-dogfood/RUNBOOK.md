@@ -12,8 +12,8 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 | `yk check`, `yk gradle` | Claude only when a stage fails and heal runs a fixer ($ per attempt: `heal.json` `efforts` budgets) | your working tree (fixers edit it, never commit) |
 | `yk run issue|epic` | an implementer ($5 cap) and fixers | the issue and the project board, a worktree, a pushed branch, a draft PR |
 | `yk heal report|analyze|show` | nothing | nothing (reads `heal-events.jsonl`; events written without a run id take the run of the session's next result) |
-| `eval/triage/eval.py` | nothing (local Ollama) | nothing |
-| `eval/triage/collect.py` | nothing | `gh` reads of your CI |
+| `eval/triage/eval.ts` | nothing (local Ollama) | nothing |
+| `eval/triage/collect.ts` | nothing | `gh` reads of your CI |
 
 ## Where things are
 
@@ -32,12 +32,12 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 3. **Find what is wrong.** `yk heal analyze`. Each rule names a cause (README "Monitoring heal"). `heal-ledger.json` maps a rule to its GitHub issue: an open one prints `tracked in #N` and does not fail the command, a closed one is quiet until the rule fires again on events after the close (`REGRESSION`). Map a new finding to its issue there. For one run: `yk heal show --run <id>`.
 4. **Fix it, and measure.**
    - triage falls back or is slow: `yk heal show | jq 'select(.event == "triage")'` (`error`, `raw`), `ollama ps`, `journalctl -u ollama`;
-     shorten the brief (`yukta-heal.sh brief`, caps in `eval/triage/eval.py`);
-   - triage rates too low or too high: `eval/triage/eval.py --split test` against the labelled failures, change the prompt in
+     shorten the brief (`src/heal.ts brief`, caps in `eval/triage/eval.ts`);
+   - triage rates too low or too high: `eval/triage/eval.ts --split test` against the labelled failures, change the prompt in
      `heal.json`, compare variants (`--variant`), tune on `dev`, report on `test`;
    - a fixer wastes money or wanders: read its `fix` events (`summary`, `files`, `guard`), fix `fixer-rules.md` or the guard;
    - the same failure keeps coming: fix the cause, or its check.
-5. **Grow the evaluation.** `eval/triage/collect.py` downloads new failed CI runs; label the new distinct failures in `labels.json`
+5. **Grow the evaluation.** `eval/triage/collect.ts` downloads new failed CI runs; label the new distinct failures in `labels.json`
    (`level`, `basis`, `confidence`, `set`; `exclude` for what is not a code failure).
 
 ## Knobs
@@ -64,17 +64,16 @@ For issue runs: `YUKTA_IMPL_MODEL` (opus), `YUKTA_IMPL_BUDGET` (5), `YUKTA_BUDGE
 ## Tests
 
 ```bash
-scripts/test-hooks.sh eval/triage/selftest.sh   # offline: the Claude Code hooks, the triage evaluation
-scripts/test-plan.sh                             # offline: plan.sh's class-level test selection
-../../.github/scripts/plan-vs-ci.test.sh          # offline, also in CI: plan.sh and ci-tasks.sh pick the same modules
-scripts/test-events.sh                           # offline: one terminal result event per run
-scripts/test-stats.sh                            # offline: yk stats reads the heal events and its counts match them
-scripts/test-yk.sh                              # on the dev server: a stopped foreground yk stops its run, --detach outlives, --stages
-scripts/test-heal.sh                            # on the dev server (yk up), against a fake claude and a fake Ollama: about a minute, no API cost
+yk tool -C examples/11-dogfood bun test            # offline: plan, heal steps, decisions, events, stats, notify, pickup, claude launcher, heal report, triage evaluation
+yk tool -C examples/12-ticket bun test             # offline: the ticket pipeline (schemas, spec, steps, gate, ladder, waves, decisions, the walked workflows)
+yk tool -C .claude/hooks bun test                  # offline: the Claude Code hook (what is denied, what passes)
+../../.github/scripts/plan-vs-ci.test.sh           # offline, also in CI: plan.ts and ci-tasks.sh pick the same modules
+YK_ONLINE=1 yk tool -C examples/11-dogfood bun test heal.online yk.online   # on the dev server (yk up): a stopped foreground yk stops its run, --detach outlives, --stages;
+                                                   # check and heal against a fake claude and a fake Ollama (about a minute, no API cost)
 ```
-`test-heal.sh` runs five scenarios through the real `check` workflow: two failing stages healed one after the other, a no-change attempt that
+`test/heal.online.test.ts` runs the scenarios through the real `check` workflow: two failing stages healed one after the other, a no-change attempt that
 ends the ladder, an escalation, a failed verify that goes back to heal, and a triage that starts at `sonnet/low`. The tests of the switched-off
-pieces (issue, epic, nav, steer, heal report) are in `backup/scripts/`.
+pieces (issue, epic, nav, steer) were in `backup/scripts/` (removed, see git history).
 
 ## Scheduled pickup
 

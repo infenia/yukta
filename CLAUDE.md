@@ -39,6 +39,7 @@ yk gradle spotlessApply     # format (before commit)
 yk check                    # the scoped, self-healing gate for your changes (yk check --full before a PR); yk plan shows what it would run
 yk tool -C cli go test ./...                      # Go (cli/)
 yk tool -C ui npx --no-install prettier --check .  # UI (ui/): pnpm/npx/node_modules/.bin commands
+yk tool -C examples/11-dogfood bun test            # the dogfood itself (yk, heal, plan; TypeScript on Bun); examples/12-ticket and .claude/hooks likewise
 
 # Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:9858/swagger-ui.html)
 ./gradlew bootRun

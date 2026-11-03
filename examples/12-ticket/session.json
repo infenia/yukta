@@ -21,7 +21,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "intake",
               "${start.issue}"
@@ -55,7 +56,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "init",
               "${start.issue}",
               "--run-id",
@@ -92,7 +94,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "claim",
               "${start.issue}"
@@ -126,7 +129,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "route",
               "${start.run}"
             ],
@@ -159,7 +163,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -188,7 +193,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "decision",
               "triage",
               "${start.run}"
@@ -222,7 +228,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -251,7 +258,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "architect",
               "${start.run}",
@@ -283,7 +291,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "validate-spec",
               "${start.run}",
               "--worktree",
@@ -318,7 +327,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -347,7 +357,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "architect",
               "${start.run}",
@@ -379,7 +390,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "validate-spec",
               "${start.run}",
               "--worktree",
@@ -414,7 +426,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -443,7 +456,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "architect",
               "${start.run}",
@@ -475,7 +489,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "validate-spec",
               "${start.run}",
               "--worktree",
@@ -510,7 +525,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -547,7 +563,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -576,7 +593,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "test_writer",
               "${start.run}",
@@ -616,7 +634,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -645,7 +664,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "gate-tests",
               "${start.run}",
               "--worktree",
@@ -680,7 +700,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -709,7 +730,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "commit-tests",
               "${start.run}",
@@ -745,7 +767,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -774,7 +797,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "need-approval",
               "${start.run}",
@@ -852,7 +876,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -881,7 +906,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "plan-comment",
               "${start.run}"
@@ -915,7 +941,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -967,7 +994,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "route-failure",
               "${start.run}"
@@ -1030,7 +1058,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "pause-packet",
               "${start.run}"
@@ -1078,7 +1107,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "ack-pause",
               "${start.run}"
@@ -1120,7 +1150,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1149,7 +1180,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1194,7 +1226,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1262,7 +1295,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "route-failure",
               "${start.run}"
@@ -1325,7 +1359,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "pause-packet",
               "${start.run}"
@@ -1373,7 +1408,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "ack-pause",
               "${start.run}"
@@ -1415,7 +1451,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1444,7 +1481,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1489,7 +1527,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1557,7 +1596,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "route-failure",
               "${start.run}"
@@ -1620,7 +1660,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "pause-packet",
               "${start.run}"
@@ -1668,7 +1709,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "ack-pause",
               "${start.run}"
@@ -1710,7 +1752,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1739,7 +1782,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1784,7 +1828,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1860,7 +1905,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "dead-end",
               "${start.run}",
@@ -1889,7 +1935,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "need-approval",
               "${start.run}",
@@ -1969,7 +2016,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "github",
               "finish",
               "${start.run}",
@@ -2005,7 +2053,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "close",
               "${start.run}",
@@ -2740,7 +2789,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -2851,7 +2901,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -2962,7 +3013,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -3073,7 +3125,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -3184,7 +3237,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -3295,7 +3349,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -3406,7 +3461,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -3517,7 +3573,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "next-wave",
               "${start.run}"
@@ -4012,7 +4069,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "prepare",
               "${start.run}",
@@ -4081,7 +4139,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "merge",
               "${start.run}",
@@ -4109,7 +4168,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "check",
               "${start.run}",
@@ -4241,7 +4301,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "commit-step",
               "${start.run}",
@@ -4278,7 +4339,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "step-begin",
               "${start.run}",
@@ -4309,7 +4371,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "implementer",
               "${start.run}",
@@ -4357,7 +4420,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -4388,7 +4452,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -4457,7 +4522,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "heal",
               "${start.run}",
@@ -4487,7 +4553,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -4518,7 +4585,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -4565,7 +4633,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "step-begin",
               "${start.run}",
@@ -4596,7 +4665,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "implementer",
               "${start.run}",
@@ -4644,7 +4714,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -4675,7 +4746,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -4744,7 +4816,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "heal",
               "${start.run}",
@@ -4774,7 +4847,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -4805,7 +4879,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -4852,7 +4927,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "step-begin",
               "${start.run}",
@@ -4883,7 +4959,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "implementer",
               "${start.run}",
@@ -4931,7 +5008,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -4962,7 +5040,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -5031,7 +5110,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "heal",
               "${start.run}",
@@ -5061,7 +5141,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -5092,7 +5173,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -5139,7 +5221,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "step-begin",
               "${start.run}",
@@ -5170,7 +5253,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "implementer",
               "${start.run}",
@@ -5218,7 +5302,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -5249,7 +5334,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -5318,7 +5404,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "heal",
               "${start.run}",
@@ -5348,7 +5435,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "validate-step",
               "${start.run}",
@@ -5379,7 +5467,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "decide",
               "${start.run}",
@@ -5426,7 +5515,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "waves",
               "warm-wait",
               "${start.run}",
@@ -5906,7 +5996,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "full-checks",
               "${start.run}",
@@ -5934,7 +6025,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "final-fail",
               "${start.run}"
@@ -5959,7 +6051,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "mutation",
               "${start.run}",
@@ -5986,7 +6079,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "reviewer",
               "${start.run}",
@@ -6028,7 +6122,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "review-verdict",
               "${start.run}"
@@ -6147,7 +6242,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "build-revision",
               "${start.run}"
@@ -6181,7 +6277,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "architect_revise",
               "${start.run}",
@@ -6221,7 +6318,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "ladder",
               "apply-revision",
               "${start.run}"
@@ -6255,7 +6353,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "validate-spec",
               "${start.run}",
               "--worktree",
@@ -6290,7 +6389,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "call",
               "test_writer",
               "${start.run}",
@@ -6330,7 +6430,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "gate-tests",
               "${start.run}",
               "--worktree",
@@ -6365,7 +6466,8 @@
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
-              "__TICKET__/ticketkit",
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
               "flow",
               "commit-tests",
               "${start.run}",

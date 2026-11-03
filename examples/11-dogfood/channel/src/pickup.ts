@@ -1,4 +1,4 @@
-// The `yukta-pickup` profile of the generic channel: hands one GitHub issue at a time to an open session (scripts/pickup.sh POSTs
+// The `yukta-pickup` profile of the generic channel: hands one GitHub issue at a time to an open session (src/pickup.ts POSTs
 // /v1/events with meta {issue, url, title}); Claude ends the issue with `pickup_done`, which frees the channel.
 import { appendFileSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
