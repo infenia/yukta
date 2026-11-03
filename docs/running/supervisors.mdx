@@ -183,6 +183,15 @@ GET /api/supervisors
 
 This reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The web UI's Control page shows the same.
 
+## Internal sessions
+
+A session whose tags contain `"yukta.internal": "true"` is **internal**: it holds the workflows of supervisors and other machinery. Only an `ADMIN` key can define sessions, so only an admin can make one. Internal sessions
+
+- are left out of `GET /api/sessions`, `GET /api/sessions/summaries` and the MCP tool `list_sessions` unless you pass `includeInternal=true`;
+- send no events to supervisors. A supervisor sees the events of an internal session only when its profile sets `observeInternal: true` **and** its binding scope names that session (`session:<id>` or `workflow:<id>/...`), so a supervisor that watches everything cannot trigger on the workflows that supervise.
+
+The answer is cached for 30 seconds and dropped when this server saves or deletes the session. A session that cannot be read counts as internal.
+
 ## When supervisors disagree
 
 Supervisors run in parallel and do not see each other, so two of them can pause and resume one run in turn. The **command arbiter** settles that. A stop, and any command that cannot conflict, is sent at once. These can conflict, and wait for a short window per target (a run, or a node of a run): pause and resume, skip and unskip, step mode on and off, and two different priorities. When the window closes:

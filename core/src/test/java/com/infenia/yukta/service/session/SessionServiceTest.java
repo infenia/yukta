@@ -72,6 +72,7 @@ class SessionServiceTest {
   @Mock private WorkflowDefinitionStore workflowDefinitionStore;
   @Mock private PreparedWorkflowCache preparedWorkflowCache;
   @Mock private WorkflowPreparator preparator;
+  @Mock private InternalSessions internalSessions;
 
   @Captor private ArgumentCaptor<SessionConfigData> configDataCaptor;
   @Captor private ArgumentCaptor<WorkflowDefinition> workflowCaptor;
@@ -142,6 +143,21 @@ class SessionServiceTest {
               assertThat(capturedData.workflows()).containsKey("w1");
             });
     assertThat(workflowCaptor.getValue()).isNotNull().isEqualTo(workflow);
+  }
+
+  @Test
+  void applyConfig_dropsTheInternalSessionAnswerOnceSaved() {
+    final String sessionId = SESSION_ID_1;
+    final SessionConfigData data =
+        new SessionConfigData(sessionId, "s", DESC, "i", Map.of(), null, Map.of());
+    sessionService.setInternalSessions(internalSessions);
+
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
+
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
+
+    verify(internalSessions).invalidate(sessionId);
   }
 
   @Test
@@ -975,6 +991,20 @@ class SessionServiceTest {
     verify(configService).removeSession("s");
     verify(preparedWorkflowCache).invalidateAll("s");
     verify(controlBus).recordAdminAction("DeleteSession(s, force=false)", "s", true, null);
+  }
+
+  @Test
+  void deleteSession_dropsTheInternalSessionAnswerOnceDeleted() {
+    sessionService.setInternalSessions(internalSessions);
+    when(configService.getSessionIds()).thenReturn(Flux.just("s"));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
+    when(workflowDefinitionStore.removeAll("s")).thenReturn(Mono.empty());
+    when(configService.removeSession("s")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteSession("s", false)).verifyComplete();
+
+    verify(internalSessions).invalidate("s");
   }
 
   @Test

@@ -16,6 +16,7 @@ import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
@@ -98,6 +99,9 @@ public class SupervisorHost {
 
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
+
+  /** Tells which sessions are internal; absent where nothing is hidden. */
+  @Nullable private InternalSessions internalSessions;
 
   /** Registry for the command counter. */
   private final MeterRegistry meters;
@@ -326,6 +330,19 @@ public class SupervisorHost {
     decided(supervisorId, DRY_RUN, command, reason);
   }
 
+  /**
+   * Hides the events of internal sessions from supervisors.
+   *
+   * @param internal the lookup
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared lookup, which is meant to be held")
+  public void setInternalSessions(final InternalSessions internal) {
+    this.internalSessions = internal;
+  }
+
   /** Stops every supervisor. */
   @PreDestroy
   public void stop() {
@@ -428,13 +445,32 @@ public class SupervisorHost {
         .subscribe();
   }
 
+  /**
+   * Events of an internal session reach a supervisor only when its profile says {@code
+   * observeInternal: true} and its scope names that session.
+   */
+  private Mono<Boolean> visible(
+      final ExecutionEvent event, final SupervisorScope scope, final boolean observeInternal) {
+    final InternalSessions internal = internalSessions;
+    final String sessionId = event.sessionId();
+    if (internal == null || sessionId == null) {
+      return Mono.just(true);
+    }
+    return internal
+        .checkInternal(sessionId)
+        .map(hidden -> !hidden || observeInternal && sessionId.equals(scope.sessionId()));
+  }
+
   /** A supervisor does not see the outcome of its own commands, so it cannot answer itself. */
   private Flux<ExecutionEvent> withoutOwnOutcomes(final ExecutionSupervisor supervisor) {
     final String supervisorId = supervisor.id();
     final SupervisorScope scope = supervisor.scope();
     final AtomicLong missed = new AtomicLong();
+    final boolean observeInternal =
+        supervisor instanceof BoundSupervisor bound && bound.observeInternal();
     return feed.events()
         .filter(event -> scope.matches(event.sessionId(), event.workflowId(), event.nodeId()))
+        .filterWhen(event -> visible(event, scope, observeInternal))
         .filter(
             event ->
                 !(event instanceof ExecutionEvent.ControlOutcome outcome

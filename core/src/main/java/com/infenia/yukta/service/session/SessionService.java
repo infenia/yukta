@@ -7,7 +7,6 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
@@ -19,8 +18,6 @@ import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.Valid;
-import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -38,14 +35,7 @@ import reactor.core.publisher.Mono;
 @Service
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.ExcessiveImports")
 public class SessionService {
-
-  /** How long a forced delete waits for cancelled runs to end. */
-  private static final Duration FORCE_WAIT = Duration.ofSeconds(30);
-
-  /** How often a forced delete looks whether the cancelled runs have ended. */
-  private static final Duration FORCE_POLL = Duration.ofMillis(250);
 
   /** The session configuration store for persisting session settings. */
   private final SessionConfigStore configService;
@@ -67,6 +57,22 @@ public class SessionService {
 
   /** Detaches the supervisors of a deleted session; absent where there are none. */
   @Nullable private SupervisorService supervisors;
+
+  /** Tells which sessions are internal; absent where nothing is hidden. */
+  @Nullable private InternalSessions internalSessions;
+
+  /**
+   * Lets the service hide internal sessions from lists and forget what it knew when one changes.
+   *
+   * @param internal the lookup
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared lookup, which is meant to be held")
+  public void setInternalSessions(final InternalSessions internal) {
+    this.internalSessions = internal;
+  }
 
   /**
    * Lets a deleted session take its attached supervisors with it.
@@ -178,7 +184,13 @@ public class SessionService {
                 log.atError()
                     .addArgument(data.sessionId())
                     .setCause(err)
-                    .log("Failed to apply configuration for session: {}"));
+                    .log("Failed to apply configuration for session: {}"))
+        .doFinally(
+            _ -> {
+              if (internalSessions != null) {
+                internalSessions.invalidate(data.sessionId());
+              }
+            });
   }
 
   /**
@@ -202,7 +214,7 @@ public class SessionService {
                 new NotFoundException(
                     "Workflow not found: " + workflowId + " in session " + sessionId)))
         .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, workflowId))
-        .then(Mono.defer(() -> clearActiveRuns(sessionId, workflowId, force)))
+        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, sessionId, workflowId, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
         .then(Mono.defer(() -> audited(command, sessionId + "/" + workflowId)))
@@ -231,13 +243,19 @@ public class SessionService {
                     ? Mono.<Void>empty()
                     : Mono.error(new NotFoundException("Session not found: " + sessionId)))
         .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, null))
-        .then(Mono.defer(() -> clearActiveRuns(sessionId, null, force)))
+        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
         .then(
             Mono.defer(
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
-        .doOnSuccess(_ -> preparedWorkflowCache.invalidateAll(sessionId))
+        .doOnSuccess(
+            _ -> {
+              preparedWorkflowCache.invalidateAll(sessionId);
+              if (internalSessions != null) {
+                internalSessions.invalidate(sessionId);
+              }
+            })
         .then(Mono.defer(() -> audited(command, sessionId)))
         .onErrorResume(error -> auditedFailure(error, command, sessionId))
         .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, null));
@@ -257,61 +275,6 @@ public class SessionService {
   }
 
   /**
-   * Makes sure no run of the session (or of one workflow) is going: refuses, or with {@code force}
-   * cancels them and waits a while for them to end.
-   */
-  private Mono<Void> clearActiveRuns(
-      final String sessionId, @Nullable final String workflowId, final boolean force) {
-    return active(sessionId, workflowId)
-        .flatMap(
-            runs -> {
-              if (runs.isEmpty()) {
-                return Mono.<Void>empty();
-              }
-              if (!force) {
-                return Mono.error(new ActiveRunsException(ids(runs), false));
-              }
-              return Flux.fromIterable(
-                      runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
-                  .concatMap(
-                      id -> controlBus.stopWorkflow(sessionId, id, "Deleted", StopMode.CANCEL))
-                  .then(awaitEnded(sessionId, workflowId));
-            });
-  }
-
-  private Mono<Void> awaitEnded(final String sessionId, @Nullable final String workflowId) {
-    return Flux.interval(FORCE_POLL)
-        .concatMap(_ -> active(sessionId, workflowId))
-        .filter(List::isEmpty)
-        .next()
-        .timeout(
-            FORCE_WAIT,
-            active(sessionId, workflowId)
-                .flatMap(
-                    left ->
-                        Mono.<List<WorkflowExecutionSummary>>error(
-                            new ActiveRunsException(ids(left), true))))
-        .then();
-  }
-
-  private static List<String> ids(final List<WorkflowExecutionSummary> runs) {
-    return runs.stream().map(WorkflowExecutionSummary::executionId).toList();
-  }
-
-  /** The runs of the session (or one workflow) that have not ended. */
-  private Mono<List<WorkflowExecutionSummary>> active(
-      final String sessionId, @Nullable final String workflowId) {
-    return controlBus
-        .getHistory(sessionId)
-        .map(
-            history ->
-                history.stream()
-                    .filter(run -> !run.status().isTerminal())
-                    .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
-                    .toList());
-  }
-
-  /**
    * Get all available session IDs.
    *
    * <p>Retrieves all session identifiers that have configurations stored in the system, regardless
@@ -326,6 +289,19 @@ public class SessionService {
         .doOnNext(sessionId -> log.atTrace().log("Found session: {}", sessionId))
         .doOnComplete(() -> log.atDebug().log("Session ID retrieval completed"))
         .doOnError(err -> log.atError().setCause(err).log("Failed to retrieve session IDs"));
+  }
+
+  /**
+   * The session ids, with or without the internal sessions.
+   *
+   * @param includeInternal true to list internal sessions too
+   * @return the ids
+   */
+  public Flux<String> getSessionIds(final boolean includeInternal) {
+    final InternalSessions internal = internalSessions;
+    return includeInternal || internal == null
+        ? getSessionIds()
+        : getSessionIds().filterWhen(id -> internal.checkInternal(id).map(hidden -> !hidden));
   }
 
   /**

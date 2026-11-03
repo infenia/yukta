@@ -90,11 +90,12 @@ public class SessionInfoProvider {
   /**
    * List all available sessions.
    *
+   * @param includeInternal true to list internal sessions (supervisor workflows) too
    * @return Mono containing the list of session summaries
    */
-  public Mono<List<SessionSummary>> listSessions() {
+  public Mono<List<SessionSummary>> listSessions(final boolean includeInternal) {
     return sessionService
-        .getSessionIds()
+        .getSessionIds(includeInternal)
         .flatMap(
             sessionId ->
                 sessionService

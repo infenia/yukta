@@ -463,7 +463,12 @@ public class SupervisorService {
 
   private void start(final SupervisorBinding binding, final SupervisorProfile profile) {
     host.attach(
-        new BoundSupervisor(binding, create(profile), profile.dryRun(), capabilities(profile)));
+        new BoundSupervisor(
+            binding,
+            create(profile),
+            profile.dryRun(),
+            capabilities(profile),
+            Boolean.TRUE.equals(profile.settings().get("observeInternal"))));
   }
 
   /** Records an attach or detach with the caller as actor. */

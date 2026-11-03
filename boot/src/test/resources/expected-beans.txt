@@ -198,6 +198,7 @@ com.infenia.yukta.service.orchestrator.validator.WorkflowValidator
 com.infenia.yukta.service.plugin.PluginRegistry
 com.infenia.yukta.service.redact.InputRedactor
 com.infenia.yukta.service.result.ExecutionResultService
+com.infenia.yukta.service.session.InternalSessions
 com.infenia.yukta.service.session.SessionService
 com.infenia.yukta.service.session.store.InMemorySessionConfigStore
 com.infenia.yukta.service.session.store.SessionConfigStoreConfiguration

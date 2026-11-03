@@ -22,13 +22,31 @@ import reactor.core.publisher.Mono;
  * @param delegate the supervisor the factory made
  * @param dryRun whether its commands are only recorded
  * @param capabilities which commands it may send and whether it may answer input requests
+ * @param observeInternal whether it also sees the events of the internal session its scope names
  */
 public record BoundSupervisor(
     SupervisorBinding binding,
     ExecutionSupervisor delegate,
     boolean dryRun,
-    SupervisorCapabilities capabilities)
+    SupervisorCapabilities capabilities,
+    boolean observeInternal)
     implements ExecutionSupervisor {
+
+  /**
+   * A supervisor that does not watch internal sessions.
+   *
+   * @param binding the binding that attached it
+   * @param delegate the supervisor the factory made
+   * @param dryRun whether its commands are only recorded
+   * @param capabilities which commands it may send and whether it may answer input requests
+   */
+  public BoundSupervisor(
+      final SupervisorBinding binding,
+      final ExecutionSupervisor delegate,
+      final boolean dryRun,
+      final SupervisorCapabilities capabilities) {
+    this(binding, delegate, dryRun, capabilities, false);
+  }
 
   /**
    * A supervisor that may send every command and may not answer input requests.

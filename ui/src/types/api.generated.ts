@@ -5805,6 +5805,7 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string;
+                includeInternal?: boolean;
             };
             header?: never;
             path?: never;
@@ -5852,6 +5853,7 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string;
+                includeInternal?: boolean;
             };
             header?: never;
             path?: never;
