@@ -38,7 +38,7 @@ class TierTargetsGuardTest {
       };
 
   @Test
-  void aRefusedSupervisorIsNotReachedByAnySelector() {
+  void refusedSupervisorIsNotReached() {
     assertThat(TierTargets.supervisors(REQUEST, List.of("supervisor:*"), BOUND))
         .containsExactly(ALLOWED);
     assertThat(TierTargets.supervisors(REQUEST, List.of("supervisor:no", "supervisor:ok"), BOUND))
