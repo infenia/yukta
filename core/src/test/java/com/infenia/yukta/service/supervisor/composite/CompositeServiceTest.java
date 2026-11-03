@@ -104,6 +104,18 @@ class CompositeServiceTest {
   }
 
   @Test
+  void unrelatedBindingsStayWhenChildChanges() {
+    final SupervisorService service = service();
+    service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)).block();
+    service.saveProfile(new SupervisorProfile("other", "leaf", Map.of(), false)).block();
+    service.attach(new SupervisorBinding("b", "other", new SupervisorScope.Global(), true)).block();
+
+    service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of("v", 2), false)).block();
+
+    verify(host, times(1)).attach(any(BoundSupervisor.class));
+  }
+
+  @Test
   void childOfCompositeCannotBeDeleted() {
     final SupervisorService service = service();
     service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)).block();

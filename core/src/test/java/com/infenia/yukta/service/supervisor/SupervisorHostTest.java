@@ -109,6 +109,25 @@ class SupervisorHostTest {
   }
 
   @Test
+  void status_showsCompositeWithChildren() {
+    final var settings =
+        new com.infenia.yukta.service.supervisor.composite.CompositeSettings(
+            com.infenia.yukta.service.supervisor.composite.CompositeMode.PARALLEL,
+            List.of("a"),
+            com.infenia.yukta.service.supervisor.composite.ReviewMode.ALL,
+            0,
+            Duration.ofSeconds(1));
+    start(
+        new com.infenia.yukta.service.supervisor.composite.CompositeSupervisor(
+            "comp", settings, List.of("a"), List.of(), java.time.Clock.systemUTC()),
+        false,
+        10);
+
+    assertThat(host.status().getFirst().kind()).isEqualTo("COMPOSITE");
+    assertThat(host.status().getFirst().children()).containsExactly("a");
+  }
+
+  @Test
   void isBuiltIn_isTrueOnlyForSupervisorsConfiguredAsBeans() {
     start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 20);
 
