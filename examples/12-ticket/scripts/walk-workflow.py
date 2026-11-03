@@ -6,18 +6,19 @@
 Supports what gen-ticket.py emits: CONSTANT_SOURCE, PROCESS_EXECUTOR (exit code routing, JSON output, ${start.x} in command and env),
 BRANCH (SELECT_KEY on payload['output'][key]; the decision expression, answered by $TEST_ASK), ASK_INPUT, SUB_WORKFLOW (payload mapping), OUTCOME_TERMINAL, CONSOLE_TERMINAL. Prints one
 `NODE <id> <port>` line per node run and `OUTCOME <SUCCESS|FAILED> <reason>`; exit 0 on SUCCESS. __TICKET__ is the folder of ticketkit."""
-import json, os, pathlib, re, subprocess, sys
+import json, os, pathlib, re, subprocess, sys, threading
 
 KIT = str(pathlib.Path(__file__).resolve().parent.parent)
 
 
-def sub(v, start, out=None):
+def sub(v, start, out=None, item=None):
     if isinstance(v, str):
+        v = re.sub(r"\$\{payload\.(?!output)(\w+)\}", lambda m: str((item or {}).get(m.group(1))), v)
         v = re.sub(r"\$\{payload\.output\.(\w+)\}", lambda m: str((out or {}).get(m.group(1))), v)
         return re.sub(r"\$\{start\.(\w+)\}", lambda m: str(start.get(m.group(1), "-")), v.replace("__TICKET__", KIT))
     if isinstance(v, list):
-        return [sub(x, start, out) for x in v]
-    return {k: sub(x, start, out) for k, x in v.items()} if isinstance(v, dict) else v
+        return [sub(x, start, out, item) for x in v]
+    return {k: sub(x, start, out, item) for k, x in v.items()} if isinstance(v, dict) else v
 
 
 def walk(wfs, name, start):
@@ -40,6 +41,22 @@ def walk(wfs, name, start):
             port = "success" if r.returncode == 0 else "failure"
             if r.returncode:
                 print((r.stdout + r.stderr)[-600:], file=sys.stderr)
+        elif t == "SPLITTER":  # SPLITTER -> SUB_WORKFLOW (concurrency) -> AGGREGATE: the children run in parallel, the join waits for all
+            items = out[c["itemsPath"].split(".")[-1]]
+            sw = next(e["target"] for e in wf["edges"] if e["source"] == cur)
+            agg = next(e["target"] for e in wf["edges"] if e["source"] == sw)
+            cfg = nodes[sw]["config"]
+            res = []
+            threads = [threading.Thread(target=lambda it=it: res.append(walk(wfs, cfg["workflowId"], dict(start, **sub(cfg["payload"], start, None, it))))) for it in items]
+            print(f"NODE {cur} -")
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join()
+            print(f"NODE {sw} {'success' if all(r[0] == 'SUCCESS' for r in res) else 'failure'}\nNODE {agg} -")
+            cur = next(e["target"] for e in wf["edges"] if e["source"] == agg)
+            out = None
+            continue
         elif t == "ASK_INPUT":
             port = None
             print(f"ASK {cur}", file=sys.stderr)

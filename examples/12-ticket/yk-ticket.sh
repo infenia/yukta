@@ -6,6 +6,7 @@
 #
 #   yk ticket run <issue> [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>
 #   yk ticket status <issue|execution>            the run's tree (which node runs or failed) and its last events
+#   yk ticket report [--json]                      first-try pass rate, cost share and cache hit ratio by role, prefix mismatches, BLOCKED rate (ticket-events.jsonl)
 #   yk ticket resume|stop <issue|execution>       continue a paused run / end it (a drain, like yk stop --tree)
 # Approvals use `yk approve|reject <execution>` as the other gates do. The run dir is .yukta-dev/ticket/<run_id>/ (see README.md).
 
@@ -47,8 +48,8 @@ ticket_run() {
   render_ticket_session "$tmp/session.json"
   "$cli" session apply "$tmp/session.json" >"$tmp/apply.out" 2>&1 || { cat "$tmp/apply.out" >&2; die "session apply failed"; }
   exec_id="$("$cli" -o json workflow start dogfood ticket --payload "$(jq -nc --arg p "$root" --arg i "$issue" --arg r "$run_id" --arg s "$STATE_DIR" \
-      --arg w "$wt" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg gs "${TICKET_GATE_STEP:--}" --arg gf "${TICKET_GATE_FINAL:--}" --arg hc "${TICKET_HEAL_CMD:--}" --arg bc "${TICKET_BASELINE_CMD:--}" --arg ev "${YUKTA_TICKET_EVENTS:-$DEV_HOME/ticket-events.jsonl}" '
-      {project: $p, issue: $i, runId: $r, stateDir: $s, run: "\($s)/ticket/\($r)", worktree: $w, claudeBin: $bin, gateStep: $gs, gateFinal: $gf, healCmd: $hc, baselineCmd: $bc, events: $ev}')" \
+      --arg w "$wt" --arg bin "${YUKTA_CLAUDE_BIN:--}" --arg gs "${TICKET_GATE_STEP:--}" --arg gf "${TICKET_GATE_FINAL:--}" --arg hc "${TICKET_HEAL_CMD:--}" --arg bc "${TICKET_BASELINE_CMD:--}" --arg gw "${TICKET_GATE_WAVE:--}" --arg ev "${YUKTA_TICKET_EVENTS:-$DEV_HOME/ticket-events.jsonl}" '
+      {project: $p, issue: $i, runId: $r, stateDir: $s, run: "\($s)/ticket/\($r)", worktree: $w, claudeBin: $bin, gateStep: $gs, gateFinal: $gf, healCmd: $hc, baselineCmd: $bc, gateWave: $gw, events: $ev}')" \
     | jq -r '.data.executionId // .executionId')"
   [[ -n "$exec_id" && "$exec_id" != null ]] || die "could not start the ticket workflow"
   echo "$run_id $exec_id" >"$STATE_DIR/ticket-last-$issue"
@@ -63,6 +64,7 @@ cmd_ticket() {
   (($#)) && shift
   case "$sub" in
     run) ticket_run "$@" ;;
+    report) YUKTA_TICKET_EVENTS="${YUKTA_TICKET_EVENTS:-$DEV_HOME/ticket-events.jsonl}" python3 -I "$here/../12-ticket/scripts/report.py" "$@" ;;
     status | resume | stop)
       target="${1:?usage: yk ticket $sub <issue|execution>}"
       if [[ "$target" =~ ^[0-9]{1,8}$ ]]; then read -r run_id exec_id < <(ticket_last "$target"); else exec_id="$target" run_id=""; fi
@@ -72,6 +74,6 @@ cmd_ticket() {
           [[ -z "$run_id" ]] || tail -n 5 "$STATE_DIR/ticket/$run_id/events.jsonl" 2>/dev/null | jq -c '{role, model, step_id, attempt, cost_usd, cache_read_tokens}' || true ;;
         *) cmd_run_control "$sub" "$exec_id" --tree ;;
       esac ;;
-    *) die "usage: yk ticket run <issue> [--detach [--notify]] | status|resume|stop <issue|execution>" ;;
+    *) die "usage: yk ticket run <issue> [--detach [--notify]] | report [--json] | status|resume|stop <issue|execution>" ;;
   esac
 }

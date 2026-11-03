@@ -108,6 +108,9 @@ def decide(run, sid, after_heal, wt):
                 d.update(action="human", reason=f"{reason}; the {limits(p)['revisions_per_run']} revisions of the run are used")
             save(run / "escalation.json", d)
         save(sd / "ladder.json", state)
+        subprocess.run([sys.executable, str(KIT / "scripts" / "stepkit.py"), "event", str(run), "role=decide", f"step_id={sid}", f"attempt={n}", f"action={d['action']}",
+                        f"fail_class={cls}", f"model={cur['model']}", f"effort={cur['effort']}",
+                        f"complexity={next((x.get('complexity', 'standard') for x in load(run / 'spec' / 'spec.json')['steps'] if x['id'] == sid), 'standard')}"], check=True)
         print(json.dumps(d))
         return 0
 

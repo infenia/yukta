@@ -38,15 +38,16 @@ cat >"$d/claude" <<'SH'
 # fake claude: the role comes from the prompt; $FAKE (a file) holds the mode: happy | blocked | badjson | badonce | scope | high
 mode="$(cat "$FAKE")"; prompt="$2"
 printf '%s\n' "${prompt:0:40}" >>"$(dirname "$FAKE")/calls"
+[[ -z "${FAKE_PROMPTS:-}" ]] || printf '%s\n=====\n' "$prompt" >>"$(dirname "$FAKE")/prompts.log"
 answer() { jq -nc --arg c "${FAKE_COST:-0.02}" --argjson a "$1" '{is_error:false,total_cost_usd:($c|tonumber),duration_ms:5,usage:{input_tokens:10,output_tokens:5,cache_read_input_tokens:900,cache_creation_input_tokens:100},structured_output:$a}'; }
 case "$prompt" in
   "Write the TicketSpec"*)
     risk=low; [[ $mode != high ]] || risk=high
-    answer "$(jq -c --arg r "$risk" --arg two "$([[ $mode == twostep ]] && echo 1)" '.tests_mode="implementer_writes" | .locked_files=[] | .risk=$r | .steps[0].write_files=["core/src/main/java/A.java"] | .steps[0].done_when.commands=["yk gradle :core:test --tests com.infenia.ATest"] | .acceptance_criteria[0].verification.command="yk gradle :core:test --tests com.infenia.ATest" | .ticket_id="7" | if $two == "1" then .steps += [(.steps[0] | .id="S2" | .depends_on=["S1"] | .covers=[] | .write_files=["core/src/main/java/C.java"] | .title="Add C")] else . end' "$KIT/fixtures/ticket-spec/valid.json")" ;;
+    answer "$(jq -c --arg r "$risk" --arg two "$([[ $mode == twostep || $mode == parallel || $mode == chain ]] && echo 1)" --arg par "$([[ $mode == parallel ]] && echo 1)" '.tests_mode="implementer_writes" | .locked_files=[] | .risk=$r | .steps[0].write_files=["core/src/main/java/A.java"] | .steps[0].done_when.commands=["yk gradle :core:test --tests com.infenia.ATest"] | .acceptance_criteria[0].verification.command="yk gradle :core:test --tests com.infenia.ATest" | .ticket_id="7" | if $two == "1" then .steps += [(.steps[0] | .id="S2" | .depends_on=(if $par == "1" then [] else ["S1"] end) | .covers=[] | .write_files=["core/src/main/java/C.java"] | .title="Add C")] else . end' "$KIT/fixtures/ticket-spec/valid.json")" ;;
   "Implement this step"*)
     case "$mode" in
-      twostep) if [[ "$prompt" == *'"id": "S2"'* ]]; then
-                 if [[ ! -e "$(dirname "$FAKE")/once" ]]; then touch "$(dirname "$FAKE")/once"; answer '{"step_id":"S2","status":"BLOCKED","blocked":{"category":"spec_conflict","detail":"two rules disagree"},"notes":""}'
+      twostep | parallel | chain) if [[ "$prompt" == *'"id": "S2"'* ]]; then
+                 if [[ $mode == twostep && ! -e "$(dirname "$FAKE")/once" ]]; then touch "$(dirname "$FAKE")/once"; answer '{"step_id":"S2","status":"BLOCKED","blocked":{"category":"spec_conflict","detail":"two rules disagree"},"notes":""}'
                  else echo 'class C {}' >core/src/main/java/C.java; answer '{"step_id":"S2","status":"DONE","notes":"ok"}'; fi
                else echo 'class A {}' >core/src/main/java/A.java; answer '{"step_id":"S1","status":"DONE","notes":"ok"}'; fi ;;
       blockonce) if [[ -e "$(dirname "$FAKE")/once" ]]; then echo 'class A {}' >core/src/main/java/A.java; answer '{"step_id":"S1","status":"DONE","notes":"ok"}'; else touch "$(dirname "$FAKE")/once"; answer '{"step_id":"S1","status":"BLOCKED","blocked":{"category":"spec_conflict","detail":"two rules disagree"},"notes":""}'; fi ;;
@@ -71,9 +72,9 @@ GOOD_BODY=$'## Acceptance criteria\n- [ ] limiter rejects the 101st request\n- [
 walk() { # mode gate-step [gate-final] -> runs the ticket workflow, sets $out and $rc; a fresh worktree, run, issue and log each time
   echo "$1" >"$d/mode"; printf '%s' "${BODY:-$GOOD_BODY}" >"$d/body"; echo "${STATUS:-Ready}" >"$d/status"; rm -f "$d/gh.log" "$d/comments.md" "$d/pr-body.md"
   git -C "$repo" push -q origin --delete issue/7 >/dev/null 2>&1 || true; rm -rf "$d/state" "$d/yukta-issue-7" "$d/calls" "$d/once"; git -C "$repo" worktree prune; git -C "$repo" branch -D issue/7 >/dev/null 2>&1 || true
-  local id="7-20260101T000000Z"
-  jq -n --arg p "$repo" --arg s "$d/state" --arg w "$d/yukta-issue-7" --arg bin "$d/claude" --arg gs "$2" --arg gf "${3:-$RESULT_OK}" --arg hc "${HEAL:-true}" --arg bc "${BASELINE:-true}" --arg ev "$d/events.jsonl" --arg id "$id" \
-    '{project:$p,issue:"7",runId:$id,stateDir:$s,run:"\($s)/ticket/\($id)",worktree:$w,claudeBin:$bin,gateStep:$gs,gateFinal:$gf,healCmd:$hc,baselineCmd:$bc,events:$ev}' >"$d/payload.json"
+  local id="${RUNID:-7-20260101T000000Z}"
+  jq -n --arg p "$repo" --arg s "$d/state" --arg w "$d/yukta-issue-7" --arg bin "$d/claude" --arg gs "$2" --arg gf "${3:-$RESULT_OK}" --arg hc "${HEAL:-true}" --arg bc "${BASELINE:-true}" --arg gw "${GATE_WAVE:-true}" --arg ev "$d/events.jsonl" --arg id "$id" \
+    '{project:$p,issue:"7",runId:$id,stateDir:$s,run:"\($s)/ticket/\($id)",worktree:$w,claudeBin:$bin,gateStep:$gs,gateFinal:$gf,healCmd:$hc,baselineCmd:$bc,gateWave:$gw,events:$ev}' >"$d/payload.json"
   rc=0; out="$(python3 "$here/scripts/walk-workflow.py" "$here/session.json" ticket "$d/payload.json" 2>"$d/err")" || rc=$?
   run="$d/state/ticket/$id"
 }
