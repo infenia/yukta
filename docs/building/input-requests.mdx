@@ -238,7 +238,14 @@ Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `y
 
 ## After a restart
 
-Requests are kept **in memory**. A restart, or a high-availability takeover, cancels the runs that were waiting and loses their open requests; nobody can answer them afterwards. An answer is also recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) run that replays the same message reuses it. A durable store for requests (PostgreSQL) is planned.
+By default requests are kept **in memory**. A restart, or a high-availability takeover, cancels the runs that were waiting and loses their open requests; nobody can answer them afterwards. An answer is also recorded with the node's checkpoint, so a [resumed](/operations/checkpoints-and-resume) run that replays the same message reuses it.
+
+With the Plus edition and `yukta.input.store-type=postgres` (see [Persistence](/operations/persistence)) requests, answers, votes, deadlines and queued deliveries are kept in PostgreSQL:
+
+- An open request stays open after a restart or takeover, with its tier and its deadlines (they are absolute times). A person or a supervisor can still answer it, and the delivery worker goes on with queued webhooks.
+- A run that was interrupted is [resumed](/operations/checkpoints-and-resume) with a new execution id. When it asks the same question, it **takes over** the open request of the run that is gone: the request keeps its tier, advice and votes, so nobody is asked twice. If the question was answered meanwhile, the run gets the stored answer at once. A request of a run that never comes back stays open until its deadline, then ends as the request says.
+- Finished requests and their answers are removed after `yukta.input.retention` (default 30 days) by a job on the leader.
+- On a standby server an answer is refused with `503` and `Retry-After`; the sweeper, the delivery worker and the purge run on the leader only.
 
 ## Next steps
 

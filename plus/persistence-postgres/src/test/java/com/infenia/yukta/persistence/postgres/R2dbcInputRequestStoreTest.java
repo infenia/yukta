@@ -84,6 +84,29 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void newStoreOnTheSameDatabaseSeesOpenRequestsAndTheirDeadlines() {
+    final InputRequest request = request("r1", "k1");
+    store.createIfAbsent(request).block();
+    store
+        .enqueueDelivery(
+            new InputDelivery(
+                "d1", "r1", "auto", "external:x", InputDelivery.State.PENDING, 0, T0, null))
+        .block();
+
+    // a restart: nothing is carried over but the database
+    final R2dbcInputRequestStore restarted =
+        new R2dbcInputRequestStore(db, JsonMapper.builder().build());
+
+    StepVerifier.create(restarted.listOpen(null, null)).expectNext(request).verifyComplete();
+    StepVerifier.create(restarted.dueBefore(request.tierDeadline()))
+        .expectNext(request)
+        .verifyComplete();
+    StepVerifier.create(restarted.dueDeliveries(T0).map(InputDelivery::id))
+        .expectNext("d1")
+        .verifyComplete();
+  }
+
+  @Test
   void changeKeepsTheTierTargetsAndVotes() {
     final InputRequest first = request("r1", "k1");
     store.createIfAbsent(first).block();

@@ -17,7 +17,7 @@ class InputPropertiesTest {
   private static YuktaProperties.Input input(
       final Duration defaultTtl, final Duration maxTtl, final Duration sweep) {
     return new YuktaProperties.Input(
-        defaultTtl, maxTtl, 5, 50, 100, sweep, List.of(), java.util.Map.of());
+        defaultTtl, maxTtl, 5, 50, 100, sweep, Duration.ofDays(30), List.of(), java.util.Map.of());
   }
 
   @Test
@@ -25,6 +25,23 @@ class InputPropertiesTest {
     assertThatThrownBy(() -> input(Duration.ofHours(2), Duration.ofHours(1), Duration.ofSeconds(1)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("max-ttl");
+  }
+
+  @Test
+  void zeroRetentionIsRefused() {
+    assertThatThrownBy(
+            () ->
+                new YuktaProperties.Input(
+                    Duration.ofHours(1),
+                    Duration.ofHours(2),
+                    5,
+                    50,
+                    100,
+                    Duration.ofSeconds(1),
+                    Duration.ZERO,
+                    List.of(),
+                    java.util.Map.of()))
+        .hasMessageContaining("retention");
   }
 
   @Test

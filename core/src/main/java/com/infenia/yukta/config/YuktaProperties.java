@@ -193,6 +193,8 @@ public record YuktaProperties(
    * @param maxOpenPerSession most open requests one session may have
    * @param memoryMax most finished requests the in-memory store keeps, oldest evicted first
    * @param sweepInterval how often the sweeper looks for requests past their deadline
+   * @param retention how long a finished request and its answer are kept before the hourly purge
+   *     removes them
    * @param redactKeys context keys whose value is replaced, besides the built-in secret names
    * @param routes the named routes (tiers of responders); the one called {@code default} applies
    *     when a request and its session name none
@@ -204,6 +206,7 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("50") int maxOpenPerSession,
       @Min(1) @DefaultValue("10000") int memoryMax,
       @NotNull @DefaultValue("1s") Duration sweepInterval,
+      @NotNull @DefaultValue("30d") Duration retention,
       @NotNull @DefaultValue List<String> redactKeys,
       @NotNull @DefaultValue Map<String, RouteSettings> routes) {
 
@@ -212,6 +215,7 @@ public record YuktaProperties(
       requirePositive("yukta.input.default-ttl", defaultTtl);
       requirePositive("yukta.input.max-ttl", maxTtl);
       requirePositive("yukta.input.sweep-interval", sweepInterval);
+      requirePositive("yukta.input.retention", retention);
       if (maxTtl.compareTo(defaultTtl) < 0) {
         throw new IllegalArgumentException(
             "yukta.input.max-ttl must not be shorter than yukta.input.default-ttl");

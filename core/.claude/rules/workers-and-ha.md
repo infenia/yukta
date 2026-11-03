@@ -41,5 +41,5 @@ standby with `NotLeaderException` (HTTP 503; counted as `yukta.executions.reject
 recovery is skipped in this mode; on takeover `TakeoverRecovery` runs `ExecutionRecovery.recover()` (marks the old
 leader's unfinished runs `ABORTED`). With `yukta.restart.auto-resume=true`, after any recovery (startup of a
 single server too) `ExecutionResumer.resume` runs on each interrupted run, one after the other, from the
-checkpoints (use the PostgreSQL checkpoint store, or a shared directory). Lost on takeover: live approval waits, queued
+checkpoints (use the PostgreSQL checkpoint store, or a shared directory). Input requests: with `yukta.input.store-type=postgres` (`R2dbcInputRequestStore`) open requests, deadlines, votes and queued deliveries survive a takeover; a resumed run (new execution id) that asks the same key takes the open request over in `InputBroker.takenOver` when `ExecutionControlStore` has no live run for the request's execution (CAS, version+1, `yukta.input.taken-over`); `InputRetention` purges finished requests older than `yukta.input.retention` hourly, leader only (so do the sweeper and delivery worker); an answer on a standby is 503. Lost on takeover: live approval waits, queued
 starts, slots and the old tracker state. Clients send requests to the leader; there is no proxy.
