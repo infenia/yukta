@@ -5,13 +5,14 @@
 //
 //   yk ticket run <issue> [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>
 //   yk ticket status <issue|execution>            the run's tree (which node runs or failed) and its last events
+//   yk ticket supervisor                          install the dogfood supervisor of the ticket questions (supervisor/*.json: internal session, workflow, profile, binding)
 //   yk ticket report [--json]                      first-try pass rate, cost share and cache hit ratio by role, prefix mismatches, BLOCKED rate (ticket-events.jsonl)
 //   yk ticket resume|stop <issue|execution>       continue a paused run / end it (a drain, like yk stop --tree)
 // Approvals use `yk approve|reject <execution>` as the other gates do. The run dir is .yukta-dev/ticket/<run_id>/ (see README.md).
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname } from 'node:path'
-import { DEV_HOME, STATE_DIR, cliJson, die, ensureServer, findCli, git, isFile, join, mkdirp, readJson, renderSession, rmSync, run, text, writeFileSync } from '../../11-dogfood/src/lib.ts'
+import { DEV_HOME, DEV_URL, STATE_DIR, cliJson, die, ensureServer, findCli, git, http, isFile, join, keyHeader, mkdirp, readJson, renderSession, rmSync, run, text, writeFileSync } from '../../11-dogfood/src/lib.ts'
 import { cmdRunControl, cmdTree, startNotifier, watchOwned } from '../../11-dogfood/src/runs.ts'
 import { main as report } from './report.ts'
 import { KIT } from './lib.ts'
@@ -82,11 +83,26 @@ async function ticketRun(argv: string[], ykPath: string): Promise<number> {
   } finally { rmSync(tmp, { recursive: true, force: true }) }
 }
 
+/** The dogfood supervisor of the ticket questions (supervisor/*.json, #1923): the internal session with its workflow, the profile and the binding, posted to the dev server
+ * with the dev key (ADMIN). __TICKET__ and __STATE__ are replaced; an object that exists already (409) is left as it is. */
+export async function installSupervisor(base = DEV_URL, dir = join(KIT, 'supervisor'), state = STATE_DIR): Promise<string[]> {
+  const sub = (s: string): string => s.split('__TICKET__').join(KIT).split('__STATE__').join(state)
+  const steps: [string, string][] = [['session.json', '/api/sessions'], ['profile.json', '/api/supervisors/profiles'], ['binding.json', '/api/supervisors/bindings']]
+  const out: string[] = []
+  for (const [file, path] of steps) {
+    const r = await http('POST', base + path, { headers: { ...keyHeader(), 'Content-Type': 'application/json' }, body: sub(text(join(dir, file))), timeoutMs: 20000 })
+    if (![200, 201, 409].includes(r.code)) die(`${file}: HTTP ${r.code} ${r.body.slice(0, 200)}`)
+    out.push(`${file}: ${r.code === 409 ? 'exists' : 'installed'}`)
+  }
+  return out
+}
+
 export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<number> {
   const sub = argv[0] ?? ''
   const rest = argv.slice(1)
   switch (sub) {
     case 'run': return ticketRun(rest, o.ykPath)
+    case 'supervisor': await ensureServer(); console.log((await installSupervisor()).join('\n')); return 0
     case 'report':
       process.env.YUKTA_TICKET_EVENTS ||= join(DEV_HOME, 'ticket-events.jsonl')
       return report(rest)
@@ -107,6 +123,6 @@ export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<
       }
       return cmdRunControl(sub, [execId, '--tree'])
     }
-    default: return die('usage: yk ticket run <issue> [--detach [--notify]] | report [--json] | status|resume|stop <issue|execution>')
+    default: return die('usage: yk ticket run <issue> [--detach [--notify]] | supervisor | report [--json] | status|resume|stop <issue|execution>')
   }
 }

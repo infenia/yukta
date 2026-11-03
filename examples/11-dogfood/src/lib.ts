@@ -122,6 +122,15 @@ export const mcpKey = (): string => (process.env.YUKTA_MCP_KEY === 'session' && 
 export function serverProperties(): string {
   const keys = ['yukta.api-key=' + devKey(), 'yukta.api-keys[0].name=fixer', 'yukta.api-keys[0].key=' + fixerKey(), 'yukta.api-keys[0].role=VIEWER', 'yukta.api-keys[0].sessions=*']
   if (agentKeysSupported()) keys.push('yukta.api-keys[1].name=claude-session', 'yukta.api-keys[1].key=' + sessionKey(), 'yukta.api-keys[1].role=OPERATOR', 'yukta.api-keys[1].sessions=dogfood', 'yukta.api-keys[1].agent=true')
+  // the route of the ticket gates (12-ticket): a route nobody configured is refused, so without it `yk ticket run` stops at its first question
+  if (existsSync(join(DEV_HOME, 'main/core/src/main/java/com/infenia/yukta/service/input/route/RouteSettings.java'))) {
+    const r = 'yukta.input.routes.ticket.'
+    keys.push(
+      r + 'tiers[0].name=supervisor', r + 'tiers[0].responders[0]=supervisor:*', r + 'tiers[0].timeout=20s', r + 'tiers[0].mode=FIRST', r + 'tiers[0].min-confidence=0.85', r + 'tiers[0].type=AUTO',
+      r + 'tiers[1].name=session', r + 'tiers[1].responders[0]=role:OPERATOR', r + 'tiers[1].timeout=30m', r + 'tiers[1].type=AUTO',
+      r + 'tiers[2].name=human', r + 'tiers[2].responders[0]=role:OPERATOR', r + 'tiers[2].timeout=24h', r + 'tiers[2].type=HUMAN',
+      r + 'on-final-timeout=FAIL')
+  }
   return keys.join('\n') + '\n'
 }
 /** Hands the key to the yukta CLI (YUKTA_TOKEN) when it talks to the dev server. */

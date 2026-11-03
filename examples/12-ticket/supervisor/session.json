@@ -1,0 +1,93 @@
+{
+  "sessionId": "supervisors",
+  "name": "Supervisor workflows",
+  "description": "Internal session: the workflows that supervise other sessions. Hidden from the default lists, and its events never reach a supervisor unless one asks for them.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "yukta.internal": "true"
+  },
+  "workflows": {
+    "dogfood-ticket-advice": {
+      "workflowId": "dogfood-ticket-advice",
+      "description": "Starts on InputRequested of the route ticket. Reads the facts of the run (ticketkit advice) and hands the request up with them as advice. Answers nothing.",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "advice",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticketkit.ts",
+              "advice",
+              "${payload.request.spec.context.run_id}",
+              "${payload.request.spec.context.gate}",
+              "--request",
+              "${payload.request.id}"
+            ],
+            "workingDir": "__TICKET__",
+            "env": {
+              "YUKTA_DEV_STATE_DIR": "__STATE__"
+            },
+            "timeout": 30,
+            "timeoutSeconds": 30,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "hand-up",
+          "type": "MAPPER",
+          "config": {
+            "mode": "PROJECTION",
+            "mapping": {
+              "commands": "{ {type: 'EscalateInput', requestId: payload.output.request_id, reason: 'dogfood supervisor: ' + payload.output.recommendation, advice: payload.output.recommendation + ' (' + payload.output.confidence + '): ' + payload.output.advice} }"
+            }
+          }
+        },
+        {
+          "nodeId": "escalated",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "advice sent"
+          }
+        },
+        {
+          "nodeId": "no-opinion",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "no facts for this request"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "trigger",
+          "target": "advice"
+        },
+        {
+          "source": "advice",
+          "target": "hand-up",
+          "sourcePort": "success"
+        },
+        {
+          "source": "advice",
+          "target": "no-opinion",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "hand-up",
+          "target": "escalated"
+        }
+      ]
+    }
+  }
+}
