@@ -6,6 +6,7 @@ import {
   DEV_HOME, DEV_URL, HERE, type Json, REPO_ROOT, STATE_DIR, appendFileSync, changesSum, cliJson, die, emitResult, failedOutput, findCli, healRecords, healedStages, http,
   isFile, join, keyHeader, mkdirp, nodeStage, notifySession, notifyText, readFileSync, recordRun, run, runWall, secs, shq, sleep, text, tryJson, writeFileSync,
 } from './lib.ts'
+import { recordFailure } from './failures.ts'
 import { mkdtempSync, openSync, closeSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 
@@ -247,7 +248,9 @@ export function printResult(session: string, exec: string): number {
   // what the status line and the Stop hook read: the changes this result is for, and how it ended
   mkdirp(STATE_DIR)
   writeFileSync(join(STATE_DIR, 'last-result'), [changesSum(process.env.YUKTA_PROJECT || REPO_ROOT), status, process.env.YUKTA_SCOPE ?? '-', healed || '-', Math.floor(Date.now() / 1000)].join('\t') + '\n')
-  return status === 'COMPLETED' || status === 'SUCCESS' ? 0 : 1
+  if (status === 'COMPLETED' || status === 'SUCCESS') return 0
+  recordFailure({ kind: 'result', where: failed, status, execution: exec, session, evidence: lines(shown || failedOutput(session, exec)).slice(-40).join('\n') })
+  return 1
 }
 
 const statSize = (p: string): number => { try { return statSync(p).size } catch { return 0 } }

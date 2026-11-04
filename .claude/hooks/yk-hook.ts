@@ -157,21 +157,26 @@ export function main(event: string, data: Data): void {
       })
     }
   } else if (event === 'stop') {
-    if (data.stop_hook_active || !sh(root, 'status', '--porcelain', '--', ...CODE)) return
-    const sid = data.session_id ?? ''
-    const total = ykSum(yk)
-    // nothing changed since the session began: the changes are someone else's
-    if (sid && read(join(state, `baseline-${sid}`)) === total) return
-    if (read(join(state, 'nudged')) === total) return
-    const last = read(join(state, 'last-result')).split(/\s+/)
-    if (last[0] === total && last[1] === 'SUCCESS' && last[2] === 'check') return
-    mkdirSync(state, { recursive: true })
-    writeFileSync(join(state, 'nudged'), total + '\n')
-    console.log(JSON.stringify({
-      decision: 'block',
-      reason: 'Uncommitted code changes: run the quality gate before finishing: yk check (yukta skill: start it in the background; it heals what it can, so review its healed= changes with git diff). YUKTA_DOGFOOD=off skips this.',
-    }))
+    if (data.stop_hook_active) return
+    // failures of any workflow on the dev server become records `yk report` can file; YUKTA_REPORT=off or `yk report off` turns it off
+    const note = process.env.YUKTA_REPORT === 'off' ? '' : (spawnSync(yk, ['report', 'scan', '--hook'], { encoding: 'utf8', timeout: 20000 }).stdout ?? '').trim()
+    const reason = gateReason(root, yk, state, data.session_id ?? '')
+    if (reason || note) console.log(JSON.stringify({ ...(reason ? { decision: 'block', reason } : {}), ...(note ? { systemMessage: note } : {}) }))
   }
+}
+
+/** Why the session may not finish yet (uncommitted code with no passing `yk check`), once per state of the changes; undefined when it may. */
+function gateReason(root: string, yk: string, state: string, sid: string): string | undefined {
+  if (!sh(root, 'status', '--porcelain', '--', ...CODE)) return
+  const total = ykSum(yk)
+  // nothing changed since the session began: the changes are someone else's
+  if (sid && read(join(state, `baseline-${sid}`)) === total) return
+  if (read(join(state, 'nudged')) === total) return
+  const last = read(join(state, 'last-result')).split(/\s+/)
+  if (last[0] === total && last[1] === 'SUCCESS' && last[2] === 'check') return
+  mkdirSync(state, { recursive: true })
+  writeFileSync(join(state, 'nudged'), total + '\n')
+  return 'Uncommitted code changes: run the quality gate before finishing: yk check (yukta skill: start it in the background; it heals what it can, so review its healed= changes with git diff). YUKTA_DOGFOOD=off skips this.'
 }
 
 if (import.meta.main) {
