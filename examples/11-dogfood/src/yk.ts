@@ -275,7 +275,9 @@ async function cmdPickup(argv: string[]): Promise<number> {
       // when you fixed one, its port (default: any free port; it registers itself, see channel/src/main.ts)
       const env: Record<string, string> = { YUKTA_CHANNEL_PROFILE: 'pickup', YUKTA_DEV_HOME: DEV_HOME, YUKTA_PICKUP_NAME: name }
       if (process.env.YUKTA_PICKUP_PORT) env.YUKTA_PICKUP_PORT = process.env.YUKTA_PICKUP_PORT
-      const cfg = JSON.stringify({ mcpServers: { 'yukta-pickup': { command: 'bun', args: ['run', join(HERE, 'channel/src/main.ts')], env } } })
+      // a file, not inline JSON: claude 2.1.x did not load the inline config (no yukta-pickup server in the session)
+      const cfg = join(DEV_HOME, `pickup-${name}.mcp.json`)
+      writeFileSync(cfg, JSON.stringify({ mcpServers: { 'yukta-pickup': { command: 'bun', args: ['run', join(HERE, 'channel/src/main.ts')], env } } }), { mode: 0o600 })
       const p = Bun.spawnSync(['claude', '--name', name, '--mcp-config', cfg, '--dangerously-load-development-channels', 'server:yukta-pickup'], { cwd: REPO_ROOT, env: { ...process.env, YUKTA_MCP_KEY: 'session' }, stdio: ['inherit', 'inherit', 'inherit'] })
       return p.exitCode ?? 1
     }
