@@ -135,3 +135,12 @@ test('the triage URL is a per-machine override', () => {
   delete process.env.YUKTA_TRIAGE_URL
   void KIT
 })
+
+test('a model that is down leaves stdout and stderr of need-approval merge clean (a workflow node with JSON output takes stderr into its output); the WARN goes to a file', () => {
+  newrun()
+  const r = kit(['ladder', 'need-approval', run, 'merge'], { env: { ...base(), YUKTA_DECISION_URL: 'http://127.0.0.1:1' } })
+  expect(r.code, r.all).toBe(0)
+  expect(r.err).toBe('')
+  expect(JSON.parse(r.out.trim()).ask).toBe(false)
+  expect(read(join(run, 'decision-warnings.log'))).toContain('WARN decision model unavailable')
+})
