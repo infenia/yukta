@@ -34,4 +34,10 @@ class TextSlugTest {
   void slug_noAlphanumerics_returnsEmptyString() {
     assertThat(TextSlug.toSlug("!?- ")).isEmpty();
   }
+
+  // [T5]
+  @Test
+  void slug_charactersAboveLowerCaseRange_treatedAsSeparators() {
+    assertThat(TextSlug.toSlug("x{y}~zé")).isEqualTo("x-y-z");
+  }
 }
