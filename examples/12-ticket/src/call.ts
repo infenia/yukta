@@ -145,6 +145,7 @@ export function main(argv: string[]): number {
   if (!good) die(`ERROR ${role}: the answer is not valid against ${SCHEMA[role]} after one retry: ${why.slice(0, 300)}`)
   if (role === 'architect') {
     const sd = join(runDir, 'spec')
+    if (!ans.scaffold_patch) ans.scaffold_patch = 'spec/scaffold.patch' // no stubs needed: the architect answers '', which names the run dir itself
     save(join(sd, 'spec.json'), ans)
     save(join(sd, 'spec.v1.json'), ans)
     const patch = join(runDir, ans.scaffold_patch)

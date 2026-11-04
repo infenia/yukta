@@ -25,6 +25,7 @@ test('happy path: a run dir, a commit, events with cache fields, the GitHub flow
   expect(w.out).toContain('OUTCOME SUCCESS')
   for (const f of ['ticket.json', 'project.json', 'routing.json', 'events.jsonl', 'spec/spec.json', 'spec/spec.hash', 'steps/S1/packet.json', 'steps/S1/attempt-1/result.json', 'steps/S1/attempt-1/diff.patch',
     'steps/S1/attempt-1/validation.json', 'steps/S1/status.json', 'review/result.json']) expect(existsSync(join(w.run, f)), `run dir: ${f}`).toBe(true)
+  expect(json(join(w.run, 'spec/spec.json')).scaffold_patch, 'an empty scaffold_patch becomes a file name').toBe('spec/scaffold.patch')
   expect(read(join(w.run, 'steps/S1/attempt-1/diff.patch'))).toContain('core/src/main/java/A.java')
   expect(git(join(w.d, 'yukta-issue-7'), 'log', '--format=%s').out.split('\n')[0]).toBe('feat: add limiter (#7 S1)')
   expect(json(join(w.run, 'ticket.json')).ticket_id).toBe('7')
