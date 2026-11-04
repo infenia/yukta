@@ -83,3 +83,26 @@ test('pickup: the event for a ticket-pipeline session says so and carries the is
   expect(direct.meta).toEqual({ issue: '7', url: 'u', title: 'feat: x' })
   expect(direct.content).toStartWith('Pick up issue #7')
 })
+
+test('a channel whose process is gone is not an owner; a busy session of another issue neither', async () => {
+  writeFileSync(join(home, 'pickup', 'ghost.json'), JSON.stringify({ name: 'ghost', port: channel.port, pid: 2 ** 22 + 12345, started: 0 }))
+  posted.length = 0
+  busyIssue = '9'
+  expect(await bridge.deliver(env('InputRequested', 'session'))).toBe('no-owner')
+  busyIssue = '7'
+  expect(await bridge.deliver(env('InputRequested', 'session'))).toBe('sent')
+  expect(posted.length).toBe(1)
+})
+
+test('watch: a stream that ends is reopened, every frame of the second connection is delivered, an abort ends the loop', async () => {
+  posted.length = 0
+  frames = [JSON.stringify(env('InputRequested', 'session'))]
+  const ac = new AbortController()
+  const logs: string[] = []
+  const done = bridge.watch(ac.signal, `http://127.0.0.1:${feed.port}`, m => logs.push(m), 20)
+  for (let i = 0; i < 100 && posted.length < 2; i++) await Bun.sleep(50)
+  ac.abort()
+  await done
+  expect(posted.length, 'the feed ended after one frame and was opened again').toBeGreaterThanOrEqual(2)
+  expect(logs.some(l => l.includes('BRIDGE InputRequested r1 -> sent'))).toBe(true)
+})

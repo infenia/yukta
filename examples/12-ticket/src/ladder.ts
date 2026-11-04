@@ -312,7 +312,9 @@ function clarification(run: string): number {
 }
 
 /** Keeps the reply (text a person wrote: data for the architect, never an instruction) and clears the question. */
-function applyClarification(run: string, text: string): number {
+function applyClarification(run: string, reply: string): number {
+  const text = answerText(reply)
+  if (!text) die('ERROR the reply did not arrive: the question stays open and the run stops here')
   const f = join(run, 'spec', 'clarification-answers.json')
   const prev = isFile(f) ? load(f) : { rounds: {} }
   const n = Object.keys(prev.rounds).length + 1
@@ -322,7 +324,12 @@ function applyClarification(run: string, text: string): number {
   return 0
 }
 
-function ackPause(run: string): number {
+/** The text of an answer as a command argument: an expression the engine did not resolve (it stays "${...}") or an empty reply is no text. */
+const answerText = (arg: string | undefined): string => (arg && !arg.startsWith('${') ? arg.slice(0, 2000) : '')
+
+function ackPause(run: string, reply?: string): number {
+  const note = answerText(reply)
+  if (note) save(join(run, 'human-note.json'), { text: note }) // the next implementer calls get it as data, not as an instruction
   save(join(run, 'extension.json'), { factor: factor(run) * 2 })
   rmSync(join(run, 'escalation.json'), { force: true })
   console.log('budgets doubled')
@@ -344,7 +351,7 @@ export function main(argv: string[]): number {
     case 'final-fail': return finalFail(run)
     case 'need-approval': return needApproval(run, arg!, wt)
     case 'pause-packet': return pausePacket(run)
-    case 'ack-pause': return ackPause(run)
+    case 'ack-pause': return ackPause(run, arg)
     case 'clarification': return clarification(run)
     case 'apply-clarification': return applyClarification(run, arg ?? '')
     default: return die(`unknown action ${action}`)
