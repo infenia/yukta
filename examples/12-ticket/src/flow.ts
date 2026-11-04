@@ -85,10 +85,14 @@ function mutation(run: string, wt: string): void {
   console.log(`MUTATION survivors=${survived}/${total} threshold=${thr}`)
 }
 
+/** A clean checkout has no changes against origin/main, so `--stage S --base origin/main` runs no stage and exits non-zero ("no stage of the plan is left"):
+ * every failure was excused as a baseline failure. --full runs the stage on the whole tree (about 3 minutes for style), and only after a failure. */
+export const BASELINE_CMD = 'yk check --no-heal --full --stage {stage}'
+
 /** Does STAGE also fail on a clean origin/main? (TICKET_BASELINE_CMD, else yk check --stage, in a detached worktree) */
 function baselineFails(wt: string, stage: string): boolean {
   let cmd = process.env.TICKET_BASELINE_CMD ?? '-'
-  if (cmd === '-') cmd = 'yk check --no-heal --stage {stage} --base origin/main'
+  if (cmd === '-') cmd = BASELINE_CMD
   const tmp = mkdtempSync(join(tmpdir(), 'ticket-baseline-'))
   try {
     git(['worktree', 'add', '-q', '--detach', join(tmp, 'w'), 'origin/main'], { cwd: wt })
