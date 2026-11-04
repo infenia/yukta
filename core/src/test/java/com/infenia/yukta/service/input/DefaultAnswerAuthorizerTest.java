@@ -12,10 +12,18 @@ import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
+import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.input.route.FinalAction;
+import com.infenia.yukta.service.input.route.InputRoute;
+import com.infenia.yukta.service.input.route.Mode;
+import com.infenia.yukta.service.input.route.ResponderType;
+import com.infenia.yukta.service.input.route.RouteResolver;
+import com.infenia.yukta.service.input.route.Tier;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -31,7 +39,7 @@ import reactor.test.StepVerifier;
 
 /** The authorisation matrix: who may answer which request, and the rule that fails otherwise. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports"})
 class DefaultAnswerAuthorizerTest {
 
   private static final String OP = "op";
@@ -411,5 +419,102 @@ class DefaultAnswerAuthorizerTest {
         .expectErrorSatisfies(
             error -> assertThat(((InputForbiddenException) error).rule()).isEqualTo("scope"))
         .verify();
+  }
+
+  private DefaultAnswerAuthorizer withRoute(final ResponderType type) {
+    final Tier tier =
+        new Tier("hook", List.of("external:webhook:ops"), null, Mode.FIRST, 0, 0, type, null);
+    final Tier first =
+        new Tier(
+            "first", List.of("supervisor:*"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+    final RouteResolver routes =
+        new RouteResolver(
+            Map.of("r", new InputRoute("r", List.of(first, tier), FinalAction.FAIL)), null);
+    return new DefaultAnswerAuthorizer(runs, meters, CommandProposals.NONE, routes);
+  }
+
+  private static InputRequest inTier(final InputRisk risk, final String tier, final String route) {
+    return inTier(risk, tier, route, "external:webhook:ops");
+  }
+
+  private static InputRequest inTier(
+      final InputRisk risk, final String tier, final String route, final String target) {
+    final InputRequest base =
+        InputTestSupport.request(
+            "r1",
+            new InputRequestSpec(
+                "k",
+                InputKind.APPROVAL,
+                "Deploy?",
+                Map.of(),
+                List.of(),
+                null,
+                risk,
+                Audience.CURRENT_TIER,
+                java.time.Duration.ofMinutes(10),
+                TimeoutAction.FAIL,
+                null,
+                route,
+                "TEST"));
+    return new InputRequest(
+        base.id(),
+        base.key(),
+        base.sessionId(),
+        base.workflowId(),
+        base.executionId(),
+        base.nodeId(),
+        base.spec(),
+        base.state(),
+        base.version(),
+        tier,
+        List.of(target),
+        null,
+        base.deadline(),
+        base.createdAt(),
+        base.updatedAt());
+  }
+
+  @Test
+  void externalActorAnswersHighOnlyInTierMadeForPeople() {
+    final ActorInfo token = ActorInfo.external("hook");
+
+    StepVerifier.create(
+            withRoute(ResponderType.HUMAN)
+                .authorize(new AnswerContext(inTier(InputRisk.HIGH, "hook", "r"), token, false)))
+        .verifyComplete();
+    StepVerifier.create(
+            withRoute(ResponderType.AUTO)
+                .authorize(new AnswerContext(inTier(InputRisk.HIGH, "hook", "r"), token, false)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(InputForbiddenException.class)
+                    .hasMessageContaining("tier made for people"))
+        .verify();
+  }
+
+  @Test
+  void personIsNotAskedForTierType() {
+    StepVerifier.create(
+            withRoute(ResponderType.AUTO)
+                .authorize(
+                    new AnswerContext(
+                        inTier(InputRisk.HIGH, "hook", "r", "role:OPERATOR"),
+                        ActorInfo.human(OP, ApiRole.OPERATOR, Set.of()),
+                        false)))
+        .verifyComplete();
+  }
+
+  @Test
+  void tierTypeMattersOnlyForAnExternalActorOnHighAndNotWhenHandingUp() {
+    final DefaultAnswerAuthorizer autoTier = withRoute(ResponderType.AUTO);
+    final ActorInfo token = ActorInfo.external("hook");
+
+    StepVerifier.create(
+            autoTier.authorize(new AnswerContext(inTier(InputRisk.LOW, "hook", "r"), token, false)))
+        .verifyComplete();
+    StepVerifier.create(
+            autoTier.authorize(new AnswerContext(inTier(InputRisk.HIGH, "hook", "r"), token, true)))
+        .verifyComplete();
   }
 }

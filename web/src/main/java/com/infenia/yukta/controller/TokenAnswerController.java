@@ -86,7 +86,11 @@ public class TokenAnswerController {
               + " answer 403 'Invalid or expired token'. 429 when called too often.")
   public Mono<ResponseEntity<ApiResponse<Object>>> answer(
       @Valid @RequestBody final TokenAnswerRequest body, final ServerWebExchange exchange) {
-    if (!perAddress.tryAcquire(remote(exchange)) || !perRequest.tryAcquire(body.requestId())) {
+    final String address = remote(exchange);
+    // only refused calls count: a good token is made for one answer, and a shared address (a
+    // reverse
+    // proxy) must not use up the allowance of every receiver behind it
+    if (perAddress.exceeded(address) || perRequest.exceeded(body.requestId())) {
       return Mono.just(
           ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
               .header(HttpHeaders.RETRY_AFTER, RETRY_AFTER_SECONDS)
@@ -109,6 +113,11 @@ public class TokenAnswerController {
                 body.text(),
                 body.data(),
                 body.rationale()))
+        .doOnError(
+            _ -> {
+              perAddress.tryAcquire(address);
+              perRequest.tryAcquire(body.requestId());
+            })
         .thenReturn(ResponseEntity.ok(ApiResponse.<Object>success(200, "Answer accepted", null)));
   }
 
