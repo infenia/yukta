@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 )
 
 // InputOption is one choice of an input request.
@@ -44,7 +45,7 @@ type InputRequest struct {
 	Options         []InputOption  `json:"options,omitempty"`
 	ResponseSchema  string         `json:"responseSchema,omitempty"`
 	Risk            string         `json:"risk"`
-	Audience        string         `json:"audience"`
+	Audience        InputAudience  `json:"audience"`
 	OnTimeout       string         `json:"onTimeout"`
 	DefaultDecision string         `json:"defaultDecision,omitempty"`
 	Requester       string         `json:"requester"`
@@ -54,6 +55,20 @@ type InputRequest struct {
 	CreatedAt       string         `json:"createdAt"`
 	UpdatedAt       string         `json:"updatedAt"`
 	Answer          *InputAnswer   `json:"answer,omitempty"`
+}
+
+// InputAudience is who may answer a request: the selectors, or the current tier when there are none (the server sends {"selectors":[],"currentTier":true}).
+type InputAudience struct {
+	Selectors   []string `json:"selectors"`
+	CurrentTier bool     `json:"currentTier"`
+}
+
+// String is the audience for a person: "current tier" or the selectors.
+func (a InputAudience) String() string {
+	if a.CurrentTier || len(a.Selectors) == 0 {
+		return "current tier"
+	}
+	return strings.Join(a.Selectors, ", ")
 }
 
 // AnswerInputRequest is the body of POST /api/executions/{e}/inputs/{id}/answer.

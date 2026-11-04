@@ -171,7 +171,7 @@ func printInput(in *client.InputRequest) error {
 		{"Version", strconv.FormatInt(in.Version, 10)},
 		{"Kind", in.Kind},
 		{"Risk", in.Risk},
-		{"Audience", in.Audience},
+		{"Audience", in.Audience.String()},
 		{"Tier", in.Tier},
 		{"Deadline", in.Deadline},
 		{"On timeout", in.OnTimeout},

@@ -211,3 +211,19 @@ func TestSeparator(t *testing.T) {
 		t.Error("separator")
 	}
 }
+
+func TestInputRequest_audienceIsAnObject(t *testing.T) {
+	var s inputServer
+	c := s.start(t, 200, `{"data":{"id":"r1","state":"ESCALATED","audience":{"selectors":[],"currentTier":true}}}`)
+	in, err := c.GetInput("e", "r1")
+	if err != nil {
+		t.Fatalf("GetInput: %v", err)
+	}
+	if got := in.Audience.String(); got != "current tier" {
+		t.Errorf("audience = %q, want current tier", got)
+	}
+	c = s.start(t, 200, `{"data":{"id":"r1","state":"ESCALATED","audience":{"selectors":["role:ADMIN","key:ann"],"currentTier":false}}}`)
+	if in, err = c.GetInput("e", "r1"); err != nil || in.Audience.String() != "role:ADMIN, key:ann" {
+		t.Errorf("audience = %v, %v", in.Audience, err)
+	}
+}
