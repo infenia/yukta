@@ -21,7 +21,7 @@
 //   clarification                  the architect's NEEDS_CLARIFICATION as one question: {ask, prompt} (ask false when none or after 2 rounds)
 //   apply-clarification TEXT       the person's reply goes to spec/clarification-answers.json for the next architect call
 //   ack-pause                      a human approved the pause: budgets double for the rest of the run
-import { rmSync, statSync } from 'node:fs'
+import { appendFileSync, rmSync, statSync } from 'node:fs'
 import {
   type Json, costByRole, die, dumps, existsSync, fmt, git, isFile, join, kit, load, matches, parseArgs, readFileSync, readdirSync, resolve, save, sh, writeFileSync,
 } from './lib.ts'
@@ -67,10 +67,11 @@ function tierUp(m: Json): [string, string] | null {
   return at + 1 < TIERS.length ? TIERS[at + 1]! : null
 }
 
-/** One decision of the local model through `ticketkit decision` (stderr, with its WARN line, passes through). The last JSON line, or null. */
+/** One decision of the local model through `ticketkit decision`. The last JSON line, or null. Its WARN line goes to <run>/decision-warnings.log, not to stderr:
+ * a workflow node with JSON output takes stderr into its output, and a model that is down or rate-limited then made `ladder need-approval merge` unreadable. */
 function askDecision(...args: string[]): Json | null {
   const r = kit(['decision', ...args])
-  if (r.stderr) process.stderr.write(r.stderr)
+  if (r.stderr) appendFileSync(join(args[1]!, 'decision-warnings.log'), r.stderr)
   const lines = r.stdout.split('\n').filter(l => l.startsWith('{'))
   return r.code === 0 && lines.length ? JSON.parse(lines[lines.length - 1]!) : null
 }
