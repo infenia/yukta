@@ -76,7 +76,7 @@ export function promptFor(role: string, run: string, step: string | undefined, w
   return 'Review the change against the spec: does it meet every acceptance criterion, and do the tests prove the cases?\n' + block('spec', j(spec, 1)) + '\n' + block('diff_stat', stat) + mut
 }
 
-/** The schema text for claude: cross-file $refs (revision-result -> ticket-spec) are inlined, as claude cannot resolve files, and every `$schema` is dropped:
+/** The schema text for claude: cross-file $refs (revision-result -> ticket-spec) are inlined, as claude cannot resolve files, every `$schema` is dropped and top-level allOf/anyOf/oneOf too:
  * claude's validator does not know draft 2020-12 and refuses the schema ("no schema with key or ref ...") */
 export function flatSchema(name: string): string {
   const sch = JSON.parse(readFileSync(join(KIT, 'schemas', `${name}.schema.json`), 'utf8'))
@@ -86,7 +86,9 @@ export function flatSchema(name: string): string {
     sch['$defs'] = { ...(sch['$defs'] ?? {}), ...ext }
     text = dumps(sch).replaceAll('ticket-spec.schema.json#/$defs/', '#/$defs/')
   }
-  return JSON.stringify(JSON.parse(text), (k, v) => (k === '$schema' && typeof v === 'string' ? undefined : v))
+  const out = JSON.parse(JSON.stringify(JSON.parse(text), (k, v) => (k === '$schema' && typeof v === 'string' ? undefined : v)))
+  for (const k of ['allOf', 'anyOf', 'oneOf']) delete out[k] // the API refuses them at the top of a tool schema (400); ajv still enforces them on the answer, with one retry
+  return JSON.stringify(out)
 }
 
 function runClaude(role: string, prompt: string, routing: Json, wt: string, out: string, run?: string, step?: string): Json {
