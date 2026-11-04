@@ -126,4 +126,11 @@ describe('SessionInfoPanel', () => {
       vi.useRealTimers();
     }
   });
+
+  it('draws the hero backdrop behind the header, outside the accessibility tree', () => {
+    render(<SessionInfoPanel session={mockSession} />);
+    const backdrop = screen.getByTestId('hero-backdrop');
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+    expect(backdrop).toHaveClass('hero-backdrop');
+  });
 });

@@ -24,7 +24,13 @@ export function WorkflowTitleBar({
   actions?: ReactNode;
 }) {
   return (
-    <div className="border-outline-variant bg-surface-container flex flex-col gap-2 border-b px-4 py-3 sm:px-6">
+    <div className="border-outline-variant relative isolate flex flex-col gap-2 border-b px-4 py-3 sm:px-6">
+      {/* The docs hero backdrop, as on the Sessions list: behind the title row only */}
+      <div
+        aria-hidden="true"
+        data-testid="hero-backdrop"
+        className="hero-backdrop pointer-events-none absolute inset-0 -z-10"
+      />
       <BreadcrumbNav />
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-headline-lg text-on-surface font-mono tracking-tight break-all">
