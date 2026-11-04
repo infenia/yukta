@@ -184,6 +184,14 @@ export function renderSession(out: string, extra?: string): void {
   const s = sub(readJson(join(d, 'session.json')))
   s.sessionId = 'dogfood'
   s.name = 'dogfood'
+  // the ticket pipeline's workflows (12-ticket) are part of the one session: every apply (yk check, gradle, tool, ticket run) sends the same set, so
+  // none of them removes the others' workflows from a run in progress ("Workflow not found: finalize")
+  let t = join(DEV_HOME, 'main/examples/12-ticket')
+  if (!isFile(join(t, 'session.json'))) t = join(HERE, '../12-ticket')
+  if (isFile(join(t, 'session.json'))) {
+    const subT = (v: Json): Json => (typeof v === 'string' ? v.split('__TICKET__').join(t) : Array.isArray(v) ? v.map(subT) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, subT(x)])) : v)
+    Object.assign(s.workflows, subT(readJson(join(t, 'session.json')).workflows))
+  }
   if (extra) Object.assign(s.workflows, extra)
   writeFileSync(out, JSON.stringify(s, null, 2) + '\n')
 }

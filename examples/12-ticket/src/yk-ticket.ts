@@ -17,21 +17,8 @@ import { cmdRunControl, cmdTree, startNotifier, watchOwned } from '../../11-dogf
 import { main as report } from './report.ts'
 import { KIT } from './lib.ts'
 
-/** The `dogfood` session plus the workflows `ticket` and `step`..., __TICKET__ replaced by the folder of ticketkit (the main checkout the dev server runs when
- * it already has this folder, else this checkout). */
-export function renderTicketSession(out: string): void {
-  let t = join(DEV_HOME, 'main/examples/12-ticket')
-  if (!isFile(join(t, 'session.json'))) t = KIT
-  const sub = (v: unknown): unknown => (typeof v === 'string' ? v.split('__TICKET__').join(t) : Array.isArray(v) ? v.map(sub) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, sub(x)])) : v)
-  const base = mkdtempSync(join(tmpdir(), 'yk-ticket-'))
-  try {
-    renderSession(join(base, 'base.json'))
-    const b = readJson(join(base, 'base.json'))
-    const ticket = readJson(join(t, 'session.json'))
-    b.workflows = { ...b.workflows, ...(sub(ticket.workflows) as Record<string, unknown>) }
-    writeFileSync(out, JSON.stringify(b, null, 2) + '\n')
-  } finally { rmSync(base, { recursive: true, force: true }) }
-}
+/** The `dogfood` session with the workflows `ticket` and `step`...: renderSession (11-dogfood) already holds them, so every yk command applies the same set. */
+export function renderTicketSession(out: string): void { renderSession(out) }
 
 /** "<run_id> <execution>" of the latest run of an issue. */
 function ticketLast(issue: string): [string, string] {
