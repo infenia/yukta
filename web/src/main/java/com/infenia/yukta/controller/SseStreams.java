@@ -103,7 +103,10 @@ public class SseStreams {
                       });
           final Flux<ServerSentEvent<T>> keepAlive =
               Flux.interval(heartbeat)
-                  .filter(_ -> !ended.get()) // a tick racing the end is skipped, not dropped
+                  .filter(
+                      _ ->
+                          Boolean.FALSE.equals(
+                              ended.get())) // a tick racing the end is skipped, not dropped
                   .map(_ -> ServerSentEvent.<T>builder().comment("ping").build())
                   .takeUntilOther(finished.asMono());
           final Flux<ServerSentEvent<T>> merged = Flux.merge(events, keepAlive);
