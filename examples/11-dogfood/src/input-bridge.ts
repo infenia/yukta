@@ -13,10 +13,12 @@ const ROUTE = process.env.YUKTA_BRIDGE_ROUTE ?? 'ticket'
 const SESSION_TIER = process.env.YUKTA_BRIDGE_SESSION_TIER ?? 'session'
 const HUMAN_TIER = process.env.YUKTA_BRIDGE_HUMAN_TIER ?? 'human'
 const MAX_PROMPT = 1024
+// read per call: lib's DEV_HOME is fixed when lib.ts is first imported, which a test process shares between files
+const home = (): string => process.env.YUKTA_DEV_HOME || DEV_HOME
 
 /** The channel session busy with `issue`: its port, or undefined. */
 export async function owner(issue: string): Promise<{ name: string; port: number } | undefined> {
-  const dir = join(DEV_HOME, 'pickup')
+  const dir = join(home(), 'pickup')
   let files: string[] = []
   try { files = readdirSync(dir).filter(f => f.endsWith('.json')) } catch { return undefined }
   for (const f of files) {
@@ -56,7 +58,7 @@ export async function deliver(env: Json): Promise<'sent' | 'skipped' | 'no-owner
   if (!n) return 'skipped'
   const o = await owner(n.issue)
   if (!o) return 'no-owner'
-  const token = text(join(DEV_HOME, 'pickup-token')).trim()
+  const token = text(join(home(), 'pickup-token')).trim()
   const r = await http('POST', `http://127.0.0.1:${o.port}/v1/events`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: n.content, meta: n.meta, idempotency_key: n.idempotency_key }),

@@ -42,7 +42,7 @@ async function startChannel(name: string): Promise<void> {
 }
 const doneFor = async (name: string, issue: number, id: number): Promise<void> => {
   const stdin = procs.get(name)!.stdin as { write(s: string): void; flush(): void }
-  stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'pickup_done', arguments: { issue, outcome: 'pr' } } }) + '\n')
+  stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method: 'tools/call', params: { name: 'pickup_done', arguments: { issue, outcome: 'pr', url: `https://example.test/pr/${issue}` } } }) + '\n')
   stdin.flush()
   await Bun.sleep(400)
 }

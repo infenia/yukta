@@ -259,7 +259,8 @@ export class Channel {
     // busy nor does it take the slot
     const notify = meta.kind === 'input'
     const cur = this.current()
-    if (this.options.exclusive && cur && !notify) {
+    // ...but only about the issue in flight: another issue's question is as much a new unit of work as an event
+    if (this.options.exclusive && cur && (!notify || meta.issue !== cur.meta.issue)) {
       return { status: 409, body: { error: 'busy', event_id: cur.id, meta: cur.meta, since: cur.since } }
     }
     if (!this.connected) return { status: 503, body: { error: 'not connected to Claude Code' } }
