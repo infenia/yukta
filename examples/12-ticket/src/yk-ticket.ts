@@ -4,6 +4,8 @@
 // this folder.
 //
 //   yk ticket run <issue> [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>
+//   yk ticket new <title> --criterion C [--criterion C..] [--goal G] [--role architect=opus/high..] [--label L..] [--ready]   file a ticket in the shape the pipeline reads (ticket-template.md)
+//   yk ticket edit <issue> [--title T] [--goal G] [--criterion C..] [--role r=model/effort..] [--label L..] [--ready] [--force]   change what is passed, keep the rest of the body
 //   yk ticket status <issue|execution>            the run's tree (which node runs or failed) and its last events
 //   yk ticket supervisor                          install the dogfood supervisor of the ticket questions (supervisor/*.json: internal session, workflow, profile, binding)
 //   yk ticket report [--json]                      first-try pass rate, cost share and cache hit ratio by role, prefix mismatches, BLOCKED rate (ticket-events.jsonl)
@@ -16,6 +18,9 @@ import { DEV_HOME, DEV_URL, STATE_DIR, cliJson, die, ensureServer, findCli, git,
 import { cmdRunControl, cmdTree, startNotifier, watchOwned } from '../../11-dogfood/src/runs.ts'
 import { main as report } from './report.ts'
 import { KIT } from './lib.ts'
+import { main as github } from './github.ts'
+import { criteria as criteriaOf } from './init.ts'
+import { parseRole, renderBody, replaceSection, roleLines, rolesOf, withDefaults } from './roles.ts'
 
 /** The `dogfood` session with the workflows `ticket` and `step`...: renderSession (11-dogfood) already holds them, so every yk command applies the same set. */
 export function renderTicketSession(out: string): void { renderSession(out) }
@@ -26,6 +31,74 @@ function ticketLast(issue: string): [string, string] {
   if (!isFile(f)) die(`no ticket run of issue ${issue} started from this checkout`)
   const [runId, execId] = text(f).trim().split(/\s+/)
   return [runId!, execId!]
+}
+
+type TicketArgs = { title: string; goal: string; criteria: string[]; labels: string[]; roles: Record<string, any>; ready: boolean; force: boolean; pos: string[] }
+
+function ticketArgs(argv: string[]): TicketArgs {
+  const t: TicketArgs = { title: '', goal: '', criteria: [], labels: [], roles: {}, ready: false, force: false, pos: [] }
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]!
+    const val = (): string => argv[++i] ?? die(`${a} needs a value`)
+    if (a === '--criterion') t.criteria.push(val())
+    else if (a === '--title') t.title = val()
+    else if (a === '--goal') t.goal = val()
+    else if (a === '--label') t.labels.push(val())
+    else if (a === '--ready') t.ready = true
+    else if (a === '--force') t.force = true
+    else if (a === '--role') { const r = parseRole(val()); if (typeof r === 'string') die(r); t.roles[r[0]] = r[1] }
+    else if (a.startsWith('-')) die(`unknown option '${a}'`)
+    else t.pos.push(a)
+  }
+  return t
+}
+
+const REPO = (): string => process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
+
+/** Files an issue from ticket-template.md, assigned to you; --ready also sets Status Ready on the project, so `yk ticket run` can take it. */
+function ticketNew(argv: string[]): number {
+  const t = ticketArgs(argv)
+  const title = t.title || t.pos[0] || ''
+  if (!title || !t.criteria.length || t.pos.length > 1) die('usage: yk ticket new <title> --criterion <text> [--criterion ..] [--goal <text>] [--role architect=opus/high ..] [--label <l> ..] [--ready]')
+  const dir = mkdtempSync(join(tmpdir(), 'yk-ticket-new-'))
+  try {
+    const f = join(dir, 'body.md')
+    writeFileSync(f, renderBody(t.goal || title, t.criteria, t.roles, t.labels))
+    const r = run(['gh', 'issue', 'create', '-R', REPO(), '--title', title, '--body-file', f, '--assignee', '@me', ...t.labels.flatMap(l => ['--label', l])])
+    if (r.code) die(`gh issue create: ${r.stderr.trim().slice(0, 300)}`)
+    const url = r.stdout.trim().split('\n').pop()!
+    console.log(`ISSUE ${url}`)
+    return t.ready ? github(['claim', url.split('/').pop()!, 'Ready']) : 0
+  } finally { rmSync(dir, { recursive: true, force: true }) }
+}
+
+/** Rewrites what is passed in an existing issue and keeps the rest of its body: --criterion replaces the whole list, --role changes only that role (the others stay, missing ones get
+ * the defaults), --label adds. Refused once a run has made the issue's branch (the run has read the issue), unless --force. */
+function ticketEdit(argv: string[]): number {
+  const t = ticketArgs(argv)
+  const n = t.pos[0] ?? ''
+  if (!/^[0-9]+$/.test(n) || t.pos.length > 1) die('usage: yk ticket edit <issue> [--title T] [--goal G] [--criterion C ..] [--role r=model/effort ..] [--label L ..] [--ready] [--force]')
+  const root = git(['rev-parse', '--show-toplevel']).stdout.trim()
+  const branch: string = readJson(join(KIT, 'project.json')).git.branch.replaceAll('{n}', n)
+  if (!t.force && git(['rev-parse', '--verify', '-q', branch], root).code === 0) die(`branch ${branch} exists: a run has read this issue (--force to edit anyway)`)
+  const g = run(['gh', 'issue', 'view', n, '-R', REPO(), '--json', 'title,body,labels'])
+  if (g.code) die(`gh issue view: ${g.stderr.trim().slice(0, 300)}`)
+  const v = JSON.parse(g.stdout)
+  let body: string = v.body ?? ''
+  const labels = [...new Set([...v.labels.map((l: { name: string }) => l.name), ...t.labels])]
+  const criteria = t.criteria.length ? t.criteria : criteriaOf(body)
+  if (t.goal) body = replaceSection(body, /^\s*#+\s+goal\b/i, 'Goal', t.goal)
+  if (t.criteria.length) body = replaceSection(body, /acceptance criteria/i, 'Acceptance criteria', t.criteria.map(c => `- [ ] ${c}`).join('\n'))
+  body = replaceSection(body, /pipeline roles/i, 'Pipeline roles', roleLines(withDefaults(criteria.length, labels, { ...rolesOf(body), ...t.roles })))
+  const dir = mkdtempSync(join(tmpdir(), 'yk-ticket-edit-'))
+  try {
+    const f = join(dir, 'body.md')
+    writeFileSync(f, body)
+    const r = run(['gh', 'issue', 'edit', n, '-R', REPO(), '--body-file', f, ...(t.title ? ['--title', t.title] : []), ...t.labels.flatMap(l => ['--add-label', l])])
+    if (r.code) die(`gh issue edit: ${r.stderr.trim().slice(0, 300)}`)
+    console.log(`EDITED #${n}`)
+    return t.ready ? github(['claim', n, 'Ready']) : 0
+  } finally { rmSync(dir, { recursive: true, force: true }) }
 }
 
 async function ticketRun(argv: string[], ykPath: string): Promise<number> {
@@ -88,6 +161,8 @@ export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<
   const sub = argv[0] ?? ''
   const rest = argv.slice(1)
   switch (sub) {
+    case 'new': return ticketNew(rest)
+    case 'edit': return ticketEdit(rest)
     case 'run': return ticketRun(rest, o.ykPath)
     case 'supervisor': await ensureServer(); console.log((await installSupervisor()).join('\n')); return 0
     case 'report':
@@ -110,6 +185,6 @@ export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<
       }
       return cmdRunControl(sub, [execId, '--tree'])
     }
-    default: return die('usage: yk ticket run <issue> [--detach [--notify]] | supervisor | report [--json] | status|resume|stop <issue|execution>')
+    default: return die('usage: yk ticket new <title> --criterion C.. | edit <issue> [--criterion C..] | run <issue> [--detach [--notify]] | supervisor | report [--json] | status|resume|stop <issue|execution>')
   }
 }

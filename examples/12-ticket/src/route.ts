@@ -26,7 +26,7 @@ export function pathHits(t: Json, p: Json): string[] {
 export function build(t: Json, p: Json, complexity: string, risk: string, decidedBy: string): Json {
   return {
     ticket_id: t.ticket_id, kind: t.kind, complexity, risk, decided_by: decidedBy, tests_mode: testsModeFor(t.kind, complexity, risk),
-    allow_architect_code: risk === 'high', tier_mode: p.tier_mode, models: modelTable(complexity, risk, p.tier_mode, p.implementer_override),
+    allow_architect_code: risk === 'high', tier_mode: p.tier_mode, models: { ...modelTable(complexity, risk, p.tier_mode, p.implementer_override), ...t.roles }, // roles: the ticket's own choice wins
     budget_usd: p.budgets_usd[complexity],
   }
 }

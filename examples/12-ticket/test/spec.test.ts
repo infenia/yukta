@@ -119,3 +119,36 @@ test('validate-spec', () => {
   expect(json(join(run, 'routing.json')).risk, 'a write in a high-risk path must raise routing.risk').toBe('high')
   void git
 })
+
+test('roles in the ticket body override the routed models', () => {
+  const body = `${BODY}\n\n## Pipeline roles\n- architect: opus/high\n- reviewer = haiku/low\n- implementer: gpt/high\n`
+  const o = init(mkticket(8, 'feat(core): roles', ['core'], body), '--no-worktree')
+  const dir = /^RUN_DIR=(.*)$/m.exec(o.out)![1]!
+  expect(json(join(dir, 'ticket.json')).roles, 'the bad model is skipped').toEqual({ architect: { model: 'opus', effort: 'high' }, reviewer: { model: 'haiku', effort: 'low' } })
+  kit(['route', dir])
+  const m = json(join(dir, 'routing.json')).models
+  expect(m.architect).toEqual({ model: 'opus', effort: 'high' })
+  expect(m.reviewer).toEqual({ model: 'haiku', effort: 'low' })
+  expect(m.implementer.model, 'untouched role keeps the table').toBe('haiku')
+})
+
+test('renderBody lists every role, defaults for the missing ones', async () => {
+  const { renderBody, rolesOf } = await import('../src/roles.ts')
+  const body = renderBody('g', ['a', 'b', 'c'], { reviewer: { model: 'opus', effort: 'high' } })
+  const r = rolesOf(body)
+  expect(Object.keys(r).sort()).toEqual(['architect', 'implementer', 'implementer_tricky', 'reviewer', 'test_writer'])
+  expect(r.reviewer, 'given role kept').toEqual({ model: 'opus', effort: 'high' })
+  expect(r.architect, 'M/low default').toEqual({ model: 'sonnet', effort: 'high' })
+  expect(renderBody('g', ['a'], {})).toContain('test_writer: none')
+})
+
+test('replaceSection swaps one section and keeps the rest', async () => {
+  const { replaceSection, rolesOf } = await import('../src/roles.ts')
+  const b = '## Goal\nold\n\n## Acceptance criteria\n- [ ] a\n\n## Notes\nkeep me\n'
+  const r = replaceSection(b, /acceptance criteria/i, 'Acceptance criteria', '- [ ] x\n- [ ] y')
+  expect(r).toContain('- [ ] x\n- [ ] y')
+  expect(r).not.toContain('- [ ] a')
+  expect(r).toContain('## Goal\nold')
+  expect(r).toContain('## Notes\nkeep me')
+  expect(rolesOf(replaceSection(b, /pipeline roles/i, 'Pipeline roles', '- reviewer: opus/low')), 'appended when absent').toEqual({ reviewer: { model: 'opus', effort: 'low' } })
+})
