@@ -8,6 +8,7 @@
     "plan": "yk plan --base {base}",
     "go_test": "yk tool -C cli go test ./...",
     "ui_test": "yk tool -C ui npx --no-install vitest run",
+    "ui_test_files": "yk tool -C ui npx --no-install vitest run {files}",
     "ui_typecheck": "yk tool -C ui npx --no-install tsc --noEmit",
     "mutation": "yk gradle :{module}:pitest -Pmutation -PmutationTargets={classes}",
     "heal_stage": "yk check --stage {stage} --base {base}"

@@ -16,9 +16,21 @@ const MAX_STEPS: Record<string, number> = { S: 2, M: 5, L: 8 }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A placeholder is one word without shell metacharacters, so a command cannot smuggle a second command in. */
+const WORD = '[^\\s;&|<>$`\'"\\\\]+'
 export function templateRe(t: string): RegExp {
-  return new RegExp('^' + t.split(/\{[a-z_]+\}/).map(escapeRe).join('[^\\s;&|<>$`\'"\\\\]+') + '$')
+  // `{files}` is one or more such words (a scoped test run); any other placeholder is exactly one.
+  return new RegExp('^' + t.split(/(\{[a-z_]+\})/).map(p => (p === '{files}' ? `${WORD}(?: ${WORD})*` : /^\{[a-z_]+\}$/.test(p) ? WORD : escapeRe(p))).join('') + '$')
 }
+
+/** A command is a project template, or a chain of them joined by ` && ` (each link is checked on its own). */
+export const isProjectCommand = (templates: RegExp[], c: string): boolean => c.split(' && ').every(p => templates.some(t => t.test(p)))
+
+/** `lines` is one or more comma-separated ranges, `10-80` or a single line `79`, all within 1..n. */
+export const linesOk = (lines: string, n: number): boolean =>
+  lines.split(',').every(part => {
+    const m = /^(\d+)(?:-(\d+))?$/.exec(part.trim())
+    return !!m && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2] ?? m[1]) && Number(m[2] ?? m[1]) <= n
+  })
 
 export function patchFiles(text: string): Set<string> {
   const out = new Set<string>()
@@ -89,7 +101,7 @@ export function validate(runDir: string, worktree?: string): { errors: string[];
   const guardOk = ticket.allow_guard_paths ?? false
   let risk: Risk = maxRisk(spec.risk, routing.risk)
   const templates = Object.values<string>(project.commands).map(templateRe)
-  const testTemplates = ['test_class', 'go_test', 'ui_test'].filter(k => k in project.commands).map(k => templateRe(project.commands[k]))
+  const testTemplates = ['test_class', 'go_test', 'ui_test', 'ui_test_files'].filter(k => k in project.commands).map(k => templateRe(project.commands[k]))
   // 3 per step
   for (const s of spec.steps) {
     const i: string = s.id
@@ -107,16 +119,15 @@ export function validate(runDir: string, worktree?: string): { errors: string[];
       const path = join(wt, rf.path)
       if (!isFile(path) && !created.has(rf.path)) err(`${i}: read_files ${rf.path} does not exist and nothing creates it`)
       else if (rf.lines && isFile(path)) {
-        const m = /^(\d+)-(\d+)$/.exec(rf.lines)
         const n = lineCount(readFileSync(path, 'utf8'))
-        if (!m || Number(m[1]) < 1 || Number(m[1]) > Number(m[2]) || Number(m[2]) > n) err(`${i}: read_files ${rf.path} lines ${rf.lines} not within 1-${n}`)
+        if (!linesOk(rf.lines, n)) err(`${i}: read_files ${rf.path} lines ${rf.lines} not within 1-${n}`)
       }
     }
     // 4 commands
-    for (const c of s.done_when.commands as string[]) if (!templates.some(t => t.test(c))) err(`${i}: done_when command is not a project command template: ${c}`)
+    for (const c of s.done_when.commands as string[]) if (!isProjectCommand(templates, c)) err(`${i}: done_when command is not a project command template: ${c}`)
     const mods = [...new Set((s.write_files as string[]).map(moduleOf))]
     if (mods.length > 1) err(`${i}: step touches more than one module: [${mods.sort().map(m => `'${m}'`).join(', ')}]`)
-    if (!s.covers.length && !(s.done_when.commands as string[]).some(c => testTemplates.some(t => t.test(c)))) err(`${i}: not independently verifiable: no covers and no test command in done_when`)
+    if (!s.covers.length && !(s.done_when.commands as string[]).some(c => c.split(' && ').some(p => testTemplates.some(t => t.test(p))))) err(`${i}: not independently verifiable: no covers and no test command in done_when`)
     if (!(s.limits.max_diff_lines >= 30 && s.limits.max_diff_lines <= 150)) warn(`${i}: max_diff_lines ${s.limits.max_diff_lines} is outside the 30-150 target`)
     for (const d of s.depends_on as string[]) {
       if (d in steps && subset(new Set(s.write_files), new Set(steps[d]!.write_files)) && s.limits.max_diff_lines < 20) err(`${i}: tiny step in the same files as ${d}: merge it into ${d}`)
@@ -125,7 +136,7 @@ export function validate(runDir: string, worktree?: string): { errors: string[];
   // 5 acceptance criteria
   for (const c of spec.acceptance_criteria) {
     const v = c.verification
-    if (v.kind === 'command' && (!v.command || !templates.some(t => t.test(v.command)))) err(`${c.id}: command is missing or not a project command template`)
+    if (v.kind === 'command' && (!v.command || !isProjectCommand(templates, v.command))) err(`${c.id}: command is missing or not a project command template`)
   }
   // 7 risk override (a write_file in high_risk_paths raised `risk` above)
   if (RISK.indexOf(risk) > RISK.indexOf(routing.risk)) {
