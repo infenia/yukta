@@ -277,7 +277,7 @@
               },
               "lines": {
                 "type": "string",
-                "description": "e.g. 10-80"
+                "description": "e.g. 10-80, 79 or 10-20,30-40"
               },
               "symbols": {
                 "type": "array",
