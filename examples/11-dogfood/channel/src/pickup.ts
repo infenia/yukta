@@ -39,10 +39,12 @@ const pickupDone = (home: string): ExtraTool => ({
   handle(args, channel) {
     const p = DoneArgs.safeParse(args)
     if (!p.success) return { text: 'need issue (integer) and outcome (pr, blocked or skipped)', isError: true }
+    if (p.data.outcome === 'pr' && !p.data.url) return { text: 'outcome pr needs the url of the PR', isError: true }
     const { issue, outcome, url = '', note = '' } = p.data
     const cur = channel.current()
-    if (cur?.meta.issue === String(issue)) channel.release(cur.id)
-    channel.publish('done', { event_id: cur?.id ?? null, issue, outcome, url, note })
+    const mine = cur?.meta.issue === String(issue)
+    if (cur && mine) channel.release(cur.id)
+    channel.publish('done', { event_id: mine ? cur.id : null, issue, outcome, url, note })
     try {
       mkdirSync(home, { recursive: true })
       appendFileSync(join(home, 'pickup.jsonl'), `${JSON.stringify({ at: Math.floor(Date.now() / 1000), issue, outcome, url, note })}\n`)
@@ -72,7 +74,7 @@ export function pickupProfile(env: Record<string, string | undefined>, home: str
       name: 'yukta-pickup',
       instructions: INSTRUCTIONS,
       exclusive: true,
-      busyLimitMs: Number(env.YUKTA_PICKUP_BUSY_LIMIT || 4 * 3600) * 1000, // a lost pickup_done frees itself after 4 h
+      busyLimitMs: (Number(env.YUKTA_PICKUP_BUSY_LIMIT) || 4 * 3600) * 1000, // a lost pickup_done frees itself after 4 h
       builtinTools: false,
       extraTools: [pickupDone(home)],
     },

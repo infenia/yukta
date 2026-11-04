@@ -48,8 +48,17 @@ test('hands one issue at a time and pickup_done frees the channel and writes the
 test('pickup_done for another issue keeps the channel busy', async () => {
   await pickup()
   await r.post('/v1/events', issue)
+  const seen: unknown[] = []
+  r.channel.subscribe(e => seen.push(e))
   await done({ issue: 8, outcome: 'skipped' })
   expect((await r.post('/v1/events', issue)).status).toBe(409)
+  expect(seen.find((e: any) => e.type === 'done')).toMatchObject({ type: 'done', data: { issue: 8, event_id: null } }) // not the event in flight
+})
+
+test('outcome pr needs the PR url; a bad busy limit falls back to 4 h', async () => {
+  await pickup()
+  expect((await done({ issue: 7, outcome: 'pr' })).isError).toBe(true)
+  expect(pickupProfile({ YUKTA_PICKUP_BUSY_LIMIT: 'abc' }, '/tmp').options.busyLimitMs).toBe(4 * 3600 * 1000)
 })
 
 test('pickup_done rejects an outcome it does not know', async () => {
