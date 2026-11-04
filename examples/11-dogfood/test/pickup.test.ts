@@ -20,7 +20,12 @@ const a = process.argv.slice(2); const dir = process.env.FAKE_GH!
 const cat = (f: string): void => void process.stdout.write(readFileSync(dir + '/' + f, 'utf8'))
 const k = a[0] + ' ' + a[1]
 if (k === 'issue list') cat('mine.json')
-else if (k === 'project item-list') cat('ready.json')
+else if (k === 'api graphql') { // the project fields of the asked issues, from ready.json
+  const q = a.join(' '); const items = JSON.parse(readFileSync(dir + '/ready.json', 'utf8')).items as { status: string; priority?: string; content: { number: number } }[]
+  const repository: Record<string, unknown> = {}
+  for (const i of items) if (q.includes('issue(number: ' + i.content.number + ')')) repository['i' + i.content.number] = { projectItems: { nodes: [{ project: { number: 5 }, status: { name: i.status }, priority: i.priority ? { name: i.priority } : null }] } }
+  console.log(JSON.stringify({ data: { repository } }))
+}
 else if (k === 'pr list') cat('prs.json')
 else if (a[0] === 'api') { const f = 'refs-' + a[1]!.split('/').pop() + '.json'; if (existsSync(dir + '/' + f)) cat(f); else console.log('[]') }
 else { console.error('fake gh: unexpected ' + a.join(' ')); process.exit(9) }`)

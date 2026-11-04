@@ -67,6 +67,21 @@ export function eventFor(n: number | string, title: string, url: string, via = V
   }
 }
 
+/** Status and Priority on the project of just these issues, as {items: [{status, priority, content: {number}}]}: one GraphQL call of a point or two.
+ * `gh project item-list --limit 5000` pages the whole project (1500 items, about 100 points a page) and used up the shared hourly budget. */
+function readyItems(numbers: number[]): Json | undefined {
+  if (!numbers.length) return { items: [] }
+  const [owner, name] = REPO.split('/')
+  const val = (alias: string, field: string): string => `${alias}: fieldValueByName(name: "${field}") { ... on ProjectV2ItemFieldSingleSelectValue { name } }`
+  const q = `query { repository(owner: "${owner}", name: "${name}") { ${numbers.map(n => `i${n}: issue(number: ${n}) { projectItems(first: 20) { nodes { project { number } ${val('status', 'Status')} ${val('priority', 'Priority')} } } }`).join(' ')} } }`
+  const r = tryJson(gh(['api', 'graphql', '-f', `query=${q}`], 'gh api graphql'))
+  const repo = r?.data?.repository
+  if (!repo) return undefined
+  const items: Json[] = []
+  for (const n of numbers) for (const x of (repo[`i${n}`]?.projectItems?.nodes ?? []) as Json[]) if (String(x.project?.number) === PROJECT) items.push({ status: x.status?.name, priority: x.priority?.name, content: { number: n } })
+  return { items }
+}
+
 export async function tick(): Promise<number> {
   let idle: Idle[] = []
   let busy: string[] = []
@@ -81,7 +96,7 @@ export async function tick(): Promise<number> {
     if (!idle.length) skip(`all busy (${busy.join(',')})`)
   }
   const mine = tryJson(gh(['issue', 'list', '-R', REPO, '--assignee', '@me', '--state', 'open', '--limit', '200', '--json', 'number,title,url'], 'gh issue list'))
-  const ready = tryJson(gh(['project', 'item-list', PROJECT, '--owner', OWNER, '--limit', '5000', '--format', 'json'], 'gh project item-list'))
+  const ready = mine === undefined ? undefined : readyItems((mine as Json[]).map(i => Number(i.number)))
   const openPrs = tryJson(gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '200', '--json', 'headRefName,title,body'], 'gh pr list'))
   if (mine === undefined || ready === undefined || openPrs === undefined) fail('gh answered something that is not JSON')
   if (MODE !== 'ticket' && !(isFile(join(DEV_HOME, 'pickup-token')) && readFileSync(join(DEV_HOME, 'pickup-token')).length)) fail(`no ${DEV_HOME}/pickup-token (yk pickup session creates it)`)
