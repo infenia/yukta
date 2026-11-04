@@ -16,7 +16,7 @@ const flag = (name: string): string | undefined => a[a.indexOf(name) + 1]
 switch (`${a[0]} ${a[1]}`) {
   case 'issue view':
     if (a.join(' ').includes('-q .url')) console.log(url)
-    else console.log(JSON.stringify({ number: 7, title: 'feat(core): rate limit', labels: [{ name: 'core' }], body, state: 'OPEN', assignees: [{ login: 'me' }], url }))
+    else console.log(JSON.stringify({ number: 7, title: 'feat(core): rate limit', labels: [{ name: 'core' }], body, state: 'OPEN', projectItems: [{ status: { name: readFileSync(join(dir, 'status'), 'utf8').trim() }, title: 'Yukta Roadmap' }], assignees: [{ login: 'me' }], url }))
     break
   case 'api user': console.log('me'); break
   case 'auth token': console.log('tok'); break

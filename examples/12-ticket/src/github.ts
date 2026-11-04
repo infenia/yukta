@@ -38,10 +38,11 @@ function gh(args: string[], check = true, env?: Record<string, string>): string 
 }
 
 function intake(n: string): number {
-  const v = JSON.parse(gh(['issue', 'view', n, '-R', REPO, '--json', 'number,state,assignees,title,body,labels,url']))
+  const v = JSON.parse(gh(['issue', 'view', n, '-R', REPO, '--json', 'number,state,assignees,title,body,labels,url,projectItems']))
   const me = gh(['api', 'user', '-q', '.login']).trim()
-  const items: Json[] = JSON.parse(gh(['project', 'item-list', PROJECT, '--owner', OWNER, '--limit', '5000', '--format', 'json'])).items ?? []
-  const ready = items.some(i => String(i.content?.number) === String(n) && i.status === 'Ready')
+  // the issue's own project items: `project item-list --limit 5000` costs thousands of GraphQL points and fails when the shared budget is low
+  // ponytail: matches any project's Ready status (the item names its project by title only); add a title check if the issue sits on several boards
+  const ready = (v.projectItems ?? []).some((i: Json) => i.status?.name === 'Ready')
   if (String(v.state).toUpperCase() !== 'OPEN') { console.log('SKIPPED the issue is not open'); return 3 }
   if (!v.assignees.some((a: Json) => a.login === me)) { console.log(`SKIPPED the issue is not assigned to ${me}`); return 3 }
   if (!ready) { console.log(`SKIPPED the issue is not Ready on project ${PROJECT}`); return 3 }
