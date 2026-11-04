@@ -614,10 +614,20 @@ export const decisionUrl = (): string => process.env.YUKTA_DECISION_URL || dec()
 const hostedNoKey = (): boolean => !decisionKey() && !/^https?:\/\/(localhost|127\.)/.test(decisionUrl())
 const decisionKey = (): string => process.env.YUKTA_DECISION_API_KEY || (isFile(join(DEV_HOME, 'decision-key')) ? text(join(DEV_HOME, 'decision-key')).trim() : '')
 
-async function decisionCall(url: string, body: Json): Promise<{ code: string; ms: number; body: string }> {
-  const t0 = Date.now()
-  const r = await http('POST', `${url}/v1/systemone`, { headers: { 'Content-Type': 'application/json', ...(decisionKey() ? { Authorization: `Bearer ${decisionKey()}` } : {}) }, body: JSON.stringify(body), timeoutMs: 60000 })
-  return { code: r.code === 0 ? '000' : String(r.code), ms: r.code === 0 ? 0 : Date.now() - t0, body: r.body }
+/** A failure worth asking again: a busy or failing server (429 that is not a quota, 500, 502, 503, 504). A quota ("Free usage limit reached", FreeUsageLimitError)
+ * lasts until it resets and an unreachable server (000) is down, so neither is retried. */
+export const decisionRetryable = (code: string, body: string): boolean => (code === '429' && !/usage.?limit|quota/i.test(body)) || ['500', '502', '503', '504'].includes(code)
+
+/** One call of the decision model, asked again up to 2 times (after 1 s and 3 s; YUKTA_DECISION_RETRY_MS scales both) when decisionRetryable. */
+export async function decisionCall(url: string, body: Json): Promise<{ code: string; ms: number; body: string }> {
+  const unit = Number(process.env.YUKTA_DECISION_RETRY_MS ?? 1000)
+  for (let attempt = 0; ; attempt++) {
+    const t0 = Date.now()
+    const r = await http('POST', `${url}/v1/systemone`, { headers: { 'Content-Type': 'application/json', ...(decisionKey() ? { Authorization: `Bearer ${decisionKey()}` } : {}) }, body: JSON.stringify(body), timeoutMs: 60000 })
+    const out = { code: r.code === 0 ? '000' : String(r.code), ms: r.code === 0 ? 0 : Date.now() - t0, body: r.body }
+    if (attempt >= 2 || !decisionRetryable(out.code, out.body)) return out
+    await new Promise(res => setTimeout(res, unit * (attempt === 0 ? 1 : 3)))
+  }
 }
 const decisionBody = (model: string, state: string, question: string, criteria: Json): Json => ({ model, state, questions: { q: { type: 'choice', instructions: question, criteria } }, ...(decisionKey() ? {} : { keep_alive: '10m' }) })
 
