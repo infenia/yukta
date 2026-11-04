@@ -5,6 +5,7 @@
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
 import { join } from 'node:path'
 import { HERE, ts, put, read, rm, startOllama, tmp, withLib } from './helpers.ts'
+import { decisionCall, decisionRetryable } from '../src/lib.ts'
 
 setDefaultTimeout(120_000)
 let d: string, ollama: { port: number; kill: () => void }
@@ -69,4 +70,25 @@ test('the probe is kept: a second call within the TTL answers from the cache eve
   const o = withLib('console.log((await l.decisionProbe(false))[0])', env({ YK_DECISION_FRESH: undefined }))
   expect(o.out).toMatch(/^decision: ok fake/)
   void put; void read
+})
+
+test('the decision call is asked again after a busy server (503, 429 without quota) but not after a quota or an unreachable server', async () => {
+  expect(decisionRetryable('503', '')).toBe(true)
+  expect(decisionRetryable('429', 'slow down')).toBe(true)
+  expect(decisionRetryable('429', '{"type":"FreeUsageLimitError","message":"Free usage limit reached"}')).toBe(false)
+  expect(decisionRetryable('000', '')).toBe(false)
+  expect(decisionRetryable('400', '')).toBe(false)
+  process.env.YUKTA_DECISION_RETRY_MS = '5'
+  const answers: [number, string][] = [[503, 'busy'], [429, 'slow down'], [200, '{"answers":{"q":{"choice":"a"}}}']]
+  let n = 0
+  const srv = Bun.serve({ port: 0, fetch: () => { const [status, body] = answers[Math.min(n++, answers.length - 1)]!; return new Response(body, { status }) } })
+  try {
+    const r = await decisionCall(`http://127.0.0.1:${srv.port}`, {})
+    expect(r.code).toBe('200')
+    expect(n).toBe(3)
+    n = 0
+    answers.splice(0, 3, [429, 'Free usage limit reached'])
+    expect((await decisionCall(`http://127.0.0.1:${srv.port}`, {})).code).toBe('429')
+    expect(n, 'a quota is not asked again').toBe(1)
+  } finally { srv.stop(true); delete process.env.YUKTA_DECISION_RETRY_MS }
 })
