@@ -65,4 +65,5 @@ test('the schema given to claude declares no $schema (claude refuses draft 2020-
     expect(text, n).not.toContain('ticket-spec.schema.json#')
   }
   expect(JSON.parse(flatSchema('revision-result'))['$defs']).toBeDefined()
+  for (const n of ['step-result', 'ticket-spec', 'review-result']) for (const k of ['allOf', 'anyOf', 'oneOf']) expect(JSON.parse(flatSchema(n))[k], `${n} ${k}: the API refuses it at the top level`).toBeUndefined()
 })
