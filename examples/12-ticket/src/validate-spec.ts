@@ -12,7 +12,7 @@ import {
 } from './lib.ts'
 import { validateSchema } from './validate-schema.ts'
 
-const MAX_STEPS: Record<string, number> = { S: 2, M: 5, L: 8 }
+export const MAX_STEPS: Record<string, number> = { S: 2, M: 5, L: 8 }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /** A placeholder is one word without shell metacharacters, so a command cannot smuggle a second command in. */
@@ -47,13 +47,13 @@ function gradleDeps(wt: string, module: string): Set<string> {
 const subset = (a: Set<string>, b: Set<string>): boolean => [...a].every(x => b.has(x))
 const lineCount = (text: string): number => (text.length ? text.replace(/\r?\n$/, '').split(/\r?\n/).length : 0)
 
-export function validate(runDir: string, worktree?: string): { errors: string[]; warnings: string[]; ok: [Json, Json] | null } {
+export function validate(runDir: string, worktree?: string, draft?: string): { errors: string[]; warnings: string[]; ok: [Json, Json] | null } {
   const errors: string[] = []
   const warnings: string[] = []
   const err = (m: string): void => void errors.push(m)
   const warn = (m: string): void => void warnings.push(m)
   const wt = resolve(worktree ?? (existsSync(join(runDir, 'worktree')) ? join(runDir, 'worktree') : '.'))
-  const specFile = join(runDir, 'spec', 'spec.json')
+  const specFile = draft ? resolve(draft) : join(runDir, 'spec', 'spec.json')
   const routing = load(join(runDir, 'routing.json'))
   const ticket = load(join(runDir, 'ticket.json'))
   const project = load(join(runDir, 'project.json'))
@@ -83,7 +83,7 @@ export function validate(runDir: string, worktree?: string): { errors: string[];
   // scaffold
   const sp = isAbsolute(spec.scaffold_patch) ? spec.scaffold_patch : join(runDir, spec.scaffold_patch)
   let scaffoldFiles = new Set<string>()
-  if (!isFile(sp)) err(`scaffold_patch ${spec.scaffold_patch} does not exist`)
+  if (draft && !spec.scaffold_patch) { /* a draft without stubs: call.ts names an empty patch */ } else if (!isFile(sp)) err(`scaffold_patch ${spec.scaffold_patch} does not exist`)
   else {
     const text = readFileSync(sp, 'utf8')
     scaffoldFiles = patchFiles(text)
@@ -178,11 +178,15 @@ export function validate(runDir: string, worktree?: string): { errors: string[];
 }
 
 export function main(argv: string[]): number {
-  const { pos, opt } = parseArgs(argv, { value: ['worktree'] })
+  const { pos, opt } = parseArgs(argv, { value: ['worktree', 'spec'] })
   const runDir = pos[0]!
-  const { errors, warnings, ok } = validate(runDir, opt.worktree)
+  const { errors, warnings, ok } = validate(runDir, opt.worktree, opt.spec)
   for (const e of errors) console.log('ERROR ' + e)
   for (const w of warnings) console.log('WARN ' + w)
+  if (opt.spec) { // --spec FILE: the architect checks a draft; nothing is written
+    console.log(`RESULT validate-spec errors=${errors.length} warnings=${warnings.length}`)
+    return errors.length ? 1 : 0
+  }
   save(join(runDir, 'spec', 'validation.json'), { errors, warnings })
   if (ok && !errors.length) {
     save(join(runDir, 'routing.json'), ok[1])

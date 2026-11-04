@@ -41,6 +41,8 @@ export function claudeArgs(o: { mode: string; prompt: string; rules: string; bud
   let tools = 'Read,Edit,Write,Grep,Glob,Bash'
   let allowTools = ['Read', 'Edit', 'Write', 'Grep', 'Glob', 'Bash(./gradlew:*)', 'Bash(make:*)', 'Bash(go test:*)', 'Bash(go vet:*)', 'Bash(node_modules/.bin/*:*)', 'Bash(reuse:*)', 'Bash(actionlint:*)', 'Bash(mint:*)', 'Bash(cd:*)']
   if (e.YK_TOOLS === 'readonly') { tools = 'Read,Grep,Glob'; allowTools = ['Read', 'Grep', 'Glob'] }
+  // read-only plus the exact tool rules in YK_ALLOW (newline-separated, e.g. `Write(/x/draft.json)`, `Bash(cmd:*)`): the ticket architect's self-check
+  if (e.YK_TOOLS === 'selfcheck') { tools = 'Read,Grep,Glob,Write,Bash'; allowTools = ['Read', 'Grep', 'Glob', ...(e.YK_ALLOW ?? '').split('\n').filter(Boolean)] }
   const model = ['--model', o.mode]
   if (e.YK_MAX_TURNS) model.push('--max-turns', e.YK_MAX_TURNS)
   if (e.YK_EFFORT) model.push('--effort', e.YK_EFFORT)
