@@ -34,6 +34,7 @@ if (prompt.startsWith('Write the TicketSpec')) {
   spec.steps[0].done_when.commands = ['yk gradle :core:test --tests com.infenia.ATest']
   spec.acceptance_criteria[0].verification.command = 'yk gradle :core:test --tests com.infenia.ATest'
   spec.ticket_id = '7'
+  if (mode === 'happy') spec.scaffold_patch = '' // a ticket without stubs: the real architect answers an empty path
   if (['twostep', 'parallel', 'chain'].includes(mode)) spec.steps.push(second())
   answer(spec)
 } else if (prompt.startsWith('Implement this step')) {
