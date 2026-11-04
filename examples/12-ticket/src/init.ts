@@ -6,6 +6,7 @@
 // Prints RUN_DIR=... and WORKTREE=...; prints SKIPPED <why> and exits 3 when the run must not start (no acceptance criteria, branch or
 // worktree exists): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
 import { symlinkSync } from 'node:fs'
+import { rolesOf } from './roles.ts'
 import { type Json, KIT, die, existsSync, git, isDir, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
 
 const CONVENTIONAL: Record<string, string> = { feat: 'feature', fix: 'bug', refactor: 'refactor', docs: 'docs', chore: 'chore', ci: 'chore', build: 'chore', style: 'chore', perf: 'chore', revert: 'chore', test: 'chore' }
@@ -64,7 +65,7 @@ export function main(argv: string[]): number {
   for (const d of ['spec', 'steps', 'review']) mkdirp(join(dir, d))
   const modules = [...new Set(labels.filter(l => l in project.module_labels))].sort()
   save(join(dir, 'ticket.json'), {
-    ticket_id: n, title: raw.title, kind: kindOf(raw.title, labels), labels, modules, acceptance_criteria: ac, body: raw.body ?? '',
+    ticket_id: n, title: raw.title, kind: kindOf(raw.title, labels), labels, modules, acceptance_criteria: ac, roles: rolesOf(raw.body), body: raw.body ?? '',
     allow_guard_paths: labels.includes('build') || labels.includes('dogfood'),
   })
   save(join(dir, 'project.json'), project)
