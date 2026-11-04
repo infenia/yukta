@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.SequencedMap;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
@@ -736,6 +737,19 @@ public class InputBroker {
    * @return completes when the due requests are handled
    */
   public Mono<Void> sweep() {
+    return Mono.defer(
+        () -> {
+          final long started = System.nanoTime();
+          return sweepDue()
+              .doFinally(
+                  _ ->
+                      meters
+                          .timer("yukta.input.sweep")
+                          .record(System.nanoTime() - started, TimeUnit.NANOSECONDS));
+        });
+  }
+
+  private Mono<Void> sweepDue() {
     return Flux.defer(() -> store.dueBefore(clock.instant()))
         .concatMap(
             due ->

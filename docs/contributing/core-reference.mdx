@@ -1128,6 +1128,7 @@ All meters are Micrometer. Tags in braces.
 | `yukta.input.requests` `{kind, risk, outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Input requests: asked, answered, defaulted, escalated, expired, cancelled |
 | `yukta.input.wait` `{tier}` | timer | [CTL-09](#ctl-09-input-requests) | Time from ask to the end of a request |
 | `yukta.input.open` | gauge | [CTL-09](#ctl-09-input-requests) | Input requests open or escalated now |
+| `yukta.input.sweep` | timer | [CTL-09](#ctl-09-input-requests) | Time of one sweep for requests past a deadline |
 | `yukta.input.denied` `{rule}` | counter | [CTL-09](#ctl-09-input-requests) | Asks refused: ttl, open-per-execution, open-per-session |
 | `yukta.input.escalations` `{tier}` | counter | [CTL-09](#ctl-09-input-requests) | Requests handed up, by the tier they moved into |
 | `yukta.input.delivery` `{responder,outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Deliveries to external responders: sent, retry, failed |

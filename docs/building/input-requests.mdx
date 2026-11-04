@@ -174,7 +174,7 @@ A request picks its route in this order: the `routeName` of the asking node (the
 
 In a `QUORUM` or `UNANIMOUS` tier the supervisors **vote**: each votes once, the request is answered when enough agree and the rationale names the voters, and a split vote hands the request up. A person's answer always decides at once and is never a vote.
 
-Metrics: `yukta.input.escalations{tier}`. Not yet: the delivery of requests to external responders and one-time answer tokens (the next change), and routing of runs raised by a supervisor (phase 8).
+Metrics: `yukta.input.escalations{tier}`. A request raised by a run that a supervisor started goes only to a person and to supervisors that strictly cover the starter's scope (see [Workflow supervisors](/running/supervisors#workflow-supervisors)).
 
 ## External responders: webhooks and one-time tokens
 
@@ -234,7 +234,7 @@ An external agent that cannot be called can ask: list the open requests (`GET /a
 
 At the deadline `FAIL` fails the asking node, `USE_DEFAULT` answers with the default decision as the system, and `ESCALATE` expires the request until routes exist. The node's own engine timeout outlasts the request's ttl, so a node never times out while it waits. A request over a limit is refused at once (`yukta.input.denied{rule}`).
 
-Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `yukta.input.open`, `yukta.input.denied{rule}`. Every change also writes an `INPUT` entry to the execution log, with the request id, the responder and, for an answer or escalation, the rationale or reason cut to 500 characters; the log never holds the prompt or an answer's text.
+Metrics: `yukta.input.requests{kind,risk,outcome}`, `yukta.input.wait{tier}`, `yukta.input.open`, `yukta.input.denied{rule}`, `yukta.input.sweep` (time of one deadline sweep). Every change also writes an `INPUT` entry to the execution log, with the request id, the responder and, for an answer or escalation, the rationale or reason cut to 500 characters; the log never holds the prompt or an answer's text.
 
 ## After a restart
 
