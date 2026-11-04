@@ -10,8 +10,11 @@
 //   yk advise [--base REF] [--no-model]      recommends a test tier for your changes: a floor from the paths, which the decision model can only widen
 //   yk stats [--decisions]                   (--decisions: the decision model in shadow mode, agreement and calibration per decision)
 //   yk stats                                 runs, failed, median wall and heal dollars per kind of run; fix rate and dollars per stage and rung (from the heal events)
-//   yk heal report|analyze|show [--since 7d] [--run ID] [--project NAME] [--json]
+//   yk heal report|show [--since 7d] [--run ID] [--project NAME] [--json]
 //                                            what heal did: where the time and money went, what looks wrong, the raw events
+//   yk report scan [--since 24h] [--stuck 6h] records failures of every workflow run on the dev server, whoever started it (sweep.ts)
+//   yk report on|off|status                  turn failure capture and the Stop-hook scan on or off (YUKTA_REPORT=off too)
+//   yk report [file [--yes]]                 failures captured (a non-success RESULT, a yk crash) and filed as GitHub issues once you approve (failures.ts)
 //   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
 //   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
 //   yk decision                              probe the optional decision model (decisions.json, YUKTA_DECISION_MODEL/_URL/off); yk status shows the same line
@@ -32,6 +35,7 @@ import { tmpdir } from 'node:os'
 import { readFileSync as readSelf } from 'node:fs'
 import { main as adviseMain } from './advise.ts'
 import { main as decisionsReport } from './decisions-report.ts'
+import { main as reportMain, recordFailure } from './failures.ts'
 import { main as healReport } from './heal-report.ts'
 import { plan, main as planMain } from './plan.ts'
 import {
@@ -428,6 +432,13 @@ function cmdStatusline(): number {
 }
 
 export async function main(argv: string[]): Promise<number> {
+  try { return await dispatch(argv) } catch (e) {
+    recordFailure({ kind: 'crash', where: argv[0] ?? 'help', evidence: String((e as Error)?.stack ?? e) })
+    throw e
+  }
+}
+
+async function dispatch(argv: string[]): Promise<number> {
   useDevKey()
   const cmd = argv[0] ?? 'help'
   const rest = argv.slice(1)
@@ -444,6 +455,7 @@ export async function main(argv: string[]): Promise<number> {
     case 'plan': return planMain(rest)
     case 'advise': return adviseMain(rest)
     case 'heal': return healReport(rest)
+    case 'report': return rest[0] === 'scan' ? (await import('./sweep.ts')).sweep(rest.slice(1)) : reportMain(rest)
     case 'watch': {
       const session = rest[0] ?? die('usage: yk watch <session> <execution> [--all|--stages]')
       const target = rest[1] ?? die('usage: yk watch <session> <execution> [--all|--stages]')

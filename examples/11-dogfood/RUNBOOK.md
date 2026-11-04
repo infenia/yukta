@@ -11,7 +11,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 |---|---|---|
 | `yk check`, `yk gradle` | Claude only when a stage fails and heal runs a fixer ($ per attempt: `heal.json` `efforts` budgets) | your working tree (fixers edit it, never commit) |
 | `yk run issue|epic` | an implementer ($5 cap) and fixers | the issue and the project board, a worktree, a pushed branch, a draft PR |
-| `yk heal report|analyze|show` | nothing | nothing (reads `heal-events.jsonl`; events written without a run id take the run of the session's next result) |
+| `yk heal report|show` | nothing | nothing (reads `heal-events.jsonl`; events written without a run id take the run of the session's next result) |
 | `eval/triage/eval.ts` | nothing (local Ollama) | nothing |
 | `eval/triage/collect.ts` | nothing | `gh` reads of your CI |
 
@@ -29,7 +29,7 @@ How to run the dogfood check, watch heal work and improve it. The design is in [
 1. **Run it.** `yk check` (or let the Stop hook do it). Nothing to configure: events are on by default.
 2. **Look.** `yk heal report --since 7d`. Read it top to bottom: *where the time goes*, the stage table (a slow stage is a slow
    check, not a heal problem), the heals (solved at which rung), the triage block, the cost per rung, the failures that came back.
-3. **Find what is wrong.** `yk heal analyze`. Each rule names a cause (README "Monitoring heal"). `heal-ledger.json` maps a rule to its GitHub issue: an open one prints `tracked in #N` and does not fail the command, a closed one is quiet until the rule fires again on events after the close (`REGRESSION`). Map a new finding to its issue there. For one run: `yk heal show --run <id>`.
+3. **File what failed.** The Stop hook runs `yk report scan` (turn it off with `yk report off`, back on with `yk report on`, or `YUKTA_REPORT=off`). `yk report` lists the failures yk captured (a RESULT that was not SUCCESS, a yk crash); `yk report file` drafts one GitHub issue per new fingerprint, `--yes` files it (a repeat comments on the open issue, a closed one is filed again as a regression).
 4. **Fix it, and measure.**
    - triage falls back or is slow: `yk heal show | jq 'select(.event == "triage")'` (`error`, `raw`), `ollama ps`, `journalctl -u ollama`;
      shorten the brief (`src/heal.ts brief`, caps in `eval/triage/eval.ts`);

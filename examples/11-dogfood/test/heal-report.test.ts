@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-// Offline test of heal-report (report, analyze, show) on a synthetic event log.
+// Offline test of heal-report (report, show) on a synthetic event log.
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
 import { join } from 'node:path'
 import { put, rm, tmp, ts } from './helpers.ts'
@@ -57,13 +57,6 @@ test('report', () => {
   expect(out).toMatch(/3x in 3 run\(s\), tests, healed 1x: OrderServiceTest/)
   expect(out).toMatch(/tests +3 +3/)
 })
-test('analyze: the findings and the exit code', () => {
-  const r = rep('analyze')
-  expect(r.code, 'analyze exits 0 with findings').not.toBe(0)
-  for (const rule of ['noop-fixers', 'fixer-outside-module', 'healed-field-mismatch', 'triage-fallbacks', 'guard-hits', 'giveups', 'repeated-failure']) expect(r.out, `no finding ${rule}`).toMatch(new RegExp(`^${rule}:`, 'm'))
-  expect(r.out).toContain('web/B.java')
-  expect(r.out).toContain('HTTP 500 after 60s')
-})
 test('filters and --json', () => {
   expect(rep('show', '--run', '2bbb').out.trim().split('\n')).toHaveLength(5)
   expect(rep('report', '--since', '2026-10-26').out).toContain('no heal events')
@@ -74,24 +67,11 @@ test('filters and --json', () => {
 })
 test('a clean log has no findings; events without a run id take the run of the next result of their session', () => {
   put(join(d, 'clean.jsonl'), JSON.stringify(evs.find((x: any) => x.run === '1aaaaaaaa' && ['stage', 'recheck', 'verify'].includes(x.event))) + '\n')
-  expect(ts('src/heal-report.ts', ['analyze', '--events', join(d, 'clean.jsonl')], { env: { YUKTA_HEAL_LEDGER: join(d, 'none.json') } }).out).toContain('no findings')
+  expect(ts('src/heal-report.ts', ['report', '--events', join(d, 'clean.jsonl')]).out).not.toContain('Findings')
   put(join(d, 'stamp.jsonl'), [
     '{"v":1,"ts":"2026-10-25T10:01:00Z","run":"-","session":"s9","project":"yukta","event":"fix","stage":"tests","attempt":1,"model":"haiku","fixed":true,"files":[],"cost":0.1,"secs":5}',
     '{"v":1,"ts":"2026-10-25T10:02:00Z","run":"9eeeeeeee","session":"s9","project":"yukta","event":"result","status":"SUCCESS","failed_node":"-","healed":"tests:haiku","secs":10}',
   ].join('\n') + '\n')
   const shown = ts('src/heal-report.ts', ['show', '--events', join(d, 'stamp.jsonl')]).out
   expect(shown.split('\n').filter(l => l.includes('"run": "9eeeeeeee"'))).toHaveLength(2)
-})
-test('the ledger: an open issue silences its finding, a closed one only until the rule fires again after the close', () => {
-  put(join(d, 'ledger.json'), { giveups: 7, 'noop-fixers': 8, 'triage-fallbacks': 9, 'guard-hits': 10 })
-  put(join(d, 'issues.json'), { 7: { state: 'OPEN' }, 8: { state: 'CLOSED', closedAt: '2026-10-01T00:00:00Z' }, 9: { state: 'CLOSED', closedAt: '2026-12-01T00:00:00Z' } })
-  const led = (...a: string[]) => ts('src/heal-report.ts', ['analyze', ...a, '--events', ev], { env: { YUKTA_HEAL_LEDGER: join(d, 'ledger.json'), YUKTA_HEAL_ISSUES: join(d, 'issues.json') } })
-  const o = led()
-  expect(o.out).toMatch(/^giveups: tracked in #7/m)
-  expect(o.out).toMatch(/^noop-fixers: REGRESSION, #8 is closed/m)
-  expect(o.out).not.toMatch(/^triage-fallbacks/m)
-  expect(o.out).toMatch(/^guard-hits: /m)
-  expect(o.code, 'ledger: new findings must exit 1').toBe(1)
-  const j = JSON.parse(led('--json').out)
-  expect([j.tracked.map((t: any) => t.issue), j.regressions[0].issue]).toEqual([[7], 8])
 })

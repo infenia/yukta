@@ -3,7 +3,6 @@
 // What heal did, from its event log: where the time and the money went, and what looks wrong.
 //
 //   heal-report report  [--events FILE] [--since 7d|DATE] [--run ID] [--project NAME] [--json]
-//   heal-report analyze [same options]      the findings only (rules over the events), exit 1 when there are any new ones
 //   heal-report show    [same options]      the events as one line each, oldest first
 //
 // The log is examples/11-dogfood/README.md "Monitoring heal": one JSON object per line, written by heal.ts and yk (run is "-" in the first; the report
@@ -14,11 +13,8 @@
 //   recheck  stage, secs, ok          verify  secs, ok          giveup  stage
 //   result   workflow, status, failed_node, healed, secs, scope, durations (seconds per stage), sha, branch
 //
-// heal-ledger.json maps a finding's rule to the GitHub issue that tracks it. analyze then prints a finding whose issue is open as "tracked #N"
-// (it does not count), stays quiet about one whose issue is closed unless the rule fires again on events after the close ("regression"),
-// and reports every other finding as new. Without gh (or YUKTA_HEAL_ISSUES, a JSON file {"N": {"state", "closedAt"}}) a mapped finding counts as new.
 import { homedir } from 'node:os'
-import { HERE, type Json, dumps, isFile, join, parseArgs, readFileSync, readJson, run, tryJson } from './lib.ts'
+import { type Json, dumps, isFile, join, parseArgs, readFileSync, tryJson } from './lib.ts'
 
 const DEFAULT = join(process.env.YUKTA_DEV_STATE_DIR ?? join(homedir(), '.local/state/yukta-dev'), 'heal-events.jsonl')
 const MODELS = ['haiku', 'sonnet', 'opus']
@@ -213,31 +209,6 @@ export function findings(ev: Json[]): [string, string][] {
   return out
 }
 
-const LEDGER = process.env.YUKTA_HEAL_LEDGER ?? join(HERE, 'heal-ledger.json')
-
-/** {"state": OPEN|CLOSED, "closedAt": ISO} of issue n, or null when it cannot be read. */
-function issueState(n: number | string): Json | null {
-  const f = process.env.YUKTA_HEAL_ISSUES
-  if (f) return readJson(f)[String(n)] ?? null
-  const r = run(['gh', 'issue', 'view', String(n), '--json', 'state,closedAt'], { timeoutMs: 20000 })
-  return r.code === 0 ? tryJson(r.stdout) ?? null : null
-}
-
-export function triageFindings(ev: Json[]): { news: [string, string][]; tracked: [string, string, number][]; regress: [string, string, number][] } {
-  const ledger: Json = tryJson(isFile(LEDGER) ? readFileSync(LEDGER, 'utf8') : '') ?? {}
-  const news: [string, string][] = []
-  const tracked: [string, string, number][] = []
-  const regress: [string, string, number][] = []
-  for (const [rule, x] of findings(ev)) {
-    const n = ledger[rule]
-    const st = n ? issueState(n) : null
-    if (!st) news.push([rule, x])
-    else if (st.state === 'OPEN') tracked.push([rule, x, n])
-    else if (findings(ev.filter(e => (e.ts ?? '') > (st.closedAt ?? ''))).some(([r]) => r === rule)) regress.push([rule, x, n])
-  }
-  return { news, tracked, regress }
-}
-
 export function text(R: Json): string {
   const L: string[] = []
   const r = R.runs
@@ -268,9 +239,9 @@ export function text(R: Json): string {
 }
 
 export function main(argv: string[]): number {
-  const { pos, opt, flag } = parseArgs(argv, { value: ['events', 'since', 'run', 'project'], bool: ['json'] }, 'heal-report report|analyze|show')
+  const { pos, opt, flag } = parseArgs(argv, { value: ['events', 'since', 'run', 'project'], bool: ['json'] }, 'heal-report report|show')
   const cmd = pos[0]
-  if (!['report', 'analyze', 'show'].includes(cmd ?? '')) { console.error('usage: heal-report report|analyze|show [--events FILE] [--since 7d|DATE] [--run ID] [--project NAME] [--json]'); return 2 }
+  if (!['report', 'analyze', 'show'].includes(cmd ?? '')) { console.error('usage: heal-report report|show [--events FILE] [--since 7d|DATE] [--run ID] [--project NAME] [--json]'); return 2 }
   const events = opt.events ?? process.env.YUKTA_HEAL_EVENTS ?? DEFAULT
   const t0 = since(opt.since)
   const ev = stamp(load(events)).filter(e => (!t0 || (e.ts ?? '') >= t0) && (!opt.run || String(e.run ?? '').startsWith(opt.run)) && (!opt.project || e.project === opt.project))
@@ -278,18 +249,6 @@ export function main(argv: string[]): number {
   if (cmd === 'show') {
     for (const e of [...ev].sort((a, b) => ((a.ts ?? '') < (b.ts ?? '') ? -1 : (a.ts ?? '') > (b.ts ?? '') ? 1 : 0))) console.log(dumps(e, { sort: true }))
     return 0
-  }
-  if (cmd === 'analyze') {
-    const { news, tracked, regress } = triageFindings(ev)
-    if (flag.has('json')) {
-      console.log(dumps({ new: news.map(([rule, evidence]) => ({ rule, evidence })), tracked: tracked.map(([rule, evidence, issue]) => ({ rule, evidence, issue })), regressions: regress.map(([rule, evidence, issue]) => ({ rule, evidence, issue })) }, { indent: 1 }))
-    } else {
-      for (const [r, x] of news) console.log(`${r}: ${x}`)
-      for (const [r, x, n] of regress) console.log(`${r}: REGRESSION, #${n} is closed but it fired again: ${x}`)
-      for (const [r, , n] of tracked) console.log(`${r}: tracked in #${n}`)
-      if (!(news.length || tracked.length || regress.length)) console.log('no findings')
-    }
-    return news.length || regress.length ? 1 : 0
   }
   const R = report(ev)
   if (flag.has('json')) console.log(dumps({ ...R, findings: findings(ev).map(([rule, evidence]) => ({ rule, evidence })) }, { indent: 1 }))
