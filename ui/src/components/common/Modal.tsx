@@ -2,8 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
-/** Minimal modal: backdrop, Escape-to-close and an accessible dialog role. */
+/**
+ * Minimal modal: backdrop, Escape-to-close and an accessible dialog role. Portaled to body so
+ * that a stacking context in the caller (a header with isolate) cannot trap its z-index.
+ */
 export function Modal({
   title,
   onClose,
@@ -22,7 +26,7 @@ export function Modal({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <div className="animate-in fade-in-0 bg-overlay/50 fixed inset-0 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
       <div
         role="dialog"
@@ -33,6 +37,7 @@ export function Modal({
         <h2 className="text-headline-md text-on-surface mb-4">{title}</h2>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -31,4 +31,11 @@ describe('WorkflowTitleBar', () => {
     expect(container.querySelector('p')).toBeNull();
     expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
   });
+
+  it('draws the hero backdrop behind the title row, outside the accessibility tree', () => {
+    render(<WorkflowTitleBar workflowId="wf1" status={null} />);
+    const backdrop = screen.getByTestId('hero-backdrop');
+    expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+    expect(backdrop).toHaveClass('hero-backdrop');
+  });
 });

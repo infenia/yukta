@@ -43,7 +43,13 @@ export function SessionInfoPanel({
   const label = 'text-label-sm text-on-surface-variant';
 
   return (
-    <header className="border-outline-variant bg-surface-container border-b px-4 py-6 sm:px-6">
+    <header className="border-outline-variant relative isolate border-b px-4 py-6 sm:px-6">
+      {/* The docs hero backdrop, as on the Sessions list: behind the header only */}
+      <div
+        aria-hidden="true"
+        data-testid="hero-backdrop"
+        className="hero-backdrop pointer-events-none absolute inset-0 -z-10"
+      />
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
           <BreadcrumbNav className="mb-2" />
