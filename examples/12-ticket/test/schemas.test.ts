@@ -6,6 +6,7 @@ import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
 import { chmodSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DOGFOOD, KIT, json, kit, put, read, rm, sh, tmp } from './helpers.ts'
+import { flatSchema } from '../src/call.ts'
 
 setDefaultTimeout(300_000)
 const fixtures = readdirSync(join(KIT, 'fixtures'))
@@ -55,4 +56,13 @@ test('an unknown role must fail', () => {
   const r = sh([process.execPath, join(DOGFOOD, 'src/claude.ts')], { input: '{"prompt":"p"}', env: { YUKTA_FIXER_MCP: 'off', YK_MODEL: 'sonnet', YK_RULES: join(d, 'rules'), YK_SCHEMA: '{}', YK_ROLE: 'wizard' } })
   expect(r.code).not.toBe(0)
   void json
+})
+
+test('the schema given to claude declares no $schema (claude refuses draft 2020-12) and keeps the inlined $defs', () => {
+  for (const n of ['ticket-spec', 'revision-result', 'step-result', 'review-result']) {
+    const text = flatSchema(n)
+    expect(text, n).not.toContain('$schema')
+    expect(text, n).not.toContain('ticket-spec.schema.json#')
+  }
+  expect(JSON.parse(flatSchema('revision-result'))['$defs']).toBeDefined()
 })

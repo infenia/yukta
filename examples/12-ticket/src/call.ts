@@ -76,8 +76,9 @@ export function promptFor(role: string, run: string, step: string | undefined, w
   return 'Review the change against the spec: does it meet every acceptance criterion, and do the tests prove the cases?\n' + block('spec', j(spec, 1)) + '\n' + block('diff_stat', stat) + mut
 }
 
-/** The schema text for claude: cross-file $refs (revision-result -> ticket-spec) are inlined, as claude cannot resolve files. */
-function flatSchema(name: string): string {
+/** The schema text for claude: cross-file $refs (revision-result -> ticket-spec) are inlined, as claude cannot resolve files, and every `$schema` is dropped:
+ * claude's validator does not know draft 2020-12 and refuses the schema ("no schema with key or ref ...") */
+export function flatSchema(name: string): string {
   const sch = JSON.parse(readFileSync(join(KIT, 'schemas', `${name}.schema.json`), 'utf8'))
   const ext = JSON.parse(readFileSync(join(KIT, 'schemas', 'ticket-spec.schema.json'), 'utf8'))['$defs'] ?? {}
   let text = dumps(sch)
@@ -85,7 +86,7 @@ function flatSchema(name: string): string {
     sch['$defs'] = { ...(sch['$defs'] ?? {}), ...ext }
     text = dumps(sch).replaceAll('ticket-spec.schema.json#/$defs/', '#/$defs/')
   }
-  return text
+  return JSON.stringify(JSON.parse(text), (k, v) => (k === '$schema' && typeof v === 'string' ? undefined : v))
 }
 
 function runClaude(role: string, prompt: string, routing: Json, wt: string, out: string, run?: string, step?: string): Json {
