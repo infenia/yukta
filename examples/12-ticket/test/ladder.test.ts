@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 // Offline test of the retry ladder, heal, revision, budgets and approvals (#1882; design 13.1 items 8, 10, 11, 12, 23 and 15.13 items 27, 33): generated
 // workflows walked against a throwaway repo, a fake gh and a fake claude, plus the decision rules called directly.
+import { BASELINE_CMD } from '../src/flow.ts'
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
@@ -143,4 +144,9 @@ test('12 and 23. the verdict: code overrides the reviewer', () => {
   expect(rv.findings[0].severity).toBe('major')
   expect(json(join(w.d, 'rv/escalation.json')).trigger).toBe('review_findings')
   expect(verdict({ verdict: 'APPROVE', criteria_results: [{ id: 'AC1', met: true, evidence: 'e' }], findings: [{ ...blocker, severity: 'minor' }] })).toBe('APPROVE')
+})
+
+test('the default baseline probe runs the stage on the whole tree (a scoped one finds no stage in a clean checkout and excuses every failure)', () => {
+  expect(BASELINE_CMD).toContain('--full')
+  expect(BASELINE_CMD).not.toContain('--base')
 })
