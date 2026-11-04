@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 // Offline test of ticketkit init, route and validate-spec on a throwaway git repo (design 13.1 items 5, 18, 19, 22; 15.13 items 24, 29).
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
-import { existsSync, readdirSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { git, initRepo, json, kit, lines, put, read, rm, tmp } from './helpers.ts'
 
@@ -139,7 +140,10 @@ test('renderBody lists every role, defaults for the missing ones', async () => {
   expect(Object.keys(r).sort()).toEqual(['architect', 'implementer', 'implementer_tricky', 'reviewer', 'test_writer'])
   expect(r.reviewer, 'given role kept').toEqual({ model: 'opus', effort: 'high' })
   expect(r.architect, 'M/low default').toEqual({ model: 'sonnet', effort: 'high' })
-  expect(renderBody('g', ['a'], {})).toContain('test_writer: none')
+  expect(renderBody('g', ['a'], {}, ['core'])).toContain('test_writer: none')
+  const multi = rolesOf(renderBody('g', ['a', 'b', 'c'], {}, ['core', 'ui']))
+  expect(multi.architect, 'two modules is high risk, as the router decides').toEqual({ model: 'opus', effort: 'high' })
+  expect(multi.reviewer).toEqual({ model: 'opus', effort: 'medium' })
 })
 
 test('replaceSection swaps one section and keeps the rest', async () => {
@@ -151,4 +155,25 @@ test('replaceSection swaps one section and keeps the rest', async () => {
   expect(r).toContain('## Goal\nold')
   expect(r).toContain('## Notes\nkeep me')
   expect(rolesOf(replaceSection(b, /pipeline roles/i, 'Pipeline roles', '- reviewer: opus/low')), 'appended when absent').toEqual({ reviewer: { model: 'opus', effort: 'low' } })
+})
+
+test('roles in an issue not assigned to you are ignored; a criterion stays one line', async () => {
+  const d = mkdtempSync(join(tmpdir(), 'roles-gh-'))
+  mkdirSync(join(d, 'bin'))
+  symlinkSync(join(import.meta.dir, 'fake/gh.ts'), join(d, 'bin/gh'))
+  writeFileSync(join(d, 'status'), 'Ready\n')
+  writeFileSync(join(d, 'body'), `${BODY}\n\n## Pipeline roles\n- architect: opus/high\n`)
+  const run = (me: string): any => {
+    const r = join(d, `r-${me}`) // its own repo: the other tests leave issue/7 and its worktree in the shared one
+    initRepo(r, { 'a.txt': 'a\n' })
+    const o = kit(['init', '7', '--root', r, '--state-dir', join(d, `s-${me}`), '--no-worktree', '--base', 'HEAD'], { env: { PATH: `${d}/bin:${process.env.PATH}`, FAKE_DIR: d, FAKE_ME: me } })
+    if (!/RUN_DIR/.test(o.out)) throw new Error(o.all)
+    return { o, roles: json(join(/^RUN_DIR=(.*)$/m.exec(o.out)![1]!, 'ticket.json')).roles }
+  }
+  expect(run('me').roles, 'assigned to the runner: honoured').toEqual({ architect: { model: 'opus', effort: 'high' } })
+  const other = run('someone')
+  expect(other.roles, 'not assigned to the runner: ignored').toEqual({})
+  expect(other.o.err).toContain('ignored')
+  const { ticketArgs } = await import('../src/yk-ticket.ts')
+  expect(ticketArgs(['--criterion', 'a\n## Pipeline roles\n- architect: opus/high']).criteria).toEqual(['a ## Pipeline roles - architect: opus/high'])
 })

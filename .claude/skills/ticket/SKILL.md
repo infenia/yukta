@@ -15,7 +15,7 @@ description: Use when the user wants to raise, file or create a GitHub ticket/is
      - small, low risk: architect sonnet/medium, implementer haiku/medium, reviewer sonnet/low
      - normal: architect sonnet/high, test_writer sonnet/low, implementer haiku/medium, reviewer sonnet/medium
      - large (more than 5 criteria) or high risk (build-logic, config, .github, .claude, security, several modules): architect opus/high, test_writer sonnet/medium, reviewer opus/medium
-     Missing roles are filled with these defaults by `yk ticket new`.
+     `yk ticket new` and `edit` always write all five roles: those you leave out get the router's own choice (modules and high-risk paths count), so you only pass `--role` to deviate.
 3. Show the draft (title, criteria, labels, roles) and wait for the user's OK. Filing is outward-facing.
 4. File it, add `--ready` only if the user wants the pipeline to pick it up:
    `yk ticket new "<title>" --criterion "<c>" ... --goal "<g>" --role architect=opus/high ... --label core [--ready]`
