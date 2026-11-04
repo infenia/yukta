@@ -121,6 +121,8 @@ export const mcpKey = (): string => (process.env.YUKTA_MCP_KEY === 'session' && 
 /** The properties file of the dev server: its keys. */
 export function serverProperties(): string {
   const keys = ['yukta.api-key=' + devKey(), 'yukta.api-keys[0].name=fixer', 'yukta.api-keys[0].key=' + fixerKey(), 'yukta.api-keys[0].role=VIEWER', 'yukta.api-keys[0].sessions=*']
+  // a session of the dogfood plus the ticket workflows is over the 256 KB default body (`session apply` answers 413); loopback only
+  keys.push('spring.http.codecs.max-in-memory-size=8MB') // Boot 4 name; spring.codec.* (application.yaml) is ignored
   if (agentKeysSupported()) keys.push('yukta.api-keys[1].name=claude-session', 'yukta.api-keys[1].key=' + sessionKey(), 'yukta.api-keys[1].role=OPERATOR', 'yukta.api-keys[1].sessions=dogfood', 'yukta.api-keys[1].agent=true')
   // the route of the ticket gates (12-ticket): a route nobody configured is refused, so without it `yk ticket run` stops at its first question
   if (existsSync(join(DEV_HOME, 'main/core/src/main/java/com/infenia/yukta/service/input/route/RouteSettings.java'))) {
