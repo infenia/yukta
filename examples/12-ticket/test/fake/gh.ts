@@ -18,7 +18,7 @@ switch (`${a[0]} ${a[1]}`) {
     if (a.join(' ').includes('-q .url')) console.log(url)
     else console.log(JSON.stringify({ number: 7, title: 'feat(core): rate limit', labels: [{ name: 'core' }], body, state: 'OPEN', projectItems: [{ status: { name: readFileSync(join(dir, 'status'), 'utf8').trim() }, title: 'Yukta Roadmap' }], assignees: [{ login: 'me' }], url }))
     break
-  case 'api user': console.log('me'); break
+  case 'api user': console.log(process.env.FAKE_ME ?? 'me'); break
   case 'auth token': console.log('tok'); break
   case 'project item-list': console.log(JSON.stringify({ items: [{ status: readFileSync(join(dir, 'status'), 'utf8').trim(), content: { number: 7 } }] })); break
   case 'project view': console.log('{"id":"P1"}'); break

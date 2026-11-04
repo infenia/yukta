@@ -14,7 +14,7 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname } from 'node:path'
-import { DEV_HOME, DEV_URL, STATE_DIR, cliJson, die, ensureServer, findCli, git, http, isFile, join, keyHeader, mkdirp, readJson, renderSession, rmSync, run, text, writeFileSync } from '../../11-dogfood/src/lib.ts'
+import { DEV_HOME, DEV_URL, STATE_DIR, cliJson, die, ensureServer, findCli, git, http, isDir, isFile, join, keyHeader, mkdirp, readJson, renderSession, resolve, rmSync, run, text, writeFileSync } from '../../11-dogfood/src/lib.ts'
 import { cmdRunControl, cmdTree, startNotifier, watchOwned } from '../../11-dogfood/src/runs.ts'
 import { main as report } from './report.ts'
 import { KIT } from './lib.ts'
@@ -35,14 +35,15 @@ function ticketLast(issue: string): [string, string] {
 
 type TicketArgs = { title: string; goal: string; criteria: string[]; labels: string[]; roles: Record<string, any>; ready: boolean; force: boolean; pos: string[] }
 
-function ticketArgs(argv: string[]): TicketArgs {
+export function ticketArgs(argv: string[]): TicketArgs {
   const t: TicketArgs = { title: '', goal: '', criteria: [], labels: [], roles: {}, ready: false, force: false, pos: [] }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
     const val = (): string => argv[++i] ?? die(`${a} needs a value`)
-    if (a === '--criterion') t.criteria.push(val())
-    else if (a === '--title') t.title = val()
-    else if (a === '--goal') t.goal = val()
+    const line = (): string => val().replace(/\s+/g, ' ').trim() // one line: a newline could add a heading or list item of its own
+    if (a === '--criterion') t.criteria.push(line())
+    else if (a === '--title') t.title = line()
+    else if (a === '--goal') t.goal = line()
     else if (a === '--label') t.labels.push(val())
     else if (a === '--ready') t.ready = true
     else if (a === '--force') t.force = true
@@ -80,7 +81,9 @@ function ticketEdit(argv: string[]): number {
   if (!/^[0-9]+$/.test(n) || t.pos.length > 1) die('usage: yk ticket edit <issue> [--title T] [--goal G] [--criterion C ..] [--role r=model/effort ..] [--label L ..] [--ready] [--force]')
   const root = git(['rev-parse', '--show-toplevel']).stdout.trim()
   const branch: string = readJson(join(KIT, 'project.json')).git.branch.replaceAll('{n}', n)
-  if (!t.force && git(['rev-parse', '--verify', '-q', branch], root).code === 0) die(`branch ${branch} exists: a run has read this issue (--force to edit anyway)`)
+  const worktree = resolve(root, readJson(join(KIT, 'project.json')).git.worktree.replaceAll('{n}', n))
+  const ran = git(['rev-parse', '--verify', '-q', branch], root).code === 0 || isDir(worktree) || git(['ls-remote', '--exit-code', '--heads', 'origin', branch], root).code === 0
+  if (!t.force && ran) die(`branch ${branch}, its worktree or its remote branch exists: a run has read this issue (--force to edit anyway)`)
   const g = run(['gh', 'issue', 'view', n, '-R', REPO(), '--json', 'title,body,labels'])
   if (g.code) die(`gh issue view: ${g.stderr.trim().slice(0, 300)}`)
   const v = JSON.parse(g.stdout)

@@ -40,9 +40,15 @@ export function main(argv: string[]): number {
   let raw: Json
   if (opt['ticket-file']) raw = load(opt['ticket-file'])
   else {
-    const r = run(['gh', 'issue', 'view', issue!, '--json', 'number,title,body,labels'])
+    const r = run(['gh', 'issue', 'view', issue!, '--json', 'number,title,body,labels,assignees'])
     if (r.code) die(`gh issue view ${issue}: ${r.stderr.trim()}`)
     raw = JSON.parse(r.stdout)
+    // the body is data: only an issue assigned to the person running the pipeline may choose the models (cost), as intake already requires
+    const me = run(['gh', 'api', 'user', '-q', '.login']).stdout.trim()
+    if (!(raw.assignees ?? []).some((a: Json) => a.login === me)) {
+      if (Object.keys(rolesOf(raw.body)).length) console.error(`NOTE issue ${issue} is not assigned to ${me || 'you'}: its Pipeline roles are ignored`)
+      raw.body_roles_untrusted = true
+    }
   }
   const labels: string[] = (raw.labels ?? []).map((l: Json) => (typeof l === 'object' ? l.name : l))
   const project = load(join(KIT, 'project.json'))
@@ -65,7 +71,7 @@ export function main(argv: string[]): number {
   for (const d of ['spec', 'steps', 'review']) mkdirp(join(dir, d))
   const modules = [...new Set(labels.filter(l => l in project.module_labels))].sort()
   save(join(dir, 'ticket.json'), {
-    ticket_id: n, title: raw.title, kind: kindOf(raw.title, labels), labels, modules, acceptance_criteria: ac, roles: rolesOf(raw.body), body: raw.body ?? '',
+    ticket_id: n, title: raw.title, kind: kindOf(raw.title, labels), labels, modules, acceptance_criteria: ac, roles: raw.body_roles_untrusted ? {} : rolesOf(raw.body), body: raw.body ?? '',
     allow_guard_paths: labels.includes('build') || labels.includes('dogfood'),
   })
   save(join(dir, 'project.json'), project)
