@@ -50,7 +50,7 @@ test('pickup_done for another issue keeps the channel busy', async () => {
   await r.post('/v1/events', issue)
   const seen: unknown[] = []
   r.channel.subscribe(e => seen.push(e))
-  await done({ issue: 8, outcome: 'skipped' })
+  expect((await done({ issue: 8, outcome: 'skipped' })).isError).toBe(true) // told it is still busy with #7
   expect((await r.post('/v1/events', issue)).status).toBe(409)
   expect(seen.find((e: any) => e.type === 'done')).toMatchObject({ type: 'done', data: { issue: 8, event_id: null } }) // not the event in flight
 })

@@ -61,6 +61,9 @@ async function main(): Promise<void> {
   const channel = new Channel({ ...profile.options, log })
   ensureToken(profile.tokenFile)
 
+  // an unreleased event frees itself lazily; poll so the `done` (timeout) is published when the limit passes
+  setInterval(() => channel.current(), 60_000).unref()
+
   let remove = () => {}
   const stop = () => {
     remove()
