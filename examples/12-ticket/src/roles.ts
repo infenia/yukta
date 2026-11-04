@@ -3,6 +3,8 @@
 // The "Pipeline roles" section of a ticket body (ticket-template.md): one `- role: model/effort` line per role, read by init and applied by route over the static table.
 // Anything else in the section is ignored; an unknown role, model or effort is an error (`yk ticket new`) or skipped (init: the static table stays).
 import { type Json, fmt, join, KIT, modelTable, readText } from './lib.ts'
+import { readFileSync } from 'node:fs'
+import { staticRoute } from './route.ts'
 
 export const ROLE_NAMES = ['architect', 'test_writer', 'implementer', 'implementer_tricky', 'reviewer']
 const MODELS = ['opus', 'sonnet', 'haiku']
@@ -29,16 +31,17 @@ export function rolesOf(body: string | null | undefined): Json {
   return out
 }
 
-/** Every role, the ones you gave plus the router's defaults for the rest (complexity from the criteria count as in route.ts, risk high for a risk or security label). */
-export function withDefaults(criteria: number, labels: string[], roles: Json): Json {
-  const complexity = criteria <= 2 ? 'S' : criteria <= 5 ? 'M' : 'L'
-  const risk = labels.some(l => l === 'risk' || l === 'security') ? 'high' : 'low'
-  const d = modelTable(complexity, risk)
+/** Every role, the ones you gave plus the router's own choice for the rest (same staticRoute and modelTable as route.ts, so modules and high-risk paths count too). */
+export function withDefaults(criteria: string[], labels: string[], roles: Json): Json {
+  const p = JSON.parse(readFileSync(join(KIT, 'project.json'), 'utf8'))
+  const t = { acceptance_criteria: criteria, labels, modules: labels.filter(l => l in p.module_labels) }
+  const [complexity, risk] = staticRoute(t, p)
+  const d = modelTable(complexity, risk, p.tier_mode, p.implementer_override)
   return Object.fromEntries(ROLE_NAMES.map(r => [r, roles[r] ?? d[r]]))
 }
 
 export function renderBody(goal: string, criteria: string[], roles: Json, labels: string[] = []): string {
-  const all = withDefaults(criteria.length, labels, roles)
+  const all = withDefaults(criteria, labels, roles)
   // a null role (no test writer for a small low-risk ticket) is written as a line the parser ignores, so the router keeps it unused
   return fmt(readText(join(KIT, 'ticket-template.md')), { goal, criteria: criteria.map(c => `- [ ] ${c}`).join('\n'), roles: roleLines(all) })
 }

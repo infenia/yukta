@@ -139,7 +139,10 @@ test('renderBody lists every role, defaults for the missing ones', async () => {
   expect(Object.keys(r).sort()).toEqual(['architect', 'implementer', 'implementer_tricky', 'reviewer', 'test_writer'])
   expect(r.reviewer, 'given role kept').toEqual({ model: 'opus', effort: 'high' })
   expect(r.architect, 'M/low default').toEqual({ model: 'sonnet', effort: 'high' })
-  expect(renderBody('g', ['a'], {})).toContain('test_writer: none')
+  expect(renderBody('g', ['a'], {}, ['core'])).toContain('test_writer: none')
+  const multi = rolesOf(renderBody('g', ['a', 'b', 'c'], {}, ['core', 'ui']))
+  expect(multi.architect, 'two modules is high risk, as the router decides').toEqual({ model: 'opus', effort: 'high' })
+  expect(multi.reviewer).toEqual({ model: 'opus', effort: 'medium' })
 })
 
 test('replaceSection swaps one section and keeps the rest', async () => {

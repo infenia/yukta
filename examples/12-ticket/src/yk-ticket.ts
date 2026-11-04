@@ -89,7 +89,7 @@ function ticketEdit(argv: string[]): number {
   const criteria = t.criteria.length ? t.criteria : criteriaOf(body)
   if (t.goal) body = replaceSection(body, /^\s*#+\s+goal\b/i, 'Goal', t.goal)
   if (t.criteria.length) body = replaceSection(body, /acceptance criteria/i, 'Acceptance criteria', t.criteria.map(c => `- [ ] ${c}`).join('\n'))
-  body = replaceSection(body, /pipeline roles/i, 'Pipeline roles', roleLines(withDefaults(criteria.length, labels, { ...rolesOf(body), ...t.roles })))
+  body = replaceSection(body, /pipeline roles/i, 'Pipeline roles', roleLines(withDefaults(criteria, labels, { ...rolesOf(body), ...t.roles })))
   const dir = mkdtempSync(join(tmpdir(), 'yk-ticket-edit-'))
   try {
     const f = join(dir, 'body.md')
