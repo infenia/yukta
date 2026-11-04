@@ -53,17 +53,20 @@ export function notice(env: Json): { issue: string; idempotency_key: string; con
 }
 
 /** Sends one envelope to the owning session; returns what happened. */
-export async function deliver(env: Json): Promise<'sent' | 'skipped' | 'no-owner' | 'failed'> {
+export async function deliver(env: Json, retryMs = 1000): Promise<'sent' | 'skipped' | 'no-owner' | 'failed'> {
   const n = notice(env)
   if (!n) return 'skipped'
   const o = await owner(n.issue)
   if (!o) return 'no-owner'
   const token = text(join(home(), 'pickup-token')).trim()
-  const r = await http('POST', `http://127.0.0.1:${o.port}/v1/events`, {
+  const post = () => http('POST', `http://127.0.0.1:${o.port}/v1/events`, {
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: n.content, meta: n.meta, idempotency_key: n.idempotency_key }),
     timeoutMs: 10000,
   })
+  // one retry for a transient failure; the idempotency key makes a repeat harmless
+  let r = await post()
+  if (r.code !== 202 && r.code !== 200) { await new Promise(res => setTimeout(res, retryMs)); r = await post() }
   return r.code === 202 || r.code === 200 ? 'sent' : 'failed'
 }
 

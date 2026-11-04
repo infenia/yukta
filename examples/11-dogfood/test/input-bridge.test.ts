@@ -13,6 +13,7 @@ const bridge = await import('../src/input-bridge.ts')
 
 const posted: any[] = []
 let busyIssue = '7'
+let failPosts = 0
 let channel: ReturnType<typeof Bun.serve>
 let feed: ReturnType<typeof Bun.serve>
 let frames: string[] = []
@@ -28,6 +29,7 @@ beforeAll(() => {
     async fetch(req) {
       const u = new URL(req.url)
       if (u.pathname === '/v1/status') return Response.json({ busy: busyIssue !== '', meta: { issue: busyIssue } })
+      if (failPosts > 0 && req.method === 'POST') { failPosts--; return Response.json({ error: 'x' }, { status: 503 }) }
       posted.push({ auth: req.headers.get('authorization'), ...(await req.json()) })
       return Response.json({ event_id: 'e1' }, { status: 202 })
     },
@@ -49,6 +51,16 @@ test('notice: only the ticket route at the session or human tier, with an issue'
   expect(bridge.notice(env('InputRequested', 'session', { routeName: 'other' }))).toBeUndefined()
   expect(bridge.notice(env('InputRequested', 'session', { context: {} }))).toBeUndefined()
   expect(bridge.notice(env('InputAnswered', 'session'))).toBeUndefined()
+})
+
+test('deliver: one transient failure is retried, a second one is reported as failed', async () => {
+  const before = posted.length
+  failPosts = 1
+  expect(await bridge.deliver(env('InputRequested', 'session'), 1)).toBe('sent')
+  expect(posted.length).toBe(before + 1)
+  failPosts = 2
+  expect(await bridge.deliver(env('InputRequested', 'session'), 1)).toBe('failed')
+  failPosts = 0
 })
 
 test('the prompt is cut to 1 KB', () => {

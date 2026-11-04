@@ -51,6 +51,7 @@ const pickupDone = (home: string): ExtraTool => ({
     } catch (e) {
       channel.log(`cannot write pickup.jsonl: ${(e as Error).message}`)
     }
+    if (cur && !mine) return { text: `recorded #${issue}: ${outcome}, but the channel is still busy with #${cur.meta.issue}; call pickup_done for that issue to free it`, isError: true }
     return { text: `recorded #${issue}: ${outcome}` }
   },
 })
