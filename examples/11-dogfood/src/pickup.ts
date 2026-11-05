@@ -70,10 +70,22 @@ export function eventFor(n: number | string, title: string, url: string, via = V
 }
 
 /** The issue numbers this round may hand out: `--issue` (YUKTA_PICKUP_ISSUES) or $DEV_HOME/pickup-issues; null = no filter.
- *  Numbers anywhere in the text count ("12, 34", "#12", one per line); lines starting with `//` are comments. */
-export function allowlist(raw = process.env.YUKTA_PICKUP_ISSUES || text(join(DEV_HOME, 'pickup-issues'))): Set<string> | null {
-  const nums = raw.split('\n').filter(l => !l.trim().startsWith('//')).join(' ').match(/\d+/g)
-  return nums?.length ? new Set(nums) : null
+ *  Numbers anywhere in the text count ("12, 34", "#12", "012", one per line); lines starting with `//` are comments.
+ *  A filter with text but no number selects nothing (a typo must not lift the filter); a file with only comments is no filter.
+ *  A missing file is no filter; any other read error stops the round. */
+export function allowlist(raw = process.env.YUKTA_PICKUP_ISSUES || filterFile(join(DEV_HOME, 'pickup-issues'))): Set<string> | null {
+  const body = raw.split('\n').filter(l => !l.trim().startsWith('//')).join(' ').trim()
+  if (!body) return null
+  const nums = body.match(/\d+/g) ?? []
+  return new Set(nums.map(n => String(Number(n))))
+}
+
+/** the file's text; '' only when the file does not exist */
+function filterFile(p: string): string {
+  try { return readFileSync(p, 'utf8') } catch (e) {
+    if ((e as { code?: string }).code === 'ENOENT') return ''
+    return fail(`cannot read ${p}: ${(e as Error).message}`)
+  }
 }
 
 /** Assigned to you AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number; the allowlist applies. */

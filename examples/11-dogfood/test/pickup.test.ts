@@ -3,7 +3,7 @@
 // Offline test of the scheduled pickup (no Claude, no server, no GitHub): `pickup tick` against real channels (channel/src/main.ts, several at once, found
 // through the registry) with a fake gh on PATH, the ticket mode, and busy() ignoring the `pickup` schedule.
 import { afterAll, beforeAll, expect, setDefaultTimeout, test } from 'bun:test'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { HERE, put, read, rm, script, sh, tmp, ts } from './helpers.ts'
 
@@ -135,7 +135,16 @@ test('issue filter: --issue (YUKTA_PICKUP_ISSUES) or the pickup-issues file narr
   expect(l, 'the flag overrides the file in list').toContain('filter: #11')
   expect(l).not.toContain('#12')
   expect(tick({ ...ticketEnv, YUKTA_PICKUP_ISSUES: '13' }).out.trim(), 'nothing listed is eligible: skipped, exit 0').toStartWith('PICKUP skipped=nothing of the filtered issues')
+  put(join(d, 'home/pickup-issues'), 'twelve\n')
+  expect(tick(ticketEnv).out.trim(), 'a filter with text but no number selects nothing').toStartWith('PICKUP skipped=nothing of the filtered issues')
+  put(join(d, 'home/pickup-issues'), '012\n'); rm(join(d, 'yk.log'))
+  expect(tick(ticketEnv).out.trim(), 'numbers are normalised (012 is 12)').toBe('PICKUP handed=#12 to=ticket')
+  rm(join(d, 'home/pickup-issues')); mkdirSync(join(d, 'home/pickup-issues'))
+  const broken = tick(ticketEnv)
+  expect(broken.code, 'an unreadable filter file stops the round').not.toBe(0)
+  expect(broken.all).toContain('cannot read')
   rm(join(d, 'home/pickup-issues'))
+  expect(ts('yk', ['pickup', 'list', '--bogus'], { env: { YUKTA_DEV_HOME: join(d, 'home') } }).code, 'list rejects unknown arguments').not.toBe(0)
 })
 
 test('busy() does not count the pickup schedule (and counts anything else)', async () => {
