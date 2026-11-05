@@ -77,10 +77,11 @@ when a ticket-run question (route `ticket`) reaches the `session` tier, pushes o
 that issue, and a second one when it escalates to the `human` tier. The event never takes the session's busy slot. The session reads and answers over the Yukta MCP
 (`list_pending_inputs`, `answer_input`). No owning session: nothing is sent, `yk approve` and the UI still answer. Design: `design/plans/ticket-input-routing.md`.
 
-**Running the ticket pipeline from the session (`YUKTA_PICKUP_VIA=ticket`, #1922).** Set `YUKTA_PICKUP_VIA=ticket` (or write `ticket` into `$DEV_HOME/pickup-via`) and `pickup tick`
+**Running the ticket pipeline from the session (the default, #1922).** Unless `YUKTA_PICKUP_VIA=direct` (or `direct` in `$DEV_HOME/pickup-via`) is set, `pickup tick`
 hands the issue with `meta.via=ticket`: the session runs `yk ticket run <n> --detach --notify` instead of implementing, and, with `yk pickup bridge` running, receives the
 questions of the run as `kind=input` events (they do not take the busy slot). It answers over the Yukta MCP or asks the person; the rules are in the `pickup` skill, section
-"Ticket pipeline mode". Default is unchanged (the session implements). Not the same as `YUKTA_PICKUP_MODE=ticket`, where the tick runs the pipeline itself with no session.
+"Ticket pipeline mode". `direct` makes the session implement the issue itself. The session never runs git by hand: `yk ticket worktree <n> [--in DIR]` (a worktree, or a branch in an existing one, reusing what exists) and `yk ticket pr <n>` (push and draft PR) are its commands (`examples/12-ticket/src/branch.ts`). After the PR is open the worktree is released (detached at `origin/main`, marked free; `yk ticket release <n>`
+does it by hand) and the next ticket takes it over instead of adding another, so worktrees do not pile up; a run that dead-ends keeps its worktree. Not the same as `YUKTA_PICKUP_MODE=ticket`, where the tick runs the pipeline itself with no session.
 
 **Which session gets the issue.** The oldest idle one, or the one you pin. A session counts as busy only while it holds an issue the channel
 handed over: one busy with your own work is still idle for the channel, and its event waits until its current turn ends (events queue). To

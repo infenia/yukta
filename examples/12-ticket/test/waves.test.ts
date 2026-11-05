@@ -20,8 +20,8 @@ test('a wave of two independent steps: separate worktrees, merged in step order,
   expect(json(join(w.run, 'steps/S1/status.json')).status).toBe('DONE')
   expect(json(join(w.run, 'steps/S2/status.json')).status).toBe('DONE')
   expect(existsSync(join(w.d, 'yukta-issue-7-S2')), 'the sibling worktree is removed after the merge').toBe(false)
-  expect(git(wt(), 'log', '--format=%s').out).toContain('merge S2 into the run branch')
-  expect(existsSync(join(wt(), 'core/src/main/java/A.java')) && existsSync(join(wt(), 'core/src/main/java/C.java'))).toBe(true)
+  expect(git(wt(), 'log', '--format=%s', 'issue/7').out).toContain('merge S2 into the run branch')
+  expect(git(wt(), 'ls-tree', '-r', '--name-only', 'issue/7').out).toMatch(/A\.java[\s\S]*C\.java|C\.java[\s\S]*A\.java/) // the worktree is released (detached at main) once the PR is open
   expect(w.events().some(e => e.role === 'implementer' && e.step_id === 'S1')).toBe(true)
 })
 

@@ -118,3 +118,11 @@ test('watch: a stream that ends is reopened, every frame of the second connectio
   expect(posted.length, 'the feed ended after one frame and was opened again').toBeGreaterThanOrEqual(2)
   expect(logs.some(l => l.includes('BRIDGE InputRequested r1 -> sent'))).toBe(true)
 })
+
+test('pickup: the default event makes the session an orchestrator (ticket pipeline), not the implementer', async () => {
+  const { eventFor } = await import('../src/pickup.ts')
+  const e = eventFor(7, 'feat: x', 'u')
+  expect(e.meta.via).toBe('ticket')
+  expect(e.content).toContain('pickup skill')
+  expect(e.content).toContain('Do NOT')
+})

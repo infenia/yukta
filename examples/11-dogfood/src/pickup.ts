@@ -20,9 +20,9 @@ const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
 const OWNER = process.env.YUKTA_PICKUP_OWNER ?? 'infenia'
 const ONLY = process.env.YUKTA_PICKUP_ONLY ?? ''
 const MODE = process.env.YUKTA_PICKUP_MODE || text(join(DEV_HOME, 'pickup-mode')).trim() || 'session'
-// YUKTA_PICKUP_VIA=ticket (or `ticket` in $DEV_HOME/pickup-via): the session runs the ticket pipeline (`yk ticket run`) and answers its questions instead of implementing
-// the issue itself (meta.via = ticket; the pickup skill, #1922). Default: the session implements.
-const VIA = process.env.YUKTA_PICKUP_VIA || text(join(DEV_HOME, 'pickup-via')).trim() || 'direct'
+// The session is an orchestrator: by default (meta.via = ticket) it runs the ticket pipeline (`yk ticket run`) and answers its questions, and never
+// implements the issue itself (the pickup skill, #1922). YUKTA_PICKUP_VIA=direct (or `direct` in $DEV_HOME/pickup-via) opts back into implementing.
+const VIA = process.env.YUKTA_PICKUP_VIA || text(join(DEV_HOME, 'pickup-via')).trim() || 'ticket'
 const YK = process.env.YUKTA_PICKUP_YK || join(HERE, 'yk')
 
 class Stop extends Error {}
@@ -63,7 +63,10 @@ export function eventFor(n: number | string, title: string, url: string, via = V
   const ticket = via === 'ticket'
   return {
     content: ticket
-      ? `Run the ticket pipeline for issue #${n}: ${title}\n${url}\nUse the pickup skill, ticket pipeline mode: yk ticket run ${n} --detach --notify, then answer its questions.`
+      ? `Issue #${n}: ${title}\n${url}\n` +
+        `You are the orchestrator of this issue, not its implementer. Invoke the pickup skill (Skill tool, "pickup", ticket pipeline mode) and follow it: ` +
+        `run \`yk ticket run ${n} --detach --notify\`, answer or relay the pipeline's questions, and report with pickup_done. ` +
+        `Do NOT read the code to fix it or edit files yourself. Git steps have commands you call when the pipeline needs them: \`yk ticket worktree ${n} [--in DIR]\` (worktree or branch, reuses what exists) and \`yk ticket pr ${n}\` (push and draft PR).`
       : `Pick up issue #${n}: ${title}\n${url}`,
     meta: { issue: String(n), url, title, ...(ticket ? { via: 'ticket' } : {}) },
   }

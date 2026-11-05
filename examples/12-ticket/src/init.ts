@@ -5,9 +5,9 @@
 // Creates .yukta-dev/ticket/<run_id>/ (design section 4), branch issue/<n> and worktree ../yukta-issue-<n>.
 // Prints RUN_DIR=... and WORKTREE=...; prints SKIPPED <why> and exits 3 when the run must not start (no acceptance criteria, branch or
 // worktree exists): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
-import { symlinkSync } from 'node:fs'
+import { attach } from './branch.ts'
 import { rolesOf } from './roles.ts'
-import { type Json, KIT, die, existsSync, git, isDir, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
+import { type Json, KIT, die, existsSync, git, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
 
 const CONVENTIONAL: Record<string, string> = { feat: 'feature', fix: 'bug', refactor: 'refactor', docs: 'docs', chore: 'chore', ci: 'chore', build: 'chore', style: 'chore', perf: 'chore', revert: 'chore', test: 'chore' }
 const TYPE_LABEL: Record<string, string> = { 'type/feature': 'feature', 'type/bugfix': 'bug', 'type/refactor': 'refactor', 'type/docs': 'docs', 'type/chore': 'chore', 'type/test': 'chore' }
@@ -77,9 +77,7 @@ export function main(argv: string[]): number {
   save(join(dir, 'project.json'), project)
   writeFileSync(join(dir, 'events.jsonl'), '', { flag: 'a' })
   if (!flag.has('no-worktree')) {
-    git(['worktree', 'add', '-q', '-b', branch, wt, opt.base ?? 'origin/main'], { cwd: root })
-    const nm = join(root, 'ui', 'node_modules')
-    if (isDir(nm) && !existsSync(join(wt, 'ui', 'node_modules'))) symlinkSync(nm, join(wt, 'ui', 'node_modules'))
+    attach(root, wt, branch, opt.base ?? 'origin/main', false) // takes over a released worktree (branch.ts) before adding one
   }
   console.log(`RUN_DIR=${dir}\nWORKTREE=${wt}\nRUN_ID=${runId}`)
   return 0

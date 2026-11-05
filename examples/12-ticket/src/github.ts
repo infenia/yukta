@@ -16,12 +16,13 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { type Json, costByRole, die, git, isDir, isFile, join, load, parseArgs, readFileSync, readdirSync, resolve, run as runProc, sh, writeFileSync } from './lib.ts'
 import { criteria } from './init.ts'
+import { release } from './branch.ts'
 
 const REPO = process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
 const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
 const OWNER = process.env.YUKTA_PICKUP_OWNER ?? 'infenia'
 const TYPES: Record<string, string> = { feature: 'feat', bug: 'fix', refactor: 'refactor', docs: 'docs', chore: 'chore' }
-const CONVENTIONAL = /^(feat|fix|docs|refactor|test|chore|style|ci|build|perf|revert)(\([^)]*\))?!?: \S/
+export const CONVENTIONAL = /^(feat|fix|docs|refactor|test|chore|style|ci|build|perf|revert)(\([^)]*\))?!?: \S/
 const SECRET = '(api[ _-]?keys?|secrets?|tokens?|passwords?|credentials?)'
 const FORBIDDEN: [RegExp, string][] = [
   [new RegExp(`\\b(print|show|echo|send|post|reveal|leak|output|exfiltrate|dump)\\b.*\\b${SECRET}|\\b${SECRET}\\b.*\\b(print|show|echo|send|reveal|leak|exfiltrate|dump)\\b`, 'i'), 'asks for secrets'],
@@ -138,6 +139,8 @@ function finish(run: string, wt: string): number {
   const url = gh(['pr', 'create', '--draft', '-R', REPO, '--base', 'main', '--head', branch, '--title', title, '--body-file', bf]).trim()
   writeFileSync(join(run, 'pr.txt'), url + '\n')
   console.log(`PR ${url}`)
+  const kept = release(wt) // the branch is pushed: the worktree is free for the next ticket (`yk ticket worktree <n>` brings it back for review fixes)
+  console.log(kept ? `WORKTREE kept: ${kept}` : `WORKTREE released: ${wt}`)
   return 0
 }
 
