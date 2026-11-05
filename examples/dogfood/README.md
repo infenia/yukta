@@ -113,6 +113,9 @@ examples/dogfood/yk status        # what runs, stale or not (exit 3 when down)
 
 `yk check`, `yk gradle` and `yk tool` start the server on demand. In Claude Code the SessionStart hook puts `yk` on PATH.
 
+The server inherits its PATH from whoever started it, and the ticket gate runs a bare `yk tool …`. Start it (or `yk pickup session`) only from a shell
+where `yk` is on PATH (Claude Code, or add `examples/dogfood` to PATH); otherwise a ticket run stops at the gate with `yk: command not found`.
+
 ### Keeping the server current
 
 `yk up` fetches `origin/main` into a managed worktree (`~/.local/state/yukta-dev/main`), builds `:boot:bootJar` + the CLI into
@@ -247,16 +250,17 @@ pieces (issue, epic, nav, steer) are in git history.
 `yk pickup session [--name N]` in each terminal that should receive issues (accept the development-channel dialog), then `yk pickup on`.
 `yk pickup status` shows the schedule, the channel and the last results; `yk pickup now` runs one round.
 
-| Symptom                                                | Cause and fix                                                                                                                  |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `PICKUP skipped=no channel`                            | no pickup session is registered (`ls $DEV_HOME/pickup`): open `yk pickup session`                                              |
-| `PICKUP skipped=busy with #n` for hours                | the session never called `pickup_done` (it frees itself after 4 h): tell the session to report, or restart it                  |
-| `PICKUP skipped=all busy (a,b)`                        | every session holds an issue; wait, or open another `yk pickup session`                                                        |
-| a session you closed still shows in `yk pickup status` | it cannot: the entry goes with the session, and a dead pid is dropped by the next tick; `ls $DEV_HOME/pickup`                  |
-| one session never gets issues                          | it is not idle for the channel (busy flag), or it was opened without `yk pickup session`; `yk pickup now --to <name>` tests it |
-| `yk pickup on` cannot find workflow `pickup`           | the dev server runs `origin/main`'s `session.json`; it appears after the pickup PR is merged and `yk up` swapped               |
-| nothing is ever handed over                            | no issue is both assigned to you and Ready, or each has a PR or an `issue/<n>` branch                                          |
-| the schedule vanished after a server swap              | `yk pickup status`; the next `yk` call starts it again when it was on                                                          |
+| Symptom                                                | Cause and fix                                                                                                                                             |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PICKUP skipped=no channel`                            | no pickup session is registered (`ls $DEV_HOME/pickup`): open `yk pickup session`                                                                         |
+| `PICKUP skipped=busy with #n` for hours                | the session never called `pickup_done` (it frees itself after 4 h): tell the session to report, or restart it                                             |
+| `PICKUP skipped=all busy (a,b)`                        | every session holds an issue; wait, or open another `yk pickup session`                                                                                   |
+| a session you closed still shows in `yk pickup status` | it cannot: the entry goes with the session, and a dead pid is dropped by the next tick; `ls $DEV_HOME/pickup`                                             |
+| one session never gets issues                          | it is not idle for the channel (busy flag), or it was opened without `yk pickup session`; `yk pickup now --to <name>` tests it                            |
+| `yk pickup on` cannot find workflow `pickup`           | the dev server runs `origin/main`'s `session.json`; it appears after the pickup PR is merged and `yk up` swapped                                          |
+| nothing is ever handed over                            | no issue is both assigned to you and Ready, or each has a PR or an `issue/<n>` branch                                                                     |
+| the schedule vanished after a server swap              | `yk pickup status`; the next `yk` call starts it again when it was on                                                                                     |
+| ticket run `SUCCESS`, no PR, nothing implemented       | the server has no `yk` on PATH (`spec/gate.json` says `yk: command not found`): `yk down`, `yk up` from a shell with `yk` on PATH, `yk ticket resume <n>` |
 
 ## Format and type check
 
