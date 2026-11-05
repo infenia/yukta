@@ -256,6 +256,12 @@ async function cmdCheck(argv: string[]): Promise<number> {
   } finally { rmSync(tmp, { recursive: true, force: true }) }
 }
 
+/** the value of --issue: at least one issue number, so a typo cannot lift the filter */
+function issueArg(v: string | undefined): string {
+  if (!v || !/\d/.test(v)) die('--issue needs issue numbers, e.g. 12,34')
+  return v
+}
+
 async function cmdPickup(argv: string[]): Promise<number> {
   const sub = argv[0] ?? ''
   const rest = argv.slice(1)
@@ -298,12 +304,19 @@ async function cmdPickup(argv: string[]): Promise<number> {
       const a = [...rest]
       while (a.length) {
         if (a[0] === '--to') { process.env.YUKTA_PICKUP_ONLY = a[1] ?? die('--to needs a session name'); a.splice(0, 2) }
-        else if (a[0] === '--issue') { process.env.YUKTA_PICKUP_ISSUES = a[1] ?? die('--issue needs issue numbers, e.g. 12,34'); a.splice(0, 2) }
+        else if (a[0] === '--issue') { process.env.YUKTA_PICKUP_ISSUES = issueArg(a[1]); a.splice(0, 2) }
         else die('usage: yk pickup now [--to NAME] [--issue N,M]')
       }
       return (await import('./pickup.ts')).main(['tick'])
     }
-    case 'list': return (await import('./pickup.ts')).main(['list'])
+    case 'list': {
+      const a = [...rest]
+      while (a.length) {
+        if (a[0] === '--issue') { process.env.YUKTA_PICKUP_ISSUES = issueArg(a[1]); a.splice(0, 2) }
+        else die('usage: yk pickup list [--issue N,M]')
+      }
+      return (await import('./pickup.ts')).main(['list'])
+    }
     case 'bridge': return (await import('./input-bridge.ts')).watch().then(() => 0)
     case 'status': {
       let e: string
@@ -328,7 +341,7 @@ async function cmdPickup(argv: string[]): Promise<number> {
       return 0
     }
     default:
-      return die('usage: yk pickup session [--name NAME]|on|off|now [--to NAME] [--issue N,M]|list|status')
+      return die('usage: yk pickup session [--name NAME]|on|off|now [--to NAME] [--issue N,M]|list [--issue N,M]|status')
   }
 }
 
