@@ -185,7 +185,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 ./gradlew spotlessApply    # format before committing
 ```
 
-**Developing Yukta with Yukta.** Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `examples/11-dogfood/yk`: each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See [`examples/11-dogfood/README.md`](examples/11-dogfood/README.md).
+**Developing Yukta with Yukta.** Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `examples/dogfood/yk`: each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See [`examples/dogfood/README.md`](examples/dogfood/README.md).
 
 **Persistence.** Sessions, workflows and the execution log live in memory by default. File storage is in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only); PostgreSQL is `./gradlew bootJar -Pyukta.persistence=postgres`. See [Persistence](https://yukta.infenia.com/operations/persistence).
 

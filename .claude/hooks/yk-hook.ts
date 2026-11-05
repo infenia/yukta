@@ -22,7 +22,7 @@ import { join } from 'node:path'
 
 const CODE = ['*.java', '*.kts', '*.gradle', '*.go', '*.ts', '*.tsx', '*.json']
 const HINT = 'Build, test and check this repo only through Yukta (yukta skill, imported by CLAUDE.md): `yk gradle <args>`, '
-  + '`yk tool -C <ui|cli|examples/11-dogfood> <command>` (go, pnpm/npx, bun), `yk check` (the gate for your changes; background it). Direct gradle, go, pnpm and bun are blocked.'
+  + '`yk tool -C <ui|cli|examples/dogfood> <command>` (go, pnpm/npx, bun), `yk check` (the gate for your changes; background it). Direct gradle, go, pnpm and bun are blocked.'
 const WRAPPERS = /^([A-Za-z_][A-Za-z0-9_]*=.*|env|exec|nice|time|command|timeout|sudo|[0-9]+[smh]?)$/
 const NOISE = /^(-q|--quiet|--console=.*|--continue|--offline|--daemon|--no-daemon|--parallel|\d*>.*|<.*)$/
 const JS = new Set(['pnpm', 'npm', 'npx', 'pnpx', 'yarn', 'bun', 'bunx'])
@@ -101,7 +101,7 @@ export function rewrite(cmd: string, depth = 0): string | null {
     if (isGradle) return 'yk gradle ' + (args.filter(a => !NOISE.test(a)).map(quote).join(' ') || '<tasks>')
     if (isGo) return 'yk tool -C cli ' + joined
     // a Bun script of the dogfood runs in its own package
-    return (/^(bun|bunx)$/.test(name) && /examples\/1[12]-/.test(process.cwd() + ' ' + joined) ? 'yk tool -C examples/11-dogfood ' : 'yk tool -C ui ') + joined
+    return (/^(bun|bunx)$/.test(name) && /examples\/dogfood\//.test(process.cwd() + ' ' + joined) ? 'yk tool -C examples/dogfood ' : 'yk tool -C ui ') + joined
   }
   return null
 }
@@ -129,7 +129,7 @@ type Data = { session_id?: string; source?: string; stop_hook_active?: boolean; 
 export function main(event: string, data: Data): void {
   if (process.env.YUKTA_DOGFOOD === 'off' || process.env.YUKTA_HEAL_FIXER) return
   const root = sh(process.cwd(), 'rev-parse', '--show-toplevel')
-  const yk = `${root}/examples/11-dogfood/yk`
+  const yk = `${root}/examples/dogfood/yk`
   if (!root || !executable(yk)) return
   const state = join(root, '.yukta-dev')
 
@@ -142,10 +142,10 @@ export function main(event: string, data: Data): void {
     const baseline = join(state, `baseline-${sid}`)
     if (sid && !existsSync(baseline)) writeFileSync(baseline, ykSum(yk) + '\n') // a resumed session keeps its first baseline
     if (data.source !== 'compact') spawnSync(yk, ['up', '--background'], { timeout: 60000 })
-    if (process.env.CLAUDE_ENV_FILE) appendFileSync(process.env.CLAUDE_ENV_FILE, `export PATH="${root}/examples/11-dogfood:$PATH"\n`)
+    if (process.env.CLAUDE_ENV_FILE) appendFileSync(process.env.CLAUDE_ENV_FILE, `export PATH="${root}/examples/dogfood:$PATH"\n`)
     if (modInstalled()) return
     const status = (spawnSync(yk, ['status'], { encoding: 'utf8', timeout: 5000 }).stdout ?? '').split('\n')[0]
-    emit('SessionStart', { additionalContext: `Yukta dev server: ${status || 'starting'}. ${HINT} yk is examples/11-dogfood/yk.` })
+    emit('SessionStart', { additionalContext: `Yukta dev server: ${status || 'starting'}. ${HINT} yk is examples/dogfood/yk.` })
   } else if (event === 'prompt') {
     if (!modInstalled()) emit('UserPromptSubmit', { additionalContext: HINT })
   } else if (event === 'pre-bash') {
@@ -153,7 +153,7 @@ export function main(event: string, data: Data): void {
     if (use) {
       emit('PreToolUse', {
         permissionDecision: 'deny',
-        permissionDecisionReason: `Builds and tests of this repo run through Yukta (yukta skill). Run instead: ${use}   (yk is examples/11-dogfood/yk; the run prints a RESULT line). To bypass for one session the user can set YUKTA_DOGFOOD=off.`,
+        permissionDecisionReason: `Builds and tests of this repo run through Yukta (yukta skill). Run instead: ${use}   (yk is examples/dogfood/yk; the run prints a RESULT line). To bypass for one session the user can set YUKTA_DOGFOOD=off.`,
       })
     }
   } else if (event === 'stop') {

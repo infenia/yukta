@@ -37,9 +37,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The workflow in {@code examples/supervisor-workflow} supervises: it approves a LOW risk request
- * raised by {@code ASK_INPUT} and the run goes on, and it hands a MEDIUM risk request up with its
- * reason as advice, so the request stays open.
+ * The workflow in {@code examples/17-supervisor-workflow} supervises: it approves a LOW risk
+ * request raised by {@code ASK_INPUT} and the run goes on, and it hands a MEDIUM risk request up
+ * with its reason as advice, so the request stays open.
  */
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
@@ -50,7 +50,7 @@ class WorkflowSupervisorAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);
 
-  private static final Path EXAMPLE = Path.of("../examples/supervisor-workflow");
+  private static final Path EXAMPLE = Path.of("../examples/17-supervisor-workflow");
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 

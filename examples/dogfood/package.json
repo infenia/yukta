@@ -1,0 +1,20 @@
+{
+  "name": "yukta-dogfood",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "yk and the dogfood scripts, including the ticket pipeline: develop Yukta with Yukta (build, test, check and heal through the dev server)",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "bun check",
+    "format": "bun fmt",
+    "format:check": "bun fmt --check",
+    "gen-ticket": "bun src/ticket/gen-ticket.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.4"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1"
+  }
+}

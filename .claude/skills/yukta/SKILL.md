@@ -7,7 +7,7 @@ allowed-tools: Bash, Read, Monitor
 # Build, test and check through Yukta
 
 Every Gradle, Go and pnpm/npx run in this repo goes through a Yukta workflow on the dev server (built from `origin/main`,
-`http://127.0.0.1:9858`, started on demand). `yk` is `examples/11-dogfood/yk` (on PATH after session start). The `yukta-dogfood` mod (`examples/11-dogfood/mod`) blocks
+`http://127.0.0.1:9858`, started on demand). `yk` is `examples/dogfood/yk` (on PATH after session start). The `yukta-dogfood` mod (`examples/dogfood/mod`) blocks
 direct `./gradlew`, `gradle`, `go test|vet|build|fmt` and `pnpm|npm|npx` and names the `yk` command to use instead.
 
 ```bash
@@ -79,11 +79,11 @@ Levels of output: a green run is a few lines ending in `RESULT`; a red run adds 
 ## Headless fixers read more over MCP
 A fixer's prompt carries the failure in short (the L1 digest) and its session id. With the dev server's read-only `fixer` key it can call
 `mcp__yukta__get_workflow_history` / `get_node_output` (tail, grep, page) for more, so it asks for detail instead of receiving it. It cannot
-start, control or change anything (a `VIEWER` key, plus a deny list in `examples/11-dogfood/src/claude.ts`). `YUKTA_FIXER_MCP=off` disables it.
+start, control or change anything (a `VIEWER` key, plus a deny list in `examples/dogfood/src/heal/claude.ts`). `YUKTA_FIXER_MCP=off` disables it.
 
 ## Pickup (scheduled issue hand-over)
 `yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. To hand out only chosen issues: `yk pickup now --issue 12,34` (one round) or the file `$DEV_HOME/pickup-issues` (numbers, one per line; `//` comments; the schedule reads it every round); `yk pickup list` shows what the next round would take and the filter in force. An event
-`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/11-dogfood/README.md` ("Pickup session").
+`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/dogfood/README.md` ("Pickup session").
 
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`

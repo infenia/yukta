@@ -32,7 +32,7 @@ class TemplateControllerTest {
         .isEqualTo("Hello world")
         .jsonPath("$.data[?(@.id=='01-hello-world')].pluginTypes[0]")
         .isEqualTo("CONSOLE_TERMINAL")
-        .jsonPath("$.data[?(@.id=='11-dogfood')]")
+        .jsonPath("$.data[?(@.id=='dogfood')]")
         .isEmpty()
         .jsonPath("$.data.length()")
         .value(count -> assertThat((Integer) count).isGreaterThanOrEqualTo(9));

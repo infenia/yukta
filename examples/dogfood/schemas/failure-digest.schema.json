@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "FailureDigest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["step_id", "attempt", "stage", "class", "exit_code", "message"],
+  "properties": {
+    "step_id": {
+      "type": "string",
+      "pattern": "^S[0-9]+$"
+    },
+    "attempt": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "stage": {
+      "type": "string"
+    },
+    "class": {
+      "enum": [
+        "scope_violation",
+        "locked_file_modified",
+        "patch_apply_fail",
+        "format_fail",
+        "lint_fail",
+        "typecheck_fail",
+        "test_fail",
+        "timeout",
+        "infra_error",
+        "blocked_reported",
+        "baseline_failure"
+      ]
+    },
+    "command": {
+      "type": "string"
+    },
+    "exit_code": {
+      "type": "integer"
+    },
+    "failing": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "message": {
+      "type": "string"
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "diff_stat": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "diff_stat",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "added", "removed"],
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "added": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removed": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "truncated": {
+      "type": "boolean"
+    }
+  },
+  "$id": "failure-digest.schema.json"
+}

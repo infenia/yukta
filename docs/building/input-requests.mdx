@@ -128,7 +128,7 @@ A rule or model supervisor answers when its profile allows it. The profile setti
 }
 ```
 
-The rule format is in [Rule files](/running/rule-files#answer-and-escalate-input-requests); the model control plane's behavior is in [Control planes](/running/control-planes#input-requests). A complete profile, which also escalates everything else with advice, is `examples/supervisor-profiles/input-requests.json` in the repository.
+The rule format is in [Rule files](/running/rule-files#answer-and-escalate-input-requests); the model control plane's behavior is in [Control planes](/running/control-planes#input-requests). A complete profile, which also escalates everything else with advice, is `examples/16-supervisor-profiles/input-requests.json` in the repository.
 
 ## A worked example
 
@@ -218,7 +218,7 @@ Use HTTPS only. Set `yukta.input.token-secret` to a long random value; without i
 
 ### Pull instead of push
 
-An external agent that cannot be called can ask: list the open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follow `GET /api/events/stream?type=InputRequested,InputEscalated`, and answer with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [`examples/input-pull`](https://github.com/infenia/yukta/tree/main/examples/input-pull) is a `curl` script that does it.
+An external agent that cannot be called can ask: list the open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follow `GET /api/events/stream?type=InputRequested,InputEscalated`, and answer with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [`examples/15-input-pull`](https://github.com/infenia/yukta/tree/main/examples/15-input-pull) is a `curl` script that does it.
 
 ## Timeouts and defaults
 

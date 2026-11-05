@@ -9,7 +9,7 @@
     },
     {
       "name": "yukta-dogfood",
-      "source": "./examples/11-dogfood/mod",
+      "source": "./examples/dogfood/mod",
       "description": "Develop Yukta with Yukta: yk routing, check nudges, dev-server status"
     }
   ]

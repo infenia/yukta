@@ -56,7 +56,7 @@
   description: Security weakness or hardening item
 - name: dogfood
   color: f9d0c4
-  description: Found while Yukta ran its own checks (examples/11-dogfood)
+  description: Found while Yukta ran its own checks (examples/dogfood)
 - name: ci-nightly
   color: b60205
   description: Failure of a scheduled (nightly) CI run; closes itself when the run is green

@@ -1,0 +1,85 @@
+{
+  "checkBudget": 5,
+  "giveUp": {
+    "minAttempts": 5,
+    "maxFixRate": 0.1,
+    "days": 7
+  },
+  "efforts": {
+    "low": {
+      "timeoutSeconds": 600,
+      "budget": 0.5
+    },
+    "high": {
+      "timeoutSeconds": 1800,
+      "budget": 2
+    }
+  },
+  "singleAttempt": ["reuse", "docs", "actionlint"],
+  "triage": {
+    "model": "tev1",
+    "url": "http://192.168.1.37:11434",
+    "default": "average",
+    "minProbability": 0.3,
+    "question": "How hard is it to fix this failed check of a software project? Judge the work a fix needs, not how scary the message looks.",
+    "levels": {
+      "easy": {
+        "ladder": ["haiku/low", "sonnet/low"],
+        "describe": "A mechanical or small obvious fix: formatting, an import, a license header, a typo, a missing semicolon, a style or analyzer finding in one file, a type or signature change at a few call sites."
+      },
+      "average": {
+        "ladder": ["haiku/high", "sonnet/low"],
+        "describe": "One failing test or runtime error whose cause is visible, or a few classes and tests to change together, or tests to add (a coverage threshold missed)."
+      },
+      "hard": {
+        "ladder": ["sonnet/low"],
+        "describe": "Needs investigation: many failing tests with one shared cause, concurrency, flaky or timing or order-dependent failures, memory, a migration or a build-wide change."
+      }
+    },
+    "from7": {
+      "trivial": "easy",
+      "easy": "easy",
+      "simple": "easy",
+      "moderate": "average",
+      "average": "average",
+      "hard": "hard",
+      "veryhard": "hard"
+    }
+  },
+  "extra": {
+    "docs": {
+      "modules": ["docs"],
+      "variants": [
+        {
+          "tool": "mint",
+          "command": ["sh", "-c", "cd docs && mint broken-links"]
+        }
+      ]
+    },
+    "reuse": {
+      "variants": [
+        {
+          "tool": "reuse",
+          "command": ["reuse", "lint"]
+        }
+      ],
+      "auto": "bun @HERE@/src/heal/fix-reuse.ts"
+    },
+    "actionlint": {
+      "variants": [
+        {
+          "tool": "actionlint",
+          "command": ["actionlint"]
+        },
+        {
+          "tool": "docker",
+          "command": [
+            "sh",
+            "-c",
+            "docker run --rm -v \"$PWD:/repo\" -w /repo rhysd/actionlint:1.7.12@sha256:b1934ee5f1c509618f2508e6eb47ee0d3520686341fec936f3b79331f9315667"
+          ]
+        }
+      ]
+    }
+  }
+}

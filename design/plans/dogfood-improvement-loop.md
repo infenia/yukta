@@ -1,4 +1,4 @@
-> **Superseded (#1277).** The arms (methods A, B and C), the draw and ledger, the analyzer and its judge, the evaluations and the golden set were removed; what remains is heal and its monitoring (`examples/11-dogfood/README.md`, "Monitoring heal"). This plan is kept as history.
+> **Superseded (#1277).** The arms (methods A, B and C), the draw and ledger, the analyzer and its judge, the evaluations and the golden set were removed; what remains is heal and its monitoring (`examples/dogfood/README.md`, "Monitoring heal"). This plan is kept as history.
 
 # Plan: dogfood improvement loop (random method per issue, analyzer after each task)
 
@@ -42,10 +42,10 @@ Decisions made (rounds 1 to 3):
 ## Design
 
 ### 1. Launcher: `yk pick <n>` / `yk next`
-`examples/11-dogfood/yk` + new `scripts/loop.sh`:
+`examples/dogfood/yk` + new `scripts/loop.sh`:
 1. **Eligible**: open, assigned to you, project Status Ready (reuse the claim query and `set_status` of `scripts/yukta-issue.sh`).
 2. **Size**: `scripts/issue-size.sh` (acceptance-criteria bullets + modules named + proposal length) → S/M/L; `size:S|M|L` label overrides.
-3. **Loop-changing flag** (pre-run): labels `dogfood` + module `build`/`cli`, or paths under `examples/11-dogfood`, `build-logic` in the body; confirmed after the run from the diff.
+3. **Loop-changing flag** (pre-run): labels `dogfood` + module `build`/`cli`, or paths under `examples/dogfood`, `build-logic` in the body; confirmed after the run from the diff.
 4. **Draw**: seeded block randomization inside the size stratum (block = one each of A, B, C), **written to the ledger before the run**.
 5. **Run** the method, **analyze**, append the outcome.
 6. **Budget gate**: refuse to start at $60 total; print "review".
@@ -79,7 +79,7 @@ Per method and size: n, median [bootstrap interval] of cost, tokens, wall; deliv
 Fixed balanced draw until the $60 review. Then drop methods that are Pareto-dominated, or move to Thompson sampling if the stream continues and regret matters.
 
 ## Critical files
-- Modify: `examples/11-dogfood/yk` (add `pick`, `next`, `analyze`, `loop`), `scripts/yukta-issue.sh` (steps `solo`, `nav`), `scripts/_claude.sh` (nav MCP flags), `implementer-rules.md` (+ per-backend copies), `examples/11-dogfood/README.md`, `eval/README.md`.
+- Modify: `examples/dogfood/yk` (add `pick`, `next`, `analyze`, `loop`), `scripts/yukta-issue.sh` (steps `solo`, `nav`), `scripts/_claude.sh` (nav MCP flags), `implementer-rules.md` (+ per-backend copies), `examples/dogfood/README.md`, `eval/README.md`.
 - New: `scripts/loop.sh`, `scripts/issue-size.sh`, `scripts/analyze.sh`, `analyzer-rules.md`, `scripts/test-loop.sh`, `eval/golden/` (frozen issues + graders).
 - Reuse: `scripts/report-finding.sh`, `eval/cache_trace.py`, `eval/split.sh`, `eval/eval.sh` (`main_claude`, `usage_of`, `sub_of`, `report`, isolation), `yk stats`, `scripts/fake-project.sh` + `test-issue.sh`, `yukta-run-watcher` agent, the #1218 sub-issues call.
 

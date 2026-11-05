@@ -1,7 +1,7 @@
 # Spike: a native agent/fix step, patch guard and ladder in Yukta (#1230)
 
 Question: should Yukta offer (1) an agent/fix node, (2) a patch guard step, (3) a ladder helper, instead of the shell
-fixer of `examples/11-dogfood`? No production change here.
+fixer of `examples/dogfood`? No production change here.
 
 ## What exists today (origin/main)
 

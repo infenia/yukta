@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
-# `yk check` (examples/11-dogfood/src/plan.ts) and CI (ci-tasks.sh) each decide which Gradle modules a
+# `yk check` (examples/dogfood/src/plan.ts) and CI (ci-tasks.sh) each decide which Gradle modules a
 # change affects. This test makes them agree: for the same changed file, in a copy of the real module graph,
 # both must name the same JVM modules (cli and ui are other ecosystems, which plan.ts plans separately), and
 # both must rebuild every module for a build-logic change (ci-tasks.sh does the same for a test-support change,
@@ -12,7 +12,7 @@ set -euo pipefail
 here=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 src=$(cd "$here/../.." && pwd)
 ci="$src/.github/scripts/ci-tasks.sh"
-plan_script="$src/examples/11-dogfood/src/plan.ts"
+plan_script="$src/examples/dogfood/src/plan.ts"
 
 repo=$(mktemp -d)
 trap 'rm -rf "$repo"' EXIT
