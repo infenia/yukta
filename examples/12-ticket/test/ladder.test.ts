@@ -23,7 +23,7 @@ test('8. BLOCKED -> architect revision: completed steps untouched, spec v2, the 
   expect(ev('architect_revise').length).toBeGreaterThanOrEqual(1)
   expect(json(join(w.run, 'steps/S1/status.json')).status).toBe('DONE')
   expect(json(join(w.run, 'steps/S2/status.json')).status).toBe('DONE')
-  expect(git(join(w.d, 'yukta-issue-7'), 'log', '--format=%s').out.split('\n').filter(l => l.includes('(#7 S1)'))).toHaveLength(1)
+  expect(git(join(w.d, 'yukta-issue-7'), 'log', '--format=%s', 'issue/7').out.split('\n').filter(l => l.includes('(#7 S1)'))).toHaveLength(1)
   // a revision may not replace a completed step
   const copy = join(w.d, 'run2')
   rmSync(copy, { recursive: true, force: true })

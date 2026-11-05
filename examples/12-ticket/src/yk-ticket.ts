@@ -6,6 +6,8 @@
 //   yk ticket run <issue> [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>
 //   yk ticket new <title> --criterion C [--criterion C..] [--goal G] [--role architect=opus/high..] [--label L..] [--ready]   file a ticket in the shape the pipeline reads (ticket-template.md)
 //   yk ticket edit <issue> [--title T] [--goal G] [--criterion C..] [--role r=model/effort..] [--label L..] [--ready] [--force]   change what is passed, keep the rest of the body
+//   yk ticket worktree <issue> [--branch B] [--base REF] [--in DIR]   a worktree or branch for the issue, reusing what exists (branch.ts)
+//   yk ticket pr <issue> [--worktree W] [--title T] [--result R]      push the branch and open a DRAFT PR with `Fixes #n` (branch.ts)
 //   yk ticket status <issue|execution>            the run's tree (which node runs or failed) and its last events
 //   yk ticket supervisor                          install the dogfood supervisor of the ticket questions (supervisor/*.json: internal session, workflow, profile, binding)
 //   yk ticket report [--json]                      first-try pass rate, cost share and cache hit ratio by role, prefix mismatches, BLOCKED rate (ticket-events.jsonl)
@@ -19,6 +21,7 @@ import { cmdRunControl, cmdTree, startNotifier, watchOwned } from '../../11-dogf
 import { main as report } from './report.ts'
 import { KIT } from './lib.ts'
 import { main as github } from './github.ts'
+import { pr as prCmd, releaseCmd, worktree as worktreeCmd } from './branch.ts'
 import { criteria as criteriaOf } from './init.ts'
 import { parseRole, renderBody, replaceSection, roleLines, rolesOf, withDefaults } from './roles.ts'
 
@@ -167,6 +170,9 @@ export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<
     case 'new': return ticketNew(rest)
     case 'edit': return ticketEdit(rest)
     case 'run': return ticketRun(rest, o.ykPath)
+    case 'worktree': return worktreeCmd(rest)
+    case 'release': return releaseCmd(rest)
+    case 'pr': return prCmd(rest)
     case 'supervisor': await ensureServer(); console.log((await installSupervisor()).join('\n')); return 0
     case 'report':
       process.env.YUKTA_TICKET_EVENTS ||= join(DEV_HOME, 'ticket-events.jsonl')
@@ -188,6 +194,6 @@ export async function cmdTicket(argv: string[], o: { ykPath: string }): Promise<
       }
       return cmdRunControl(sub, [execId, '--tree'])
     }
-    default: return die('usage: yk ticket new <title> --criterion C.. | edit <issue> [--criterion C..] | run <issue> [--detach [--notify]] | supervisor | report [--json] | status|resume|stop <issue|execution>')
+    default: return die('usage: yk ticket new <title> --criterion C.. | edit <issue> [--criterion C..] | run <issue> [--detach [--notify]] | worktree <issue> [--branch B] [--in DIR] | pr <issue> [--title T] | release <issue> | supervisor | report [--json] | status|resume|stop <issue|execution>')
   }
 }
