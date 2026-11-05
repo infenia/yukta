@@ -61,7 +61,7 @@ with the `pickup_done` tool, which frees the channel (it also frees itself after
 the allowlist, so each session starts with `--dangerously-load-development-channels` and its dialog; `claude -p` ignores that flag, so the
 sessions must be interactive and stay open.
 
-`yk pickup on|off|now [--to N]|status` drives the schedule: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in
+`yk pickup on|off|now [--to N] [--issue 12,34]|list|status` drives the schedule. `--issue` (or the file `$DEV_HOME/pickup-issues`: numbers, one per line, `//` comments) hands out only those issues; `list` prints the candidates of the next round with `[free]` or `[taken: ...]`: workflow `pickup` (`SCHEDULE_TRIGGER`, every 30 min, `INTERVAL_MS` in
 `src/gen-session.ts`) runs `src/pickup.ts tick`. A tick reads the registry (an entry whose pid is dead is deleted), asks each session
 for its `/status`, and hands the next issue to the **oldest idle session**: the first assigned, Ready issue by Priority (P0 first) with no open
 PR naming it and no `issue/<n>` branch on the remote. With several idle sessions and several such issues one tick hands one issue to each
