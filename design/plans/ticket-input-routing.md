@@ -1,8 +1,8 @@
 # Ticket pipeline questions through supervisors and a Claude Code session
 
-Design for routing the questions and approvals of the ticket pipeline (`examples/12-ticket`, Epic #1872) through the input request machinery (Epic #1787): a dogfood supervisor first, then the Claude Code session that picked the ticket up, then the person at that session's terminal. Nobody polls: every hop is a push.
+Design for routing the questions and approvals of the ticket pipeline (`examples/dogfood/ticket`, Epic #1872) through the input request machinery (Epic #1787): a dogfood supervisor first, then the Claude Code session that picked the ticket up, then the person at that session's terminal. Nobody polls: every hop is a push.
 
-Status (2026-11-03): proposal. Built on what is merged: `InputGateway`, `ASK_INPUT`, routes and tiers (#1796 parts 1 and 2: escalation, confidence, votes, one-time token, delivery outbox, webhook responder), workflow-backed supervisors (#1798), the pickup channel (`examples/11-dogfood/channel`).
+Status (2026-11-03): proposal. Built on what is merged: `InputGateway`, `ASK_INPUT`, routes and tiers (#1796 parts 1 and 2: escalation, confidence, votes, one-time token, delivery outbox, webhook responder), workflow-backed supervisors (#1798), the pickup channel (`examples/dogfood/channel`).
 
 ## 1. Goal and flow
 
@@ -31,7 +31,7 @@ A question may hold several sub-questions (kind `STRUCTURED`); the answer carrie
 | One-time token endpoint, delivery outbox, `WebhookInputResponder` | merged (#1796 part 2) |
 | Workflow-backed supervisor, internal session, hidden runs | merged (#1798 parts 1 to 3; part 3 in review) |
 | Pull path: SSE `/api/events/stream` and MCP `list_pending_inputs`, `answer_input`, `escalate_input` | merged (#1793) |
-| Pickup channel: oldest idle session gets the issue, pushed as a `<channel>` event | merged (11-dogfood) |
+| Pickup channel: oldest idle session gets the issue, pushed as a `<channel>` event | merged (dogfood) |
 | Ticket gates (`approve_spec`, pause, `approve_merge`) are `ASK_INPUT` nodes | merged, but with no route, no issue metadata and approve/reject only |
 | **Input bridge**: a request reaching a tier notifies the right channel session | missing |
 | **Session mode of pickup**: the session receives the issue and runs `yk ticket run` itself | missing (today `pickup tick` runs the pipeline itself, mode `ticket`) |
@@ -61,7 +61,7 @@ The session tier is an `AUTO` tier so the session can answer LOW and MEDIUM ques
 
 A workflow supervisor bound to the dogfood session. It reads the request (prompt, context, risk, advice) and the run directory facts it needs through the Yukta MCP with a VIEWER key, and returns an answer with a confidence, or an escalation with advice. It may only answer LOW risk, never spec approval, merge approval or a question about secrets, money or access. It starts in **shadow** like the decision model: it records "would answer X (0.9)" and escalates; it answers for real only after its agreement with the person's answers meets a bar (`yk stats --decisions` style report, default 50 requests and 90%).
 
-### 3.3 The input bridge (`examples/11-dogfood/src/input-bridge.ts`)
+### 3.3 The input bridge (`examples/dogfood/src/input-bridge.ts`)
 
 One small long-lived process (started by `yk pickup session` or `yk pickup on`, one per dev server) that subscribes to the SSE feed (`InputRequested`, `InputEscalated`) with the read-only fixer key and, when a request sits at the `session` tier:
 
@@ -115,9 +115,9 @@ The channel session answers with an OPERATOR key limited to the `dogfood` sessio
 Tracked in Epic #1926 (sub-issues: bridge #1920, ticket gates #1921, pickup session mode #1922, dogfood supervisor #1923, per-run answer key #1924, end-to-end tests #1925).
 
 1. **Design doc** (this file).
-2. **Input bridge** (`11-dogfood`, TypeScript on Bun): SSE subscription, owner lookup, channel POST, tests against a fake server and a fake channel.
-3. **Ticket gates on the `ticket` route** (`12-ticket`): route, metadata, `NEEDS_CLARIFICATION` as a STRUCTURED request, pause text into the revision.
-4. **Pickup session mode and skill** (`11-dogfood`, `.claude/skills/pickup`): the session runs `yk ticket run` and answers inputs.
+2. **Input bridge** (`dogfood`, TypeScript on Bun): SSE subscription, owner lookup, channel POST, tests against a fake server and a fake channel.
+3. **Ticket gates on the `ticket` route** (`dogfood/ticket`): route, metadata, `NEEDS_CLARIFICATION` as a STRUCTURED request, pause text into the revision.
+4. **Pickup session mode and skill** (`dogfood`, `.claude/skills/pickup`): the session runs `yk ticket run` and answers inputs.
 5. **Dogfood supervisor workflow**, shadow mode, report (`examples/` workflow plus the route configuration).
 6. **Answer key limited to a run**: verify the authoriser can express it; add the `audience` rule and the per-run key if not.
 7. **End-to-end offline test and fault cases**: bridge down, session gone, double answer, HIGH risk goes to the person, supervisor below confidence escalates, advice reaches the next tier.
@@ -126,6 +126,6 @@ Each is one PR; 2 and 3 can run in parallel; 4 needs 2 and 3; 5 and 6 can follow
 
 ## 8. Open questions
 
-- **A headless implementer asking mid-step.** Role calls are `claude -p` without MCP, so they cannot call `ask_for_input` today. The current path (`BLOCKED` to an architect revision to the person) covers it. Giving a role call the Yukta MCP with `ask_for_input` is possible but changes the constant-prefix cache and the guardrails of 12-ticket; decide after the first real runs of #1881.
+- **A headless implementer asking mid-step.** Role calls are `claude -p` without MCP, so they cannot call `ask_for_input` today. The current path (`BLOCKED` to an architect revision to the person) covers it. Giving a role call the Yukta MCP with `ask_for_input` is possible but changes the constant-prefix cache and the guardrails of dogfood/ticket; decide after the first real runs of #1881.
 - **Several sessions.** One session owns one run; a second session never receives its events. If a session is closed mid-run, a pickup tick may hand the same run (not the same issue) to a new one; not designed here.
 - **Prompts that need the diff.** The notification links to files; the session reads them from the worktree. A remote session would not see them; out of scope (local dev server only).

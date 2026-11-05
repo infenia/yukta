@@ -53,11 +53,11 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [01](01-hello-world/) | Smallest workflow, end-to-end check | CONSTANT_SOURCE → PROCESS_EXECUTOR → terminal | REST |
 | [09](09-llm-chat-agent/) | Chat agent with per-user memory (needs an LLM endpoint) | SESSION_MEMORY → LLM_CALL → SESSION_MEMORY | REST |
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
-| [11](11-dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
+| [dogfood](dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
 
 ### Supervisor profiles
 
-[`supervisor-profiles/input-requests.json`](supervisor-profiles/input-requests.json) is a rule supervisor profile that approves low
+[`16-supervisor-profiles/input-requests.json`](16-supervisor-profiles/input-requests.json) is a rule supervisor profile that approves low
 risk input requests for staging and escalates the rest with advice. Create it with `POST /api/supervisors/profiles` (admin key) and
 bind it to a session with `POST /api/supervisors/bindings`; see the docs page "Input requests". A test loads it, so it stays valid.
 

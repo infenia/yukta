@@ -40,7 +40,7 @@ Goal:
 | CLI vs MCP | Both. The CLI is primary (start, watch, RESULT, hooks, watcher); MCP is for drill-down and steering |
 | Claude extras | Prompt-intent hook, touched-module tracking, status line (project settings), slash commands |
 | Providers | main-jar (default) and `release`. Deleted: native, jar, docker, worktree |
-| Location / entry | Stays in `examples/11-dogfood/`; one `yk` script |
+| Location / entry | Stays in `examples/dogfood/`; one `yk` script |
 | State | `~/.local/state/yukta-dev/` machine-wide (main worktree, `builds/<sha>/`, pid/env/log, sessions). Per-checkout `.yukta-dev/` keeps heal records, durations, baselines, touched modules |
 
 ## 1. Server from main on 9858 — `yk up | down | status`
@@ -204,7 +204,7 @@ The full-log default of `yukta-check.sh` (`mode=logs`, which the skill forbids) 
   - The skill names the drill-down tools (`get_execution_logs` regex+tail, `get_execution_result`, `control_node`, `signal_node`,
     `set_node_breakpoint`, `list_pending_approvals`).
   - Known issue: output validation rejects running executions. File it as a dogfood issue, or fix it in PR2 if small.
-- **Permissions** (shared settings): allow `Bash(examples/11-dogfood/yk *)` and the read-only `mcp__yukta__*` tools.
+- **Permissions** (shared settings): allow `Bash(examples/dogfood/yk *)` and the read-only `mcp__yukta__*` tools.
   Suggest the user drop `Bash(./gradlew *)` from their local settings.
 - **Watcher subagent**: `yukta-run-watcher.md` is updated to `yk watch`. It's simpler now that one execution id (plus
   descendants) covers the whole run.
@@ -217,7 +217,7 @@ The full-log default of `yukta-check.sh` (`mode=logs`, which the skill forbids) 
   - Detail goes to `reference/{heal,dogfood-loop,server,layered-workflows}.md`.
 - **CLAUDE.md**: the test-tier table keeps its tiers with `yk` commands, plus the port-9858 line and the "direct gradle is blocked"
   note. Apply the same swap in the 13 module CLAUDE.md files and `.claude/rules/*.md`.
-- Also update: root README "Developing Yukta" (port 9858), the rewritten `examples/11-dogfood/README.md`, `pickup/SKILL.md`,
+- Also update: root README "Developing Yukta" (port 9858), the rewritten `examples/dogfood/README.md`, `pickup/SKILL.md`,
   `.github/PULL_REQUEST_TEMPLATE.md`, `perf/KNOWN-ISSUES.md`. Leave `design/` history alone; add
   `design/plans/yukta-dev-loop.md` (this plan).
 
@@ -244,7 +244,7 @@ Principle: spawn Claude only when nothing cheaper works, and make every spawned 
    - `--tools Read,Edit,Write,Grep,Glob,Bash` (fixed order);
    - `--exclude-dynamic-system-prompt-sections` (cwd and git status leave the system prompt, so worktrees share the cache);
    - a pinned `--model`.
-   - One **constant** `--append-system-prompt` (`examples/11-dogfood/fixer-rules.md`). Everything per-run (stage, problems,
+   - One **constant** `--append-system-prompt` (`examples/dogfood/fixer-rules.md`). Everything per-run (stage, problems,
      diff stat) goes in the user prompt only.
    - Not `--bare`: it drops the login.
    - The project hooks still load, which keeps the PreToolUse guard. `YUKTA_HEAL_FIXER=1` lets gradle through.

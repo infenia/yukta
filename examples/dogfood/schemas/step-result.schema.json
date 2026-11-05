@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "StepResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["step_id", "status"],
+  "properties": {
+    "step_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": ["DONE", "BLOCKED"]
+    },
+    "notes": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "blocked": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "detail"],
+      "properties": {
+        "category": {
+          "enum": ["missing_context", "spec_conflict", "contract_unclear", "needs_out_of_scope_change"]
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "question": {
+          "type": "string",
+          "maxLength": 200
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "BLOCKED"
+          }
+        }
+      },
+      "then": {
+        "required": ["blocked"]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "DONE"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": ["blocked"]
+        }
+      }
+    }
+  ],
+  "$id": "step-result.schema.json"
+}

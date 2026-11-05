@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+#
+# SPDX-License-Identifier: Apache-2.0
+
+session.json
+ticket-session.json
+bun.lock
+# prompts: byte-stable, read at runtime
+fixer-rules.md
+fixer-rules/
+ticket-template.md

@@ -242,7 +242,7 @@ route:
 ```
 
 - **Delivery** is an outbox row per (request, tier), sent at least once with backoff. Responders must be idempotent by request id.
-- **External agents** that cannot be called can pull: SSE `/api/events/stream?type=InputRequested`, MCP `list_pending_inputs`, then `answer_input`. The Claude Code channel under `examples/11-dogfood/channel` is one such transport and needs no core change.
+- **External agents** that cannot be called can pull: SSE `/api/events/stream?type=InputRequested`, MCP `list_pending_inputs`, then `answer_input`. The Claude Code channel under `examples/dogfood/channel` is one such transport and needs no core change.
 - **Supervisors** influence a route without owning it. `EscalateInputCommand` adds advice ("approve, because the deploy matches policy X") that the next tier sees.
 - **Quorum** turns answers from supervisors in a tier into votes. The broker resolves when the quorum agrees and escalates on disagreement. The eligible supervisors are counted **per request**: those whose scope matches the request's session, workflow and node, so a section request counts only its section's supervisors.
 

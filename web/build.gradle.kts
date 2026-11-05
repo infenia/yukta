@@ -42,7 +42,7 @@ coverageConfig {
 tasks.processResources {
     from(rootProject.layout.projectDirectory.dir("examples")) {
         include("*/session.json", "*/README.md")
-        exclude("11-dogfood/**", "lib/**")
+        exclude("dogfood/**", "lib/**")
         into("templates")
     }
 }

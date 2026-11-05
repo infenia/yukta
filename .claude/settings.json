@@ -3,8 +3,8 @@
     "allow": [
       "Bash(yk *)",
       "Bash(yk)",
-      "Bash(examples/11-dogfood/yk *)",
-      "Bash(examples/11-dogfood/yk)",
+      "Bash(examples/dogfood/yk *)",
+      "Bash(examples/dogfood/yk)",
       "mcp__yukta__get_execution_tree",
       "mcp__yukta__get_execution_logs",
       "mcp__yukta__get_execution_result",
@@ -23,7 +23,7 @@
       "Read(./**/openapi.json)",
       "Read(./**/*.generated.*)",
       "Read(./**/META-INF/native-image/**/*)",
-      "Read(./**/11-dogfood/session.json)"
+      "Read(./**/dogfood/session.json)"
     ]
   },
   "extraKnownMarketplaces": {

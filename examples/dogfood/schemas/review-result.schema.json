@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ReviewResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "criteria_results", "findings"],
+  "properties": {
+    "verdict": {
+      "enum": ["APPROVE", "CHANGES_REQUESTED"]
+    },
+    "criteria_results": {
+      "type": "array",
+      "contains": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "const": "TESTS_FAITHFUL"
+          }
+        },
+        "required": ["id"]
+      },
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "criterion_result",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "met", "evidence"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^(AC[0-9]+|TESTS_FAITHFUL)$"
+          },
+          "met": {
+            "type": "boolean"
+          },
+          "evidence": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "finding",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["severity", "path", "issue", "suggested_action"],
+        "properties": {
+          "severity": {
+            "enum": ["blocker", "major", "minor"]
+          },
+          "path": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "issue": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "suggested_action": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      }
+    }
+  },
+  "$id": "review-result.schema.json"
+}

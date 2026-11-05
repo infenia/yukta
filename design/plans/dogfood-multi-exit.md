@@ -19,7 +19,7 @@ Compiled, formatted and tested: steps 0, 1 (rule actions `Restart`/`RestartFromN
 1. Rule actions `RestartFromNode` / `Restart` in `EventRule.commandFor` (rule-supervisor); host generates `newExecutionId`.
 2. Attempt lineage across restarts (`attempt` event field) in `RestartFromNodeCommandProcessor`, so rules can bound loops.
 3. `Escalate` rule action (ERROR-severity audit/ControlOutcome) for the external Claude supervisor.
-4. Per-stage workflows in `examples/11-dogfood/session.json` with `OUTCOME_TERMINAL` exits, `rules.json`, thin `yukta-check.sh` driver; remove the unrolled `self_heal` chain in `scripts/_lib.sh`.
+4. Per-stage workflows in `examples/dogfood/session.json` with `OUTCOME_TERMINAL` exits, `rules.json`, thin `yukta-check.sh` driver; remove the unrolled `self_heal` chain in `scripts/_lib.sh`.
 5. Docs (`docs/running/{rule-files,supervisors}.mdx`, `docs/api/streams.mdx`) and `docs/internal/bugs.mdx` entries for gaps G1-G5.
 6. Acceptance test in `boot/.../SupervisorAcceptanceTest`; final `./gradlew spotlessApply check`.
 
@@ -28,7 +28,7 @@ Compiled, formatted and tested: steps 0, 1 (rule actions `Restart`/`RestartFromN
 # Plan: Multi-exit dogfood workflows + supervisor-driven restart
 
 ## Context
-`examples/11-dogfood` runs `gradle check` as one long DAG. Self-healing is *unrolled inside the DAG*
+`examples/dogfood` runs `gradle check` as one long DAG. Self-healing is *unrolled inside the DAG*
 (`self_heal` in `scripts/_lib.sh` generates `S → S-auto → S-r1 → S-fix1 → S-r2 → S-fix2 → S-r3` per stage
 plus a `verify` node). That makes the graph large, hard to maintain, and hides the real control flow
 (repair/retry) inside the workflow instead of the control plane.
@@ -41,7 +41,7 @@ the **supervisor** (control plane) watches, repairs, and restarts from the faile
 |---|---|---|
 | G1 | Rule `then` cannot emit `Restart`/`RestartFromNode` (only Pause/Resume/Stop Workflow/Node). The engine supports them (`RestartFromNodeCommandProcessor`, `RestartCoordinator`, `DirectiveDispatcher.isRestartOfArchived` allows restart of a *finished* run), but `EventRule.commandFor` rejects them. Restart also needs a pre-generated `newExecutionId`. | `plugins/supervisors/rule-supervisor/.../EventRule.java`, `ExecutionControlCommand.RestartFromNodeCommand` |
 | G2 | No way to say *which exit* a run took. `CONSOLE_TERMINAL` only logs; a failure port routed into it ends the run `COMPLETED`, so success vs "needs restart" vs "unfixable" are indistinguishable from `WorkflowStatusChanged`. | `ConsoleTerminalPlugin`, `routeByExitCode` ports |
-| G3 | Untaken nodes are reported `SUCCESS` (README: "Nodes that were not reached are reported SUCCESS"), so a rule keyed on an exit terminal's `NodeStatusChanged` would false-fire. Needs verification, then a `SKIPPED/NOT_REACHED` status or an explicit outcome event. | `examples/11-dogfood/README.md` Self-healing section |
+| G3 | Untaken nodes are reported `SUCCESS` (README: "Nodes that were not reached are reported SUCCESS"), so a rule keyed on an exit terminal's `NodeStatusChanged` would false-fire. Needs verification, then a `SKIPPED/NOT_REACHED` status or an explicit outcome event. | `examples/dogfood/README.md` Self-healing section |
 | G4 | Rules are stateless per event: no per-(execution, stage) attempt budget across *restarts* (a restart is a **new** execution id; `count/withinSeconds` is keyed per execution), so a "apply → re-check → still failing" loop cannot be bounded in rules. No lineage between old and new execution. | `RuleSupervisor.countReached` key `rule/executionId` |
 | G5 | Rules cannot call an LLM/fixer or escalate; the model control plane only answers `NONE/PAUSE/STOP` (no restart option, no node target). The Claude fixer lives in `yukta-heal.sh` inside the DAG. `ControlDecision`/`Fields` expose no `outcome`, exit code is only in `metadata`. | `ModelControlPlane`, `ControlDecision`, `Fields` |
 
@@ -74,7 +74,7 @@ Exits: (1) **SUCCESS** → supervisor starts next stage; (2) **RETRY** (apply fi
 (3) **ESCALATE** (apply failed too) → supervisor hands failure (`metadata.error`, failing node) to the fixer (Claude, `yukta-heal.sh` claude mode, reused),
 then `Restart`s the stage. Same shape for compile/tests/coverage/style/spotbugs/cli (their "auto" step is empty → fail goes straight to ESCALATE); licenses/security stay fail-fast (`OUT[FAILED]`).
 
-A tiny **pipeline rule file** (`examples/11-dogfood/rules.json`) chains stages on `OutcomeReported SUCCESS` (start next workflow),
+A tiny **pipeline rule file** (`examples/dogfood/rules.json`) chains stages on `OutcomeReported SUCCESS` (start next workflow),
 restarts on `RETRY` with `attempt < 2`, escalates otherwise; final `verify` is just the last stage. Enabled via `yukta.supervisor.rules.file`.
 `yukta-check.sh` becomes a thin driver: start stage 1, follow the control bus, act only on `ESCALATE` (invoke fixer, send restart via `yukta workflow node retry`), print the single `RESULT` line (keep its format incl. `healed=`).
 
@@ -84,7 +84,7 @@ restarts on `RETRY` with `attempt < 2`, escalates otherwise; final `verify` is j
 - `core/.../service/supervisor/SupervisorHost.java` (new-id generation for restart commands; audit field extraction already handles `RestartFromNodeCommand`), `RestartFromNodeCommandProcessor` (attempt lineage).
 - `core/` orchestrator: report unreached nodes `SKIPPED` (G3) — verify first; if invasive, defer and rely on `OUTCOME_TERMINAL`.
 - New `plugins/terminals/outcome-terminal` (copy structure of `notify-terminal`; register in boot).
-- `examples/11-dogfood/{session.json,heal.json,rules.json,scripts/_lib.sh,yukta-check.sh,yukta-heal.sh,test-self-heal.sh,README.md}`.
+- `examples/dogfood/{session.json,heal.json,rules.json,scripts/_lib.sh,yukta-check.sh,yukta-heal.sh,test-self-heal.sh,README.md}`.
 - Docs: `docs/running/{rule-files,supervisors}.mdx`, `docs/api/streams.mdx` (new event), `docs/internal/bugs.mdx` (DF entries for G1–G5).
 - Remove `self_heal` unrolling after the new path passes `test-self-heal.sh` equivalent.
 

@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import tools.jackson.databind.json.JsonMapper;
 
-/** The example profile in {@code examples/supervisor-profiles} loads and does what it says. */
+/** The example profile in {@code examples/16-supervisor-profiles} loads and does what it says. */
 @NoArgsConstructor
 class InputRulesExampleTest {
 

@@ -24,7 +24,7 @@ const CASES: [string, string | null][] = [
   ["./gradlew :core:test --tests 'a.B.c d'", "yk gradle :core:test --tests 'a.B.c d'"],
   ['yk gradle :core:test', null],
   ['./gradlew test 2>&1 | tail -5', 'yk gradle test'],
-  ['bun examples/11-dogfood/src/plan.ts', 'yk tool -C examples/11-dogfood bun examples/11-dogfood/src/plan.ts'],
+  ['bun examples/dogfood/src/plan.ts', 'yk tool -C examples/dogfood bun examples/dogfood/src/plan.ts'],
   ['bunx tsc --noEmit', 'yk tool -C ui bunx tsc --noEmit'],
 ]
 

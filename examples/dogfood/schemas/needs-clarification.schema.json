@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NeedsClarification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status", "questions"],
+  "properties": {
+    "status": {
+      "const": "NEEDS_CLARIFICATION"
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "title": "question",
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "question", "why_blocking"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^Q[0-9]+$"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 300
+          },
+          "why_blocking": {
+            "type": "string",
+            "maxLength": 300
+          }
+        }
+      }
+    }
+  },
+  "$id": "needs-clarification.schema.json"
+}

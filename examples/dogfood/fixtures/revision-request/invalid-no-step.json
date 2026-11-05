@@ -1,0 +1,14 @@
+{
+  "run_id": "1-x",
+  "spec_version": 1,
+  "trigger": "step_blocked",
+  "attempts": [
+    {
+      "model": "haiku",
+      "effort": "medium",
+      "failure_digest_ref": "steps/S2/attempt-1/failure.json"
+    }
+  ],
+  "completed_steps": ["S1"],
+  "question": "Why?"
+}

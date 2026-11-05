@@ -1,0 +1,7 @@
+[test]
+root = "test"
+
+[fmt]
+printWidth = 140
+semi = false
+singleQuote = true
