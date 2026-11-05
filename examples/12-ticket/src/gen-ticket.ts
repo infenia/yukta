@@ -201,10 +201,7 @@ t.chain([
   [pe('init', ['init', S('issue'), '--run-id', S('runId'), '--root', S('project')], 300), 'init failed or the issue is skipped (the branch or worktree exists)'],
   [pe('claim', ['github', 'claim', S('issue')], 120), 'the issue could not be moved to In progress'],
 ], 'route')
-t.chain([
-  [pe('route', ['route', RUN], 120), 'route failed'],
-  [pe('triage', ['decision', 'triage', RUN], 180), 'triage failed'],
-], 'architect1', true) // the static rules decide in shadow mode
+t.chain([[pe('route', ['route', RUN], 120), 'route failed']], 'architect1', true) // complexity and risk come from the ticket's own criteria, labels and paths
 // the architect, with validate-spec errors fed back, twice at most
 for (const k of [1, 2, 3]) {
   t.add(pe(`architect${k}`, ['call', 'architect', RUN, ...W], 2400, { json: true, claude: true }), pe(`validate_spec${k}`, ['validate-spec', RUN, ...W], 300))
@@ -270,7 +267,7 @@ t.chain([
   [pe('close', ['flow', 'close', RUN, '--events', S('events')], 60), 'close failed'],
 ], 'done')
 t.edges.push(...edges('trigger', 'intake'))
-const TICKET_WF = t.workflow('ticket', 'Turn a GitHub issue with acceptance criteria into a reviewed draft PR: architect, tests, steps with a retry ladder, review.')
+const TICKET_WF = t.workflow('ticket', 'Implement one GitHub issue end to end. Reads the Goal, Acceptance criteria and Pipeline roles of an open, assigned, Ready issue, then an architect writes a spec and test cases, a test writer locks failing tests, an implementer builds it step by step (retry ladder, heal, escalation), and a fresh reviewer signs off. Ends with a draft PR that says Fixes #<issue>; never merges. Start with `yk ticket run <issue>`.')
 
 export const WORKFLOWS: Record<string, Json> = { ticket: TICKET_WF, attempt_round: ROUND_WF, steps_round: STEPS_WF, wave: WAVE_WF, step: STEP_WF, finalize: FINAL_WF, escalate: ESC_WF }
 

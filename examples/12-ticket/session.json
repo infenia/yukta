@@ -2,7 +2,7 @@
   "workflows": {
     "ticket": {
       "workflowId": "ticket",
-      "description": "Turn a GitHub issue with acceptance criteria into a reviewed draft PR: architect, tests, steps with a retry ladder, review.",
+      "description": "Implement one GitHub issue end to end. Reads the Goal, Acceptance criteria and Pipeline roles of an open, assigned, Ready issue, then an architect writes a spec and test cases, a test writer locks failing tests, an implementer builds it step by step (retry ladder, heal, escalation), and a fresh reviewer signs off. Ends with a draft PR that says Fixes #<issue>; never merges. Start with `yk ticket run <issue>`.",
       "nodes": [
         {
           "nodeId": "trigger",
@@ -172,71 +172,6 @@
               "route",
               "--reason",
               "route failed"
-            ],
-            "workingDir": "${start.project}",
-            "env": {
-              "YK_CLAUDE_BIN": "${start.claudeBin}",
-              "TICKET_GATE_STEP": "${start.gateStep}",
-              "TICKET_GATE_FINAL": "${start.gateFinal}",
-              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
-              "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
-              "TICKET_GATE_WAVE": "${start.gateWave}"
-            },
-            "timeout": 120,
-            "timeoutSeconds": 120,
-            "failureMode": "CONTINUE"
-          }
-        },
-        {
-          "nodeId": "triage",
-          "type": "PROCESS_EXECUTOR",
-          "config": {
-            "command": [
-              "bun",
-              "__TICKET__/src/ticketkit.ts",
-              "decision",
-              "triage",
-              "${start.run}"
-            ],
-            "workingDir": "${start.project}",
-            "env": {
-              "YK_CLAUDE_BIN": "${start.claudeBin}",
-              "TICKET_GATE_STEP": "${start.gateStep}",
-              "TICKET_GATE_FINAL": "${start.gateFinal}",
-              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
-              "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
-              "TICKET_GATE_WAVE": "${start.gateWave}"
-            },
-            "timeout": 180,
-            "timeoutSeconds": 180,
-            "failureMode": "CONTINUE",
-            "routeByExitCode": true
-          }
-        },
-        {
-          "nodeId": "triage.failed",
-          "type": "OUTCOME_TERMINAL",
-          "config": {
-            "outcome": "FAILED",
-            "reason": "triage failed"
-          }
-        },
-        {
-          "nodeId": "triage.dead",
-          "type": "PROCESS_EXECUTOR",
-          "config": {
-            "command": [
-              "bun",
-              "__TICKET__/src/ticketkit.ts",
-              "github",
-              "dead-end",
-              "${start.run}",
-              "--stage",
-              "triage",
-              "--reason",
-              "triage failed"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2512,7 +2447,7 @@
         },
         {
           "source": "route",
-          "target": "triage",
+          "target": "architect1",
           "sourcePort": "success"
         },
         {
@@ -2523,20 +2458,6 @@
         {
           "source": "route.dead",
           "target": "route.failed"
-        },
-        {
-          "source": "triage",
-          "target": "architect1",
-          "sourcePort": "success"
-        },
-        {
-          "source": "triage",
-          "target": "triage.dead",
-          "sourcePort": "failure"
-        },
-        {
-          "source": "triage.dead",
-          "target": "triage.failed"
         },
         {
           "source": "architect1",

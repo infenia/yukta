@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-// ticketkit route RUN_DIR [--set complexity=S risk=low]: writes RUN_DIR/routing.json (design 3.1, 3.3, 15.8 static rules).
+// ticketkit route RUN_DIR writes RUN_DIR/routing.json (design 3.1, 3.3, 15.8 static rules).
 //
 // complexity from the acceptance-criteria count (<= 2 S, <= 5 M, else L; more than one ecosystem: at least M); risk high for a risk or
 // security label or more than one module, medium when no module label is known, else low; kind came from init.
@@ -23,30 +23,21 @@ export function pathHits(t: Json, p: Json): string[] {
   return [...words].filter(w => w.includes('/') && matches(w, p.high_risk_paths)).sort()
 }
 
-export function build(t: Json, p: Json, complexity: string, risk: string, decidedBy: string): Json {
+export function build(t: Json, p: Json, complexity: string, risk: string): Json {
   return {
-    ticket_id: t.ticket_id, kind: t.kind, complexity, risk, decided_by: decidedBy, tests_mode: testsModeFor(t.kind, complexity, risk),
+    ticket_id: t.ticket_id, kind: t.kind, complexity, risk, tests_mode: testsModeFor(t.kind, complexity, risk),
     allow_architect_code: risk === 'high', tier_mode: p.tier_mode, models: { ...modelTable(complexity, risk, p.tier_mode, p.implementer_override), ...t.roles }, // roles: the ticket's own choice wins
     budget_usd: p.budgets_usd[complexity],
   }
 }
 
 export function main(argv: string[]): number {
-  if (!argv.length || ![1, 3, 4].includes(argv.length)) die('usage: ticketkit route RUN_DIR [--set complexity=S risk=low]')
+  if (argv.length !== 1) die('usage: ticketkit route RUN_DIR')
   const run = argv[0]!
   const t = load(join(run, 'ticket.json'))
   const p = load(join(run, 'project.json'))
-  let [complexity, risk] = staticRoute(t, p)
-  let by = 'static'
-  for (const kv of argv.slice(1)) { // --set k=v...: the decision model (mode on) overrides the static rule
-    if (kv.includes('=')) {
-      const [k, v] = kv.split('=') as [string, string]
-      if (k === 'complexity') complexity = v
-      else risk = v
-      by = 'model'
-    }
-  }
-  const r = build(t, p, complexity, risk, by)
+  const [complexity, risk] = staticRoute(t, p)
+  const r = build(t, p, complexity, risk)
   save(join(run, 'routing.json'), r)
   console.log(`ROUTE complexity=${complexity} risk=${risk} tests_mode=${r.tests_mode} architect=${r.models.architect.model}`)
   return 0
