@@ -55,9 +55,14 @@ class SseStreamsAndPaginationTest {
 
   @Test
   void testKeepAliveStopsWhenDataEnds() {
-    StepVerifier.create(
-            SseStreams.events(
-                Flux.just("a").delayElements(Duration.ofMillis(50)), null, Duration.ofMillis(10)))
+    // Virtual time: no real timers, so a loaded CI runner cannot reorder the ticks and the end.
+    StepVerifier.withVirtualTime(
+            () ->
+                SseStreams.events(
+                    Flux.just("a").delayElements(Duration.ofMillis(50)),
+                    null,
+                    Duration.ofMillis(10)))
+        .thenAwait(Duration.ofMillis(200))
         .thenConsumeWhile(e -> true)
         .verifyComplete();
   }
