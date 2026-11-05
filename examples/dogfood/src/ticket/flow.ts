@@ -3,6 +3,7 @@
 // ticketkit flow ACTION RUN [STEP] [--worktree W]: the glue of the `ticket` and `step` workflows (design 6, 8.2, 15.5), no model.
 //
 //   preflight   RUN                    the walking skeleton runs one step of a low or medium risk spec; anything else stops here (approval, waves: later issues)
+//   retry-spec  RUN                    the test writer was blocked or the gate failed: the reason goes to spec/downstream.json for the next architect, the worktree is reset
 //   commit-tests RUN                   commit the stubs and locked tests; the base of every step not done is reset to it
 //   step-begin  RUN STEP               commit the scaffold and locked tests as the base, record it, write the step packet (pack-step)
 //   validate-step RUN STEP --attempt N the ladder of 8.2: diff.patch from git, scope-check, regen, free-fix, then the step gate (yk check --no-heal --base B);
@@ -213,6 +214,24 @@ export function main(argv: string[]): number {
       if (spec.steps.length !== 1) die(`ERROR the walking skeleton runs one step, the spec has ${spec.steps.length}`)
       if (spec.steps[0].id !== 'S1') die(`ERROR the walking skeleton names its one step S1, not ${spec.steps[0].id}`)
       console.log('S1')
+      return 0
+    }
+    case 'retry-spec': {
+      // the test writer was blocked or its tests failed the gate: the architect gets the reason (spec/downstream.json) and the
+      // worktree goes back to the run's base, so the next tests start clean (nothing is committed before commit-tests)
+      const tw = join(run, 'spec', 'test-writer-result.json')
+      const gf = join(run, 'spec', 'gate.json')
+      const blocked = isFile(tw) ? load(tw).blocked : null
+      const gateErrors: string[] = isFile(gf) ? (load(gf).errors ?? []) : []
+      if (blocked || gateErrors.length)
+        // nothing to tell when the test writer itself failed (API, limit): the next attempt just runs again
+        save(join(run, 'spec', 'downstream.json'), blocked ? { test_writer_blocked: blocked } : { gate_errors: gateErrors.slice(0, 20) })
+      rmSync(gf, { force: true })
+      git(['reset', '-q', '--hard'], { cwd: wt })
+      git(['clean', '-q', '-fd', '-e', 'node_modules'], { cwd: wt })
+      console.log(
+        blocked ? `RETRY spec: the test writer was blocked (${blocked.category})` : `RETRY spec: ${gateErrors.length} gate errors`,
+      )
       return 0
     }
     case 'commit-tests': {

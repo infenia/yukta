@@ -91,6 +91,7 @@ export function claudeArgs(o: {
     'Bash(actionlint:*)',
     'Bash(mint:*)',
     'Bash(cd:*)',
+    ...(e.YK_ALLOW ?? '').split('\n').filter(Boolean), // the exact extra rules of a role (the ticket test writer's self-check)
   ]
   if (e.YK_TOOLS === 'readonly') {
     tools = 'Read,Grep,Glob'

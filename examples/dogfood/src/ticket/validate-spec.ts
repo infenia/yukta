@@ -29,6 +29,8 @@ import {
 } from './lib.ts'
 import { validateSchema } from './validate-schema.ts'
 
+/** The tests modes whose tests are written (and red-checked) before any step. */
+export const UP_FRONT = ['repro_only', 'cases_to_code', 'architect_code']
 export const MAX_STEPS: Record<string, number> = { S: 2, M: 5, L: 8 }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -55,6 +57,9 @@ export const linesOk = (lines: string, n: number): boolean =>
     const m = /^(\d+)(?:-(\d+))?$/.exec(part.trim())
     return !!m && Number(m[1]) >= 1 && Number(m[1]) <= Number(m[2] ?? m[1]) && Number(m[2] ?? m[1]) <= n
   })
+
+/** An error from a project policy (guard paths, files agents may not edit), not from how the spec is written. */
+export const isPolicyConflict = (e: string): boolean => /is a guard path|may not be edited by an agent/.test(e)
 
 export function patchFiles(text: string): Set<string> {
   const out = new Set<string>()
@@ -132,7 +137,7 @@ export function validate(
   const locked = new Set<string>(spec.locked_files)
   const allowArch = spec.tests_mode === 'architect_code'
   // the test gate only accepts files named here; an empty list makes every written test a scope_violation
-  if (!locked.size && ['repro_only', 'cases_to_code', 'architect_code'].includes(spec.tests_mode))
+  if (!locked.size && UP_FRONT.includes(spec.tests_mode))
     err(`locked_files is empty but tests_mode ${spec.tests_mode} writes tests up front: name the test file paths`)
   const allWrites = new Set<string>(spec.steps.flatMap((s: Json) => s.write_files))
   // 6 scaffold touches only stubs
@@ -263,6 +268,19 @@ export function main(argv: string[]): number {
     return errors.length ? 1 : 0
   }
   save(join(runDir, 'spec', 'validation.json'), { errors, warnings })
+  // a policy the ticket itself needs to break is no error another architect attempt can fix: it becomes a question to a person (ladder clarification)
+  const policy = errors.filter(isPolicyConflict)
+  if (policy.length)
+    save(join(runDir, 'spec', 'needs-clarification.json'), {
+      status: 'NEEDS_CLARIFICATION',
+      questions: [
+        {
+          id: 'Q1',
+          question: `The spec has to write files project policy forbids: ${policy.join('; ')}`.slice(0, 300),
+          why_blocking: 'Name another path for it, or reject the run: the pipeline will not write there.',
+        },
+      ],
+    })
   if (ok && !errors.length) {
     save(join(runDir, 'routing.json'), ok[1])
     writeFileSync(
