@@ -10,7 +10,7 @@
 //   pack-step | scope-check | regen | free-fix | digest | event   per-step tools (src/stepkit.ts, design 5.2, 5.4, 8.2, 15.7)
 //   call ROLE RUN_DIR | flow ACTION RUN_DIR   one Claude call of a role; the glue of the workflows (src/call.ts, flow.ts)
 //   gate-tests RUN_DIR          after the test writer: tags, compile, red check, lint, then lock the tests (design 8.1b)
-//   github | ladder | decision | report | waves   intake and PR, the retry ladder, local decisions, the cost report, step waves
+//   github | ladder | report | waves   intake and PR, the retry ladder, the cost report, step waves
 import { readFileSync } from 'node:fs'
 
 type Module = { main: (argv: string[]) => number | Promise<number> | void }
@@ -24,7 +24,6 @@ const MODULES: Record<string, () => Promise<Module>> = {
   'gate-tests': () => import('./gate-tests.ts'),
   github: () => import('./github.ts'),
   ladder: () => import('./ladder.ts'),
-  decision: () => import('./decision.ts'),
   report: () => import('./report.ts'),
   waves: () => import('./waves.ts'),
   advice: () => import('./advice.ts'),

@@ -21,7 +21,7 @@
 //   clarification                  the architect's NEEDS_CLARIFICATION as one question: {ask, prompt} (ask false when none or after 2 rounds)
 //   apply-clarification TEXT       the person's reply goes to spec/clarification-answers.json for the next architect call
 //   ack-pause                      a human approved the pause: budgets double for the rest of the run
-import { appendFileSync, rmSync, statSync } from 'node:fs'
+import { rmSync, statSync } from 'node:fs'
 import {
   type Json, costByRole, die, dumps, existsSync, fmt, git, isFile, join, kit, load, matches, parseArgs, readFileSync, readdirSync, resolve, save, sh, writeFileSync,
 } from './lib.ts'
@@ -67,21 +67,12 @@ function tierUp(m: Json): [string, string] | null {
   return at + 1 < TIERS.length ? TIERS[at + 1]! : null
 }
 
-/** One decision of the local model through `ticketkit decision`. The last JSON line, or null. Its WARN line goes to <run>/decision-warnings.log, not to stderr:
- * a workflow node with JSON output takes stderr into its output, and a model that is down or rate-limited then made `ladder need-approval merge` unreadable. */
-function askDecision(...args: string[]): Json | null {
-  const r = kit(['decision', ...args])
-  if (r.stderr) appendFileSync(join(args[1]!, 'decision-warnings.log'), r.stderr)
-  const lines = r.stdout.split('\n').filter(l => l.startsWith('{'))
-  return r.code === 0 && lines.length ? JSON.parse(lines[lines.length - 1]!) : null
-}
-
 function decide(run: string, sid: string, afterHeal: boolean, wt: string): number {
   const [p, routing] = ctx(run)
   const sd = join(run, 'steps', sid)
   const n = attemptNumbers(sd).pop()!
   const ad = join(sd, `attempt-${n}`)
-  const state: Json = { healed: [], infra: 0, mech: 0, flaky: 0, ...readOr(join(sd, 'ladder.json')) }
+  const state: Json = { healed: [], infra: 0, mech: 0, ...readOr(join(sd, 'ladder.json')) }
   const mf = join(sd, 'model.json')
   const cur = isFile(mf) ? load(mf) : routing.models.implementer
   const res = readOr(join(ad, 'result.json'))
@@ -127,16 +118,6 @@ function decide(run: string, sid: string, afterHeal: boolean, wt: string): numbe
   if (MECH_CLASSES.has(cls) && state.mech === 0) {
     state.mech += 1
     return out('retry', `${cls}: retry once with the digest`)
-  }
-  if (n >= 2 && (cls === 'test_fail' || cls === 'typecheck_fail') && (stage === 'tests' || stage === 'compile')) {
-    const d = askDecision('cause', run, sid) // D2: only for tests and compile failures from attempt 2
-    const cause = d ? d.label : 'impl_bug'
-    if (cause === 'spec_gap' || cause === 'spec_conflict') return out('revise', `cause: ${cause}`)
-    if (cause === 'flaky' && state.flaky === 0) {
-      state.flaky += 1
-      event([run, 'role=cause', `step_id=${sid}`, 'flaky=1'])
-      return out('retry', 'cause: flaky, rerun once unchanged')
-    }
   }
   if (n >= allowed) return out('revise', `${n} attempts failed`)
   if (n === 2) {
@@ -263,15 +244,11 @@ function finalFail(run: string): number {
   return 0
 }
 
-function needApproval(run: string, kind: string, wt: string): number {
+function needApproval(run: string, kind: string): number {
   const [p, routing] = ctx(run)
   const risk: string = routing.risk
   const policy: string = p.merge_gate ?? 'high_risk'
   let ask = kind === 'spec' ? risk === 'high' : policy === 'always' || (policy === 'high_risk' && risk === 'high')
-  if (kind === 'merge') {
-    const d = askDecision('merge_risk', run, '-', wt) // shadow: logged only; in mode on a high score also asks
-    if (d && d.source === 'model' && parseInt(d.label, 10) >= (p.merge_risk_ask ?? 7)) ask = true
-  }
   console.log(dumps({ ask, kind, risk }))
   return 0
 }
@@ -350,7 +327,7 @@ export function main(argv: string[]): number {
     case 'apply-revision': return applyRevision(run)
     case 'review-verdict': return reviewVerdict(run)
     case 'final-fail': return finalFail(run)
-    case 'need-approval': return needApproval(run, arg!, wt)
+    case 'need-approval': return needApproval(run, arg!)
     case 'pause-packet': return pausePacket(run)
     case 'ack-pause': return ackPause(run, arg)
     case 'clarification': return clarification(run)
