@@ -32,7 +32,7 @@ const STEPKIT = new Set(['pack-step', 'scope-check', 'regen', 'free-fix', 'diges
 
 export async function dispatch(cmd: string, argv: string[]): Promise<number> {
   if (STEPKIT.has(cmd)) return (await import('./stepkit.ts')).main(cmd, argv)
-  const load = MODULES[cmd]
+  const load = Object.hasOwn(MODULES, cmd) ? MODULES[cmd] : undefined
   if (!load) {
     console.error(`ticketkit: unknown subcommand '${cmd}'`)
     return 2
@@ -43,7 +43,7 @@ export async function dispatch(cmd: string, argv: string[]): Promise<number> {
 if (import.meta.main) {
   const [cmd = '', ...rest] = process.argv.slice(2)
   if (cmd === '' || cmd === '-h' || cmd === '--help') {
-    console.log(readFileSync(import.meta.path, 'utf8').split('\n').slice(4, 14).map(l => l.slice(3)).join('\n'))
+    console.log(readFileSync(import.meta.path, 'utf8').split('\n').slice(4, 13).map(l => l.slice(3)).join('\n'))
     process.exit(0)
   }
   process.exit(await dispatch(cmd, rest))
