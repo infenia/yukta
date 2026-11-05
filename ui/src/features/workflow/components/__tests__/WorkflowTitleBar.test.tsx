@@ -38,4 +38,63 @@ describe('WorkflowTitleBar', () => {
     expect(backdrop).toHaveAttribute('aria-hidden', 'true');
     expect(backdrop).toHaveClass('hero-backdrop');
   });
+
+  it('[T1] puts the run group in the ml-auto container before the actions', () => {
+    render(
+      <WorkflowTitleBar
+        workflowId="wf1"
+        status={null}
+        runGroup={<span data-testid="run-group">group</span>}
+        actions={<button type="button">Act</button>}
+      />
+    );
+    const group = screen.getByTestId('run-group');
+    const actions = screen.getByRole('button', { name: 'Act' });
+    const right = group.closest('.ml-auto');
+    expect(right).not.toBeNull();
+    expect(right).toContainElement(actions);
+    expect(
+      group.compareDocumentPosition(actions) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+  });
+
+  it('[T2] does not place the run group beside the title outside the ml-auto container', () => {
+    render(
+      <WorkflowTitleBar
+        workflowId="wf1"
+        status={null}
+        runGroup={<span data-testid="run-group">group</span>}
+      />
+    );
+    const heading = screen.getByRole('heading', { name: 'wf1' });
+    const group = screen.getByTestId('run-group');
+    expect(group.closest('.ml-auto')).not.toBeNull();
+    expect(group.parentElement).not.toBe(heading.parentElement);
+  });
+
+  it('[T3] keeps the right container wrapping and right-aligned', () => {
+    render(
+      <WorkflowTitleBar
+        workflowId="wf1"
+        status={null}
+        runGroup={<span data-testid="run-group">group</span>}
+      />
+    );
+    const right = screen.getByTestId('run-group').closest('.ml-auto');
+    expect(right).toHaveClass('flex-wrap', 'justify-end');
+  });
+
+  it('[T4] renders only the actions in the ml-auto container without a run group', () => {
+    render(
+      <WorkflowTitleBar
+        workflowId="wf1"
+        status={null}
+        actions={<button type="button">Act</button>}
+      />
+    );
+    const right = screen.getByRole('button', { name: 'Act' }).closest('.ml-auto');
+    expect(right).not.toBeNull();
+    expect(right?.children).toHaveLength(1);
+  });
 });
