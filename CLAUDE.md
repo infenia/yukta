@@ -51,6 +51,15 @@ Run the smallest scope that covers your change (a test class, then a package, th
 > Rebuild in progress (see `examples/11-dogfood/DESIGN.html`): only `yk gradle`, `yk tool`, `yk plan` and `yk check` (with healing) are exposed so far. The
 > previous guide, with issue pickup, steering and the heal reports, is in `examples/11-dogfood/backup/CLAUDE.md`.
 
+## GitHub API budget
+
+The GraphQL quota is shared per user by every Claude session and tool on the machine. `gh project item-list` pages the whole board and is the
+heaviest call; the pickup tick runs it on every round.
+
+- Check `gh api rate_limit --jq .resources.graphql` before a batch of project-board calls. Never call `gh project item-list` in a loop or only to verify one item.
+- On "API rate limit exceeded": do not retry. Report the `reset` time (`date -d @<reset>`) and wait.
+- Prefer REST (`gh issue list`, `gh issue view`, `gh pr list`) when it answers the question.
+
 ## Files Claude cannot Read
 
 Checked-in generated or vendored files that would fill the context are denied to Claude's `Read` (and to `cat`/`grep`/`head` on them):
