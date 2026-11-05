@@ -23,7 +23,8 @@
 //   yk ticket run <issue> [--detach [--notify]] | status|resume|stop <issue|execution>  an issue with acceptance criteria to a tested change (examples/12-ticket)
 //   yk pickup session [--name N]             open an interactive Claude Code session that receives issues through its yukta-pickup channel (several may be open)
 //   yk pickup bridge                         push the questions of ticket runs to the session that works the ticket (input-bridge.ts, #1920); runs until stopped
-//   yk pickup on|off|now [--to N]|status     the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once)
+//   yk pickup on|off|now [--to N] [--issue 12,34]|status  the schedule that hands each idle session the next assigned, Ready issue every 30 min (now: one round at once; --issue hands out only those)
+//   yk pickup list                           the issues the next round would take, [free] or [taken: ...]; the filter in force (--issue, or the file $DEV_HOME/pickup-issues)
 //
 // A run's last line is machine readable; exit 0 only on success:
 //   RESULT status=<S> failed_node=<node|-> healed=<stage:step,..|-> execution=<id> session=<id> wall=<s> cost=$<heal spend> bytes=<shown to you>
@@ -295,10 +296,14 @@ async function cmdPickup(argv: string[]): Promise<number> {
       return 0
     case 'now': {
       const a = [...rest]
-      if (a[0] === '--to') { process.env.YUKTA_PICKUP_ONLY = a[1] ?? die('--to needs a session name'); a.splice(0, 2) }
-      if (a.length) die('usage: yk pickup now [--to NAME]')
+      while (a.length) {
+        if (a[0] === '--to') { process.env.YUKTA_PICKUP_ONLY = a[1] ?? die('--to needs a session name'); a.splice(0, 2) }
+        else if (a[0] === '--issue') { process.env.YUKTA_PICKUP_ISSUES = a[1] ?? die('--issue needs issue numbers, e.g. 12,34'); a.splice(0, 2) }
+        else die('usage: yk pickup now [--to NAME] [--issue N,M]')
+      }
       return (await import('./pickup.ts')).main(['tick'])
     }
+    case 'list': return (await import('./pickup.ts')).main(['list'])
     case 'bridge': return (await import('./input-bridge.ts')).watch().then(() => 0)
     case 'status': {
       let e: string
@@ -323,7 +328,7 @@ async function cmdPickup(argv: string[]): Promise<number> {
       return 0
     }
     default:
-      return die('usage: yk pickup session [--name NAME]|on|off|now [--to NAME]|status')
+      return die('usage: yk pickup session [--name NAME]|on|off|now [--to NAME] [--issue N,M]|list|status')
   }
 }
 

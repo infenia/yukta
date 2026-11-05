@@ -67,6 +67,13 @@ are not yours here: the pipeline claims the issue, works in its own worktree `..
    `url` on success, `blocked` with a one-line `note` otherwise (the pipeline has put the issue back to Ready and commented). `yk ticket stop <n>` only
    when the person asks.
 
+## Which issues reach you
+
+The tick hands out only issues that are assigned to the user and Ready. A filter narrows that further when it is set: `yk pickup now --issue 12,34`
+for one round, or the file `$DEV_HOME/pickup-issues` (numbers, one per line, `//` comments) for the schedule. Whoever sets a filter runs
+`yk pickup list` to see what the next round takes. You never change the filter yourself, and you do not need it to decide your work: an event
+for an issue is already inside the filter, so work it like any other event.
+
 ## Dead end
 
 Blocked, ambiguous or out of scope: do not guess. Put the issue back to Ready (same command as step 1 with `Status=Ready`),

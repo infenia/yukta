@@ -120,6 +120,24 @@ test('ticket mode: the top Ready issue starts `yk ticket run` (a fake yk), no ch
   expect(tick({ YUKTA_PICKUP_YK: yk }).out, 'default mode stays sessions').toStartWith('PICKUP skipped=no channel')
 })
 
+test('issue filter: --issue (YUKTA_PICKUP_ISSUES) or the pickup-issues file narrows tick and list', () => {
+  rm(join(d, 'home/pickup')); rm(join(d, 'home/pickup-mode')); rm(join(d, 'home/pickup-issues')); rm(join(d, 'yk.log'))
+  put(join(d, 'gh/mine.json'), [{ number: 11, title: 'low', url: 'u11' }, { number: 12, title: 'top', url: 'u12' }])
+  put(join(d, 'gh/ready.json'), { items: [{ status: 'Ready', priority: 'P2', content: { number: 11 } }, { status: 'Ready', priority: 'P0', content: { number: 12 } }] })
+  const yk = script(join(d, 'yk'), `import { appendFileSync } from 'node:fs'\nappendFileSync('${d}/yk.log', process.argv.slice(2).join(' ') + '\\n')`)
+  const ticketEnv = { YUKTA_PICKUP_MODE: 'ticket', YUKTA_PICKUP_YK: yk }
+  expect(ts('src/pickup.ts', ['list']).out, 'no filter lists every candidate').toContain('#12 P0 top  [free]')
+  expect(tick({ ...ticketEnv, YUKTA_PICKUP_ISSUES: '11' }).out.trim(), 'the flag hands only the listed issue').toBe('PICKUP handed=#11 to=ticket')
+  expect(read(join(d, 'yk.log')).trim()).toBe('ticket run 11 --detach')
+  put(join(d, 'home/pickup-issues'), '// the next two\n#12\n'); rm(join(d, 'yk.log'))
+  expect(tick(ticketEnv).out.trim(), 'the file hands only the listed issue').toBe('PICKUP handed=#12 to=ticket')
+  const l = ts('src/pickup.ts', ['list'], { env: { YUKTA_PICKUP_ISSUES: '11' } }).out
+  expect(l, 'the flag overrides the file in list').toContain('filter: #11')
+  expect(l).not.toContain('#12')
+  expect(tick({ ...ticketEnv, YUKTA_PICKUP_ISSUES: '13' }).out.trim(), 'nothing listed is eligible: skipped, exit 0').toStartWith('PICKUP skipped=nothing of the filtered issues')
+  rm(join(d, 'home/pickup-issues'))
+})
+
 test('busy() does not count the pickup schedule (and counts anything else)', async () => {
   const serve = (rows: object[]): { port: number; stop: () => void } => { const s = Bun.serve({ hostname: '127.0.0.1', port: 0, fetch: () => Response.json({ data: rows }) }); return { port: s.port!, stop: () => void s.stop(true) } }
   const busy = async (port: number): Promise<string> => {

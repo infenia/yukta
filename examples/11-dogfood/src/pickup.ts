@@ -11,6 +11,8 @@
 // YUKTA_PICKUP_OWNER (infenia), YUKTA_DEV_HOME.
 // YUKTA_PICKUP_MODE=ticket (or the word `ticket` in $DEV_HOME/pickup-mode): no interactive session; the top issue starts `yk ticket run <n> --detach`
 // (headless, examples/12-ticket) -> "PICKUP handed=#<n> to=ticket", at most one run at a time (YUKTA_PICKUP_YK: another yk, for tests).
+// Filter (YUKTA_PICKUP_ISSUES, `yk pickup now --issue 12,34`; else the file $DEV_HOME/pickup-issues, one number per line): only those issues are handed out.
+// `pickup list` prints the candidates the next tick would consider, with [free] or [taken: ...].
 import { DEV_HOME, HERE, type Json, alive, http, isFile, join, onPath, readFileSync, readdirSync, rmSync, run, text, tryJson } from './lib.ts'
 
 const REPO = process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
@@ -67,6 +69,50 @@ export function eventFor(n: number | string, title: string, url: string, via = V
   }
 }
 
+/** The issue numbers this round may hand out: `--issue` (YUKTA_PICKUP_ISSUES) or $DEV_HOME/pickup-issues; null = no filter.
+ *  Numbers anywhere in the text count ("12, 34", "#12", one per line); lines starting with `//` are comments. */
+export function allowlist(raw = process.env.YUKTA_PICKUP_ISSUES || text(join(DEV_HOME, 'pickup-issues'))): Set<string> | null {
+  const nums = raw.split('\n').filter(l => !l.trim().startsWith('//')).join(' ').match(/\d+/g)
+  return nums?.length ? new Set(nums) : null
+}
+
+/** Assigned to you AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number; the allowlist applies. */
+function load(): { cands: Json[]; openPrs: Json[] } {
+  const mine = tryJson(gh(['issue', 'list', '-R', REPO, '--assignee', '@me', '--state', 'open', '--limit', '200', '--json', 'number,title,url'], 'gh issue list'))
+  const ready = tryJson(gh(['project', 'item-list', PROJECT, '--owner', OWNER, '--limit', '5000', '--format', 'json'], 'gh project item-list'))
+  const openPrs = tryJson(gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '200', '--json', 'headRefName,title,body'], 'gh pr list'))
+  if (mine === undefined || ready === undefined || openPrs === undefined) fail('gh answered something that is not JSON')
+  const pri = new Map<string, string>()
+  for (const i of (ready.items ?? []) as Json[]) if (i.status === 'Ready') pri.set(String(i.content?.number), i.priority ?? 'P9')
+  const only = allowlist()
+  const cands = (mine as Json[]).filter(i => pri.has(String(i.number)) && (!only || only.has(String(i.number))))
+    .map(i => ({ ...i, p: pri.get(String(i.number))! }))
+    .sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : a.number - b.number))
+  return { cands, openPrs: openPrs as Json[] }
+}
+
+/** someone is on it: an open PR that names the issue, or its branch on the remote */
+function taken(n: number | string, openPrs: Json[]): string | null {
+  const re = new RegExp(`(fix(es|ed)?|close[sd]?|resolve[sd]?|refs?) #${n}\\b`, 'i')
+  if (openPrs.some(p => p.headRefName === `issue/${n}` || re.test(`${p.title} ${p.body ?? ''}`))) return 'open PR'
+  const ref = tryJson(gh(['api', `repos/${REPO}/git/matching-refs/heads/issue/${n}`], 'gh api matching-refs'))
+  if (Array.isArray(ref) && ref.length > 0) return `branch issue/${n}`
+  return null
+}
+
+/** `pickup list`: what the next tick would take, and the filter in force */
+export function list(): number {
+  const { cands, openPrs } = load()
+  const only = allowlist()
+  console.log(`filter: ${only ? [...only].map(n => `#${n}`).join(' ') : 'none (every assigned, Ready issue)'}`)
+  if (!cands.length) console.log('no candidates: nothing assigned to you is Ready' + (only ? ' among the filtered issues' : ''))
+  for (const c of cands) {
+    const t = taken(c.number, openPrs)
+    console.log(`#${c.number} ${c.p} ${c.title}  [${t ? `taken: ${t}` : 'free'}]`)
+  }
+  return 0
+}
+
 export async function tick(): Promise<number> {
   let idle: Idle[] = []
   let busy: string[] = []
@@ -80,25 +126,13 @@ export async function tick(): Promise<number> {
     if (found.registered === 0) skip(`no channel${ONLY ? ` named ${ONLY}` : ''} (open one with: yk pickup session)`)
     if (!idle.length) skip(`all busy (${busy.join(',')})`)
   }
-  const mine = tryJson(gh(['issue', 'list', '-R', REPO, '--assignee', '@me', '--state', 'open', '--limit', '200', '--json', 'number,title,url'], 'gh issue list'))
-  const ready = tryJson(gh(['project', 'item-list', PROJECT, '--owner', OWNER, '--limit', '5000', '--format', 'json'], 'gh project item-list'))
-  const openPrs = tryJson(gh(['pr', 'list', '-R', REPO, '--state', 'open', '--limit', '200', '--json', 'headRefName,title,body'], 'gh pr list'))
-  if (mine === undefined || ready === undefined || openPrs === undefined) fail('gh answered something that is not JSON')
+  const { cands, openPrs } = load()
   if (MODE !== 'ticket' && !(isFile(join(DEV_HOME, 'pickup-token')) && readFileSync(join(DEV_HOME, 'pickup-token')).length)) fail(`no ${DEV_HOME}/pickup-token (yk pickup session creates it)`)
 
-  // assigned AND Ready, highest Priority first (P0 before P3; no priority last), then the lowest number
-  const pri = new Map<string, string>()
-  for (const i of (ready.items ?? []) as Json[]) if (i.status === 'Ready') pri.set(String(i.content?.number), i.priority ?? 'P9')
-  const cands = (mine as Json[]).filter(i => pri.has(String(i.number))).map(i => ({ ...i, p: pri.get(String(i.number))! }))
-    .sort((a, b) => (a.p < b.p ? -1 : a.p > b.p ? 1 : a.number - b.number))
   let handed = 0
   for (const { number: n, title, url } of cands) {
     if (!idle.length) break
-    // an open PR that names the issue, or its branch on the remote: someone is on it
-    const re = new RegExp(`(fix(es|ed)?|close[sd]?|resolve[sd]?|refs?) #${n}\\b`, 'i')
-    if ((openPrs as Json[]).some(p => p.headRefName === `issue/${n}` || re.test(`${p.title} ${p.body ?? ''}`))) continue
-    const ref = tryJson(gh(['api', `repos/${REPO}/git/matching-refs/heads/issue/${n}`], 'gh api matching-refs'))
-    if (Array.isArray(ref) && ref.length > 0) continue
+    if (taken(n, openPrs)) continue
     if (MODE === 'ticket') {
       if (run([YK, 'ticket', 'run', String(n), '--detach']).code) fail(`yk ticket run ${n} failed`)
       console.log(`PICKUP handed=#${n} to=ticket`)
@@ -116,14 +150,14 @@ export async function tick(): Promise<number> {
       else fail(`POST to ${name} (:${port}) answered ${r.code}`)
     }
   }
-  if (!handed) skip('nothing assigned to you is Ready, or each such issue has a PR or an issue/<n> branch')
+  if (!handed) skip(`nothing ${allowlist() ? 'of the filtered issues ' : ''}assigned to you is Ready, or each such issue has a PR or an issue/<n> branch`)
   return 0
 }
 
 export async function main(argv: string[]): Promise<number> {
-  if (argv[0] !== 'tick') { console.error('usage: pickup tick'); return 2 }
+  if (argv[0] !== 'tick' && argv[0] !== 'list') { console.error('usage: pickup tick|list'); return 2 }
   if (!onPath('gh')) { console.error('PICKUP error: gh is required'); return 1 }
-  try { return await tick() } catch (e) {
+  try { return argv[0] === 'list' ? list() : await tick() } catch (e) {
     if (e instanceof Stop) {
       const x = e as Stop & { code: number; out?: boolean }
       if (x.out) console.log(x.message)
