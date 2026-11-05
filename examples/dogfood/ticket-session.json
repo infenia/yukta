@@ -366,7 +366,7 @@
               "--stage",
               "architect1",
               "--reason",
-              "the architect failed or stayed invalid"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -388,7 +388,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect failed, did not ask or stayed invalid"
+            "reason": "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
           }
         },
         {
@@ -451,6 +451,212 @@
               "apply_clarify1",
               "--reason",
               "the answers could not be recorded"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "test_writer1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "call",
+              "test_writer",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "gate_tests1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "gate-tests",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "spec_conflict1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "ladder",
+              "clarification",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "spec_conflict_ask1?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['ask']",
+            "cases": {
+              "true": "ask"
+            },
+            "defaultPort": "retry"
+          }
+        },
+        {
+          "nodeId": "spec_conflict1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the clarification could not be read"
+          }
+        },
+        {
+          "nodeId": "spec_conflict1.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "spec_conflict1",
+              "--reason",
+              "the clarification could not be read"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "retry_spec1",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "flow",
+              "retry-spec",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "retry_spec1.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the worktree could not be reset for the next spec"
+          }
+        },
+        {
+          "nodeId": "retry_spec1.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "retry_spec1",
+              "--reason",
+              "the worktree could not be reset for the next spec"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -645,7 +851,7 @@
               "--stage",
               "architect2",
               "--reason",
-              "the architect failed or stayed invalid"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -667,7 +873,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect failed, did not ask or stayed invalid"
+            "reason": "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
           }
         },
         {
@@ -730,6 +936,212 @@
               "apply_clarify2",
               "--reason",
               "the answers could not be recorded"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "test_writer2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "call",
+              "test_writer",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 2400,
+            "timeoutSeconds": 2400,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON",
+            "engine": {
+              "concurrencyGroup": "claude"
+            }
+          }
+        },
+        {
+          "nodeId": "gate_tests2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "gate-tests",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 3700,
+            "timeoutSeconds": 3700,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "spec_conflict2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "ladder",
+              "clarification",
+              "${start.run}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 60,
+            "timeoutSeconds": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
+          }
+        },
+        {
+          "nodeId": "spec_conflict_ask2?",
+          "type": "BRANCH",
+          "config": {
+            "mode": "SELECT_KEY",
+            "selector": "payload['output']['ask']",
+            "cases": {
+              "true": "ask"
+            },
+            "defaultPort": "retry"
+          }
+        },
+        {
+          "nodeId": "spec_conflict2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the clarification could not be read"
+          }
+        },
+        {
+          "nodeId": "spec_conflict2.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "spec_conflict2",
+              "--reason",
+              "the clarification could not be read"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "retry_spec2",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "flow",
+              "retry-spec",
+              "${start.run}",
+              "--worktree",
+              "${start.worktree}"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true
+          }
+        },
+        {
+          "nodeId": "retry_spec2.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the worktree could not be reset for the next spec"
+          }
+        },
+        {
+          "nodeId": "retry_spec2.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "retry_spec2",
+              "--reason",
+              "the worktree could not be reset for the next spec"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -812,7 +1224,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect failed, asked for clarification or stayed invalid"
+            "reason": "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
           }
         },
         {
@@ -828,7 +1240,7 @@
               "--stage",
               "architect3",
               "--reason",
-              "the architect failed, asked for clarification or stayed invalid"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -846,45 +1258,7 @@
           }
         },
         {
-          "nodeId": "validate_spec3.failed",
-          "type": "OUTCOME_TERMINAL",
-          "config": {
-            "outcome": "FAILED",
-            "reason": "the spec is still invalid after two retries"
-          }
-        },
-        {
-          "nodeId": "validate_spec3.dead",
-          "type": "PROCESS_EXECUTOR",
-          "config": {
-            "command": [
-              "bun",
-              "__TICKET__/src/ticket/ticketkit.ts",
-              "github",
-              "dead-end",
-              "${start.run}",
-              "--stage",
-              "validate_spec3",
-              "--reason",
-              "the spec is still invalid after two retries"
-            ],
-            "workingDir": "${start.project}",
-            "env": {
-              "YK_CLAUDE_BIN": "${start.claudeBin}",
-              "TICKET_GATE_STEP": "${start.gateStep}",
-              "TICKET_GATE_FINAL": "${start.gateFinal}",
-              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
-              "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
-              "TICKET_GATE_WAVE": "${start.gateWave}"
-            },
-            "timeout": 120,
-            "timeoutSeconds": 120,
-            "failureMode": "CONTINUE"
-          }
-        },
-        {
-          "nodeId": "test_writer",
+          "nodeId": "test_writer3",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
@@ -917,45 +1291,7 @@
           }
         },
         {
-          "nodeId": "test_writer.failed",
-          "type": "OUTCOME_TERMINAL",
-          "config": {
-            "outcome": "FAILED",
-            "reason": "the test writer failed"
-          }
-        },
-        {
-          "nodeId": "test_writer.dead",
-          "type": "PROCESS_EXECUTOR",
-          "config": {
-            "command": [
-              "bun",
-              "__TICKET__/src/ticket/ticketkit.ts",
-              "github",
-              "dead-end",
-              "${start.run}",
-              "--stage",
-              "test_writer",
-              "--reason",
-              "the test writer failed"
-            ],
-            "workingDir": "${start.project}",
-            "env": {
-              "YK_CLAUDE_BIN": "${start.claudeBin}",
-              "TICKET_GATE_STEP": "${start.gateStep}",
-              "TICKET_GATE_FINAL": "${start.gateFinal}",
-              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
-              "TICKET_HEAL_CMD": "${start.healCmd}",
-              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
-              "TICKET_GATE_WAVE": "${start.gateWave}"
-            },
-            "timeout": 120,
-            "timeoutSeconds": 120,
-            "failureMode": "CONTINUE"
-          }
-        },
-        {
-          "nodeId": "gate_tests",
+          "nodeId": "gate_tests3",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
@@ -983,15 +1319,15 @@
           }
         },
         {
-          "nodeId": "gate_tests.failed",
+          "nodeId": "validate_spec3.failed",
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the tests did not pass the red check"
+            "reason": "the spec is still invalid after two retries (spec/validation.json)"
           }
         },
         {
-          "nodeId": "gate_tests.dead",
+          "nodeId": "validate_spec3.dead",
           "type": "PROCESS_EXECUTOR",
           "config": {
             "command": [
@@ -1001,9 +1337,85 @@
               "dead-end",
               "${start.run}",
               "--stage",
-              "gate_tests",
+              "validate_spec3",
               "--reason",
-              "the tests did not pass the red check"
+              "the spec is still invalid after two retries (spec/validation.json)"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "test_writer3.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the test writer was blocked or failed on the third spec (the ERROR line says which: blocked, schema_invalid, api_error, limit)"
+          }
+        },
+        {
+          "nodeId": "test_writer3.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "test_writer3",
+              "--reason",
+              "the test writer was blocked or failed on the third spec (the ERROR line says which: blocked, schema_invalid, api_error, limit)"
+            ],
+            "workingDir": "${start.project}",
+            "env": {
+              "YK_CLAUDE_BIN": "${start.claudeBin}",
+              "TICKET_GATE_STEP": "${start.gateStep}",
+              "TICKET_GATE_FINAL": "${start.gateFinal}",
+              "YUKTA_DEV_STATE_DIR": "${start.stateDir}",
+              "TICKET_HEAL_CMD": "${start.healCmd}",
+              "TICKET_BASELINE_CMD": "${start.baselineCmd}",
+              "TICKET_GATE_WAVE": "${start.gateWave}"
+            },
+            "timeout": 120,
+            "timeoutSeconds": 120,
+            "failureMode": "CONTINUE"
+          }
+        },
+        {
+          "nodeId": "gate_tests3.failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "FAILED",
+            "reason": "the tests of the third spec did not pass the red check (spec/gate.json)"
+          }
+        },
+        {
+          "nodeId": "gate_tests3.dead",
+          "type": "PROCESS_EXECUTOR",
+          "config": {
+            "command": [
+              "bun",
+              "__TICKET__/src/ticket/ticketkit.ts",
+              "github",
+              "dead-end",
+              "${start.run}",
+              "--stage",
+              "gate_tests3",
+              "--reason",
+              "the tests of the third spec did not pass the red check (spec/gate.json)"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2527,13 +2939,71 @@
         },
         {
           "source": "validate_spec1",
-          "target": "test_writer",
+          "target": "test_writer1",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test_writer1",
+          "target": "gate_tests1",
+          "sourcePort": "success"
+        },
+        {
+          "source": "gate_tests1",
+          "target": "commit_tests",
           "sourcePort": "success"
         },
         {
           "source": "validate_spec1",
-          "target": "architect2",
+          "target": "spec_conflict1",
           "sourcePort": "failure"
+        },
+        {
+          "source": "spec_conflict1",
+          "target": "spec_conflict_ask1?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "spec_conflict1",
+          "target": "spec_conflict1.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spec_conflict1.dead",
+          "target": "spec_conflict1.failed"
+        },
+        {
+          "source": "spec_conflict_ask1?",
+          "target": "ask_clarify1",
+          "sourcePort": "ask"
+        },
+        {
+          "source": "spec_conflict_ask1?",
+          "target": "architect2",
+          "sourcePort": "retry"
+        },
+        {
+          "source": "test_writer1",
+          "target": "retry_spec1",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "gate_tests1",
+          "target": "retry_spec1",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "retry_spec1",
+          "target": "architect2",
+          "sourcePort": "success"
+        },
+        {
+          "source": "retry_spec1",
+          "target": "retry_spec1.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "retry_spec1.dead",
+          "target": "retry_spec1.failed"
         },
         {
           "source": "architect2",
@@ -2603,13 +3073,71 @@
         },
         {
           "source": "validate_spec2",
-          "target": "test_writer",
+          "target": "test_writer2",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test_writer2",
+          "target": "gate_tests2",
+          "sourcePort": "success"
+        },
+        {
+          "source": "gate_tests2",
+          "target": "commit_tests",
           "sourcePort": "success"
         },
         {
           "source": "validate_spec2",
-          "target": "architect3",
+          "target": "spec_conflict2",
           "sourcePort": "failure"
+        },
+        {
+          "source": "spec_conflict2",
+          "target": "spec_conflict_ask2?",
+          "sourcePort": "success"
+        },
+        {
+          "source": "spec_conflict2",
+          "target": "spec_conflict2.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "spec_conflict2.dead",
+          "target": "spec_conflict2.failed"
+        },
+        {
+          "source": "spec_conflict_ask2?",
+          "target": "ask_clarify2",
+          "sourcePort": "ask"
+        },
+        {
+          "source": "spec_conflict_ask2?",
+          "target": "architect3",
+          "sourcePort": "retry"
+        },
+        {
+          "source": "test_writer2",
+          "target": "retry_spec2",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "gate_tests2",
+          "target": "retry_spec2",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "retry_spec2",
+          "target": "architect3",
+          "sourcePort": "success"
+        },
+        {
+          "source": "retry_spec2",
+          "target": "retry_spec2.dead",
+          "sourcePort": "failure"
+        },
+        {
+          "source": "retry_spec2.dead",
+          "target": "retry_spec2.failed"
         },
         {
           "source": "architect3",
@@ -2627,7 +3155,17 @@
         },
         {
           "source": "validate_spec3",
-          "target": "test_writer",
+          "target": "test_writer3",
+          "sourcePort": "success"
+        },
+        {
+          "source": "test_writer3",
+          "target": "gate_tests3",
+          "sourcePort": "success"
+        },
+        {
+          "source": "gate_tests3",
+          "target": "commit_tests",
           "sourcePort": "success"
         },
         {
@@ -2640,32 +3178,22 @@
           "target": "validate_spec3.failed"
         },
         {
-          "source": "test_writer",
-          "target": "gate_tests",
-          "sourcePort": "success"
-        },
-        {
-          "source": "test_writer",
-          "target": "test_writer.dead",
+          "source": "test_writer3",
+          "target": "test_writer3.dead",
           "sourcePort": "failure"
         },
         {
-          "source": "test_writer.dead",
-          "target": "test_writer.failed"
+          "source": "test_writer3.dead",
+          "target": "test_writer3.failed"
         },
         {
-          "source": "gate_tests",
-          "target": "commit_tests",
-          "sourcePort": "success"
-        },
-        {
-          "source": "gate_tests",
-          "target": "gate_tests.dead",
+          "source": "gate_tests3",
+          "target": "gate_tests3.dead",
           "sourcePort": "failure"
         },
         {
-          "source": "gate_tests.dead",
-          "target": "gate_tests.failed"
+          "source": "gate_tests3.dead",
+          "target": "gate_tests3.failed"
         },
         {
           "source": "commit_tests",
@@ -4924,7 +5452,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the implementer failed or its answer stayed invalid after one retry"
+            "reason": "the implementer call failed (the ERROR line says which: schema_invalid, api_error, limit)"
           }
         },
         {
@@ -5218,7 +5746,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the implementer failed or its answer stayed invalid after one retry"
+            "reason": "the implementer call failed (the ERROR line says which: schema_invalid, api_error, limit)"
           }
         },
         {
@@ -5512,7 +6040,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the implementer failed or its answer stayed invalid after one retry"
+            "reason": "the implementer call failed (the ERROR line says which: schema_invalid, api_error, limit)"
           }
         },
         {
@@ -5806,7 +6334,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the implementer failed or its answer stayed invalid after one retry"
+            "reason": "the implementer call failed (the ERROR line says which: schema_invalid, api_error, limit)"
           }
         },
         {
@@ -6728,7 +7256,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the architect's revision stayed invalid"
+            "reason": "the architect's revision call failed (the ERROR line says which: schema_invalid, api_error, limit)"
           }
         },
         {
@@ -6840,7 +7368,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the test writer failed on the changed cases"
+            "reason": "the test writer was blocked or failed on the changed cases (the ERROR line says which: blocked, schema_invalid, api_error, limit)"
           }
         },
         {

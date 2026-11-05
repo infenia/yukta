@@ -10,6 +10,7 @@
 //
 // --runner CMD (shell, run in the worktree) and --report junit:DIR | vitest:FILE | gotest:FILE | gotest:stdout override the per-ecosystem
 // defaults (a Gradle, Vitest or Go run through yk, only the tagged test files).
+// --static: the test writer's self-check, the checks before the test run only; prints the errors, writes nothing.
 import { createHash } from 'node:crypto'
 import { rmSync } from 'node:fs'
 import { type Json, git, isDir, isFile, join, load, moduleOf, parseArgs, readFileSync, readdirSync, resolve, save, sh } from './lib.ts'
@@ -134,8 +135,9 @@ function execute(wt: string, runner: string, report: string, errors: string[]): 
 }
 
 export function main(argv: string[]): number {
-  const { pos, opt } = parseArgs(argv, { value: ['worktree', 'runner', 'report'] })
+  const { pos, opt, flag } = parseArgs(argv, { value: ['worktree', 'runner', 'report'], bool: ['static'] })
   const run = pos[0]!
+  const dry = flag.has('static') // the test writer's self-check: no test run, nothing written
   const wt = resolve(opt.worktree ?? '.')
   const spec = load(join(run, 'spec', 'spec.json'))
   const errors: string[] = []
@@ -143,7 +145,7 @@ export function main(argv: string[]): number {
   const mode: string = spec.tests_mode
   if (mode === 'existing' || mode === 'implementer_writes') {
     console.log(`SKIP gate-tests: tests_mode ${mode} has no red check up front`)
-    save(join(run, 'spec', 'gate.json'), { skipped: mode, errors: [] })
+    if (!dry) save(join(run, 'spec', 'gate.json'), { skipped: mode, errors: [] })
     return 0
   }
   const locked: string[] = spec.locked_files
@@ -183,6 +185,11 @@ export function main(argv: string[]): number {
     .filter((t) => !cases.has(t))
     .sort())
     errors.push(`tag [${t}] in [${taggedInSrc[t]!.map((f) => `'${f}'`).join(', ')}] is not a case of the spec`)
+  if (dry) {
+    for (const e of errors) console.log('ERROR ' + e)
+    console.log(`RESULT gate-tests --static errors=${errors.length}`)
+    return errors.length ? 1 : 0
+  }
   // run and red check
   if (!errors.length) {
     const runs: [string, string][] = opt.runner ? [[opt.runner, opt.report ?? '']] : defaultRuns(locked)

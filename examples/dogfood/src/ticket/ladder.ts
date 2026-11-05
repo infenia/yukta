@@ -74,6 +74,8 @@ const attemptNumbers = (sd: string): number[] =>
     .map(Number)
     .sort((a, b) => a - b)
 const revisions = (run: string): number => (isFile(join(run, 'revisions.json')) ? load(join(run, 'revisions.json')).count : 0)
+/** The failure (`step:stage:first failing test`) each revision so far answered (revisions.json `for`). */
+const revisedFor = (run: string): string[] => (isFile(join(run, 'revisions.json')) ? (load(join(run, 'revisions.json')).for ?? []) : [])
 const factor = (run: string): number => (isFile(join(run, 'extension.json')) ? load(join(run, 'extension.json')).factor : 1)
 
 function budgetBreach(run: string, p: Json, routing: Json): string | null {
@@ -111,13 +113,18 @@ function decide(run: string, sid: string, afterHeal: boolean, wt: string): numbe
   const allowed = limits(p).attempts_per_step + (revisions(run) ? 1 : 0)
   const complexity = (): string => load(join(run, 'spec', 'spec.json')).steps.find((x: Json) => x.id === sid)?.complexity ?? 'standard'
 
+  // the same failure: the step, the stage (or the BLOCKED category) and the first failing test; another failing test is progress
+  const same = `${sid}:${cls === 'blocked_reported' ? `blocked:${res.blocked?.category}` : stage || cls}:${fail.failing?.[0] ?? ''}`
   const out = (action: string, reason: string, model?: string, effort?: string, trigger = 'step_failed'): number => {
-    const d: Json = { action, reason, step: sid, attempt: n, model: model ?? cur.model, effort: effort ?? cur.effort, trigger }
-    if (['revise', 'human', 'pause'].includes(action)) {
+    const d: Json = { action, reason, step: sid, attempt: n, model: model ?? cur.model, effort: effort ?? cur.effort, trigger, same }
+    // a revision that did not change the outcome is not tried again: the same step failing the same way goes to a person
+    if (action === 'revise' && revisedFor(run).includes(same))
+      Object.assign(d, { action: 'human', reason: `${reason}; a revision for the same failure (${same}) did not fix it` })
+    if (['revise', 'human', 'pause'].includes(d.action)) {
       // the failed attempt's edits must not leak into the next base (a revision commits the new tests on top of the worktree)
       git(['reset', '-q', '--hard', trim(join(sd, 'base'))], { cwd: wt })
       git(['clean', '-q', '-fd', '-e', 'node_modules'], { cwd: wt })
-      if (action === 'revise' && revisions(run) >= limits(p).revisions_per_run)
+      if (d.action === 'revise' && revisions(run) >= limits(p).revisions_per_run)
         Object.assign(d, { action: 'human', reason: `${reason}; the ${limits(p).revisions_per_run} revisions of the run are used` })
       save(join(run, 'escalation.json'), d)
     }
@@ -282,8 +289,12 @@ function applyRevision(run: string): number {
     [...new Set<string>([...rev.replace_test_cases.map((c: Json) => c.id), ...rev.remove_test_case_ids])].sort(),
   )
   rmSync(join(run, 'prefix.hash'), { force: true }) // the cache prefix legitimately changes with the spec
+  const esc = readOr(join(run, 'escalation.json'))
   rmSync(join(run, 'escalation.json'), { force: true })
-  save(join(run, 'revisions.json'), { count: revisions(run) + 1 })
+  save(join(run, 'revisions.json'), {
+    count: revisions(run) + 1,
+    for: [...revisedFor(run), ...(esc.same ? [esc.same] : [])],
+  })
   console.log(
     `REVISED spec_version=${next.spec_version} replaced=[${rev.replace_steps
       .map((s: Json) => s.id)

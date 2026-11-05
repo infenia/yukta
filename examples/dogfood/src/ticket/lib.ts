@@ -212,7 +212,8 @@ export function run(cmd: string[], opts: { cwd?: string; input?: string; env?: R
 
 /** Runs a command line through the shell (the project's own command templates are shell lines). */
 export function sh(line: string, cwd?: string): Proc {
-  return run(['bash', '-c', line], { cwd })
+  // `yk` of the templates resolves even when the server that runs the workflow has no examples/dogfood on its PATH
+  return run(['bash', '-c', line], { cwd, env: { PATH: `${process.env.PATH ?? ''}:${KIT}` } })
 }
 
 export function git(args: string[], opts: { cwd?: string; check?: boolean } = {}): Proc {

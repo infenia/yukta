@@ -38,7 +38,7 @@ test('8. BLOCKED -> architect revision: completed steps untouched, spec v2, the 
   expect(kit(['ladder', 'apply-revision', copy]).code).not.toBe(0)
 })
 
-test('10. three failed attempts: attempt 2 on the same model, attempt 3 one tier up, then the architect revises, then a person', async () => {
+test('10. three failed attempts: attempt 2 on the same model, attempt 3 one tier up, then the architect revises once; the same failure after it goes to a person', async () => {
   await w.walk('happy', 'false')
   expect(w.rc).not.toBe(0)
   expect(
@@ -48,8 +48,9 @@ test('10. three failed attempts: attempt 2 on the same model, attempt 3 one tier
       .join(' '),
   ).toBe('haiku haiku sonnet')
   expect(w.out).toContain('NODE escalate1 success')
-  expect(json(join(w.run, 'revisions.json')).count).toBe(2)
+  expect(json(join(w.run, 'revisions.json'))).toEqual({ count: 1, for: ['S1:tests:'] })
   expect(w.out).toContain('NODE human')
+  expect(json(join(w.run, 'escalation.json')).reason).toContain('did not fix it')
   expect(
     read(join(w.d, 'gh.log'))
       .split('\n')

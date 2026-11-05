@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 // Offline test of ticketkit gate-tests with a fake test runner (design 13.1 items 6, 14, 15, 16, 17).
 import { afterAll, beforeAll, beforeEach, expect, setDefaultTimeout, test } from 'bun:test'
-import { cpSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { initRepo, json, kit, put, read, rm, tmp } from './helpers.ts'
 
@@ -86,6 +86,17 @@ test('15. passes before any implementation (not red)', () => {
 test('16. a setup error is not red', () => {
   report('setup', 'fail')
   expect(gate()).toContain('setup, import or syntax error')
+})
+test('--static (the test writer self-check): the checks before the run, nothing written', () => {
+  put(join(W, 'core/src/main/java/Stray.java'), 'x\n')
+  const o = kit(['gate-tests', R, '--worktree', '.', '--static'], { cwd: W })
+  expect(o.code).toBe(1)
+  expect(o.out).toContain('scope_violation: core/src/main/java/Stray.java')
+  expect(o.out).toContain('RESULT gate-tests --static errors=1')
+  expect(existsSync(join(R, 'spec/gate.json')), 'a self-check writes no gate.json').toBe(false)
+  expect(existsSync(join(R, 'spec/locked.json'))).toBe(false)
+  rm(join(W, 'core/src/main/java/Stray.java'))
+  expect(kit(['gate-tests', R, '--worktree', '.', '--static'], { cwd: W }).code, 'no test run: no report needed').toBe(0)
 })
 test('6. no report = compile failure', () => {
   expect(gate()).toContain('compile_or_setup')

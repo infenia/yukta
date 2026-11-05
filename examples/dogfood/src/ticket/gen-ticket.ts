@@ -3,7 +3,7 @@
 // Writes the workflows of the ticket pipeline into session.json (design 6.1 to 6.3, 9, 15.3, 15.5), the way
 // dogfood/src/gen-heal.ts does. `yk ticket` adds them to the `dogfood` session, so they call its `tool` workflow.
 //
-//   ticket        issue -> intake -> init -> claim -> route -> architect (validate-spec, 2 retries) -> test writer -> gate-tests -> [spec approval]
+//   ticket        issue -> intake -> init -> claim -> route -> architect (validate-spec, 2 retries; policy conflicts ask a person) -> test writer -> gate-tests (blocked or red-check failures retry the architect) -> [spec approval]
 //                 -> plan comment -> attempt_round, recovered up to 3 times (revise: `escalate`; pause: a human packet and an ASK_INPUT) -> [merge gate]
 //                 -> finish (draft PR) -> close
 //   attempt_round steps_round -> finalize
@@ -165,7 +165,7 @@ for (let k = 1; k <= ATTEMPTS; k++) {
   st.link(b, im, 'success')
   st.fail(b, 'the step base or packet failed')
   st.link(im, rs, 'success')
-  st.fail(im, 'the implementer failed or its answer stayed invalid after one retry')
+  st.fail(im, 'the implementer call failed (the ERROR line says which: schema_invalid, api_error, limit)')
   st.link(rs, va, 'done')
   st.link(rs, de, 'blocked')
   st.link(va, 'commit', 'success')
@@ -289,13 +289,13 @@ es.chain(
     [pe('build_revision', ['ladder', 'build-revision', RUN], 60), 'the revision request could not be built'],
     [
       pe('architect_revise', ['call', 'architect_revise', RUN, ...W], 2400, { json: true, claude: true }),
-      "the architect's revision stayed invalid",
+      "the architect's revision call failed (the ERROR line says which: schema_invalid, api_error, limit)",
     ],
     [pe('apply_revision', ['ladder', 'apply-revision', RUN], 60), 'the revision touches completed steps or is not applicable'],
     [pe('validate_spec', ['validate-spec', RUN, ...W], 300), 'the revised spec is not valid'],
     [
       pe('test_writer', ['call', 'test_writer', RUN, ...W], 2400, { json: true, claude: true }),
-      'the test writer failed on the changed cases',
+      'the test writer was blocked or failed on the changed cases (the ERROR line says which: blocked, schema_invalid, api_error, limit)',
     ],
     [pe('gate_tests', ['gate-tests', RUN, ...W], 3700), 'the changed tests did not pass the red check'],
     [pe('commit_tests', ['flow', 'commit-tests', RUN, ...W], 120), 'the tests could not be committed'],
@@ -328,7 +328,9 @@ t.chain(
   'route',
 )
 t.chain([[pe('route', ['route', RUN], 120), 'route failed']], 'architect1', true) // complexity and risk come from the ticket's own criteria, labels and paths
-// the architect, with validate-spec errors fed back, twice at most
+// the architect, with validate-spec errors and the test stage's feedback fed back, twice at most
+const ARCH_FAIL =
+  'the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this'
 for (const k of [1, 2, 3]) {
   t.add(
     pe(`architect${k}`, ['call', 'architect', RUN, ...W], 2400, { json: true, claude: true }),
@@ -345,8 +347,8 @@ for (const k of [1, 2, 3]) {
       rejected(cr),
       terminal(`clarify_rejected${k}`, 'a person declined to answer the architect'),
       pe(cp, ['ladder', 'apply-clarification', RUN, '${metadata.input.text}'], 60),
-      deadEnd(`architect${k}`, 'the architect failed or stayed invalid'),
-      terminal(`architect${k}.failed`, 'the architect failed, did not ask or stayed invalid'),
+      deadEnd(`architect${k}`, ARCH_FAIL),
+      terminal(`architect${k}.failed`, ARCH_FAIL),
     )
     t.link(`architect${k}`, c, 'failure')
     t.link(c, cs, 'success')
@@ -359,20 +361,39 @@ for (const k of [1, 2, 3]) {
     t.link(cr, cp, 'approve')
     t.link(cp, `architect${k + 1}`, 'success')
     t.fail(cp, 'the answers could not be recorded', true)
-  } else t.fail(`architect${k}`, 'the architect failed, asked for clarification or stayed invalid', true)
-  t.link(`validate_spec${k}`, 'test_writer', 'success')
-  if (k < 3) t.link(`validate_spec${k}`, `architect${k + 1}`, 'failure')
-  else t.fail('validate_spec3', 'the spec is still invalid after two retries', true)
+  } else t.fail(`architect${k}`, ARCH_FAIL, true)
+  // the test writer and the red check of this spec; blocked tests or a failed gate send the reason back to the next architect attempt
+  const [tw, gt] = [`test_writer${k}`, `gate_tests${k}`]
+  t.add(pe(tw, ['call', 'test_writer', RUN, ...W], 2400, { json: true, claude: true }), pe(gt, ['gate-tests', RUN, ...W], 3700))
+  t.link(`validate_spec${k}`, tw, 'success')
+  t.link(tw, gt, 'success')
+  t.link(gt, 'commit_tests', 'success')
+  if (k < 3) {
+    // a policy conflict (validate-spec wrote needs-clarification.json) is a question to a person; any other error is the next attempt's
+    const [sc, scs] = [`spec_conflict${k}`, `spec_conflict_ask${k}?`]
+    t.add(pe(sc, ['ladder', 'clarification', RUN], 60, { json: true }), select(scs, 'ask', { true: 'ask' }, 'retry'))
+    t.link(`validate_spec${k}`, sc, 'failure')
+    t.link(sc, scs, 'success')
+    t.fail(sc, 'the clarification could not be read', true)
+    t.link(scs, `ask_clarify${k}`, 'ask')
+    t.link(scs, `architect${k + 1}`, 'retry')
+    const rs = `retry_spec${k}`
+    t.add(pe(rs, ['flow', 'retry-spec', RUN, ...W], 120))
+    t.link(tw, rs, 'failure')
+    t.link(gt, rs, 'failure')
+    t.link(rs, `architect${k + 1}`, 'success')
+    t.fail(rs, 'the worktree could not be reset for the next spec', true)
+  } else {
+    t.fail('validate_spec3', 'the spec is still invalid after two retries (spec/validation.json)', true)
+    t.fail(
+      tw,
+      'the test writer was blocked or failed on the third spec (the ERROR line says which: blocked, schema_invalid, api_error, limit)',
+      true,
+    )
+    t.fail(gt, 'the tests of the third spec did not pass the red check (spec/gate.json)', true)
+  }
 }
-t.chain(
-  [
-    [pe('test_writer', ['call', 'test_writer', RUN, ...W], 2400, { json: true, claude: true }), 'the test writer failed'],
-    [pe('gate_tests', ['gate-tests', RUN, ...W], 3700), 'the tests did not pass the red check'],
-    [pe('commit_tests', ['flow', 'commit-tests', RUN, ...W], 120), 'the tests could not be committed'],
-  ],
-  'need_spec',
-  true,
-)
+t.chain([[pe('commit_tests', ['flow', 'commit-tests', RUN, ...W], 120), 'the tests could not be committed']], 'need_spec', true)
 // approvals: a high-risk spec waits for a person (yk approve | reject)
 t.add(
   pe('need_spec', ['ladder', 'need-approval', RUN, 'spec'], 60, { json: true }),

@@ -197,9 +197,13 @@ test('validate-spec', () => {
   check('24 guard path', 'guard path', (s) => {
     s.steps[0].write_files = ['config/checkstyle/checkstyle.xml']
   })
+  // a policy conflict is a question to a person, not another architect attempt
+  expect(json(join(run, 'spec/needs-clarification.json')).questions[0].question).toContain('guard path')
+  rm(join(run, 'spec/needs-clarification.json'))
   check('write outside scope', 'outside scope', (s) => {
     s.steps[0].write_files = ['boot/X.java']
   })
+  expect(existsSync(join(run, 'spec/needs-clarification.json')), 'an error the architect can fix asks nobody').toBe(false)
   check('not a template', 'not a project command', (s) => {
     s.steps[0].done_when.commands = ['rm -rf /']
   })
