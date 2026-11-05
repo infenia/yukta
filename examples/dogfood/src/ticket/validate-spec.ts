@@ -131,6 +131,9 @@ export function validate(
   const sc = spec.scope
   const locked = new Set<string>(spec.locked_files)
   const allowArch = spec.tests_mode === 'architect_code'
+  // the test gate only accepts files named here; an empty list makes every written test a scope_violation
+  if (!locked.size && ['repro_only', 'cases_to_code', 'architect_code'].includes(spec.tests_mode))
+    err(`locked_files is empty but tests_mode ${spec.tests_mode} writes tests up front: name the test file paths`)
   const allWrites = new Set<string>(spec.steps.flatMap((s: Json) => s.write_files))
   // 6 scaffold touches only stubs
   for (const f of [...scaffoldFiles].sort()) {
