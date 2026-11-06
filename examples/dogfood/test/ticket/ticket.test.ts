@@ -62,8 +62,21 @@ test('happy path: a run dir, a commit, events with cache fields, the GitHub flow
   expect(log).toContain('pr create --draft')
   expect(log).toMatch(/pr create.*--title feat\(core\): rate limit/)
   const pr = read(join(w.d, 'pr-body.md'))
-  for (const want of ['Fixes #7', 'RESULT status=SUCCESS', '| T1 |', 'total: ', 'architect:'])
+  for (const want of [
+    'Fixes #7',
+    '## Summary\n\nLimit requests',
+    '- **Add limiter** (S1; `core/src/main/java/A.java`)',
+    '| ✅ | tests pass | tests |',
+    '**Verdict:** APPROVE',
+    'No findings.',
+    '| T1 |',
+    'RESULT status=SUCCESS',
+    '| role | model | calls | input | output | cache read | cache write | cost |',
+    '| implementer | haiku | 1 | 10 | 5 | 900 | 100 | $0.02 |',
+    '| **total** |',
+  ])
     expect(pr, `PR body lacks '${want}'`).toContain(want)
+  expect(pr).not.toContain('Cost by role')
   expect(git(w.d + '/remote.git', 'rev-parse', '-q', '--verify', 'issue/7').code).toBe(0)
   expect(log).not.toMatch(/push.*main|merge/)
 })

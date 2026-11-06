@@ -155,13 +155,83 @@ function specSummary(run: string): string {
     out.push(
       `- ${s.id} ${s.title} (\`${(s.write_files as string[]).join('`, `')}\`; covers ${(s.covers as string[]).join(', ') || 'none'})`,
     )
+  out.push('', '**Test cases**', '', '| id | title | given | when | expect |', '|---|---|---|---|---|')
+  for (const c of spec.test_cases) out.push(`| ${c.id} | ${cell(c.title)} | ${cell(c.given)} | ${cell(c.when)} | ${cell(c.expect)} |`)
+  return out.join('\n')
+}
+
+const num = (x: number): string => x.toLocaleString('en-US')
+const usd = (x: number): string => (x > 0 && x < 0.01 ? '<$0.01' : `$${x.toFixed(2)}`)
+/** Agent text in markdown: `<Tag />` would be read as HTML and vanish. */
+const md = (x: unknown): string =>
+  String(x ?? '')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+
+/** Tokens per role from events.jsonl: one row per role (calls, input, output, cache read / write, cost) and a total. */
+export function tokenTable(run: string): string {
+  const f = join(run, 'events.jsonl')
+  const rows: Record<string, { models: Set<string>; n: number[] }> = {}
+  for (const l of isFile(f) ? readFileSync(f, 'utf8').split('\n') : []) {
+    if (!l.trim()) continue
+    const e = JSON.parse(l)
+    if (!('tokens_in' in e)) continue
+    const r = (rows[e.role] ??= { models: new Set(), n: [0, 0, 0, 0, 0, 0] })
+    if (e.model) r.models.add(e.model)
+    ;[1, e.tokens_in, e.tokens_out, e.cache_read_tokens, e.cache_write_tokens, e.cost_usd].forEach((v, i) => (r.n[i]! += v ?? 0))
+  }
+  const total = [0, 0, 0, 0, 0, 0]
+  const line = (name: string, models: string, n: number[]): string =>
+    `| ${name} | ${models} | ${n.slice(0, 5).map(num).join(' | ')} | ${usd(n[5]!)} |`
+  const out = ['| role | model | calls | input | output | cache read | cache write | cost |', '|---|---|--:|--:|--:|--:|--:|--:|']
+  for (const [role, r] of Object.entries(rows).sort(([a], [b]) => (a < b ? -1 : 1))) {
+    r.n.forEach((v, i) => (total[i]! += v))
+    out.push(line(role, [...r.models].sort().join(', '), r.n))
+  }
+  out.push(line('**total**', '', total))
+  return out.join('\n')
+}
+
+/** The draft PR's description: what changed and why, how it was checked, and what the run used. */
+export function prBody(run: string, wt: string, n: string, result: string, baseline: string): string {
+  const spec = load(join(run, 'spec', 'spec.json'))
+  const cell = (x: unknown): string => md(x).replaceAll('|', '\\|').replaceAll('\n', ' ')
+  const rf = join(run, 'review', 'result.json')
+  const review: Json = isFile(rf) ? load(rf) : { verdict: '-', criteria_results: [], findings: [] }
+  const met: Record<string, Json> = Object.fromEntries((review.criteria_results as Json[]).map((c) => [c.id, c]))
   const tm = join(run, 'spec', 'test_map.json')
   const tests: Record<string, string[]> = isFile(tm) ? load(tm) : {}
-  out.push('', '**Test cases**', '', '| id | title | given | when | expect | tests |', '|---|---|---|---|---|---|')
+  const stat = git(['diff', '--stat', 'origin/main...HEAD'], { cwd: wt, check: false }).stdout.trim()
+  const out = [`Fixes #${n}`, '', '## Summary', '', md(spec.objective), '', `**Risk:** ${spec.risk} · **Tests:** ${spec.tests_mode}`, '']
+  out.push('## Changes', '')
+  for (const s of spec.steps) {
+    out.push(`- **${s.title}** (${s.id}; \`${(s.write_files as string[]).join('`, `')}\`)`)
+    for (const i of s.instructions ?? []) out.push(`  - ${md(i)}`)
+  }
+  if (stat) out.push('', '<details><summary>Files changed</summary>', '', '```', stat, '```', '', '</details>')
+  out.push('', '## Acceptance criteria', '', '| | criterion | evidence |', '|---|---|---|')
+  for (const a of spec.acceptance_criteria) {
+    const r = met[a.id]
+    out.push(`| ${r ? (r.met ? '✅' : '❌') : '–'} | ${cell(a.text)} | ${cell(r?.evidence)} |`)
+  }
+  out.push('', '## Review', '', `**Verdict:** ${review.verdict}`)
+  const tf = met.TESTS_FAITHFUL
+  if (tf) out.push(`**Tests faithful to the cases:** ${tf.met ? 'yes' : 'no'} (${md(tf.evidence)})`)
+  const findings = review.findings as Json[]
+  out.push(
+    '',
+    ...(findings.length
+      ? findings.map((x) => `- **${x.severity}** \`${x.path}${x.line ? `:${x.line}` : ''}\`: ${md(x.issue)} → ${md(x.suggested_action)}`)
+      : ['No findings.']),
+  )
+  if ((spec.assumptions ?? []).length) out.push('', '## Assumptions', '', ...(spec.assumptions as string[]).map((a) => `- ${md(a)}`))
+  out.push('', '## Tests', '', '| case | title | given | when | expect | tests |', '|---|---|---|---|---|---|')
   for (const c of spec.test_cases)
     out.push(
       `| ${c.id} | ${cell(c.title)} | ${cell(c.given)} | ${cell(c.when)} | ${cell(c.expect)} | ${cell((tests[c.id] ?? []).map(untag).join('; '))} |`,
     )
+  out.push('', '## Final gate', '', '```', result, '```', baseline)
+  out.push('## Token usage', '', tokenTable(run), '', '🤖 Generated with [Claude Code](https://claude.com/claude-code)', '')
   return out.join('\n')
 }
 
@@ -226,7 +296,7 @@ function finish(run: string, wt: string): number {
   const baseline = isFile(bl)
     ? `\n**Baseline failure:** \`${load(bl).stage}\` also fails on a clean \`origin/main\`, so it was not charged to this change.\n`
     : ''
-  const body = `Fixes #${n}\n\n## Final gate\n\n\`\`\`\n${result}\n\`\`\`\n${baseline}\n## Spec\n\n${specSummary(run)}\n\n## Cost by role\n\n${costLines(run)}\n`
+  const body = prBody(run, wt, n, result, baseline)
   for (const need0 of p.git.pr_body_must_contain as string[]) {
     const need = need0.replaceAll('{n}', n)
     if (!body.includes(need) || (!result && need0 === 'RESULT'))
