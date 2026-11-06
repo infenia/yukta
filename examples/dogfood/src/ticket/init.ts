@@ -4,8 +4,8 @@
 //
 // Creates .yukta-dev/ticket/<run_id>/ (design section 4), branch issue/<n> and worktree ../yukta-issue-<n>.
 // Prints RUN_DIR=... and WORKTREE=...; prints SKIPPED <why> and exits 3 when the run must not start (no acceptance criteria, branch or
-// worktree exists): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
-import { attach, isReleased } from './branch.ts'
+// worktree exists, unless `yk ticket worktree` marked it to be continued): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
+import { attach, isReleased, takeContinue } from './branch.ts'
 import { rolesOf } from './roles.ts'
 import { measure, sizingOf, trackedFiles } from './sizing.ts'
 import { type Json, KIT, die, kindOf, existsSync, git, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
@@ -60,10 +60,18 @@ export function main(argv: string[]): number {
   }
   const branch = project.git.branch.replaceAll('{n}', n)
   const wt = resolve(root, project.git.worktree.replaceAll('{n}', n))
-  // a released worktree at the path (a failed run's, see releaseFailed) is taken over by attach
+  // a released worktree at the path (a failed run's, see releaseFailed) is taken over by attach; one that `yk ticket worktree` marked is continued
+  let resume = false
   if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, check: false }).code === 0 || (existsSync(wt) && !isReleased(wt))) {
-    console.log(`SKIPPED branch ${branch} or worktree ${wt} exists`)
-    return 3
+    const why = flag.has('no-worktree')
+      ? 'no worktree wanted'
+      : takeContinue(wt, branch, git(['rev-parse', opt.base ?? 'origin/main'], { cwd: root }).stdout.trim())
+    if (why) {
+      console.log(`SKIPPED branch ${branch} or worktree ${wt} exists (${why})`)
+      return 3
+    }
+    resume = true
+    console.error(`NOTE continuing branch ${branch} in ${wt}`)
   }
   let runId: string = opt['run-id'] ?? `${n}-${stamp()}`
   const state = opt['state-dir'] ?? process.env.YUKTA_DEV_STATE_DIR ?? join(root, '.yukta-dev')
@@ -96,7 +104,7 @@ export function main(argv: string[]): number {
   })
   save(join(dir, 'project.json'), project)
   writeFileSync(join(dir, 'events.jsonl'), '', { flag: 'a' })
-  if (!flag.has('no-worktree')) {
+  if (!flag.has('no-worktree') && !resume) {
     attach(root, wt, branch, base, false) // takes over a released worktree (branch.ts) before adding one
   }
   console.log(`RUN_DIR=${dir}\nWORKTREE=${wt}\nRUN_ID=${runId}`)

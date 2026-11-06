@@ -41,10 +41,31 @@ export function release(wt: string): string | null {
   }
   git(['switch', '-q', '--detach', 'origin/main'], { cwd: wt })
   writeFileSync(marker(wt), '')
+  rmSync(continueMark(wt), { force: true })
   return null
 }
 
 export const isReleased = (wt: string): boolean => existsSync(wt) && existsSync(marker(wt))
+
+/** `yk ticket worktree` marks the worktree so the next `yk ticket run` continues its branch (commits kept) instead of refusing it. One run only. */
+const continueMark = (wt: string): string => join(git(['rev-parse', '--absolute-git-dir'], { cwd: wt }).stdout.trim(), 'yukta-continue')
+
+/** Consumes the mark: null when `wt` may be continued on `branch`, else why not. The branch must be cut directly from `main` (its fork point on
+ * main's first-parent line, no merge commits) and have a commit of its own. */
+export function takeContinue(wt: string, branch: string, main = 'origin/main'): string | null {
+  if (!existsSync(wt) || !existsSync(continueMark(wt))) return `run 'yk ticket worktree' first to continue it`
+  if (current(wt) !== branch) return `${wt} is on ${current(wt) || '?'}, not ${branch}`
+  if (git(['status', '--porcelain'], { cwd: wt }).stdout.trim()) return `${wt} has uncommitted changes`
+  const count = (...a: string[]): number => Number(git(['rev-list', '--count', ...a, `${main}..HEAD`], { cwd: wt }).stdout)
+  if (!count()) return `${branch} has no commit of its own on ${main}`
+  if (count('--merges')) return `${branch} has merge commits, not a direct branch of ${main}`
+  const fork = git(['merge-base', main, 'HEAD'], { cwd: wt }).stdout.trim()
+  // ponytail: a branch stacked on another unmerged branch passes too (git cannot tell its commits apart); reflog would, but it is not always kept
+  if (!git(['rev-list', '--first-parent', main], { cwd: wt }).stdout.split('\n').includes(fork))
+    return `${branch} does not branch off ${main}'s own history`
+  rmSync(continueMark(wt))
+  return null
+}
 
 /** After a failed run: a branch with no commits of its own holds only the run's debris, so its diff goes to RUN/leftover.patch and the worktree is
  * released (the branch deleted) for the next run of the issue. A branch with commits is left for a person. Returns what it did. */
@@ -130,6 +151,7 @@ export function worktree(argv: string[]): number {
   } else {
     attach(R, wt, branch, remote ? `origin/${branch}` : base, local)
   }
+  writeFileSync(continueMark(wt), '') // the next `yk ticket run` continues this branch (init.ts)
   console.log(`WORKTREE=${wt}\nBRANCH=${branch}`)
   return 0
 }
