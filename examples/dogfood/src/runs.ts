@@ -225,6 +225,23 @@ export async function cmdAnswer(verb: string, argv: string[]): Promise<number> {
   const tree: Json[] = await api('GET', `/api/executions/${exec}/tree`)
   const ids = tree.map((t) => t.executionId)
   const found = (await pending([session])).filter((p) => ids.includes(p.executionId) && (!signal || p.name === signal))
+  // the gates of the ticket pipeline are ASK_INPUT nodes: an open input request of the tree (signal = its node or request id), answered as the person
+  if (found.length === 0) {
+    const open = ((await api('GET', '/api/inputs?limit=1000')) as Json[]).filter(
+      (r) => ids.includes(r.executionId) && (!signal || r.nodeId === signal || r.id === signal),
+    )
+    if (open.length === 1) {
+      const r = open[0]!
+      const res = await http('POST', `${process.env.YUKTA_SERVER_URL ?? DEV_URL}/api/executions/${r.executionId}/inputs/${r.id}/answer`, {
+        headers: { 'Content-Type': 'application/json', ...(process.env.YUKTA_TOKEN ? { 'X-API-Key': process.env.YUKTA_TOKEN } : {}) },
+        body: JSON.stringify({ decision, ...(data ? (r.kind === 'TEXT' ? { text: data } : { rationale: data }) : {}) }),
+      })
+      if (res.code >= 400 || res.code === 0) die(`answer ${r.id}: HTTP ${res.code} ${tryJson(res.body)?.message ?? res.body}`.trimEnd())
+      console.log(`${decision}: ${r.executionId} ${r.nodeId} (input ${r.id})`)
+      return 0
+    }
+    if (open.length > 1) die(`${open.length} open input requests for ${exec}; name one: yk ${verb} ${exec} <node or request id>`)
+  }
   if (found.length !== 1) die(`${found.length} pending signals for ${exec}${signal ? ` named ${signal}` : ''}; run: yk signals ${exec}`)
   const { nodeId: node, name } = found[0]!
   exec = found[0]!.executionId

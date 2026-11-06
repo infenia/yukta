@@ -836,7 +836,8 @@ async function dispatch(argv: string[]): Promise<number> {
     }
     case 'cli': {
       process.env.YUKTA_SERVER_URL ??= DEV_URL
-      const p = Bun.spawnSync([findCli(), ...rest], { stdio: ['inherit', 'inherit', 'inherit'] })
+      // the env explicitly: Bun's default is the environment the process started with, without the dev key useDevKey() set (a 401)
+      const p = Bun.spawnSync([findCli(), ...rest], { stdio: ['inherit', 'inherit', 'inherit'], env: { ...process.env } })
       return p.exitCode ?? 1
     }
     case 'help':
