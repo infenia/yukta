@@ -16,6 +16,7 @@ import com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory;
 import com.infenia.yukta.supervisor.guards.ApprovalGateFactory;
 import com.infenia.yukta.supervisor.guards.FailureGuardFactory;
+import com.infenia.yukta.supervisor.guards.StallWatchdogFactory;
 import com.infenia.yukta.supervisor.rules.RuleSupervisorFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,6 +42,7 @@ class SupervisorCatalogTest {
         new RuleSupervisorFactory(),
         new FailureGuardFactory(),
         new ApprovalGateFactory(),
+        new StallWatchdogFactory(),
         new RuleControlPlaneFactory(),
         new ModelControlPlaneFactory(null),
         new RulesFirstControlPlaneFactory(null),

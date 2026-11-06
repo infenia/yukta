@@ -156,4 +156,26 @@ class GuardsAcceptanceTest {
                     .contains("StopWorkflowCommand", "awaiting-approval", executionId));
     gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
   }
+
+  @Test
+  void stallWatchdogPausesTheWorkflowOfNodeThatRunsTooLong() throws Exception {
+    final String session = "stall-" + UUID.randomUUID();
+    final String id = "sw-" + UUID.randomUUID().toString().substring(0, 8);
+    attach(
+        id,
+        "stall-watchdog",
+        "{\"maxRunningSeconds\":1,\"checkEverySeconds\":1,\"action\":\"PAUSE_WORKFLOW\"}",
+        session);
+    final String workflowId = workflow(session, false);
+
+    final String executionId = gateway.startWorkflow(session, workflowId).block();
+
+    await()
+        .atMost(WAIT)
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId(executionId).controlState())
+                    .isEqualTo("PAUSED"));
+    gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
+  }
 }
