@@ -80,3 +80,11 @@ export interface ValidationResult {
   valid: boolean;
   errors: { field: string; message: string }[];
 }
+
+/** A supervisor declared in a session or workflow definition. */
+export interface SupervisorRef {
+  supervisor: string;
+  /** Workflow definitions only: node ids or \`<prefix>.*\`; absent means the whole workflow. */
+  nodes?: string[] | null;
+  enabled?: boolean | null;
+}

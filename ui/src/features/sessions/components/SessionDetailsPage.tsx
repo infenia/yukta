@@ -11,6 +11,8 @@ import { SessionInfoPanel } from './SessionInfoPanel';
 import { SessionActions } from './SessionActions';
 import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
+import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
+import type { SupervisorRef } from '@/features/supervisors/types';
 import { EffectiveSupervision } from '@/features/supervisors/components/EffectiveSupervision';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
@@ -36,6 +38,7 @@ function NewWorkflowDialog({
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const [supervisors, setSupervisors] = useState<SupervisorRef[]>([]);
   return (
     <Modal title="New workflow" onClose={onClose}>
       <form
@@ -45,7 +48,8 @@ function NewWorkflowDialog({
           const id = new FormData(event.currentTarget).get('workflowId');
           if (typeof id === 'string' && id.trim()) {
             navigate(
-              `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`
+              `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(id.trim())}/edit`,
+              { state: { supervisors } }
             );
           }
         }}
@@ -63,6 +67,10 @@ function NewWorkflowDialog({
             Used in URLs, the CLI and MCP calls.
           </span>
         </label>
+        <div className="flex flex-col gap-1.5">
+          <span className="text-label-md">Supervisors (optional)</span>
+          <SupervisorPicker value={supervisors} onChange={setSupervisors} />
+        </div>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="ghost" onClick={onClose}>
             Cancel
