@@ -201,7 +201,7 @@ public class SupervisorBindingsController {
    */
   @DeleteMapping("/profiles/{id}")
   @Operation(summary = "Delete a supervisor profile")
-  public Mono<ApiResponse<Void>> deleteSupervisor(@PathVariable final String id) {
+  public Mono<ApiResponse<Void>> deleteProfile(@PathVariable final String id) {
     return service
         .deleteSupervisor(id)
         .then(Mono.fromSupplier(() -> ApiResponse.success(200, "Profile deleted", null)));

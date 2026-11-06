@@ -31,6 +31,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
@@ -235,6 +236,27 @@ class SupervisorServiceTest {
     StepVerifier.create(service.attach(binding("b0", "p", new SupervisorScope.Global(), false)))
         .expectNextCount(1)
         .verifyComplete();
+  }
+
+  @Test
+  void attachmentLimitComesFromSettings() {
+    final SupervisorService limited =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(factory), host, log);
+    limited.setProperties(YuktaSettings.bind(Map.of("yukta.supervisor.max-attachments", "2")));
+    StepVerifier.create(limited.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    for (final String id : List.of("b0", "b1")) {
+      StepVerifier.create(limited.attach(binding(id, "p", new SupervisorScope.Global(), false)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    StepVerifier.create(limited.attach(binding("b2", "p", new SupervisorScope.Global(), false)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessage("At most 2 attachments are allowed"))
+        .verify();
   }
 
   @Test

@@ -222,7 +222,7 @@ class SupervisorBindingsControllerTest {
     when(service.deleteSupervisor("p")).thenReturn(Mono.empty());
     when(service.detach("b")).thenReturn(Mono.empty());
 
-    StepVerifier.create(controller.deleteSupervisor("p"))
+    StepVerifier.create(controller.deleteProfile("p"))
         .assertNext(r -> assertThat(r.status()).isEqualTo(200))
         .verifyComplete();
     StepVerifier.create(controller.detach("b"))
