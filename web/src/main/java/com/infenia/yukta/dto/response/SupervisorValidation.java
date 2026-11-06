@@ -14,6 +14,11 @@ import java.util.List;
 @Schema(description = "The result of checking a draft supervisor")
 public record SupervisorValidation(boolean valid, List<FieldIssue> errors) {
 
+  /** Keeps an immutable copy of the errors. */
+  public SupervisorValidation {
+    errors = List.copyOf(errors);
+  }
+
   /**
    * One problem.
    *

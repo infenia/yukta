@@ -14,6 +14,7 @@ import com.infenia.yukta.service.supervisor.SupervisorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,6 +61,7 @@ public class SupervisorTypesController {
     return Mono.fromSupplier(
         () -> {
           final SupervisorDescriptor d = descriptor(type);
+          final Set<String> defaults = service.defaultAllowedCommands(type);
           return ApiResponse.success(
               200,
               "Supervisor type retrieved",
@@ -73,9 +75,7 @@ public class SupervisorTypesController {
                   d.uiDesign().orElse(null),
                   service.configSchema(type),
                   SupervisorCommonSettings.SCHEMA,
-                  service.defaultAllowedCommands(type) == null
-                      ? null
-                      : service.defaultAllowedCommands(type).stream().sorted().toList(),
+                  defaults == null ? null : defaults.stream().sorted().toList(),
                   d.exampleSettings()));
         });
   }

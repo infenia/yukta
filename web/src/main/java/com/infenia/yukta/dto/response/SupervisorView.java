@@ -33,4 +33,10 @@ public record SupervisorView(
     long applied,
     long rejected,
     long recorded,
-    long rateLimited) {}
+    long rateLimited) {
+
+  /** Keeps an immutable copy of the settings. */
+  public SupervisorView {
+    settings = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(settings));
+  }
+}

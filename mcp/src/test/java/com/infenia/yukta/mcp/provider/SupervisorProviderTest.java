@@ -294,7 +294,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void saveGeneratesAnIdForABlankOneAndTakesNoDescription() {
+  void saveGeneratesIdForBlankOneAndTakesNoDescription() {
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(provider.save("  ", "t", java.util.Map.of(), false, null))

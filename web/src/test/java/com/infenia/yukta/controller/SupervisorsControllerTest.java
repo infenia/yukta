@@ -364,4 +364,111 @@ class SupervisorsControllerTest {
         .expectError(IllegalArgumentException.class)
         .verify();
   }
+
+  private static SupervisorInfo system(
+      final String id, final String scope, final String session, final String workflow) {
+    return new SupervisorInfo(
+        id,
+        "SUPERVISOR",
+        "T",
+        0,
+        false,
+        20,
+        0,
+        0,
+        0,
+        0,
+        scope,
+        session,
+        workflow,
+        null,
+        0,
+        0,
+        0,
+        null);
+  }
+
+  @Test
+  void systemAttachmentsShowTheirScopeKeys() {
+    when(host.status())
+        .thenReturn(
+            List.of(
+                system("g", "GLOBAL", null, null),
+                system("se", "SESSION", "A", null),
+                system("wf", "WORKFLOW", "A", "w"),
+                system("wa", "WORKFLOW", null, "w"),
+                system("sc", "SECTION", "A", "w")));
+    when(host.isBuiltIn(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
+
+    StepVerifier.create(controller.attachments(null, null, "SYSTEM"))
+        .assertNext(
+            r ->
+                assertThat(r.data())
+                    .extracting(AttachmentView::scope)
+                    .containsExactly(
+                        "global", "session:A", "workflow:A/w", "workflow:w", "workflow:A/w"))
+        .verifyComplete();
+  }
+
+  @Test
+  void systemSupervisorIdCannotBeTakenByNewOne() {
+    when(host.isBuiltIn("rules")).thenReturn(true);
+
+    StepVerifier.create(controller.create(body("rules", Map.of())))
+        .expectError(ConflictException.class)
+        .verify();
+  }
+
+  @Test
+  void validateTakesBlankIdAsDraftAndKeepsStoredSecretsOfExistingOne() {
+    StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc"))))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(controller.validate(body("  ", Map.of())))
+        .assertNext(r -> assertThat(r.data().valid()).isTrue())
+        .verifyComplete();
+    StepVerifier.create(controller.validate(body("s1", Map.of("bearer", "***"))))
+        .assertNext(r -> assertThat(r.data().valid()).isTrue())
+        .verifyComplete();
+  }
+
+  @Test
+  void attachDefaultsToEnabledAndAnIdIsGeneratedWhenMissing() {
+    created("s1");
+
+    StepVerifier.create(controller.attach(new AttachmentBody(null, "s1", "global", null)))
+        .assertNext(
+            r -> {
+              assertThat(r.data().enabled()).isTrue();
+              assertThat(r.data().id()).isNotBlank();
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void workflowScopesFollowTheQueriedSessionAndWorkflow() {
+    created("s1");
+    for (final String[] a :
+        new String[][] {
+          {"w1", "workflow:A/w1"},
+          {"w1b", "workflow:B/w1"},
+          {"any", "workflow:w1"},
+          {"sec", "workflow:A/w1//x"},
+          {"se", "session:A"}
+        }) {
+      StepVerifier.create(controller.attach(new AttachmentBody(a[0], "s1", a[1], false)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    assertThat(ids(controller.attachments(null, "w1", null)))
+        .containsExactlyInAnyOrder("w1", "w1b", "any", "sec");
+    assertThat(ids(controller.attachments("A", "w1", null)))
+        .containsExactlyInAnyOrder("w1", "any", "sec", "se");
+    assertThat(ids(controller.attachments("B", "w1", null)))
+        .containsExactlyInAnyOrder("w1b", "any");
+    assertThat(ids(controller.attachments("B", null, null))).containsExactly("w1b");
+    assertThat(ids(controller.attachments(null, "w2", null))).isEmpty();
+  }
 }

@@ -25,6 +25,7 @@ import java.util.Map;
  * @param exampleSettings settings that pass validation
  */
 @Schema(description = "Details of a supervisor type")
+@SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
 public record SupervisorTypeDetails(
     String type,
     String displayName,
@@ -37,4 +38,14 @@ public record SupervisorTypeDetails(
     List<ConfigField> commonSchema,
     @Schema(description = "Commands allowed by default; null means every command")
         List<String> defaultAllowedCommands,
-    Map<String, Object> exampleSettings) {}
+    Map<String, Object> exampleSettings) {
+
+  /** Keeps immutable copies. */
+  public SupervisorTypeDetails {
+    configSchema = List.copyOf(configSchema);
+    commonSchema = List.copyOf(commonSchema);
+    defaultAllowedCommands =
+        defaultAllowedCommands == null ? null : List.copyOf(defaultAllowedCommands);
+    exampleSettings = Map.copyOf(exampleSettings);
+  }
+}
