@@ -7,9 +7,9 @@ starts the workflow with the event (secrets masked) and reads what the workflow 
 | File | What |
 |---|---|
 | `session.json` | The internal session `supervisors` and its workflow `low-risk-answers`. |
-| `profile.json` | A profile of type `workflow` that starts it on `InputRequested`. It may send only `AnswerInputCommand` and `EscalateInputCommand`; a workflow supervisor sends nothing until its profile names commands. |
-| `binding.json` | Attaches the profile to one session (change `my-session`). |
-| `section-profile.json`, `section-binding.json` | A second, narrower supervisor: the workflow `section-triage` bound to the section `build.*` of `my-workflow`. It only escalates. |
+| `supervisor.json` | A supervisor of type `workflow` that starts it on `InputRequested`. It may send only `AnswerInputCommand` and `EscalateInputCommand`; a workflow supervisor sends nothing until its profile names commands. |
+| `attachment.json` | Attaches the supervisor to one session (change `my-session`). |
+| `section-supervisor.json`, `section-attachment.json` | A second, narrower supervisor: the workflow `section-triage` bound to the section `build.*` of `my-workflow`. It only escalates. |
 
 The workflow ends in an `OUTCOME_TERMINAL`:
 
@@ -28,10 +28,10 @@ covers another cannot be covered back, so the chain cannot loop. Route the reque
 ```bash
 # the session is internal, so ask for it with includeInternal
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
-curl -X POST localhost:9858/api/supervisors/profiles -H 'Content-Type: application/json' -d @profile.json
-curl -X POST localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' -d @binding.json
-curl -X POST localhost:9858/api/supervisors/profiles -H 'Content-Type: application/json' -d @section-profile.json
-curl -X POST localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' -d @section-binding.json
+curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @supervisor.json
+curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @attachment.json
+curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @section-supervisor.json
+curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @section-attachment.json
 curl 'localhost:9858/api/sessions?includeInternal=true'
 ```
 

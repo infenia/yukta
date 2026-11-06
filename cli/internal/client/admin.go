@@ -8,8 +8,24 @@ import (
 	"strconv"
 )
 
-// GetSupervisors lists the supervisors.
-func (c *Client) GetSupervisors() (any, error) { return c.getData("/api/supervisors") }
+// GetSupervisors lists the supervisors that run, with their scope and command counts.
+func (c *Client) GetSupervisors() (any, error) { return c.getData("/api/supervisors/status") }
+
+// ListSupervisors lists the configured supervisors, those of the server included.
+func (c *Client) ListSupervisors() (any, error) { return c.getData("/api/supervisors") }
+
+// GetSupervisor reads one configured supervisor.
+func (c *Client) GetSupervisor(id string) (any, error) {
+	return c.getData(apiPath("/api/supervisors/%s", id))
+}
+
+// GetSupervisorTypes lists the supervisor types in the catalog.
+func (c *Client) GetSupervisorTypes() (any, error) { return c.getData("/api/supervisor-types") }
+
+// GetSupervisorType describes one supervisor type with the settings it takes.
+func (c *Client) GetSupervisorType(name string) (any, error) {
+	return c.getData(apiPath("/api/supervisor-types/%s", name))
+}
 
 // GetWorkers lists the workers.
 func (c *Client) GetWorkers() (any, error) { return c.getData("/api/workers") }

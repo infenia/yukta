@@ -76,30 +76,51 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const getSupervisors = () => fetchApi<Supervisor[]>(BASE);
-export const getTypes = () => fetchApi<string[]>(`${BASE}/types`);
-export const getProfiles = () =>
-  fetchApi<SupervisorProfile[]>(`${BASE}/profiles`);
-export const getBindings = () =>
-  fetchApi<SupervisorBinding[]>(`${BASE}/bindings`);
+export const getSupervisors = () => fetchApi<Supervisor[]>(`${BASE}/status`);
+export const getTypes = async () =>
+  (await fetchApi<{ type: string }[]>('/api/supervisor-types')).map(
+    (t) => t.type
+  );
+/** The configured supervisors, the ones the server configures itself left out. */
+export const getProfiles = async () =>
+  (await fetchApi<(SupervisorProfile & { system?: boolean })[]>(BASE)).filter(
+    (s) => !s.system
+  );
+/** The attachments, those of the server's own supervisors left out. */
+export const getBindings = async () =>
+  (
+    await fetchApi<
+      (Omit<SupervisorBinding, 'profileId'> & {
+        supervisorId: string;
+        source: string;
+      })[]
+    >(`${BASE}/attachments`)
+  )
+    .filter((a) => a.source !== 'SYSTEM')
+    .map(({ supervisorId, ...rest }) => ({ ...rest, profileId: supervisorId }));
 export const getDecisions = (limit = 30) =>
   fetchApi<Decision[]>(`${BASE}/decisions?limit=${limit}`);
 
 export const createProfile = (profile: SupervisorProfile) =>
-  fetchApi<SupervisorProfile>(`${BASE}/profiles`, json('POST', profile));
+  fetchApi<SupervisorProfile>(BASE, json('POST', profile));
 export const replaceProfile = (profile: SupervisorProfile) =>
   fetchApi<SupervisorProfile>(
-    `${BASE}${api`/profiles/${profile.id}`}`,
+    `${BASE}${api`/${profile.id}`}`,
     json('PUT', profile)
   );
 export const deleteProfile = (id: string) =>
-  fetchApi<unknown>(`${BASE}${api`/profiles/${id}`}`, { method: 'DELETE' });
+  fetchApi<unknown>(`${BASE}${api`/${id}`}`, { method: 'DELETE' });
 
-export const attach = (
-  binding: Omit<SupervisorBinding, 'id'> & { id?: string }
-) => fetchApi<SupervisorBinding>(`${BASE}/bindings`, json('POST', binding));
+export const attach = ({
+  profileId,
+  ...binding
+}: Omit<SupervisorBinding, 'id'> & { id?: string }) =>
+  fetchApi<unknown>(
+    `${BASE}/attachments`,
+    json('POST', { ...binding, supervisorId: profileId })
+  );
 export const detach = (id: string) =>
-  fetchApi<unknown>(`${BASE}${api`/bindings/${id}`}`, { method: 'DELETE' });
+  fetchApi<unknown>(`${BASE}/attachments${api`/${id}`}`, { method: 'DELETE' });
 
 /** Separates the workflow from the node selectors in a section scope. */
 const SECTION = '//';

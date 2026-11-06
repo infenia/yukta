@@ -72,49 +72,62 @@ const refuse = () =>
   HttpResponse.json({ message: 'no' }, { status: writeStatus });
 
 const server = setupServer(
-  http.get('/api/supervisors', () => ok(supervisors)),
-  http.get('/api/supervisors/types', () =>
-    ok(['rule-supervisor', 'model-control-plane'])
+  http.get('/api/supervisors/status', () => ok(supervisors)),
+  http.get('/api/supervisor-types', () =>
+    ok([{ type: 'rule-supervisor' }, { type: 'model-control-plane' }])
   ),
-  http.get('/api/supervisors/profiles', () => ok(profiles)),
-  http.get('/api/supervisors/bindings', () => ok(bindings)),
+  http.get('/api/supervisors', () => ok(profiles)),
+  http.get('/api/supervisors/attachments', () =>
+    ok(
+      bindings.map(({ profileId, ...b }) => ({
+        ...b,
+        supervisorId: profileId,
+        source: 'MANUAL',
+      }))
+    )
+  ),
   http.get('/api/supervisors/decisions', () => ok(decisions)),
   http.get('/api/sessions/summaries', () =>
     ok([{ sessionId: 's1', name: 'Alpha' }])
   ),
-  http.post('/api/supervisors/profiles', async ({ request }) => {
+  http.post('/api/supervisors', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as (typeof profiles)[number];
     writes.push(`create ${JSON.stringify(body)}`);
     profiles = [...profiles, body];
     return ok(body);
   }),
-  http.put('/api/supervisors/profiles/:id', async ({ request }) => {
+  http.put('/api/supervisors/:id', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as (typeof profiles)[number];
     writes.push(`replace ${JSON.stringify(body)}`);
     profiles = profiles.map((p) => (p.id === body.id ? body : p));
     return ok(body);
   }),
-  http.delete('/api/supervisors/profiles/:id', ({ params }) => {
+  http.delete('/api/supervisors/:id', ({ params }) => {
     writes.push(`delete profile ${String(params.id)}`);
     profiles = profiles.filter((p) => p.id !== params.id);
     return ok(null);
   }),
-  http.post('/api/supervisors/bindings', async ({ request }) => {
+  http.post('/api/supervisors/attachments', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as {
       id?: string;
-      profileId: string;
+      supervisorId: string;
       scope: string;
       enabled: boolean;
     };
     writes.push(`attach ${JSON.stringify(body)}`);
-    const binding = { ...body, id: body.id ?? 'new-binding' };
+    const { supervisorId, ...rest } = body;
+    const binding = {
+      ...rest,
+      profileId: supervisorId,
+      id: body.id ?? 'new-binding',
+    };
     bindings = [...bindings.filter((b) => b.id !== binding.id), binding];
     return ok(binding);
   }),
-  http.delete('/api/supervisors/bindings/:id', ({ params }) => {
+  http.delete('/api/supervisors/attachments/:id', ({ params }) => {
     writes.push(`detach ${String(params.id)}`);
     bindings = bindings.filter((b) => b.id !== params.id);
     return ok(null);
@@ -390,7 +403,7 @@ describe('the supervisor cockpit', () => {
     await user.click(attach);
 
     await waitFor(() => expect(writes[0]).toContain('"scope":"session:s1"'));
-    expect(writes[0]).toContain('"profileId":"p"');
+    expect(writes[0]).toContain('"supervisorId":"p"');
     expect(writes[0]).toContain('"enabled":true');
   });
 });

@@ -372,9 +372,10 @@ class AppMcpToolsTest {
   @Test
   void supervisorToolsDelegateToTheSupervisorProvider() {
     final var listing =
-        new com.infenia.yukta.mcp.dto.SupervisorListing(List.of(), List.of(), List.of("t"));
+        new com.infenia.yukta.mcp.dto.SupervisorListing(
+            List.of(), List.of(), List.of(), List.of("t"));
     final var binding =
-        new com.infenia.yukta.mcp.dto.SupervisorBindingInfo("b", "p", "global", true);
+        new com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo("b", "p", "global", true, "MANUAL");
     final var detached = new com.infenia.yukta.mcp.dto.SupervisorDetached("b", true);
     when(supervisorProvider.list()).thenReturn(Mono.just(listing));
     when(supervisorProvider.attach("p", "global", null, null)).thenReturn(Mono.just(binding));
@@ -385,6 +386,38 @@ class AppMcpToolsTest {
         .expectNext(binding)
         .verifyComplete();
     StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
+  }
+
+  @Test
+  void supervisorCatalogToolsDelegateToTheSupervisorProvider() {
+    final var types =
+        new com.infenia.yukta.mcp.dto.SupervisorTypeList(
+            List.of(
+                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry(
+                    "t", "T", "GUARD", "SUPERVISOR", "d")));
+    final var details =
+        new com.infenia.yukta.mcp.dto.SupervisorTypeDetails(
+            "t",
+            "T",
+            "d",
+            "u",
+            "GUARD",
+            "SUPERVISOR",
+            List.of(),
+            List.of(),
+            null,
+            java.util.Map.of());
+    final var saved = new com.infenia.yukta.mcp.dto.SupervisorSaved("s", "t", null, true);
+    when(supervisorProvider.types()).thenReturn(types);
+    when(supervisorProvider.type("t")).thenReturn(details);
+    when(supervisorProvider.save("s", "t", java.util.Map.of("k", 1), true, "why"))
+        .thenReturn(Mono.just(saved));
+
+    StepVerifier.create(mcpTools.listSupervisorTypes()).expectNext(types).verifyComplete();
+    StepVerifier.create(mcpTools.getSupervisorType("t")).expectNext(details).verifyComplete();
+    StepVerifier.create(mcpTools.saveSupervisor("s", "t", java.util.Map.of("k", 1), true, "why"))
+        .expectNext(saved)
+        .verifyComplete();
   }
 
   @Test

@@ -315,7 +315,7 @@ Read-only views of what the server offers and what is attached to it: plugin typ
 - GET /api/plugins lists every plugin type and its category. GET /api/plugins/\{type\} adds the description, a usage pattern, UI design hints, the output ports and the configSchema: the list of config fields the plugin declares. An editor uses it to build a form for a node.
 - The control-bus views identify nodes by workflow id and node id only, with no session or execution in the path: GET /api/control/nodes (all live nodes), /api/control/workflows/\{wid\}/nodes, and .../nodes/\{nid\}/heartbeat (the last heartbeat message).
 - POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command sends an administrative command to a live plugin. The body is a map of 1 to 100 entries (it is the map itself, not wrapped in a field). Web builds a control message marked with source 'CONSOLE' and returns the plugin's response payload. Example: \{"action": "flush"\}.
-- GET /api/supervisors lists the supervisors and control-plane plugins attached to the control bus, in review order, with id, kind, type, dry-run flag, rate limit and counters since startup: applied, rejected, recorded (dry-run) and rate-limited.
+- GET /api/supervisors/status lists the supervisors and control-plane plugins attached to the control bus, in review order, with id, kind, type, dry-run flag, rate limit and counters since startup: applied, rejected, recorded (dry-run) and rate-limited.
 - The plugin catalogue handles its own errors: an unknown type is a locally built 404, and a failure listing plugins becomes a 500 with the exception text.
 
 - **Guarantees.** The catalogue is read-only. The admin command goes through the control bus like any other command.
@@ -684,7 +684,7 @@ All send numbered events and a ': ping' comment every 15 s. Reconnect with the L
 | GET | /api/control/workflows/\{wid\}/nodes | Live nodes of a workflow id | Not scoped by session | - |
 | GET | /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Last heartbeat message of a node | - | - |
 | POST | /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Send an admin command to a live plugin | Body is a map of 1 to 100 entries; source 'CONSOLE'. Returns the plugin's response payload | 400 body, 404 node |
-| GET | /api/supervisors | Supervisors and control-plane plugins in review order | Fields: id, kind, type, order, dryRun, maxCommandsPerSecond, applied, rejected, recorded, rateLimited | - |
+| GET | /api/supervisors/status | Supervisors and control-plane plugins in review order | Fields: id, kind, type, order, dryRun, maxCommandsPerSecond, applied, rejected, recorded, rateLimited | - |
 
 ### Error mapping
 

@@ -1,6 +1,6 @@
 {
   "id": "dogfood-ticket-advice-binding",
-  "profileId": "dogfood-ticket-advice",
+  "supervisorId": "dogfood-ticket-advice",
   "scope": "session:dogfood",
   "enabled": true
 }

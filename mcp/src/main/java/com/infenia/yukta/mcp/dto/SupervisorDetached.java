@@ -7,8 +7,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 /**
  * The answer to detaching a supervisor.
  *
- * @param bindingId the binding that was removed
- * @param detached always true; an unknown binding is an error
+ * @param attachmentId the attachment that was removed
+ * @param detached always true; an unknown attachment is an error
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SupervisorDetached(String bindingId, boolean detached) {}
+public record SupervisorDetached(String attachmentId, boolean detached) {}

@@ -68,12 +68,12 @@ The command is not run and not refused. The server parks it in memory and raises
 A release workflow `release` in session `s1` builds (`build.compile`, `build.test`) and then deploys (`deploy.staging`, `deploy.prod`). One profile watches the build, another the deploy, and a third the whole workflow:
 
 ```bash
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"build-guard","profileId":"build-rules","scope":"workflow:s1/release//build.*"}'
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"deploy-guard","profileId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"release-guard","profileId":"release-rules","scope":"workflow:s1/release"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"build-guard","supervisorId":"build-rules","scope":"workflow:s1/release//build.*"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"deploy-guard","supervisorId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"release-guard","supervisorId":"release-rules","scope":"workflow:s1/release"}'
 ```
 
 `build-guard` sees only the build nodes and may pause, skip or step them; a `PauseNodeCommand` it sends for `deploy.prod` is refused as `out-of-scope`. A person pausing `deploy.prod` is reviewed by `deploy-guard` and `release-guard`; a person stopping the whole run is reviewed by `release-guard` only.
@@ -90,18 +90,18 @@ The rule format is in [Rule files](/running/rule-files).
 
 ## Attach a supervisor while the server runs
 
-Besides the supervisors configured at startup, you can create **profiles** and **bind** them to a scope at run time, without a restart.
+Besides the supervisors configured at startup, you can create **supervisors** and **attach** them to a scope at run time, without a restart.
 
-- A **profile** names a supervisor type (`GET /api/supervisors/types`), its settings and whether its commands are only recorded (`dryRun`). For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
-- Profile and binding ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
-- A **binding** attaches a profile to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several bindings of the same profile. `POST /api/supervisors/bindings` starts it at once; `DELETE /api/supervisors/bindings/{id}` stops it, and deleting a session removes the bindings limited to it.
-- A profile's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
-- Changing a profile (`PUT /api/supervisors/profiles/{id}`) restarts the supervisors that use it. A profile that a binding uses cannot be deleted.
+- A **supervisor** names a supervisor type from the catalog (`GET /api/supervisor-types`; `GET /api/supervisor-types/{type}` gives its description, the settings it takes, the commands it may send by default and an example), its settings and whether its commands are only recorded (`dryRun`). Settings are checked against the type when you save: an unknown key or a value of the wrong type is refused with 400 and a `settings.<key>` field error. `POST /api/supervisors/validate` checks a draft without saving it. For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
+- Supervisor and attachment ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
+- An **attachment** attaches a supervisor to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several attachments of the same supervisor. `POST /api/supervisors/attachments` starts it at once; `PATCH /api/supervisors/attachments/{id}` with `{"enabled": false}` pauses it; `DELETE /api/supervisors/attachments/{id}` stops it, and deleting a session removes the attachments limited to it. `GET /api/supervisors/attachments?session=&workflow=&source=` lists them, and with `session` or `workflow` the ones that apply there. An attachment has a source: `MANUAL` (made here), `DEFINITION` (declared by a session or workflow definition) or `SYSTEM` (a supervisor the server configures itself); only `MANUAL` ones can be changed here, the others answer 409.
+- A supervisor's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
+- Changing a supervisor (`PUT /api/supervisors/{id}`; a setting sent back as `***` keeps its stored secret) restarts the attachments that use it. A supervisor that an attachment uses cannot be deleted.
 - An attached supervisor sees events and reviews commands from the moment it is attached, so a run that is already going is supervised from there, not from its start.
 - At most `yukta.supervisor.max-attachments` attachments (default 200; bindings are called attachments from here on). Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
-- Reading needs a viewer key; creating, changing and removing needs an admin key. Profiles and bindings are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor_profile` and `supervisor_binding`; an enabled binding then starts again at startup. The settings are stored as given, a model API key included.
-- `GET /api/supervisors/decisions?binding=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
-- The MCP tools `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents; profiles are created through the REST API.
+- Reading needs a viewer key; creating, changing and removing needs an admin key. Supervisors and attachments are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor` and `supervisor_attachment`; an enabled attachment then starts again at startup. The settings are stored as given, a model API key included.
+- `GET /api/supervisors/decisions?supervisor=&attachment=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
+- The MCP tools `list_supervisor_types`, `get_supervisor_type`, `save_supervisor`, `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents. `GET /api/supervisors/status` shows what runs (scope and command counts).
 
 ## Answer input requests
 

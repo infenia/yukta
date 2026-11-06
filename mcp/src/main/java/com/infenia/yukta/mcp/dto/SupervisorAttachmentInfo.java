@@ -5,14 +5,16 @@ package com.infenia.yukta.mcp.dto;
 import com.fasterxml.jackson.annotation.JsonInclude;
 
 /**
- * A profile attached to a scope.
+ * A supervisor attached to a scope.
  *
- * @param id the binding id
- * @param profileId the profile it runs
+ * @param id the attachment id
+ * @param supervisorId the supervisor it runs
  * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>}, {@code
  *     workflow:<sessionId>/<workflowId>} or a section {@code workflow:<sessionId>/<workflowId>//
  *     <selector>,<selector>}
  * @param enabled whether it runs
+ * @param source {@code MANUAL}, {@code DEFINITION} or {@code SYSTEM}
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SupervisorBindingInfo(String id, String profileId, String scope, boolean enabled) {}
+public record SupervisorAttachmentInfo(
+    String id, String supervisorId, String scope, boolean enabled, String source) {}

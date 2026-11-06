@@ -39,7 +39,7 @@ export interface paths {
          * List control commands
          * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
          */
-        get: operations["list_3"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1350,18 +1350,15 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors": {
+    "/api/supervisor-types": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * List supervisors
-         * @description Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup
-         */
-        get: operations["list_2"];
+        /** List supervisor types */
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1370,19 +1367,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/bindings": {
+    "/api/supervisor-types/{type}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List supervisor bindings */
-        get: operations["bindings"];
+        /** Get a supervisor type */
+        get: operations["get_2"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisor-types/{type}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the supervisors of a type */
+        get: operations["usage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List supervisors */
+        get: operations["list"];
+        put?: never;
+        /** Create a supervisor */
+        post: operations["create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisors/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List attachments */
+        get: operations["attachments"];
         put?: never;
         /**
          * Attach a supervisor
-         * @description Attach a profile to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches only those nodes and no workflow-wide event or command.
+         * @description Attach a supervisor to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches only those nodes and no workflow-wide event or command. Attachments made here are MANUAL; those from a definition are changed by editing the definition.
          */
         post: operations["attach"];
         delete?: never;
@@ -1391,7 +1440,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/bindings/{id}": {
+    "/api/supervisors/attachments/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1405,7 +1454,8 @@ export interface paths {
         delete: operations["detach"];
         options?: never;
         head?: never;
-        patch?: never;
+        /** Enable or disable an attachment */
+        patch: operations["patch"];
         trace?: never;
     };
     "/api/supervisors/decisions": {
@@ -1425,25 +1475,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/profiles": {
+    "/api/supervisors/status": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List supervisor profiles */
-        get: operations["profiles"];
+        /**
+         * Supervisor runtime status
+         * @description Lists the supervisors and control-plane plugins running on the control bus, in review order, with how many commands each applied, had refused, only recorded (dry-run) or dropped (rate limit) since startup
+         */
+        get: operations["status"];
         put?: never;
-        /** Create a supervisor profile */
-        post: operations["createProfile"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/profiles/{id}": {
+    "/api/supervisors/validate": {
         parameters: {
             query?: never;
             header?: never;
@@ -1451,25 +1503,46 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Replace a supervisor profile */
-        put: operations["replaceProfile"];
-        post?: never;
-        /** Delete a supervisor profile */
-        delete: operations["deleteProfile"];
+        put?: never;
+        /**
+         * Validate a supervisor
+         * @description Checks the type, the settings and what the type itself checks, without saving. Always 200: look at valid and errors.
+         */
+        post: operations["validate"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/types": {
+    "/api/supervisors/{id}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List supervisor types */
-        get: operations["types"];
+        /** Get a supervisor */
+        get: operations["get"];
+        /** Replace a supervisor */
+        put: operations["replace"];
+        post?: never;
+        /** Delete a supervisor */
+        delete: operations["delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisors/{id}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the attachments of a supervisor */
+        get: operations["attachmentsOf"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1489,7 +1562,7 @@ export interface paths {
          * List the session templates
          * @description The bundled examples: id, title, a one-line summary and the plugin types used
          */
-        get: operations["list_1"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1509,7 +1582,7 @@ export interface paths {
          * Get a session template
          * @description The README (markdown) and the session definition to apply. 404 if unknown
          */
-        get: operations["get"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1529,7 +1602,7 @@ export interface paths {
          * List workers
          * @description Lists the workers that are connected and keep their lease, ordered by id, with the pools they serve, the plugin types they may run, their capacity and the slots in use at their last heartbeat
          */
-        get: operations["list"];
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1949,9 +2022,9 @@ export interface components {
             workflowId?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseBindingBody: {
+        ApiResponseAttachmentView: {
             /** @description The response data */
-            data?: components["schemas"]["BindingBody"];
+            data?: components["schemas"]["AttachmentView"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -2147,9 +2220,9 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseListBindingBody: {
+        ApiResponseListAttachmentView: {
             /** @description The response data */
-            data?: components["schemas"]["BindingBody"][];
+            data?: components["schemas"]["AttachmentView"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -2444,39 +2517,6 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseListProfileBody: {
-            /** @description The response data */
-            data?: components["schemas"]["ProfileBody"][];
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListSessionListItem: {
             /** @description The response data */
             data?: components["schemas"]["SessionListItem"][];
@@ -2579,6 +2619,72 @@ export interface components {
         ApiResponseListSupervisorInfo: {
             /** @description The response data */
             data?: components["schemas"]["SupervisorInfo"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListSupervisorTypeSummary: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorTypeSummary"][];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseListSupervisorView: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorView"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3044,39 +3150,6 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseProfileBody: {
-            /** @description The response data */
-            data?: components["schemas"]["ProfileBody"];
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseProjectPathCheck: {
             /** @description The response data */
             data?: components["schemas"]["ProjectPathCheck"];
@@ -3212,6 +3285,105 @@ export interface components {
         ApiResponseSessionDetails: {
             /** @description The response data */
             data?: components["schemas"]["SessionDetails"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSupervisorTypeDetails: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorTypeDetails"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSupervisorValidation: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorValidation"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSupervisorView: {
+            /** @description The response data */
+            data?: components["schemas"]["SupervisorView"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3571,19 +3743,30 @@ export interface components {
              */
             timestamp?: string;
         };
-        Audience: {
-            currentTier?: boolean;
-            selectors?: string[];
-        };
-        BindingBody: {
+        AttachmentBody: {
             enabled?: boolean;
             id?: string;
-            profileId?: string;
+            scope?: string;
+            supervisorId?: string;
+        };
+        /** @description An attachment of a supervisor to a scope */
+        AttachmentView: {
+            enabled?: boolean;
+            id?: string;
+            originSessionId?: string;
+            originWorkflowId?: string;
             /**
-             * @description global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a section of a workflow: a workflow form, then // and node selectors separated by commas (a node id or <prefix>.*, 1 to 50). The supervisor sees, reviews and may send commands only within its scope.
+             * @description global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a section: a workflow form, then // and node selectors separated by commas
              * @example workflow:s1/release//build.*,publish
              */
             scope?: string;
+            /** @description MANUAL, DEFINITION or SYSTEM */
+            source?: string;
+            supervisorId?: string;
+        };
+        Audience: {
+            currentTier?: boolean;
+            selectors?: string[];
         };
         Breakpoint: {
             equals?: string;
@@ -3591,6 +3774,15 @@ export interface components {
         };
         Catalog: {
             series?: string[];
+        };
+        ConfigField: {
+            defaultValue?: unknown;
+            description?: string;
+            name?: string;
+            options?: string[];
+            required?: boolean;
+            /** @enum {string} */
+            type?: "STRING" | "NUMBER" | "BOOLEAN" | "ENUM" | "LIST" | "MAP" | "EXPRESSION" | "SECRET";
         };
         /** @description Request object for session configuration, supporting both initialization and runtime updates */
         ConfigRequest: {
@@ -3682,6 +3874,9 @@ export interface components {
             license?: string;
             source?: string;
         };
+        EnabledBody: {
+            enabled?: boolean;
+        };
         ExecutionResults: {
             complete?: boolean;
             events?: components["schemas"]["ResultEvent"][];
@@ -3702,6 +3897,10 @@ export interface components {
              * @description The validation error message explaining the failure
              * @example Session not found: 'unknown-session'
              */
+            message?: string;
+        };
+        FieldIssue: {
+            field?: string;
             message?: string;
         };
         HeatCell: {
@@ -3970,14 +4169,6 @@ export interface components {
             /** Format: double */
             value?: number;
         };
-        ProfileBody: {
-            dryRun?: boolean;
-            id?: string;
-            settings?: {
-                [key: string]: unknown;
-            };
-            type?: string;
-        };
         ProjectPathCheck: {
             /** @description It is a directory */
             directory?: boolean;
@@ -4128,6 +4319,15 @@ export interface components {
             priority?: number;
             version?: string;
         };
+        SupervisorBody: {
+            description?: string;
+            dryRun?: boolean;
+            id?: string;
+            settings?: {
+                [key: string]: unknown;
+            };
+            type?: string;
+        };
         SupervisorDecision: {
             command?: string;
             executionId?: string;
@@ -4164,6 +4364,63 @@ export interface components {
             scopeNodes?: string[];
             scopeSessionId?: string;
             scopeWorkflowId?: string;
+            type?: string;
+        };
+        /** @description Details of a supervisor type */
+        SupervisorTypeDetails: {
+            category?: string;
+            commonSchema?: components["schemas"]["ConfigField"][];
+            configSchema?: components["schemas"]["ConfigField"][];
+            /** @description Commands allowed by default; null means every command */
+            defaultAllowedCommands?: string[];
+            description?: string;
+            displayName?: string;
+            exampleSettings?: {
+                [key: string]: unknown;
+            };
+            kind?: string;
+            type?: string;
+            uiDesign?: components["schemas"]["UiDesign"];
+            usagePattern?: string;
+        };
+        /** @description A supervisor type in the catalog */
+        SupervisorTypeSummary: {
+            /** @description The catalog category */
+            category?: string;
+            /** @description The name shown to people */
+            displayName?: string;
+            /** @description The icon, a Material Symbols name */
+            icon?: string;
+            /** @description SUPERVISOR, CONTROL_PLANE or COMPOSITE */
+            kind?: string;
+            /** @description The type name */
+            type?: string;
+        };
+        /** @description The result of checking a draft supervisor */
+        SupervisorValidation: {
+            errors?: components["schemas"]["FieldIssue"][];
+            valid?: boolean;
+        };
+        /** @description A configured supervisor */
+        SupervisorView: {
+            /** Format: int64 */
+            applied?: number;
+            /** Format: int32 */
+            attachments?: number;
+            description?: string;
+            dryRun?: boolean;
+            id?: string;
+            /** Format: int64 */
+            rateLimited?: number;
+            /** Format: int64 */
+            recorded?: number;
+            /** Format: int64 */
+            rejected?: number;
+            settings?: {
+                [key: string]: unknown;
+            };
+            /** @description True for a bean or property supervisor, which is read-only */
+            system?: boolean;
             type?: string;
         };
         TaskProgress: {
@@ -4538,7 +4795,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_4: {
         parameters: {
             query?: {
                 limit?: number;
@@ -6358,7 +6615,7 @@ export interface operations {
             };
         };
     };
-    list_2: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -6373,12 +6630,56 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListSupervisorInfo"];
+                    "*/*": components["schemas"]["ApiResponseListSupervisorTypeSummary"];
                 };
             };
         };
     };
-    bindings: {
+    get_2: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSupervisorTypeDetails"];
+                };
+            };
+        };
+    };
+    usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListString"];
+                };
+            };
+        };
+    };
+    list: {
         parameters: {
             query?: never;
             header?: never;
@@ -6393,7 +6694,55 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListBindingBody"];
+                    "*/*": components["schemas"]["ApiResponseListSupervisorView"];
+                };
+            };
+        };
+    };
+    create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupervisorBody"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSupervisorView"];
+                };
+            };
+        };
+    };
+    attachments: {
+        parameters: {
+            query?: {
+                session?: string | null;
+                workflow?: string | null;
+                source?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAttachmentView"];
                 };
             };
         };
@@ -6407,7 +6756,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BindingBody"];
+                "application/json": components["schemas"]["AttachmentBody"];
             };
         };
         responses: {
@@ -6417,7 +6766,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseBindingBody"];
+                    "*/*": components["schemas"]["ApiResponseAttachmentView"];
                 };
             };
         };
@@ -6444,10 +6793,37 @@ export interface operations {
             };
         };
     };
+    patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnabledBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseAttachmentView"];
+                };
+            };
+        };
+    };
     decisions: {
         parameters: {
             query?: {
-                binding?: string;
+                supervisor?: string | null;
+                attachment?: string | null;
                 limit?: number;
             };
             header?: never;
@@ -6467,7 +6843,7 @@ export interface operations {
             };
         };
     };
-    profiles: {
+    status: {
         parameters: {
             query?: never;
             header?: never;
@@ -6482,12 +6858,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListProfileBody"];
+                    "*/*": components["schemas"]["ApiResponseListSupervisorInfo"];
                 };
             };
         };
     };
-    createProfile: {
+    validate: {
         parameters: {
             query?: never;
             header?: never;
@@ -6496,22 +6872,44 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProfileBody"];
+                "application/json": components["schemas"]["SupervisorBody"];
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description OK */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseProfileBody"];
+                    "*/*": components["schemas"]["ApiResponseSupervisorValidation"];
                 };
             };
         };
     };
-    replaceProfile: {
+    get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSupervisorView"];
+                };
+            };
+        };
+    };
+    replace: {
         parameters: {
             query?: never;
             header?: never;
@@ -6522,7 +6920,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ProfileBody"];
+                "application/json": components["schemas"]["SupervisorBody"];
             };
         };
         responses: {
@@ -6532,12 +6930,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseProfileBody"];
+                    "*/*": components["schemas"]["ApiResponseSupervisorView"];
                 };
             };
         };
     };
-    deleteProfile: {
+    delete: {
         parameters: {
             query?: never;
             header?: never;
@@ -6559,11 +6957,13 @@ export interface operations {
             };
         };
     };
-    types: {
+    attachmentsOf: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -6574,12 +6974,12 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListString"];
+                    "*/*": components["schemas"]["ApiResponseListAttachmentView"];
                 };
             };
         };
     };
-    list_1: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -6599,7 +6999,7 @@ export interface operations {
             };
         };
     };
-    get: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6622,7 +7022,7 @@ export interface operations {
             };
         };
     };
-    list: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;

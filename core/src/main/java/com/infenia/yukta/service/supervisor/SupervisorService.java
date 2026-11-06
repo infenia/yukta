@@ -4,6 +4,7 @@ package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
@@ -520,6 +521,68 @@ public class SupervisorService {
    */
   public Optional<SupervisorDescriptor> describe(final String type) {
     return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::describe);
+  }
+
+  /**
+   * The kind of a type: {@code COMPOSITE}, {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found
+   * by making a supervisor from the type's example settings; a type that cannot be made that way
+   * (it needs a model, or other supervisors) is told apart by its name.
+   *
+   * @param type the supervisor type
+   * @return the kind
+   */
+  public String kind(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    if (factory == null) {
+      return "SUPERVISOR";
+    }
+    try {
+      final ExecutionSupervisor made =
+          factory.create(
+              new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
+      return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
+    } catch (RuntimeException e) {
+      // ponytail: by name when the example cannot be made; a declared kind if third parties need it
+      if ("composite".equals(type)) {
+        return "COMPOSITE";
+      }
+      return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
+    }
+  }
+
+  /**
+   * The commands a supervisor of a type may send when its settings do not say.
+   *
+   * @param type the supervisor type
+   * @return the command names, or {@code null} for every command
+   */
+  public @Nullable Set<String> defaultAllowedCommands(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null ? null : factory.defaultAllowedCommands();
+  }
+
+  /**
+   * Checks a draft supervisor the way saving does, without keeping anything.
+   *
+   * @param supervisor the draft
+   * @return the problems, empty when it would be accepted; a problem that names no setting has the
+   *     field {@code settings}
+   */
+  public Mono<List<SettingsValidationException.Issue>> check(final Supervisor supervisor) {
+    return refreshResolver()
+        .then(
+            Mono.defer(
+                () ->
+                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
+        .then(Mono.fromRunnable(() -> validate(supervisor)))
+        .thenReturn(List.<SettingsValidationException.Issue>of())
+        .onErrorResume(SettingsValidationException.class, error -> Mono.just(error.getIssues()))
+        .onErrorResume(
+            IllegalArgumentException.class,
+            error ->
+                Mono.just(
+                    List.of(
+                        new SettingsValidationException.Issue("settings", error.getMessage()))));
   }
 
   /**

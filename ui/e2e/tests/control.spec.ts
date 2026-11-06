@@ -23,8 +23,8 @@ async function mockControlApi(
   workers: unknown[],
   heartbeats: unknown[] = []
 ) {
-  await page.route('**/api/supervisors', (route) =>
-    route.fulfill(envelope('/supervisors', []))
+  await page.route('**/api/supervisors/status', (route) =>
+    route.fulfill(envelope('/supervisors/status', []))
   );
   await page.route('**/api/control/audit*', (route) =>
     route.fulfill(envelope('/audit', []))
@@ -253,10 +253,10 @@ test.describe('Control page', () => {
     await mockControlApi(page, []);
     let dryRun = false;
     let detached = false;
-    await page.route('**/api/supervisors', (route) =>
+    await page.route('**/api/supervisors/status', (route) =>
       route.fulfill(
         envelope(
-          '/supervisors',
+          '/supervisors/status',
           detached
             ? []
             : [
@@ -279,7 +279,7 @@ test.describe('Control page', () => {
         )
       )
     );
-    await page.route('**/api/supervisors/bindings', (route) =>
+    await page.route('**/api/supervisors/attachments', (route) =>
       route.fulfill(
         envelope(
           '/bindings',
@@ -288,7 +288,8 @@ test.describe('Control page', () => {
             : [
                 {
                   id: 'guard',
-                  profileId: 'p',
+                  supervisorId: 'p',
+                  source: 'MANUAL',
                   scope: 'session:s1',
                   enabled: true,
                 },
@@ -296,18 +297,18 @@ test.describe('Control page', () => {
         )
       )
     );
-    await page.route('**/api/supervisors/bindings/guard', (route) => {
+    await page.route('**/api/supervisors/attachments/guard', (route) => {
       detached = true;
       return route.fulfill(envelope('/bindings/guard', null));
     });
-    await page.route('**/api/supervisors/profiles', (route) =>
+    await page.route('**/api/supervisors', (route) =>
       route.fulfill(
         envelope('/profiles', [
           { id: 'p', type: 'rule-supervisor', settings: {}, dryRun },
         ])
       )
     );
-    await page.route('**/api/supervisors/profiles/p', (route) => {
+    await page.route('**/api/supervisors/p', (route) => {
       dryRun = route.request().postDataJSON().dryRun;
       return route.fulfill(envelope('/profiles/p', null));
     });

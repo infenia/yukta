@@ -55,11 +55,11 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
 | [dogfood](dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
 
-### Supervisor profiles
+### Supervisors
 
-[`16-supervisor-profiles/input-requests.json`](16-supervisor-profiles/input-requests.json) is a rule supervisor profile that approves low
-risk input requests for staging and escalates the rest with advice. Create it with `POST /api/supervisors/profiles` (admin key) and
-bind it to a session with `POST /api/supervisors/bindings`; see the docs page "Input requests". A test loads it, so it stays valid.
+[`16-supervisor-profiles/input-requests.json`](16-supervisor-profiles/input-requests.json) is a rule supervisor that approves low
+risk input requests for staging and escalates the rest with advice. Create it with `POST /api/supervisors` (admin key) and
+attach it to a session with `POST /api/supervisors/attachments`; see the docs page "Input requests". A test loads it, so it stays valid.
 
 Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs?state=OPEN` and answers the
 request with `POST /api/executions/{e}/inputs/{requestId}/answer`. In real use a person, a supervisor or an agent answers it from the UI,
