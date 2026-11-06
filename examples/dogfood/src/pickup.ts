@@ -99,7 +99,8 @@ export function eventFor(n: number | string, title: string, url: string, via = V
     content: ticket
       ? `Issue #${n}: ${title}\n${url}\n` +
         `You are the orchestrator of this issue, not its implementer. Invoke the pickup skill (Skill tool, "pickup", ticket pipeline mode) and follow it: ` +
-        `run \`yk ticket run ${n} --detach --notify\`, answer or relay the pipeline's questions, and report with pickup_done. ` +
+        `run \`yk ticket run ${n} --detach --notify\`, decide the pipeline's questions on the person's behalf (kind="input" events; escalate to the person only when you must), ` +
+        `act on the end of the run (a kind="result" event) and report with pickup_done. ` +
         `Do NOT read the code to fix it or edit files yourself. Git steps have commands you call when the pipeline needs them: \`yk ticket worktree ${n} [--in DIR]\` (worktree or branch, reuses what exists) and \`yk ticket pr ${n}\` (push and draft PR).`
       : `Pick up issue #${n}: ${title}\n${url}`,
     meta: { issue: String(n), url, title, ...(ticket ? { via: 'ticket' } : {}) },

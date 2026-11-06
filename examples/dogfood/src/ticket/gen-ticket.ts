@@ -398,13 +398,14 @@ for (const k of [1, 2, 3]) {
   }
 }
 t.chain([[pe('commit_tests', ['flow', 'commit-tests', RUN, ...W], 120), 'the tests could not be committed']], 'need_spec', true)
-// approvals: a high-risk spec waits for a person (yk approve | reject)
+// approvals: a high-risk spec waits for an answer. MEDIUM, so the orchestrator session (an agent key) may decide it for the person; the budget pause stays
+// HIGH (money: a person only)
 t.add(
   pe('need_spec', ['ladder', 'need-approval', RUN, 'spec'], 60, { json: true }),
   select('spec_ask?', 'ask', { true: 'ask' }, 'skip'),
-  ask('approve_spec', 'Approve the spec of run ${start.runId} (high risk)? spec/spec.json in ${start.run}'),
+  ask('approve_spec', 'Approve the spec of run ${start.runId} (high risk)? spec/spec.json in ${start.run}', 86400, 'APPROVAL', 'MEDIUM'),
   rejected('spec_decision?'),
-  terminal('spec_rejected', 'a person rejected the spec'),
+  terminal('spec_rejected', 'the spec was rejected'),
 )
 t.link('need_spec', 'spec_ask?', 'success')
 t.fail('need_spec', 'approval policy failed', true)
@@ -469,9 +470,9 @@ for (let k = 1; k <= ROUNDS; k++) {
 t.add(
   pe('need_merge', ['ladder', 'need-approval', RUN, 'merge', ...W], 60, { json: true }),
   select('merge_ask?', 'ask', { true: 'ask' }, 'skip'),
-  ask('approve_merge', 'Open the PR for run ${start.runId}? The change is on its branch, reviewed and green.'),
+  ask('approve_merge', 'Open the PR for run ${start.runId}? The change is on its branch, reviewed and green.', 86400, 'APPROVAL', 'MEDIUM'),
   rejected('merge_decision?'),
-  terminal('merge_rejected', 'a person declined the PR'),
+  terminal('merge_rejected', 'the PR was declined'),
 )
 t.link('need_merge', 'merge_ask?', 'success')
 t.fail('need_merge', 'approval policy failed')

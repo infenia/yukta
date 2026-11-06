@@ -28,8 +28,10 @@ test('every ASK_INPUT of the ticket workflow is on the route ticket and names it
       context: { issue: '${start.issue}', run_id: '${start.runId}', gate: n.nodeId },
     })
   expect(asks.find((n: any) => n.nodeId === 'ask_clarify1').config).toMatchObject({ kind: 'TEXT', risk: 'MEDIUM' })
-  for (const id of ['approve_spec', 'ask_pause1', 'approve_merge'])
-    expect(asks.find((n: any) => n.nodeId === id).config.risk, `${id} is for a person`).toBe('HIGH')
+  // the orchestrator session (an agent key) decides the spec and the PR; spending a doubled budget stays with a person
+  for (const id of ['approve_spec', 'approve_merge'])
+    expect(asks.find((n: any) => n.nodeId === id).config.risk, `${id} is for the orchestrator`).toBe('MEDIUM')
+  expect(asks.find((n: any) => n.nodeId === 'ask_pause1').config.risk, 'ask_pause1 is for a person').toBe('HIGH')
 })
 
 test('the replies come in with the documented ${metadata.input.text}, never the bracket form of BRANCH expressions', () => {

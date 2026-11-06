@@ -260,9 +260,9 @@ export class Channel {
       const seen = this.keys.get(key)
       if (seen) return { status: 200, body: { event_id: seen.eventId, duplicate: true } }
     }
-    // a notification about the work in flight (meta.kind "input", from the input bridge) is not another unit of work: it is neither refused while
-    // busy nor does it take the slot
-    const notify = meta.kind === 'input'
+    // a notification about the work in flight (meta.kind "input" or "result", from the input bridge) is not another unit of work: it is neither refused
+    // while busy nor does it take the slot
+    const notify = meta.kind === 'input' || meta.kind === 'result'
     const cur = this.current()
     // ...but only about the issue in flight: another issue's question is as much a new unit of work as an event
     if (this.options.exclusive && cur && (!notify || meta.issue !== cur.meta.issue)) {

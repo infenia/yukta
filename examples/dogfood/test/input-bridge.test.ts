@@ -77,7 +77,18 @@ test('notice: only the ticket route at the session or human tier, with an issue'
     idempotency_key: 'input-r1-session',
     meta: { kind: 'input', request_id: 'r1', session_id: 's-1', execution_id: 'x-1', run: 'run-1', phase: 'session' },
   })
-  expect(bridge.notice(env('InputEscalated', 'human'))?.content).toContain('Ask the person')
+  // MEDIUM: the session decides it, with the rules in the text (they survive a /compact)
+  const medium = bridge.notice(env('InputEscalated', 'human'))!.content
+  expect(medium).toContain("on the person's behalf")
+  expect(medium).toContain('answer_input(sessionId=s-1, executionId=x-1, requestId=r1')
+  expect(medium).toContain('advisor')
+  expect(medium).toContain('escalate_input')
+  expect(medium).toContain('pickup skill')
+  // HIGH: only a person; the session must not answer with the person's key
+  const high = bridge.notice(env('InputRequested', 'session', { risk: 'HIGH' }))!.content
+  expect(high).toContain('only a person')
+  expect(high).toContain('Never run that command yourself')
+  expect(high).not.toContain('answer_input(')
   expect(bridge.notice(env('InputRequested', 'supervisor'))).toBeUndefined()
   expect(bridge.notice(env('InputRequested', 'session', { routeName: 'other' }))).toBeUndefined()
   expect(bridge.notice(env('InputRequested', 'session', { context: {} }))).toBeUndefined()
@@ -95,7 +106,10 @@ test('deliver: one transient failure is retried, a second one is reported as fai
 })
 
 test('the prompt is cut to 1 KB', () => {
-  expect(bridge.notice(env('InputRequested', 'session', { prompt: 'x'.repeat(5000) }))!.content.length).toBeLessThan(1400)
+  const c = bridge.notice(env('InputRequested', 'session', { prompt: 'x'.repeat(5000) }))!.content
+  expect(c).toContain('x'.repeat(1024))
+  expect(c).not.toContain('x'.repeat(1025))
+  expect(c.length).toBeLessThan(2400)
 })
 
 test('deliver: to the session busy with the issue, with the token; none for another issue or an idle session', async () => {
@@ -162,4 +176,84 @@ test('pickup: the default event makes the session an orchestrator (ticket pipeli
   expect(e.meta.via).toBe('ticket')
   expect(e.content).toContain('pickup skill')
   expect(e.content).toContain('Do NOT')
+})
+
+const ended = (status: string, over: Record<string, unknown> = {}): any => ({
+  type: 'WorkflowStatusChanged',
+  depth: 0,
+  event: { executionId: 'x-root', sessionId: 'dogfood', workflowId: 'ticket', status },
+  ...over,
+})
+
+test('result: the end of a root ticket run of a known issue, with the RESULT line, not the run status', () => {
+  mkdirSync(join(home, 'state'), { recursive: true })
+  writeFileSync(join(home, 'state', 'ticket-last-7'), 'run-1 x-root\n')
+  const seen: string[] = []
+  const sum = (s: string, e: string): string => {
+    seen.push(`${s} ${e}`)
+    return 'RESULT status=FAILED failed_node=escalate1'
+  }
+  const n = bridge.resultNotice(ended('SUCCESS'), sum)!
+  expect(n).toMatchObject({
+    issue: '7',
+    idempotency_key: 'result-x-root',
+    meta: { kind: 'result', issue: '7', execution_id: 'x-root', status: 'SUCCESS' },
+  })
+  expect(n.content).toContain('failed_node=escalate1')
+  expect(n.content).toContain('When the run ends')
+  expect(seen).toEqual(['dogfood x-root'])
+  expect(bridge.resultNotice(ended('RUNNING'), sum), 'not ended').toBeUndefined()
+  expect(bridge.resultNotice(ended('SUCCESS', { depth: 1 }), sum), 'a sub-workflow').toBeUndefined()
+  expect(
+    bridge.resultNotice({ ...ended('FAILURE'), event: { ...ended('FAILURE').event, workflowId: 'tool' } }, sum),
+    'another workflow',
+  ).toBeUndefined()
+  expect(
+    bridge.resultNotice({ ...ended('FAILURE'), event: { ...ended('FAILURE').event, executionId: 'x-other' } }, sum),
+    'no ticket run',
+  ).toBeUndefined()
+})
+
+test('deliver: the result reaches the session busy with the issue', async () => {
+  posted.length = 0
+  busyIssue = '7'
+  expect(await bridge.deliver(ended('FAILURE'), 1, () => 'RESULT status=FAILED')).toBe('sent')
+  expect(posted[0]).toMatchObject({ idempotency_key: 'result-x-root', meta: { kind: 'result', issue: '7' } })
+})
+
+test('openRequests: the open ticket questions of the server become envelopes; others are left out', async () => {
+  const views = [
+    {
+      id: 'r5',
+      sessionId: 's-1',
+      executionId: 'x-1',
+      tier: 'session',
+      risk: 'MEDIUM',
+      prompt: 'Approve?',
+      context: { issue: '7', run_id: 'run-1', gate: 'approve_spec' },
+    },
+    { id: 'r6', sessionId: 's-1', executionId: 'x-2', tier: 'session', risk: 'LOW', prompt: 'other', context: {} },
+  ]
+  const srv = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: (req) => (req.headers.get('x-api-key') === 'k' ? Response.json({ data: views }) : new Response('', { status: 401 })),
+  })
+  try {
+    const envs = await bridge.openRequests(`http://127.0.0.1:${srv.port}`, 'k')
+    expect(envs.length).toBe(1)
+    expect(bridge.notice(envs[0])).toMatchObject({ issue: '7', idempotency_key: 'input-r5-session', meta: { request_id: 'r5' } })
+    expect(await bridge.openRequests(`http://127.0.0.1:${srv.port}`, 'bad')).toEqual([])
+  } finally {
+    srv.stop(true)
+  }
+})
+
+test('claimBridge: one bridge per dev home; a dead pid is taken over', () => {
+  writeFileSync(join(home, 'bridge.pid'), `${2 ** 22 + 12345}\n`)
+  expect(bridge.bridgePid()).toBe(0)
+  expect(bridge.claimBridge()).toBe(true)
+  expect(bridge.bridgePid()).toBe(process.pid)
+  expect(bridge.claimBridge(), 'this process again').toBe(true)
+  expect(bridge.ensureBridge(), 'a running bridge is not started twice').toBe(process.pid)
 })
