@@ -8,7 +8,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
 import { ApiError } from '@/lib/apiClient';
-import { buildScope } from '@/features/control/api/supervisors';
+import { buildScope } from '../lib/scope';
 import { getSessionWorkflows } from '@/features/sessions/api/getSessionWorkflows';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { getWorkflowNodeIds } from '../api/supervisors';

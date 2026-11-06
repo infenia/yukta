@@ -13,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { scopeLabel } from '@/features/control/api/supervisors';
+import { scopeLabel } from '../lib/scope';
 import {
   useDetachAttachment,
   useSetAttachmentEnabled,

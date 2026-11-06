@@ -1,12 +1,12 @@
 ---
 title: "Control dashboard"
 sidebarTitle: "Control dashboard"
-description: "The Mission Control page: what each panel shows, where the numbers come from, how to scope it to a session, run it as a wall display, and attach supervisors."
+description: "The Mission Control page: what each panel shows, where the numbers come from, how to scope it to a session, run it as a wall display, "
 keywords: ["dashboard", "control", "metrics", "kiosk", "supervisors", "prometheus"]
 ---
 
 <Info>
-  **In plain terms:** `/control` in the web UI is one page that shows how the server is doing right now and lets you steer it: change the run limit, drain it, and attach supervisors.
+  **In plain terms:** `/control` in the web UI is one page that shows how the server is doing right now and lets you steer it: change the run limit, drain it, 
 </Info>
 
 ## Panels
@@ -32,7 +32,7 @@ The **Activity** tab is the live event feed and the **Audit** tab lists every co
 
 ## Supervisors
 
-The page lists every supervisor as a card with its scope, its decisions, and switches for dry run and enabled. A supervisor can apply to every run, one session, one workflow or a section (some nodes) of a workflow, and the session and workflow pages show the ones that apply there. The donut counts applied, rejected, dry-run and rate-limited commands, plus the commands the arbiter dropped, merged or blocked when there are any; the decision feed names every outcome, in a neutral colour for one it does not know. See [Supervisors](/running/supervisors). Attaching needs an `ADMIN` key.
+The Overview tab shows one tile: how many supervisors are active, how many conflicts (commands dropped or merged by the arbiter, or blocked as flapping) the last hour had, and decisions per minute. It links to the **Supervisors** page (`/supervisors`), where supervisors are created, attached and inspected; see [Supervisors](/running/supervisors#the-supervisors-page).
 
 ## Prometheus
 
