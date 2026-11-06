@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Execution information for a session, part of {@link ControlBusStatus}.
  *
@@ -9,4 +11,5 @@ package com.infenia.yukta.mcp.dto;
  * @param activeExecutions the number of executions not yet in a terminal state
  * @param totalWorkflows the total number of workflows configured in the session
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SessionExecutionInfo(String sessionId, int activeExecutions, int totalWorkflows) {}

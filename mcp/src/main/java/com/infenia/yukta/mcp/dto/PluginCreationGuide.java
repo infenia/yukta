@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Map;
 
 /**
@@ -15,6 +16,7 @@ import java.util.Map;
  * @param testingStrategy testing strategy
  * @param deploymentGuide deployment guide
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginCreationGuide(
     String architectureOverview,
     Map<String, String> templateCode,

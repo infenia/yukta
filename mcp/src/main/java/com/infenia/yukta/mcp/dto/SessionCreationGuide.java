@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -15,6 +16,7 @@ import java.util.List;
  * @param availablePlugins the plugins currently registered and usable in workflows
  * @param commonErrors common configuration errors, each with its cause and fix
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SessionCreationGuide(
     String namingConventions,
     String configurationStructure,

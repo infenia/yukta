@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -11,6 +12,7 @@ import java.util.List;
  *
  * @param plugins the plugin summaries
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginList(List<PluginSummary> plugins) {
 
   /** Compact constructor to ensure immutability. */

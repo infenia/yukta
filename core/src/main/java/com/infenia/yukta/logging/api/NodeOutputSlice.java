@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.logging.api;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A slice of the output a node wrote.
@@ -25,7 +27,7 @@ public record NodeOutputSlice(
     long totalBytes,
     long matchedLines,
     boolean truncated,
-    Long nextOffset,
+    @Schema(nullable = true) @Nullable Long nextOffset,
     List<Line> lines) {
 
   /** Keeps the lines as they were given. */

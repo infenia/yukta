@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * JVM health metrics, part of {@link ControlBusStatus}.
  *
@@ -9,4 +11,5 @@ package com.infenia.yukta.mcp.dto;
  * @param memoryMaxMb the maximum available memory
  * @param uptime the JVM uptime
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SystemHealthMetrics(String memoryUsedMb, String memoryMaxMb, String uptime) {}

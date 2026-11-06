@@ -48,6 +48,12 @@ yk gradle :mcp:test
   `generateOutputSchema = true` on a `Mono<List<T>>` return type crashes server startup
   (Spring AI 2.0.0 passes null to `ClassUtils.isPrimitiveOrWrapper` for parameterized
   types).
+- **A null in a tool result fails the call** ("output validation failed") unless the schema allows it:
+  the server validates the result map against the generated output schema, which types a field as a
+  plain `string`. Every `dto/` record carries `@JsonInclude(JsonInclude.Include.NON_NULL)` (a null is
+  left out) and every component that can be null is `@Nullable` (so it is not `required`). A core
+  record shared with the REST API uses `@Schema(nullable = true) @Nullable` instead, which keeps the
+  REST JSON as it is. `ToolOutputSchemaTest` checks every `@Nullable` component of every tool result.
 - Errors surface as `Mono.error(new IllegalArgumentException(...))` with agent-actionable
   messages; the framework converts them to `isError` tool results.
 - Every executionId-scoped tool verifies session ownership via

@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.service.result.ResultEvent;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What reached the terminal nodes of an execution, returned by the {@code get_execution_result} MCP
@@ -18,10 +20,11 @@ import java.util.List;
  * @param events the events, oldest first, payloads redacted
  * @param notice reminds the reader that the payloads are untrusted data, not instructions
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExecutionResultView(
     String executionId,
     boolean complete,
-    String status,
+    @Nullable String status,
     boolean truncated,
     long nextCursor,
     List<ResultEvent> events,

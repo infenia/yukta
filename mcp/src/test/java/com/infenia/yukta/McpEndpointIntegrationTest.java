@@ -140,6 +140,19 @@ class McpEndpointIntegrationTest {
   }
 
   @Test
+  void testResultWithNullFieldsPassesTheOutputCheck() {
+    // without a key, whoami has no key name and no session limit: both are null, which the output
+    // check refused ("/sessions: null found, array expected") until null fields were left out
+    final String response =
+        callMcp(
+            "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":"
+                + "{\"name\":\"whoami\",\"arguments\":{}}}");
+
+    assertThat(response).doesNotContain("\"isError\":true").contains("\"role\"");
+    assertThat(response).doesNotContain("output validation failed");
+  }
+
+  @Test
   void testLegacySseEndpointStillServes() {
     final String response =
         callMcp("/sse", "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\",\"params\":{}}");

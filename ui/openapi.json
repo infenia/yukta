@@ -2366,7 +2366,7 @@
             "type" : "string"
           },
           "note" : {
-            "type" : "string"
+            "type" : [ "string", "null" ]
           },
           "savedAt" : {
             "format" : "date-time",
@@ -2981,7 +2981,7 @@
           },
           "nextOffset" : {
             "format" : "int64",
-            "type" : "integer"
+            "type" : [ "integer", "null" ]
           },
           "nodeId" : {
             "type" : "string"
@@ -4537,8 +4537,8 @@
           "name" : "includeInternal",
           "required" : false,
           "schema" : {
-            "type" : "boolean",
-            "default" : false
+            "default" : false,
+            "type" : "boolean"
           }
         }, {
           "in" : "query",

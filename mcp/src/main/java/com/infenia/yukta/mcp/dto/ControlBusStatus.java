@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -13,6 +14,7 @@ import java.util.List;
  * @param systemHealth JVM health metrics
  * @param recentExecutions recent execution records across sessions
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ControlBusStatus(
     List<SessionExecutionInfo> activeSessions,
     List<PluginRegistryEntry> pluginRegistry,

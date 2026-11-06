@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import java.util.List;
  *
  * @param executions the execution summaries of the session
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record WorkflowHistory(List<WorkflowExecutionSummary> executions) {
 
   /** Compact constructor to ensure immutability. */

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * A profile attached to a scope.
  *
@@ -12,4 +14,5 @@ package com.infenia.yukta.mcp.dto;
  *     <selector>,<selector>}
  * @param enabled whether it runs
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorBindingInfo(String id, String profileId, String scope, boolean enabled) {}

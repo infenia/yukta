@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.plugin.core.PluginCategory;
 
 /**
@@ -10,4 +11,5 @@ import com.infenia.yukta.plugin.core.PluginCategory;
  * @param type the plugin type identifier
  * @param category the plugin category (TRIGGER, PROCESSOR, or TERMINAL)
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginSummary(String type, PluginCategory category) {}

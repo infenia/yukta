@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -12,6 +13,7 @@ import java.util.List;
  * @param warnings warnings or errors raised during creation
  * @param success whether the session was created successfully
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SessionCreationResult(
     String sessionId, List<String> createdWorkflows, List<String> warnings, boolean success) {
 
