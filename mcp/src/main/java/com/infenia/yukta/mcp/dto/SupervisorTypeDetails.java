@@ -28,6 +28,7 @@ import org.jspecify.annotations.Nullable;
     value = "EI_EXPOSE_REP",
     justification = "the compact constructor stores unmodifiable copies")
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
 public record SupervisorTypeDetails(
     String type,
     String displayName,

@@ -30,6 +30,7 @@ import reactor.test.StepVerifier;
 
 /** The catalog endpoints. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisorTypesControllerTest {
 
   private final SupervisorFactory factory =
@@ -129,7 +130,7 @@ class SupervisorTypesControllerTest {
   }
 
   @Test
-  void aFactoryWithoutAnyCommandRestrictionReportsNull() {
+  void factoryWithoutAnyCommandRestrictionReportsNull() {
     final SupervisorFactory plain =
         new SupervisorFactory() {
           @Override

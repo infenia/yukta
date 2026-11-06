@@ -10,6 +10,7 @@ import com.infenia.yukta.controller.SupervisorsController.AttachmentBody;
 import com.infenia.yukta.controller.SupervisorsController.EnabledBody;
 import com.infenia.yukta.controller.SupervisorsController.SupervisorBody;
 import com.infenia.yukta.dto.response.AttachmentView;
+import com.infenia.yukta.dto.response.SupervisorValidation;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -38,7 +39,12 @@ import reactor.test.StepVerifier;
 
 /** The supervisor endpoints, run against a real service and an in-memory store. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+})
 class SupervisorsControllerTest {
 
   private static final String TYPE = "test";
@@ -139,7 +145,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void replacingKeepsAStoredSecretBehindTheMarker() {
+  void replacingKeepsStoredSecretBehindTheMarker() {
     StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc"))))
         .expectNextCount(1)
         .verifyComplete();
@@ -155,7 +161,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void getReturnsOneOrNotFound() {
+  void returnsOneOrNotFound() {
     created("s1");
 
     StepVerifier.create(controller.get("s1"))
@@ -218,7 +224,7 @@ class SupervisorsControllerTest {
             r -> {
               assertThat(r.data().valid()).isFalse();
               assertThat(r.data().errors())
-                  .extracting(e -> e.field())
+                  .extracting(SupervisorValidation.FieldIssue::field)
                   .containsExactly("settings.bogus");
             })
         .verifyComplete();
@@ -263,7 +269,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void effectiveSupervisorsOfASessionAndWorkflowFollowTheScopes() {
+  void effectiveSupervisorsOfSessionAndWorkflowFollowTheScopes() {
     created("s1");
     for (final String[] a :
         new String[][] {
@@ -337,7 +343,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void deletingASupervisorThatIsStillAttachedConflicts() {
+  void deletingSupervisorThatIsStillAttachedConflicts() {
     created("s1");
     StepVerifier.create(controller.attach(new AttachmentBody("a1", "s1", "global", false)))
         .expectNextCount(1)

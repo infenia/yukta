@@ -54,11 +54,19 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
   public static final String AUDIT_RUN = "supervisors";
+
+  /** The type name of composite supervisors. */
+  private static final String COMPOSITE_TYPE = "composite";
 
   /** Default for {@code yukta.supervisor.max-attachments}. */
   public static final int DEFAULT_MAX_ATTACHMENTS = 200;
@@ -531,6 +539,7 @@ public class SupervisorService {
    * @param type the supervisor type
    * @return the kind
    */
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   public String kind(final String type) {
     final SupervisorFactory factory = factories.get(type);
     if (factory == null) {
@@ -541,13 +550,16 @@ public class SupervisorService {
           factory.create(
               new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
       return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
-    } catch (RuntimeException e) {
-      // ponytail: by name when the example cannot be made; a declared kind if third parties need it
-      if ("composite".equals(type)) {
-        return "COMPOSITE";
-      }
-      return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
+    } catch (RuntimeException e) { // PMD.AvoidCatchingGenericException: any factory may refuse
+      return kindByName(type);
     }
+  }
+
+  /** The kind of a type whose example cannot be made: told apart by its name. */
+  private static String kindByName(final String type) {
+    return COMPOSITE_TYPE.equals(type)
+        ? "COMPOSITE"
+        : type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
   /**

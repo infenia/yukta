@@ -172,7 +172,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void aDefinitionAttachmentCannotBeDetachedOrReplacedByHand() {
+  void definitionAttachmentCannotBeDetachedOrReplacedByHand() {
     when(service.attachments())
         .thenReturn(
             Flux.just(
@@ -196,7 +196,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void saveBuildsASupervisorAndDoesNotEchoItsSettings() {
+  void saveBuildsSupervisorAndDoesNotEchoItsSettings() {
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(provider.save(" s1 ", "t", java.util.Map.of("k", 1), true, " "))
@@ -213,7 +213,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void saveRefusesTheHiddenMarkerSoASecretIsNeverOverwrittenByIt() {
+  void saveRefusesTheHiddenMarkerSoSecretIsNeverOverwrittenByIt() {
     StepVerifier.create(provider.save("s1", "t", java.util.Map.of("apiKey", "***"), false, null))
         .expectError(IllegalArgumentException.class)
         .verify();
@@ -249,5 +249,47 @@ class SupervisorProviderTest {
     assertThat(details.exampleSettings()).containsEntry("k", 1);
     org.assertj.core.api.Assertions.assertThatThrownBy(() -> provider.type("nope"))
         .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void saveKeepsGivenDescriptionAndSettings() {
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(provider.save("s1", "t", java.util.Map.of("k", 1), false, "pauses"))
+        .assertNext(saved -> assertThat(saved.description()).isEqualTo("pauses"))
+        .verifyComplete();
+    final ArgumentCaptor<Supervisor> sent = ArgumentCaptor.forClass(Supervisor.class);
+    verify(service).saveSupervisor(sent.capture());
+    assertThat(sent.getValue().settings()).containsEntry("k", 1);
+  }
+
+  @Test
+  void catalogEntryWithoutDefaultCommandRestrictionHasNone() {
+    final com.infenia.yukta.plugin.control.SupervisorDescriptor descriptor =
+        new com.infenia.yukta.plugin.control.SupervisorDescriptor(
+            "T",
+            "d",
+            "u",
+            com.infenia.yukta.plugin.control.SupervisorCategory.RULES,
+            java.util.Optional.empty(),
+            java.util.Map.of());
+    when(service.describe("t")).thenReturn(java.util.Optional.of(descriptor));
+    when(service.kind("t")).thenReturn("SUPERVISOR");
+    when(service.configSchema("t")).thenReturn(List.of());
+    when(service.defaultAllowedCommands("t")).thenReturn(null);
+
+    assertThat(provider.type("t").defaultAllowedCommands()).isNull();
+  }
+
+  @Test
+  void manualAttachmentCanBeDetached() {
+    when(service.attachments())
+        .thenReturn(
+            Flux.just(new SupervisorAttachment("m", "p", new SupervisorScope.Global(), true)));
+    when(service.detach("m")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.detach("m"))
+        .assertNext(d -> assertThat(d.detached()).isTrue())
+        .verifyComplete();
   }
 }

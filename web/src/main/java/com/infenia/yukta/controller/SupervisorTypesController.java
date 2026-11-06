@@ -5,6 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.response.SupervisorTypeDetails;
 import com.infenia.yukta.dto.response.SupervisorTypeSummary;
 import com.infenia.yukta.model.api.ApiResponse;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -90,7 +91,11 @@ public class SupervisorTypesController {
   public Mono<ApiResponse<List<String>>> usage(@PathVariable final String type) {
     return Mono.fromSupplier(() -> descriptor(type))
         .then(
-            service.supervisors().filter(s -> s.type().equals(type)).map(s -> s.id()).collectList())
+            service
+                .supervisors()
+                .filter(s -> s.type().equals(type))
+                .map(Supervisor::id)
+                .collectList())
         .map(ids -> ApiResponse.success(200, "Supervisors retrieved", ids));
   }
 

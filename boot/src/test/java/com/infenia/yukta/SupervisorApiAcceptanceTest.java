@@ -49,7 +49,7 @@ class SupervisorApiAcceptanceTest {
   }
 
   @Test
-  void aSupervisorIsValidatedCreatedAttachedLockedAndRemoved() throws Exception {
+  void supervisorIsValidatedCreatedAttachedLockedAndRemoved() throws Exception {
     final String id = "api-" + UUID.randomUUID().toString().substring(0, 8);
     final String body =
         "{\"id\":\"" + id + "\",\"type\":\"rule-supervisor\",\"settings\":{\"rules\":[]}}";

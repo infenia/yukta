@@ -53,7 +53,12 @@ import reactor.core.publisher.Mono;
  * replaced by {@code ***}, and a value sent back as {@code ***} keeps the stored one.
  */
 @RestController
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 @RequestMapping("/api/supervisors")
 @RequiredArgsConstructor
 @Tag(name = "Supervisors API", description = "Supervisors, their attachments and their decisions")
@@ -343,7 +348,7 @@ public class SupervisorsController {
         .flatMap(
             attachment ->
                 manual(attachment.id()).then(Mono.defer(() -> service.attach(attachment))))
-        .map(saved -> ApiResponse.success(201, "Supervisor attached", view(saved)));
+        .map(saved -> ApiResponse.success(201, "Supervisor attached", attachmentView(saved)));
   }
 
   /**
@@ -371,7 +376,7 @@ public class SupervisorsController {
                         a.source(),
                         a.originSessionId(),
                         a.originWorkflowId())))
-        .map(saved -> ApiResponse.success(200, "Attachment saved", view(saved)));
+        .map(saved -> ApiResponse.success(200, "Attachment saved", attachmentView(saved)));
   }
 
   /**
@@ -469,7 +474,7 @@ public class SupervisorsController {
   private Mono<List<AttachmentView>> attachmentViews() {
     return service
         .attachments()
-        .map(SupervisorsController::view)
+        .map(SupervisorsController::attachmentView)
         .collectList()
         .map(
             stored ->
@@ -533,7 +538,7 @@ public class SupervisorsController {
     return view(saved, List.of(), Map.of());
   }
 
-  private static AttachmentView view(final SupervisorAttachment a) {
+  private static AttachmentView attachmentView(final SupervisorAttachment a) {
     return new AttachmentView(
         a.id(),
         a.supervisorId(),

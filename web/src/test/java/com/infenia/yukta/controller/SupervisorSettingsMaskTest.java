@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 /** Secrets are hidden in what the API shows and taken back from storage on update. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisorSettingsMaskTest {
 
   @Test
@@ -54,5 +55,13 @@ class SupervisorSettingsMaskTest {
         .containsEntry("apiKey", "real")
         .containsEntry("other", "***")
         .containsEntry("nested", Map.of("password", "pw", "url", "new"));
+  }
+
+  @Test
+  void nestedValueWithNothingStoredBehindItIsKeptAsSent() {
+    assertThat(
+            SupervisorSettingsMask.keepHidden(
+                Map.of("nested", Map.of("password", "***")), Map.of("nested", "text")))
+        .containsEntry("nested", Map.of("password", "***"));
   }
 }
