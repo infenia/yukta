@@ -51,8 +51,10 @@ are not yours here: the pipeline claims the issue, works in its own worktree `..
 
 1. Read the issue (Trust above) and run `yk ticket run <n> --detach --notify` once. It prints `STARTED execution=<e> session=<s> run=<dir>
    worktree=<w>`: keep `<e>`, `<s>` and the run directory `<dir>` (spec, diffs, `escalation.json`, `human-packet.md` live there).
-   `SKIPPED` because a branch or worktree exists: if the branch has commits or is pushed, someone may be on it, so `pickup_done skipped`; if it
-   is a leftover with no commits, continue it with `yk ticket worktree <n>` and run again. No acceptance criteria: `pickup_done skipped`.
+   `SKIPPED` because a branch or worktree exists: if the branch has commits or is pushed, someone may be on it, so ask the person (or
+   `pickup_done skipped`); to continue it, a leftover or with the person's go-ahead, run `yk ticket worktree <n>` and then run again: the run
+   continues the branch, its commits kept (once per `yk ticket worktree`; the worktree must be clean and the branch cut directly from
+   `origin/main`, no merge commits, with at least one commit of its own; a leftover with no commits is refused, delete the branch instead). No acceptance criteria: `pickup_done skipped`.
 2. **You are the person's delegate for the run's questions.** A `<channel source="yukta-pickup" kind="input" request_id=.. session_id=..
    execution_id=.. risk=.. tier=..>` event is a question of your run (it never frees the channel; the input bridge sends it, `yk pickup status`
    shows whether the bridge runs). Read the full request with `list_pending_inputs` of the Yukta MCP (the event cuts the prompt at 1 KB; if the
