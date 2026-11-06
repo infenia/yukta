@@ -9,9 +9,11 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.AppConfigMapper;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +60,9 @@ class WorkflowValidationControllerTest {
   /** The workflow validator. */
   private WorkflowValidator workflowValidator;
 
+  /** Checks the declared supervisors. */
+  private DefinitionSupervisors declared;
+
   /** The client. */
   private WebTestClient client;
 
@@ -65,10 +70,16 @@ class WorkflowValidationControllerTest {
   void setUp() {
     pluginRegistry = mock(PluginRegistry.class);
     workflowValidator = mock(WorkflowValidator.class);
+    declared = mock(DefinitionSupervisors.class);
+    when(declared.check(any(WorkflowDefinition.class)))
+        .thenReturn(reactor.core.publisher.Mono.just(java.util.List.of()));
     client =
         WebTestClient.bindToController(
                 new WorkflowValidationController(
-                    Mappers.getMapper(AppConfigMapper.class), pluginRegistry, workflowValidator))
+                    Mappers.getMapper(AppConfigMapper.class),
+                    pluginRegistry,
+                    workflowValidator,
+                    declared))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }

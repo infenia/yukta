@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.workflow.store;
 
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -22,6 +24,9 @@ import java.util.stream.Collectors;
  * @param changedNodes ids of nodes whose type or configuration differ
  * @param addedEdges edges only the newer version has, written {@code source -> target[:port]}
  * @param removedEdges edges only the older version has
+ * @param addedSupervisors supervisors only the newer version declares, written {@code id} or {@code
+ *     id[node,node]} for a section
+ * @param removedSupervisors supervisors only the older version declares
  */
 public record WorkflowDiff(
     boolean descriptionChanged,
@@ -29,7 +34,9 @@ public record WorkflowDiff(
     List<String> removedNodes,
     List<String> changedNodes,
     List<String> addedEdges,
-    List<String> removedEdges) {
+    List<String> removedEdges,
+    List<String> addedSupervisors,
+    List<String> removedSupervisors) {
 
   /** Compact constructor to ensure immutability. */
   public WorkflowDiff {
@@ -38,6 +45,8 @@ public record WorkflowDiff(
     changedNodes = List.copyOf(changedNodes);
     addedEdges = List.copyOf(addedEdges);
     removedEdges = List.copyOf(removedEdges);
+    addedSupervisors = List.copyOf(addedSupervisors);
+    removedSupervisors = List.copyOf(removedSupervisors);
   }
 
   /**
@@ -62,13 +71,26 @@ public record WorkflowDiff(
         older.edges().stream().map(WorkflowDiff::edge).collect(Collectors.toSet());
     final Set<String> newEdges =
         newer.edges().stream().map(WorkflowDiff::edge).collect(Collectors.toSet());
+    final Set<String> oldSupervisors =
+        older.supervisors().stream().map(WorkflowDiff::supervisor).collect(Collectors.toSet());
+    final Set<String> newSupervisors =
+        newer.supervisors().stream().map(WorkflowDiff::supervisor).collect(Collectors.toSet());
     return new WorkflowDiff(
         !Objects.equals(older.description(), newer.description()),
         sorted(after.keySet().stream().filter(id -> !before.containsKey(id))),
         sorted(before.keySet().stream().filter(id -> !after.containsKey(id))),
         sorted(changed.stream()),
         sorted(newEdges.stream().filter(e -> !oldEdges.contains(e))),
-        sorted(oldEdges.stream().filter(e -> !newEdges.contains(e))));
+        sorted(oldEdges.stream().filter(e -> !newEdges.contains(e))),
+        sorted(newSupervisors.stream().filter(e -> !oldSupervisors.contains(e))),
+        sorted(oldSupervisors.stream().filter(e -> !newSupervisors.contains(e))));
+  }
+
+  /** A declared supervisor as text: its id, and the selectors of a section in brackets. */
+  private static String supervisor(final SupervisorRef ref) {
+    return ref.supervisor()
+        + (ref.nodes() == null ? "" : "[" + String.join(",", new TreeSet<>(ref.nodes())) + "]")
+        + (ref.isEnabled() ? "" : " (disabled)");
   }
 
   private static Map<String, Node> byId(final WorkflowDefinition definition) {

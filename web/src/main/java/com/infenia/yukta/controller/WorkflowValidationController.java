@@ -11,6 +11,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -44,6 +45,9 @@ public class WorkflowValidationController {
   /** The same validator execution uses. */
   private final WorkflowValidator workflowValidator;
 
+  /** Checks the supervisors the draft declares. */
+  private final DefinitionSupervisors declared;
+
   /**
    * Validate a draft workflow.
    *
@@ -72,6 +76,16 @@ public class WorkflowValidationController {
     final List<WorkflowValidationResult.Warning> warnings = unreadPorts(definition, ports);
     return workflowValidator
         .validateAll(definition)
+        .zipWith(declared.check(definition))
+        .map(
+            tuple -> {
+              final List<String> problems =
+                  java.util.stream.Stream.concat(
+                          tuple.getT1().stream(),
+                          tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
+                      .toList();
+              return problems;
+            })
         .map(
             problems ->
                 new WorkflowValidationResult(

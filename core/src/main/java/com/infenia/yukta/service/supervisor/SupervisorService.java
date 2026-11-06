@@ -104,6 +104,9 @@ public class SupervisorService {
   /** Checks workflow profiles against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
 
+  /** Tells who declares a supervisor; null where definitions declare none. */
+  @Nullable private DefinitionUsage definitionUsage;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -136,6 +139,15 @@ public class SupervisorService {
   @Autowired(required = false)
   public void setProperties(final YuktaProperties properties) {
     this.maxAttachments = properties.supervisor().maxAttachments();
+  }
+
+  /**
+   * Lets deleting a supervisor that a definition declares be refused, naming who declares it.
+   *
+   * @param usage the lookup
+   */
+  public void setDefinitionUsage(final DefinitionUsage usage) {
+    this.definitionUsage = usage;
   }
 
   /**
@@ -325,7 +337,28 @@ public class SupervisorService {
                           new ConflictException(
                               "Profile " + id + " is a child of composite " + composites));
                 }))
+        .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)));
+  }
+
+  /** Refuses with 409, naming them, when sessions or workflows declare the supervisor. */
+  private Mono<Void> declaredCheck(final String id) {
+    final DefinitionUsage usage = definitionUsage;
+    return usage == null
+        ? Mono.empty()
+        : usage
+            .declaredBy(id)
+            .flatMap(
+                users ->
+                    users.isEmpty()
+                        ? Mono.<Void>empty()
+                        : Mono.error(
+                            new ConflictException(
+                                "Supervisor "
+                                    + id
+                                    + " is declared by "
+                                    + String.join(", ", users)
+                                    + "; remove it from the definition first")));
   }
 
   private Mono<Void> deleteUnused(final String id) {
@@ -468,7 +501,10 @@ public class SupervisorService {
   public Mono<Void> removeForSession(final String sessionId) {
     return store
         .attachments()
-        .filter(binding -> sessionId.equals(binding.scope().sessionId()))
+        .filter(
+            binding ->
+                sessionId.equals(binding.scope().sessionId())
+                    || sessionId.equals(binding.originSessionId()))
         .concatMap(binding -> detach(binding.id()))
         .then();
   }

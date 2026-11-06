@@ -3,13 +3,16 @@
 package com.infenia.yukta.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -25,6 +28,7 @@ import java.util.Map;
  * @param tags additional key-value metadata to categorize the session
  * @param projectPath the absolute path to the project root being managed
  * @param workflows map of workflow definition requests (DAGs) keyed by their unique workflow IDs
+ * @param supervisors the supervisors declared for the whole session, attached when it is saved
  */
 @Schema(
     description =
@@ -65,7 +69,32 @@ public record ConfigRequest(
     @Schema(description = "A map of workflow definition requests keyed by workflow ID")
         @NotEmpty(message = "At least one workflow definition is required")
         @Valid
-        Map<String, WorkflowDefinitionRequest> workflows) {
+        Map<String, WorkflowDefinitionRequest> workflows,
+    @Schema(description = "Supervisors declared for the whole session; attached when it is saved")
+        @Size(max = 20, message = "A session declares at most 20 supervisors")
+        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors) {
+
+  /**
+   * A session that declares no supervisors.
+   *
+   * @param sessionId the unique session identifier
+   * @param name a human-readable name
+   * @param description a human-readable description
+   * @param initiator the initiator
+   * @param tags metadata tags
+   * @param projectPath the project root
+   * @param workflows workflow definition requests by id
+   */
+  public ConfigRequest(
+      final String sessionId,
+      final String name,
+      final String description,
+      final String initiator,
+      final Map<String, String> tags,
+      final String projectPath,
+      final Map<String, WorkflowDefinitionRequest> workflows) {
+    this(sessionId, name, description, initiator, tags, projectPath, workflows, List.of());
+  }
 
   /** Compact constructor to ensure immutability. */
   public ConfigRequest {
@@ -75,6 +104,7 @@ public record ConfigRequest(
     projectPath = blank(projectPath) ? "." : projectPath;
     tags = tags == null ? Map.of() : Map.copyOf(tags);
     workflows = workflows != null ? Map.copyOf(workflows) : Map.of();
+    supervisors = supervisors != null ? List.copyOf(supervisors) : List.of();
   }
 
   private static boolean blank(final String value) {

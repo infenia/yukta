@@ -3,6 +3,7 @@
 package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Instant;
@@ -27,8 +29,13 @@ class WorkflowVersionProviderTest {
 
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
+  private final DefinitionSupervisors declared = mock(DefinitionSupervisors.class);
   private final WorkflowVersionProvider provider =
-      new WorkflowVersionProvider(definitions, controlBus);
+      new WorkflowVersionProvider(definitions, controlBus, declared);
+
+  {
+    when(declared.reconcile(any())).thenReturn(Mono.empty());
+  }
 
   private static WorkflowDefinition definition(final String... nodeIds) {
     return new WorkflowDefinition(

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.workflow;
 
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -18,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param description a human-readable description of the workflow
  * @param nodes the list of nodes in the DAG
  * @param edges the list of edges connecting the nodes
+ * @param supervisors the supervisors declared for this workflow, attached when it is saved
  */
 @Schema(description = "Definition of a reactive workflow DAG")
 public record WorkflowDefinition(
@@ -38,12 +40,32 @@ public record WorkflowDefinition(
     @Schema(description = "Edges connecting the nodes")
         @NotNull(message = "Edges list cannot be null")
         @Size(max = 2000, message = "Workflow is too large: at most 2000 edges")
-        List<@Valid @NotNull(message = "Edge cannot be null") Edge> edges) {
+        List<@Valid @NotNull(message = "Edge cannot be null") Edge> edges,
+    @Schema(description = "Supervisors declared for this workflow; attached when it is saved")
+        @Size(max = 20, message = "A workflow declares at most 20 supervisors")
+        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors) {
 
   /** Compact constructor to ensure immutability. */
   public WorkflowDefinition {
     nodes = nodes != null ? List.copyOf(nodes) : List.of();
     edges = edges != null ? List.copyOf(edges) : List.of();
+    supervisors = supervisors != null ? List.copyOf(supervisors) : List.of();
+  }
+
+  /**
+   * A workflow that declares no supervisors.
+   *
+   * @param workflowId unique identifier for the workflow
+   * @param description a human-readable description of the workflow
+   * @param nodes the list of nodes in the DAG
+   * @param edges the list of edges connecting the nodes
+   */
+  public WorkflowDefinition(
+      final String workflowId,
+      final String description,
+      final List<Node> nodes,
+      final List<Edge> edges) {
+    this(workflowId, description, nodes, edges, List.of());
   }
 
   /**

@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -30,12 +32,15 @@ class WorkflowVersionNoteControllerTest {
 
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
+  private final DefinitionSupervisors declared = mock(DefinitionSupervisors.class);
   private WebTestClient client;
 
   @BeforeEach
   void setUp() {
+    when(declared.reconcile(any())).thenReturn(reactor.core.publisher.Mono.empty());
     client =
-        WebTestClient.bindToController(new WorkflowVersionController(definitions, controlBus))
+        WebTestClient.bindToController(
+                new WorkflowVersionController(definitions, controlBus, declared))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }

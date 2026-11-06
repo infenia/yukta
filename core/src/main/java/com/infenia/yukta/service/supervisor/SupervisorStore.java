@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
+import java.util.List;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -58,4 +60,28 @@ public interface SupervisorStore {
    * @return true if there was one
    */
   Mono<Boolean> deleteAttachment(String id);
+
+  /**
+   * The supervisors a session declares for itself as a whole, as it was last saved.
+   *
+   * @param sessionId the session
+   * @return the declared supervisors; empty when it declares none
+   */
+  Mono<List<SupervisorRef>> sessionRefs(String sessionId);
+
+  /**
+   * Keeps the supervisors a session declares for itself as a whole; an empty list forgets them.
+   *
+   * @param sessionId the session
+   * @param refs the declared supervisors
+   * @return completes when kept
+   */
+  Mono<Void> saveSessionRefs(String sessionId, List<SupervisorRef> refs);
+
+  /**
+   * The ids of the sessions that declare supervisors for themselves as a whole.
+   *
+   * @return the session ids
+   */
+  Flux<String> sessionsWithRefs();
 }
