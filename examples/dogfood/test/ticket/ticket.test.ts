@@ -140,3 +140,18 @@ test('the GitHub flow: failure paths', async () => {
 function rmEvents(): void {
   sh(['rm', '-f', join(w.d, 'events.jsonl')])
 }
+
+// last: it leaves a tagged test on main
+test('finish drops the [T#] tags from the locked tests in their own commit and lists the tests per case in the PR', async () => {
+  const f = 'core/src/test/java/ATest.java'
+  put(join(w.repo, f), 'class ATest {\n  @Test @DisplayName("[T1] rejects the 101st request") void a() {}\n}\n')
+  git(w.repo, 'add', f)
+  git(w.repo, 'commit', '-q', '-m', 'test: a tagged test')
+  git(w.repo, 'push', '-q', 'origin', 'main')
+  await w.walk('tagged', 'true')
+  expect(w.rc, w.out + w.err).toBe(0)
+  const remote = join(w.d, 'remote.git')
+  expect(git(remote, 'show', `issue/7:${f}`).out).toContain('@DisplayName("rejects the 101st request")')
+  expect(git(remote, 'log', '--format=%s', 'issue/7').out).toContain('test: drop the spec case tags from test names for #7')
+  expect(read(join(w.d, 'pr-body.md'))).toContain('| rejects the 101st request |')
+})
