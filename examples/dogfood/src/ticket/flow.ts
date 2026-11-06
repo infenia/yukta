@@ -36,6 +36,7 @@ import {
   resolve,
   save,
   sh,
+  stepModel,
   writeFileSync,
 } from './lib.ts'
 import { event } from './stepkit.ts'
@@ -77,8 +78,7 @@ function failDigest(run: string, step: string, attempt: number, stage: string, t
 function attemptEvent(run: string, sid: string, attempt: number, status: string, cls = '-'): void {
   const routing = load(join(run, 'routing.json'))
   const spec = load(join(run, 'spec', 'spec.json'))
-  const mf = join(run, 'steps', sid, 'model.json')
-  const m = isFile(mf) ? load(mf) : routing.models.implementer
+  const m = stepModel(run, sid, routing)
   const cx = spec.steps.find((x: Json) => x.id === sid)?.complexity ?? 'standard'
   event([
     run,

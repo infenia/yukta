@@ -12,6 +12,7 @@ import {
   type Json,
   RISK,
   type Risk,
+  UP_FRONT,
   existsSync,
   git,
   isFile,
@@ -19,7 +20,6 @@ import {
   load,
   matches,
   maxRisk,
-  modelTable,
   moduleOf,
   parseArgs,
   readFileSync,
@@ -27,10 +27,11 @@ import {
   save,
   writeFileSync,
 } from './lib.ts'
+import { modelsFor } from './route.ts'
 import { validateSchema } from './validate-schema.ts'
 
 /** The tests modes whose tests are written (and red-checked) before any step. */
-export const UP_FRONT = ['repro_only', 'cases_to_code', 'architect_code']
+export { UP_FRONT } from './lib.ts'
 export const MAX_STEPS: Record<string, number> = { S: 2, M: 5, L: 8 }
 const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -208,7 +209,8 @@ export function validate(
     Object.assign(routing, {
       risk,
       allow_architect_code: true,
-      models: modelTable(routing.complexity, risk, routing.tier_mode, project.implementer_override),
+      // the table of the raised risk, as before sizing: a body's role lines were often the defaults of the lower risk when it was filed
+      models: modelsFor({ ...ticket, roles: {} }, project, routing.complexity, risk, routing.tests_mode),
       tests_mode: routing.tests_mode,
     })
     warn(`risk raised to ${risk} (spec or high-risk paths); routing.json updated`)

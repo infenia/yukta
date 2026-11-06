@@ -75,6 +75,8 @@ Effort values are `low | medium | high`; map them to whatever parameter Yukta or
 
 Starting points, not truths: Section 11 tunes them from logged outcomes.
 
+**Hybrid sizing (implemented in `examples/dogfood/src/ticket/sizing.ts`).** The agent that drafts a ticket records facts in a `## Sizing` section (files or globs written, change kinds from a closed enum, number of open decisions), never a model or a grade. Code turns the facts into complexity and risk with fixed rules (file count ≤ 3 S, ≤ 10 M, else L; `concurrency`/`schema`/`api_contract`/`security` or two or more open decisions at least M; two ecosystems at least M; two modules, a `high_risk_paths` hit or `security` high risk) after checking the files against the base tree, and the route takes the **higher** of that and the static triage below (15.8). Sizing therefore only raises, so an optimistic draft cannot put a risky ticket on a cheaper model. An open decision raises the architect's effort one level. `routing.json` `basis` keeps both answers, and the report counts how often sizing raised them. Per step, `tricky` goes to `implementer_tricky` from the first attempt (this table), not only after the ladder.
+
 ### 3.2 Where the Ollama decision model is allowed
 
 Ollama MUST only choose from a closed enum and MUST NOT write code, specs or free text that downstream agents consume. Invalid or empty output gets one retry, then the documented default.

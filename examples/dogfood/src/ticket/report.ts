@@ -7,6 +7,7 @@
 //   cost share by role, cache hit ratio by role                            architect + test_writer above half the cost on M/L -> revisit tests_mode
 //   prefix_hash mismatches                                                 two different prefixes in one run without a revision in between: a bug
 //   BLOCKED rate                                                           above 15% the steps are too small: retune the sizing lint (design 11.3)
+//   routing: how often a ticket's Sizing raised the static complexity or risk (route events); sizing that never raises anything is not worth asking for
 import { homedir } from 'node:os'
 import { type Json, dumps, isFile, join, readFileSync } from './lib.ts'
 
@@ -66,6 +67,8 @@ export function build(events: Json[]): Json {
     const revisions = evs.filter((e) => e.role === 'architect_revise').length
     if (hashes.size > 1 + revisions) mismatch.push({ run_id: rid, prefixes: hashes.size, revisions })
   }
+  const routes = [...runs.values()].map((evs) => evs.filter((e) => e.role === 'route').pop()).filter(Boolean) as Json[]
+  const sized = routes.filter((e) => e.sizing_complexity && e.sizing_complexity !== '-')
   const total = Object.values(cost).reduce((a, b) => a + b, 0)
   const sortedKeys = (o: Record<string, unknown>): string[] => Object.keys(o).sort()
   return {
@@ -89,6 +92,12 @@ export function build(events: Json[]): Json {
     prefix_mismatches: mismatch,
     blocked_rate: nAtt ? r2(nBlocked / nAtt) : 0.0,
     blocked_too_small: Boolean(nAtt && nBlocked / nAtt > BLOCKED_LIMIT),
+    routing: {
+      routed: routes.length,
+      sized: sized.length,
+      raised_complexity: sized.filter((e) => e.complexity !== e.static_complexity).length,
+      raised_risk: sized.filter((e) => e.risk !== e.static_risk).length,
+    },
   }
 }
 
@@ -119,6 +128,10 @@ export function text(r: Json): string {
   )
   L.push(
     `BLOCKED rate: ${pct(r.blocked_rate)}` + (r.blocked_too_small ? ' (above 15%: the steps are too small; retune the sizing lint)' : ''),
+  )
+  const g = r.routing
+  L.push(
+    `routing: ${g.routed} routed, ${g.sized} with sizing; sizing raised complexity in ${g.raised_complexity}, risk in ${g.raised_risk}`,
   )
   for (const m of r.by_model) {
     if (m.model === 'haiku' && m.complexity === 'standard' && m.first_try_rate < 0.7 && m.steps >= 5)

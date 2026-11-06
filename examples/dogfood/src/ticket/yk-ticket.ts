@@ -5,8 +5,11 @@
 //
 //   yk ticket run <issue> [--local] [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>;
 //                                                 --local runs this checkout's ticketkit (session ticket-local) instead of the dev server's main checkout
-//   yk ticket new <title> --criterion C [--criterion C..] [--goal G] [--role architect=opus/high..] [--label L..] [--ready]   file a ticket in the shape the pipeline reads (ticket-template.md)
-//   yk ticket edit <issue> [--title T] [--goal G] [--criterion C..] [--role r=model/effort..] [--label L..] [--ready] [--force]   change what is passed, keep the rest of the body
+//   yk ticket new <title> --criterion C [--criterion C..] [--goal G] [SIZING] [--role architect=opus/high..] [--label L..] [--ready] [--dry-run]
+//                                                 file a ticket in the shape the pipeline reads (ticket-template.md); --dry-run prints the body and the route
+//   yk ticket edit <issue> [--title T] [--goal G] [--criterion C..] [SIZING] [--role r=model/effort|r=auto..] [--label L..] [--ready] [--force] [--dry-run]
+//                                                 change what is passed, keep the rest of the body; r=auto (or all=auto) hands a role back to the router
+//   SIZING: --file PATH|GLOB.. --change KIND.. --open-decisions N   the facts the router sizes the ticket by (sizing.ts); they can only raise its size and risk
 //   yk ticket worktree <issue> [--branch B] [--base REF] [--in DIR]   a worktree or branch for the issue, reusing what exists (branch.ts)
 //   yk ticket pr <issue> [--worktree W] [--title T] [--result R]      push the branch and open a DRAFT PR with `Fixes #n` (branch.ts)
 //   yk ticket status <issue|execution>            the run's tree (which node runs or failed) and its last events
@@ -46,7 +49,8 @@ import { KIT } from './lib.ts'
 import { main as github } from './github.ts'
 import { pr as prCmd, releaseCmd, worktree as worktreeCmd } from './branch.ts'
 import { criteria as criteriaOf } from './init.ts'
-import { parseRole, renderBody, replaceSection, roleLines, rolesOf, withDefaults } from './roles.ts'
+import { ROLE_NAMES, parseRole, renderBody, replaceSection, roleLines, rolesOf, routed } from './roles.ts'
+import { type Sizing, SECTION, measure, sizingFrom, sizingLines, sizingOf, trackedFiles } from './sizing.ts'
 
 /** The `dogfood` session with the workflows `ticket` and `step`...: renderSession (dogfood) already holds them, so every yk command applies the same set. */
 export function renderTicketSession(out: string): void {
@@ -86,13 +90,30 @@ type TicketArgs = {
   criteria: string[]
   labels: string[]
   roles: Record<string, any>
+  /** roles handed back to the router (`--role r=auto`) */
+  auto: string[]
+  /** sizing items (`files: ..`, `change: ..`, `open_decisions: ..`), one per flag */
+  sizing: string[]
   ready: boolean
   force: boolean
+  dryRun: boolean
   pos: string[]
 }
 
 export function ticketArgs(argv: string[]): TicketArgs {
-  const t: TicketArgs = { title: '', goal: '', criteria: [], labels: [], roles: {}, ready: false, force: false, pos: [] }
+  const t: TicketArgs = {
+    title: '',
+    goal: '',
+    criteria: [],
+    labels: [],
+    roles: {},
+    auto: [],
+    sizing: [],
+    ready: false,
+    force: false,
+    dryRun: false,
+    pos: [],
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!
     const val = (): string => argv[++i] ?? die(`${a} needs a value`)
@@ -103,7 +124,15 @@ export function ticketArgs(argv: string[]): TicketArgs {
     else if (a === '--label') t.labels.push(val())
     else if (a === '--ready') t.ready = true
     else if (a === '--force') t.force = true
-    else if (a === '--role') {
+    else if (a === '--dry-run') t.dryRun = true
+    else if (a === '--file') t.sizing.push(`files: ${line()}`)
+    else if (a === '--change') t.sizing.push(`change: ${line()}`)
+    else if (a === '--open-decisions') t.sizing.push(`open_decisions: ${line()}`)
+    else if (a === '--role' && /^\s*[a-z_]+\s*=\s*auto\s*$/.test(argv[i + 1] ?? '')) {
+      const r = val().split('=')[0]!.trim()
+      if (r !== 'all' && !ROLE_NAMES.includes(r)) die(`bad role '${r}=auto': expected <${ROLE_NAMES.join('|')}|all>=auto`)
+      t.auto.push(...(r === 'all' ? ROLE_NAMES : [r]))
+    } else if (a === '--role') {
       const r = parseRole(val())
       if (typeof r === 'string') die(r)
       t.roles[r[0]] = r[1]
@@ -115,18 +144,55 @@ export function ticketArgs(argv: string[]): TicketArgs {
 
 const REPO = (): string => process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
 
+/** The sizing flags as Sizing (an error in one ends the command: the ticket would be routed on less than you meant), null when none was given. */
+function flagSizing(t: TicketArgs): Sizing | null {
+  if (!t.sizing.length) return null
+  const { sizing, errors } = sizingFrom(t.sizing)
+  if (errors.length) die(errors.join('\n'))
+  return sizing ?? { files: [], change: [], open_decisions: 0 }
+}
+
+/** The tree the run will start from, for checking the sizing files (origin/main, as `yk ticket run` uses). */
+const treeOf = (root: string, s: Sizing | null): string[] | null => (s ? trackedFiles(root, 'origin/main') : null)
+
+/** What the router makes of the ticket, and the sizing entries that look wrong, on stderr: the drafter sees the effect before filing. */
+function routeNote(title: string, criteria: string[], labels: string[], s: Sizing | null, tracked: string[] | null): void {
+  const r = routed(criteria, labels, s, tracked, title)
+  const sz = r.basis.sizing
+  console.error(
+    `ROUTE kind=${r.kind} complexity=${r.complexity} risk=${r.risk} tests_mode=${r.tests_mode}` +
+      ` static=${r.basis.static.complexity}/${r.basis.static.risk}` +
+      (sz ? ` sizing=${sz.complexity}/${sz.risk} (${sz.reasons.join('; ')})` : ' sizing=-'),
+  )
+  if (s && !tracked) console.error('NOTE cannot list origin/main: the sizing files are counted as written')
+  if (s && tracked) {
+    const m = measure(s, tracked)
+    if (m.unmatched.length) console.error(`NOTE sizing globs match nothing in origin/main: ${m.unmatched.join(', ')}`)
+    if (m.new_files.length) console.error(`NOTE not in origin/main, counted as new files: ${m.new_files.join(', ')}`)
+  }
+}
+
 /** Files an issue from ticket-template.md, assigned to you; --ready also sets Status Ready on the project, so `yk ticket run` can take it. */
 function ticketNew(argv: string[]): number {
   const t = ticketArgs(argv)
   const title = t.title || t.pos[0] || ''
   if (!title || !t.criteria.length || t.pos.length > 1)
     die(
-      'usage: yk ticket new <title> --criterion <text> [--criterion ..] [--goal <text>] [--role architect=opus/high ..] [--label <l> ..] [--ready]',
+      'usage: yk ticket new <title> --criterion <text> [--criterion ..] [--goal <text>] [--file P ..] [--change K ..] [--open-decisions N] [--role architect=opus/high ..] [--label <l> ..] [--ready] [--dry-run]',
     )
+  const sizing = flagSizing(t)
+  const root = git(['rev-parse', '--show-toplevel']).stdout.trim()
+  const tracked = treeOf(root, sizing)
+  const body = renderBody(t.goal || title, t.criteria, t.roles, t.labels, sizing, tracked, title)
+  routeNote(title, t.criteria, t.labels, sizing, tracked)
+  if (t.dryRun) {
+    console.log(body)
+    return 0
+  }
   const dir = mkdtempSync(join(tmpdir(), 'yk-ticket-new-'))
   try {
     const f = join(dir, 'body.md')
-    writeFileSync(f, renderBody(t.goal || title, t.criteria, t.roles, t.labels))
+    writeFileSync(f, body)
     const r = run([
       'gh',
       'issue',
@@ -157,7 +223,7 @@ function ticketEdit(argv: string[]): number {
   const n = t.pos[0] ?? ''
   if (!/^[0-9]+$/.test(n) || t.pos.length > 1)
     die(
-      'usage: yk ticket edit <issue> [--title T] [--goal G] [--criterion C ..] [--role r=model/effort ..] [--label L ..] [--ready] [--force]',
+      'usage: yk ticket edit <issue> [--title T] [--goal G] [--criterion C ..] [--file P ..] [--change K ..] [--open-decisions N] [--role r=model/effort|r=auto ..] [--label L ..] [--ready] [--force] [--dry-run]',
     )
   const root = git(['rev-parse', '--show-toplevel']).stdout.trim()
   const branch: string = readJson(join(KIT, 'project.json')).git.branch.replaceAll('{n}', n)
@@ -166,7 +232,8 @@ function ticketEdit(argv: string[]): number {
     git(['rev-parse', '--verify', '-q', branch], root).code === 0 ||
     isDir(worktree) ||
     git(['ls-remote', '--exit-code', '--heads', 'origin', branch], root).code === 0
-  if (!t.force && ran) die(`branch ${branch}, its worktree or its remote branch exists: a run has read this issue (--force to edit anyway)`)
+  if (!t.force && ran && !t.dryRun)
+    die(`branch ${branch}, its worktree or its remote branch exists: a run has read this issue (--force to edit anyway)`)
   const g = run(['gh', 'issue', 'view', n, '-R', REPO(), '--json', 'title,body,labels'])
   if (g.code) die(`gh issue view: ${g.stderr.trim().slice(0, 300)}`)
   const v = JSON.parse(g.stdout)
@@ -176,12 +243,35 @@ function ticketEdit(argv: string[]): number {
   if (t.goal) body = replaceSection(body, /^\s*#+\s+goal\b/i, 'Goal', t.goal)
   if (t.criteria.length)
     body = replaceSection(body, /acceptance criteria/i, 'Acceptance criteria', t.criteria.map((c) => `- [ ] ${c}`).join('\n'))
+  // the sizing flags replace what they name (files, change kinds, open decisions) and keep the rest of the section
+  let sizing = sizingOf(body).sizing
+  const given = flagSizing(t)
+  if (given) {
+    const keys = new Set(t.sizing.map((x) => x.split(':')[0]))
+    const old = sizing ?? { files: [], change: [], open_decisions: 0 }
+    sizing = {
+      files: keys.has('files') ? given.files : old.files,
+      change: keys.has('change') ? given.change : old.change,
+      open_decisions: keys.has('open_decisions') ? given.open_decisions : old.open_decisions,
+    }
+    if (!sizing.files.length && !sizing.change.length) sizing = null
+    body = replaceSection(body, SECTION, 'Sizing', sizingLines(sizing))
+  }
+  const tracked = treeOf(root, sizing)
+  const explicit = { ...rolesOf(body), ...t.roles }
+  for (const r of t.auto) delete explicit[r]
+  const title = t.title || v.title
   body = replaceSection(
     body,
     /pipeline roles/i,
     'Pipeline roles',
-    roleLines(withDefaults(criteria, labels, { ...rolesOf(body), ...t.roles })),
+    roleLines(explicit, routed(criteria, labels, sizing, tracked, title).models),
   )
+  routeNote(title, criteria, labels, sizing, tracked)
+  if (t.dryRun) {
+    console.log(body)
+    return 0
+  }
   const dir = mkdtempSync(join(tmpdir(), 'yk-ticket-edit-'))
   try {
     const f = join(dir, 'body.md')
