@@ -18,12 +18,7 @@ import { renderWithProviders } from '@/test/utils/testUtils';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { SupervisorCockpit } from '../SupervisorCockpit';
 import { ScopedSupervisors } from '../ScopedSupervisors';
-import {
-  parseSettings,
-  scopeApplies,
-  buildScope,
-  scopeLabel,
-} from '../../api/supervisors';
+import { scopeApplies, buildScope, scopeLabel } from '../../api/supervisors';
 
 const ok = (data: unknown) =>
   HttpResponse.json({
@@ -153,7 +148,7 @@ describe('the supervisor cockpit', () => {
 
     expect(await screen.findByText('No supervisors')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'New profile' })
+      screen.getByRole('link', { name: 'New supervisor' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Attach supervisor' })
@@ -312,41 +307,7 @@ describe('the supervisor cockpit', () => {
     );
   });
 
-  it('creates a profile from validated JSON settings', async () => {
-    renderWithProviders(<SupervisorCockpit />);
-    const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole('button', { name: 'New profile' })
-    );
-    const dialog = await screen.findByRole('dialog', {
-      name: 'New supervisor profile',
-    });
-    const create = within(dialog).getByRole('button', { name: 'Create' });
-    expect(create).toBeDisabled(); // no id yet
-
-    await user.type(within(dialog).getByLabelText('Profile id'), 'guard');
-    expect(create).toBeEnabled();
-    const settings = within(dialog).getByLabelText('Settings (JSON)');
-    await user.click(settings);
-    await user.paste('{ nope');
-    expect(
-      await within(dialog).findByText('The settings are not valid JSON.')
-    ).toBeInTheDocument();
-    expect(create).toBeDisabled();
-
-    await user.clear(settings);
-    await user.click(settings);
-    await user.paste('{"rules": []}');
-    await user.click(create);
-
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toContain('"id":"guard"');
-    expect(writes[0]).toContain('"type":"rule-supervisor"');
-    expect(writes[0]).toContain('"settings":{"rules":[]}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  });
-
-  it('edits a profile keeping its id and type, and deletes one', async () => {
+  it('links to the wizard to create a supervisor and to edit a profile, and deletes one', async () => {
     profiles = [
       {
         id: 'p',
@@ -358,21 +319,12 @@ describe('the supervisor cockpit', () => {
     renderWithProviders(<SupervisorCockpit />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit profile p' })
-    );
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Edit supervisor profile',
-    });
-    expect(within(dialog).getByLabelText('Profile id')).toBeDisabled();
-    expect(within(dialog).getByLabelText('Type')).toBeDisabled();
-    expect(within(dialog).getByLabelText('Settings (JSON)')).toHaveValue(
-      '{\n  "apiKey": "***"\n}'
-    );
-    await user.click(within(dialog).getByRole('checkbox', { name: /Dry run/ }));
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(writes[0]).toContain('"dryRun":true'));
-
+    expect(
+      await screen.findByRole('link', { name: 'New supervisor' })
+    ).toHaveAttribute('href', '/supervisors/new');
+    expect(
+      await screen.findByRole('link', { name: 'Edit profile p' })
+    ).toHaveAttribute('href', '/supervisors/p/edit');
     await user.click(
       await screen.findByRole('button', { name: 'Delete profile p' })
     );
@@ -476,11 +428,5 @@ describe('the scope helpers', () => {
     expect(buildScope('section', '', 'w', 'a b')).toBe('workflow:w//a,b');
     expect(buildScope('section', 's', 'w', ' , ')).toBeNull();
     expect(buildScope('section', 's', 'w')).toBeNull();
-  });
-
-  it('reads settings only as a JSON object', () => {
-    expect(parseSettings('{"a":1}')).toEqual({ settings: { a: 1 } });
-    expect(parseSettings('[1]')).toHaveProperty('error');
-    expect(parseSettings('x')).toHaveProperty('error');
   });
 });

@@ -52,3 +52,31 @@ export interface SupervisorView {
   recorded: number;
   rateLimited: number;
 }
+
+export type AttachmentSource = 'MANUAL' | 'DEFINITION' | 'SYSTEM';
+
+/** An attachment of a supervisor to a scope. */
+export interface AttachmentView {
+  id: string;
+  supervisorId: string;
+  /** `global`, `session:<id>`, `workflow:<s>/<w>` or a section `workflow:<s>/<w>//<selector>,...`. */
+  scope: string;
+  enabled: boolean;
+  source: AttachmentSource;
+  originSessionId: string | null;
+  originWorkflowId: string | null;
+}
+
+/** What a supervisor is saved as. */
+export interface SupervisorDraft {
+  id?: string;
+  type: string;
+  description?: string;
+  settings: Record<string, unknown>;
+  dryRun: boolean;
+}
+
+export interface ValidationResult {
+  valid: boolean;
+  errors: { field: string; message: string }[];
+}

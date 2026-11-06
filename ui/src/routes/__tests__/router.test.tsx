@@ -79,9 +79,9 @@ describe('router', () => {
   });
 
   describe('route paths', () => {
-    it('should have 14 child routes', () => {
+    it('should have 17 child routes', () => {
       const rootRoute = router.routes[0];
-      expect(rootRoute.children?.length).toBe(14);
+      expect(rootRoute.children?.length).toBe(17);
     });
 
     it('should have correct number of parameterized routes', () => {
@@ -89,7 +89,7 @@ describe('router', () => {
       const parameterizedRoutes = rootRoute.children?.filter((r) =>
         r.path?.includes(':')
       );
-      expect(parameterizedRoutes?.length).toBe(4);
+      expect(parameterizedRoutes?.length).toBe(6);
     });
 
     it('should have correct session ID parameter', () => {
@@ -144,6 +144,13 @@ describe('router', () => {
       expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('supervisors')).toBe('SupervisorsPage');
+      expect(await load('supervisors/new')).toBe('SupervisorWizardPage');
+      expect(await load('supervisors/:supervisorId')).toBe(
+        'SupervisorDetailPage'
+      );
+      expect(await load('supervisors/:supervisorId/edit')).toBe(
+        'SupervisorWizardPage'
+      );
       expect(await load('control')).toBe('ControlPage');
       expect(await load('runs')).toBe('RunsPage');
       expect(await load('showcase/dashboard')).toBe('DashboardShowcase');
