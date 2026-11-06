@@ -189,17 +189,18 @@ export function RunControls({
       className="flex flex-wrap items-center gap-2"
       data-testid="run-controls"
     >
-      <RunButton
-        sessionId={sessionId}
-        workflowId={workflowId}
-        onStarted={onStarted}
-      />
-      {/* Pause or Resume, Stop and Restart as one segmented control, as on the run view artboard */}
+      {/* Run, Pause or Resume, Stop and Restart as one segmented control, as on the run view artboard */}
       <div
         role="group"
         aria-label="Run controls"
         className="border-border bg-card flex items-center gap-0.5 rounded-full border p-0.5"
       >
+        <RunButton
+          sessionId={sessionId}
+          workflowId={workflowId}
+          onStarted={onStarted}
+          className={SEG}
+        />
         <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
             <button
