@@ -5,6 +5,15 @@ import { afterAll, beforeAll, beforeEach, expect, setDefaultTimeout, test } from
 import { cpSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { initRepo, json, kit, put, read, rm, tmp } from './helpers.ts'
+import { untag } from '../../src/ticket/gate-tests.ts'
+
+test('untag drops the [T#] tags from test names and keeps the spacing', () => {
+  expect(untag('@DisplayName("[T1] rejects the 101st request")')).toBe('@DisplayName("rejects the 101st request")')
+  expect(untag("it('allows the first request [T2]', () => {")).toBe("it('allows the first request', () => {")
+  expect(untag("test('a [T3] b')")).toBe("test('a b')")
+  expect(untag("it('[T1] [T2] both')")).toBe("it('both')")
+  expect(untag('const a = [T, x]')).toBe('const a = [T, x]')
+})
 
 setDefaultTimeout(300_000)
 let d: string, tpl: string, rtpl: string, W: string, R: string

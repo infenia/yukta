@@ -34,6 +34,7 @@ import {
 } from './lib.ts'
 import { criteria } from './init.ts'
 import { release, releaseFailed } from './branch.ts'
+import { untag } from './gate-tests.ts'
 
 const REPO = process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
 const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
@@ -154,8 +155,13 @@ function specSummary(run: string): string {
     out.push(
       `- ${s.id} ${s.title} (\`${(s.write_files as string[]).join('`, `')}\`; covers ${(s.covers as string[]).join(', ') || 'none'})`,
     )
-  out.push('', '**Test cases**', '', '| id | title | given | when | expect |', '|---|---|---|---|---|')
-  for (const c of spec.test_cases) out.push(`| ${c.id} | ${cell(c.title)} | ${cell(c.given)} | ${cell(c.when)} | ${cell(c.expect)} |`)
+  const tm = join(run, 'spec', 'test_map.json')
+  const tests: Record<string, string[]> = isFile(tm) ? load(tm) : {}
+  out.push('', '**Test cases**', '', '| id | title | given | when | expect | tests |', '|---|---|---|---|---|---|')
+  for (const c of spec.test_cases)
+    out.push(
+      `| ${c.id} | ${cell(c.title)} | ${cell(c.given)} | ${cell(c.when)} | ${cell(c.expect)} | ${cell((tests[c.id] ?? []).map(untag).join('; '))} |`,
+    )
   return out.join('\n')
 }
 
@@ -198,6 +204,17 @@ function finish(run: string, wt: string): number {
   const n: string = t.ticket_id
   const branch = (p.git.branch as string).replaceAll('{n}', n)
   if (branch === 'main' || branch === 'master') die('ERROR finish refuses to push ' + branch)
+  // the locks are done with here (no step runs after finish): drop the [T#] tags from the locked test files
+  const spec = load(join(run, 'spec', 'spec.json'))
+  for (const f of (spec.locked_files ?? []) as string[]) {
+    const fp = join(wt, f)
+    if (!isFile(fp)) continue
+    const text = readFileSync(fp, 'utf8')
+    if (untag(text) !== text) writeFileSync(fp, untag(text))
+  }
+  git(['add', '-A'], { cwd: wt })
+  if (git(['diff', '--cached', '--quiet'], { cwd: wt, check: false }).code)
+    git(['commit', '-q', '-m', `test: drop the spec case tags from test names for #${n}`], { cwd: wt })
   sh(process.env.TICKET_FORMAT || p.commands.format_fix, wt)
   git(['add', '-A'], { cwd: wt })
   if (git(['diff', '--cached', '--quiet'], { cwd: wt, check: false }).code)

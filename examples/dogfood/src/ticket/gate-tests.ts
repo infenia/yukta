@@ -32,6 +32,8 @@ const RED =
 
 type T = { name: string; status: 'pass' | 'fail' | 'skipped'; message: string; error_elem: boolean }
 const tags = (s: string): string[] => [...new Set([...s.matchAll(TAG)].map((m) => m[1]!))]
+/** Drops the [T#] tags from test names: they link cases to tests during the run and mean nothing to a reviewer after it. */
+export const untag = (s: string): string => s.replace(/ ?\[T\d+\] ?/g, (m) => (m.startsWith(' ') && m.endsWith(' ') ? ' ' : ''))
 
 function parseJunit(dir: string): T[] {
   return junitCases(dir).map((c) => ({
