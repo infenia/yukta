@@ -33,6 +33,7 @@ import {
   resolveAttempt,
   run as runProc,
   save,
+  stepModel,
   writeFileSync,
 } from './lib.ts'
 import { event } from './stepkit.ts'
@@ -237,8 +238,7 @@ export function classify(code: number, stdout: string, stderr: string): Call {
 }
 
 function runClaude(role: string, prompt: string, routing: Json, wt: string, out: string, run?: string, step?: string): Call {
-  let m = routing.models[ROLE_OF[role] ?? role]
-  if (role === 'implementer' && step && isFile(join(run!, 'steps', step, 'model.json'))) m = load(join(run!, 'steps', step, 'model.json')) // the ladder moved this step one tier up
+  const m = role === 'implementer' && step ? stepModel(run!, step, routing) : routing.models[ROLE_OF[role] ?? role]
   const env: Record<string, string | undefined> = {
     YK_MODEL: m.model,
     YK_EFFORT: m.effort,
@@ -302,10 +302,7 @@ export function main(argv: string[]): number {
       runDir,
       opt.step,
     )
-    const mm =
-      role === 'implementer' && opt.step && isFile(join(runDir, 'steps', opt.step, 'model.json'))
-        ? load(join(runDir, 'steps', opt.step, 'model.json'))
-        : routing.models[ROLE_OF[role] ?? role]
+    const mm = role === 'implementer' && opt.step ? stepModel(runDir, opt.step, routing) : routing.models[ROLE_OF[role] ?? role]
     event([
       runDir,
       `role=${role}`,

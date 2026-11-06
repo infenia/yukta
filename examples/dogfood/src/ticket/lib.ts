@@ -145,6 +145,62 @@ export function modelTable(complexity: string, risk: string, tierMode = 'two_tie
   return t
 }
 
+/** The implementer model of one step (design 3.1): the ladder's choice (steps/S/model.json), else `implementer_tricky` for a step the
+ * architect marked tricky, else `implementer`. Every reader of a step's model goes through here, so the call, the ladder and the telemetry agree. */
+export function stepModel(run: string, sid: string, routing: Json = load(join(run, 'routing.json'))): Model {
+  const mf = join(run, 'steps', sid, 'model.json')
+  if (isFile(mf)) return load(mf)
+  const sf = join(run, 'spec', 'spec.json')
+  const tricky = isFile(sf) && load(sf).steps?.find((x: Json) => x.id === sid)?.complexity === 'tricky'
+  return (tricky && routing.models.implementer_tricky) || routing.models.implementer
+}
+
+/** The list items (`- x` or `* x`) under the first heading matching `rx`, up to the next heading. */
+export function sectionItems(body: string | null | undefined, rx: RegExp): string[] {
+  const out: string[] = []
+  let on = false
+  for (const line of (body ?? '').split(/\r?\n/)) {
+    if (/^\s{0,3}#{1,6}\s/.test(line)) {
+      on = rx.test(line)
+      continue
+    }
+    const m = /^\s*[-*]\s+(.+)/.exec(line)
+    if (on && m) out.push(m[1]!.trim())
+  }
+  return out
+}
+
+const CONVENTIONAL: Record<string, string> = {
+  feat: 'feature',
+  fix: 'bug',
+  refactor: 'refactor',
+  docs: 'docs',
+  chore: 'chore',
+  ci: 'chore',
+  build: 'chore',
+  style: 'chore',
+  perf: 'chore',
+  revert: 'chore',
+  test: 'chore',
+}
+const TYPE_LABEL: Record<string, string> = {
+  'type/feature': 'feature',
+  'type/bugfix': 'bug',
+  'type/refactor': 'refactor',
+  'type/docs': 'docs',
+  'type/chore': 'chore',
+  'type/test': 'chore',
+}
+
+export function kindOf(title: string, labels: string[]): string {
+  for (const l of labels) if (l in TYPE_LABEL) return TYPE_LABEL[l]!
+  const m = /^(\w+)(\([^)]*\))?!?:/.exec(title)
+  return m ? (CONVENTIONAL[m[1]!] ?? 'feature') : 'feature'
+}
+
+/** The tests modes whose tests are written (and red-checked) before any step: only these need a test writer. */
+export const UP_FRONT = ['repro_only', 'cases_to_code', 'architect_code']
+
 /** Design 3.3 (decided by code, from the kind and size). architect_code is allowed later by validate-spec, not chosen here. */
 export function testsModeFor(kind: string, complexity: string, risk: string): string {
   if (kind === 'docs' || kind === 'chore') return 'existing'

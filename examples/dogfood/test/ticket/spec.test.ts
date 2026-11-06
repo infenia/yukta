@@ -259,12 +259,24 @@ test('validate-spec', () => {
   check('scaffold touching a file no step writes', 'stubs only', () => {})
   put(join(run, 'spec/scaffold.patch'), patch('core/src/main/java/A.java'))
   put(join(run, 'spec/empty.patch'), '')
+  // bare role lines filed before the (router) rule hold the defaults of the lower risk: a raise uses the table of the raised risk anyway
+  const tk = json(join(run, 'ticket.json'))
+  put(join(run, 'ticket.json'), {
+    ...tk,
+    roles: { architect: { model: 'haiku', effort: 'low' }, reviewer: { model: 'haiku', effort: 'low' } },
+  })
   check('high-risk path raises risk', 'ok', (s) => {
     s.steps[0].write_files = ['plus/X.java']
     s.steps[0].read_files = []
     s.scaffold_patch = 'spec/empty.patch'
   })
-  expect(json(join(run, 'routing.json')).risk, 'a write in a high-risk path must raise routing.risk').toBe('high')
+  const raised = json(join(run, 'routing.json'))
+  expect(raised.risk, 'a write in a high-risk path must raise routing.risk').toBe('high')
+  expect([raised.models.architect.model, raised.models.reviewer.model], 'the high-risk row, not the cheap body roles').toEqual([
+    'opus',
+    'opus',
+  ])
+  put(join(run, 'ticket.json'), tk)
   void git
 })
 
@@ -283,17 +295,77 @@ test('roles in the ticket body override the routed models', () => {
   expect(m.implementer.model, 'untouched role keeps the table').toBe('haiku')
 })
 
-test('renderBody lists every role, defaults for the missing ones', async () => {
+test('renderBody lists every role; only the given ones bind, the router marks its own', async () => {
   const { renderBody, rolesOf } = await import('../../src/ticket/roles.ts')
   const body = renderBody('g', ['a', 'b', 'c'], { reviewer: { model: 'opus', effort: 'high' } })
-  const r = rolesOf(body)
-  expect(Object.keys(r).sort()).toEqual(['architect', 'implementer', 'implementer_tricky', 'reviewer', 'test_writer'])
-  expect(r.reviewer, 'given role kept').toEqual({ model: 'opus', effort: 'high' })
-  expect(r.architect, 'M/low default').toEqual({ model: 'sonnet', effort: 'high' })
-  expect(renderBody('g', ['a'], {}, ['core'])).toContain('test_writer: none')
-  const multi = rolesOf(renderBody('g', ['a', 'b', 'c'], {}, ['core', 'ui']))
-  expect(multi.architect, 'two modules is high risk, as the router decides').toEqual({ model: 'opus', effort: 'high' })
-  expect(multi.reviewer).toEqual({ model: 'opus', effort: 'medium' })
+  expect(rolesOf(body), 'only the given role is binding').toEqual({ reviewer: { model: 'opus', effort: 'high' } })
+  expect(body).toContain('- reviewer: opus/high\n')
+  expect(body, 'M/low default shown, not binding').toContain('- architect: sonnet/high (router)')
+  expect(renderBody('g', ['a'], {}, ['core'])).toContain('test_writer: none (router')
+  const multi = renderBody('g', ['a', 'b', 'c'], {}, ['core', 'ui'])
+  expect(multi, 'two modules is high risk, as the router decides').toContain('- architect: opus/high (router)')
+  expect(multi).toContain('- reviewer: opus/medium (router)')
+  expect(body, 'no sizing given').toContain('## Sizing\n- none given')
+  const sized = renderBody('g', ['a'], {}, ['core'], { files: ['core/A.java'], change: ['rename'], open_decisions: 1 })
+  expect(sized).toContain('## Sizing\n- files: core/A.java\n- change: rename\n- open_decisions: 1')
+  expect(sized, 'an open decision puts the S architect one effort up').toContain('- architect: sonnet/high (router)')
+})
+
+test('sizing raises the route, never lowers it; the reasons and a route event are recorded', () => {
+  const routeOf = (title: string, labels: string[], body: string, n = 91): any => {
+    rm(join(d, 'rz'))
+    const o = kit([
+      'init',
+      '--ticket-file',
+      mkticket(n, title, labels, body),
+      '--root',
+      repo,
+      '--state-dir',
+      join(d, 'rz'),
+      '--no-worktree',
+      '--base',
+      'HEAD',
+    ])
+    const rd = /^RUN_DIR=(.*)$/m.exec(o.out)![1]!
+    const out = kit(['route', rd]).out
+    return { r: json(join(rd, 'routing.json')), t: json(join(rd, 'ticket.json')), out, ev: read(join(rd, 'events.jsonl')), err: o.err }
+  }
+  const SZ = (s: string): string => `${BODY}\n\n## Sizing\n${s}\n`
+  // core/ and web/ are two modules: high risk, as two module labels would be
+  let x = routeOf('feat(core): x', ['core'], SZ('- files: core/src/main/java/B.java, web/build.gradle.kts\n- change: rewire'))
+  expect([x.r.complexity, x.r.risk, x.r.models.architect.model]).toEqual(['S', 'high', 'opus'])
+  expect(x.r.basis.static).toEqual({ complexity: 'S', risk: 'low' })
+  expect(x.r.basis.sizing.reasons.join(' ')).toContain('more than one module (core, web)')
+  expect(x.out).toContain('static=S/low sizing=S/high')
+  expect(JSON.parse(x.ev.trim().split('\n').pop()).role).toBe('route')
+  expect(x.t.sizing.paths, 'globs and paths checked against the base tree').toEqual(['core/src/main/java/B.java', 'web/build.gradle.kts'])
+  // a directory is everything under it; a path not in the tree is a new file; a high-risk path is high risk before the spec exists
+  x = routeOf('feat(core): x', ['core'], SZ('- files: core, plus/New.java'))
+  expect(x.t.sizing.new_files).toEqual(['plus/New.java'])
+  expect(x.t.sizing.file_count).toBe(3)
+  expect(x.r.risk).toBe('high')
+  // a heavy change kind is at least M; a glob that matches nothing is noted
+  x = routeOf('feat(core): x', ['core'], SZ('- files: core/**/*.kt\n- change: api_contract'))
+  expect([x.r.complexity, x.r.risk]).toEqual(['M', 'low'])
+  expect(x.err).toContain('match nothing')
+  // never lower: six criteria is L whatever the sizing says
+  const six = '## Acceptance criteria\n- a\n- b\n- c\n- d\n- e\n- f\n\n## Sizing\n- files: core/build.gradle.kts\n- change: rename'
+  x = routeOf('feat(core): x', ['core', 'risk'], six)
+  expect([x.r.complexity, x.r.risk], 'sizing cannot undo the criteria count or a risk label').toEqual(['L', 'high'])
+  // open decisions: the architect one effort up, unless the ticket chose the architect itself
+  x = routeOf('feat(core): x', ['core'], SZ('- files: core/build.gradle.kts\n- open_decisions: 1'))
+  expect(x.r.models.architect).toEqual({ model: 'sonnet', effort: 'high' })
+  x = routeOf(
+    'feat(core): x',
+    ['core'],
+    SZ('- files: core/build.gradle.kts\n- open_decisions: 1') + '\n## Pipeline roles\n- architect: haiku/low\n',
+  )
+  expect(x.r.models.architect, 'the ticket role wins').toEqual({ model: 'haiku', effort: 'low' })
+  // a bad item is dropped with a note; no sizing at all routes as before
+  x = routeOf('feat(core): x', ['core'], SZ('- change: rewrite\n- files: /etc/passwd'))
+  expect(x.t.sizing).toBeNull()
+  expect(x.err).toContain("change 'rewrite' is not one of")
+  expect(x.r.basis.sizing).toBeNull()
 })
 
 test('replaceSection swaps one section and keeps the rest', async () => {
@@ -314,7 +386,7 @@ test('roles in an issue not assigned to you are ignored; a criterion stays one l
   mkdirSync(join(d, 'bin'))
   symlinkSync(join(import.meta.dir, 'fake/gh.ts'), join(d, 'bin/gh'))
   writeFileSync(join(d, 'status'), 'Ready\n')
-  writeFileSync(join(d, 'body'), `${BODY}\n\n## Pipeline roles\n- architect: opus/high\n`)
+  writeFileSync(join(d, 'body'), `${BODY}\n\n## Sizing\n- files: a.txt\n\n## Pipeline roles\n- architect: opus/high\n`)
   const run = (me: string): any => {
     const r = join(d, `r-${me}`) // its own repo: the other tests leave issue/7 and its worktree in the shared one
     initRepo(r, { 'a.txt': 'a\n' })
@@ -322,13 +394,35 @@ test('roles in an issue not assigned to you are ignored; a criterion stays one l
       env: { PATH: `${d}/bin:${process.env.PATH}`, FAKE_DIR: d, FAKE_ME: me },
     })
     if (!/RUN_DIR/.test(o.out)) throw new Error(o.all)
-    return { o, roles: json(join(/^RUN_DIR=(.*)$/m.exec(o.out)![1]!, 'ticket.json')).roles }
+    const t = json(join(/^RUN_DIR=(.*)$/m.exec(o.out)![1]!, 'ticket.json'))
+    return { o, roles: t.roles, sizing: t.sizing }
   }
-  expect(run('me').roles, 'assigned to the runner: honoured').toEqual({ architect: { model: 'opus', effort: 'high' } })
+  const mine = run('me')
+  expect(mine.roles, 'assigned to the runner: honoured').toEqual({ architect: { model: 'opus', effort: 'high' } })
+  expect(mine.sizing.paths).toEqual(['a.txt'])
   const other = run('someone')
   expect(other.roles, 'not assigned to the runner: ignored').toEqual({})
+  expect(other.sizing, 'sizing too').toBeNull()
   expect(other.o.err).toContain('ignored')
   const { ticketArgs } = await import('../../src/ticket/yk-ticket.ts')
+  const a = ticketArgs([
+    '--role',
+    'reviewer=auto',
+    '--role',
+    'architect=opus/low',
+    '--file',
+    'ui/a.ts, ui/b/**',
+    '--change',
+    'delete',
+    '--open-decisions',
+    '2',
+  ])
+  expect([a.auto, a.roles, a.sizing]).toEqual([
+    ['reviewer'],
+    { architect: { model: 'opus', effort: 'low' } },
+    ['files: ui/a.ts, ui/b/**', 'change: delete', 'open_decisions: 2'],
+  ])
+  expect(ticketArgs(['--role', 'all=auto']).auto).toHaveLength(5)
   expect(ticketArgs(['--criterion', 'a\n## Pipeline roles\n- architect: opus/high']).criteria).toEqual([
     'a ## Pipeline roles - architect: opus/high',
   ])

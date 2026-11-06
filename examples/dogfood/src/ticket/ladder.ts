@@ -41,6 +41,7 @@ import {
   resolve,
   save,
   sh,
+  stepModel,
   writeFileSync,
 } from './lib.ts'
 import { event } from './stepkit.ts'
@@ -105,7 +106,7 @@ function decide(run: string, sid: string, afterHeal: boolean, wt: string): numbe
   const ad = join(sd, `attempt-${n}`)
   const state: Json = { healed: [], infra: 0, mech: 0, ...readOr(join(sd, 'ladder.json')) }
   const mf = join(sd, 'model.json')
-  const cur = isFile(mf) ? load(mf) : routing.models.implementer
+  const cur = stepModel(run, sid, routing)
   const res = readOr(join(ad, 'result.json'))
   const fail = readOr(join(ad, 'failure.json'))
   const cls: string = res.status === 'BLOCKED' ? 'blocked_reported' : (fail.class ?? 'infra_error')
@@ -243,7 +244,7 @@ function buildRevision(run: string): number {
     .filter((d) => d.startsWith('attempt-'))
     .sort()) {
     const ev = events.filter((e) => e.step_id === sid && e.attempt === Number(name.split('-')[1]) && e.role === 'implementer')
-    const m = ev.length ? ev[ev.length - 1] : { model: 'haiku', effort: 'medium' }
+    const m = ev.length ? ev[ev.length - 1] : stepModel(run, sid)
     attempts.push({ model: m.model, effort: m.effort, failure_digest_ref: `steps/${esc.final ? 'S0' : sid}/${name}/failure.json` })
   }
   const done = spec.steps.filter((s: Json) => isFile(join(run, 'steps', s.id, 'status.json'))).map((s: Json) => s.id)

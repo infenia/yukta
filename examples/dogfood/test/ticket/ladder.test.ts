@@ -183,6 +183,19 @@ test('the decision rules', async () => {
   expect(act(r).trigger).toBe('step_blocked')
 })
 
+test('a step the architect marked tricky starts on implementer_tricky (design 3.1) and the ladder climbs from there', () => {
+  const r = mk('compile', 'typecheck_fail')
+  const spec = json(join(r, 'spec/spec.json'))
+  spec.steps.find((s: any) => s.id === 'S1').complexity = 'tricky'
+  put(join(r, 'spec/spec.json'), spec)
+  expect(json(join(r, 'routing.json')).models.implementer_tricky).toEqual({ model: 'sonnet', effort: 'medium' })
+  const first = act(r)
+  expect([first.action, first.model, first.effort], 'attempt 2 stays on the tricky model').toEqual(['retry', 'sonnet', 'medium'])
+  copyFailure(r, 2)
+  const up = act(r)
+  expect([up.action, up.model, up.effort], 'then one tier above it, not above haiku').toEqual(['tier_up', 'sonnet', 'high'])
+})
+
 test('27. heal edits a locked test and a file outside write_files: reverted and recorded', async () => {
   const r = mk('style', 'lint_fail')
   put(join(r, 'spec/locked.json'), { 'core/src/test/java/LockedTest.json': 'x', 'core/src/test/java/LockedTest.java': 'x' })

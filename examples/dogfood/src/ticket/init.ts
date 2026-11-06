@@ -7,35 +7,8 @@
 // worktree exists): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
 import { attach, isReleased } from './branch.ts'
 import { rolesOf } from './roles.ts'
-import { type Json, KIT, die, existsSync, git, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
-
-const CONVENTIONAL: Record<string, string> = {
-  feat: 'feature',
-  fix: 'bug',
-  refactor: 'refactor',
-  docs: 'docs',
-  chore: 'chore',
-  ci: 'chore',
-  build: 'chore',
-  style: 'chore',
-  perf: 'chore',
-  revert: 'chore',
-  test: 'chore',
-}
-const TYPE_LABEL: Record<string, string> = {
-  'type/feature': 'feature',
-  'type/bugfix': 'bug',
-  'type/refactor': 'refactor',
-  'type/docs': 'docs',
-  'type/chore': 'chore',
-  'type/test': 'chore',
-}
-
-export function kindOf(title: string, labels: string[]): string {
-  for (const l of labels) if (l in TYPE_LABEL) return TYPE_LABEL[l]!
-  const m = /^(\w+)(\([^)]*\))?!?:/.exec(title)
-  return m ? (CONVENTIONAL[m[1]!] ?? 'feature') : 'feature'
-}
+import { measure, sizingOf, trackedFiles } from './sizing.ts'
+import { type Json, KIT, die, kindOf, existsSync, git, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
 
 /** The list items under an 'Acceptance criteria' heading, up to the next heading. */
 export function criteria(body: string | null | undefined): string[] {
@@ -72,8 +45,8 @@ export function main(argv: string[]): number {
     // the body is data: only an issue assigned to the person running the pipeline may choose the models (cost), as intake already requires
     const me = run(['gh', 'api', 'user', '-q', '.login']).stdout.trim()
     if (!(raw.assignees ?? []).some((a: Json) => a.login === me)) {
-      if (Object.keys(rolesOf(raw.body)).length)
-        console.error(`NOTE issue ${issue} is not assigned to ${me || 'you'}: its Pipeline roles are ignored`)
+      if (Object.keys(rolesOf(raw.body)).length || sizingOf(raw.body).sizing)
+        console.error(`NOTE issue ${issue} is not assigned to ${me || 'you'}: its Pipeline roles and Sizing are ignored`)
       raw.body_roles_untrusted = true
     }
   }
@@ -101,6 +74,14 @@ export function main(argv: string[]): number {
   const dir = join(state, 'ticket', runId)
   for (const d of ['spec', 'steps', 'review']) mkdirp(join(dir, d))
   const modules = [...new Set(labels.filter((l) => l in project.module_labels))].sort()
+  const base = opt.base ?? 'origin/main'
+  // the sizing facts, checked against the tree the run starts from; a bad item is dropped with a note (the router then has less to go on, never less safety)
+  const sz = raw.body_roles_untrusted ? { sizing: null, errors: [] } : sizingOf(raw.body)
+  for (const e of sz.errors) console.error(`NOTE ${e}: ignored`)
+  const tracked = sz.sizing ? trackedFiles(root, base) : null
+  if (sz.sizing && !tracked) console.error(`NOTE cannot list ${base}: sizing files are counted as written`)
+  const sizing = sz.sizing ? measure(sz.sizing, tracked) : null
+  if (sizing?.unmatched.length) console.error(`NOTE sizing globs match nothing in ${base}: ${sizing.unmatched.join(', ')}`)
   save(join(dir, 'ticket.json'), {
     ticket_id: n,
     title: raw.title,
@@ -109,13 +90,14 @@ export function main(argv: string[]): number {
     modules,
     acceptance_criteria: ac,
     roles: raw.body_roles_untrusted ? {} : rolesOf(raw.body),
+    sizing,
     body: raw.body ?? '',
     allow_guard_paths: labels.includes('build') || labels.includes('dogfood'),
   })
   save(join(dir, 'project.json'), project)
   writeFileSync(join(dir, 'events.jsonl'), '', { flag: 'a' })
   if (!flag.has('no-worktree')) {
-    attach(root, wt, branch, opt.base ?? 'origin/main', false) // takes over a released worktree (branch.ts) before adding one
+    attach(root, wt, branch, base, false) // takes over a released worktree (branch.ts) before adding one
   }
   console.log(`RUN_DIR=${dir}\nWORKTREE=${wt}\nRUN_ID=${runId}`)
   return 0

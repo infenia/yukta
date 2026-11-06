@@ -50,7 +50,7 @@ test('happy path: a run dir, a commit, events with cache fields, the GitHub flow
   expect(json(join(w.run, 'ticket.json')).acceptance_criteria).toHaveLength(2)
   expect(read(join(w.d, 'events.jsonl')).length).toBeGreaterThan(0)
   const ev = w.events(w.d)
-  expect([...new Set(ev.map((e) => e.role))].sort().join(' ')).toBe('architect implementer pack reviewer validate')
+  expect([...new Set(ev.map((e) => e.role))].sort().join(' ')).toBe('architect implementer pack reviewer route validate')
   const impl = ev.find((e) => e.role === 'implementer')
   expect([impl.cache_read_tokens, impl.cache_write_tokens, impl.model, impl.cost_usd]).toEqual([900, 100, 'haiku', 0.02])
   expect(git(w.d + '/remote.git', 'rev-parse', 'main').out.trim()).toBe(w.main0)
