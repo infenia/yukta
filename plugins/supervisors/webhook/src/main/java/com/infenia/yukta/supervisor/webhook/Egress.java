@@ -12,10 +12,10 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * Decides whether a webhook may call a URL: the deployment's host lists ({@code
- * yukta.egress.*} and {@code yukta.http.allowed-hosts}) and, on top, no private, loopback or
- * link-local address unless the list names the host. Redirects are never followed, so the check
- * covers the only host that is called.
+ * Decides whether a webhook may call a URL: the deployment's host lists ({@code yukta.egress.*} and
+ * {@code yukta.http.allowed-hosts}) and, on top, no private, loopback or link-local address unless
+ * the list names the host. Redirects are never followed, so the check covers the only host that is
+ * called.
  */
 public final class Egress {
 
@@ -61,15 +61,16 @@ public final class Egress {
   }
 
   private static Mono<Void> refuse(final @Nullable String reason) {
-    return reason == null
-        ? Mono.empty()
-        : Mono.error(new IllegalArgumentException(reason));
+    return reason == null ? Mono.empty() : Mono.error(new IllegalArgumentException(reason));
   }
 
   /** Why the host resolves to an address inside the network, or null. */
-  private @Nullable String privateRefusal(final String url) throws UnknownHostException {
+  /* default */ @Nullable String privateRefusal(final String url) throws UnknownHostException {
     final String host = URI.create(url).getHost();
-    if (host == null || hosts.names(url)) {
+    if (host == null) {
+      return "The URL has no host";
+    }
+    if (hosts.names(url)) {
       return null;
     }
     for (final InetAddress address : InetAddress.getAllByName(host)) {
@@ -91,8 +92,6 @@ public final class Egress {
         || address.isAnyLocalAddress()
         || address.isMulticastAddress()
         || (raw.length == 16 && (raw[0] & ULA_FIRST_BYTE) == ULA_FIRST_BYTE)
-        || (raw.length == 4
-            && (raw[0] & 0xFF) == CGNAT_FIRST_BYTE
-            && (raw[1] & 0xC0) == 0x40);
+        || (raw.length == 4 && (raw[0] & 0xFF) == CGNAT_FIRST_BYTE && (raw[1] & 0xC0) == 0x40);
   }
 }

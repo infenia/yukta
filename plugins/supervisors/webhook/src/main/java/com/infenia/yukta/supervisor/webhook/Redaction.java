@@ -11,6 +11,7 @@ import lombok.experimental.UtilityClass;
 
 /** Masks secret-looking values in what is sent to the webhook, at any depth. */
 @UtilityClass
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.UseConcurrentHashMap"})
 public class Redaction {
 
   /** What replaces a secret value. */

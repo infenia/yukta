@@ -70,7 +70,6 @@ public interface SupervisorFactory {
    * @param supervisor the supervisor
    * @return the command names, or {@code null} for no restriction
    */
-  @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull") // null means no restriction
   default @Nullable Set<String> defaultAllowedCommands(final Supervisor supervisor) {
     return defaultAllowedCommands();
   }
