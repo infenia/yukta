@@ -98,7 +98,7 @@ describe('WorkflowTitleBar', () => {
     expect(right?.children).toHaveLength(1);
   });
 
-  it('[T1] sets no max-width class on a long description', () => {
+  it('sets no max-width class on a long description', () => {
     const { container } = render(
       <WorkflowTitleBar
         workflowId="wf1"
