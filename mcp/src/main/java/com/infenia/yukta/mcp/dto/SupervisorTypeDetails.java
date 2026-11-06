@@ -4,7 +4,6 @@ package com.infenia.yukta.mcp.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.plugin.core.ConfigField;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -24,9 +23,6 @@ import org.jspecify.annotations.Nullable;
  *     every command
  * @param exampleSettings settings that pass validation
  */
-@SuppressFBWarnings(
-    value = "EI_EXPOSE_REP",
-    justification = "the compact constructor stores unmodifiable copies")
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
 public record SupervisorTypeDetails(

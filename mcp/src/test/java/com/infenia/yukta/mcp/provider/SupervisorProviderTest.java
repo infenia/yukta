@@ -292,4 +292,29 @@ class SupervisorProviderTest {
         .assertNext(d -> assertThat(d.detached()).isTrue())
         .verifyComplete();
   }
+
+  @Test
+  void saveGeneratesAnIdForABlankOneAndTakesNoDescription() {
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+
+    StepVerifier.create(provider.save("  ", "t", java.util.Map.of(), false, null))
+        .assertNext(
+            saved -> {
+              assertThat(saved.id()).isNotBlank();
+              assertThat(saved.description()).isNull();
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void detachingAnAttachmentOtherThanTheListedOnesGoesToTheService() {
+    when(service.attachments())
+        .thenReturn(
+            Flux.just(new SupervisorAttachment("other", "p", new SupervisorScope.Global(), true)));
+    when(service.detach("m")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.detach("m"))
+        .assertNext(d -> assertThat(d.attachmentId()).isEqualTo("m"))
+        .verifyComplete();
+  }
 }

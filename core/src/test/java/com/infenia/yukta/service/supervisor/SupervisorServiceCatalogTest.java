@@ -130,7 +130,7 @@ class SupervisorServiceCatalogTest {
 
   @Test
   void checkReportsNothingForGoodDraft() {
-    final SupervisorService service = service(refusing("t"));
+    final SupervisorService service = service(factory("t", () -> mock(ExecutionSupervisor.class)));
 
     StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of("url", "ok"), false)))
         .assertNext(issues -> assertThat(issues).isEmpty())
@@ -139,7 +139,7 @@ class SupervisorServiceCatalogTest {
 
   @Test
   void checkReportsSettingsByFieldAndTypeProblemsUnderSettings() {
-    final SupervisorService service = service(refusing("t"));
+    final SupervisorService service = service(factory("t", () -> mock(ExecutionSupervisor.class)));
 
     StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of("url", 1, "x", 2), false)))
         .assertNext(
