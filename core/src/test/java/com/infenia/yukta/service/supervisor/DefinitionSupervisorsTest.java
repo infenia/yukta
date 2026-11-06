@@ -492,9 +492,47 @@ class DefinitionSupervisorsTest {
 
   @Test
   void hashOfAnUnknownAlgorithmIsAnError() {
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> DefinitionSupervisors.hash("NOPE", "x"))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> DefinitionSupervisors.hash("NOPE", "x"))
         .isInstanceOf(IllegalStateException.class);
     assertThat(DefinitionSupervisors.hash("SHA-256", "x")).hasSize(64);
+  }
+
+  @Test
+  void removingSessionKeepsTheAttachmentsOfOtherSessions() {
+    supervisor("guard");
+    save(session(List.of(ref("guard"))));
+    StepVerifier.create(
+            service.attach(
+                new SupervisorAttachment(
+                    "other", "guard", new SupervisorScope.Session("elsewhere"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(service.removeForSession(SESSION)).verifyComplete();
+
+    assertThat(attachments()).extracting(SupervisorAttachment::id).containsExactly("other");
+  }
+
+  @Test
+  void removingSessionTakesDefinitionAttachmentsWhoseScopeNamesNoSession() {
+    supervisor("guard");
+    StepVerifier.create(
+            service.attach(
+                new SupervisorAttachment(
+                    "def-2222222222222222",
+                    "guard",
+                    new SupervisorScope.Workflow("w", null),
+                    true,
+                    SupervisorSource.DEFINITION,
+                    SESSION,
+                    "w")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(service.removeForSession(SESSION)).verifyComplete();
+
+    assertThat(attachments()).isEmpty();
   }
 
   /** A definition store that answers late, so two reconciles overlap. */

@@ -26,6 +26,7 @@ import tools.jackson.databind.ObjectMapper;
  * after a restart. Settings are stored as given, a model API key included.
  */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public class R2dbcSupervisorStore implements SupervisorStore {
 
   /** The stored settings of a profile. */

@@ -209,6 +209,7 @@ com.infenia.yukta.service.streaming.DefaultStatusHistoryCache
 com.infenia.yukta.service.supervisor.AttachedSupervisors
 com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.ControlReviewer
+com.infenia.yukta.service.supervisor.DefinitionSupervisors
 com.infenia.yukta.service.supervisor.ExecutionEventFeed
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.SupervisorHost

@@ -18,9 +18,9 @@ class SupervisorRefTest {
 
   @Test
   void enabledUnlessSaidOtherwise() {
-    assertThat(new SupervisorRef("g", null, null).isEnabled()).isTrue();
-    assertThat(new SupervisorRef("g", null, true).isEnabled()).isTrue();
-    assertThat(new SupervisorRef("g", null, false).isEnabled()).isFalse();
+    assertThat(new SupervisorRef("g", null, null).runs()).isTrue();
+    assertThat(new SupervisorRef("g", null, true).runs()).isTrue();
+    assertThat(new SupervisorRef("g", null, false).runs()).isFalse();
   }
 
   @Test

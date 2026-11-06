@@ -12,6 +12,7 @@ import com.infenia.yukta.dto.response.SessionDetails;
 import com.infenia.yukta.dto.response.SessionListItem;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import java.util.List;
@@ -834,5 +835,33 @@ class SessionMapperTest {
     final SessionDetails result = mapper.sessionConfigResponseToSessionDetails(null);
 
     assertThat(result).isNull();
+  }
+
+  @Test
+  void declaredSupervisorsOfSessionAndWorkflowSurviveTheMapping() {
+    final SupervisorRef whole = new SupervisorRef("guard", null, null);
+    final SupervisorRef section = new SupervisorRef("watch", List.of("build.*"), false);
+    final ConfigRequest request =
+        new ConfigRequest(
+            "s1",
+            "n",
+            "d",
+            "i",
+            Map.of(),
+            "/tmp",
+            Map.of(
+                WORKFLOW_ID_1,
+                new WorkflowDefinitionRequest(
+                    WORKFLOW_ID_1,
+                    "w",
+                    List.of(new NodeRequest(NODE_ID_1, PROCESSOR_PLUGIN, Map.of())),
+                    List.of(),
+                    List.of(section))),
+            List.of(whole));
+
+    final SessionConfigData result = mapper.configRequestToSessionConfigData(request);
+
+    assertThat(result.supervisors()).containsExactly(whole);
+    assertThat(result.workflows().get(WORKFLOW_ID_1).supervisors()).containsExactly(section);
   }
 }

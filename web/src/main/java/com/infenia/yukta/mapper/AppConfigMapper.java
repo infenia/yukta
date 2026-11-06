@@ -23,6 +23,7 @@ public interface AppConfigMapper {
    * @param request the config request
    * @return the session config data
    */
+  @Mapping(target = "supervisors", expression = "java(request.supervisors())")
   SessionConfigData toData(ConfigRequest request);
 
   /**
@@ -31,6 +32,7 @@ public interface AppConfigMapper {
    * @param request the workflow definition request
    * @return the workflow definition
    */
+  @Mapping(target = "supervisors", expression = "java(request.supervisors())")
   WorkflowDefinition toWorkflowDefinition(WorkflowDefinitionRequest request);
 
   /**

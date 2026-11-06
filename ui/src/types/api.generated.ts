@@ -3819,6 +3819,8 @@ export interface components {
        * @example session-123
        */
       sessionId: string;
+      /** @description Supervisors declared for the whole session; attached when it is saved */
+      supervisors?: components['schemas']['SupervisorRef'][];
       /**
        * @description Metadata tags for categorization and filtering
        * @example {
@@ -4241,6 +4243,7 @@ export interface components {
       name?: string;
       projectPath?: string;
       sessionId?: string;
+      supervisors?: components['schemas']['SupervisorRef'][];
       tags?: {
         [key: string]: string;
       };
@@ -4382,6 +4385,15 @@ export interface components {
       scopeSessionId?: string;
       scopeWorkflowId?: string;
       type?: string;
+    };
+    /** @description A supervisor declared in a session or workflow definition */
+    SupervisorRef: {
+      /** @description Whether it runs; true when missing */
+      enabled?: boolean | null;
+      /** @description Node ids or <prefix>.* selectors; the supervisor then watches only those nodes. Workflow definitions only; missing means the whole workflow */
+      nodes?: string[] | null;
+      /** @description The id of a configured supervisor */
+      supervisor: string;
     };
     /** @description Details of a supervisor type */
     SupervisorTypeDetails: {
@@ -4552,6 +4564,8 @@ export interface components {
       edges: components['schemas']['Edge'][];
       /** @description Nodes in the workflow */
       nodes: components['schemas']['Node'][];
+      /** @description Supervisors declared for this workflow; attached when it is saved */
+      supervisors?: components['schemas']['SupervisorRef'][];
       /** @description Unique workflow identifier */
       workflowId: string;
     };
@@ -4566,16 +4580,20 @@ export interface components {
       edges: components['schemas']['EdgeRequest'][];
       /** @description Nodes in the workflow */
       nodes: components['schemas']['NodeRequest'][];
+      /** @description Supervisors declared for this workflow; attached when it is saved */
+      supervisors?: components['schemas']['SupervisorRef'][];
       /** @description Unique workflow identifier */
       workflowId: string;
     };
     WorkflowDiff: {
       addedEdges?: string[];
       addedNodes?: string[];
+      addedSupervisors?: string[];
       changedNodes?: string[];
       descriptionChanged?: boolean;
       removedEdges?: string[];
       removedNodes?: string[];
+      removedSupervisors?: string[];
     };
     /** @description Summary of a workflow execution */
     WorkflowExecutionSummary: {

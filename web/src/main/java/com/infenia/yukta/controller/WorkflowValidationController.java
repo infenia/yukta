@@ -78,14 +78,11 @@ public class WorkflowValidationController {
         .validateAll(definition)
         .zipWith(declared.check(definition))
         .map(
-            tuple -> {
-              final List<String> problems =
-                  java.util.stream.Stream.concat(
-                          tuple.getT1().stream(),
-                          tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
-                      .toList();
-              return problems;
-            })
+            tuple ->
+                java.util.stream.Stream.concat(
+                        tuple.getT1().stream(),
+                        tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
+                    .toList())
         .map(
             problems ->
                 new WorkflowValidationResult(

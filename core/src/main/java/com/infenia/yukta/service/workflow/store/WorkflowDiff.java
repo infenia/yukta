@@ -88,9 +88,10 @@ public record WorkflowDiff(
 
   /** A declared supervisor as text: its id, and the selectors of a section in brackets. */
   private static String supervisor(final SupervisorRef ref) {
+    final List<String> nodes = ref.nodes();
     return ref.supervisor()
-        + (ref.nodes() == null ? "" : "[" + String.join(",", new TreeSet<>(ref.nodes())) + "]")
-        + (ref.isEnabled() ? "" : " (disabled)");
+        + (nodes == null ? "" : "[" + String.join(",", new TreeSet<>(nodes)) + "]")
+        + (ref.runs() ? "" : " (disabled)");
   }
 
   private static Map<String, Node> byId(final WorkflowDefinition definition) {

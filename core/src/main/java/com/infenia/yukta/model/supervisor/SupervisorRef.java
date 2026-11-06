@@ -25,9 +25,11 @@ public record SupervisorRef(
     @Schema(
             description =
                 "Node ids or <prefix>.* selectors; the supervisor then watches only those nodes."
-                    + " Workflow definitions only; missing means the whole workflow")
+                    + " Workflow definitions only; missing means the whole workflow",
+            nullable = true)
         @Nullable List<String> nodes,
-    @Schema(description = "Whether it runs; true when missing") @Nullable Boolean enabled) {
+    @Schema(description = "Whether it runs; true when missing", nullable = true)
+        @Nullable Boolean enabled) {
 
   /** Keeps an immutable copy of the selectors; an empty list means none. */
   public SupervisorRef {
@@ -35,11 +37,12 @@ public record SupervisorRef(
   }
 
   /**
-   * Whether it runs.
+   * Whether it runs. Not named like a bean getter, so it is not written as a second {@code
+   * enabled}.
    *
    * @return false only when {@code enabled} is {@code false}
    */
-  public boolean isEnabled() {
+  public boolean runs() {
     return enabled == null || enabled;
   }
 }

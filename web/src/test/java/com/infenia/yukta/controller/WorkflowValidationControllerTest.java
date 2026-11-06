@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for the behaviour described by {@link WorkflowValidationController}. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.TooManyMethods"})
 class WorkflowValidationControllerTest {
 
   /** JSON path of the verdict. */
@@ -71,8 +71,7 @@ class WorkflowValidationControllerTest {
     pluginRegistry = mock(PluginRegistry.class);
     workflowValidator = mock(WorkflowValidator.class);
     declared = mock(DefinitionSupervisors.class);
-    when(declared.check(any(WorkflowDefinition.class)))
-        .thenReturn(reactor.core.publisher.Mono.just(java.util.List.of()));
+    when(declared.check(any(WorkflowDefinition.class))).thenReturn(Mono.just(List.of()));
     client =
         WebTestClient.bindToController(
                 new WorkflowValidationController(
@@ -247,5 +246,26 @@ class WorkflowValidationControllerTest {
         .isEqualTo("failure")
         .jsonPath("$.data.warnings[0].message")
         .isEqualTo("gate has no edge from its 'failure' port, so what it sends there is dropped");
+  }
+
+  @Test
+  void problemsWithDeclaredSupervisorsAreReportedWithTheOthers() {
+    when(declared.check(any(WorkflowDefinition.class)))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                        "supervisors[0].supervisor", "no supervisor 'nope'"))));
+    when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of()));
+
+    post("{\"workflowId\":\"w\",\"nodes\":[{\"nodeId\":\"a\",\"type\":\"T\",\"config\":{}}],"
+            + "\"edges\":[],\"supervisors\":[{\"supervisor\":\"nope\"}]}")
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.valid")
+        .isEqualTo(false)
+        .jsonPath("$.data.problems[0]")
+        .isEqualTo("supervisors[0].supervisor: no supervisor 'nope'");
   }
 }
