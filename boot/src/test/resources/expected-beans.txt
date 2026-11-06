@@ -228,4 +228,6 @@ com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore
 com.infenia.yukta.service.workflow.store.PreparedWorkflowCache
 com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
+com.infenia.yukta.supervisor.guards.ApprovalGateFactory
+com.infenia.yukta.supervisor.guards.FailureGuardFactory
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory

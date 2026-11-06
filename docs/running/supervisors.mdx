@@ -103,6 +103,39 @@ Besides the supervisors configured at startup, you can create **supervisors** an
 - `GET /api/supervisors/decisions?supervisor=&attachment=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
 - The MCP tools `list_supervisor_types`, `get_supervisor_type`, `save_supervisor`, `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents. `GET /api/supervisors/status` shows what runs (scope and command counts).
 
+## Failure guard and approval gate
+
+Two supervisor types you only configure, no rules to write. Create them like any supervisor (`POST /api/supervisors`, see `GET /api/supervisor-types/{type}` for the settings) and attach them to a scope.
+
+### `failure-guard`
+
+Acts after nodes have failed a number of times within a time window, counted per run.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `failures` | `3` | How many failures trigger the action |
+| `withinSeconds` | `60` | The window in which they are counted |
+| `nodes` | all | Only failures of these nodes count: node ids or `<prefix>.*` |
+| `errorContains` | any | Only failures whose `error` metadata contains this text count |
+| `action` | `PAUSE_WORKFLOW` | `PAUSE_WORKFLOW`, `STOP_WORKFLOW` or `PAUSE_NODE` |
+
+It may send only the command of its action, and nothing else.
+
+### `approval-gate`
+
+Holds the chosen commands until a person approves them. It reviews commands and sends none.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `commands` | required | Among `StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand` |
+| `nodes` | all | Hold only commands for these nodes: node ids or `<prefix>.*` |
+| `risk` | `HIGH` | Who may approve: `HIGH` only a person |
+| `route` | default route | The route of the approval request |
+| `ttl` | server default | Seconds the request waits |
+| `reason` | – | Shown to whoever approves |
+
+A command sent by a person is never held, so a person can always stop a run; the gate holds what other supervisors send.
+
 ## Answer input requests
 
 An [input request](/building/input-requests) is a question a running step or AI agent asks. Supervisors receive it as an `InputRequested` event (and `InputEscalated` when it is handed up) and may answer it or escalate it with advice. The server decides on every answer whether it counts; the supervisor is never trusted to behave.

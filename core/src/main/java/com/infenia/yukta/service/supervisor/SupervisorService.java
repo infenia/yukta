@@ -646,7 +646,8 @@ public class SupervisorService {
 
   /** What the profile lets its supervisor do; an unknown command name is refused. */
   private SupervisorCapabilities capabilities(final Supervisor profile) {
-    return SupervisorCapabilities.from(profile, factory(profile).defaultAllowedCommands());
+    final SupervisorFactory factory = factory(profile);
+    return SupervisorCapabilities.from(profile, factory.defaultAllowedCommands(profile));
   }
 
   private ExecutionSupervisor create(final Supervisor profile) {
