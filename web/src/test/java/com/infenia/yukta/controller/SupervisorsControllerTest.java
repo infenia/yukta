@@ -303,7 +303,9 @@ class SupervisorsControllerTest {
       final reactor.core.publisher.Mono<
               com.infenia.yukta.model.api.ApiResponse<List<AttachmentView>>>
           response) {
-    return response.block().data().stream().map(AttachmentView::id).toList();
+    return java.util.Objects.requireNonNull(response.block()).data().stream()
+        .map(AttachmentView::id)
+        .toList();
   }
 
   @Test

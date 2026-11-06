@@ -26,7 +26,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
 com.infenia.yukta.controller.SessionConfigController
-com.infenia.yukta.controller.SupervisorBindingsController
+com.infenia.yukta.controller.SupervisorTypesController
 com.infenia.yukta.controller.SupervisorsController
 com.infenia.yukta.controller.TemplateController
 com.infenia.yukta.controller.TokenAnswerController

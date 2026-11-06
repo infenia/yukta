@@ -159,4 +159,23 @@ class SupervisorServiceCatalogTest {
         .assertNext(issues -> assertThat(issues).hasSize(1))
         .verifyComplete();
   }
+
+  @Test
+  void checkAlsoAsksTheWorkflowChecksWhenThereAreSome() {
+    final SupervisorService service = service(factory("t", () -> mock(ExecutionSupervisor.class)));
+    final com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks checks =
+        mock(com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks.class);
+    org.mockito.Mockito.when(checks.check(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(
+            reactor.core.publisher.Mono.error(new IllegalArgumentException("no such session")));
+    service.setWorkflowChecks(checks);
+
+    StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of(), false)))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .containsExactly(
+                        new SettingsValidationException.Issue("settings", "no such session")))
+        .verifyComplete();
+  }
 }
