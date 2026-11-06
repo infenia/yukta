@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 // A fake `claude` for the offline tests: the role comes from the prompt; $FAKE (a file) holds the mode:
-// happy | blocked | badjson | badonce | scope | high | twostep | parallel | chain | blockonce.
-import { appendFileSync, existsSync, readFileSync, writeFileSync } from 'node:fs'
+// happy | blocked | badjson | badonce | scope | high | twostep | parallel | chain | blockonce | tagged.
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
 const KIT = process.env.KIT!
@@ -46,7 +46,14 @@ const second = (): any => {
 if (prompt.startsWith('Write the TicketSpec')) {
   const spec = fixture('ticket-spec/valid.json')
   spec.tests_mode = 'implementer_writes'
-  spec.locked_files = []
+  // tagged: lock a [T#] tagged test that is already on main, for the strip in `finish`
+  spec.locked_files = mode === 'tagged' ? ['core/src/test/java/ATest.java'] : []
+  if (mode === 'tagged') {
+    // what gate-tests would record from the report (implementer_writes has no red check): the walk's default run id
+    const sd = join(dir, 'state/ticket/7-20260101T000000Z/spec')
+    mkdirSync(sd, { recursive: true })
+    writeFileSync(join(sd, 'test_map.json'), JSON.stringify({ T1: ['[T1] rejects the 101st request'] }))
+  }
   spec.risk = mode === 'high' ? 'high' : 'low'
   spec.steps[0].write_files = ['core/src/main/java/A.java']
   spec.steps[0].done_when.commands = ['yk gradle :core:test --tests com.infenia.ATest']

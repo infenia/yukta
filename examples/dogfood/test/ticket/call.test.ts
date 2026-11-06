@@ -140,3 +140,17 @@ test('in a mode without tests up front, a blocked test writer changes nothing: e
     put(sf, prev)
   }
 })
+
+test('retry-spec stops on a gate that could not start the tests: no architect retry for the environment', () => {
+  put(join(R, 'spec/gate.json'), {
+    errors: [
+      'compile_or_setup: no test report from `yk tool -C ui npx --no-install vitest run` (exit 1): npm error npx canceled due to missing packages',
+    ],
+  })
+  rm(join(R, 'spec/test-writer-result.json'))
+  const o = kit(['flow', 'retry-spec', R, '--worktree', W])
+  expect(o.code, o.all).toBe(1)
+  expect(o.out).toContain('ERROR environment')
+  put(join(R, 'spec/gate.json'), { errors: ['case T1 has no tagged test'] })
+  expect(kit(['flow', 'retry-spec', R, '--worktree', W]).code, 'a test problem still goes to the architect').toBe(0)
+})

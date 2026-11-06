@@ -239,12 +239,12 @@ function buildRevision(run: string): number {
         .map((l) => JSON.parse(l))
     : []
   const attempts: Json[] = []
-  for (const name of readdirSync(join(run, 'steps', sid))
+  for (const name of readdirSync(join(run, 'steps', esc.final ? 'S0' : sid))
     .filter((d) => d.startsWith('attempt-'))
     .sort()) {
     const ev = events.filter((e) => e.step_id === sid && e.attempt === Number(name.split('-')[1]) && e.role === 'implementer')
     const m = ev.length ? ev[ev.length - 1] : { model: 'haiku', effort: 'medium' }
-    attempts.push({ model: m.model, effort: m.effort, failure_digest_ref: `steps/${sid}/${name}/failure.json` })
+    attempts.push({ model: m.model, effort: m.effort, failure_digest_ref: `steps/${esc.final ? 'S0' : sid}/${name}/failure.json` })
   }
   const done = spec.steps.filter((s: Json) => isFile(join(run, 'steps', s.id, 'status.json'))).map((s: Json) => s.id)
   const req = {
@@ -254,7 +254,10 @@ function buildRevision(run: string): number {
     step_id: sid,
     attempts,
     completed_steps: done,
-    question: `Why did ${sid} fail and how should the spec change?`.slice(0, 300),
+    question: (esc.final
+      ? `The final gate (yk check --full) failed after every step was done. Completed steps are immutable: add a new step (depends_on ${sid}) that fixes the failure in the digest.`
+      : `Why did ${sid} fail and how should the spec change?`
+    ).slice(0, 300),
   }
   save(join(run, 'spec', 'revision-request.json'), req)
   if (validateSchema('revision-request', join(run, 'spec', 'revision-request.json')).code) die('ERROR the revision request is not valid')
@@ -342,6 +345,7 @@ function finalFail(run: string): number {
     trigger: 'step_failed',
     step: steps[steps.length - 1].id,
     reason: 'the final gate failed',
+    final: true, // every step is done: the revision adds a step, the digest is steps/S0
   })
   console.log('ESCALATED final gate')
   return 0

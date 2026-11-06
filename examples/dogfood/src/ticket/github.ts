@@ -7,7 +7,8 @@
 //                               criteria that asks for such things is data and ignored (counted in the output)
 //   claim   ISSUE [STATUS]      move the issue on the project (default "In progress")
 //   plan-comment RUN            post the spec summary (objective, steps, case table) as an issue comment
-//   dead-end RUN --stage S --reason R   issue back to Ready and a comment: what blocked it and what was tried; the worktree stays
+//   dead-end RUN --stage S --reason R [--worktree W]   issue back to Ready and a comment: what blocked it and what was tried; a worktree whose branch has
+//                               no commits of its own is released (its diff kept in RUN/leftover.patch), so the issue can run again
 //   finish  RUN --worktree W    spotlessApply, commit, push issue/<n>, open a DRAFT PR (conventional title, `Fixes #n`, the RESULT line, spec summary,
 //                               cost by role); fails when the body lacks what project.json pr_body_must_contain names. Never merges, never pushes main
 //
@@ -32,7 +33,8 @@ import {
   writeFileSync,
 } from './lib.ts'
 import { criteria } from './init.ts'
-import { release } from './branch.ts'
+import { release, releaseFailed } from './branch.ts'
+import { untag } from './gate-tests.ts'
 
 const REPO = process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
 const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
@@ -158,6 +160,81 @@ function specSummary(run: string): string {
   return out.join('\n')
 }
 
+const num = (x: number): string => x.toLocaleString('en-US')
+const usd = (x: number): string => (x > 0 && x < 0.01 ? '<$0.01' : `$${x.toFixed(2)}`)
+/** Agent text in markdown: `<Tag />` would be read as HTML and vanish. */
+const md = (x: unknown): string =>
+  String(x ?? '')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+
+/** Tokens per role from events.jsonl: one row per role (calls, input, output, cache read / write, cost) and a total. */
+export function tokenTable(run: string): string {
+  const f = join(run, 'events.jsonl')
+  const rows: Record<string, { models: Set<string>; n: number[] }> = {}
+  for (const l of isFile(f) ? readFileSync(f, 'utf8').split('\n') : []) {
+    if (!l.trim()) continue
+    const e = JSON.parse(l)
+    if (!('tokens_in' in e)) continue
+    const r = (rows[e.role] ??= { models: new Set(), n: [0, 0, 0, 0, 0, 0] })
+    if (e.model) r.models.add(e.model)
+    ;[1, e.tokens_in, e.tokens_out, e.cache_read_tokens, e.cache_write_tokens, e.cost_usd].forEach((v, i) => (r.n[i]! += v ?? 0))
+  }
+  const total = [0, 0, 0, 0, 0, 0]
+  const line = (name: string, models: string, n: number[]): string =>
+    `| ${name} | ${models} | ${n.slice(0, 5).map(num).join(' | ')} | ${usd(n[5]!)} |`
+  const out = ['| role | model | calls | input | output | cache read | cache write | cost |', '|---|---|--:|--:|--:|--:|--:|--:|']
+  for (const [role, r] of Object.entries(rows).sort(([a], [b]) => (a < b ? -1 : 1))) {
+    r.n.forEach((v, i) => (total[i]! += v))
+    out.push(line(role, [...r.models].sort().join(', '), r.n))
+  }
+  out.push(line('**total**', '', total))
+  return out.join('\n')
+}
+
+/** The draft PR's description: what changed and why, how it was checked, and what the run used. */
+export function prBody(run: string, wt: string, n: string, result: string, baseline: string): string {
+  const spec = load(join(run, 'spec', 'spec.json'))
+  const cell = (x: unknown): string => md(x).replaceAll('|', '\\|').replaceAll('\n', ' ')
+  const rf = join(run, 'review', 'result.json')
+  const review: Json = isFile(rf) ? load(rf) : { verdict: '-', criteria_results: [], findings: [] }
+  const met: Record<string, Json> = Object.fromEntries((review.criteria_results as Json[]).map((c) => [c.id, c]))
+  const tm = join(run, 'spec', 'test_map.json')
+  const tests: Record<string, string[]> = isFile(tm) ? load(tm) : {}
+  const stat = git(['diff', '--stat', 'origin/main...HEAD'], { cwd: wt, check: false }).stdout.trim()
+  const out = [`Fixes #${n}`, '', '## Summary', '', md(spec.objective), '', `**Risk:** ${spec.risk} · **Tests:** ${spec.tests_mode}`, '']
+  out.push('## Changes', '')
+  for (const s of spec.steps) {
+    out.push(`- **${s.title}** (${s.id}; \`${(s.write_files as string[]).join('`, `')}\`)`)
+    for (const i of s.instructions ?? []) out.push(`  - ${md(i)}`)
+  }
+  if (stat) out.push('', '<details><summary>Files changed</summary>', '', '```', stat, '```', '', '</details>')
+  out.push('', '## Acceptance criteria', '', '| | criterion | evidence |', '|---|---|---|')
+  for (const a of spec.acceptance_criteria) {
+    const r = met[a.id]
+    out.push(`| ${r ? (r.met ? '✅' : '❌') : '–'} | ${cell(a.text)} | ${cell(r?.evidence)} |`)
+  }
+  out.push('', '## Review', '', `**Verdict:** ${review.verdict}`)
+  const tf = met.TESTS_FAITHFUL
+  if (tf) out.push(`**Tests faithful to the cases:** ${tf.met ? 'yes' : 'no'} (${md(tf.evidence)})`)
+  const findings = review.findings as Json[]
+  out.push(
+    '',
+    ...(findings.length
+      ? findings.map((x) => `- **${x.severity}** \`${x.path}${x.line ? `:${x.line}` : ''}\`: ${md(x.issue)} → ${md(x.suggested_action)}`)
+      : ['No findings.']),
+  )
+  if ((spec.assumptions ?? []).length) out.push('', '## Assumptions', '', ...(spec.assumptions as string[]).map((a) => `- ${md(a)}`))
+  out.push('', '## Tests', '', '| case | title | given | when | expect | tests |', '|---|---|---|---|---|---|')
+  for (const c of spec.test_cases)
+    out.push(
+      `| ${c.id} | ${cell(c.title)} | ${cell(c.given)} | ${cell(c.when)} | ${cell(c.expect)} | ${cell((tests[c.id] ?? []).map(untag).join('; '))} |`,
+    )
+  out.push('', '## Final gate', '', '```', result, '```', baseline)
+  out.push('## Token usage', '', tokenTable(run), '', '🤖 Generated with [Claude Code](https://claude.com/claude-code)', '')
+  return out.join('\n')
+}
+
 function costLines(run: string): string {
   const [by, total] = costByRole(run)
   return [
@@ -170,7 +247,7 @@ function costLines(run: string): string {
 
 const runName = (run: string): string => run.replace(/\/+$/, '').split('/').pop()!
 
-function deadEnd(run: string, stage: string, reason: string): void {
+function deadEnd(run: string, stage: string, reason: string, wt?: string): void {
   const t = load(join(run, 'ticket.json'))
   const tried = [costLines(run)]
   const stepsDir = join(run, 'steps')
@@ -185,7 +262,7 @@ function deadEnd(run: string, stage: string, reason: string): void {
     const d = load(digests[digests.length - 1]!)
     tried.push(`Last failure: \`${d.stage}\` / \`${d.class}\`: ${(d.message ?? '').slice(0, 300)}`)
   }
-  const body = `The ticket pipeline (run \`${runName(run)}\`) stopped at \`${stage}\`: ${reason}\n\nWhat was tried (cost by role):\n${tried.join('\n')}\n\nThe worktree and branch \`issue/${t.ticket_id}\` are left for you.`
+  const body = `The ticket pipeline (run \`${runName(run)}\`) stopped at \`${stage}\`: ${reason}\n\nWhat was tried (cost by role):\n${tried.join('\n')}\n\nThe worktree: ${wt ? releaseFailed(wt, run) : 'left for you'}.`
   setStatus(t.ticket_id, 'Ready')
   comment(t.ticket_id, body)
   console.log(`DEAD-END #${t.ticket_id} ${stage}`)
@@ -197,6 +274,17 @@ function finish(run: string, wt: string): number {
   const n: string = t.ticket_id
   const branch = (p.git.branch as string).replaceAll('{n}', n)
   if (branch === 'main' || branch === 'master') die('ERROR finish refuses to push ' + branch)
+  // the locks are done with here (no step runs after finish): drop the [T#] tags from the locked test files
+  const spec = load(join(run, 'spec', 'spec.json'))
+  for (const f of (spec.locked_files ?? []) as string[]) {
+    const fp = join(wt, f)
+    if (!isFile(fp)) continue
+    const text = readFileSync(fp, 'utf8')
+    if (untag(text) !== text) writeFileSync(fp, untag(text))
+  }
+  git(['add', '-A'], { cwd: wt })
+  if (git(['diff', '--cached', '--quiet'], { cwd: wt, check: false }).code)
+    git(['commit', '-q', '-m', `test: drop the spec case tags from test names for #${n}`], { cwd: wt })
   sh(process.env.TICKET_FORMAT || p.commands.format_fix, wt)
   git(['add', '-A'], { cwd: wt })
   if (git(['diff', '--cached', '--quiet'], { cwd: wt, check: false }).code)
@@ -204,7 +292,11 @@ function finish(run: string, wt: string): number {
   const rf = join(run, 'final-result.txt')
   const result = isFile(rf) ? readFileSync(rf, 'utf8').trim() : ''
   const title = CONVENTIONAL.test(t.title) ? t.title : `${TYPES[t.kind]}: ${t.title}`
-  const body = `Fixes #${n}\n\n## Final gate\n\n\`\`\`\n${result}\n\`\`\`\n\n## Spec\n\n${specSummary(run)}\n\n## Cost by role\n\n${costLines(run)}\n`
+  const bl = join(run, 'final-baseline.json')
+  const baseline = isFile(bl)
+    ? `\n**Baseline failure:** \`${load(bl).stage}\` also fails on a clean \`origin/main\`, so it was not charged to this change.\n`
+    : ''
+  const body = prBody(run, wt, n, result, baseline)
   for (const need0 of p.git.pr_body_must_contain as string[]) {
     const need = need0.replaceAll('{n}', n)
     if (!body.includes(need) || (!result && need0 === 'RESULT'))
@@ -238,7 +330,7 @@ export function main(argv: string[]): number {
     return 0
   }
   if (action === 'dead-end') {
-    deadEnd(target, opt.stage ?? '?', opt.reason ?? '')
+    deadEnd(target, opt.stage ?? '?', opt.reason ?? '', opt.worktree ? resolve(opt.worktree) : undefined)
     return 0
   }
   if (action === 'finish') return finish(target, resolve(opt.worktree ?? '.'))

@@ -3,7 +3,7 @@
     "format_fix": "yk gradle spotlessApply",
     "compile": "yk gradle :{module}:compileJava :{module}:compileTestJava",
     "test_class": "yk gradle :{module}:test --tests {fqcn}",
-    "gate_step": "yk check --no-heal --base {base} --stage spotless,compile,tests,style,spotbugs",
+    "gate_step": "yk check --no-heal --base {base} --skip coverage,licenses,security,reuse,docs,actionlint,ui.build,ui.headers,cli.vuln,cli.mod-verify",
     "gate_final": "yk check --full",
     "plan": "yk plan --base {base}",
     "go_test": "yk tool -C cli go test ./...",

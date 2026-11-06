@@ -5,7 +5,7 @@
 // Creates .yukta-dev/ticket/<run_id>/ (design section 4), branch issue/<n> and worktree ../yukta-issue-<n>.
 // Prints RUN_DIR=... and WORKTREE=...; prints SKIPPED <why> and exits 3 when the run must not start (no acceptance criteria, branch or
 // worktree exists): no tokens are spent. Only the acceptance criteria count as requirements; the rest of the issue is data.
-import { attach } from './branch.ts'
+import { attach, isReleased } from './branch.ts'
 import { rolesOf } from './roles.ts'
 import { type Json, KIT, die, existsSync, git, join, load, mkdirp, parseArgs, resolve, run, save, writeFileSync } from './lib.ts'
 
@@ -87,7 +87,8 @@ export function main(argv: string[]): number {
   }
   const branch = project.git.branch.replaceAll('{n}', n)
   const wt = resolve(root, project.git.worktree.replaceAll('{n}', n))
-  if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, check: false }).code === 0 || existsSync(wt)) {
+  // a released worktree at the path (a failed run's, see releaseFailed) is taken over by attach
+  if (git(['rev-parse', '--verify', '-q', branch], { cwd: root, check: false }).code === 0 || (existsSync(wt) && !isReleased(wt))) {
     console.log(`SKIPPED branch ${branch} or worktree ${wt} exists`)
     return 3
   }

@@ -4,7 +4,7 @@
 //
 // After the test writer: applies the scaffold stubs (once), checks that only stubs and locked test files changed, that every case has a
 // [T#] tagged test and no tag is unknown, that the tagged tests compile and each fails with an assertion or "not implemented" (never a
-// setup, import or syntax error), and that no test is trivial. Then it locks the test files (spec/locked.json: sha256) and writes
+// setup, import or syntax error; a `guard` case protects behaviour that already holds and must pass instead), and that no test is trivial. Then it locks the test files (spec/locked.json: sha256) and writes
 // spec/test_map.json (case -> tests, built from the report, never from the agent's claim).
 // tests_mode existing and implementer_writes have no red check up front (exit 0, SKIP). Errors go to stdout and spec/gate.json; exit 1.
 //
@@ -28,10 +28,12 @@ const TRIVIAL: [RegExp, string][] = [
 const SETUP =
   /ExceptionInInitializerError|NoClassDefFoundError|ClassNotFoundException|NoSuchMethodError|SyntaxError|Cannot find module|Failed to resolve import|ReferenceError|is not defined|cannot find package|undefined:|build failed|setup failed/i
 const RED =
-  /AssertionError|AssertionFailedError|ComparisonFailure|expected|not implemented|UnsupportedOperationException|NotImplemented|toBe|toEqual|Mismatch|got .* want/i
+  /AssertionError|AssertionFailedError|ComparisonFailure|expected|not implemented|UnsupportedOperationException|NotImplemented|toBe|toEqual|Mismatch|got .* want|TestingLibraryElementError|Unable to find (an )?element|\.(toHave|toBe)[A-Z]\w*\(/i
 
 type T = { name: string; status: 'pass' | 'fail' | 'skipped'; message: string; error_elem: boolean }
 const tags = (s: string): string[] => [...new Set([...s.matchAll(TAG)].map((m) => m[1]!))]
+/** Drops the [T#] tags from test names: they link cases to tests during the run and mean nothing to a reviewer after it. */
+export const untag = (s: string): string => s.replace(/ ?\[T\d+\] ?/g, (m) => (m.startsWith(' ') && m.endsWith(' ') ? ' ' : ''))
 
 function parseJunit(dir: string): T[] {
   return junitCases(dir).map((c) => ({
@@ -171,6 +173,7 @@ export function main(argv: string[]): number {
   for (const f of locked) if (!isFile(join(wt, f))) errors.push(`locked test file ${f} does not exist`)
   // tags
   const cases = new Set<string>(spec.test_cases.map((c: Json) => c.id))
+  const guards = new Set<string>(spec.test_cases.filter((c: Json) => c.guard).map((c: Json) => c.id))
   const taggedInSrc: Record<string, string[]> = {}
   for (const f of locked) {
     const p = join(wt, f)
@@ -205,8 +208,19 @@ export function main(argv: string[]): number {
           errors.push(`case ${c}: tagged in source but not in the test report (not run)`)
           continue
         }
+        if (guards.has(c)) {
+          // a guard protects what already holds: it must pass now, and is not red-checked
+          for (const t of ts.filter((t) => t.status !== 'pass'))
+            errors.push(
+              `guard case ${c}: \`${t.name}\` fails before the change, but a guard tests behaviour that holds today: ${t.message.slice(0, 160).trim()}`,
+            )
+          continue
+        }
         for (const t of ts) {
-          if (t.status === 'pass') errors.push(`case ${c}: \`${t.name}\` passes before any implementation (not red)`)
+          if (t.status === 'pass')
+            errors.push(
+              `case ${c}: \`${t.name}\` passes before any implementation (not red; mark the case guard: true if it protects behaviour that already holds)`,
+            )
           else if (t.status === 'skipped') errors.push(`case ${c}: \`${t.name}\` is skipped`)
           else if (SETUP.test(t.message) || (t.error_elem && !RED.test(t.message)))
             errors.push(

@@ -13,7 +13,8 @@
 //       pushes the branch of the worktree and opens a DRAFT PR with `Fixes #n`; an open PR of the branch is printed, not duplicated.
 //       Releases the worktree afterwards (--keep leaves it); `yk ticket worktree <n>` brings the branch back for review fixes.
 //       Refuses main/master, a dirty tree, a branch with no commit of its own and a title that is not a Conventional Commit. Never merges.
-import { existsSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { appendFileSync, existsSync, lstatSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import { CONVENTIONAL } from './github.ts'
 import { die, git, isDir, join, load, parseArgs, resolve, run, KIT } from './lib.ts'
 
@@ -43,6 +44,26 @@ export function release(wt: string): string | null {
   return null
 }
 
+export const isReleased = (wt: string): boolean => existsSync(wt) && existsSync(marker(wt))
+
+/** After a failed run: a branch with no commits of its own holds only the run's debris, so its diff goes to RUN/leftover.patch and the worktree is
+ * released (the branch deleted) for the next run of the issue. A branch with commits is left for a person. Returns what it did. */
+export function releaseFailed(wt: string, run: string): string {
+  if (!existsSync(wt)) return 'no worktree'
+  const branch = current(wt)
+  if (branch === 'HEAD') return 'worktree is detached, left as it is'
+  if (ok(['rev-parse', '--verify', '-q', `refs/remotes/origin/${branch}`], wt)) return `branch ${branch} is pushed, left for you`
+  if (Number(git(['rev-list', '--count', 'origin/main..HEAD'], { cwd: wt }).stdout)) return `branch ${branch} has commits, left for you`
+  git(['add', '-A', '-N'], { cwd: wt })
+  writeFileSync(join(run, 'leftover.patch'), git(['diff', '--binary', 'HEAD'], { cwd: wt }).stdout)
+  git(['reset', '-q', '--hard'], { cwd: wt })
+  git(['clean', '-q', '-fd', '-e', 'node_modules'], { cwd: wt })
+  git(['switch', '-q', '--detach', 'origin/main'], { cwd: wt })
+  git(['branch', '-q', '-D', branch], { cwd: wt })
+  writeFileSync(marker(wt), '')
+  return `released (the run's uncommitted changes are in ${join(run, 'leftover.patch')})`
+}
+
 /** Puts `branch` on a worktree at `wt`: a released one is moved there and switched, else a new one is added. `start` is the commit for a new branch. */
 export function attach(R: string, wt: string, branch: string, start: string, exists: boolean): void {
   const free = git(['worktree', 'list', '--porcelain'], { cwd: R })
@@ -54,9 +75,27 @@ export function attach(R: string, wt: string, branch: string, start: string, exi
     git(exists ? ['switch', '-q', branch] : ['switch', '-q', '-c', branch, start], { cwd: wt })
     rmSync(marker(wt), { force: true })
   } else git(exists ? ['worktree', 'add', '-q', wt, branch] : ['worktree', 'add', '-q', '-b', branch, wt, start], { cwd: R })
-  const nm = join(R, 'ui', 'node_modules')
-  if (isDir(nm) && !existsSync(join(wt, 'ui', 'node_modules'))) symlinkSync(nm, join(wt, 'ui', 'node_modules'))
+  // the JS toolchains of R, else of the main checkout (R can be a worktree without them): without them the UI tests and the dogfood type check
+  // of the run cannot start (git ignores node_modules, so a new worktree has none)
+  const main = dirname(git(['rev-parse', '--path-format=absolute', '--git-common-dir'], { cwd: R }).stdout.trim())
+  for (const dir of NODE_DIRS) {
+    const nm = [join(R, dir, 'node_modules'), join(main, dir, 'node_modules')].find(isDir)
+    const link = join(wt, dir, 'node_modules')
+    if (nm && isDir(join(wt, dir)) && !existsSync(link)) symlinkSync(nm, link)
+    if (existsSync(link) && lstatSync(link).isSymbolicLink()) ignoreLink(wt, `/${dir}/node_modules`) // also a link a released worktree kept
+  }
 }
+
+/** `node_modules/` in .gitignore matches directories only, so git sees a symlinked node_modules as an untracked file (a scope violation, and
+ * `git add -A` would commit it): the link goes into the shared info/exclude, as Claude Code does for its own worktree links. */
+function ignoreLink(wt: string, line: string): void {
+  const ex = resolve(wt, git(['rev-parse', '--git-path', 'info/exclude'], { cwd: wt }).stdout.trim())
+  const cur = existsSync(ex) ? readFileSync(ex, 'utf8') : ''
+  if (!cur.split('\n').includes(line)) appendFileSync(ex, (cur && !cur.endsWith('\n') ? '\n' : '') + line + '\n')
+}
+
+/** The folders whose node_modules the stages of yk check use (ui: vitest, tsc, eslint; dogfood: bun check of the scripts and the channel). */
+export const NODE_DIRS = ['ui', 'examples/dogfood', 'examples/dogfood/channel']
 
 export function worktree(argv: string[]): number {
   const { pos, opt } = parseArgs(argv, { value: ['branch', 'base', 'in'] })

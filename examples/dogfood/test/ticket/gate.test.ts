@@ -5,6 +5,15 @@ import { afterAll, beforeAll, beforeEach, expect, setDefaultTimeout, test } from
 import { cpSync, existsSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { initRepo, json, kit, put, read, rm, tmp } from './helpers.ts'
+import { untag } from '../../src/ticket/gate-tests.ts'
+
+test('untag drops the [T#] tags from test names and keeps the spacing', () => {
+  expect(untag('@DisplayName("[T1] rejects the 101st request")')).toBe('@DisplayName("rejects the 101st request")')
+  expect(untag("it('allows the first request [T2]', () => {")).toBe("it('allows the first request', () => {")
+  expect(untag("test('a [T3] b')")).toBe("test('a b')")
+  expect(untag("it('[T1] [T2] both')")).toBe("it('both')")
+  expect(untag('const a = [T, x]')).toBe('const a = [T, x]')
+})
 
 setDefaultTimeout(300_000)
 let d: string, tpl: string, rtpl: string, W: string, R: string
@@ -82,6 +91,16 @@ test('14. a case without a test, an unknown tag', () => {
 test('15. passes before any implementation (not red)', () => {
   report('pass', 'fail')
   expect(gate()).toMatch(/T1.*not red/)
+})
+test('a guard case must pass before the change; the other cases still must be red', () => {
+  const sf = join(R, 'spec/spec.json')
+  put(sf, { ...json(sf), test_cases: [{ id: 'T1' }, { id: 'T2', guard: true }] })
+  report('fail', 'pass')
+  expect(gate(), 'a passing guard is fine').toContain('errors=0')
+  report('fail', 'fail')
+  expect(gate()).toContain('guard case T2')
+  report('pass', 'pass')
+  expect(gate(), 'a non-guard case still has to be red').toMatch(/T1.*not red/)
 })
 test('16. a setup error is not red', () => {
   report('setup', 'fail')

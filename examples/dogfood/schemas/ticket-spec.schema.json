@@ -167,6 +167,10 @@
         },
         "critical": {
           "type": "boolean"
+        },
+        "guard": {
+          "type": "boolean",
+          "description": "true: the behaviour already holds before the change and the test protects it, so it passes in the red check; every other case must fail first"
         }
       }
     },

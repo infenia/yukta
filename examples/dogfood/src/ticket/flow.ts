@@ -40,6 +40,8 @@ import {
 } from './lib.ts'
 import { event } from './stepkit.ts'
 
+/** A gate error from the machine, not the spec or the tests: the runner is missing or cannot start. */
+export const ENV_FAILURE = /^compile_or_setup: .*(\(exit 12[67]\)|command not found|missing packages|Cannot find module 'vitest'|ENOENT)/
 const TYPES: Record<string, string> = { feature: 'feat', bug: 'fix', refactor: 'refactor', docs: 'docs', chore: 'chore' }
 const trim = (p: string): string => readFileSync(p, 'utf8').trim()
 
@@ -185,6 +187,11 @@ function gate(
   cmd = fmt(cmd === '' || cmd === '-' ? template : cmd, { base })
   const r = sh(cmd, wt)
   const text = r.stdout + r.stderr
+  // nothing of the plan applies to this change (docs only, say): there is nothing to fail, not a test failure
+  if (r.code && text.includes('no stage of the plan is left')) {
+    console.log('SKIP gate: no stage of the plan applies to this change')
+    return 0
+  }
   if (!step) {
     const res = text.split('\n').filter((l) => l.startsWith('RESULT '))
     writeFileSync(join(run, 'final-result.txt'), (res.length ? res[res.length - 1] : '') + '\n')
@@ -193,7 +200,15 @@ function gate(
     const m = /failed_node=(\S+)/.exec(text)
     const stage = m && m[1] !== '-' ? m[1]! : stageDefault
     failDigest(run, step ?? 'S0', attempt, stage, text, cmd, undefined, r.code)
-    if (step && baselineFails(wt, stage)) save(join(run, 'steps', step, `attempt-${attempt}`, 'baseline.json'), { stage }) // the same stage fails on a clean origin/main: not the implementer's fault
+    if (baselineFails(wt, stage)) {
+      // the same stage fails on a clean origin/main: not this change's fault
+      if (step) save(join(run, 'steps', step, `attempt-${attempt}`, 'baseline.json'), { stage })
+      else {
+        save(join(run, 'final-baseline.json'), { stage })
+        console.log(`WARN final gate: ${stage} also fails on a clean origin/main (baseline failure); not charged to this change`)
+        return 0
+      }
+    }
   }
   return r.code
 }
@@ -223,6 +238,11 @@ export function main(argv: string[]): number {
       const gf = join(run, 'spec', 'gate.json')
       const blocked = isFile(tw) ? load(tw).blocked : null
       const gateErrors: string[] = isFile(gf) ? (load(gf).errors ?? []) : []
+      // a gate that could not even start the tests (missing packages, no such command) is the environment's: another spec cannot fix it
+      if (gateErrors.length && gateErrors.every((e) => ENV_FAILURE.test(e))) {
+        console.log(`ERROR environment: the test gate could not run, no architect retry: ${gateErrors[0]!.slice(0, 300)}`)
+        return 1
+      }
       if (blocked || gateErrors.length)
         // nothing to tell when the test writer itself failed (API, limit): the next attempt just runs again
         save(join(run, 'spec', 'downstream.json'), blocked ? { test_writer_blocked: blocked } : { gate_errors: gateErrors.slice(0, 20) })
