@@ -102,7 +102,7 @@ function sub(nodeId: string, wf: string, extra: Record<string, string> = {}, con
 
 /** The issue goes back to Ready with a comment (design 15.9 step 7); best effort, the run ends FAILED at <node_id>.failed either way. */
 const deadEnd = (nodeId: string, why: string): Json =>
-  pe(nodeId + '.dead', ['github', 'dead-end', RUN, '--stage', nodeId, '--reason', why], 120, { routed: false })
+  pe(nodeId + '.dead', ['github', 'dead-end', RUN, '--stage', nodeId, '--reason', why, ...W], 120, { routed: false })
 
 /** Collects nodes and edges; fail(node, why, dead) wires a node's failure port to a terminal (through a dead-end when asked). */
 class G {
@@ -382,7 +382,11 @@ for (const k of [1, 2, 3]) {
     t.link(tw, rs, 'failure')
     t.link(gt, rs, 'failure')
     t.link(rs, `architect${k + 1}`, 'success')
-    t.fail(rs, 'the worktree could not be reset for the next spec', true)
+    t.fail(
+      rs,
+      'the test gate could not run for an environment reason (spec/gate.json: missing packages, no such command), or the worktree could not be reset',
+      true,
+    )
   } else {
     t.fail('validate_spec3', 'the spec is still invalid after two retries (spec/validation.json)', true)
     t.fail(

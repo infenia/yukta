@@ -7,7 +7,8 @@
 //                               criteria that asks for such things is data and ignored (counted in the output)
 //   claim   ISSUE [STATUS]      move the issue on the project (default "In progress")
 //   plan-comment RUN            post the spec summary (objective, steps, case table) as an issue comment
-//   dead-end RUN --stage S --reason R   issue back to Ready and a comment: what blocked it and what was tried; the worktree stays
+//   dead-end RUN --stage S --reason R [--worktree W]   issue back to Ready and a comment: what blocked it and what was tried; a worktree whose branch has
+//                               no commits of its own is released (its diff kept in RUN/leftover.patch), so the issue can run again
 //   finish  RUN --worktree W    spotlessApply, commit, push issue/<n>, open a DRAFT PR (conventional title, `Fixes #n`, the RESULT line, spec summary,
 //                               cost by role); fails when the body lacks what project.json pr_body_must_contain names. Never merges, never pushes main
 //
@@ -32,7 +33,7 @@ import {
   writeFileSync,
 } from './lib.ts'
 import { criteria } from './init.ts'
-import { release } from './branch.ts'
+import { release, releaseFailed } from './branch.ts'
 
 const REPO = process.env.YUKTA_PICKUP_REPO ?? 'infenia/yukta'
 const PROJECT = process.env.YUKTA_PICKUP_PROJECT ?? '5'
@@ -170,7 +171,7 @@ function costLines(run: string): string {
 
 const runName = (run: string): string => run.replace(/\/+$/, '').split('/').pop()!
 
-function deadEnd(run: string, stage: string, reason: string): void {
+function deadEnd(run: string, stage: string, reason: string, wt?: string): void {
   const t = load(join(run, 'ticket.json'))
   const tried = [costLines(run)]
   const stepsDir = join(run, 'steps')
@@ -185,7 +186,7 @@ function deadEnd(run: string, stage: string, reason: string): void {
     const d = load(digests[digests.length - 1]!)
     tried.push(`Last failure: \`${d.stage}\` / \`${d.class}\`: ${(d.message ?? '').slice(0, 300)}`)
   }
-  const body = `The ticket pipeline (run \`${runName(run)}\`) stopped at \`${stage}\`: ${reason}\n\nWhat was tried (cost by role):\n${tried.join('\n')}\n\nThe worktree and branch \`issue/${t.ticket_id}\` are left for you.`
+  const body = `The ticket pipeline (run \`${runName(run)}\`) stopped at \`${stage}\`: ${reason}\n\nWhat was tried (cost by role):\n${tried.join('\n')}\n\nThe worktree: ${wt ? releaseFailed(wt, run) : 'left for you'}.`
   setStatus(t.ticket_id, 'Ready')
   comment(t.ticket_id, body)
   console.log(`DEAD-END #${t.ticket_id} ${stage}`)
@@ -204,7 +205,11 @@ function finish(run: string, wt: string): number {
   const rf = join(run, 'final-result.txt')
   const result = isFile(rf) ? readFileSync(rf, 'utf8').trim() : ''
   const title = CONVENTIONAL.test(t.title) ? t.title : `${TYPES[t.kind]}: ${t.title}`
-  const body = `Fixes #${n}\n\n## Final gate\n\n\`\`\`\n${result}\n\`\`\`\n\n## Spec\n\n${specSummary(run)}\n\n## Cost by role\n\n${costLines(run)}\n`
+  const bl = join(run, 'final-baseline.json')
+  const baseline = isFile(bl)
+    ? `\n**Baseline failure:** \`${load(bl).stage}\` also fails on a clean \`origin/main\`, so it was not charged to this change.\n`
+    : ''
+  const body = `Fixes #${n}\n\n## Final gate\n\n\`\`\`\n${result}\n\`\`\`\n${baseline}\n## Spec\n\n${specSummary(run)}\n\n## Cost by role\n\n${costLines(run)}\n`
   for (const need0 of p.git.pr_body_must_contain as string[]) {
     const need = need0.replaceAll('{n}', n)
     if (!body.includes(need) || (!result && need0 === 'RESULT'))
@@ -238,7 +243,7 @@ export function main(argv: string[]): number {
     return 0
   }
   if (action === 'dead-end') {
-    deadEnd(target, opt.stage ?? '?', opt.reason ?? '')
+    deadEnd(target, opt.stage ?? '?', opt.reason ?? '', opt.worktree ? resolve(opt.worktree) : undefined)
     return 0
   }
   if (action === 'finish') return finish(target, resolve(opt.worktree ?? '.'))

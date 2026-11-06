@@ -22,7 +22,6 @@ import {
   KIT,
   die,
   dumps,
-  existsSync,
   git,
   isFile,
   join,
@@ -30,7 +29,6 @@ import {
   mkdirp,
   parseArgs,
   readFileSync,
-  readdirSync,
   resolve,
   resolveAttempt,
   run as runProc,
@@ -70,12 +68,9 @@ export function promptFor(role: string, run: string, step: string | undefined, w
   const routing = load(join(run, 'routing.json'))
   const spec = isFile(join(run, 'spec', 'spec.json')) ? load(join(run, 'spec', 'spec.json')) : null
   if (role === 'architect_revise') {
-    const sid: string = load(join(run, 'spec', 'revision-request.json')).step_id
-    const sdir = join(run, 'steps', sid)
-    const digests = (existsSync(sdir) ? readdirSync(sdir) : [])
-      .filter((d) => d.startsWith('attempt-'))
-      .sort()
-      .map((d) => readIf(join(sdir, d, 'failure.json')))
+    const req = load(join(run, 'spec', 'revision-request.json'))
+    const digests = ((req.attempts ?? []) as Json[])
+      .map((a) => readIf(join(run, a.failure_digest_ref)))
       .filter((x): x is string => x !== null)
       .map((x) => x.slice(0, 2048))
     return (
@@ -113,6 +108,8 @@ export function promptFor(role: string, run: string, step: string | undefined, w
 - every command (done_when.commands and a command acceptance check) is one of the project's commands templates above with the placeholders filled in, or several of them joined by " && "; no other shell (no "test -e", "!", pipes, grep, ls);
 - max_diff_lines of a step is 30-150; read_files lines ("10-80" or "79", comma-separated) stay within the file's real length: read the file to see it;
 - a step writes one module only, and every read_files path exists in the checkout or is created by an earlier step.
+- with tests written up front, every test case must fail before the change (the red check); a case for behaviour that already holds and must keep
+  holding (no extra wrapper, an existing order) gets "guard": true and must pass now; at least one case is not a guard.
 Before you answer, write the draft to ${DRAFT} (Write tool) and run this command with Bash; fix every ERROR it prints and run it again until it ends with "errors=0":
 ${checkCmd(run, wt)}
 An ERROR that comes from a project policy the ticket itself needs to break (a guard path, a file agents may not edit) is not yours to work around: answer NEEDS_CLARIFICATION and ask.

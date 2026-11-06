@@ -105,6 +105,22 @@ test('heal: a mechanical stage is healed (yk check), then the step passes withou
   expect(readdirSync(join(w.run, 'steps/S1')).filter((d) => d.startsWith('attempt-'))).toHaveLength(1)
 })
 
+test('a final gate stage that also fails on clean origin/main is a baseline failure: the run goes on, no revision', async () => {
+  const red = 'echo "RESULT status=FAILED failed_node=dogfood_check healed=- execution=e session=dogfood wall=1 cost=$0 bytes=1"; exit 1'
+  await w.walk('happy', 'true', { gateFinal: red, baseline: 'false' })
+  expect(w.rc, w.out).toBe(0)
+  expect(json(join(w.run, 'final-baseline.json')).stage).toBe('dogfood_check')
+  expect(read(join(w.d, 'pr-body.md')), 'the PR says so').toContain('Baseline failure')
+  expect(w.out).not.toContain('NODE escalate1')
+})
+
+test('a final gate that fails on this change asks for a revision that adds a step, with the final digest', async () => {
+  await w.walk('happy', 'true', { gateFinal: 'echo "RESULT status=FAILED failed_node=tests"; exit 1' })
+  const req = json(join(w.run, 'spec/revision-request.json'))
+  expect(req.question).toContain('add a new step')
+  expect(req.attempts[0].failure_digest_ref).toBe('steps/S0/attempt-1/failure.json')
+})
+
 // ---- decision rules, called directly: a hand-built run
 let n = 0
 function mk(stage: string, cls: string, result?: object): string {

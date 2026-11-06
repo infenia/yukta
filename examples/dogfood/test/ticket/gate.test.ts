@@ -83,6 +83,16 @@ test('15. passes before any implementation (not red)', () => {
   report('pass', 'fail')
   expect(gate()).toMatch(/T1.*not red/)
 })
+test('a guard case must pass before the change; the other cases still must be red', () => {
+  const sf = join(R, 'spec/spec.json')
+  put(sf, { ...json(sf), test_cases: [{ id: 'T1' }, { id: 'T2', guard: true }] })
+  report('fail', 'pass')
+  expect(gate(), 'a passing guard is fine').toContain('errors=0')
+  report('fail', 'fail')
+  expect(gate()).toContain('guard case T2')
+  report('pass', 'pass')
+  expect(gate(), 'a non-guard case still has to be red').toMatch(/T1.*not red/)
+})
 test('16. a setup error is not red', () => {
   report('setup', 'fail')
   expect(gate()).toContain('setup, import or syntax error')

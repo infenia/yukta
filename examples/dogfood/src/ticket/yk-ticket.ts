@@ -3,7 +3,8 @@
 // yk ticket: the commands of the ticket pipeline (Epic #1872). Called by dogfood/src/yk.ts; examples/dogfood/yk is the same entry for people who stand in
 // this folder.
 //
-//   yk ticket run <issue> [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>
+//   yk ticket run <issue> [--local] [--detach [--notify]]   run the `ticket` workflow on an issue: a tested change on branch issue/<n> in ../yukta-issue-<n>;
+//                                                 --local runs this checkout's ticketkit (session ticket-local) instead of the dev server's main checkout
 //   yk ticket new <title> --criterion C [--criterion C..] [--goal G] [--role architect=opus/high..] [--label L..] [--ready]   file a ticket in the shape the pipeline reads (ticket-template.md)
 //   yk ticket edit <issue> [--title T] [--goal G] [--criterion C..] [--role r=model/effort..] [--label L..] [--ready] [--force]   change what is passed, keep the rest of the body
 //   yk ticket worktree <issue> [--branch B] [--base REF] [--in DIR]   a worktree or branch for the issue, reusing what exists (branch.ts)
@@ -50,6 +51,25 @@ import { parseRole, renderBody, replaceSection, roleLines, rolesOf, withDefaults
 /** The `dogfood` session with the workflows `ticket` and `step`...: renderSession (dogfood) already holds them, so every yk command applies the same set. */
 export function renderTicketSession(out: string): void {
   renderSession(out)
+}
+
+/** The session of `yk ticket run --local`: only the ticket workflows, from this checkout's ticketkit (not the dev server's main checkout), so a pipeline
+ * change runs before it is merged; a session of its own, so no other yk command's apply of `dogfood` swaps the workflows during the run. */
+export const LOCAL_SESSION = 'ticket-local'
+export function renderLocalTicketSession(out: string): void {
+  const sub = (v: unknown): unknown =>
+    typeof v === 'string'
+      ? v.split('__TICKET__').join(KIT)
+      : Array.isArray(v)
+        ? v.map(sub)
+        : v && typeof v === 'object'
+          ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, sub(x)]))
+          : v
+  renderSession(out)
+  const s = readJson(out)
+  s.sessionId = s.name = LOCAL_SESSION
+  s.workflows = sub(readJson(join(KIT, 'ticket-session.json')).workflows)
+  writeFileSync(out, JSON.stringify(s, null, 2) + '\n')
 }
 
 /** "<run_id> <execution>" of the latest run of an issue. */
@@ -189,11 +209,13 @@ function ticketEdit(argv: string[]): number {
 async function ticketRun(argv: string[], ykPath: string): Promise<number> {
   let mode: 'watch' | 'detach' = 'watch'
   let notify = false
+  let local = false
   let issue = ''
   for (const a of argv) {
     if (a === '--detach') mode = 'detach'
+    else if (a === '--local') local = true
     else if (a === '--notify') notify = true
-    else if (a.startsWith('-')) die(`unknown option '${a}' (yk ticket run <issue> [--detach [--notify]])`)
+    else if (a.startsWith('-')) die(`unknown option '${a}' (yk ticket run <issue> [--local] [--detach [--notify]])`)
     else {
       if (issue) die('one issue at a time')
       issue = a
@@ -214,7 +236,9 @@ async function ticketRun(argv: string[], ykPath: string): Promise<number> {
   mkdirp(STATE_DIR)
   const tmp = mkdtempSync(join(tmpdir(), 'yk-ticket-run-'))
   try {
-    renderTicketSession(join(tmp, 'session.json'))
+    const session = local ? LOCAL_SESSION : 'dogfood'
+    if (local) renderLocalTicketSession(join(tmp, 'session.json'))
+    else renderTicketSession(join(tmp, 'session.json'))
     const a = run([cli, 'session', 'apply', join(tmp, 'session.json')])
     if (a.code) {
       console.error(a.stdout + a.stderr)
@@ -236,15 +260,15 @@ async function ticketRun(argv: string[], ykPath: string): Promise<number> {
       gateWave: e.TICKET_GATE_WAVE || '-',
       events: e.YUKTA_TICKET_EVENTS || join(DEV_HOME, 'ticket-events.jsonl'),
     }
-    const execId = cliJson(['workflow', 'start', 'dogfood', 'ticket', '--payload', JSON.stringify(payload)]).data?.executionId
+    const execId = cliJson(['workflow', 'start', session, 'ticket', '--payload', JSON.stringify(payload)]).data?.executionId
     if (!execId) die('could not start the ticket workflow')
     writeFileSync(join(STATE_DIR, `ticket-last-${issue}`), `${runId} ${execId}\n`)
-    console.log(`STARTED execution=${execId} session=dogfood run=${STATE_DIR}/ticket/${runId} worktree=${wt}`)
+    console.log(`STARTED execution=${execId} session=${session} run=${STATE_DIR}/ticket/${runId} worktree=${wt}`)
     process.env.YUKTA_PROJECT = root
     process.env.YUKTA_SCOPE = `ticket:${issue}`
-    if (notify) startNotifier('dogfood', execId, ykPath)
+    if (notify) startNotifier(session, execId, ykPath)
     if (mode === 'detach') return 0
-    return await watchOwned('dogfood', execId)
+    return await watchOwned(session, execId)
   } finally {
     rmSync(tmp, { recursive: true, force: true })
   }

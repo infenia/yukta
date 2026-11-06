@@ -171,7 +171,9 @@
               "--stage",
               "route",
               "--reason",
-              "route failed"
+              "route failed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -366,7 +368,9 @@
               "--stage",
               "architect1",
               "--reason",
-              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -412,7 +416,9 @@
               "--stage",
               "clarify1",
               "--reason",
-              "the clarification could not be read"
+              "the clarification could not be read",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -450,7 +456,9 @@
               "--stage",
               "apply_clarify1",
               "--reason",
-              "the answers could not be recorded"
+              "the answers could not be recorded",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -589,7 +597,9 @@
               "--stage",
               "spec_conflict1",
               "--reason",
-              "the clarification could not be read"
+              "the clarification could not be read",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -640,7 +650,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the worktree could not be reset for the next spec"
+            "reason": "the test gate could not run for an environment reason (spec/gate.json: missing packages, no such command), or the worktree could not be reset"
           }
         },
         {
@@ -656,7 +666,9 @@
               "--stage",
               "retry_spec1",
               "--reason",
-              "the worktree could not be reset for the next spec"
+              "the test gate could not run for an environment reason (spec/gate.json: missing packages, no such command), or the worktree could not be reset",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -851,7 +863,9 @@
               "--stage",
               "architect2",
               "--reason",
-              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -897,7 +911,9 @@
               "--stage",
               "clarify2",
               "--reason",
-              "the clarification could not be read"
+              "the clarification could not be read",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -935,7 +951,9 @@
               "--stage",
               "apply_clarify2",
               "--reason",
-              "the answers could not be recorded"
+              "the answers could not be recorded",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1074,7 +1092,9 @@
               "--stage",
               "spec_conflict2",
               "--reason",
-              "the clarification could not be read"
+              "the clarification could not be read",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1125,7 +1145,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "the worktree could not be reset for the next spec"
+            "reason": "the test gate could not run for an environment reason (spec/gate.json: missing packages, no such command), or the worktree could not be reset"
           }
         },
         {
@@ -1141,7 +1161,9 @@
               "--stage",
               "retry_spec2",
               "--reason",
-              "the worktree could not be reset for the next spec"
+              "the test gate could not run for an environment reason (spec/gate.json: missing packages, no such command), or the worktree could not be reset",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1240,7 +1262,9 @@
               "--stage",
               "architect3",
               "--reason",
-              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this"
+              "the architect call failed (the ERROR line says which: schema_invalid, api_error, limit) or did not ask; a spec the validator rejects is retried, not this",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1339,7 +1363,9 @@
               "--stage",
               "validate_spec3",
               "--reason",
-              "the spec is still invalid after two retries (spec/validation.json)"
+              "the spec is still invalid after two retries (spec/validation.json)",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1377,7 +1403,9 @@
               "--stage",
               "test_writer3",
               "--reason",
-              "the test writer was blocked or failed on the third spec (the ERROR line says which: blocked, schema_invalid, api_error, limit)"
+              "the test writer was blocked or failed on the third spec (the ERROR line says which: blocked, schema_invalid, api_error, limit)",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1415,7 +1443,9 @@
               "--stage",
               "gate_tests3",
               "--reason",
-              "the tests of the third spec did not pass the red check (spec/gate.json)"
+              "the tests of the third spec did not pass the red check (spec/gate.json)",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1482,7 +1512,9 @@
               "--stage",
               "commit_tests",
               "--reason",
-              "the tests could not be committed"
+              "the tests could not be committed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1597,7 +1629,9 @@
               "--stage",
               "need_spec",
               "--reason",
-              "approval policy failed"
+              "approval policy failed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1662,7 +1696,9 @@
               "--stage",
               "plan_comment",
               "--reason",
-              "the plan could not be posted on the issue"
+              "the plan could not be posted on the issue",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1878,7 +1914,9 @@
               "--stage",
               "route_failure1",
               "--reason",
-              "the failure could not be routed"
+              "the failure could not be routed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -1954,7 +1992,9 @@
               "--stage",
               "escalate1",
               "--reason",
-              "the architect's revision did not produce a valid spec"
+              "the architect's revision did not produce a valid spec",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2186,7 +2226,9 @@
               "--stage",
               "route_failure2",
               "--reason",
-              "the failure could not be routed"
+              "the failure could not be routed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2262,7 +2304,9 @@
               "--stage",
               "escalate2",
               "--reason",
-              "the architect's revision did not produce a valid spec"
+              "the architect's revision did not produce a valid spec",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2494,7 +2538,9 @@
               "--stage",
               "route_failure3",
               "--reason",
-              "the failure could not be routed"
+              "the failure could not be routed",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2570,7 +2616,9 @@
               "--stage",
               "escalate3",
               "--reason",
-              "the architect's revision did not produce a valid spec"
+              "the architect's revision did not produce a valid spec",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {
@@ -2647,7 +2695,9 @@
               "--stage",
               "round4",
               "--reason",
-              "the run did not finish after three recoveries"
+              "the run did not finish after three recoveries",
+              "--worktree",
+              "${start.worktree}"
             ],
             "workingDir": "${start.project}",
             "env": {

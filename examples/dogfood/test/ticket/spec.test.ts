@@ -200,6 +200,10 @@ test('validate-spec', () => {
   // a policy conflict is a question to a person, not another architect attempt
   expect(json(join(run, 'spec/needs-clarification.json')).questions[0].question).toContain('guard path')
   rm(join(run, 'spec/needs-clarification.json'))
+  check('only guards', 'every test case is a guard', (s) => {
+    s.tests_mode = 'cases_to_code'
+    s.test_cases = s.test_cases.map((c: any) => ({ ...c, guard: true }))
+  })
   check('write outside scope', 'outside scope', (s) => {
     s.steps[0].write_files = ['boot/X.java']
   })

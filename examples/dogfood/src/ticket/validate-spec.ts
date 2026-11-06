@@ -220,6 +220,8 @@ export function validate(
   }
   const cases: string[] = spec.test_cases.map((c: Json) => c.id)
   if (cases.length !== new Set(cases).size) err('duplicate test case ids')
+  if (UP_FRONT.includes(spec.tests_mode) && cases.length && spec.test_cases.every((c: Json) => c.guard))
+    err('every test case is a guard: at least one case must fail before the change (the red check)')
   if (cases.length > project.tests.max_cases_total)
     err(`${cases.length} test cases exceed max_cases_total ${project.tests.max_cases_total}`)
   const covered = new Set<string>(spec.steps.flatMap((s: Json) => s.covers))
