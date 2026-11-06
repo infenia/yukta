@@ -47,9 +47,7 @@ export function WorkflowTitleBar({
         </div>
       </div>
       {description && (
-        <p className="text-body-sm text-muted-foreground max-w-prose">
-          {description}
-        </p>
+        <p className="text-body-sm text-muted-foreground">{description}</p>
       )}
     </div>
   );
