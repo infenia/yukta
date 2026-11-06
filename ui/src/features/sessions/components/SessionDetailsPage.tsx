@@ -11,7 +11,7 @@ import { SessionInfoPanel } from './SessionInfoPanel';
 import { SessionActions } from './SessionActions';
 import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
-import { ScopedSupervisors } from '@/features/control/supervisors/ScopedSupervisors';
+import { EffectiveSupervision } from '@/features/supervisors/components/EffectiveSupervision';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -205,7 +205,7 @@ export function SessionDetailsPage() {
           filter={workflowFilter}
           onFilterChange={setWorkflowFilter}
         />
-        <ScopedSupervisors sessionId={session.sessionId} />
+        <EffectiveSupervision sessionId={session.sessionId} />
         <RecentRuns sessionId={session.sessionId} />
       </div>
       {creating && (

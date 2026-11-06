@@ -17,8 +17,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { SupervisorCockpit } from '../SupervisorCockpit';
-import { ScopedSupervisors } from '../ScopedSupervisors';
-import { scopeApplies, buildScope, scopeLabel } from '../../api/supervisors';
+import { buildScope, scopeLabel } from '../../api/supervisors';
 
 const ok = (data: unknown) =>
   HttpResponse.json({
@@ -360,54 +359,7 @@ describe('the supervisor cockpit', () => {
   });
 });
 
-describe('supervisors on a session or workflow page', () => {
-  it('lists the ones that apply, with the attach dialog preset to this scope', async () => {
-    profiles = [
-      { id: 'p', type: 'rule-supervisor', settings: {}, dryRun: false },
-    ];
-    bindings = [
-      { id: 'a', profileId: 'p', scope: 'global', enabled: true },
-      { id: 'b', profileId: 'p', scope: 'session:other', enabled: true },
-      { id: 'c', profileId: 'p', scope: 'workflow:s1/wf', enabled: false },
-    ];
-    renderWithProviders(<ScopedSupervisors sessionId="s1" workflowId="wf" />);
-
-    const items = await screen.findAllByRole('listitem');
-    expect(items).toHaveLength(2);
-    expect(items[1]).toHaveTextContent('(disabled)');
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Attach supervisor' }));
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Attach supervisor',
-    });
-    expect(within(dialog).getByLabelText('Applies to')).toHaveValue('workflow');
-    expect(within(dialog).getByLabelText('Workflow id')).toHaveValue('wf');
-  });
-
-  it('says so when none applies', async () => {
-    renderWithProviders(<ScopedSupervisors sessionId="s1" />);
-
-    expect(
-      await screen.findByText('None apply to this session.')
-    ).toBeInTheDocument();
-  });
-});
-
 describe('the scope helpers', () => {
-  it('decides which scopes cover a session or workflow', () => {
-    expect(scopeApplies('global', 's', 'w')).toBe(true);
-    expect(scopeApplies('session:s', 's')).toBe(true);
-    expect(scopeApplies('session:x', 's')).toBe(false);
-    expect(scopeApplies('workflow:w', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:s/w', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:x/w', 's', 'w')).toBe(false);
-    expect(scopeApplies('workflow:w', 's')).toBe(false);
-    expect(scopeApplies('workflow:s/w//build.*', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:w//build.*', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:s/x//build.*', 's', 'w')).toBe(false);
-  });
-
   it('labels a section with its workflow and nodes', () => {
     expect(scopeLabel('workflow:s/w//build.*,deploy')).toBe(
       'Section s/w: build.*, deploy'
