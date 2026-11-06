@@ -39,7 +39,7 @@ describe('WorkflowTitleBar', () => {
     expect(backdrop).toHaveClass('hero-backdrop');
   });
 
-  it('[T1] puts the run group in the ml-auto container before the actions', () => {
+  it('puts the run group in the ml-auto container before the actions', () => {
     render(
       <WorkflowTitleBar
         workflowId="wf1"
@@ -59,7 +59,7 @@ describe('WorkflowTitleBar', () => {
     ).toBeTruthy();
   });
 
-  it('[T2] does not place the run group beside the title outside the ml-auto container', () => {
+  it('does not place the run group beside the title outside the ml-auto container', () => {
     render(
       <WorkflowTitleBar
         workflowId="wf1"
@@ -73,7 +73,7 @@ describe('WorkflowTitleBar', () => {
     expect(group.parentElement).not.toBe(heading.parentElement);
   });
 
-  it('[T3] keeps the right container wrapping and right-aligned', () => {
+  it('keeps the right container wrapping and right-aligned', () => {
     render(
       <WorkflowTitleBar
         workflowId="wf1"
@@ -85,7 +85,7 @@ describe('WorkflowTitleBar', () => {
     expect(right).toHaveClass('flex-wrap', 'justify-end');
   });
 
-  it('[T4] renders only the actions in the ml-auto container without a run group', () => {
+  it('renders only the actions in the ml-auto container without a run group', () => {
     render(
       <WorkflowTitleBar
         workflowId="wf1"
