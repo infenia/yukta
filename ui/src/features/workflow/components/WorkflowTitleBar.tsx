@@ -6,8 +6,8 @@ import type { ReactNode } from 'react';
 import { StatusPill } from './StatusPill';
 
 /**
- * Title row: the workflow ID as the title with the run's status beside it, the actions, and
- * the description underneath.
+ * Title row: the workflow ID as the title with the run's status beside it, the run group and
+ * actions right-aligned together, and the description underneath.
  */
 export function WorkflowTitleBar({
   workflowId,
@@ -19,7 +19,7 @@ export function WorkflowTitleBar({
   workflowId: string;
   description?: string;
   status: string | null;
-  /** Run selector and run controls, kept together beside the title (left-aligned). */
+  /** Run selector and run controls, kept together right-aligned beside the actions. */
   runGroup?: ReactNode;
   actions?: ReactNode;
 }) {
@@ -37,10 +37,12 @@ export function WorkflowTitleBar({
           {workflowId}
         </h1>
         <StatusPill status={status} />
-        {runGroup && (
-          <div className="flex flex-wrap items-center gap-2">{runGroup}</div>
-        )}
-        <div className="ml-auto flex flex-wrap items-center gap-2">
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {runGroup && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {runGroup}
+            </div>
+          )}
           {actions}
         </div>
       </div>

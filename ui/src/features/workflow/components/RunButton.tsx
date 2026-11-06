@@ -84,12 +84,15 @@ export function RunButton({
   workflowId,
   onStarted,
   size,
+  className,
   label = 'Run workflow',
 }: {
   sessionId: string;
   workflowId: string;
   onStarted: (executionId: string) => void;
   size?: 'sm';
+  /** Replaces the default outline button style, e.g. a segment of a grouped control. */
+  className?: string;
   /** The button's accessible name, e.g. "Run check" in a table of workflows. */
   label?: string;
 }) {
@@ -102,7 +105,7 @@ export function RunButton({
         <button
           type="button"
           aria-label={label}
-          className={buttonVariants({ variant: 'outline', size })}
+          className={className ?? buttonVariants({ variant: 'outline', size })}
           onClick={() => {
             runKey.current = newIdempotencyKey();
             setOpen(true);
