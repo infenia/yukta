@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * A single execution known to the control bus, part of {@link ControlBusStatus}.
  *
@@ -10,5 +12,6 @@ package com.infenia.yukta.mcp.dto;
  * @param status the execution status
  * @param duration the execution duration, or "running" if not yet finished
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExecutionRecord(
     String sessionId, String executionId, String status, String duration) {}

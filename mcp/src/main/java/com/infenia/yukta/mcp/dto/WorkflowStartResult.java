@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Result of starting a workflow execution via MCP.
  *
@@ -10,4 +12,5 @@ package com.infenia.yukta.mcp.dto;
  *     start of the same workflow and {@code executionId} is that earlier run; start again with a
  *     fresh idempotencyKey to force a new run
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record WorkflowStartResult(String executionId, boolean reusedExecution) {}

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.workflow.store;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import org.jspecify.annotations.Nullable;
 
@@ -12,7 +13,8 @@ import org.jspecify.annotations.Nullable;
  * @param savedAt when it was saved
  * @param note what the version is for, or null when nobody wrote one
  */
-public record DefinitionRevision(String id, Instant savedAt, @Nullable String note) {
+public record DefinitionRevision(
+    String id, Instant savedAt, @Schema(nullable = true) @Nullable String note) {
 
   /**
    * A version without a note.

@@ -2,8 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The supervisors that run and the bindings that attach profiles to a scope.
@@ -12,6 +14,7 @@ import java.util.List;
  * @param bindings the bindings attached at run time
  * @param types the supervisor types a profile may use
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorListing(
     List<RunningSupervisor> running, List<SupervisorBindingInfo> bindings, List<String> types) {
 
@@ -38,13 +41,14 @@ public record SupervisorListing(
   @SuppressFBWarnings(
       value = "EI_EXPOSE_REP",
       justification = "the compact constructor stores an unmodifiable copy")
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record RunningSupervisor(
       String id,
       String kind,
       String scope,
-      String scopeSessionId,
-      String scopeWorkflowId,
-      List<String> scopeNodes,
+      @Nullable String scopeSessionId,
+      @Nullable String scopeWorkflowId,
+      @Nullable List<String> scopeNodes,
       boolean dryRun,
       long applied,
       long rejected) {

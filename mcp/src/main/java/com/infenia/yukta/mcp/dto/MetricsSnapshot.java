@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.Map;
 
 /**
@@ -12,6 +13,7 @@ import java.util.Map;
  * @param values series key to value: counters as a rate per second, timers in milliseconds, run
  *     aggregates ({@code runs.*}, {@code duration.p95}) over the last hour
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record MetricsSnapshot(String scope, long time, Map<String, Double> values) {
 
   /** Keeps an immutable copy of the values. */

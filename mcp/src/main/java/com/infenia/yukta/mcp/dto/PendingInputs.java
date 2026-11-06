@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.time.Instant;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -17,6 +18,7 @@ import org.jspecify.annotations.Nullable;
  * @param inputs one entry per request, newest first
  * @param truncated true when more requests matched than the list holds
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PendingInputs(
     @Nullable String sessionId, List<String> states, List<PendingInput> inputs, boolean truncated) {
 
@@ -48,6 +50,7 @@ public record PendingInputs(
    * @param createdAt when it was asked
    * @param decision the decision of the answer, once answered
    */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   public record PendingInput(
       String sessionId,
       String workflowId,

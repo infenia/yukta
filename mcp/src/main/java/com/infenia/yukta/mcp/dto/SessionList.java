@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -11,6 +12,7 @@ import java.util.List;
  *
  * @param sessions the session summaries
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SessionList(List<SessionSummary> sessions) {
 
   /** Compact constructor to ensure immutability. */

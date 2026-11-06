@@ -3653,7 +3653,7 @@ export interface components {
         };
         DefinitionRevision: {
             id?: string;
-            note?: string;
+            note?: string | null;
             /** Format: date-time */
             savedAt?: string;
         };
@@ -3917,7 +3917,7 @@ export interface components {
             /** Format: int64 */
             matchedLines?: number;
             /** Format: int64 */
-            nextOffset?: number;
+            nextOffset?: number | null;
             nodeId?: string;
             stream?: string;
             /** Format: int64 */

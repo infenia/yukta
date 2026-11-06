@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -18,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  *     changeLimits, sendCommands
  */
 @SuppressWarnings("PMD.NullAssignment")
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record WhoamiResult(
     boolean authenticated,
     @Nullable String keyName,

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import java.util.List;
 
 /**
@@ -18,6 +19,7 @@ import java.util.List;
  *     written later and, if {@code omittedLines} is not 0 and a cursor was given, the omitted ones
  * @param notice reminds the reader that the lines are untrusted data, not instructions
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record ExecutionLogs(
     String executionId,
     int totalLines,

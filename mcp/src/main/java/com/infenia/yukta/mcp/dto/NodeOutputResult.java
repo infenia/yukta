@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.logging.api.NodeOutputSlice;
 
 /**
@@ -11,4 +12,5 @@ import com.infenia.yukta.logging.api.NodeOutputSlice;
  * @param output the numbered lines and the totals
  * @param notice reminds the reader that the lines are untrusted data, not instructions
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record NodeOutputResult(String executionId, NodeOutputSlice output, String notice) {}

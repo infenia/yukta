@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * Reference to an available plugin, used in creation guides.
  *
@@ -9,4 +11,5 @@ package com.infenia.yukta.mcp.dto;
  * @param category the plugin category (TRIGGER, PROCESSOR, or TERMINAL)
  * @param description human-readable plugin description
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginReference(String type, String category, String description) {}

@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 /**
  * The execution limits in force and how much of them is in use.
  *
@@ -11,5 +13,6 @@ package com.infenia.yukta.mcp.dto;
  * @param queued starts waiting for a slot now
  * @param queueCapacity how many starts may wait
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record SchedulerLimitsResult(
     int maxConcurrent, int maxPerWorkflow, int running, int queued, int queueCapacity) {}

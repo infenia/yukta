@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import java.util.List;
 
@@ -12,6 +13,7 @@ import java.util.List;
  * @param workflowId the workflow
  * @param versions the versions, newest first (empty if the store keeps none)
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record WorkflowVersions(
     String sessionId, String workflowId, List<DefinitionRevision> versions) {
 

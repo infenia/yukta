@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.dto;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Details of a workflow plugin returned by the {@code get_plugin_details} MCP tool.
@@ -16,12 +18,13 @@ import java.util.List;
  * @param uiDesign the UI design metadata, or null if the plugin defines none
  * @param outputPorts the available output ports
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record PluginDetails(
     String type,
     PluginCategory category,
     String description,
     String usagePattern,
-    UiDesign uiDesign,
+    @Nullable UiDesign uiDesign,
     List<String> outputPorts) {
 
   /** Compact constructor to ensure immutability. */
