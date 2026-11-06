@@ -4,9 +4,15 @@ package com.infenia.yukta.supervisor.rules;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.UiDesign;
 import java.time.Clock;
+import java.util.List;
+import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -33,5 +39,23 @@ public class RuleSupervisorFactory implements SupervisorFactory {
         RuleSupervisor.read(profile.settings()),
         Clock.systemUTC(),
         SupervisorCapabilities.from(profile));
+  }
+
+  @Override
+  public SupervisorDescriptor describe() {
+    return new SupervisorDescriptor(
+        "Rule supervisor",
+        "Reacts to events with rules written in JSON: when an event matches, it sends a command,"
+            + " answers an input request or refuses a command.",
+        "Use it for exact, repeatable cases such as pausing a workflow after repeated failures or"
+            + " refusing a dangerous stop.",
+        SupervisorCategory.RULES,
+        Optional.of(new UiDesign("blue", "rule", "Rule supervisor", 140, 80)),
+        RuleSupervisor.EXAMPLE);
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return RuleSupervisor.SCHEMA;
   }
 }

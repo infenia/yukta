@@ -71,6 +71,21 @@ class SupervisorBindingsControllerTest {
   }
 
   @Test
+  void fieldsTheTypeDeclaresSecretAreHiddenWhateverTheirName() {
+    when(service.secretSettings("t")).thenReturn(java.util.Set.of("bearer"));
+    when(service.profiles())
+        .thenReturn(
+            Flux.just(new SupervisorProfile("p", "t", Map.of("bearer", "abc", "url", "u"), false)));
+
+    StepVerifier.create(controller.profiles())
+        .assertNext(
+            r ->
+                assertThat(r.data().get(0).settings())
+                    .isEqualTo(Map.of("bearer", "***", "url", "u")))
+        .verifyComplete();
+  }
+
+  @Test
   void secretsAreHiddenAtEveryDepth() {
     final Map<String, Object> settings =
         Map.of(

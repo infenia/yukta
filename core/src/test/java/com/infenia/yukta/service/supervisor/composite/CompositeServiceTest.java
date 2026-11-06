@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.composite;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -11,9 +11,12 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.BoundSupervisor;
@@ -23,6 +26,7 @@ import com.infenia.yukta.service.supervisor.SupervisorService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -54,6 +58,24 @@ class CompositeServiceTest {
           };
         }
       };
+
+  @Test
+  void describesItselfAndDeclaresItsSettings() {
+    final CompositeSupervisorFactory factory =
+        new CompositeSupervisorFactory(
+            new StaticListableBeanFactory().getBeanProvider(SupervisorResolver.class));
+
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(factory.type()).isEqualTo("composite");
+    assertThat(described.displayName()).isEqualTo("Composite");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.COMPOSITION);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsEntry("mode", "PARALLEL");
+    assertThat(factory.getConfigSchema())
+        .extracting(ConfigField::name)
+        .containsExactly("mode", "children", "review", "quorum", "window");
+  }
 
   private SupervisorService service() {
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
@@ -100,7 +122,7 @@ class CompositeServiceTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(host, times(2)).attach(any(BoundSupervisor.class));
+    verify(host, times(2)).attach(ArgumentMatchers.any(BoundSupervisor.class));
   }
 
   @Test
@@ -112,7 +134,7 @@ class CompositeServiceTest {
 
     service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of("v", 2), false)).block();
 
-    verify(host, times(1)).attach(any(BoundSupervisor.class));
+    verify(host, times(1)).attach(ArgumentMatchers.any(BoundSupervisor.class));
   }
 
   @Test

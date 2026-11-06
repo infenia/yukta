@@ -20,9 +20,12 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -32,6 +35,7 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -473,6 +477,54 @@ class SupervisorServiceTest {
 
     StepVerifier.create(store.bindings()).verifyComplete();
     verify(host, never()).attach(any(BoundSupervisor.class));
+  }
+
+  @Test
+  void catalogAndSecretQueriesReadTheFactoryOfTheType() {
+    final SupervisorFactory declaring =
+        new SupervisorFactory() {
+          @Override
+          public String type() {
+            return "declaring";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final SupervisorProfile profile) {
+            throw new UnsupportedOperationException("not used by this test");
+          }
+
+          @Override
+          public SupervisorDescriptor describe() {
+            return new SupervisorDescriptor(
+                "Declaring",
+                "Declares its settings.",
+                "Use it in tests.",
+                SupervisorCategory.RULES,
+                Optional.empty(),
+                Map.of());
+          }
+
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of(
+                ConfigField.required("url", ConfigField.Type.STRING, "where"),
+                ConfigField.optional("token", ConfigField.Type.SECRET, null, "credential"),
+                ConfigField.optional("retries", ConfigField.Type.NUMBER, 3, "how often"));
+          }
+        };
+    final SupervisorService declaringService =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(declaring), host, log);
+
+    assertThat(declaringService.secretSettings("declaring")).containsExactly("token");
+    assertThat(declaringService.secretSettings("unknown")).isEmpty();
+    assertThat(declaringService.describe("declaring"))
+        .map(SupervisorDescriptor::displayName)
+        .hasValue("Declaring");
+    assertThat(declaringService.describe("unknown")).isEmpty();
+    assertThat(declaringService.configSchema("declaring"))
+        .extracting(ConfigField::name)
+        .containsExactly("url", "token", "retries");
+    assertThat(declaringService.configSchema("unknown")).isEmpty();
   }
 
   @Test

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
 import java.util.List;
 import java.util.Map;
@@ -66,6 +68,17 @@ class RuleSupervisorFactoryTest {
 
     assertThat(allowed.warning()).isEmpty();
     assertThat(notAllowed.warning()).isPresent();
+  }
+
+  @Test
+  void describesItselfAndDeclaresTheRuleSettings() {
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(described.displayName()).isEqualTo("Rule supervisor");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.RULES);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsKey("rules");
+    assertThat(factory.getConfigSchema()).isEqualTo(RuleSupervisor.SCHEMA);
   }
 
   @Test

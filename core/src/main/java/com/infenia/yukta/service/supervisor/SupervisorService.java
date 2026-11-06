@@ -6,9 +6,11 @@ import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorBinding;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.ConflictException;
@@ -27,6 +29,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -195,6 +198,8 @@ public class SupervisorService {
                     .profiles()
                     .filter(profile -> profile.id().equals(binding.profileId()))
                     .next()
+                    // a stored profile that no longer fits its schema is skipped with a warning
+                    .doOnNext(this::checkSettings)
                     .doOnNext(profile -> start(binding, profile))
                     .doOnNext(_ -> restored.incrementAndGet())
                     .onErrorResume(
@@ -466,8 +471,51 @@ public class SupervisorService {
 
   private void validate(final SupervisorProfile profile) {
     SupervisorIds.validate(profile.id(), "profile id");
+    checkSettings(profile);
     factory(profile).validate(profile);
     capabilities(profile);
+  }
+
+  /** Refuses settings that are not in the type's schema or the common one. */
+  private void checkSettings(final SupervisorProfile profile) {
+    SupervisorSettingsValidator.check(profile.settings(), factory(profile).getConfigSchema());
+  }
+
+  /**
+   * The names of the settings of a type that hold secrets, so that reads can mask them.
+   *
+   * @param type the supervisor type
+   * @return the names; empty for an unknown type
+   */
+  public Set<String> secretSettings(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null
+        ? Set.of()
+        : factory.getConfigSchema().stream()
+            .filter(field -> field.type() == ConfigField.Type.SECRET)
+            .map(ConfigField::name)
+            .collect(Collectors.toUnmodifiableSet());
+  }
+
+  /**
+   * What the catalog shows about a type.
+   *
+   * @param type the supervisor type
+   * @return the descriptor, or empty for an unknown type
+   */
+  public Optional<SupervisorDescriptor> describe(final String type) {
+    return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::describe);
+  }
+
+  /**
+   * The settings a type reads, besides the common ones.
+   *
+   * @param type the supervisor type
+   * @return the fields, or empty for an unknown type
+   */
+  public List<ConfigField> configSchema(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null ? List.of() : factory.getConfigSchema();
   }
 
   /** What the profile lets its supervisor do; an unknown command name is refused. */
@@ -490,7 +538,7 @@ public class SupervisorService {
             made,
             profile.dryRun(),
             capabilities(profile),
-            Boolean.TRUE.equals(profile.settings().get("observeInternal"))));
+            Boolean.TRUE.equals(profile.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL))));
   }
 
   /** Records an attach or detach with the caller as actor. */

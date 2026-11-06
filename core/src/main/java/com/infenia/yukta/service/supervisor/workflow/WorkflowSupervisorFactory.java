@@ -4,10 +4,18 @@ package com.infenia.yukta.service.supervisor.workflow;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.ConfigField.Type;
+import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.session.InternalSessions;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -52,5 +60,37 @@ public class WorkflowSupervisorFactory implements SupervisorFactory {
   @Override
   public Set<String> defaultAllowedCommands() {
     return Set.of();
+  }
+
+  @Override
+  public SupervisorDescriptor describe() {
+    return new SupervisorDescriptor(
+        "Workflow",
+        "Makes a supervisor out of a workflow in an internal session, started for each matching"
+            + " event.",
+        "Use it when the decision needs steps: calling a service, asking a model, or waiting.",
+        SupervisorCategory.WORKFLOW,
+        Optional.of(new UiDesign("teal", "schema", "Workflow", 140, 80)),
+        Map.of(
+            "sessionId",
+            "supervisors",
+            "workflowId",
+            "triage",
+            "events",
+            List.of("InputRequested")));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.required(
+            "sessionId", Type.STRING, "An internal session that holds the workflow"),
+        ConfigField.required("workflowId", Type.STRING, "A workflow of that session"),
+        ConfigField.required(
+            "events", Type.LIST, "The event types that start it, such as InputRequested"),
+        ConfigField.optional(
+            "when", Type.EXPRESSION, null, "A read-only SpEL condition over the redacted event"),
+        ConfigField.optional("maxConcurrent", Type.NUMBER, 2, "How many runs may go at once"),
+        ConfigField.optional("timeout", Type.NUMBER, 60, "Seconds one run may take, 1 to 600"));
   }
 }

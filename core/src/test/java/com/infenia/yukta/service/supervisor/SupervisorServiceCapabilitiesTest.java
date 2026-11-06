@@ -22,12 +22,17 @@ import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** What a profile lets its supervisor do is read when the profile is saved and when it starts. */
 @NoArgsConstructor
 class SupervisorServiceCapabilitiesTest {
+
+  /** The supervisor type of the test factories. */
+  private static final String TYPE = "test";
 
   private final SupervisorStore store = new InMemorySupervisorStore();
 
@@ -37,7 +42,7 @@ class SupervisorServiceCapabilitiesTest {
       new SupervisorFactory() {
         @Override
         public String type() {
-          return "test";
+          return TYPE;
         }
 
         @Override
@@ -66,7 +71,7 @@ class SupervisorServiceCapabilitiesTest {
       new SupervisorService(store, List.of(factory), host, new InMemoryExecutionLogStore());
 
   private BoundSupervisor attachedWith(final Map<String, Object> settings) {
-    StepVerifier.create(service.saveProfile(new SupervisorProfile("p", "test", settings, false)))
+    StepVerifier.create(service.saveProfile(new SupervisorProfile("p", TYPE, settings, false)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
@@ -108,11 +113,12 @@ class SupervisorServiceCapabilitiesTest {
     StepVerifier.create(
             service.saveProfile(
                 new SupervisorProfile(
-                    "p", "test", Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
+                    "p", TYPE, Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(SettingsValidationException.class)
+                    .hasMessageContaining("settings.allowedCommands")
                     .hasMessageContaining("NoSuchCommand"))
         .verify();
 
@@ -131,5 +137,61 @@ class SupervisorServiceCapabilitiesTest {
 
     assertThat(attached.find("guard")).isEqualTo(Optional.of(bound));
     assertThat(attached.find("other")).isEmpty();
+  }
+
+  /** The test factory with a schema of one field, so other keys are refused. */
+  private SupervisorFactory declaring() {
+    return new SupervisorFactory() {
+      @Override
+      public String type() {
+        return TYPE;
+      }
+
+      @Override
+      public List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
+        return List.of(
+            com.infenia.yukta.plugin.core.ConfigField.optional(
+                "known", com.infenia.yukta.plugin.core.ConfigField.Type.STRING, null, "a key"));
+      }
+
+      @Override
+      public ExecutionSupervisor create(final SupervisorProfile profile) {
+        return factory.create(profile);
+      }
+    };
+  }
+
+  @Test
+  void settingThatIsNotInTheSchemaIsRefusedWithItsField() {
+    final SupervisorService declared =
+        new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            declared.saveProfile(new SupervisorProfile("p", TYPE, Map.of("bogus", 1), false)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(((SettingsValidationException) error).getIssues())
+                    .extracting(SettingsValidationException.Issue::field)
+                    .containsExactly("settings.bogus"))
+        .verify();
+
+    StepVerifier.create(store.profiles()).verifyComplete();
+  }
+
+  @Test
+  void storedProfileThatNoLongerFitsItsSchemaIsSkippedOnRestore() {
+    final SupervisorProfile bad = new SupervisorProfile("bad", TYPE, Map.of("bogus", 1), false);
+    final SupervisorService declared =
+        new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            store
+                .saveProfile(bad)
+                .then(
+                    store.saveBinding(
+                        new SupervisorBinding("b1", "bad", new SupervisorScope.Global(), true))))
+        .verifyComplete();
+
+    declared.restore();
+
+    verify(host, Mockito.after(500).never()).attach(ArgumentMatchers.any());
   }
 }

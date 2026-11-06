@@ -16,6 +16,7 @@ import com.infenia.yukta.service.input.token.InvalidAnswerTokenException;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
+import com.infenia.yukta.service.supervisor.SettingsValidationException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
@@ -178,6 +179,30 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             errors);
 
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+  }
+
+  /**
+   * Handle supervisor settings that do not match the type's schema, one field error per setting.
+   *
+   * @param exception the exception
+   * @param request the current request
+   * @return the 400 response with a {@code settings.<key>} error for each problem
+   */
+  @ExceptionHandler(SettingsValidationException.class)
+  public ResponseEntity<ApiResponse<Object>> handleSettingsValidation(
+      final SettingsValidationException exception, final ServerHttpRequest request) {
+    final List<ApiResponse.FieldError> errors =
+        exception.getIssues().stream()
+            .map(issue -> new ApiResponse.FieldError(issue.field(), issue.message()))
+            .toList();
+    return ResponseEntity.badRequest()
+        .body(
+            ApiResponse.error(
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                getRequestPath(request),
+                errors));
   }
 
   /**

@@ -8,6 +8,8 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
+import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.supervisor.rules.RuleSet.Deny;
 import com.infenia.yukta.supervisor.rules.RuleSet.RequireApproval;
@@ -79,12 +81,37 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   public static final SupervisorCapabilities FILE_CAPABILITIES =
       new SupervisorCapabilities(null, false, InputRisk.LOW);
 
+  /** The setting a rule supervisor reads besides the common ones. */
+  public static final List<ConfigField> SCHEMA =
+      List.of(
+          ConfigField.required(
+              "rules",
+              ConfigField.Type.LIST,
+              "The rules, in order; each has an id, a when and a then (or deny)"));
+
+  /** Example settings: pause the workflow after three failures in a minute. */
+  public static final Map<String, Object> EXAMPLE =
+      Map.of(
+          "rules",
+          List.of(
+              Map.of(
+                  "id",
+                  "pause-on-repeated-failure",
+                  "when",
+                  Map.of(
+                      "event",
+                      "NodeStatusChanged",
+                      "status",
+                      "FAILURE",
+                      "count",
+                      3,
+                      "withinSeconds",
+                      60),
+                  "then",
+                  Map.of("command", "PauseWorkflow"))));
+
   /** Profile settings that are capabilities for the host, not rules. */
-  private static final Set<String> CAPABILITY_KEYS =
-      Set.of(
-          SupervisorCapabilities.ALLOWED_COMMANDS,
-          SupervisorCapabilities.CAN_ANSWER,
-          SupervisorCapabilities.MAX_RISK);
+  private static final Set<String> CAPABILITY_KEYS = SupervisorCommonSettings.KEYS;
 
   /** Writes profile settings back to the JSON the rule reader takes. */
   private static final JsonMapper PLAIN_JSON = JsonMapper.builder().build();

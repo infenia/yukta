@@ -18,6 +18,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
@@ -136,7 +137,7 @@ public class SupervisorBindingsController {
   public Mono<ApiResponse<List<ProfileBody>>> profiles() {
     return service
         .profiles()
-        .map(SupervisorBindingsController::view)
+        .map(this::view)
         .collectList()
         .map(list -> ApiResponse.success(200, "Profiles retrieved", list));
   }
@@ -296,9 +297,13 @@ public class SupervisorBindingsController {
     return value;
   }
 
-  private static ProfileBody view(final SupervisorProfile profile) {
+  /** The profile as shown: values under secret-looking keys and SECRET schema fields are hidden. */
+  private ProfileBody view(final SupervisorProfile profile) {
     return new ProfileBody(
-        profile.id(), profile.type(), hide(profile.settings()), profile.dryRun());
+        profile.id(),
+        profile.type(),
+        hide(profile.settings(), service.secretSettings(profile.type())),
+        profile.dryRun());
   }
 
   private static BindingBody view(final SupervisorBinding binding) {
@@ -327,14 +332,15 @@ public class SupervisorBindingsController {
 
   /** Replaces the values under secret-looking keys, at any depth. */
   @SuppressWarnings("unchecked")
-  private static Map<String, Object> hide(final Map<String, Object> settings) {
+  private static Map<String, Object> hide(
+      final Map<String, Object> settings, final Set<String> secrets) {
     final Map<String, Object> out = new ConcurrentHashMap<>();
     settings.forEach(
         (key, value) -> {
           if (value == null) {
             return;
           }
-          if (SECRET.matcher(key).matches()) {
+          if (SECRET.matcher(key).matches() || secrets.contains(key)) {
             out.put(key, HIDDEN);
           } else {
             out.put(key, hideValue(value));
@@ -346,7 +352,7 @@ public class SupervisorBindingsController {
   @SuppressWarnings("unchecked")
   private static Object hideValue(final Object value) {
     if (value instanceof Map<?, ?> nested) {
-      return hide((Map<String, Object>) nested);
+      return hide((Map<String, Object>) nested, Set.of());
     }
     if (value instanceof List<?> items) {
       return items.stream().map(SupervisorBindingsController::hideValue).toList();
