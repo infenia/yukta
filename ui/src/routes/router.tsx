@@ -98,6 +98,14 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: 'supervisors',
+        lazy: async () => ({
+          Component: (
+            await import('@/features/supervisors/components/SupervisorsPage')
+          ).SupervisorsPage,
+        }),
+      },
+      {
         path: 'control',
         lazy: async () => ({
           Component: (await import('@/features/control/components/ControlPage'))
