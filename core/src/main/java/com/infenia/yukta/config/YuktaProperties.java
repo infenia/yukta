@@ -147,12 +147,14 @@ public record YuktaProperties(
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
    * @param reviewTimeout longest a supervisor may take to answer a review
+   * @param maxAttachments most attachments at once, manual and from definitions together
    */
   public record Supervisor(
       @DefaultValue("false") boolean dryRun,
       @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DefaultValue("5s") Duration reviewTimeout,
+      @Min(1) @DefaultValue("200") int maxAttachments,
       @Valid @NotNull @DefaultValue Arbiter arbiter) {}
 
   /**

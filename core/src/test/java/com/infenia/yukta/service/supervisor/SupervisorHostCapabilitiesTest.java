@@ -17,7 +17,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -78,7 +78,7 @@ class SupervisorHostCapabilitiesTest {
       final SupervisorCapabilities capabilities, final ExecutionControlCommand... commands) {
     host.attach(
         new BoundSupervisor(
-            new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             emitting(commands),
             false,
             capabilities));
@@ -149,7 +149,7 @@ class SupervisorHostCapabilitiesTest {
   void boundSupervisorMadeWithoutCapabilitiesMaySendAnythingButNeverAnswers() {
     final BoundSupervisor bound =
         new BoundSupervisor(
-            new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             emitting(),
             false);
 

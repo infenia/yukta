@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.workflow;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +27,7 @@ public class WorkflowSupervisorChecks {
    * @param profile the profile
    * @return completes if fine; errors with {@link IllegalArgumentException} otherwise
    */
-  public Mono<Void> check(final SupervisorProfile profile) {
+  public Mono<Void> check(final Supervisor profile) {
     if (!WorkflowSupervisorFactory.PROFILE_TYPE.equals(profile.type())) {
       return Mono.empty();
     }

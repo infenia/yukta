@@ -7,7 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
@@ -151,7 +151,7 @@ public final class InputFlow {
         .thenReturn(
             Optional.of(
                 new BoundSupervisor(
-                    new SupervisorBinding(id, "p", new SupervisorScope.Global(), true),
+                    new SupervisorAttachment(id, "p", new SupervisorScope.Global(), true),
                     mock(ExecutionSupervisor.class),
                     false,
                     new SupervisorCapabilities(null, canAnswer, max))));

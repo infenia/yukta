@@ -2,14 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -58,8 +59,11 @@ public class SupervisorService {
   /** Run id under which attaching and detaching is recorded. */
   public static final String AUDIT_RUN = "supervisors";
 
-  /** Most bindings; each is a supervisor with its own subscription and metric tag. */
-  public static final int MAX_BINDINGS = 50;
+  /** Default for {@code yukta.supervisor.max-attachments}. */
+  public static final int DEFAULT_MAX_ATTACHMENTS = 200;
+
+  /** Most attachments; each is a supervisor with its own subscription and metric tag. */
+  private int maxAttachments = DEFAULT_MAX_ATTACHMENTS;
 
   /** Attaches in progress, so the limit holds when several run at once. */
   private final AtomicInteger attaching = new AtomicInteger();
@@ -116,6 +120,16 @@ public class SupervisorService {
   }
 
   /**
+   * Sets the attachment cap from {@code yukta.supervisor.max-attachments}.
+   *
+   * @param properties the application properties
+   */
+  @Autowired(required = false)
+  public void setProperties(final YuktaProperties properties) {
+    this.maxAttachments = properties.supervisor().maxAttachments();
+  }
+
+  /**
    * Passes every audit record on to a sink, besides the execution log.
    *
    * @param sink the sink, if the application has one
@@ -149,7 +163,7 @@ public class SupervisorService {
   private Mono<Void> refreshResolver() {
     return resolver == null
         ? Mono.empty()
-        : store.profiles().collectList().doOnNext(resolver::refresh).then();
+        : store.supervisors().collectList().doOnNext(resolver::refresh).then();
   }
 
   /**
@@ -188,15 +202,15 @@ public class SupervisorService {
     restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
-    Flux.defer(() -> refreshResolver().thenMany(store.bindings()))
+    Flux.defer(() -> refreshResolver().thenMany(store.attachments()))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
-        .filter(SupervisorBinding::enabled)
+        .filter(SupervisorAttachment::enabled)
         .filter(SupervisorService::validStoredId)
         .concatMap(
             binding ->
                 store
-                    .profiles()
-                    .filter(profile -> profile.id().equals(binding.profileId()))
+                    .supervisors()
+                    .filter(profile -> profile.id().equals(binding.supervisorId()))
                     .next()
                     // a stored profile that no longer fits its schema is skipped with a warning
                     .doOnNext(this::checkSettings)
@@ -233,8 +247,8 @@ public class SupervisorService {
    *
    * @return the profiles
    */
-  public Flux<SupervisorProfile> profiles() {
-    return store.profiles();
+  public Flux<Supervisor> supervisors() {
+    return store.supervisors();
   }
 
   /**
@@ -244,17 +258,17 @@ public class SupervisorService {
    * @return the saved profile; errors with {@link IllegalArgumentException} for an invalid id, an
    *     unknown type or invalid settings
    */
-  public Mono<SupervisorProfile> saveProfile(final SupervisorProfile profile) {
+  public Mono<Supervisor> saveSupervisor(final Supervisor profile) {
     return refreshResolver()
         .then(
             Mono.defer(
                 () -> workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
         .then(Mono.fromRunnable(() -> validate(profile)))
-        .then(Mono.defer(() -> store.saveProfile(profile)))
+        .then(Mono.defer(() -> store.saveSupervisor(profile)))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
-                .bindings()
+                .attachments()
                 .filter(binding -> binding.enabled() && usesProfile(binding, profile.id()))
                 .concatMap(binding -> restart(binding, profile))
                 .then())
@@ -262,20 +276,21 @@ public class SupervisorService {
   }
 
   /** Whether the binding's profile is this one or a composite that lists it. */
-  private boolean usesProfile(final SupervisorBinding binding, final String profileId) {
-    return binding.profileId().equals(profileId)
-        || resolver != null && resolver.compositesUsing(profileId).contains(binding.profileId());
+  private boolean usesProfile(final SupervisorAttachment binding, final String supervisorId) {
+    return binding.supervisorId().equals(supervisorId)
+        || resolver != null
+            && resolver.compositesUsing(supervisorId).contains(binding.supervisorId());
   }
 
   /** Starts a binding again from its own profile, which may be a composite of the saved one. */
-  private Mono<Void> restart(final SupervisorBinding binding, final SupervisorProfile saved) {
-    if (binding.profileId().equals(saved.id())) {
+  private Mono<Void> restart(final SupervisorAttachment binding, final Supervisor saved) {
+    if (binding.supervisorId().equals(saved.id())) {
       start(binding, saved);
       return Mono.empty();
     }
     return store
-        .profiles()
-        .filter(profile -> profile.id().equals(binding.profileId()))
+        .supervisors()
+        .filter(profile -> profile.id().equals(binding.supervisorId()))
         .next()
         .doOnNext(profile -> start(binding, profile))
         .then();
@@ -288,7 +303,7 @@ public class SupervisorService {
    * @return completes when removed; errors with {@link NotFoundException} or {@link
    *     ConflictException} when a binding still uses it
    */
-  public Mono<Void> deleteProfile(final String id) {
+  public Mono<Void> deleteSupervisor(final String id) {
     return refreshResolver()
         .then(
             Mono.defer(
@@ -306,14 +321,14 @@ public class SupervisorService {
 
   private Mono<Void> deleteUnused(final String id) {
     return store
-        .bindings()
-        .filter(binding -> binding.profileId().equals(id))
+        .attachments()
+        .filter(binding -> binding.supervisorId().equals(id))
         .hasElements()
         .flatMap(
             used ->
                 used
                     ? Mono.error(new ConflictException("Profile " + id + " is still attached"))
-                    : store.deleteProfile(id))
+                    : store.deleteSupervisor(id))
         .flatMap(
             existed ->
                 existed
@@ -326,8 +341,8 @@ public class SupervisorService {
    *
    * @return the bindings
    */
-  public Flux<SupervisorBinding> bindings() {
-    return store.bindings();
+  public Flux<SupervisorAttachment> attachments() {
+    return store.attachments();
   }
 
   /**
@@ -335,10 +350,10 @@ public class SupervisorService {
    *
    * @param binding the binding
    * @return the binding; errors with {@link NotFoundException} for an unknown profile, {@link
-   *     ConflictException} when there are {@value #MAX_BINDINGS} bindings, or {@link
+   *     ConflictException} when there are the cap of attachments, or {@link
    *     IllegalArgumentException} when the profile's settings no longer make a supervisor
    */
-  public Mono<SupervisorBinding> attach(final SupervisorBinding binding) {
+  public Mono<SupervisorAttachment> attach(final SupervisorAttachment binding) {
     try {
       SupervisorIds.validate(binding.id(), "binding id");
     } catch (IllegalArgumentException e) {
@@ -354,29 +369,29 @@ public class SupervisorService {
     return attachChecked(binding).doFinally(_ -> attaching.decrementAndGet());
   }
 
-  private Mono<SupervisorBinding> attachChecked(final SupervisorBinding binding) {
+  private Mono<SupervisorAttachment> attachChecked(final SupervisorAttachment binding) {
     return refreshResolver().then(Mono.defer(() -> attachResolved(binding)));
   }
 
-  private Mono<SupervisorBinding> attachResolved(final SupervisorBinding binding) {
+  private Mono<SupervisorAttachment> attachResolved(final SupervisorAttachment binding) {
     return store
-        .profiles()
-        .filter(profile -> profile.id().equals(binding.profileId()))
+        .supervisors()
+        .filter(profile -> profile.id().equals(binding.supervisorId()))
         .next()
         .switchIfEmpty(
-            Mono.error(new NotFoundException("Profile not found: " + binding.profileId())))
+            Mono.error(new NotFoundException("Profile not found: " + binding.supervisorId())))
         .flatMap(
             profile ->
                 store
-                    .bindings()
+                    .attachments()
                     .filter(existing -> !existing.id().equals(binding.id()))
                     .count()
                     .flatMap(
                         others ->
-                            others + attaching.get() - 1 >= MAX_BINDINGS
+                            others + attaching.get() - 1 >= maxAttachments
                                 ? Mono.error(
                                     new ConflictException(
-                                        "At most " + MAX_BINDINGS + " supervisors can be attached"))
+                                        "At most " + maxAttachments + " attachments are allowed"))
                                 : Mono.just(profile)))
         .doOnNext(
             profile -> {
@@ -388,7 +403,7 @@ public class SupervisorService {
             })
         .then(
             store
-                .saveBinding(binding)
+                .saveAttachment(binding)
                 .onErrorResume(error -> rollback(binding.id()).then(Mono.error(error))))
         .then(
             audited(true, "AttachSupervisor(" + binding.id() + ", " + binding.scope().key() + ")"))
@@ -398,7 +413,7 @@ public class SupervisorService {
   /** Puts the host back to what the store holds for a binding when saving it failed. */
   private Mono<Void> rollback(final String bindingId) {
     return store
-        .bindings()
+        .attachments()
         .filter(existing -> existing.id().equals(bindingId))
         .next()
         .map(Optional::of)
@@ -406,12 +421,12 @@ public class SupervisorService {
         .flatMap(
             previous ->
                 previous
-                    .filter(SupervisorBinding::enabled)
+                    .filter(SupervisorAttachment::enabled)
                     .map(
                         enabled ->
                             store
-                                .profiles()
-                                .filter(profile -> profile.id().equals(enabled.profileId()))
+                                .supervisors()
+                                .filter(profile -> profile.id().equals(enabled.supervisorId()))
                                 .next()
                                 .doOnNext(profile -> start(enabled, profile))
                                 .then())
@@ -427,7 +442,7 @@ public class SupervisorService {
    */
   public Mono<Void> detach(final String bindingId) {
     return Mono.fromSupplier(() -> host.detach(bindingId))
-        .then(store.deleteBinding(bindingId))
+        .then(store.deleteAttachment(bindingId))
         .flatMap(
             existed ->
                 existed
@@ -443,13 +458,13 @@ public class SupervisorService {
    */
   public Mono<Void> removeForSession(final String sessionId) {
     return store
-        .bindings()
+        .attachments()
         .filter(binding -> sessionId.equals(binding.scope().sessionId()))
         .concatMap(binding -> detach(binding.id()))
         .then();
   }
 
-  private SupervisorFactory factory(final SupervisorProfile profile) {
+  private SupervisorFactory factory(final Supervisor profile) {
     final SupervisorFactory factory = factories.get(profile.type());
     if (factory == null) {
       throw new IllegalArgumentException(
@@ -459,7 +474,7 @@ public class SupervisorService {
   }
 
   /** A stored binding with a bad id is skipped with a warning; the migration renames such ids. */
-  private static boolean validStoredId(final SupervisorBinding binding) {
+  private static boolean validStoredId(final SupervisorAttachment binding) {
     final boolean valid = SupervisorIds.isValid(binding.id());
     if (!valid) {
       log.atWarn()
@@ -469,7 +484,7 @@ public class SupervisorService {
     return valid;
   }
 
-  private void validate(final SupervisorProfile profile) {
+  private void validate(final Supervisor profile) {
     SupervisorIds.validate(profile.id(), "profile id");
     checkSettings(profile);
     factory(profile).validate(profile);
@@ -477,7 +492,7 @@ public class SupervisorService {
   }
 
   /** Refuses settings that are not in the type's schema or the common one. */
-  private void checkSettings(final SupervisorProfile profile) {
+  private void checkSettings(final Supervisor profile) {
     SupervisorSettingsValidator.check(profile.settings(), factory(profile).getConfigSchema());
   }
 
@@ -519,15 +534,15 @@ public class SupervisorService {
   }
 
   /** What the profile lets its supervisor do; an unknown command name is refused. */
-  private SupervisorCapabilities capabilities(final SupervisorProfile profile) {
+  private SupervisorCapabilities capabilities(final Supervisor profile) {
     return SupervisorCapabilities.from(profile, factory(profile).defaultAllowedCommands());
   }
 
-  private ExecutionSupervisor create(final SupervisorProfile profile) {
+  private ExecutionSupervisor create(final Supervisor profile) {
     return factory(profile).create(profile);
   }
 
-  private void start(final SupervisorBinding binding, final SupervisorProfile profile) {
+  private void start(final SupervisorAttachment binding, final Supervisor profile) {
     final ExecutionSupervisor made = create(profile);
     if (made instanceof WorkflowSupervisor workflow) {
       workflow.bindTo(binding.id());

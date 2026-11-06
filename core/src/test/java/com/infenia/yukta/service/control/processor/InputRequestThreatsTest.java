@@ -9,7 +9,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.Audience;
@@ -81,7 +81,7 @@ class InputRequestThreatsTest {
         .thenReturn(
             Optional.of(
                 new BoundSupervisor(
-                    new SupervisorBinding(id, "p", scope, true),
+                    new SupervisorAttachment(id, "p", scope, true),
                     mock(ExecutionSupervisor.class),
                     false,
                     new SupervisorCapabilities(null, canAnswer, max))));

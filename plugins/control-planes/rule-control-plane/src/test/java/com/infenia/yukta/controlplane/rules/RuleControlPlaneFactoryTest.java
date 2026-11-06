@@ -5,9 +5,9 @@ package com.infenia.yukta.controlplane.rules;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.supervisor.rules.RuleSupervisor;
 import java.util.List;
 import java.util.Map;
@@ -22,8 +22,8 @@ class RuleControlPlaneFactoryTest {
 
   private final RuleControlPlaneFactory factory = new RuleControlPlaneFactory();
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", RuleControlPlaneFactory.PROFILE_TYPE, settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", RuleControlPlaneFactory.PROFILE_TYPE, settings, false);
   }
 
   @Test

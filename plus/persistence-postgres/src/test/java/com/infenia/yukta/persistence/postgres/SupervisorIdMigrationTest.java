@@ -75,7 +75,7 @@ class SupervisorIdMigrationTest extends PostgresTestSupport {
       binding(connection, "two words", "ok");
     }
 
-    assertThat(flywayFor(SCHEMA).load().migrate().success).isTrue();
+    assertThat(flywayFor(SCHEMA).target("8").load().migrate().success).isTrue();
 
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
@@ -112,6 +112,20 @@ class SupervisorIdMigrationTest extends PostgresTestSupport {
                   "SELECT conname FROM pg_constraint WHERE conrelid ="
                       + " 'supervisor_binding'::regclass AND contype = 'f'"))
           .containsExactly("supervisor_binding_profile_id_fkey");
+    }
+    // V10 renames the tables and keeps the rows, all of them MANUAL
+    assertThat(flywayFor(SCHEMA).load().migrate().success).isTrue();
+    try (Connection connection = jdbc();
+        Statement statement = connection.createStatement()) {
+      statement.execute("SET search_path TO " + SCHEMA);
+      assertThat(column(statement, "SELECT id FROM supervisor ORDER BY id")).hasSize(5);
+      assertThat(
+              column(
+                  statement,
+                  "SELECT id || '>' || supervisor_id || '>' || source || '>' ||"
+                      + " coalesce(origin_session_id, '-') FROM supervisor_attachment ORDER BY id"))
+          .containsExactly(
+              "fine>a_b-2>MANUAL>-", "key_admin>key_admin>MANUAL>-", "two_words>ok>MANUAL>-");
     }
     // nothing more to do on a second run
     assertThat(flywayFor(SCHEMA).load().migrate().migrationsExecuted).isZero();

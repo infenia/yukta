@@ -12,7 +12,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -231,7 +231,7 @@ class CompositeSupervisorTest {
   }
 
   private static CompositeSettings settings(final Map<String, Object> map) {
-    return CompositeSettings.read(new SupervisorProfile("p", "composite", map, false));
+    return CompositeSettings.read(new Supervisor("p", "composite", map, false));
   }
 
   @Test
@@ -243,15 +243,15 @@ class CompositeSupervisorTest {
     final var factories = new StaticListableBeanFactory();
     final CompositeSupervisorFactory factory =
         new CompositeSupervisorFactory(factoryProvider(resolver));
-    final SupervisorProfile a = comp("a", "b");
-    final SupervisorProfile b = comp("b", "a");
+    final Supervisor a = comp("a", "b");
+    final Supervisor b = comp("b", "a");
     resolver.refresh(List.of(a, b));
     assertThatThrownBy(() -> factory.create(a)).hasMessageContaining("cycle");
 
-    final SupervisorProfile d1 = comp("d1", "d2");
-    final SupervisorProfile d2 = comp("d2", "d3");
-    final SupervisorProfile d3 = comp("d3", "d4");
-    final SupervisorProfile d4 = comp("d4", "leaf");
+    final Supervisor d1 = comp("d1", "d2");
+    final Supervisor d2 = comp("d2", "d3");
+    final Supervisor d3 = comp("d3", "d4");
+    final Supervisor d4 = comp("d4", "leaf");
     resolver.refresh(List.of(d1, d2, d3, d4));
     assertThatThrownBy(() -> factory.create(d1)).hasMessageContaining("nest at most");
 
@@ -262,8 +262,8 @@ class CompositeSupervisorTest {
     assertThat(resolver.compositesUsing("ghost")).containsExactly("x");
   }
 
-  private static SupervisorProfile comp(final String id, final String child) {
-    return new SupervisorProfile(
+  private static Supervisor comp(final String id, final String child) {
+    return new Supervisor(
         id, "composite", Map.of("mode", "PARALLEL", "children", List.of(child)), false);
   }
 

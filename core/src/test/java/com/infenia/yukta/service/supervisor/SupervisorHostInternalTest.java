@@ -10,7 +10,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -87,7 +87,7 @@ class SupervisorHostInternalTest {
       final boolean observe) {
     created.attach(
         new BoundSupervisor(
-            new SupervisorBinding("b", "p", scope, true),
+            new SupervisorAttachment("b", "p", scope, true),
             watcher(seen),
             false,
             new SupervisorCapabilities(null, false, InputRisk.LOW),
@@ -154,7 +154,7 @@ class SupervisorHostInternalTest {
     attach(created, global, new SupervisorScope.Global(), true);
     created.attach(
         new BoundSupervisor(
-            new SupervisorBinding("b2", "p", new SupervisorScope.Session("sys"), true),
+            new SupervisorAttachment("b2", "p", new SupervisorScope.Session("sys"), true),
             watcher(named),
             false,
             new SupervisorCapabilities(null, false, InputRisk.LOW),

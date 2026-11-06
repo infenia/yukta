@@ -7,7 +7,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
  * @param observeInternal whether it also sees the events of the internal session its scope names
  */
 public record BoundSupervisor(
-    SupervisorBinding binding,
+    SupervisorAttachment binding,
     ExecutionSupervisor delegate,
     boolean dryRun,
     SupervisorCapabilities capabilities,
@@ -41,7 +41,7 @@ public record BoundSupervisor(
    * @param capabilities which commands it may send and whether it may answer input requests
    */
   public BoundSupervisor(
-      final SupervisorBinding binding,
+      final SupervisorAttachment binding,
       final ExecutionSupervisor delegate,
       final boolean dryRun,
       final SupervisorCapabilities capabilities) {
@@ -56,7 +56,9 @@ public record BoundSupervisor(
    * @param dryRun whether its commands are only recorded
    */
   public BoundSupervisor(
-      final SupervisorBinding binding, final ExecutionSupervisor delegate, final boolean dryRun) {
+      final SupervisorAttachment binding,
+      final ExecutionSupervisor delegate,
+      final boolean dryRun) {
     this(binding, delegate, dryRun, new SupervisorCapabilities(null, false, InputRisk.LOW));
   }
 

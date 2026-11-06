@@ -6,7 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.List;
@@ -25,15 +25,13 @@ class WorkflowSupervisorChecksTest {
   private final WorkflowSupervisorChecks checks =
       new WorkflowSupervisorChecks(internal, definitions);
 
-  private static SupervisorProfile profile() {
-    return new SupervisorProfile(
-        "p", "workflow", Map.of("sessionId", "sys", "workflowId", "wf"), false);
+  private static Supervisor profile() {
+    return new Supervisor("p", "workflow", Map.of("sessionId", "sys", "workflowId", "wf"), false);
   }
 
   @Test
   void otherTypesPass() {
-    StepVerifier.create(
-            checks.check(new SupervisorProfile("p", "rule-supervisor", Map.of(), false)))
+    StepVerifier.create(checks.check(new Supervisor("p", "rule-supervisor", Map.of(), false)))
         .verifyComplete();
   }
 

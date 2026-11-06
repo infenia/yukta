@@ -8,7 +8,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -42,7 +42,7 @@ class ActorResolverTest {
         .thenReturn(
             Optional.of(
                 new BoundSupervisor(
-                    new SupervisorBinding(id, "p", new SupervisorScope.Session("s1"), true),
+                    new SupervisorAttachment(id, "p", new SupervisorScope.Session("s1"), true),
                     mock(ExecutionSupervisor.class),
                     false,
                     new SupervisorCapabilities(null, canAnswer, InputRisk.MEDIUM))));

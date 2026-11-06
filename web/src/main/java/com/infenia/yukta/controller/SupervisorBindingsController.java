@@ -3,8 +3,8 @@
 package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
@@ -136,7 +136,7 @@ public class SupervisorBindingsController {
   @Operation(summary = "List supervisor profiles")
   public Mono<ApiResponse<List<ProfileBody>>> profiles() {
     return service
-        .profiles()
+        .supervisors()
         .map(this::view)
         .collectList()
         .map(list -> ApiResponse.success(200, "Profiles retrieved", list));
@@ -155,16 +155,16 @@ public class SupervisorBindingsController {
     return Mono.fromSupplier(() -> profile(required("id", body.id()), body)).flatMap(this::create);
   }
 
-  private Mono<ApiResponse<ProfileBody>> create(final SupervisorProfile profile) {
+  private Mono<ApiResponse<ProfileBody>> create(final Supervisor profile) {
     return service
-        .profiles()
+        .supervisors()
         .filter(existing -> existing.id().equals(profile.id()))
         .hasElements()
         .flatMap(
             exists ->
                 exists
                     ? Mono.error(new ConflictException("Profile exists: " + profile.id()))
-                    : service.saveProfile(profile))
+                    : service.saveSupervisor(profile))
         .map(saved -> ApiResponse.success(201, "Profile created", view(saved)));
   }
 
@@ -181,16 +181,15 @@ public class SupervisorBindingsController {
   public Mono<ApiResponse<ProfileBody>> replaceProfile(
       @PathVariable final String id, @RequestBody final ProfileBody body) {
     return service
-        .profiles()
+        .supervisors()
         .filter(existing -> existing.id().equals(id))
         .next()
         .map(existing -> keepHidden(body.settings(), existing.settings()))
         .defaultIfEmpty(body.settings())
         .flatMap(
             settings ->
-                service.saveProfile(
-                    new SupervisorProfile(
-                        id, required("type", body.type()), settings, body.dryRun())))
+                service.saveSupervisor(
+                    new Supervisor(id, required("type", body.type()), settings, body.dryRun())))
         .map(saved -> ApiResponse.success(200, "Profile saved", view(saved)));
   }
 
@@ -202,9 +201,9 @@ public class SupervisorBindingsController {
    */
   @DeleteMapping("/profiles/{id}")
   @Operation(summary = "Delete a supervisor profile")
-  public Mono<ApiResponse<Void>> deleteProfile(@PathVariable final String id) {
+  public Mono<ApiResponse<Void>> deleteSupervisor(@PathVariable final String id) {
     return service
-        .deleteProfile(id)
+        .deleteSupervisor(id)
         .then(Mono.fromSupplier(() -> ApiResponse.success(200, "Profile deleted", null)));
   }
 
@@ -217,7 +216,7 @@ public class SupervisorBindingsController {
   @Operation(summary = "List supervisor bindings")
   public Mono<ApiResponse<List<BindingBody>>> bindings() {
     return service
-        .bindings()
+        .attachments()
         .map(SupervisorBindingsController::view)
         .collectList()
         .map(list -> ApiResponse.success(200, "Bindings retrieved", list));
@@ -240,7 +239,7 @@ public class SupervisorBindingsController {
   public Mono<ApiResponse<BindingBody>> attach(@RequestBody final BindingBody body) {
     return Mono.fromSupplier(
             () ->
-                new SupervisorBinding(
+                new SupervisorAttachment(
                     body.id() == null || body.id().isBlank()
                         ? UUID.randomUUID().toString()
                         : body.id(),
@@ -285,8 +284,8 @@ public class SupervisorBindingsController {
         .then(Mono.fromSupplier(() -> ApiResponse.success(200, "Supervisor detached", null)));
   }
 
-  private static SupervisorProfile profile(final String id, final ProfileBody body) {
-    return new SupervisorProfile(id, required("type", body.type()), body.settings(), body.dryRun());
+  private static Supervisor profile(final String id, final ProfileBody body) {
+    return new Supervisor(id, required("type", body.type()), body.settings(), body.dryRun());
   }
 
   /** A missing or blank field is a client error, not a server one. */
@@ -298,7 +297,7 @@ public class SupervisorBindingsController {
   }
 
   /** The profile as shown: values under secret-looking keys and SECRET schema fields are hidden. */
-  private ProfileBody view(final SupervisorProfile profile) {
+  private ProfileBody view(final Supervisor profile) {
     return new ProfileBody(
         profile.id(),
         profile.type(),
@@ -306,9 +305,9 @@ public class SupervisorBindingsController {
         profile.dryRun());
   }
 
-  private static BindingBody view(final SupervisorBinding binding) {
+  private static BindingBody view(final SupervisorAttachment binding) {
     return new BindingBody(
-        binding.id(), binding.profileId(), binding.scope().key(), binding.enabled());
+        binding.id(), binding.supervisorId(), binding.scope().key(), binding.enabled());
   }
 
   /** Puts the stored value back where the incoming settings carry the hidden marker. */

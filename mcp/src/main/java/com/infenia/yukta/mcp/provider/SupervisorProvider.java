@@ -5,7 +5,7 @@ package com.infenia.yukta.mcp.provider;
 import com.infenia.yukta.mcp.dto.SupervisorBindingInfo;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
@@ -32,7 +32,7 @@ public class SupervisorProvider {
    */
   public Mono<SupervisorListing> list() {
     return service
-        .bindings()
+        .attachments()
         .map(SupervisorProvider::info)
         .collectList()
         .map(
@@ -71,7 +71,7 @@ public class SupervisorProvider {
       final String profileId, final String scope, final Boolean enabled, final String bindingId) {
     return Mono.fromSupplier(
             () ->
-                new SupervisorBinding(
+                new SupervisorAttachment(
                     bindingId == null || bindingId.isBlank()
                         ? UUID.randomUUID().toString()
                         : bindingId.strip(),
@@ -92,8 +92,8 @@ public class SupervisorProvider {
     return service.detach(bindingId).thenReturn(new SupervisorDetached(bindingId, true));
   }
 
-  private static SupervisorBindingInfo info(final SupervisorBinding binding) {
+  private static SupervisorBindingInfo info(final SupervisorAttachment binding) {
     return new SupervisorBindingInfo(
-        binding.id(), binding.profileId(), binding.scope().key(), binding.enabled());
+        binding.id(), binding.supervisorId(), binding.scope().key(), binding.enabled());
   }
 }

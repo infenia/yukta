@@ -10,9 +10,9 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
-/** Tests for {@link SupervisorProfile}, {@link SupervisorBinding} and the text form of a scope. */
+/** Tests for {@link Supervisor}, {@link SupervisorAttachment} and the text form of a scope. */
 @NoArgsConstructor
-class SupervisorBindingTest {
+class SupervisorAttachmentTest {
 
   @Test
   void scopeKeysRoundTrip() {
@@ -36,29 +36,31 @@ class SupervisorBindingTest {
   @Test
   void profileKeepsAnImmutableCopyOfItsSettingsAndAllowsNullValues() {
     final Map<String, Object> settings = Collections.singletonMap("k", null);
-    final SupervisorProfile profile = new SupervisorProfile("p", "rule-supervisor", settings, true);
+    final Supervisor profile = new Supervisor("p", "rule-supervisor", settings, true);
 
     assertThat(profile.settings()).containsOnlyKeys("k");
     assertThatThrownBy(() -> profile.settings().put("x", 1))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThat(new SupervisorProfile("p", "t", null, false).settings()).isEmpty();
-    assertThatThrownBy(() -> new SupervisorProfile(null, "t", Map.of(), false))
+    assertThat(new Supervisor("p", "t", null, false).settings()).isEmpty();
+    assertThatThrownBy(() -> new Supervisor(null, "t", Map.of(), false))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(() -> new SupervisorProfile("p", null, Map.of(), false))
+    assertThatThrownBy(() -> new Supervisor("p", null, Map.of(), false))
         .isInstanceOf(NullPointerException.class);
   }
 
   @Test
   void bindingNeedsIdProfileAndScope() {
-    final SupervisorBinding binding =
-        new SupervisorBinding("b", "p", new SupervisorScope.Session("a"), true);
+    final SupervisorAttachment binding =
+        new SupervisorAttachment("b", "p", new SupervisorScope.Session("a"), true);
 
     assertThat(binding.enabled()).isTrue();
-    assertThatThrownBy(() -> new SupervisorBinding(null, "p", new SupervisorScope.Global(), true))
+    assertThatThrownBy(
+            () -> new SupervisorAttachment(null, "p", new SupervisorScope.Global(), true))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(() -> new SupervisorBinding("b", null, new SupervisorScope.Global(), true))
+    assertThatThrownBy(
+            () -> new SupervisorAttachment("b", null, new SupervisorScope.Global(), true))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(() -> new SupervisorBinding("b", "p", null, true))
+    assertThatThrownBy(() -> new SupervisorAttachment("b", "p", null, true))
         .isInstanceOf(NullPointerException.class);
   }
 }

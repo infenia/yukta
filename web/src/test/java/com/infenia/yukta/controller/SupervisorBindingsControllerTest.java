@@ -11,8 +11,8 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.controller.SupervisorBindingsController.BindingBody;
 import com.infenia.yukta.controller.SupervisorBindingsController.ProfileBody;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
@@ -41,8 +41,8 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void nullSettingsAreAcceptedAndNotShown() {
-    when(service.profiles()).thenReturn(Flux.empty());
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.supervisors()).thenReturn(Flux.empty());
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
             controller.replaceProfile(
@@ -73,9 +73,9 @@ class SupervisorBindingsControllerTest {
   @Test
   void fieldsTheTypeDeclaresSecretAreHiddenWhateverTheirName() {
     when(service.secretSettings("t")).thenReturn(java.util.Set.of("bearer"));
-    when(service.profiles())
+    when(service.supervisors())
         .thenReturn(
-            Flux.just(new SupervisorProfile("p", "t", Map.of("bearer", "abc", "url", "u"), false)));
+            Flux.just(new Supervisor("p", "t", Map.of("bearer", "abc", "url", "u"), false)));
 
     StepVerifier.create(controller.profiles())
         .assertNext(
@@ -92,8 +92,8 @@ class SupervisorBindingsControllerTest {
             "apiKey", "sk-123",
             "model", "m",
             "nested", Map.of("password", "pw", "url", "http://x"));
-    when(service.profiles())
-        .thenReturn(Flux.just(new SupervisorProfile("p", "model-control-plane", settings, true)));
+    when(service.supervisors())
+        .thenReturn(Flux.just(new Supervisor("p", "model-control-plane", settings, true)));
 
     StepVerifier.create(controller.profiles())
         .assertNext(
@@ -110,15 +110,14 @@ class SupervisorBindingsControllerTest {
   @Test
   void profileIsCreatedUnlessItsIdExists() {
     final ProfileBody body = new ProfileBody("p", "t", Map.of("k", "v"), false);
-    when(service.profiles()).thenReturn(Flux.empty());
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.supervisors()).thenReturn(Flux.empty());
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(controller.createProfile(body))
         .assertNext(r -> assertThat(r.status()).isEqualTo(201))
         .verifyComplete();
 
-    when(service.profiles())
-        .thenReturn(Flux.just(new SupervisorProfile("p", "t", Map.of(), false)));
+    when(service.supervisors()).thenReturn(Flux.just(new Supervisor("p", "t", Map.of(), false)));
     StepVerifier.create(controller.createProfile(body))
         .expectError(ConflictException.class)
         .verify();
@@ -126,8 +125,8 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void replacingProfileUsesThePathId() {
-    when(service.profiles()).thenReturn(Flux.empty());
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.supervisors()).thenReturn(Flux.empty());
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(controller.replaceProfile("p", new ProfileBody("ignored", "t", null, true)))
         .assertNext(r -> assertThat(r.data().id()).isEqualTo("p"))
@@ -136,20 +135,18 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void replacingProfileKeepsTheStoredSecretBehindMask() {
-    when(service.profiles())
+    when(service.supervisors())
         .thenReturn(
-            Flux.just(
-                new SupervisorProfile("p", "t", Map.of("apiKey", "sk-1", "model", "a"), false)));
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+            Flux.just(new Supervisor("p", "t", Map.of("apiKey", "sk-1", "model", "a"), false)));
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
             controller.replaceProfile(
                 "p", new ProfileBody("p", "t", Map.of("apiKey", "***", "model", "b"), false)))
         .expectNextCount(1)
         .verifyComplete();
-    final ArgumentCaptor<SupervisorProfile> saved =
-        ArgumentCaptor.forClass(SupervisorProfile.class);
-    verify(service).saveProfile(saved.capture());
+    final ArgumentCaptor<Supervisor> saved = ArgumentCaptor.forClass(Supervisor.class);
+    verify(service).saveSupervisor(saved.capture());
     assertThat(saved.getValue().settings())
         .containsEntry("apiKey", "sk-1")
         .containsEntry("model", "b");
@@ -157,12 +154,12 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void replacingRestoresNestedSecretsAndKeepsMaskWithNothingBehindIt() {
-    when(service.profiles())
+    when(service.supervisors())
         .thenReturn(
             Flux.just(
-                new SupervisorProfile(
+                new Supervisor(
                     "p", "t", Map.of("auth", Map.of("password", "pw"), "flat", "x"), false)));
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
             controller.replaceProfile(
@@ -182,9 +179,8 @@ class SupervisorBindingsControllerTest {
                     false)))
         .expectNextCount(1)
         .verifyComplete();
-    final ArgumentCaptor<SupervisorProfile> saved =
-        ArgumentCaptor.forClass(SupervisorProfile.class);
-    verify(service).saveProfile(saved.capture());
+    final ArgumentCaptor<Supervisor> saved = ArgumentCaptor.forClass(Supervisor.class);
+    verify(service).saveSupervisor(saved.capture());
     assertThat(saved.getValue().settings())
         .containsEntry("auth", Map.of("password", "pw", "user", "u"))
         .containsEntry("flat", Map.of("token", "***"))
@@ -194,10 +190,10 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void secretsInsideListsAreHidden() {
-    when(service.profiles())
+    when(service.supervisors())
         .thenReturn(
             Flux.just(
-                new SupervisorProfile(
+                new Supervisor(
                     "p",
                     "t",
                     Map.of("targets", List.of(Map.of("token", "abc", "url", "u"))),
@@ -223,16 +219,16 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void deletingProfileAndBindingDelegates() {
-    when(service.deleteProfile("p")).thenReturn(Mono.empty());
+    when(service.deleteSupervisor("p")).thenReturn(Mono.empty());
     when(service.detach("b")).thenReturn(Mono.empty());
 
-    StepVerifier.create(controller.deleteProfile("p"))
+    StepVerifier.create(controller.deleteSupervisor("p"))
         .assertNext(r -> assertThat(r.status()).isEqualTo(200))
         .verifyComplete();
     StepVerifier.create(controller.detach("b"))
         .assertNext(r -> assertThat(r.status()).isEqualTo(200))
         .verifyComplete();
-    verify(service).deleteProfile("p");
+    verify(service).deleteSupervisor("p");
     verify(service).detach("b");
   }
 
@@ -250,13 +246,14 @@ class SupervisorBindingsControllerTest {
             })
         .verifyComplete();
 
-    final ArgumentCaptor<SupervisorBinding> sent = ArgumentCaptor.forClass(SupervisorBinding.class);
+    final ArgumentCaptor<SupervisorAttachment> sent =
+        ArgumentCaptor.forClass(SupervisorAttachment.class);
     StepVerifier.create(controller.attach(new BindingBody("b1", "p", "session:A", false)))
         .expectNextCount(1)
         .verifyComplete();
     verify(service, org.mockito.Mockito.times(2)).attach(sent.capture());
     assertThat(sent.getValue())
-        .isEqualTo(new SupervisorBinding("b1", "p", new SupervisorScope.Session("A"), false));
+        .isEqualTo(new SupervisorAttachment("b1", "p", new SupervisorScope.Session("A"), false));
   }
 
   @Test
@@ -290,8 +287,9 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void bindingsAreListedWithTheirScopeText() {
-    when(service.bindings())
-        .thenReturn(Flux.just(new SupervisorBinding("b", "p", new SupervisorScope.Global(), true)));
+    when(service.attachments())
+        .thenReturn(
+            Flux.just(new SupervisorAttachment("b", "p", new SupervisorScope.Global(), true)));
 
     StepVerifier.create(controller.bindings())
         .assertNext(
@@ -318,16 +316,16 @@ class SupervisorBindingsControllerTest {
 
   @Test
   void hiddenSecretKeepsItsStoredValueWhenProfileIsSavedAgain() {
-    when(service.profiles())
+    when(service.supervisors())
         .thenReturn(
             Flux.just(
-                new SupervisorProfile(
+                new Supervisor(
                     "p",
                     "model-control-plane",
                     Map.of(
                         "apiKey", "sk-real", "model", "old", "nested", Map.of("token", "tk-real")),
                     false)));
-    when(service.saveProfile(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(
             controller.replaceProfile(
@@ -345,9 +343,8 @@ class SupervisorBindingsControllerTest {
         .expectNextCount(1)
         .verifyComplete();
 
-    final ArgumentCaptor<SupervisorProfile> saved =
-        ArgumentCaptor.forClass(SupervisorProfile.class);
-    verify(service).saveProfile(saved.capture());
+    final ArgumentCaptor<Supervisor> saved = ArgumentCaptor.forClass(Supervisor.class);
+    verify(service).saveSupervisor(saved.capture());
     assertThat(saved.getValue().settings())
         .containsEntry("apiKey", "sk-real")
         .containsEntry("model", "new")

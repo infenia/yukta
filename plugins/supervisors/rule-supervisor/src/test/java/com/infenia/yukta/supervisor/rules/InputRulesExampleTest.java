@@ -8,7 +8,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.input.InputRisk;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -25,18 +25,18 @@ import tools.jackson.databind.json.JsonMapper;
 @NoArgsConstructor
 class InputRulesExampleTest {
 
-  private static SupervisorProfile example() throws IOException {
+  private static Supervisor example() throws IOException {
     final Path file =
         Path.of(
             Objects.requireNonNull(
                 System.getProperty("yukta.example.input-rules"),
                 "the build passes the example path"));
-    return JsonMapper.builder().build().readValue(Files.readString(file), SupervisorProfile.class);
+    return JsonMapper.builder().build().readValue(Files.readString(file), Supervisor.class);
   }
 
   @Test
   void exampleProfileApprovesLowRiskStagingAndEscalatesTheRest() throws IOException {
-    final SupervisorProfile profile = example();
+    final Supervisor profile = example();
     final ExecutionSupervisor supervisor = new RuleSupervisorFactory().create(profile);
 
     final List<ExecutionControlCommand> commands =

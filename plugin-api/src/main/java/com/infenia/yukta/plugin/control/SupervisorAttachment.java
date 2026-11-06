@@ -1,0 +1,53 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.plugin.control;
+
+import java.util.Objects;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Attaches a {@link Supervisor} to a scope: the supervisor watches and may veto only the runs
+ * within the scope.
+ *
+ * @param id the attachment id, unique; it is the supervisor's id in audit entries
+ * @param supervisorId the supervisor to run
+ * @param scope the runs to supervise
+ * @param enabled whether the supervisor runs; a disabled attachment is kept but not started
+ * @param source who made it
+ * @param originSessionId for {@link SupervisorSource#DEFINITION}, the session that declared it
+ * @param originWorkflowId for {@link SupervisorSource#DEFINITION}, the workflow that declared it,
+ *     if any
+ */
+public record SupervisorAttachment(
+    String id,
+    String supervisorId,
+    SupervisorScope scope,
+    boolean enabled,
+    SupervisorSource source,
+    @Nullable String originSessionId,
+    @Nullable String originWorkflowId) {
+
+  /** Rejects missing parts. */
+  public SupervisorAttachment {
+    Objects.requireNonNull(id, "id");
+    Objects.requireNonNull(supervisorId, "supervisorId");
+    Objects.requireNonNull(scope, "scope");
+    Objects.requireNonNull(source, "source");
+  }
+
+  /**
+   * A manual attachment, which is how attachments were made before they had a source.
+   *
+   * @param id the attachment id
+   * @param supervisorId the supervisor to run
+   * @param scope the runs to supervise
+   * @param enabled whether the supervisor runs
+   */
+  public SupervisorAttachment(
+      final String id,
+      final String supervisorId,
+      final SupervisorScope scope,
+      final boolean enabled) {
+    this(id, supervisorId, scope, enabled, SupervisorSource.MANUAL, null, null);
+  }
+}

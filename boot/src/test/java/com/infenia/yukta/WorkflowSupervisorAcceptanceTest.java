@@ -10,8 +10,8 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputState;
@@ -108,16 +108,16 @@ class WorkflowSupervisorAcceptanceTest {
                 example.workflows()))
         .block(WAIT);
 
-    final SupervisorProfile exampleProfile =
-        JSON.readValue(Files.readString(EXAMPLE.resolve("profile.json")), SupervisorProfile.class);
+    final Supervisor exampleProfile =
+        JSON.readValue(Files.readString(EXAMPLE.resolve("profile.json")), Supervisor.class);
     final Map<String, Object> settings = new HashMap<>(exampleProfile.settings());
     settings.put("sessionId", internal);
     supervisors
-        .saveProfile(new SupervisorProfile(profileId, exampleProfile.type(), settings, false))
+        .saveSupervisor(new Supervisor(profileId, exampleProfile.type(), settings, false))
         .block(WAIT);
     supervisors
         .attach(
-            new SupervisorBinding(profileId, profileId, new SupervisorScope.Session(user), true))
+            new SupervisorAttachment(profileId, profileId, new SupervisorScope.Session(user), true))
         .block(WAIT);
     try {
       final String low = ask(user, "LOW");

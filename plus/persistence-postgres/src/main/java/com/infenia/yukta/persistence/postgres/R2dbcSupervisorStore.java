@@ -2,9 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
@@ -18,9 +19,9 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
- * Supervisor profiles and bindings in PostgreSQL (tables {@code supervisor_profile} and {@code
- * supervisor_binding}, migrations V7 and V8), so supervisors attached at run time come back after a
- * restart. Profile settings are stored as given, a model API key included.
+ * Supervisors and attachments in PostgreSQL (tables {@code supervisor} and {@code
+ * supervisor_attachment}, migrations V7, V8 and V10), so supervisors attached at run time come back
+ * after a restart. Settings are stored as given, a model API key included.
  */
 @Slf4j
 public class R2dbcSupervisorStore implements SupervisorStore {
@@ -80,48 +81,50 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   }
 
   @Override
-  public Flux<SupervisorProfile> profiles() {
+  public Flux<Supervisor> supervisors() {
     return client
         .sql(
-            "SELECT id, type, CAST(settings AS text) AS settings, dry_run FROM supervisor_profile"
-                + " ORDER BY id")
+            "SELECT id, type, CAST(settings AS text) AS settings, dry_run, description FROM"
+                + " supervisor ORDER BY id")
         .map(
             row ->
-                new SupervisorProfile(
+                new Supervisor(
                     row.get("id", String.class),
                     row.get("type", String.class),
                     mapper.readValue(row.get("settings", String.class), SETTINGS),
-                    Boolean.TRUE.equals(row.get("dry_run", Boolean.class))))
+                    Boolean.TRUE.equals(row.get("dry_run", Boolean.class)),
+                    row.get("description", String.class)))
         .all();
   }
 
   @Override
-  public Mono<Void> saveProfile(final SupervisorProfile profile) {
+  public Mono<Void> saveSupervisor(final Supervisor profile) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(profile.settings()))
         .flatMap(
             settings ->
                 client
                     .sql(
                         """
-                        INSERT INTO supervisor_profile (id, type, settings, dry_run, updated_at)
-                        VALUES (:id, :type, CAST(:settings AS jsonb), :dry, now())
+                        INSERT INTO supervisor (id, type, settings, dry_run, description, updated_at)
+                        VALUES (:id, :type, CAST(:settings AS jsonb), :dry, :description, now())
                         ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type,
                           settings = EXCLUDED.settings, dry_run = EXCLUDED.dry_run,
-                          updated_at = now()
+                          description = EXCLUDED.description, updated_at = now()
                         """)
                     .bind("id", profile.id())
                     .bind("type", profile.type())
                     .bind("settings", settings)
                     .bind("dry", profile.dryRun())
+                    .bind("description", nullable(profile.description()))
                     .fetch()
                     .rowsUpdated())
         .then();
   }
 
   @Override
-  public Mono<Boolean> deleteProfile(final String id) {
+  public Mono<Boolean> deleteSupervisor(final String id) {
     return client
-        .sql("DELETE FROM supervisor_profile WHERE id = :id")
+        .sql("DELETE FROM supervisor WHERE id = :id")
         .bind("id", id)
         .fetch()
         .rowsUpdated()
@@ -129,45 +132,62 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   }
 
   @Override
-  public Flux<SupervisorBinding> bindings() {
+  public Flux<SupervisorAttachment> attachments() {
     return client
-        .sql("SELECT id, profile_id, scope, enabled FROM supervisor_binding ORDER BY id")
+        .sql(
+            "SELECT id, supervisor_id, scope, enabled, source, origin_session_id,"
+                + " origin_workflow_id FROM supervisor_attachment ORDER BY id")
         .map(
             row ->
-                new SupervisorBinding(
+                new SupervisorAttachment(
                     row.get("id", String.class),
-                    row.get("profile_id", String.class),
+                    row.get("supervisor_id", String.class),
                     SupervisorScope.parse(row.get("scope", String.class)),
-                    Boolean.TRUE.equals(row.get("enabled", Boolean.class))))
+                    Boolean.TRUE.equals(row.get("enabled", Boolean.class)),
+                    SupervisorSource.valueOf(row.get("source", String.class)),
+                    row.get("origin_session_id", String.class),
+                    row.get("origin_workflow_id", String.class)))
         .all();
   }
 
   @Override
-  public Mono<Void> saveBinding(final SupervisorBinding binding) {
+  public Mono<Void> saveAttachment(final SupervisorAttachment binding) {
     return client
         .sql(
             """
-            INSERT INTO supervisor_binding (id, profile_id, scope, enabled, updated_at)
-            VALUES (:id, :profile, :scope, :enabled, now())
-            ON CONFLICT (id) DO UPDATE SET profile_id = EXCLUDED.profile_id,
-              scope = EXCLUDED.scope, enabled = EXCLUDED.enabled, updated_at = now()
+            INSERT INTO supervisor_attachment (id, supervisor_id, scope, enabled, source,
+              origin_session_id, origin_workflow_id, updated_at)
+            VALUES (:id, :supervisor, :scope, :enabled, :source, :originSession,
+              :originWorkflow, now())
+            ON CONFLICT (id) DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id,
+              scope = EXCLUDED.scope, enabled = EXCLUDED.enabled, source = EXCLUDED.source,
+              origin_session_id = EXCLUDED.origin_session_id,
+              origin_workflow_id = EXCLUDED.origin_workflow_id, updated_at = now()
             """)
         .bind("id", binding.id())
-        .bind("profile", binding.profileId())
+        .bind("supervisor", binding.supervisorId())
         .bind("scope", binding.scope().key())
         .bind("enabled", binding.enabled())
+        .bind("source", binding.source().name())
+        .bind("originSession", nullable(binding.originSessionId()))
+        .bind("originWorkflow", nullable(binding.originWorkflowId()))
         .fetch()
         .rowsUpdated()
         .then();
   }
 
   @Override
-  public Mono<Boolean> deleteBinding(final String id) {
+  public Mono<Boolean> deleteAttachment(final String id) {
     return client
-        .sql("DELETE FROM supervisor_binding WHERE id = :id")
+        .sql("DELETE FROM supervisor_attachment WHERE id = :id")
         .bind("id", id)
         .fetch()
         .rowsUpdated()
         .map(rows -> rows > 0);
+  }
+
+  /** A text parameter that may be null, which R2DBC wants typed. */
+  private static Object nullable(final String value) {
+    return value == null ? io.r2dbc.spi.Parameters.in(String.class) : value;
   }
 }

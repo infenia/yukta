@@ -9,7 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.mcp.dto.SupervisorListing;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
@@ -57,9 +57,9 @@ class SupervisorProviderTest {
                     0,
                     0,
                     null)));
-    when(service.bindings())
+    when(service.attachments())
         .thenReturn(
-            Flux.just(new SupervisorBinding("b1", "p", new SupervisorScope.Session("A"), true)));
+            Flux.just(new SupervisorAttachment("b1", "p", new SupervisorScope.Session("A"), true)));
     when(service.types()).thenReturn(List.of("rule-supervisor"));
 
     StepVerifier.create(provider.list())
@@ -123,7 +123,8 @@ class SupervisorProviderTest {
             })
         .verifyComplete();
 
-    final ArgumentCaptor<SupervisorBinding> sent = ArgumentCaptor.forClass(SupervisorBinding.class);
+    final ArgumentCaptor<SupervisorAttachment> sent =
+        ArgumentCaptor.forClass(SupervisorAttachment.class);
     verify(service, org.mockito.Mockito.times(3)).attach(sent.capture());
     assertThat(sent.getAllValues().getFirst().scope())
         .isEqualTo(new SupervisorScope.Workflow("w", "A"));

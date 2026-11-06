@@ -42,7 +42,7 @@ class SupervisorCommonSettingsTest {
           }
 
           @Override
-          public ExecutionSupervisor create(final SupervisorProfile profile) {
+          public ExecutionSupervisor create(final Supervisor profile) {
             throw new UnsupportedOperationException();
           }
         };

@@ -9,9 +9,9 @@ import static org.mockito.Mockito.verify;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -51,7 +51,7 @@ class SupervisorServiceCapabilitiesTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final SupervisorProfile profile) {
+        public ExecutionSupervisor create(final Supervisor profile) {
           return new ExecutionSupervisor() {
             @Override
             @SuppressWarnings("PMD.ShortMethodName")
@@ -71,11 +71,12 @@ class SupervisorServiceCapabilitiesTest {
       new SupervisorService(store, List.of(factory), host, new InMemoryExecutionLogStore());
 
   private BoundSupervisor attachedWith(final Map<String, Object> settings) {
-    StepVerifier.create(service.saveProfile(new SupervisorProfile("p", TYPE, settings, false)))
+    StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, settings, false)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
-            service.attach(new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true)))
+            service.attach(
+                new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
     final ArgumentCaptor<BoundSupervisor> captor = ArgumentCaptor.forClass(BoundSupervisor.class);
@@ -111,8 +112,8 @@ class SupervisorServiceCapabilitiesTest {
   @Test
   void anUnknownCommandNameIsRefusedAtSaveAndNothingIsStored() {
     StepVerifier.create(
-            service.saveProfile(
-                new SupervisorProfile(
+            service.saveSupervisor(
+                new Supervisor(
                     "p", TYPE, Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
         .expectErrorSatisfies(
             error ->
@@ -122,7 +123,7 @@ class SupervisorServiceCapabilitiesTest {
                     .hasMessageContaining("NoSuchCommand"))
         .verify();
 
-    StepVerifier.create(store.profiles()).verifyComplete();
+    StepVerifier.create(store.supervisors()).verifyComplete();
   }
 
   @Test
@@ -130,7 +131,7 @@ class SupervisorServiceCapabilitiesTest {
     final AttachedSupervisors attached = new AttachedSupervisors();
     final BoundSupervisor bound =
         new BoundSupervisor(
-            new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             mock(ExecutionSupervisor.class),
             false);
     attached.put(bound);
@@ -155,7 +156,7 @@ class SupervisorServiceCapabilitiesTest {
       }
 
       @Override
-      public ExecutionSupervisor create(final SupervisorProfile profile) {
+      public ExecutionSupervisor create(final Supervisor profile) {
         return factory.create(profile);
       }
     };
@@ -166,7 +167,7 @@ class SupervisorServiceCapabilitiesTest {
     final SupervisorService declared =
         new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
     StepVerifier.create(
-            declared.saveProfile(new SupervisorProfile("p", TYPE, Map.of("bogus", 1), false)))
+            declared.saveSupervisor(new Supervisor("p", TYPE, Map.of("bogus", 1), false)))
         .expectErrorSatisfies(
             error ->
                 assertThat(((SettingsValidationException) error).getIssues())
@@ -174,20 +175,20 @@ class SupervisorServiceCapabilitiesTest {
                     .containsExactly("settings.bogus"))
         .verify();
 
-    StepVerifier.create(store.profiles()).verifyComplete();
+    StepVerifier.create(store.supervisors()).verifyComplete();
   }
 
   @Test
   void storedProfileThatNoLongerFitsItsSchemaIsSkippedOnRestore() {
-    final SupervisorProfile bad = new SupervisorProfile("bad", TYPE, Map.of("bogus", 1), false);
+    final Supervisor bad = new Supervisor("bad", TYPE, Map.of("bogus", 1), false);
     final SupervisorService declared =
         new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
     StepVerifier.create(
             store
-                .saveProfile(bad)
+                .saveSupervisor(bad)
                 .then(
-                    store.saveBinding(
-                        new SupervisorBinding("b1", "bad", new SupervisorScope.Global(), true))))
+                    store.saveAttachment(
+                        new SupervisorAttachment("b1", "bad", new SupervisorScope.Global(), true))))
         .verifyComplete();
 
     declared.restore();
