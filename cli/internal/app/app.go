@@ -15,8 +15,8 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/plugin"
 	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/scheduler"
-	"com.infenia.yukta/go-cli/internal/commands/supervisors"
 	"com.infenia.yukta/go-cli/internal/commands/session"
+	"com.infenia.yukta/go-cli/internal/commands/supervisors"
 	"com.infenia.yukta/go-cli/internal/commands/whoami"
 	"com.infenia.yukta/go-cli/internal/commands/workflow"
 )
