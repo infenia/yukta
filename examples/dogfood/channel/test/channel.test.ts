@@ -121,6 +121,9 @@ describe('exclusive channel', () => {
     const a = await r.post('/v1/events', { content: 'issue 7', meta: { issue: '7' } })
     const n = await r.post('/v1/events', { content: 'question', meta: { kind: 'input', request_id: 'r1', issue: '7' } })
     expect(n.status).toBe(202)
+    // the end of the run (kind result) is a notification too: the session still has to report the issue
+    expect((await r.post('/v1/events', { content: 'run ended', meta: { kind: 'result', issue: '7' } })).status).toBe(202)
+    expect((await r.post('/v1/events', { content: 'run ended', meta: { kind: 'result', issue: '8' } })).status).toBe(409)
     expect((await r.get('/v1/status')).body).toMatchObject({ busy: true, event_id: a.body.event_id })
     await r.client.callTool({ name: 'done', arguments: { event_id: a.body.event_id } })
     expect((await r.get('/v1/status')).body.busy).toBe(false)

@@ -1578,7 +1578,7 @@
           "config": {
             "prompt": "Approve the spec of run ${start.runId} (high risk)? spec/spec.json in ${start.run}",
             "kind": "APPROVAL",
-            "risk": "HIGH",
+            "risk": "MEDIUM",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -1605,7 +1605,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "a person rejected the spec"
+            "reason": "the spec was rejected"
           }
         },
         {
@@ -2763,7 +2763,7 @@
           "config": {
             "prompt": "Open the PR for run ${start.runId}? The change is on its branch, reviewed and green.",
             "kind": "APPROVAL",
-            "risk": "HIGH",
+            "risk": "MEDIUM",
             "ttlSeconds": 86400,
             "onTimeout": "FAIL",
             "route": "ticket",
@@ -2790,7 +2790,7 @@
           "type": "OUTCOME_TERMINAL",
           "config": {
             "outcome": "FAILED",
-            "reason": "a person declined the PR"
+            "reason": "the PR was declined"
           }
         },
         {

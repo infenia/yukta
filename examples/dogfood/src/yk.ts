@@ -467,6 +467,9 @@ async function cmdPickup(argv: string[]): Promise<number> {
         JSON.stringify({ mcpServers: { 'yukta-pickup': { command: 'bun', args: ['run', join(HERE, 'channel/src/main.ts')], env } } }),
         { mode: 0o600 },
       )
+      // without the bridge no question or end of a ticket run reaches the session
+      await ensureServer()
+      console.log(`bridge: pid ${(await import('./input-bridge.ts')).ensureBridge()} (log ${join(DEV_HOME, 'bridge.log')})`)
       const p = Bun.spawnSync(
         ['claude', '--name', name, '--mcp-config', cfg, '--dangerously-load-development-channels', 'server:yukta-pickup'],
         { cwd: REPO_ROOT, env: { ...process.env, YUKTA_MCP_KEY: 'session' }, stdio: ['inherit', 'inherit', 'inherit'] },
@@ -517,14 +520,24 @@ async function cmdPickup(argv: string[]): Promise<number> {
       }
       return (await import('./pickup.ts')).main(['list'])
     }
-    case 'bridge':
-      return (await import('./input-bridge.ts')).watch().then(() => 0)
+    case 'bridge': {
+      const b = await import('./input-bridge.ts')
+      if (!b.claimBridge()) {
+        console.log(`bridge: already running (pid ${b.bridgePid()})`)
+        return 0
+      }
+      return b.watch().then(() => 0)
+    }
     case 'status': {
       let e: string
       if (await pickupAlive()) e = `on (execution ${text(join(DEV_HOME, 'pickup.exec')).trim()})`
       else if (text(join(DEV_HOME, 'pickup.exec')).trim()) e = 'on, but not running (the next yk call restarts it)'
       else e = 'off'
       console.log(`schedule: ${e}`)
+      const bridge = (await import('./input-bridge.ts')).bridgePid()
+      console.log(
+        `bridge: ${bridge ? `running (pid ${bridge})` : 'not running: questions and results do not reach a session (yk pickup session starts it, or yk pickup bridge)'}`,
+      )
       let rows = 0
       const dir = join(DEV_HOME, 'pickup')
       const files = isDir(dir)
@@ -823,7 +836,8 @@ async function dispatch(argv: string[]): Promise<number> {
     }
     case 'cli': {
       process.env.YUKTA_SERVER_URL ??= DEV_URL
-      const p = Bun.spawnSync([findCli(), ...rest], { stdio: ['inherit', 'inherit', 'inherit'] })
+      // the env explicitly: Bun's default is the environment the process started with, without the dev key useDevKey() set (a 401)
+      const p = Bun.spawnSync([findCli(), ...rest], { stdio: ['inherit', 'inherit', 'inherit'], env: { ...process.env } })
       return p.exitCode ?? 1
     }
     case 'help':

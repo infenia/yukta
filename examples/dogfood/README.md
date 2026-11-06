@@ -75,10 +75,14 @@ PR naming it and no `issue/<n>` branch on the remote. With several idle sessions
 state dir). The dev server runs the `session.json` of `origin/main`, so `yk pickup on` finds the workflow only once this is merged. The skill
 that works an issue is `.claude/skills/pickup/SKILL.md`.
 
-**Questions of a ticket run (`yk pickup bridge`, #1920).** Keep `yk pickup bridge` running (a terminal or a background task): it follows the server's event feed and,
-when a ticket-run question (route `ticket`) reaches the `session` tier, pushes one short event (`<channel kind=input request_id=..>`) to the session that is busy with
-that issue, and a second one when it escalates to the `human` tier. The event never takes the session's busy slot. The session reads and answers over the Yukta MCP
-(`list_pending_inputs`, `answer_input`). No owning session: nothing is sent, `yk approve` and the UI still answer. Design: `design/plans/ticket-input-routing.md`.
+**Questions and results of a ticket run (`yk pickup bridge`, #1920).** `yk pickup session` starts the bridge in the background (one per dev home, `bridge.pid`,
+log `bridge.log`; `yk pickup status` shows it; `yk pickup bridge` runs it in the foreground). It follows the server's event feed and pushes to the session that is busy
+with the issue: a ticket-run question (route `ticket`) that reaches the `session` tier as one short event (`<channel kind=input request_id=..>`, with the answering rules
+in its text), a second one when it escalates to the `human` tier, and the end of the root `ticket` run as `<channel kind=result>` with the `RESULT` line of `yk result`
+(the run's status says SUCCESS for a dead end). On every (re)connect it announces the open requests again (the channel drops repeats). These events never take the
+session's busy slot. The session decides the questions on the person's behalf over the Yukta MCP (`list_pending_inputs`, `answer_input`, `escalate_input`): the spec
+and PR gates and the clarifications are MEDIUM, so its agent key may answer them; the budget pause (`ask_pause<k>`) is HIGH, for a person only. No owning session:
+nothing is sent, and the UI and `yk cli inputs answer` still answer. Design: `design/plans/ticket-input-routing.md`.
 
 **Running the ticket pipeline from the session (the default, #1922).** Unless `YUKTA_PICKUP_VIA=direct` (or `direct` in `$DEV_HOME/pickup-via`) is set, `pickup tick`
 hands the issue with `meta.via=ticket`: the session runs `yk ticket run <n> --detach --notify` instead of implementing, and, with `yk pickup bridge` running, receives the
