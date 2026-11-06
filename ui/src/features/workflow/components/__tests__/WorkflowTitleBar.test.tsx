@@ -97,4 +97,17 @@ describe('WorkflowTitleBar', () => {
     expect(right).not.toBeNull();
     expect(right?.children).toHaveLength(1);
   });
+
+  it('[T1] sets no max-width class on a long description', () => {
+    const { container } = render(
+      <WorkflowTitleBar
+        workflowId="wf1"
+        status={null}
+        description={'A very long description of the workflow. '.repeat(20)}
+      />
+    );
+    const paragraph = container.querySelector('p');
+    expect(paragraph).not.toBeNull();
+    expect(paragraph?.className).not.toMatch(/max-w-/);
+  });
 });
