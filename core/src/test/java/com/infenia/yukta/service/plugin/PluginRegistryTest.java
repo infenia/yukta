@@ -24,6 +24,8 @@ class PluginRegistryTest {
   /** Test plugin type identifier. */
   private static final String TEST_TYPE = "test-type";
 
+  private static final String REGISTERED = "registered";
+
   @BeforeEach
   void setUp() {
     try (LocalValidatorFactoryBean validatorFactoryBean = new LocalValidatorFactoryBean()) {
@@ -84,7 +86,7 @@ class PluginRegistryTest {
   @Test
   void testGetWithUnregisteredType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
     final Plugin retrieved = registry.get("non-existent");
@@ -105,7 +107,7 @@ class PluginRegistryTest {
   @Test
   void testFindReturnsEmptyForUnknownType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
@@ -115,7 +117,7 @@ class PluginRegistryTest {
   @Test
   void testFindReturnsEmptyForNullType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
@@ -135,7 +137,7 @@ class PluginRegistryTest {
   @Test
   void testContainsWithUnregisteredType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 
