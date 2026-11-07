@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { preText } from '@/test/preText';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -357,7 +358,7 @@ describe('a supervisor', () => {
     expect(
       await screen.findByRole('heading', { name: 'guard' })
     ).toBeInTheDocument();
-    expect(screen.getByText(/"token": "\*\*\*"/)).toBeInTheDocument();
+    expect(screen.getByText(preText(/"token": "\*\*\*"/))).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'attachments' }));
     expect(await screen.findByText('Global')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'decisions' }));
@@ -500,7 +501,7 @@ describe('the wizard', () => {
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByLabelText(/Dry run/));
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(/"dryRun": true/)).toBeInTheDocument();
+    expect(screen.getByText(preText(/"dryRun": true/))).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Back' }));
     await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));

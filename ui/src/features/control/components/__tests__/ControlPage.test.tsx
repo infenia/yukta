@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { preText } from '@/test/preText';
 import {
   describe,
   it,
@@ -193,7 +194,9 @@ describe('ControlPage', () => {
     await user.paste('{"action":"flush"}');
     await user.click(screen.getByRole('button', { name: 'Send' }));
 
-    expect(await screen.findByText(/"done": true/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(preText(/"done": true/))
+    ).toBeInTheDocument();
     expect(commandBody).toEqual({ action: 'flush' });
     expect(commandQuery).toBe('?sessionId=s1&executionId=run-1');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
