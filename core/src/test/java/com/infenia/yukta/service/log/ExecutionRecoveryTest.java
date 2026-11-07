@@ -90,6 +90,53 @@ class ExecutionRecoveryTest {
     recovery.recover();
 
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
+
+  void startupRemovesTheDurableOutputOfRunsThatAreNoLongerInTheLog(
+      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
+    final var files =
+        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
+            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
+    files
+        .save(
+            "gone",
+            "n1",
+            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
+        .block();
+    files
+        .save(
+            "done",
+            "n1",
+            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "y"))
+        .block();
+    finishedRun("done", "SUCCESS");
+    final ExecutionRecovery startup = new ExecutionRecovery(store, tracker, 100, files);
+
+    startup.afterSingletonsInstantiated();
+
+    try (var left = java.nio.file.Files.list(dir)) {
+      assertThat(left.map(path -> path.getFileName().toString()).toList())
+          .containsExactly("e-done");
+    }
+  }
+
+  @Test
+  void recoveryOnAliveServerLeavesTheDurableOutputAlone(
+      @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
+    final var files =
+        new com.infenia.yukta.service.store.FileNodeCheckpointStore(
+            dir.toString(), tools.jackson.databind.json.JsonMapper.builder().build());
+    files
+        .save(
+            "other",
+            "n1",
+            com.infenia.yukta.message.DefaultMessage.create(java.util.UUID.randomUUID(), "x"))
+        .block();
+
+    new ExecutionRecovery(store, tracker, 100, files).recover();
+
+    try (var left = java.nio.file.Files.list(dir)) {
+      assertThat(left.toList()).hasSize(1);
+    }
   }
 
   @Test
