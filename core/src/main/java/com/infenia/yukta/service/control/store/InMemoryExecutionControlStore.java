@@ -36,9 +36,16 @@ public final class InMemoryExecutionControlStore implements ExecutionControlStor
     if (previous != null) {
       unindex(previous);
     }
-    byWorkflow
-        .computeIfAbsent(keyOf(control), k -> new ConcurrentHashMap<>())
-        .put(control.executionId(), control);
+    // inside the compute: a put after computeIfAbsent could land in a map that unindex just emptied
+    // and dropped, hiding a live run from the lookups by workflow
+    byWorkflow.compute(
+        keyOf(control),
+        (k, runs) -> {
+          final Map<String, ExecutionControl> into =
+              runs == null ? new ConcurrentHashMap<>() : runs;
+          into.put(control.executionId(), control);
+          return into;
+        });
   }
 
   @Override

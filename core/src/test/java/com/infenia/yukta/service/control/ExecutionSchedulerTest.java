@@ -24,7 +24,7 @@ import reactor.core.publisher.BaseSubscriber;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.GodClass"})
 @ExpectedErrorLog("dropped error: .*ErrorCallbackNotImplemented")
 class ExecutionSchedulerTest {
 
@@ -62,6 +62,20 @@ class ExecutionSchedulerTest {
 
     waiting.giveBack();
     assertThat(scheduler.running()).isZero();
+  }
+
+  @Test
+  void givingBackQueuedAdmissionLeavesTheQueueAtOnce() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
+    granted(scheduler.acquire("s1", "w1", 0, null));
+    final Admission waiting = scheduler.acquire("s1", "w1", 0, null);
+    assertThat(scheduler.queued()).isEqualTo(1);
+
+    waiting.giveBack();
+
+    // not waiting for a slot that will come (or a timeout that would book a false refusal)
+    assertThat(scheduler.queued()).isZero();
+    assertThat(scheduler.running()).isEqualTo(1);
   }
 
   @Test

@@ -50,6 +50,20 @@ class InMemoryExecutionControlStoreTest {
   }
 
   @Test
+  void testRunSavedWhileTheOtherOneOfItsWorkflowEndsStaysFindableByWorkflow() {
+    final ExecutionControl first = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl second = createControl("session-1", "workflow-1", "exec-2");
+    store.save(first);
+
+    store.save(second);
+    store.remove("exec-1");
+
+    assertThat(store.findAllActiveByWorkflow("session-1", "workflow-1")).containsExactly(second);
+    store.remove("exec-2");
+    assertThat(store.findAllActiveByWorkflow("session-1", "workflow-1")).isEmpty();
+  }
+
+  @Test
   void testFindByExecutionIdNotFound() {
     final var found = store.findByExecutionId("non-existent");
     assertThat(found).isEmpty();

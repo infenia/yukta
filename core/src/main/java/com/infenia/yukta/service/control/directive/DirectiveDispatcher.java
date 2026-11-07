@@ -44,7 +44,12 @@ import reactor.util.context.ContextView;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.ConfusingTernary", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.ConfusingTernary",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects"
+})
 public class DirectiveDispatcher {
 
   /** Runs a command. */
@@ -171,9 +176,7 @@ public class DirectiveDispatcher {
                   Mono.defer(
                       () ->
                           !isAddressable(command)
-                              ? Mono.error(
-                                  new NotFoundException(
-                                      "Execution not found: " + command.executionId()))
+                              ? gone(command, actor, context)
                               : audited(command, actor)))
               .doOnCancel(
                   () -> {
@@ -182,6 +185,30 @@ public class DirectiveDispatcher {
                     }
                   });
         });
+  }
+
+  /**
+   * The run is no longer there. A command nobody approved is not recorded (it is for no known run),
+   * but an approved one was proposed, parked and logged as an input request, so its end is recorded
+   * too: an approval with no outcome would leave the audit with a question and no answer.
+   */
+  private Mono<Void> gone(
+      final ExecutionControlCommand command, final String actor, final ContextView context) {
+    final NotFoundException notFound =
+        new NotFoundException("Execution not found: " + command.executionId());
+    if (context.hasKey(ControlActor.APPROVED_REQUEST)) {
+      ControlAudit.record(
+          executionLog,
+          auditSink,
+          new AuditRecord(
+              false,
+              command.executionId(),
+              command.getClass().getSimpleName(),
+              actor,
+              notFound.getMessage(),
+              Instant.now()));
+    }
+    return Mono.error(notFound);
   }
 
   /**
