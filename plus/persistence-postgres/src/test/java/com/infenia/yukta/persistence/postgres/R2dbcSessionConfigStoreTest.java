@@ -5,7 +5,6 @@ package com.infenia.yukta.persistence.postgres;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -33,11 +32,7 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
   @BeforeEach
   void setUp() {
     final ObjectMapper mapper = new ObjectMapper();
-    final SessionConfigProperties props = new SessionConfigProperties();
-    props.setBaseDir("/data");
-    store =
-        new R2dbcSessionConfigStore(
-            db, mapper, props, new R2dbcWorkflowDefinitionStore(db, mapper));
+    store = new R2dbcSessionConfigStore(db, mapper, new R2dbcWorkflowDefinitionStore(db, mapper));
   }
 
   @Test
@@ -95,9 +90,6 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     assertThat(all.description()).isEqualTo("desc");
     assertThat(all.name()).isEqualTo("name");
     assertThat(all.tags()).isEqualTo(Map.of("team", "core"));
-    assertThat(all.executionTimeout()).isEqualTo(3600L);
-    assertThat(all.fileLogDir()).isEqualTo("/data/modified-files");
-    assertThat(all.resultLogDir()).isEqualTo("/data/results");
     assertThat(all.initiatedTime()).isNotBlank();
     assertThat(all.workflows()).isEqualTo(Map.of("w1", workflow()));
     assertThat(store.getSessionIds().collectList().block()).containsExactly("s1");
@@ -113,42 +105,19 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void projectPathCanAlwaysChange_otherValuesOnlyWhileEmpty() {
-    store.setProjectPath("s", "/one").block();
-    store.setProjectPath("s", "/two").block();
-    assertThat(store.getProjectPath("s").block()).isEqualTo("/two");
-
-    store.setDescription("s", "first").block();
-    store.setDescription("s", "second").block();
-    store.setInitiator("s", "alice").block();
-    store.setInitiator("s", "bob").block();
-    store.setInitiatedTime("s", "t1").block();
-    store.setInitiatedTime("s", "t2").block();
-    store.setTags("s", Map.of("a", "1")).block();
-    store.setTags("s", Map.of("b", "2")).block();
-
-    assertThat(store.getDescription("s").block()).isEqualTo("first");
-    assertThat(store.getInitiator("s").block()).isEqualTo("alice");
-    assertThat(store.getInitiatedTime("s").block()).isEqualTo("t1");
-    assertThat(store.getTags("s").block()).isEqualTo(Map.of("a", "1"));
-  }
-
-  @Test
-  void nullValuesAreIgnored() {
-    store.setDescription("s", null).block();
-    store.setInitiator("s", null).block();
-    store.setInitiatedTime("s", null).block();
-    store.setTags("s", null).block();
-
-    assertThat(store.getSessionIds().collectList().block()).isEmpty();
-  }
-
-  @Test
-  void settersCreateTheSessionWhenNew() {
-    store.setTags("new", Map.of("k", "v")).block();
+  void setInitiator_createsTheSessionAndKeepsTheFirstInitiator() {
+    store.setInitiator("new", "alice").block();
+    store.setInitiator("new", "bob").block();
 
     assertThat(store.getSessionIds().collectList().block()).containsExactly("new");
-    assertThat(store.getExecutionTimeout("new").block()).isEqualTo(3600L);
+    assertThat(store.getInitiator("new").block()).isEqualTo("alice");
+  }
+
+  @Test
+  void setInitiator_null_isIgnored() {
+    store.setInitiator("s", null).block();
+
+    assertThat(store.getSessionIds().collectList().block()).isEmpty();
   }
 
   @Test

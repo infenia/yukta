@@ -132,8 +132,6 @@ com.infenia.yukta.service.control.ExecutionScheduler
 com.infenia.yukta.service.control.SchedulerMetrics
 com.infenia.yukta.service.control.TreeControl
 com.infenia.yukta.service.control.directive.CommandHandler
-com.infenia.yukta.service.control.directive.ControlHeartbeatHandler
-com.infenia.yukta.service.control.directive.ControlStatisticsHandler
 com.infenia.yukta.service.control.directive.DirectiveDispatcher
 com.infenia.yukta.service.control.directive.ParkedCommands
 com.infenia.yukta.service.control.factory.ExecutionControlFactory

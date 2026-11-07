@@ -3,7 +3,6 @@
 package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.config.DefaultsAutoConfiguration;
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.plugin.store.SessionHistoryStore;
@@ -53,7 +52,6 @@ public class PostgresPersistenceAutoConfiguration {
    *
    * @param client runs the statements
    * @param mapper reads and writes JSON
-   * @param props execution timeout and directories
    * @param definitions where the workflows of a session are kept
    * @return the store
    */
@@ -61,9 +59,8 @@ public class PostgresPersistenceAutoConfiguration {
   public SessionConfigStore sessionConfigStore(
       final DatabaseClient client,
       final ObjectMapper mapper,
-      final SessionConfigProperties props,
       final WorkflowDefinitionStore definitions) {
-    return new R2dbcSessionConfigStore(client, mapper, props, definitions);
+    return new R2dbcSessionConfigStore(client, mapper, definitions);
   }
 
   /**

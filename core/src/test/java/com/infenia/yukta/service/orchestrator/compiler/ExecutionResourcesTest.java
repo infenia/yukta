@@ -4,11 +4,8 @@ package com.infenia.yukta.service.orchestrator.compiler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -27,30 +24,24 @@ import reactor.test.StepVerifier;
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.compiler.ExecutionResources - ")
 class ExecutionResourcesTest {
 
-  private final SessionConfigStore configStore = mock(SessionConfigStore.class);
+  private static final Duration A_MINUTE = Duration.ofSeconds(60);
 
   private Mono<Void> run(
-      final String sessionId,
+      final Duration timeout,
       final List<Mono<Void>> terminals,
       final List<Runnable> connectors,
       final List<Disposable> disposables) {
     return ExecutionResources.run(
-        configStore,
-        Schedulers.boundedElastic(),
-        sessionId,
-        terminals,
-        connectors,
-        disposables,
-        () -> false);
+        timeout, Schedulers.boundedElastic(), terminals, connectors, disposables, () -> false);
   }
 
   @Test
   void runsConnectorsInReverseOrderOnSubscription() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final List<Integer> order = new ArrayList<>();
     final List<Runnable> connectors = List.of(() -> order.add(0), () -> order.add(1));
 
-    final Mono<Void> execution = run("s", List.of(Mono.empty()), connectors, new ArrayList<>());
+    final Mono<Void> execution =
+        run(A_MINUTE, List.of(Mono.empty()), connectors, new ArrayList<>());
     assertThat(order).isEmpty();
     StepVerifier.create(execution).verifyComplete();
 
@@ -59,19 +50,18 @@ class ExecutionResourcesTest {
 
   @Test
   void disposesSubscriptionsRegisteredByConnectorsWhileRunning() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final Disposable late = mock(Disposable.class);
     final List<Disposable> disposables = new ArrayList<>();
     final List<Runnable> connectors = List.of(() -> disposables.add(late));
 
-    StepVerifier.create(run("s", List.of(Mono.empty()), connectors, disposables)).verifyComplete();
+    StepVerifier.create(run(A_MINUTE, List.of(Mono.empty()), connectors, disposables))
+        .verifyComplete();
 
     verify(late).dispose();
   }
 
   @Test
   void failingConnectorFailsTheRun_andThrowingDisposableDoesNotStopTheRest() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final Disposable bad = mock(Disposable.class);
     org.mockito.Mockito.doThrow(new IllegalStateException("x")).when(bad).dispose();
     final Disposable good = mock(Disposable.class);
@@ -82,7 +72,7 @@ class ExecutionResourcesTest {
             });
 
     StepVerifier.create(
-            run("s", List.of(Mono.empty()), connectors, new ArrayList<>(List.of(bad, good))))
+            run(A_MINUTE, List.of(Mono.empty()), connectors, new ArrayList<>(List.of(bad, good))))
         .expectErrorMessage("connector failed")
         .verify();
 
@@ -91,14 +81,14 @@ class ExecutionResourcesTest {
 
   @Test
   void failedTerminal_failsTheRunAtOnce_andCancelsTheOthers() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final AtomicBoolean siblingCancelled = new AtomicBoolean();
     final Mono<Void> stalled = Mono.<Void>never().doOnCancel(() -> siblingCancelled.set(true));
     final Mono<Void> failing =
         Mono.delay(Duration.ofMillis(50))
             .then(Mono.error(new IllegalStateException("terminal failed")));
 
-    StepVerifier.create(run("s", List.of(stalled, failing), new ArrayList<>(), new ArrayList<>()))
+    StepVerifier.create(
+            run(A_MINUTE, List.of(stalled, failing), new ArrayList<>(), new ArrayList<>()))
         .expectError(IllegalStateException.class)
         .verify(Duration.ofSeconds(2));
 
@@ -106,12 +96,15 @@ class ExecutionResourcesTest {
   }
 
   @Test
-  void timesOutWithTheSessionTimeoutAndStillDisposes() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(1L));
+  void timesOutWithTheRunTimeoutAndStillDisposes() {
     final Disposable resource = mock(Disposable.class);
 
     StepVerifier.create(
-            run("s", List.of(Mono.never()), List.of(), new ArrayList<>(List.of(resource))))
+            run(
+                Duration.ofSeconds(1),
+                List.of(Mono.never()),
+                List.of(),
+                new ArrayList<>(List.of(resource))))
         .expectError(ExecutionTimeoutException.class)
         .verify(Duration.ofSeconds(5));
 
@@ -119,23 +112,14 @@ class ExecutionResourcesTest {
   }
 
   @Test
-  void withoutSessionUsesDefaultTimeoutAndNeverAsksTheStore() {
-    StepVerifier.create(run(null, List.of(), List.of(), new ArrayList<>())).verifyComplete();
-
-    verify(configStore, never()).getExecutionTimeout(org.mockito.ArgumentMatchers.any());
-  }
-
-  @Test
   void runDeadline_doesNotFireWhilePaused_butFiresAfterResume() {
-    when(configStore.getExecutionTimeout("s")).thenReturn(Mono.just(60L));
     final AtomicBoolean paused = new AtomicBoolean(true);
 
     StepVerifier.withVirtualTime(
             () ->
                 ExecutionResources.run(
-                    configStore,
+                    A_MINUTE,
                     Schedulers.parallel(),
-                    "s",
                     List.of(Mono.never()),
                     List.of(),
                     new ArrayList<>(),

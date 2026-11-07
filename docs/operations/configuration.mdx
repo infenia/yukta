@@ -84,7 +84,7 @@ Two start payload keys work with these: `yukta.priority` (a number, higher runs 
 
 | Setting | Default | Meaning and effect |
 |---|---|---|
-| `yukta.session.execution-timeout-seconds` (`YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`) | `3600` | Run deadline: an execution still going after this ends `TIMED_OUT`. Server-wide |
+| `yukta.execution.timeout` (`YUKTA_EXECUTION_TIMEOUT`) | `1h` | Run deadline: an execution still going after this ends `TIMED_OUT`. Time spent paused does not count. Server-wide |
 | `yukta.execution.queue-timeout` | `0` (off) | Longest wait for a slot. See above |
 | `yukta.stop.drain-timeout` | `30s` | Deadline of a `DRAIN` stop |
 | `yukta.execution.shutdown-timeout` | `30s` | Grace time at server stop |

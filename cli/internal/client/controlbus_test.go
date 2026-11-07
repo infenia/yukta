@@ -107,4 +107,3 @@ func TestSendCommand_emptySessionID(t *testing.T) {
 		t.Fatalf("expected sessionID error, got %v", err)
 	}
 }
-

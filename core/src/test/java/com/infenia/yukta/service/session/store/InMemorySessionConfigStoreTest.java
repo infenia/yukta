@@ -6,16 +6,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -62,150 +58,7 @@ class InMemorySessionConfigStoreTest {
 
   @BeforeEach
   void setUp() {
-    final SessionConfigProperties props = new SessionConfigProperties();
-    props.setBaseDir(System.getProperty("user.home") + "/.yukta");
-    props.setFileLogSubDir("modified-files");
-    props.setResultLogSubDir("results");
-    props.setExecutionTimeoutSeconds(3600L);
-    configService = new InMemorySessionConfigStore(props, workflowDefinitionStore);
-  }
-
-  @Test
-  void testDefaultValues() {
-    final String sessionId = "sess-1";
-    StepVerifier.create(configService.getProjectPath(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getExecutionTimeout(sessionId))
-        .expectNext(3600L)
-        .verifyComplete();
-    final String home = System.getProperty("user.home");
-    StepVerifier.create(configService.getFileLogDir(sessionId))
-        .expectNext(home + "/.yukta/modified-files")
-        .verifyComplete();
-    StepVerifier.create(configService.getResultLogDir(sessionId))
-        .expectNext(home + "/.yukta/results")
-        .verifyComplete();
-
-    StepVerifier.create(configService.getInitiator(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId)).expectNext(Map.of()).verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId)).expectNext("").verifyComplete();
-  }
-
-  @Test
-  void testSetNullMetadata() {
-    final String sessionId = "sess-null";
-    StepVerifier.create(configService.setInitiator(sessionId, null)).verifyComplete();
-    StepVerifier.create(configService.setInitiatedTime(sessionId, null)).verifyComplete();
-    StepVerifier.create(configService.setTags(sessionId, null)).verifyComplete();
-    StepVerifier.create(configService.setDescription(sessionId, null)).verifyComplete();
-
-    StepVerifier.create(configService.getInitiator(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId)).expectNext(Map.of()).verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId)).expectNext("").verifyComplete();
-  }
-
-  @Test
-  void testApiOverrides() {
-    final String sessionId = "sess-1";
-    StepVerifier.create(configService.setProjectPath(sessionId, "/api/path")).verifyComplete();
-
-    StepVerifier.create(configService.getProjectPath(sessionId))
-        .expectNext("/api/path")
-        .verifyComplete();
-
-    final String otherSession = "sess-2";
-    StepVerifier.create(configService.getProjectPath(otherSession)).expectNext("").verifyComplete();
-  }
-
-  @Test
-  void testGetSessionIds() {
-    configService.setProjectPath("s1", "/p1").block();
-    configService.setInitiator("s3", "i1").block();
-    configService.setInitiatedTime("s4", "t1").block();
-    configService.setTags("s5", Map.of("t", "v")).block();
-    configService.setDescription("s6", "d1").block();
-
-    final List<String> expectedIds = List.of("s1", "s3", "s4", "s5", "s6");
-    StepVerifier.create(configService.getSessionIds().collectList())
-        .expectNextMatches(ids -> ids.size() == 5 && ids.containsAll(expectedIds))
-        .verifyComplete();
-  }
-
-  @Test
-  void testMetadataOverrides() {
-    final String sessionId = "sess-1";
-    final String initiator = "John Doe";
-    final String time = "2026-02-21T21:00:00Z";
-    final String description = "Sample Session";
-    final Map<String, String> tags = Map.of("clientId", "c1");
-
-    StepVerifier.create(configService.setInitiator(sessionId, initiator)).verifyComplete();
-    StepVerifier.create(configService.setDescription(sessionId, description)).verifyComplete();
-    StepVerifier.create(configService.setInitiatedTime(sessionId, time)).verifyComplete();
-    StepVerifier.create(configService.setTags(sessionId, tags)).verifyComplete();
-
-    StepVerifier.create(configService.getInitiator(sessionId))
-        .expectNext(initiator)
-        .verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId))
-        .expectNext(time)
-        .verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId)).expectNext(tags).verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId))
-        .expectNext(description)
-        .verifyComplete();
-
-    StepVerifier.create(configService.setInitiator(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configService.setDescription(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configService.getInitiator(sessionId))
-        .expectNext(initiator)
-        .verifyComplete();
-
-    StepVerifier.create(configService.setInitiatedTime(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId))
-        .expectNext(time)
-        .verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId))
-        .expectNext(description)
-        .verifyComplete();
-
-    StepVerifier.create(configService.setTags(sessionId, Map.of(OTHER, "Val"))).verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId)).expectNext(tags).verifyComplete();
-  }
-
-  @Test
-  void testGetAllConfigsIncludingMetadata() {
-    final String sessionId = "sess-meta";
-    configService.setInitiator(sessionId, "Jules").block();
-    configService.setInitiatedTime(sessionId, "now").block();
-    configService.setTags(sessionId, Map.of("k", "v")).block();
-    configService.setDescription(sessionId, "Sample").block();
-    configService.setProjectPath(sessionId, "/meta/path").block();
-
-    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
-
-    StepVerifier.create(configService.getAllConfigs(sessionId))
-        .expectNextMatches(InMemorySessionConfigStoreTest::matchesAllConfigsData)
-        .verifyComplete();
-  }
-
-  /**
-   * Validates that the config map contains all expected fields and values.
-   *
-   * @param map the config map to validate
-   * @return true if all conditions are met
-   */
-  private static boolean matchesAllConfigsData(final SessionSnapshot c) {
-    return "Jules".equals(c.initiator())
-        && "now".equals(c.initiatedTime())
-        && Map.of("k", "v").equals(c.tags())
-        && "Sample".equals(c.description())
-        && "/meta/path".equals(c.projectPath())
-        && c.executionTimeout() != null
-        && c.fileLogDir() != null
-        && c.resultLogDir() != null
-        && c.workflows() != null;
+    configService = new InMemorySessionConfigStore(workflowDefinitionStore);
   }
 
   @Test
@@ -300,37 +153,6 @@ class InMemorySessionConfigStoreTest {
   }
 
   @Test
-  void sessionExistsChecksAllMaps() {
-    final String sessionId = "test-session";
-    when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(Map.of()));
-    configService.setInitiator(sessionId, "initiator").block();
-    StepVerifier.create(configService.getAllConfigs(sessionId))
-        .expectNextMatches(c -> "initiator".equals(c.initiator()))
-        .verifyComplete();
-
-    final String sessionId2 = "test-session2";
-    when(workflowDefinitionStore.findAll(sessionId2)).thenReturn(Mono.just(Map.of()));
-    configService.setInitiatedTime(sessionId2, "2026-01-01").block();
-    StepVerifier.create(configService.getAllConfigs(sessionId2))
-        .expectNextMatches(c -> "2026-01-01".equals(c.initiatedTime()))
-        .verifyComplete();
-
-    final String sessionId3 = "test-session3";
-    when(workflowDefinitionStore.findAll(sessionId3)).thenReturn(Mono.just(Map.of()));
-    configService.setTags(sessionId3, Map.of("tag1", "val1")).block();
-    StepVerifier.create(configService.getAllConfigs(sessionId3))
-        .expectNextMatches(c -> Map.of("tag1", "val1").equals(c.tags()))
-        .verifyComplete();
-
-    final String sessionId4 = "test-session4";
-    when(workflowDefinitionStore.findAll(sessionId4)).thenReturn(Mono.just(Map.of()));
-    configService.setDescription(sessionId4, DESC).block();
-    StepVerifier.create(configService.getAllConfigs(sessionId4))
-        .expectNextMatches(c -> DESC.equals(c.description()))
-        .verifyComplete();
-  }
-
-  @Test
   void applySessionConfigWithMultipleWorkflows() {
     final String sessionId = "sess-multi";
     final WorkflowDefinition workflow1 =
@@ -362,117 +184,6 @@ class InMemorySessionConfigStoreTest {
   }
 
   @Test
-  void setInitiatorOnExistingSessionWithEmptyInitiator() {
-    final String sessionId = "sess-empty-initiator";
-    configService.setProjectPath(sessionId, PATH).block();
-
-    StepVerifier.create(configService.setInitiator(sessionId, "new-initiator")).verifyComplete();
-    StepVerifier.create(configService.getInitiator(sessionId))
-        .expectNext("new-initiator")
-        .verifyComplete();
-  }
-
-  @Test
-  void setDescriptionOnExistingSessionWithEmptyDescription() {
-    final String sessionId = "sess-empty-description";
-    configService.setProjectPath(sessionId, PATH).block();
-
-    StepVerifier.create(configService.setDescription(sessionId, "new-description"))
-        .verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId))
-        .expectNext("new-description")
-        .verifyComplete();
-  }
-
-  @Test
-  void setInitiatedTimeOnExistingSessionWithEmptyInitiatedTime() {
-    final String sessionId = "sess-empty-time";
-    configService.setProjectPath(sessionId, PATH).block();
-
-    StepVerifier.create(configService.setInitiatedTime(sessionId, "2026-06-21T10:00:00Z"))
-        .verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId))
-        .expectNext("2026-06-21T10:00:00Z")
-        .verifyComplete();
-  }
-
-  @Test
-  void setTagsOnExistingSessionWithEmptyTags() {
-    final String sessionId = "sess-empty-tags";
-    configService.setProjectPath(sessionId, PATH).block();
-
-    final Map<String, String> newTags = Map.of(ENV, "test");
-    StepVerifier.create(configService.setTags(sessionId, newTags)).verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId)).expectNext(newTags).verifyComplete();
-  }
-
-  @Test
-  void multipleFieldsCanBeSetIndependentlyOnNewSession() {
-    final String sessionId = "sess-multi-fields";
-
-    configService.setProjectPath(sessionId, PATH).block();
-    configService.setInitiator(sessionId, "initiator1").block();
-    configService.setDescription(sessionId, "desc1").block();
-    configService.setInitiatedTime(sessionId, "time1").block();
-    configService.setTags(sessionId, Map.of("k1", "v1")).block();
-
-    StepVerifier.create(configService.getProjectPath(sessionId)).expectNext(PATH).verifyComplete();
-    StepVerifier.create(configService.getInitiator(sessionId))
-        .expectNext("initiator1")
-        .verifyComplete();
-    StepVerifier.create(configService.getDescription(sessionId))
-        .expectNext("desc1")
-        .verifyComplete();
-    StepVerifier.create(configService.getInitiatedTime(sessionId))
-        .expectNext("time1")
-        .verifyComplete();
-    StepVerifier.create(configService.getTags(sessionId))
-        .expectNext(Map.of("k1", "v1"))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings("PMD.AvoidAccessibilityAlteration")
-  void logInitializationExecutedOnBeanCreation()
-      throws InvocationTargetException, IllegalAccessException {
-    final SessionConfigProperties props = new SessionConfigProperties();
-    props.setBaseDir(System.getProperty("user.home") + "/.yukta");
-    props.setFileLogSubDir("modified-files");
-    props.setResultLogSubDir("results");
-    props.setExecutionTimeoutSeconds(3600L);
-
-    final WorkflowDefinitionStore workflowStore =
-        org.mockito.Mockito.mock(WorkflowDefinitionStore.class);
-    final InMemorySessionConfigStore store = new InMemorySessionConfigStore(props, workflowStore);
-
-    final Method logInitMethod = findLogInitializationMethod();
-    assertThat(logInitMethod).isNotNull();
-    final Method safeLogInitMethod =
-        Objects.requireNonNull(logInitMethod, "Expected method logInitialization to exist");
-    safeLogInitMethod.setAccessible(true);
-    safeLogInitMethod.invoke(store);
-
-    assertThat(store).isNotNull();
-  }
-
-  /**
-   * Finds the logInitialization method in InMemorySessionConfigStore.
-   *
-   * @return the logInitialization method, or null if not found
-   */
-  private static Method findLogInitializationMethod() {
-    final String logInitMethodName = "logInitialization";
-    Method result = null;
-    for (final Method method : InMemorySessionConfigStore.class.getDeclaredMethods()) {
-      if (logInitMethodName.equals(method.getName())) {
-        result = method;
-        break;
-      }
-    }
-    return result;
-  }
-
-  @Test
   void removeSession_forgetsTheSessionAndIsQuietForAnUnknownOne() {
     final SessionConfigData data =
         new SessionConfigData("gone", "n", "d", "i", Map.of(), "/p", Map.of());
@@ -483,5 +194,67 @@ class InMemorySessionConfigStoreTest {
     StepVerifier.create(configService.removeSession("never-was")).verifyComplete();
 
     assertThat(configService.getSessionIds().collectList().block()).doesNotContain("gone");
+  }
+
+  private static SessionConfigData data(final String id, final String initiator) {
+    return new SessionConfigData(
+        id, "n", "Sample", initiator, Map.of("k", "v"), "/meta/path", Map.of());
+  }
+
+  @Test
+  void anAppliedSessionCanBeReadBackValueByValue() {
+    when(workflowDefinitionStore.findAll("s1")).thenReturn(Mono.just(Map.of()));
+    configService.applySessionConfig(data("s1", "Jules")).block();
+
+    assertThat(configService.getInitiator("s1").block()).isEqualTo("Jules");
+    assertThat(configService.getDescription("s1").block()).isEqualTo("Sample");
+    assertThat(configService.getProjectPath("s1").block()).isEqualTo("/meta/path");
+    assertThat(configService.getTags("s1").block()).isEqualTo(Map.of("k", "v"));
+    assertThat(configService.getInitiatedTime("s1").block()).isNotBlank();
+    final SessionSnapshot all = configService.getAllConfigs("s1").block();
+    assertThat(all.name()).isEqualTo("n");
+    assertThat(all.workflows()).isEmpty();
+  }
+
+  @Test
+  void anUnknownSessionReadsAsEmpty() {
+    assertThat(configService.getInitiator("none").block()).isEmpty();
+    assertThat(configService.getDescription("none").block()).isEmpty();
+    assertThat(configService.getProjectPath("none").block()).isEmpty();
+    assertThat(configService.getInitiatedTime("none").block()).isEmpty();
+    assertThat(configService.getTags("none").block()).isEmpty();
+    assertThat(configService.getAllConfigs("none").block()).isNull();
+  }
+
+  @Test
+  void setInitiator_createsTheSessionWhenItIsNew() {
+    configService.setInitiator("new", "alice").block();
+
+    assertThat(configService.getInitiator("new").block()).isEqualTo("alice");
+    assertThat(configService.getSessionIds().collectList().block()).contains("new");
+  }
+
+  @Test
+  void setInitiator_fillsAnEmptyInitiatorAndKeepsAnExistingOne() {
+    configService.applySessionConfig(data("s1", "")).block();
+    configService.setInitiator("s1", "first").block();
+    configService.setInitiator("s1", "second").block();
+
+    assertThat(configService.getInitiator("s1").block()).isEqualTo("first");
+    assertThat(configService.getDescription("s1").block()).isEqualTo("Sample");
+  }
+
+  @Test
+  void setInitiator_null_changesNothing() {
+    StepVerifier.create(configService.setInitiator("s1", null)).verifyComplete();
+
+    assertThat(configService.getSessionIds().collectList().block()).isEmpty();
+  }
+
+  @Test
+  void logInitialization_runs() {
+    configService.logInitialization();
+
+    assertThat(configService.getSessionIds().collectList().block()).isEmpty();
   }
 }

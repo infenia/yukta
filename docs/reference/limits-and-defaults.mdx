@@ -53,7 +53,7 @@ This page collects the numbers that bound a Yukta server: fixed ceilings, defaul
 | Limit | Default | Changed by | Explained in |
 |---|---|---|---|
 | Queue wait | Off | `yukta.execution.queue-timeout` | [Time limits](/concepts/time-limits) |
-| Run deadline | 3600 s | `yukta.session.execution-timeout-seconds` | [Time limits](/concepts/time-limits) |
+| Run deadline | 1 h | `yukta.execution.timeout` | [Time limits](/concepts/time-limits) |
 | Node idle timeout | The plugin's default, 30 s for many | `timeoutSeconds` on the node | [Time limits](/concepts/time-limits) |
 | Element timeout | None | `engine.elementTimeoutMs` | [Time limits](/concepts/time-limits) |
 | Node deadline | None | `engine.deadlineMs` | [Time limits](/concepts/time-limits) |

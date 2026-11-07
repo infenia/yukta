@@ -95,9 +95,6 @@ class SessionServiceTest {
         null,
         (Map<String, String>) m.getOrDefault(CONFIG_TAGS, Map.of()),
         (String) m.get(CONFIG_PROJECT_PATH),
-        null,
-        null,
-        null,
         (Map<String, WorkflowDefinition>) m.getOrDefault(CONFIG_WORKFLOWS, Map.of()));
   }
 

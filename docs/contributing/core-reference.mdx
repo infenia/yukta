@@ -402,7 +402,7 @@ Five independent clocks, all pause-aware, so a timeout means what you expect.
 | Clock | Scope | Resets on | Ends with |
 |---|---|---|---|
 | **Queue wait** | a start waiting for a slot | n/a | `TIMED_OUT` after `yukta.execution.queue-timeout` (off by default) |
-| **Run deadline** | whole run | never | `TIMED_OUT` via `ExecutionTimeoutException`; session setting, default 3600 s |
+| **Run deadline** | whole run | never | `TIMED_OUT` via `ExecutionTimeoutException`; `yukta.execution.timeout`, default 1 h |
 | **Node idle** | one node | any input, output, retry attempt or heartbeat | node `TIMED_OUT` |
 | **Element timeout** | one message attempt | each attempt | attempt fails, so `retry` / `onError` apply |
 | **Node deadline** | one node, from first activity | never (paused time excluded) | node `TIMED_OUT` |
@@ -865,7 +865,7 @@ Stores each session's configuration (workflows, execution timeout, tags) and its
 **Behaviour**
 
 - Applying a session configuration stores the session and its workflows, and drops a cached prepared workflow if the stored definition has moved on.
-- Default execution timeout (the run deadline of [ENG-05](#eng-05-clocks-and-timeouts)) is 3600 s and can be set per session.
+- The run deadline ([ENG-05](#eng-05-clocks-and-timeouts)) is a server-wide setting, `yukta.execution.timeout`, not a property of a session.
 
 **Configure:** `yukta.session.store-type` (in-memory \| file \| postgres)
 

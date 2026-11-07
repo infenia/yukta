@@ -89,6 +89,7 @@ public record YuktaProperties(
    * @param shutdownTimeout how long running executions are given on shutdown
    * @param queueTimeout longest a start may wait for a slot, zero for no limit
    * @param maxStartsPerMinute starts per workflow and minute
+   * @param timeout longest a run may take, whatever its activity; a paused run does not count
    */
   public record Execution(
       @Min(0) @DefaultValue("0") int maxConcurrent,
@@ -100,7 +101,8 @@ public record YuktaProperties(
       @NotNull @DefaultValue("QUEUE") OnLimit onLimit,
       @NotNull @DefaultValue("30s") Duration shutdownTimeout,
       @NotNull @DefaultValue("0") Duration queueTimeout,
-      @Min(0) @DefaultValue("0") int maxStartsPerMinute) {}
+      @Min(0) @DefaultValue("0") int maxStartsPerMinute,
+      @NotNull @DefaultValue("1h") Duration timeout) {}
 
   /**
    * The in-memory execution log.

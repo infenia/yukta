@@ -7,7 +7,6 @@ import com.infenia.yukta.model.session.SessionConfig;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
@@ -120,59 +119,10 @@ public class FileSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setProjectPath(
-      @SessionId final String sessionId, @ProjectPath final String path) {
-    return update(
-        sessionId,
-        config ->
-            new SessionConfig(
-                path,
-                config.initiator(),
-                config.initiatedTime(),
-                config.tags(),
-                config.description(),
-                config.name()));
-  }
-
-  @Override
-  public Mono<Long> getExecutionTimeout(@SessionId final String sessionId) {
-    return Mono.just(props.getExecutionTimeoutSeconds());
-  }
-
-  @Override
-  public Mono<String> getFileLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getFileLogSubDir());
-  }
-
-  @Override
-  public Mono<String> getResultLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getResultLogSubDir());
-  }
-
-  @Override
   public Mono<String> getDescription(@SessionId final String sessionId) {
     return loadSessionConfig(sessionId)
         .map(config -> config.description() != null ? config.description() : "")
         .defaultIfEmpty("");
-  }
-
-  @Override
-  public Mono<Void> setDescription(@SessionId final String sessionId, final String description) {
-    if (description == null) {
-      return Mono.empty();
-    }
-    return update(
-        sessionId,
-        config ->
-            config.description() == null || config.description().isEmpty()
-                ? new SessionConfig(
-                    config.projectPath(),
-                    config.initiator(),
-                    config.initiatedTime(),
-                    config.tags(),
-                    description,
-                    config.name())
-                : config);
   }
 
   @Override
@@ -209,47 +159,8 @@ public class FileSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setInitiatedTime(
-      @SessionId final String sessionId, final String initiatedTime) {
-    if (initiatedTime == null) {
-      return Mono.empty();
-    }
-    return update(
-        sessionId,
-        config ->
-            config.initiatedTime() == null || config.initiatedTime().isEmpty()
-                ? new SessionConfig(
-                    config.projectPath(),
-                    config.initiator(),
-                    initiatedTime,
-                    config.tags(),
-                    config.description(),
-                    config.name())
-                : config);
-  }
-
-  @Override
   public Mono<Map<String, String>> getTags(@SessionId final String sessionId) {
     return loadSessionConfig(sessionId).map(SessionConfig::tags).defaultIfEmpty(Map.of());
-  }
-
-  @Override
-  public Mono<Void> setTags(@SessionId final String sessionId, final Map<String, String> tags) {
-    if (tags == null) {
-      return Mono.empty();
-    }
-    return update(
-        sessionId,
-        config ->
-            config.tags().isEmpty()
-                ? new SessionConfig(
-                    config.projectPath(),
-                    config.initiator(),
-                    config.initiatedTime(),
-                    tags,
-                    config.description(),
-                    config.name())
-                : config);
   }
 
   @Override
@@ -260,9 +171,6 @@ public class FileSessionConfigStore implements SessionConfigStore {
                 Mono.zip(
                     arr -> SessionSnapshot.fromValues(sessionId, loadedConfig.name(), arr),
                     getProjectPath(sessionId),
-                    getExecutionTimeout(sessionId),
-                    getFileLogDir(sessionId),
-                    getResultLogDir(sessionId),
                     getInitiator(sessionId),
                     getInitiatedTime(sessionId),
                     getTags(sessionId),
