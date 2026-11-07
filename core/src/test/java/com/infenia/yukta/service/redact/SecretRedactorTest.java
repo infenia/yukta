@@ -23,6 +23,33 @@ class SecretRedactorTest {
   }
 
   @Test
+  void textWithUrlPasswordsKeysAndTokensIsCleaned() {
+    final String url = redactor.redactText("connect to postgres://app:S3cret@db:5432/main");
+    assertThat(url).doesNotContain("S3cret").contains("postgres://app:", "@db:5432/main");
+    assertThat(
+            redactor.redactText(
+                "-----BEGIN RSA PRIVATE KEY-----\nMIIabc\n-----END RSA PRIVATE KEY-----"))
+        .isEqualTo(SecretRedactor.REDACTED);
+    assertThat(redactor.redactText("jwt eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.sig_nature-1 end"))
+        .doesNotContain("eyJzdWIi");
+    assertThat(redactor.redactText("slack xoxb-1234567890-abcdef")).doesNotContain("xoxb-1234");
+    assertThat(redactor.redactText("maps AIza" + "A".repeat(35))).doesNotContain("AIzaAAAA");
+  }
+
+  @Test
+  void keysThatOnlyContainSecretWordButAreCountsAreKept() {
+    final Map<String, Object> cleaned =
+        redactor.redactMap(
+            Map.of("max_tokens", 4096, "tokenCount", 12, "secretary", "Ann", "apiKey", "x"));
+
+    assertThat(cleaned)
+        .containsEntry("max_tokens", 4096)
+        .containsEntry("tokenCount", 12)
+        .containsEntry("secretary", "Ann")
+        .containsEntry("apiKey", SecretRedactor.REDACTED);
+  }
+
+  @Test
   void mapValueIsReplacedWhenItsKeyNamesSecretAndNestedValuesAreWalked() {
     @SuppressWarnings("unchecked")
     final Map<String, Object> cleaned =

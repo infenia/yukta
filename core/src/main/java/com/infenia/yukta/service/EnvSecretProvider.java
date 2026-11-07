@@ -52,8 +52,9 @@ public class EnvSecretProvider implements SecretProvider {
   @Override
   public Mono<String> getSecret(final String key, final SecretContext context) {
     String value = null;
-    // "__" separates a scope from the key, so a key cannot name another scope's secret
-    if (key.contains("__")) {
+    // "__" separates a scope from the key, so a key cannot name another scope's secret. It is
+    // checked after normalising too: "a._b" becomes "A__B" and would name a scoped variable.
+    if (key.contains("__") || normalise(key).contains("__")) {
       log.atWarn().log("Secret '{}' refused: a key may not contain '__'", key);
     } else {
       value = lookup(key, context);

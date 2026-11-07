@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import com.infenia.yukta.service.workflow.ConfigRedactor;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +38,12 @@ public class SupervisorSettingsMask {
             return;
           }
           out.put(
-              key, SECRET.matcher(key).matches() || secrets.contains(key) ? HIDDEN : deep(value));
+              key,
+              SECRET.matcher(key).matches()
+                      || ConfigRedactor.isSecretName(key)
+                      || secrets.contains(key)
+                  ? HIDDEN
+                  : deep(value));
         });
     return out;
   }

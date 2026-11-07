@@ -255,7 +255,9 @@ public class ExecutionScheduler implements SmartLifecycle {
                         return new QueueTimeoutException(
                             "Waited " + queueTimeout + " for an execution slot");
                       })
-              : grant);
+              : grant,
+          false,
+          () -> abandon(waiter));
     }
   }
 
@@ -712,8 +714,10 @@ public class ExecutionScheduler implements SmartLifecycle {
    * @param immediate true if the slot was granted without waiting
    * @param permit emits the permit, once granted
    * @param refused true if the start was refused, in which case {@code permit} errors with why
+   * @param leave takes a waiting start out of the queue, or gives back the slot it was granted
+   *     meanwhile
    */
-  public record Admission(boolean immediate, Mono<Permit> permit, boolean refused) {
+  public record Admission(boolean immediate, Mono<Permit> permit, boolean refused, Runnable leave) {
 
     /**
      * An admission that was not refused.
@@ -722,7 +726,18 @@ public class ExecutionScheduler implements SmartLifecycle {
      * @param permit emits the permit, once granted
      */
     public Admission(final boolean immediate, final Mono<Permit> permit) {
-      this(immediate, permit, false);
+      this(immediate, permit, false, () -> {});
+    }
+
+    /**
+     * An admission with nothing to leave.
+     *
+     * @param immediate true if the slot was granted without waiting
+     * @param permit emits the permit, once granted
+     * @param refused true if the start was refused
+     */
+    public Admission(final boolean immediate, final Mono<Permit> permit, final boolean refused) {
+      this(immediate, permit, refused, () -> {});
     }
 
     /**
@@ -730,7 +745,13 @@ public class ExecutionScheduler implements SmartLifecycle {
      * to call after the permit was released: a permit releases once.
      */
     public void giveBack() {
-      permit.subscribe(Permit::release, _ -> {});
+      if (immediate) {
+        permit.subscribe(Permit::release, _ -> {});
+      } else {
+        // Subscribing would keep the waiter queued (and, with a queue timeout, book a false
+        // QUEUE_TIMEOUT for a run that was only cancelled): leave the queue instead.
+        leave.run();
+      }
     }
   }
 

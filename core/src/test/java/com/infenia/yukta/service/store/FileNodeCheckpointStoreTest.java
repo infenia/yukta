@@ -210,6 +210,65 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
+  void runDataIsReadableByTheOwnerOnly() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("secret")).block();
+    store.markComplete("e1", "n1").block();
+
+    final Path run = dir.resolve("e-e1");
+    assertThat(
+            java.nio.file.attribute.PosixFilePermissions.toString(
+                Files.getPosixFilePermissions(run)))
+        .isEqualTo("rwx------");
+    try (var files = Files.list(run)) {
+      assertThat(files.toList())
+          .isNotEmpty()
+          .allSatisfy(
+              file ->
+                  assertThat(
+                          java.nio.file.attribute.PosixFilePermissions.toString(
+                              Files.getPosixFilePermissions(file)))
+                      .isEqualTo("rw-------"));
+    }
+  }
+
+  @Test
+  void withoutPosixViewsNoPermissionsAreSet() {
+    assertThat(FileNodeCheckpointStore.attributes(java.util.Set.of("basic"), "rwx------"))
+        .isEmpty();
+    assertThat(FileNodeCheckpointStore.attributes(java.util.Set.of("posix"), "rwx------"))
+        .hasSize(1);
+  }
+
+  @Test
+  void nodeWhoseOutputCouldNotBeWritten_getsNoEndMarker() {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("fine")).block();
+    store.save("e1", "n1", message(new Broken())).block();
+
+    store.markComplete("e1", "n1").block();
+
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+    // a clear forgets the failure with the run
+    store.clear("e1");
+    store.save("e2", "n1", message("fine")).block();
+    store.markComplete("e2", "n1").block();
+    assertThat(store.isFinished("e2", "n1")).isTrue();
+  }
+
+  @Test
+  void lateMarkerAfterClear_leavesNoDirectory() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.clear("e1");
+
+    store.markComplete("e1", "n1").block();
+
+    try (var left = Files.list(dir)) {
+      assertThat(left.toList()).isEmpty();
+    }
+  }
+
+  @Test
   void lateSaveAfterClear_bringsNothingBack() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.save("e1", "n1", message("first")).block();

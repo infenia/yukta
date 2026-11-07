@@ -11,9 +11,13 @@ import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
@@ -24,8 +28,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -45,7 +51,12 @@ import tools.jackson.databind.ObjectMapper;
  * object.
  */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.GodClass"
+})
 public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted {
 
   /** Suffix of the file holding a node's messages. */
@@ -62,6 +73,17 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Log key of the run. */
   private static final String EXECUTION_ID = "executionId";
+
+  /** Separates the run from the node in a key. */
+  private static final String SEP = "\0";
+
+  /** Run data is for this server's user only: node outputs can hold tokens and other secrets. */
+  private static final FileAttribute<?>[] DIR_ATTRS =
+      attributes(FileSystems.getDefault().supportedFileAttributeViews(), "rwx------");
+
+  /** The same for the files. */
+  private static final FileAttribute<?>[] FILE_ATTRS =
+      attributes(FileSystems.getDefault().supportedFileAttributeViews(), "rw-------");
 
   /** How many cleared runs are remembered. */
   private static final int REMEMBERED_CLEARED = 4096;
@@ -80,6 +102,9 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   /** Root directory. */
   private final Path root;
+
+  /** Nodes whose output could not be written in full: they must not get an end marker. */
+  private final Set<String> failedWrites = ConcurrentHashMap.newKeySet();
 
   /** Bytes written and not yet cleared in this process (earlier runs' files are not counted). */
   private final AtomicLong held = new AtomicLong();
@@ -149,24 +174,57 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
    * marker that may not survive a crash.
    */
   private void writeDone(final String executionId, final String nodeId) {
+    if (failedWrites.contains(executionId + SEP + nodeId)) {
+      // an output write failed: the file may lack a message, whatever the marker could say
+      markerFailed(executionId, nodeId, null);
+      return;
+    }
     try {
-      Files.createDirectories(dir(executionId));
+      Files.createDirectories(dir(executionId), DIR_ATTRS);
       final Path output = file(executionId, nodeId, MESSAGES);
       if (Files.exists(output)) {
         force(output);
       }
       final Path done = file(executionId, nodeId, DONE);
-      Files.writeString(done, "");
+      touch(done);
       force(done);
       force(dir(executionId));
+      if (cleared.contains(executionId)) {
+        // a late marker of a cleared run: do not leave its directory behind
+        deleteTree(executionId);
+      }
     } catch (final IOException | RuntimeException e) {
-      failedMarkers.incrementAndGet();
-      log.atError()
-          .addKeyValue(EXECUTION_ID, executionId)
-          .addKeyValue("nodeId", nodeId)
-          .setCause(e)
-          .log("Could not make the end of a node durable, a resume will run it again");
-      markIncomplete(executionId, nodeId);
+      markerFailed(executionId, nodeId, e);
+    }
+  }
+
+  private void markerFailed(
+      final String executionId, final String nodeId, final @Nullable Throwable cause) {
+    failedMarkers.incrementAndGet();
+    log.atError()
+        .addKeyValue(EXECUTION_ID, executionId)
+        .addKeyValue("nodeId", nodeId)
+        .setCause(cause)
+        .log("Could not make the end of a node durable, a resume will run it again");
+    markIncomplete(executionId, nodeId);
+  }
+
+  /** Permissions for new files and directories, where the file system has POSIX ones. */
+  /* default */ static FileAttribute<?>[] attributes(
+      final Set<String> views, final String permissions) {
+    return views.contains("posix")
+        ? new FileAttribute<?>[] {
+          PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString(permissions))
+        }
+        : new FileAttribute<?>[0];
+  }
+
+  /** Creates an empty marker file (readable by its owner only); one that exists is kept. */
+  private static void touch(final Path path) throws IOException {
+    try {
+      Files.createFile(path, FILE_ATTRS);
+    } catch (final FileAlreadyExistsException e) {
+      log.atTrace().setCause(e).log("Marker already there");
     }
   }
 
@@ -207,6 +265,11 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   @Override
   public void clear(final String executionId) {
     cleared.add(executionId);
+    failedWrites.removeIf(key -> key.startsWith(executionId + SEP));
+    deleteTree(executionId);
+  }
+
+  private void deleteTree(final String executionId) {
     final Path dir = dir(executionId);
     if (!Files.exists(dir)) {
       return;
@@ -232,21 +295,14 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
   private void write(final String executionId, final String nodeId, final Message<?> message) {
     try {
       final String json = CheckpointJson.write(mapper, message) + "\n";
-      if (cleared.contains(executionId)) {
-        log.atDebug()
-            .addKeyValue(EXECUTION_ID, executionId)
-            .addKeyValue("nodeId", nodeId)
-            .log("Dropped a late node output: the run was cleared");
-        return;
-      }
-      Files.createDirectories(dir(executionId));
+      Files.createDirectories(dir(executionId), DIR_ATTRS);
       final long written;
       // Opened per message and closed at once: open descriptors must not grow with runs x nodes.
       try (var channel =
           FileChannel.open(
               file(executionId, nodeId, MESSAGES),
-              StandardOpenOption.CREATE,
-              StandardOpenOption.APPEND)) {
+              Set.of(StandardOpenOption.CREATE, StandardOpenOption.APPEND),
+              FILE_ATTRS)) {
         // The file name is a hash, so the first write leaves the id in a header line (a racing
         // second header is harmless: readers skip every header).
         final byte[] line =
@@ -259,8 +315,19 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
           channel.write(buffer);
         }
       }
+      if (cleared.contains(executionId)) {
+        // Checked after the write: a clear that ran in between has already set the flag, so a late
+        // message cannot leave a directory behind that no later clear removes.
+        log.atDebug()
+            .addKeyValue(EXECUTION_ID, executionId)
+            .addKeyValue("nodeId", nodeId)
+            .log("Dropped a late node output: the run was cleared");
+        deleteTree(executionId);
+        return;
+      }
       held.addAndGet(written);
     } catch (final IOException | RuntimeException e) {
+      failedWrites.add(executionId + SEP + nodeId);
       log.atWarn()
           .addKeyValue(EXECUTION_ID, executionId)
           .addKeyValue("nodeId", nodeId)
@@ -272,8 +339,8 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
 
   private void markIncomplete(final String executionId, final String nodeId) {
     try {
-      Files.createDirectories(dir(executionId));
-      Files.writeString(file(executionId, nodeId, INCOMPLETE), "");
+      Files.createDirectories(dir(executionId), DIR_ATTRS);
+      touch(file(executionId, nodeId, INCOMPLETE));
     } catch (final IOException e) {
       log.atError().setCause(e).log("Could not mark node output incomplete");
     }

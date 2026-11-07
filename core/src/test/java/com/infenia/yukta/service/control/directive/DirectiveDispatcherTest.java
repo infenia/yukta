@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -33,7 +34,12 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.TooManyStaticImports"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.ExcessiveImports"
+})
 @NoArgsConstructor
 class DirectiveDispatcherTest {
 
@@ -204,6 +210,27 @@ class DirectiveDispatcherTest {
   }
 
   @Test
+  void dispatchOrdered_approvedCommandOfEndedRun_isRecordedAsNotApplied() {
+    StepVerifier.create(
+            dispatcher
+                .dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("ended"))
+                .contextWrite(
+                    ctx ->
+                        ctx.put(ControlActor.CONTEXT_KEY, "ann")
+                            .put(ControlActor.APPROVED_REQUEST, new Object())))
+        .expectError()
+        .verify();
+
+    assertThat(log.readAll())
+        .singleElement()
+        .satisfies(
+            entry -> {
+              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+              assertThat(entry.status()).contains("PauseWorkflowCommand", "Execution not found");
+            });
+  }
+
+  @Test
   void dispatchOrdered_completesOnlyAfterTheProcessorHasApplied_andPropagatesRejections() {
     registry.save(createControl("s", "w", "exec-ack"));
     final ExecutionControlCommand command =
@@ -329,9 +356,7 @@ class DirectiveDispatcherTest {
 
     dispatcher
         .dispatchOrdered(pause)
-        .contextWrite(
-            reactor.util.context.Context.of(
-                com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob"))
+        .contextWrite(reactor.util.context.Context.of(ControlActor.CONTEXT_KEY, "key:bob"))
         .subscribe()
         .dispose();
 

@@ -33,6 +33,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
+import com.infenia.yukta.service.orchestrator.stream.NodeStreams;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.stream.UpstreamFailure;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -337,9 +338,14 @@ class TerminalNodeAssemblerStrategyTest {
 
     StepVerifier.create(context.terminals().getFirst()).verifyError(RuntimeException.class);
 
+    // the reason travels with the status, so a watcher need not read the logs
     verify(tracker, atLeastOnce())
         .emitTaskStatusEvent(
-            eq(EXECUTION_ID), eq(NODE_ID), anyString(), eq(TaskStatus.FAILURE), any());
+            eq(EXECUTION_ID),
+            eq(NODE_ID),
+            anyString(),
+            eq(TaskStatus.FAILURE),
+            argThat(metadata -> metadata.containsKey(NodeStreams.ERROR_KEY)));
     verify(activePluginRegistry).register(WORKFLOW_ID, EXECUTION_ID, NODE_ID, terminal);
     verify(activePluginRegistry).unregister(WORKFLOW_ID, EXECUTION_ID, NODE_ID);
   }

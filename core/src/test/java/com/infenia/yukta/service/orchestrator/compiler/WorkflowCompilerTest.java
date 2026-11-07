@@ -203,6 +203,23 @@ class WorkflowCompilerTest {
   }
 
   @Test
+  void compileAssemblers_cutsAnAbsurdBufferSizeToTheLimit() {
+    final WorkflowNode node = new WorkflowNode("n1", "trigger", Map.of("bufferSize", 9_000_000));
+    final Map<String, Plugin> plugins = Map.of("n1", plugin);
+
+    when(plugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(30));
+    final NodeAssembler mockAssembler = mock(NodeAssembler.class);
+    when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
+    when(assemblerStrategy.createAssembler(eq(node), eq(plugin), any(), eq(0), eq(65_536)))
+        .thenReturn(mockAssembler);
+
+    final NodeAssembler[] assemblers =
+        compiler.compileAssemblers(List.of(), Map.of("n1", List.of()), plugins, List.of(node));
+
+    assertThat(assemblers[0]).isSameAs(mockAssembler);
+  }
+
+  @Test
   void compileAssemblers_nodeConfigOverridesBufferSize() {
     final WorkflowNode node = new WorkflowNode("n1", "trigger", Map.of("bufferSize", 256));
     final List<WorkflowEdge> edges = List.of();

@@ -186,13 +186,16 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
     return Mono.defer(
         () -> {
-          if (cleared.contains(executionId)) {
-            return Mono.empty();
-          }
           final Recorded recorded =
               store
                   .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
                   .computeIfAbsent(nodeId, _ -> new Recorded());
+          // After the insert, not before: a clear that ran in between has already set the flag, so
+          // a late message cannot leave state behind that no later clear removes.
+          if (cleared.contains(executionId)) {
+            store.remove(executionId);
+            return Mono.empty();
+          }
           final long size = sizeOf(message);
           final List<Message<?>> toSpill = new ArrayList<>();
           Mono<Void> write = Mono.empty();
@@ -302,8 +305,13 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
     return Mono.fromRunnable(
-        () ->
-            finished.computeIfAbsent(executionId, _ -> ConcurrentHashMap.newKeySet()).add(nodeId));
+        () -> {
+          finished.computeIfAbsent(executionId, _ -> ConcurrentHashMap.newKeySet()).add(nodeId);
+          if (cleared.contains(executionId)) {
+            // a late marker of a cleared run
+            finished.remove(executionId);
+          }
+        });
   }
 
   @Override

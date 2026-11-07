@@ -22,14 +22,18 @@ class SupervisorSettingsMaskTest {
             Map.of(
                 "apiKey", "sk-1",
                 "bearer", "abc",
+                "passphrase", "pp",
+                "hmac", "h",
                 "model", "m",
                 "nested", Map.of("password", "pw", "url", "http://x"),
                 "list", List.of(Map.of("token", "t", "url", "u"))),
-            Set.of("bearer"));
+            Set.of("hmac"));
 
     assertThat(shown)
         .containsEntry("apiKey", "***")
         .containsEntry("bearer", "***")
+        .containsEntry("passphrase", "***")
+        .containsEntry("hmac", "***")
         .containsEntry("model", "m")
         .containsEntry("nested", Map.of("password", "***", "url", "http://x"))
         .containsEntry("list", List.of(Map.of("token", "***", "url", "u")));

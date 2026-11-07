@@ -98,6 +98,28 @@ class ConfigRedactorTest {
   }
 
   @Test
+  void passphrasesPrivateKeysAndCookiesAreSecretNamesToo() {
+    final Map<String, Object> config =
+        redactedConfig(
+            "SOMETHING_ELSE",
+            Map.of(
+                "pwd", "a",
+                "passphrase", "b",
+                "privateKey", "c",
+                "sshKey", "d",
+                "cookie", "e",
+                "authType", "basic"));
+
+    assertThat(config)
+        .containsEntry("pwd", MASK)
+        .containsEntry("passphrase", MASK)
+        .containsEntry("privateKey", MASK)
+        .containsEntry("sshKey", MASK)
+        .containsEntry("cookie", MASK)
+        .containsEntry("authType", "basic");
+  }
+
+  @Test
   void everyLeafUnderSecretNamedKeyOrSecretFieldIsMasked() {
     typeWithSecretField("SQL_QUERY", "dbCredential");
 
