@@ -57,7 +57,8 @@ class InputDeliveryWorkerTest {
   private final InMemoryInputRequestStore store =
       org.mockito.Mockito.spy(new InMemoryInputRequestStore(100));
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
-  private final AnswerTokens tokens = new AnswerTokens("worker-secret", clock);
+  private final AnswerTokens tokens =
+      new AnswerTokens("worker-secret-worker-secret-worker-secret", clock);
   private final List<Map<String, Object>> delivered = new CopyOnWriteArrayList<>();
   private final AtomicBoolean fail = new AtomicBoolean();
   private final AtomicBoolean leading = new AtomicBoolean(true);

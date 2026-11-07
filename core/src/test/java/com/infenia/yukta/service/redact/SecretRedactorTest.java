@@ -37,6 +37,18 @@ class SecretRedactorTest {
   }
 
   @Test
+  void longRunOfBlanksAfterKeyIsNotQuadratic() {
+    final String text = "password=" + " ".repeat(60_000) + "x";
+
+    final long started = System.nanoTime();
+    redactor.redactText(text);
+
+    // quadratic backtracking took many seconds here; linear takes milliseconds
+    assertThat(java.time.Duration.ofNanos(System.nanoTime() - started))
+        .isLessThan(java.time.Duration.ofSeconds(2));
+  }
+
+  @Test
   void keysThatOnlyContainSecretWordButAreCountsAreKept() {
     final Map<String, Object> cleaned =
         redactor.redactMap(

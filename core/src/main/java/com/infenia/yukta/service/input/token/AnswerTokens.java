@@ -79,6 +79,11 @@ public class AnswerTokens {
                   + " survive a restart");
     } else {
       bytes = secret.getBytes(StandardCharsets.UTF_8);
+      if (bytes.length < SECRET_BYTES) {
+        // a short secret makes the key guessable from a captured token
+        throw new IllegalArgumentException(
+            "yukta.input.token-secret must be at least " + SECRET_BYTES + " bytes long");
+      }
     }
     this.key = new SecretKeySpec(bytes, ALGORITHM);
   }
