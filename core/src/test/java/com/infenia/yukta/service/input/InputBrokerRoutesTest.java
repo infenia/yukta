@@ -6,7 +6,9 @@ import static com.infenia.yukta.service.input.InputTestSupport.limits;
 import static com.infenia.yukta.service.input.InputTestSupport.who;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.session.SessionSnapshot;
@@ -41,6 +43,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -146,13 +149,17 @@ class InputBrokerRoutesTest {
 
   @SuppressWarnings("unchecked")
   private InputBroker broker() {
+    return broker(store);
+  }
+
+  private InputBroker broker(final InputRequestStore requests) {
     final ObjectProvider<EligibleSupervisors> directory = mock(ObjectProvider.class);
     when(directory.getIfAvailable()).thenReturn(() -> List.copyOf(attached));
     final ObjectProvider<SessionConfigStore> sessionStore = mock(ObjectProvider.class);
     when(sessionStore.getIfAvailable()).thenReturn(sessions);
     feed.events().subscribe(events::add);
     return new InputBroker(
-        store,
+        requests,
         feed,
         new InMemoryExecutionLogStore(),
         new SimpleMeterRegistry(),
@@ -469,6 +476,41 @@ class InputBrokerRoutesTest {
     broker.answer(split.id(), null, answer(split, bot("one"), "approve", 1.0)).block();
     broker.answer(split.id(), null, answer(split, bot("two"), "reject", 1.0)).block();
     assertThat(current(split).tier()).isEqualTo("ops");
+  }
+
+  @Test
+  void escalationThatLostTheRaceReturnsTheRequestWhereTheWinnerPutIt() {
+    final Tier above =
+        new Tier(
+            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+    routes.put(
+        "chain", route("chain", FinalAction.FAIL, auto("supervisor:*", null), above, humans(null)));
+    supervisor("section", SECTION);
+    supervisor("workflow", WORKFLOW);
+    final InputRequestStore racing = spy(store);
+    final InputBroker broker = broker(racing);
+    final InputRequest request = open(broker, spec("k1", "chain"));
+    final AtomicBoolean raced = new AtomicBoolean();
+    doAnswer(
+            call -> {
+              final Mono<InputRequest> read = (Mono<InputRequest>) call.callRealMethod();
+              // the first read is the loser's snapshot; the winner moves the request after it
+              return read.doOnNext(
+                  _ -> {
+                    if (!raced.getAndSet(true)) {
+                      broker.escalate(request.id(), "winner", null, null).block();
+                    }
+                  });
+            })
+        .when(racing)
+        .findById(request.id());
+
+    final InputRequest loser = broker.escalate(request.id(), "loser", null, null).block();
+
+    assertThat(raced).isTrue();
+    assertThat(loser.tier()).isEqualTo("above");
+    assertThat(current(request).tier()).isEqualTo("above");
+    assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance)).hasSize(1);
   }
 
   @Test

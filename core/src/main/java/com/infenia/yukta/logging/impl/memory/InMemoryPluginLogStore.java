@@ -4,6 +4,7 @@ package com.infenia.yukta.logging.impl.memory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.infenia.yukta.logging.api.IndexedLog;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.logging.api.PluginLogStoreConfig;
@@ -53,12 +54,16 @@ public class InMemoryPluginLogStore implements PluginLogStore {
 
     /** Characters of message text held. */
     private long chars;
+
+    /** Lines dropped from the head so far: the position of the first kept line. */
+    private long dropped;
   }
 
   /**
    * Constructs an in-memory store with Caffeine cache.
    *
-   * <p>Cache is configured with expireAfterWrite based on effective retention period.
+   * <p>Cache is configured with expireAfterWrite based on effective retention period; every line
+   * written renews it.
    *
    * @param config the log store configuration
    */
@@ -105,6 +110,8 @@ public class InMemoryPluginLogStore implements PluginLogStore {
                   drop(lines);
                 }
               }
+              // a write, so retention counts from the latest line and a long run keeps its lines
+              cache.put(executionId, lines);
               log.atTrace()
                   .log(
                       "Log written for execution {}: [{}] {}",
@@ -118,7 +125,24 @@ public class InMemoryPluginLogStore implements PluginLogStore {
   private void drop(final Lines lines) {
     final int size = lines.entries.removeFirst().message().length();
     lines.chars -= size;
+    lines.dropped++;
     held.addAndGet(-size);
+  }
+
+  @Override
+  public Flux<IndexedLog> readIndexed(final String executionId) {
+    final Lines lines = cache.getIfPresent(executionId);
+    final List<IndexedLog> copy = new ArrayList<>();
+    if (lines != null) {
+      synchronized (lines) {
+        long at = lines.dropped;
+        for (final PluginLogEntry entry : lines.entries) {
+          copy.add(new IndexedLog(at, entry));
+          at++;
+        }
+      }
+    }
+    return Flux.fromIterable(copy).subscribeOn(Schedulers.boundedElastic());
   }
 
   @Override

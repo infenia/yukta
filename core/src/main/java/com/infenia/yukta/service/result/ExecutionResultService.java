@@ -4,6 +4,8 @@ package com.infenia.yukta.service.result;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Expiry;
+import com.github.benmanes.caffeine.cache.Ticker;
 import com.infenia.yukta.config.YuktaProperties;
 import java.time.Duration;
 import java.util.List;
@@ -47,10 +49,19 @@ public class ExecutionResultService {
    */
   public ExecutionResultService(
       final int retainedEvents, final Duration retention, final int maxExecutions) {
+    this(retainedEvents, retention, maxExecutions, Ticker.systemTicker());
+  }
+
+  /* default */ ExecutionResultService(
+      final int retainedEvents,
+      final Duration retention,
+      final int maxExecutions,
+      final Ticker ticker) {
     this.retainedEvents = Math.max(1, retainedEvents);
     this.channels =
         Caffeine.newBuilder()
-            .expireAfterAccess(retention)
+            .ticker(ticker)
+            .expireAfter(new LiveRunsStay(retention.toNanos()))
             // A live run weighs 0, so size eviction only ever takes finished runs.
             .maximumWeight(maxExecutions)
             .weigher((String id, ResultChannel channel) -> channel.finished() ? 1 : 0)
@@ -132,6 +143,40 @@ public class ExecutionResultService {
    */
   public boolean has(final String executionId) {
     return channels.getIfPresent(executionId) != null;
+  }
+
+  /**
+   * A live run never expires: a follower holds its sink without touching the cache, so an idle hour
+   * would swap the channel under it. A finished run lives {@code retention} after its last use.
+   */
+  private record LiveRunsStay(long retentionNanos) implements Expiry<String, ResultChannel> {
+    private long left(final ResultChannel channel) {
+      return channel.finished() ? retentionNanos : Long.MAX_VALUE;
+    }
+
+    @Override
+    public long expireAfterCreate(
+        final String key, final ResultChannel channel, final long currentTime) {
+      return left(channel);
+    }
+
+    @Override
+    public long expireAfterUpdate(
+        final String key,
+        final ResultChannel channel,
+        final long currentTime,
+        final long currentDuration) {
+      return left(channel);
+    }
+
+    @Override
+    public long expireAfterRead(
+        final String key,
+        final ResultChannel channel,
+        final long currentTime,
+        final long currentDuration) {
+      return channel.finished() ? retentionNanos : currentDuration;
+    }
   }
 
   private ResultChannel channel(final String executionId) {

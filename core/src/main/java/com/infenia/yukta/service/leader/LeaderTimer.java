@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -16,6 +17,7 @@ import reactor.core.scheduler.Scheduler;
  * for the previous job to end, so a slow job is not overtaken. Backs the {@code start}, {@code
  * stop} and {@code isRunning} of the lifecycle beans that poll.
  */
+@Slf4j
 public final class LeaderTimer {
 
   /** Tells whether this server is the leader. */
@@ -61,14 +63,22 @@ public final class LeaderTimer {
     try {
       if (timer.get() == null) {
         timer.set(
+            // a tick that finds the job still running is skipped, not queued: a queue of 32 ticks
+            // overflows and ends the timer for good
             Flux.interval(interval, scheduler)
+                .onBackpressureDrop()
                 .filter(_ -> leader.isLeader())
-                .concatMap(_ -> job.get())
+                .concatMap(_ -> Mono.defer(job).onErrorResume(LeaderTimer::failed))
                 .subscribe());
       }
     } finally {
       lock.unlock();
     }
+  }
+
+  private static Mono<Void> failed(final Throwable error) {
+    log.atWarn().setCause(error).log("A leader timer job failed; the next tick runs it again");
+    return Mono.empty();
   }
 
   /** Stops the timer; does nothing when it is stopped. */

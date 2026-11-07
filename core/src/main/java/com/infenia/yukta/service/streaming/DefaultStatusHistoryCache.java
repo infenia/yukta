@@ -97,6 +97,8 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
               });
 
       deque.addLast(progress);
+      // a write, so the TTL counts from the latest snapshot and a long run keeps its history
+      cache.put(executionId, deque);
       // Bounded: the oldest go first, so the newest (the terminal one) is always kept. Size is
       // read once per put; the deque is at most maxPerRun long, so this is cheap.
       while (deque.size() > maxPerRun) {
