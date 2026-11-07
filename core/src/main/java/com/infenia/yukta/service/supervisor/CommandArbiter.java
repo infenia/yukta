@@ -42,7 +42,8 @@ import reactor.core.scheduler.Schedulers;
   "PMD.CyclomaticComplexity",
   "PMD.CouplingBetweenObjects",
   "PMD.UseConcurrentHashMap",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.TooManyMethods"
 })
 public class CommandArbiter {
 
