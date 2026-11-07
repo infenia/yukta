@@ -56,10 +56,17 @@ public class SchemaSubset {
   private static boolean checkType(
       final JsonNode schema, final JsonNode value, final String path, final List<String> found) {
     final JsonNode type = schema.get("type");
-    final boolean named = type != null && type.isString();
-    final boolean fits = !named || isOfType(type.stringValue(), value);
+    final boolean fits;
+    if (type != null && type.isString()) {
+      fits = isOfType(type.stringValue(), value);
+    } else if (type != null && type.isArray()) {
+      // JSON Schema allows a list of types: the value may be any of them
+      fits = anyType(type, value);
+    } else {
+      fits = true;
+    }
     if (!fits) {
-      found.add(path + ": expected " + type.stringValue());
+      found.add(path + ": expected " + (type.isString() ? type.stringValue() : type.toString()));
     }
     return fits;
   }
@@ -118,8 +125,18 @@ public class SchemaSubset {
       case "integer" -> value.isIntegralNumber();
       case "boolean" -> value.isBoolean();
       case "null" -> value.isNull();
-      default -> true;
+      // an unknown name (a typo) must not accept everything
+      default -> false;
     };
+  }
+
+  private static boolean anyType(final JsonNode types, final JsonNode value) {
+    for (final JsonNode type : types) {
+      if (type.isString() && isOfType(type.stringValue(), value)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static boolean contains(final JsonNode allowed, final JsonNode value) {

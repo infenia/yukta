@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputState;
+import com.infenia.yukta.service.input.delivery.InputDelivery;
 import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -53,6 +54,32 @@ class InMemoryInputRequestStoreTest {
     assertThat(store.findById("a").block()).isNull();
     assertThat(store.findById("b").block()).isNotNull();
     assertThat(store.findById("c").block()).isNotNull();
+  }
+
+  @Test
+  void deliveriesGoWithTheirEvictedAndPurgedRequests() {
+    final InMemoryInputRequestStore store = new InMemoryInputRequestStore(1);
+    for (final String id : List.of("a", "b")) {
+      store.createIfAbsent(request(id, InputState.OPEN)).block();
+      store.enqueueDelivery(delivery("d-" + id, id)).block();
+      store.compareAndSet(id, 0, request(id, InputState.CANCELLED, 1)).block();
+    }
+
+    // "a" was evicted beyond the bound, and its delivery with it
+    assertThat(store.dueDeliveries(T0.plusSeconds(60)).map(InputDelivery::id).collectList().block())
+        .containsExactly("d-b");
+
+    // a worker that saw the request end must not bring its delivery back
+    store.saveDelivery(delivery("d-a", "a").sent()).block();
+    assertThat(store.dueDeliveries(T0.plusSeconds(60)).count().block()).isEqualTo(1);
+
+    store.purgeTerminalOlderThan(T0.plusSeconds(3600)).block();
+    assertThat(store.dueDeliveries(T0.plusSeconds(60)).count().block()).isZero();
+  }
+
+  private static InputDelivery delivery(final String id, final String requestId) {
+    return new InputDelivery(
+        id, requestId, "hook", "external:webhook:ops", InputDelivery.State.PENDING, 0, T0, null);
   }
 
   @Test
