@@ -36,6 +36,7 @@ class WorkflowVersionProviderTest {
 
   {
     when(declared.reconcile(any())).thenReturn(Mono.empty());
+    when(declared.require(any())).thenReturn(Mono.empty());
   }
 
   private static WorkflowDefinition definition(final String... nodeIds) {
@@ -98,6 +99,20 @@ class WorkflowVersionProviderTest {
         .assertNext(result -> assertThat(result.version()).isEqualTo("0001-a"))
         .verifyComplete();
     verify(definitions).save("s", old);
+  }
+
+  @Test
+  void rollback_refusesVersionWhoseSupervisorIsGone_andSavesNothing() {
+    final WorkflowDefinition old = definition("a");
+    when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(declared.require(old))
+        .thenReturn(Mono.error(new IllegalStateException("no supervisor 'audit'")));
+
+    StepVerifier.create(provider.rollback("s", "w1", "0001-a"))
+        .expectErrorMessage("no supervisor 'audit'")
+        .verify();
+    verify(definitions, org.mockito.Mockito.never())
+        .save(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
   }
 
   @Test
