@@ -29,6 +29,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
@@ -119,6 +120,39 @@ class SupervisorServiceTest {
     final SupervisorAttachment binding = binding(id, "p", scope, true);
     StepVerifier.create(service.attach(binding)).expectNext(binding).verifyComplete();
     return binding;
+  }
+
+  @Test
+  void standbyRefusesSupervisorChanges_andLosingTheLeaseStopsTheAttachedOnes() {
+    final LeaderElection election = mock(LeaderElection.class);
+    service.setLeaderElection(election);
+    final ArgumentCaptor<Runnable> onLoss = ArgumentCaptor.forClass(Runnable.class);
+    verify(election).onLoss(onLoss.capture());
+    when(election.isLeader()).thenReturn(false);
+
+    StepVerifier.create(service.saveSupervisor(profile("p")))
+        .expectError(NotLeaderException.class)
+        .verify();
+    StepVerifier.create(service.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+        .expectError(NotLeaderException.class)
+        .verify();
+    StepVerifier.create(service.detach("b")).expectError(NotLeaderException.class).verify();
+    onLoss.getValue().run();
+
+    verify(host).detachAll();
+  }
+
+  @Test
+  void leaderAcceptsSupervisorChanges() {
+    final LeaderElection election = mock(LeaderElection.class);
+    when(election.isLeader()).thenReturn(true);
+    service.setLeaderElection(election);
+
+    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.detach("b")).verifyComplete();
   }
 
   @Test
