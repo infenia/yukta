@@ -314,6 +314,100 @@ describe('RunsPage', () => {
     expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs$/);
   });
 
+  it('opens a run from a click anywhere on its row, but not from its buttons', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    const row = (await screen.findByRole('link', { name: '0000xyz-' })).closest(
+      'tr'
+    ) as HTMLElement;
+    await user.click(within(row).getByText('9s'));
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/sessions/s1/workflow/wf?exec=0000xyz-abcdef'
+    );
+  });
+
+  it('does not open the run when the copy button is clicked', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue();
+    renderAt('/runs');
+    await user.click(
+      await screen.findByRole('button', { name: 'Copy run id 0000xyz-abcdef' })
+    );
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs/);
+  });
+
+  it('opens a focused row with Enter', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    const row = (await screen.findByRole('link', { name: '0000xyz-' })).closest(
+      'tr'
+    ) as HTMLElement;
+    row.focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/sessions/s1/workflow/wf?exec=0000xyz-abcdef'
+    );
+  });
+
+  it('opens a focused row with Space', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    const row = (await screen.findByRole('link', { name: '0000xyz-' })).closest(
+      'tr'
+    ) as HTMLElement;
+    row.focus();
+    await user.keyboard(' ');
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/sessions/s1/workflow/wf?exec=0000xyz-abcdef'
+    );
+  });
+
+  it('ignores other keys on a focused row', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    renderAt('/runs');
+    const row = (await screen.findByRole('link', { name: '0000xyz-' })).closest(
+      'tr'
+    ) as HTMLElement;
+    row.focus();
+    await user.keyboard('a');
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs$/);
+  });
+
+  it('leaves Enter on a button inside the row to that button', async () => {
+    total = 1;
+    const user = userEvent.setup();
+    const write = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue();
+    renderAt('/runs');
+    const copy = await screen.findByRole('button', {
+      name: 'Copy run id 0000xyz-abcdef',
+    });
+    copy.focus();
+    await user.keyboard('{Enter}');
+    expect(write).toHaveBeenCalledWith('0000xyz-abcdef');
+    expect(screen.getByTestId('where')).toHaveTextContent(/^\/runs/);
+  });
+
+  it('shows the status as an icon, its name kept as the accessible label', async () => {
+    total = 1;
+    renderAt('/runs');
+    await screen.findByRole('link', { name: '0000xyz-' });
+    const cell = screen
+      .getAllByRole('cell')
+      .find((c) => c.dataset.label === 'Status') as HTMLElement;
+    expect(within(cell).getByTestId('status-chip')).toHaveAttribute(
+      'aria-label',
+      'Succeeded'
+    );
+    expect(within(cell).queryByText('Succeeded')).toBeNull();
+  });
+
   it('copies a run id', async () => {
     total = 1;
     const user = userEvent.setup();
