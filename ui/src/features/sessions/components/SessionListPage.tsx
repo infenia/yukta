@@ -163,15 +163,19 @@ export function SessionListPage() {
               <div className="flex gap-2">
                 <Link
                   to="/sessions/import"
+                  aria-label="Import session"
+                  title="Import session"
                   className={buttonVariants({
                     variant: 'outline',
-                    size: 'default',
+                    size: 'icon',
                   })}
                 >
-                  <span className="material-symbols-outlined text-base">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-base"
+                  >
                     upload
                   </span>
-                  Import JSON
                 </Link>
                 {newSession}
               </div>
@@ -194,8 +198,9 @@ export function SessionListPage() {
               No sessions yet
             </h2>
             <p className="text-body-md text-on-surface-variant max-w-prose">
-              A session groups the workflows of one project. Create one, then
-              add workflows from the editor, the CLI or an AI agent over MCP.
+              A session groups related workflows and their runs. Create one,
+              then add workflows from the editor, the CLI or an AI agent over
+              MCP.
             </p>
             {newSession}
           </section>

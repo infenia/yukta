@@ -368,7 +368,7 @@ function SessionForm({
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
         title="New session"
-        description="A session groups the workflows of one project. You add workflows after creating it, or import a whole session as JSON."
+        description="A session groups related workflows and their runs. You add workflows after creating it, or import a whole session as JSON."
       />
       <nav
         aria-label="How to create"
@@ -384,7 +384,7 @@ function SessionForm({
           to="/sessions/import"
           className="text-label-md text-on-surface-variant hover:text-on-surface py-2"
         >
-          Import JSON
+          Import session
         </Link>
       </nav>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
