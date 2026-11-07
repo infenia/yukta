@@ -335,7 +335,7 @@ export function WorkflowDetailsPage() {
       <EffectiveSupervision
         sessionId={sessionId}
         workflowId={workflowId}
-        className="mx-6 my-2"
+        className="border-border border-b"
       />
 
       <InputsPanel sessionId={sessionId} workflowId={workflowId} live={live} />
