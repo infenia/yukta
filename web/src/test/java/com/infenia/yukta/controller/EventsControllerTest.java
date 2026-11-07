@@ -32,11 +32,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.codec.ServerSentEvent;
 import reactor.core.publisher.Flux;
-import reactor.core.scheduler.Schedulers;
 
 /** Tests for the behaviour described by {@link EventsController}. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 class EventsControllerTest {
 
   /** Answers which runs lie within a tree, for the tree filter. */
@@ -44,6 +43,9 @@ class EventsControllerTest {
 
   /** Envelope type of a workflow status change. */
   private static final String WORKFLOW_STATUS = "WorkflowStatusChanged";
+
+  /** A reader is done when nothing arrives for this long; load only makes the test slower. */
+  private static final Duration IDLE = Duration.ofSeconds(1);
 
   @BeforeEach
   void everyRunIsItsOwnRoot() {
@@ -58,6 +60,13 @@ class EventsControllerTest {
   private static ExecutionEvent control(final String executionId) {
     return new ExecutionEvent.ControlOutcome(
         executionId, null, null, "PauseWorkflowCommand", "rules", true, null, Instant.now());
+  }
+
+  /** The feed drops what it publishes before a reader subscribed: publish only after one did. */
+  private static void awaitSubscribed(final ExecutionEventFeed feed) {
+    Flux.interval(Duration.ofMillis(1))
+        .takeUntil(tick -> feed.subscriberCount() > 0)
+        .blockLast(Duration.ofSeconds(10));
   }
 
   private List<EventsController.Envelope> collect(
@@ -80,7 +89,7 @@ class EventsControllerTest {
         stream
             .filter(event -> event.data() != null)
             .map(ServerSentEvent::data)
-            .take(Duration.ofMillis(500))
+            .timeout(IDLE, Flux.empty())
             .collectList()
             .toFuture();
     Flux.just(
@@ -89,8 +98,7 @@ class EventsControllerTest {
             workflow("e2", "RUNNING"),
             workflow("e1", "SUCCESS"),
             workflow("e3", "FAILURE"))
-        .delaySubscription(Duration.ofMillis(100))
-        .publishOn(Schedulers.single())
+        .doOnSubscribe(subscription -> awaitSubscribed(feed))
         .subscribe(feed::publish);
     return received.join();
   }
@@ -178,12 +186,11 @@ class EventsControllerTest {
             .stream("e1", true, null, null)
                 .filter(event -> event.data() != null)
                 .map(ServerSentEvent::data)
-                .take(Duration.ofMillis(500))
+                .timeout(IDLE, Flux.empty())
                 .collectList()
                 .toFuture();
     Flux.just(new ExecutionEvent.EventsMissed(3, Instant.now()), workflow("e1", "SUCCESS"))
-        .delaySubscription(Duration.ofMillis(100))
-        .publishOn(Schedulers.single())
+        .doOnSubscribe(subscription -> awaitSubscribed(feed))
         .subscribe(feed::publish);
 
     assertThat(received.join())
@@ -241,7 +248,7 @@ class EventsControllerTest {
             .stream(null, false, type, null)
                 .mapNotNull(ServerSentEvent::data)
                 .map(EventsController.Envelope::type)
-                .take(Duration.ofMillis(3000))
+                .timeout(IDLE, Flux.empty())
                 .collectList()
                 .toFuture();
     final Instant now = Instant.now();
@@ -253,10 +260,7 @@ class EventsControllerTest {
                 "e1", "s", "wf", "r1", new Responder(Responder.Type.HUMAN, "ann"), "ok", now),
             new ExecutionEvent.InputExpired("e1", "s", "wf", "r1", now),
             new ExecutionEvent.InputCancelled("e1", "s", "wf", "r1", "run-ended", now))
-        // the feed subscribes each reader on another thread: give it time before publishing (a
-        // loaded CI runner needs a full second)
-        .delaySubscription(Duration.ofMillis(1000))
-        .publishOn(Schedulers.single())
+        .doOnSubscribe(subscription -> awaitSubscribed(feed))
         .subscribe(feed::publish);
     return received.join();
   }

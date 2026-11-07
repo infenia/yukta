@@ -39,6 +39,18 @@ class ExecutionEventFeedTest {
   }
 
   @Test
+  void subscriberCount_countsTheReadersSubscribedNow() {
+    final ExecutionEventFeed feed = new ExecutionEventFeed();
+    assertThat(feed.subscriberCount()).isZero();
+
+    final Disposable reader = feed.events().subscribe();
+    assertThat(feed.subscriberCount()).isEqualTo(1);
+
+    reader.dispose();
+    assertThat(feed.subscriberCount()).isZero();
+  }
+
+  @Test
   void events_blockedSubscriber_doesNotBlockPublisher() throws InterruptedException {
     final ExecutionEventFeed feed = new ExecutionEventFeed();
     final CountDownLatch release = new CountDownLatch(1);

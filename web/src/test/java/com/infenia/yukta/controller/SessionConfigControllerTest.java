@@ -79,6 +79,9 @@ class SessionConfigControllerTest {
                     new ConfigRedactor(mock(PluginRegistry.class)),
                     controlBus))
             .controllerAdvice(new GlobalExceptionHandler())
+            .configureClient()
+            // the default 5 s is too short for the first request on a loaded CI runner
+            .responseTimeout(Duration.ofSeconds(30))
             .build();
   }
 
