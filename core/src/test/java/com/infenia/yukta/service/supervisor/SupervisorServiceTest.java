@@ -68,10 +68,8 @@ class SupervisorServiceTest {
   private final SupervisorFactory factory =
       new SupervisorFactory() {
         @Override
-        public java.util.List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
-          return java.util.List.of(
-              com.infenia.yukta.plugin.core.ConfigField.optional(
-                  "level", com.infenia.yukta.plugin.core.ConfigField.Type.NUMBER, null, "test"));
+        public List<ConfigField> getConfigSchema() {
+          return List.of(ConfigField.optional("level", ConfigField.Type.NUMBER, null, "test"));
         }
 
         @Override

@@ -134,8 +134,8 @@ class SupervisorTypesControllerTest {
     final SupervisorFactory plain =
         new SupervisorFactory() {
           @Override
-          public java.util.List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
-            return java.util.List.of();
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
           }
 
           @Override

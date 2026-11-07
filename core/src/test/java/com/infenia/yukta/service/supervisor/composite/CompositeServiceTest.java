@@ -39,10 +39,8 @@ class CompositeServiceTest {
   private final SupervisorFactory leaf =
       new SupervisorFactory() {
         @Override
-        public java.util.List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
-          return java.util.List.of(
-              com.infenia.yukta.plugin.core.ConfigField.optional(
-                  "v", com.infenia.yukta.plugin.core.ConfigField.Type.NUMBER, null, "test"));
+        public List<ConfigField> getConfigSchema() {
+          return List.of(ConfigField.optional("v", ConfigField.Type.NUMBER, null, "test"));
         }
 
         @Override
