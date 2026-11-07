@@ -5,18 +5,14 @@ package com.infenia.yukta.service.control.directive;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
-import com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor;
-import com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor;
 import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
-import com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.NodeValveCommands;
 import com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor;
-import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
 import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
-import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor;
 
@@ -31,16 +27,9 @@ final class CommandHandlerFixture {
   /* default */ final RestartCommandProcessor restart = mock(RestartCommandProcessor.class);
   /* default */ final RestartFromNodeCommandProcessor restartFromNode =
       mock(RestartFromNodeCommandProcessor.class);
-  /* default */ final PauseNodeCommandProcessor pauseNode = mock(PauseNodeCommandProcessor.class);
-  /* default */ final ResumeNodeCommandProcessor resumeNode =
-      mock(ResumeNodeCommandProcessor.class);
+  /* default */ final NodeValveCommands nodeValves = mock(NodeValveCommands.class);
   /* default */ final StopNodeCommandProcessor stopNode = mock(StopNodeCommandProcessor.class);
   /* default */ final SkipNodeCommandProcessor skipNode = mock(SkipNodeCommandProcessor.class);
-  /* default */ final EnableStepModeCommandProcessor enableStepMode =
-      mock(EnableStepModeCommandProcessor.class);
-  /* default */ final DisableStepModeCommandProcessor disableStepMode =
-      mock(DisableStepModeCommandProcessor.class);
-  /* default */ final StepNodeCommandProcessor stepNode = mock(StepNodeCommandProcessor.class);
   /* default */ final SetBreakpointCommandProcessor setBreakpoint =
       mock(SetBreakpointCommandProcessor.class);
   /* default */ final AnswerInputCommandProcessor answerInput =
@@ -55,13 +44,9 @@ final class CommandHandlerFixture {
           stopWorkflow,
           restart,
           restartFromNode,
-          pauseNode,
-          resumeNode,
+          nodeValves,
           stopNode,
           skipNode,
-          enableStepMode,
-          disableStepMode,
-          stepNode,
           setBreakpoint,
           answerInput,
           escalateInput);

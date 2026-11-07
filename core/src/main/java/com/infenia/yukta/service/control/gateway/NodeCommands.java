@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.DisableStepModeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
@@ -18,7 +19,7 @@ import reactor.core.publisher.Mono;
 
 /** Commands for one node of a live run. */
 @Slf4j
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 final class NodeCommands extends ControlDispatch {
 
   /* default */ NodeCommands(
@@ -27,70 +28,16 @@ final class NodeCommands extends ControlDispatch {
   }
 
   /* default */ Mono<Void> pauseNode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(control -> executeCommand(buildCommand(new PauseNodeCommand(executionId, nodeId))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Pausing node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node pause command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to pause node"));
+    return nodeCommand(new PauseNodeCommand(executionId, nodeId), "pause");
   }
 
   /* default */ Mono<Void> resumeNode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control -> executeCommand(buildCommand(new ResumeNodeCommand(executionId, nodeId))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Resuming node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node resume command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to resume node"));
+    return nodeCommand(new ResumeNodeCommand(executionId, nodeId), "resume");
   }
 
   /* default */ Mono<Void> stopNode(
       final String executionId, final String nodeId, final boolean immediate, final String reason) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(new StopNodeCommand(executionId, nodeId, immediate, reason))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("immediate", immediate)
-                    .addKeyValue("reason", reason)
-                    .log("Stopping node"))
-        .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node stop command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to stop node"));
+    return nodeCommand(new StopNodeCommand(executionId, nodeId, immediate, reason), "stop");
   }
 
   /* default */ Mono<Void> addBreakpoint(
@@ -124,89 +71,42 @@ final class NodeCommands extends ControlDispatch {
 
   /* default */ Mono<Void> skipNode(
       final String executionId, final String nodeId, final boolean skip) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control -> executeCommand(buildCommand(new SkipNodeCommand(executionId, nodeId, skip))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("skip", skip)
-                    .log("Toggling node skip"))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("skip", skip)
-                    .log("Node skip command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to skip node"));
+    return nodeCommand(new SkipNodeCommand(executionId, nodeId, skip), "skip");
   }
 
   /* default */ Mono<Void> enableStepMode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control -> executeCommand(buildCommand(new EnableStepModeCommand(executionId, nodeId))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Enabling step mode"))
-        .doOnSuccess(_ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Step mode enabled"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to enable step mode"));
+    return nodeCommand(new EnableStepModeCommand(executionId, nodeId), "enable step mode on");
   }
 
   /* default */ Mono<Void> disableStepMode(final String executionId, final String nodeId) {
-    return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(buildCommand(new DisableStepModeCommand(executionId, nodeId))))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Disabling step mode"))
-        .doOnSuccess(_ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Step mode disabled"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to disable step mode"));
+    return nodeCommand(new DisableStepModeCommand(executionId, nodeId), "disable step mode on");
   }
 
   /* default */ Mono<Void> stepNode(final String executionId, final String nodeId) {
+    return nodeCommand(new StepNodeCommand(executionId, nodeId), "step");
+  }
+
+  /** Checks the node, runs the command and logs it the same way for every node command. */
+  private Mono<Void> nodeCommand(final ExecutionControlCommand command, final String verb) {
+    final String executionId = command.executionId();
+    final String nodeId = command.nodeId();
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(control -> executeCommand(buildCommand(new StepNodeCommand(executionId, nodeId))))
+        .flatMap(control -> executeCommand(buildCommand(command)))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
                     .addKeyValue("executionId", executionId)
                     .addKeyValue("nodeId", nodeId)
-                    .log("Stepping through node"))
+                    .addKeyValue("command", command)
+                    .log("Going to {} node", verb))
         .doOnSuccess(
-            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node step command executed"))
+            _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node {} command executed", verb))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
                     .addKeyValue("nodeId", nodeId)
-                    .log("Failed to step node"));
+                    .log("Failed to {} node", verb));
   }
 }
