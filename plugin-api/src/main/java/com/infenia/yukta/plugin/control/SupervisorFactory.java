@@ -87,12 +87,10 @@ public interface SupervisorFactory {
 
   /**
    * The settings this type reads, besides the common ones in {@link SupervisorCommonSettings}.
-   * Saving a supervisor refuses a key that is in neither, and a value of the wrong type. The
-   * default is empty, which leaves the type's own keys unchecked; override it to declare them.
+   * Saving a supervisor refuses a key that is in neither (keys match exactly), and a value of the
+   * wrong type. A type with no settings returns an empty list.
    *
    * @return the fields
    */
-  default List<ConfigField> getConfigSchema() {
-    return List.of();
-  }
+  List<ConfigField> getConfigSchema();
 }

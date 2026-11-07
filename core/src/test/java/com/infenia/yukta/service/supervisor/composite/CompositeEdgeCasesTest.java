@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
+import com.infenia.yukta.plugin.core.ConfigField;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -259,6 +260,11 @@ class CompositeEdgeCasesTest {
   private static SupervisorFactory factory(
       final String type, final java.util.function.Function<Supervisor, ExecutionSupervisor> make) {
     return new SupervisorFactory() {
+      @Override
+      public List<ConfigField> getConfigSchema() {
+        return List.of();
+      }
+
       @Override
       public String type() {
         return type;

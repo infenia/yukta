@@ -4,6 +4,8 @@ package com.infenia.yukta.plugin.control;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.core.ConfigField;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
@@ -15,6 +17,11 @@ class SupervisorFactoryTest {
 
   private final SupervisorFactory factory =
       new SupervisorFactory() {
+        @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of();
+        }
+
         @Override
         public String type() {
           return "t";

@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import java.util.List;
@@ -40,6 +41,11 @@ class SupervisorServiceCapabilitiesTest {
 
   private final SupervisorFactory factory =
       new SupervisorFactory() {
+        @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of();
+        }
+
         @Override
         public String type() {
           return TYPE;
@@ -149,10 +155,8 @@ class SupervisorServiceCapabilitiesTest {
       }
 
       @Override
-      public List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
-        return List.of(
-            com.infenia.yukta.plugin.core.ConfigField.optional(
-                "known", com.infenia.yukta.plugin.core.ConfigField.Type.STRING, null, "a key"));
+      public List<ConfigField> getConfigSchema() {
+        return List.of(ConfigField.optional("known", ConfigField.Type.STRING, null, "a key"));
       }
 
       @Override

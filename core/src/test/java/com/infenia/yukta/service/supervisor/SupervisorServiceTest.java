@@ -68,6 +68,11 @@ class SupervisorServiceTest {
   private final SupervisorFactory factory =
       new SupervisorFactory() {
         @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of(ConfigField.optional("level", ConfigField.Type.NUMBER, null, "test"));
+        }
+
+        @Override
         public String type() {
           return TYPE;
         }
