@@ -180,6 +180,16 @@ class InMemoryNodeCheckpointStoreSpillTest {
   }
 
   @Test
+  void lateMarkerAfterClear_isNotKept() {
+    final InMemoryNodeCheckpointStore store = store(2, dir.toString());
+    store.clear("e1");
+
+    store.markComplete("e1", "n1").block();
+
+    assertThat(store.isFinished("e1", "n1")).isFalse();
+  }
+
+  @Test
   void clearedRunsBeyondTheCap_areForgotten_soTheOldestRecordsAgain() {
     final InMemoryNodeCheckpointStore store = store(5, dir.toString());
     for (int i = 0; i <= 4096; i++) {
