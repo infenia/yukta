@@ -202,6 +202,39 @@ class CommandArbiterTest {
   }
 
   @Test
+  void whenTheWinnerIsBlockedForFlapping_theNextSupervisorOnTheWinningSideSendsTheCommand() {
+    // supervisor "a" (order 1) has turned e1 around up to the limit
+    assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+    assertThat(decided(arbiter.submit("a", 1, resume("e1")))).isEqualTo(Decision.SEND);
+    assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+
+    // in one window: a's resume would cross the limit, b (order 5) sends the same command, and c
+    // wants the opposite
+    final Mono<Decision> a = arbiter.submit("a", 1, resume("e1"));
+    final Mono<Decision> b = arbiter.submit("b", 5, resume("e1"));
+    final Mono<Decision> c = arbiter.submit("c", 9, pause("e1"));
+    scheduler.advanceTimeBy(WINDOW.plusMillis(1));
+
+    assertThat(a.block().verdict()).isEqualTo(Verdict.FLAPPING_BLOCKED);
+    assertThat(b.block()).isEqualTo(Decision.SEND);
+    assertThat(c.block().verdict()).isEqualTo(Verdict.ARBITRATED);
+  }
+
+  @Test
+  void whenEveryWinnerIsBlocked_theOtherSideIsNotArbitratedAway() {
+    assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+    assertThat(decided(arbiter.submit("a", 1, resume("e1")))).isEqualTo(Decision.SEND);
+    assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+
+    final Mono<Decision> a = arbiter.submit("a", 1, resume("e1"));
+    final Mono<Decision> c = arbiter.submit("c", 9, pause("e1"));
+    scheduler.advanceTimeBy(WINDOW.plusMillis(1));
+
+    assertThat(a.block().verdict()).isEqualTo(Verdict.FLAPPING_BLOCKED);
+    assertThat(c.block()).isEqualTo(Decision.SEND);
+  }
+
+  @Test
   void sendingTheSameDirectionAgainIsNoTurnAround() {
     for (int i = 0; i < 6; i++) {
       assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);

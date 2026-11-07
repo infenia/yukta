@@ -39,6 +39,7 @@ import reactor.core.scheduler.Schedulers;
  */
 @SuppressWarnings({
   "PMD.CyclomaticComplexity",
+  "PMD.CouplingBetweenObjects",
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops"
 })
@@ -206,24 +207,39 @@ public class CommandArbiter {
     final Entry winner =
         closed.entries.stream().min(Comparator.comparingInt((Entry e) -> e.order)).orElseThrow();
     final Instant now = clock.instant();
+    final List<Entry> arrivals = new ArrayList<>(closed.entries);
+    final Map<Entry, Decision> decisions = decide(arrivals, winner, closed.move, now);
+    arrivals.forEach(entry -> entry.sink.tryEmitValue(decisions.get(entry)));
+  }
+
+  /**
+   * The decision for each entry of a closed window. The winning side sends one command: the first
+   * to arrive of its supervisors that is not blocked for turning the target around too often; its
+   * allies are coalesced into that one. The other side lost only if something was sent; if every
+   * winner was blocked, it may go on.
+   */
+  private Map<Entry, Decision> decide(
+      final List<Entry> arrivals, final Entry winner, final Move move, final Instant now) {
+    final Map<Entry, Decision> decisions = new HashMap<>();
     boolean sent = false;
-    for (final Entry entry : new ArrayList<>(closed.entries)) {
-      final boolean winning = entry.polarity.equals(winner.polarity);
-      final Decision decision;
-      if (winning && !sent) {
-        sent = true;
-        decision = flapped(entry, closed.move, now);
-      } else if (winning) {
-        decision =
-            new Decision(Verdict.COALESCED, "the same command is sent for another supervisor");
-      } else {
-        decision =
-            new Decision(
-                Verdict.ARBITRATED,
-                "lost to supervisor " + winner.supervisorId + " (order " + winner.order + ")");
+    for (final Entry entry : arrivals) {
+      if (entry.polarity.equals(winner.polarity)) {
+        final Decision decision =
+            sent
+                ? new Decision(Verdict.COALESCED, "the same command is sent for another supervisor")
+                : flapped(entry, move, now);
+        sent = sent || decision.verdict() == Verdict.SEND;
+        decisions.put(entry, decision);
       }
-      entry.sink.tryEmitValue(decision);
     }
+    final Decision lost =
+        sent
+            ? new Decision(
+                Verdict.ARBITRATED,
+                "lost to supervisor " + winner.supervisorId + " (order " + winner.order + ")")
+            : Decision.SEND;
+    arrivals.forEach(entry -> decisions.putIfAbsent(entry, lost));
+    return decisions;
   }
 
   /** Counts a turn-around of a supervisor on a target and blocks it once it is too many. */

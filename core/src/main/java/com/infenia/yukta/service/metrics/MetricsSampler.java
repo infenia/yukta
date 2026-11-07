@@ -246,24 +246,29 @@ public class MetricsSampler {
    * @param now the current epoch milliseconds
    * @return series key to ordered points
    */
-  public synchronized Map<String, List<Point>> series(
+  public Map<String, List<Point>> series(
       final List<String> names, final Duration range, final long now) {
+    // a blank name is a prefix of every key: it selects nothing instead of everything
+    final List<String> wanted = names.stream().filter(name -> !name.isBlank()).toList();
+    final Map<String, List<Point>> out = new TreeMap<>();
+    // the samples are immutable: copy the references under the lock, scan without it
+    for (final MetricSample s : recent(range, now)) {
+      s.values()
+          .forEach(
+              (k, v) -> {
+                if (wanted.stream().anyMatch(k::startsWith)) {
+                  out.computeIfAbsent(k, _ -> new ArrayList<>()).add(new Point(s.time(), v));
+                }
+              });
+    }
+    return out;
+  }
+
+  private synchronized List<MetricSample> recent(final Duration range, final long now) {
     final Deque<MetricSample> source =
         range.compareTo(properties.fineRetention()) <= 0 ? fine : coarse;
     final long from = now - range.toMillis();
-    final Map<String, List<Point>> out = new TreeMap<>();
-    for (final MetricSample s : source) {
-      if (s.time() >= from) {
-        s.values()
-            .forEach(
-                (k, v) -> {
-                  if (names.stream().anyMatch(k::startsWith)) {
-                    out.computeIfAbsent(k, _ -> new ArrayList<>()).add(new Point(s.time(), v));
-                  }
-                });
-      }
-    }
-    return out;
+    return source.stream().filter(sample -> sample.time() >= from).toList();
   }
 
   /**

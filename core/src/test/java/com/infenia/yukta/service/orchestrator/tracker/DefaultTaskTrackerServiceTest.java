@@ -539,6 +539,31 @@ class DefaultTaskTrackerServiceTest {
   }
 
   @Test
+  void statusStream_watcherThatFellBehind_stillGetsTheTerminalSnapshot() {
+    final String executionId = "exec-slow-watch";
+    StepVerifier.create(tracker.startWorkflow(executionId, "sess-1", "wf-1", List.of("n1")))
+        .verifyComplete();
+
+    // the watcher asks for one snapshot and stalls while many more and the end are emitted
+    StepVerifier.create(tracker.getStatusStream(executionId, false), 1)
+        .then(
+            () -> {
+              for (int i = 0; i < 100; i++) {
+                tracker.emitControlStateEvent(executionId, ControlState.NODE_PAUSED);
+                tracker.emitControlStateEvent(executionId, ControlState.NODE_RESUMED);
+              }
+              tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
+            })
+        .expectNextCount(1)
+        .thenAwait(Duration.ofMillis(500))
+        .thenRequest(Long.MAX_VALUE)
+        .thenConsumeWhile(p -> p.status() != TaskStatus.SUCCESS)
+        .assertNext(p -> assertThat(p.status()).isEqualTo(TaskStatus.SUCCESS))
+        .expectComplete()
+        .verify(Duration.ofSeconds(10));
+  }
+
+  @Test
   void statusStream_afterTerminalUpdate_completesWithoutWaitingForCleanup() {
     final DefaultTaskTrackerService slow =
         TrackerFactory.tracker(Duration.ofMinutes(10), statusHistoryCache);
