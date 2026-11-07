@@ -38,6 +38,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
   "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "unchecked"
