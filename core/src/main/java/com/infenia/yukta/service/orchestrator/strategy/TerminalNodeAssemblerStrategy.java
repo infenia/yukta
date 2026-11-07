@@ -249,7 +249,7 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                         node.nodeId(),
                         node.type(),
                         NodeStreams.failureStatus(e),
-                        Collections.emptyMap());
+                        NodeStreams.failureMetadataOf(e));
                     resultService.nodeEnd(
                         context.executionId(), node.nodeId(), NodeStreams.failureStatus(e).name());
                   })

@@ -218,7 +218,7 @@ public interface TaskTrackerService {
    * Records a message that an edge buffer dropped because the node could not keep up.
    *
    * @param module the node type
-   * @param nodeId the node whose buffer dropped it
+   * @param nodeId the node whose buffer dropped it (not a meter tag: the series would be unbounded)
    */
   void recordEdgeDropped(String module, String nodeId);
 

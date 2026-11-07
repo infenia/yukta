@@ -3421,13 +3421,7 @@ class DefaultTaskTrackerServiceTest {
 
     counting.recordEdgeDropped("HTTP_REQUEST", "n1");
 
-    assertThat(
-            meters
-                .get("yukta.edge.dropped")
-                .tag("type", "HTTP_REQUEST")
-                .tag("node", "n1")
-                .counter()
-                .count())
+    assertThat(meters.get("yukta.edge.dropped").tag("type", "HTTP_REQUEST").counter().count())
         .isEqualTo(1);
   }
 

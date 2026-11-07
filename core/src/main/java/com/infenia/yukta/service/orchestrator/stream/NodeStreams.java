@@ -183,6 +183,20 @@ public class NodeStreams {
   }
 
   /**
+   * The status-event metadata of a node that failed: the reason (cut to head and tail when long)
+   * and the build-tool problems found in it.
+   *
+   * @param error the error that ended the node
+   * @return the metadata for the node's status event; none for a node that never ran because an
+   *     upstream node failed
+   */
+  public static Map<String, Object> failureMetadataOf(final Throwable error) {
+    return failureStatus(error) == TaskStatus.UPSTREAM_FAILED
+        ? Collections.emptyMap()
+        : failureMetadata(describe(error));
+  }
+
+  /**
    * The reason a node failed, as reported on its status event: the error's message (its class name
    * when it has none), cut to head and tail when long, since a build tool puts the first errors at
    * the top and the report location at the bottom.
