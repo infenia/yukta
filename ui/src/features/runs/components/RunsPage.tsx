@@ -271,10 +271,32 @@ function Runs() {
                 {runs.data.map((run) => (
                   <TableRow
                     key={run.executionId}
-                    className="max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3"
+                    tabIndex={0}
+                    onClick={(event) => {
+                      // the run link, copy and recover buttons handle their own clicks
+                      if ((event.target as Element).closest('a, button'))
+                        return;
+                      void navigate(
+                        runPath(run.sessionId, run.workflowId, run.executionId)
+                      );
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.target !== event.currentTarget) return;
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        void navigate(
+                          runPath(
+                            run.sessionId,
+                            run.workflowId,
+                            run.executionId
+                          )
+                        );
+                      }
+                    }}
+                    className="cursor-pointer focus-visible:-outline-offset-2 max-sm:flex max-sm:flex-col max-sm:gap-1 max-sm:py-3"
                   >
                     <TableCell data-label="Status" className={STACKED_CELL}>
-                      <StatusPill status={run.status} />
+                      <StatusPill status={run.status} iconOnly />
                     </TableCell>
                     <TableCell
                       data-label="Run"
