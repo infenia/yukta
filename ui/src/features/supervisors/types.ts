@@ -88,3 +88,26 @@ export interface SupervisorRef {
   nodes?: string[] | null;
   enabled?: boolean | null;
 }
+
+/** What became of one command a supervisor emitted. */
+export interface Decision {
+  time: string;
+  supervisorId: string;
+  outcome:
+    | 'applied'
+    | 'rejected'
+    | 'dry-run'
+    | 'rate-limited'
+    | 'forbidden'
+    | 'out-of-scope'
+    | 'arbitrated'
+    | 'coalesced'
+    | 'flapping-blocked'
+    | 'not-owner'
+    | 'awaiting-approval'
+    // a newer server may name more; the UI shows them in a neutral colour
+    | (string & {});
+  command: string;
+  executionId: string;
+  reason: string | null;
+}

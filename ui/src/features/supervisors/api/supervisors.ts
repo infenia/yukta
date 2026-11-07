@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { api, fetchApi } from '@/lib/apiClient';
-import type { Decision } from '@/features/control/api/supervisors';
 import type {
   AttachmentView,
+  Decision,
   SupervisorDraft,
   SupervisorView,
   ValidationResult,
@@ -94,3 +94,12 @@ export const getWorkflowNodeIds = async (session: string, workflow: string) =>
       api`/api/sessions/${session}/workflows/${workflow}`
     )
   ).nodes.map((n) => n.nodeId);
+
+/** What the control bus reports about each running supervisor (and control-plane plugin). */
+export interface RunningSupervisor {
+  id: string;
+  kind: 'CONTROL_PLANE' | 'SUPERVISOR';
+}
+
+export const getRunningSupervisors = () =>
+  fetchApi<RunningSupervisor[]>('/api/supervisors/status');

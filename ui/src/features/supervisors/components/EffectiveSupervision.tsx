@@ -4,7 +4,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
-import { scopeLabel } from '@/features/control/api/supervisors';
+import { scopeLabel } from '../lib/scope';
 import { useAttachments } from '../hooks/useSupervisorTypes';
 import type { AttachmentView } from '../types';
 import { AttachDialog } from './AttachDialog';

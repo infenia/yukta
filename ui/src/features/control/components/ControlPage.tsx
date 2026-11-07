@@ -4,7 +4,7 @@
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DashboardView } from '../dashboard/DashboardView';
-import { SupervisorCockpit } from '../supervisors/SupervisorCockpit';
+import { SupervisorsTile } from '@/features/supervisors/components/SupervisorsTile';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { ControlBusPanel } from './ControlBusPanel';
 import { SchedulerPanel } from './SchedulerPanel';
@@ -75,12 +75,12 @@ export function ControlPage() {
           {tab === 'overview' && (
             <>
               <InputsTile />
+              <SupervisorsTile />
               <DashboardView />
-              {/* the detail tables: sending a node command, per-workflow limits, the supervisor
-                  cockpit (#1591) and each worker's pools and plugins */}
+              {/* the detail tables: sending a node command, per-workflow limits and each
+                  worker's pools and plugins (supervisors have their own page) */}
               <ControlBusPanel />
               <SchedulerPanel />
-              <SupervisorCockpit />
               <WorkersPanel />
             </>
           )}
