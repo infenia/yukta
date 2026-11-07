@@ -674,12 +674,23 @@ class DefaultControlBusGatewayTest {
             Fixtures.workflowProgress(
                 executionId, "sess", "wf", TaskStatus.RUNNING, List.of(), null, null));
     when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
+    final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
+    gateway.setAuditSink(sunk::add);
 
     StepVerifier.create(gateway.stopExecution(executionId, "stop", StopMode.DRAIN))
         .expectNext(executionId)
         .verifyComplete();
 
     verify(taskTracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+    // it changed how the run ended, so the audit says so
+    assertThat(sunk)
+        .singleElement()
+        .satisfies(
+            r -> {
+              assertThat(r.executionId()).isEqualTo(executionId);
+              assertThat(r.applied()).isTrue();
+              assertThat(r.reason()).contains("stop");
+            });
   }
 
   @Test

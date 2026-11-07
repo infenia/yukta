@@ -423,7 +423,19 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                                         new StopWorkflowCommand(
                                             control.executionId(), reason, mode)))
                                 .thenReturn(control.executionId()))
-                    .orElseGet(() -> queries.finishOrphan(executionId)))
+                    .orElseGet(
+                        () ->
+                            queries
+                                .finishOrphan(executionId)
+                                // it changes how the run ended: the audit must say who and why
+                                .flatMap(
+                                    id ->
+                                        recordAdminAction(
+                                                "StopWorkflowCommand",
+                                                id,
+                                                true,
+                                                "ended a run nothing executes: " + reason)
+                                            .thenReturn(id))))
         .doOnSubscribe(
             _ ->
                 log.atDebug()
