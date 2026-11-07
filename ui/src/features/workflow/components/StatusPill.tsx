@@ -27,6 +27,13 @@ const TONE_CLASSES: Record<StatusTone, { pill: string; dot: string }> = {
   },
 };
 
+/** Icon-only pills already have a round border, so the circled glyphs would draw a second one. */
+const BARE_ICON: Record<string, string> = {
+  check_circle: 'check',
+  error: 'priority_high',
+  stop_circle: 'stop',
+};
+
 /**
  * The one way a run or node status is shown: a sentence-case label with an icon (or a live dot),
  * coloured by tone. The raw backend value stays in data-status and the title for agents and tests.
@@ -63,7 +70,7 @@ export function StatusPill({
     >
       {icon ? (
         <span aria-hidden className="material-symbols-outlined text-[15px]!">
-          {icon}
+          {iconOnly ? (BARE_ICON[icon] ?? icon) : icon}
         </span>
       ) : (
         <span
