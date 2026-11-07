@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
@@ -31,6 +32,9 @@ public class NodeTimeouts {
   /** Node config key that sets the idle timeout in seconds. */
   private static final String TIMEOUT_SECONDS = "timeoutSeconds";
 
+  /** Prefix of a config value that is fetched from the secret provider. */
+  private static final String SECRET_PREFIX = "decrypted:";
+
   /**
    * Re-times the node on its first input if its config holds expressions.
    *
@@ -47,7 +51,9 @@ public class NodeTimeouts {
       final Plugin plugin,
       final VariableResolver resolver,
       final NodeActivity activity) {
-    final Map<String, Object> config = node.config();
+    // A timeout is never a secret: the secrets stay out of this, or every node with a vault entry
+    // would fetch it on its first message only to read a number.
+    final Map<String, Object> config = withoutSecrets(node.config());
     if (config.values().stream().allMatch(resolver::isStatic)) {
       return input;
     }
@@ -66,6 +72,12 @@ public class NodeTimeouts {
                         })
                     .thenMany(rest)
                 : rest);
+  }
+
+  private Map<String, Object> withoutSecrets(final Map<String, Object> config) {
+    final Map<String, Object> kept = new ConcurrentHashMap<>(config);
+    kept.values().removeIf(value -> value instanceof String text && text.startsWith(SECRET_PREFIX));
+    return kept;
   }
 
   private Mono<Map<String, Object>> resolve(

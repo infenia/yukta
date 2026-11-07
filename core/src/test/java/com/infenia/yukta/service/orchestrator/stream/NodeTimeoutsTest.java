@@ -25,7 +25,7 @@ import reactor.test.StepVerifier;
 import reactor.test.scheduler.VirtualTimeScheduler;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyStaticImports", "PMD.TooManyMethods"})
 class NodeTimeoutsTest {
 
   private final VariableResolver resolver = new VariableResolver(mock(SecretProvider.class));
@@ -76,6 +76,43 @@ class NodeTimeoutsTest {
         .then(() -> time.advanceTimeBy(Duration.ofSeconds(100)))
         .thenCancel()
         .verify(Duration.ofSeconds(1));
+  }
+
+  @Test
+  void secretsInTheConfigAreNotFetchedJustToReadTimeout() {
+    final SecretProvider secrets = mock(SecretProvider.class);
+    final VariableResolver withSecrets = new VariableResolver(secrets);
+    final Message<?> input = message(Map.of("secs", 120));
+
+    StepVerifier.create(
+            NodeTimeouts.retimeOnFirstInput(
+                Flux.just(input),
+                new WorkflowNode(
+                    "n",
+                    "t",
+                    Map.of("token", "decrypted:vault-key", "timeoutSeconds", "${payload.secs}")),
+                plugin,
+                withSecrets,
+                activity))
+        .expectNext(input)
+        .verifyComplete();
+
+    org.mockito.Mockito.verifyNoInteractions(secrets);
+  }
+
+  @Test
+  void configWithOnlySecretsAndStaticValuesIsLeftAlone() {
+    final Flux<Message<?>> input = Flux.just(message("x"));
+
+    final Flux<Message<?>> result =
+        NodeTimeouts.retimeOnFirstInput(
+            input,
+            new WorkflowNode("n", "t", Map.of("token", "decrypted:vault-key", "retries", 3)),
+            plugin,
+            resolver,
+            activity);
+
+    assertThat(result).isSameAs(input);
   }
 
   @Test
