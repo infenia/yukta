@@ -77,8 +77,8 @@ test('the run id is request data: a path, a missing run and an empty id are refu
 
 test('supervisor/*.json: the profile answers nothing, matches only the route ticket, the workflow edges are closed', () => {
   const dir = join(import.meta.dir, '..', '..', 'supervisor')
-  const p = json(join(dir, 'profile.json')),
-    b = json(join(dir, 'binding.json')),
+  const p = json(join(dir, 'supervisor.json')),
+    b = json(join(dir, 'attachment.json')),
     s = json(join(dir, 'session.json'))
   expect(p).toMatchObject({
     type: 'workflow',
@@ -101,7 +101,7 @@ test('supervisor/*.json: the profile answers nothing, matches only the route tic
   expect(JSON.stringify(wf)).toContain('__TICKET__')
 })
 
-test('yk ticket supervisor: session, profile, binding in that order with the paths filled in; an existing one is left; a refusal stops', async () => {
+test('yk ticket supervisor: session, supervisor, attachment in that order with the paths filled in; an existing one is left; a refusal stops', async () => {
   const { installSupervisor } = await import('../../src/ticket/yk-ticket.ts')
   const seen: { path: string; body: string }[] = []
   let status = 201
@@ -115,8 +115,8 @@ test('yk ticket supervisor: session, profile, binding in that order with the pat
   })
   try {
     const out = await installSupervisor(`http://127.0.0.1:${srv.port}`, join(import.meta.dir, '..', '..', 'supervisor'), '/state/x')
-    expect(out).toEqual(['session.json: installed', 'profile.json: installed', 'binding.json: installed'])
-    expect(seen.map((s) => s.path)).toEqual(['/api/sessions', '/api/supervisors/profiles', '/api/supervisors/bindings'])
+    expect(out).toEqual(['session.json: installed', 'supervisor.json: installed', 'attachment.json: installed'])
+    expect(seen.map((s) => s.path)).toEqual(['/api/sessions', '/api/supervisors', '/api/supervisors/attachments'])
     expect(seen[0]!.body).toContain('/state/x')
     expect(seen[0]!.body).not.toContain('__TICKET__')
     expect(seen[0]!.body).not.toContain('__STATE__')

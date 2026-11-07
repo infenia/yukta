@@ -6,9 +6,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import java.util.List;
@@ -42,8 +42,8 @@ class RulesFirstControlPlaneFactoryTest {
     return new RulesFirstControlPlaneFactory(beans.getBeanProvider(DecisionModel.class));
   }
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false);
   }
 
   @Test

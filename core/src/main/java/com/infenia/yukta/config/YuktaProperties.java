@@ -53,6 +53,9 @@ public record YuktaProperties(
     @Valid @DefaultValue Cache cache,
     @Valid @DefaultValue Control control) {
 
+  /** The default cap of the bounded counts: messages, attachments and executions kept. */
+  private static final String DEFAULT_CAP = "200";
+
   /**
    * Control commands.
    *
@@ -122,7 +125,7 @@ public record YuktaProperties(
    * @param retainedExecutions executions whose outputs are kept
    */
   public record Restart(
-      @Min(1) @DefaultValue("200") int messagesPerNode,
+      @Min(1) @DefaultValue(DEFAULT_CAP) int messagesPerNode,
       @Min(1) @DefaultValue("4194304") long bytesPerNode,
       @DefaultValue("") String spillDir,
       @DefaultValue("false") boolean autoResume,
@@ -137,7 +140,7 @@ public record YuktaProperties(
    */
   public record Streaming(
       @Min(1) @Max(30) @DefaultValue("5") int statusHistoryTtlMinutes,
-      @Min(1) @DefaultValue("200") int statusHistoryMaxPerRun,
+      @Min(1) @DefaultValue(DEFAULT_CAP) int statusHistoryMaxPerRun,
       @Min(1) @DefaultValue("1000") int statusHistoryMaxExecutions) {}
 
   /**
@@ -147,12 +150,14 @@ public record YuktaProperties(
    * @param maxCommandsPerSecond most commands one supervisor may issue per second
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
    * @param reviewTimeout longest a supervisor may take to answer a review
+   * @param maxAttachments most attachments at once, manual and from definitions together
    */
   public record Supervisor(
       @DefaultValue("false") boolean dryRun,
       @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DefaultValue("5s") Duration reviewTimeout,
+      @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
       @Valid @NotNull @DefaultValue Arbiter arbiter) {}
 
   /**
@@ -260,7 +265,7 @@ public record YuktaProperties(
   public record Results(
       @Min(1) @DefaultValue("1000") int retainedEvents,
       @NotNull @DefaultValue("1h") Duration retention,
-      @Min(1) @DefaultValue("200") int maxExecutions) {}
+      @Min(1) @DefaultValue(DEFAULT_CAP) int maxExecutions) {}
 
   /**
    * The remote worker registry.

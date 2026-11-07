@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.SupervisorResultMapper;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.session.InternalSessions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -50,7 +51,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   /** The most commands taken from one run. */
   private static final int MAX_COMMANDS = 10;
 
-  private final String profileId;
+  private final String supervisorId;
 
   private final WorkflowSettings settings;
 
@@ -81,7 +82,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   /**
    * Creates the supervisor.
    *
-   * @param profileId the profile id (the binding id until a binding is set)
+   * @param supervisorId the profile id (the binding id until a binding is set)
    * @param settings the settings
    * @param runner starts the runs
    * @param internal tells whether the session is internal
@@ -89,14 +90,14 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
    * @param allowed the commands the profile names
    */
   public WorkflowSupervisor(
-      final String profileId,
+      final String supervisorId,
       final WorkflowSettings settings,
       final SupervisorWorkflowRunner runner,
       final InternalSessions internal,
       final InputRedactor redactor,
       final @Nullable Set<String> allowed) {
-    this.profileId = profileId;
-    this.bindingId = profileId;
+    this.supervisorId = supervisorId;
+    this.bindingId = supervisorId;
     this.settings = settings;
     this.runner = runner;
     this.internal = internal;
@@ -117,7 +118,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   @Override
   @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
-    return profileId;
+    return supervisorId;
   }
 
   @Override

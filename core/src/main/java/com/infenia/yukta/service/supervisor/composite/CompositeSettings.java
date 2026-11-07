@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.composite;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -51,7 +51,7 @@ public record CompositeSettings(
    * @return the settings
    * @throws IllegalArgumentException if a setting is missing or out of range
    */
-  public static CompositeSettings read(final SupervisorProfile profile) {
+  public static CompositeSettings read(final Supervisor profile) {
     final Map<String, Object> settings = profile.settings();
     final CompositeMode mode = enumOf(CompositeMode.class, settings.get("mode"), "mode", null);
     final List<String> children = children(settings.get("children"));

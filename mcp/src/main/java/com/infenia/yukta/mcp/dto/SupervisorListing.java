@@ -8,20 +8,37 @@ import java.util.List;
 import org.jspecify.annotations.Nullable;
 
 /**
- * The supervisors that run and the bindings that attach profiles to a scope.
+ * The supervisors that run, the configured supervisors and the attachments that run them.
  *
  * @param running every running supervisor, those configured at startup and those attached since
- * @param bindings the bindings attached at run time
- * @param types the supervisor types a profile may use
+ * @param supervisors the configured supervisors (secrets are not shown)
+ * @param attachments the attachments, made by hand or declared by definitions
+ * @param types the supervisor types a supervisor may have
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorListing(
-    List<RunningSupervisor> running, List<SupervisorBindingInfo> bindings, List<String> types) {
+    List<RunningSupervisor> running,
+    List<ConfiguredSupervisor> supervisors,
+    List<SupervisorAttachmentInfo> attachments,
+    List<String> types) {
+
+  /**
+   * One configured supervisor.
+   *
+   * @param id the supervisor id
+   * @param type the supervisor type
+   * @param description what it is for, or null
+   * @param dryRun whether its commands are only recorded
+   */
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  public record ConfiguredSupervisor(
+      String id, String type, @Nullable String description, boolean dryRun) {}
 
   /** Keeps immutable copies of the lists. */
   public SupervisorListing {
     running = List.copyOf(running);
-    bindings = List.copyOf(bindings);
+    supervisors = List.copyOf(supervisors);
+    attachments = List.copyOf(attachments);
     types = List.copyOf(types);
   }
 

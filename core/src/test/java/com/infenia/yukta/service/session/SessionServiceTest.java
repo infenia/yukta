@@ -38,7 +38,13 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Unit tests for SessionService. */
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports", "PMD.ExcessiveImports"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.UseConcurrentHashMap"
+})
 @ExtendWith(MockitoExtension.class)
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
@@ -1061,5 +1067,110 @@ class SessionServiceTest {
                                 .contains("did not end in time")))
         .verify();
     verify(workflowDefinitionStore, never()).remove(any(), any());
+  }
+
+  private static com.infenia.yukta.model.supervisor.SupervisorRef ref(final String id) {
+    return new com.infenia.yukta.model.supervisor.SupervisorRef(id, null, null);
+  }
+
+  @Test
+  void applyConfig_checksTheDeclaredSupervisorsBeforeSavingAndAttachesThemAfter() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    final SessionConfigData data =
+        new SessionConfigData(
+            SESSION_ID_1, "s", DESC, "i", Map.of(), PATH, Map.of(), List.of(ref("guard")));
+    when(declared.check(data)).thenReturn(Mono.just(List.of()));
+    when(declared.apply(data)).thenReturn(Mono.empty());
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(SESSION_ID_1)).thenReturn(Mono.just(Map.of()));
+
+    StepVerifier.create(sessionService.applyConfig(data)).verifyComplete();
+
+    final org.mockito.InOrder order = org.mockito.Mockito.inOrder(declared, configService);
+    order.verify(declared).check(data);
+    order.verify(configService).applySessionConfig(data);
+    order.verify(declared).apply(data);
+  }
+
+  @Test
+  void applyConfig_refusesDeclaredSupervisorsThatDoNotCheckOutAndSavesNothing() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    final SessionConfigData data =
+        new SessionConfigData(
+            SESSION_ID_1, "s", DESC, "i", Map.of(), PATH, Map.of(), List.of(ref("nope")));
+    when(declared.check(data))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                        "supervisors[0].supervisor", "no supervisor 'nope'"))));
+
+    StepVerifier.create(sessionService.applyConfig(data))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(
+                        com.infenia.yukta.service.supervisor.SettingsValidationException.class)
+                    .hasMessageContaining("supervisors[0].supervisor"))
+        .verify();
+
+    verify(configService, never()).applySessionConfig(any());
+  }
+
+  @Test
+  void deleteWorkflow_bringsTheDeclaredSupervisorsInStepWithTheSessionsOtherWorkflows() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    when(declared.reconcile("s")).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.find("s", "w"))
+        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
+    when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteWorkflow("s", "w", false)).verifyComplete();
+
+    verify(declared).reconcile("s");
+  }
+
+  @Test
+  void deleteSession_makesTheSessionForgetWhatItDeclared() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    when(declared.forget("s")).thenReturn(Mono.empty());
+    when(configService.getSessionIds()).thenReturn(Flux.just("s"));
+    when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
+    when(workflowDefinitionStore.removeAll("s")).thenReturn(Mono.empty());
+    when(configService.removeSession("s")).thenReturn(Mono.empty());
+    when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(sessionService.deleteSession("s", false)).verifyComplete();
+
+    verify(declared).forget("s");
+  }
+
+  @Test
+  void sessionConfigCarriesWhatTheSessionDeclares() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    when(declared.sessionRefs("s1")).thenReturn(Mono.just(List.of(ref("guard"))));
+    final Map<String, Object> config = new java.util.HashMap<>();
+    config.put(CONFIG_SESSION_ID, "s1");
+    config.put(CONFIG_NAME, "n");
+    config.put(CONFIG_DESCRIPTION, DESC);
+    config.put(CONFIG_INITIATOR, INITIATOR);
+    config.put(CONFIG_PROJECT_PATH, PATH);
+    when(configService.getAllConfigs("s1")).thenReturn(Mono.just(snapshot(config)));
+
+    StepVerifier.create(sessionService.getSessionConfig("s1"))
+        .assertNext(response -> assertThat(response.supervisors()).containsExactly(ref("guard")))
+        .verifyComplete();
   }
 }

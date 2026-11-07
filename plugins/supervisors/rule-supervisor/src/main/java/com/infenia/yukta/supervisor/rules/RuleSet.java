@@ -172,11 +172,13 @@ public record RuleSet(List<Rule> rules) {
    *     only)
    * @param route the route of the request, or absent for the default route
    * @param reason shown to whoever approves
+   * @param ttl seconds the request waits, or absent for the server's default
    */
   public record RequireApproval(
       String command,
       @JsonProperty("if") @Nullable String condition,
       @Nullable String risk,
       @Nullable String route,
-      @Nullable String reason) {}
+      @Nullable String reason,
+      @Nullable Integer ttl) {}
 }

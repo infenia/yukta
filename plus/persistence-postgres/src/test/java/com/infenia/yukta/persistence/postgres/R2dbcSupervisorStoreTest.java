@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.SupervisorSource;
 import io.r2dbc.spi.ConnectionFactories;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,72 +23,93 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
   private final R2dbcSupervisorStore store = new R2dbcSupervisorStore(db, new ObjectMapper());
 
-  private static SupervisorProfile profile(final String id, final boolean dry) {
-    return new SupervisorProfile(
+  private static Supervisor profile(final String id, final boolean dry) {
+    return new Supervisor(
         id, "rule-supervisor", Map.of("rules", List.of(Map.of("id", "r")), "level", 2), dry);
   }
 
   @Test
   void profilesAreStoredReplacedAndDeleted() {
-    StepVerifier.create(store.profiles()).verifyComplete();
+    StepVerifier.create(store.supervisors()).verifyComplete();
 
-    StepVerifier.create(store.saveProfile(profile("b", false))).verifyComplete();
-    StepVerifier.create(store.saveProfile(profile("a", true))).verifyComplete();
-    StepVerifier.create(store.profiles())
+    StepVerifier.create(store.saveSupervisor(profile("b", false))).verifyComplete();
+    StepVerifier.create(store.saveSupervisor(profile("a", true))).verifyComplete();
+    StepVerifier.create(store.supervisors())
         .expectNext(profile("a", true), profile("b", false))
         .verifyComplete();
 
-    StepVerifier.create(store.saveProfile(profile("a", false))).verifyComplete();
-    StepVerifier.create(store.profiles().filter(p -> "a".equals(p.id())))
+    StepVerifier.create(store.saveSupervisor(profile("a", false))).verifyComplete();
+    StepVerifier.create(store.supervisors().filter(p -> "a".equals(p.id())))
         .expectNext(profile("a", false))
         .verifyComplete();
 
-    StepVerifier.create(store.deleteProfile("a")).expectNext(true).verifyComplete();
-    StepVerifier.create(store.deleteProfile("a")).expectNext(false).verifyComplete();
+    StepVerifier.create(store.deleteSupervisor("a")).expectNext(true).verifyComplete();
+    StepVerifier.create(store.deleteSupervisor("a")).expectNext(false).verifyComplete();
   }
 
   @Test
   void bindingsKeepTheirScopeAndAreStoredReplacedAndDeleted() {
-    StepVerifier.create(store.saveProfile(profile("p", false))).verifyComplete();
-    final SupervisorBinding session =
-        new SupervisorBinding("b1", "p", new SupervisorScope.Session("A"), true);
-    final SupervisorBinding workflow =
-        new SupervisorBinding("b2", "p", new SupervisorScope.Workflow("w", "A"), false);
+    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
+    final SupervisorAttachment session =
+        new SupervisorAttachment("b1", "p", new SupervisorScope.Session("A"), true);
+    final SupervisorAttachment workflow =
+        new SupervisorAttachment("b2", "p", new SupervisorScope.Workflow("w", "A"), false);
 
-    StepVerifier.create(store.saveBinding(workflow)).verifyComplete();
-    StepVerifier.create(store.saveBinding(session)).verifyComplete();
-    StepVerifier.create(store.bindings()).expectNext(session, workflow).verifyComplete();
+    StepVerifier.create(store.saveAttachment(workflow)).verifyComplete();
+    StepVerifier.create(store.saveAttachment(session)).verifyComplete();
+    StepVerifier.create(store.attachments()).expectNext(session, workflow).verifyComplete();
 
-    final SupervisorBinding global =
-        new SupervisorBinding("b1", "p", new SupervisorScope.Global(), false);
-    StepVerifier.create(store.saveBinding(global)).verifyComplete();
-    StepVerifier.create(store.bindings().filter(b -> "b1".equals(b.id())))
+    final SupervisorAttachment global =
+        new SupervisorAttachment("b1", "p", new SupervisorScope.Global(), false);
+    StepVerifier.create(store.saveAttachment(global)).verifyComplete();
+    StepVerifier.create(store.attachments().filter(b -> "b1".equals(b.id())))
         .expectNext(global)
         .verifyComplete();
 
-    StepVerifier.create(store.deleteBinding("b1")).expectNext(true).verifyComplete();
-    StepVerifier.create(store.deleteBinding("b1")).expectNext(false).verifyComplete();
+    StepVerifier.create(store.deleteAttachment("b1")).expectNext(true).verifyComplete();
+    StepVerifier.create(store.deleteAttachment("b1")).expectNext(false).verifyComplete();
+  }
+
+  @Test
+  void descriptionSourceAndOriginAreStoredAndReadBack() {
+    final Supervisor described =
+        new Supervisor("d", "rule-supervisor", Map.of(), false, "pauses after failures");
+    final SupervisorAttachment declared =
+        new SupervisorAttachment(
+            "def-1",
+            "d",
+            new SupervisorScope.Session("A"),
+            true,
+            SupervisorSource.DEFINITION,
+            "A",
+            "w1");
+
+    StepVerifier.create(store.saveSupervisor(described)).verifyComplete();
+    StepVerifier.create(store.saveAttachment(declared)).verifyComplete();
+
+    StepVerifier.create(store.supervisors()).expectNext(described).verifyComplete();
+    StepVerifier.create(store.attachments()).expectNext(declared).verifyComplete();
   }
 
   @Test
   void sectionScopeIsStoredAsTextAndReadBack() {
-    StepVerifier.create(store.saveProfile(profile("p", false))).verifyComplete();
+    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
     final Set<String> nodes = new LinkedHashSet<>();
     for (int i = 0; i < SupervisorScope.Section.MAX_SELECTORS; i++) {
       nodes.add("stage" + i + ".*");
     }
-    final SupervisorBinding section =
-        new SupervisorBinding("b3", "p", new SupervisorScope.Section("w#1", "A", nodes), true);
+    final SupervisorAttachment section =
+        new SupervisorAttachment("b3", "p", new SupervisorScope.Section("w#1", "A", nodes), true);
 
-    StepVerifier.create(store.saveBinding(section)).verifyComplete();
-    StepVerifier.create(store.bindings()).expectNext(section).verifyComplete();
+    StepVerifier.create(store.saveAttachment(section)).verifyComplete();
+    StepVerifier.create(store.attachments()).expectNext(section).verifyComplete();
   }
 
   @Test
   void bindingNeedsItsProfile() {
     StepVerifier.create(
-            store.saveBinding(
-                new SupervisorBinding("b", "ghost", new SupervisorScope.Global(), true)))
+            store.saveAttachment(
+                new SupervisorAttachment("b", "ghost", new SupervisorScope.Global(), true)))
         .expectError()
         .verify();
   }
@@ -116,5 +139,25 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
             new ObjectMapper());
 
     StepVerifier.create(broken.renamedIdsWarning()).verifyComplete();
+  }
+
+  @Test
+  void sessionRefsAreKeptReplacedAndForgotten() {
+    final List<SupervisorRef> refs =
+        List.of(new SupervisorRef("guard", null, false), new SupervisorRef("watch", null, null));
+
+    StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("A", refs)).verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("B", refs)).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A")).expectNext(refs).verifyComplete();
+    StepVerifier.create(store.sessionsWithRefs()).expectNext("A", "B").verifyComplete();
+
+    StepVerifier.create(store.saveSessionRefs("A", List.of(refs.getFirst()))).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A"))
+        .expectNext(List.of(refs.getFirst()))
+        .verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("A", List.of())).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
+    StepVerifier.create(store.sessionsWithRefs()).expectNext("B").verifyComplete();
   }
 }

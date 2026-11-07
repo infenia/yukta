@@ -13,7 +13,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.session.InternalSessions;
@@ -292,8 +292,8 @@ class WorkflowSupervisorTest {
     when(runner.reservedSlots()).thenReturn(4);
     final WorkflowSupervisorFactory factory =
         new WorkflowSupervisorFactory(runner, internal, redactor);
-    final SupervisorProfile profile =
-        new SupervisorProfile(
+    final Supervisor profile =
+        new Supervisor(
             "p",
             "workflow",
             Map.of("sessionId", "sys", "workflowId", "wf", "events", List.of("InputRequested")),

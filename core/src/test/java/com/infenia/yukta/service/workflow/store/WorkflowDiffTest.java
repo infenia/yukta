@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class WorkflowDiffTest {
 
   private static WorkflowDefinition definition(
@@ -73,5 +75,31 @@ class WorkflowDiffTest {
     assertThat(diff.addedNodes()).isEmpty();
     assertThat(diff.changedNodes()).isEmpty();
     assertThat(diff.removedEdges()).isEmpty();
+  }
+
+  @Test
+  void declaredSupervisors_areComparedByIdNodesAndEnabled() {
+    final List<Node> nodes = List.of(new Node("a", "T", Map.of()));
+    final WorkflowDefinition older =
+        new WorkflowDefinition(
+            "w",
+            "d",
+            nodes,
+            List.of(),
+            List.of(
+                new SupervisorRef("keep", null, null),
+                new SupervisorRef("gone", List.of("b", "a"), null)));
+    final WorkflowDefinition newer =
+        new WorkflowDefinition(
+            "w",
+            "d",
+            nodes,
+            List.of(),
+            List.of(new SupervisorRef("keep", null, null), new SupervisorRef("new", null, false)));
+
+    final WorkflowDiff diff = WorkflowDiff.between(older, newer);
+
+    assertThat(diff.addedSupervisors()).containsExactly("new (disabled)");
+    assertThat(diff.removedSupervisors()).containsExactly("gone[a,b]");
   }
 }

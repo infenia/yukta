@@ -16,7 +16,7 @@ import org.jspecify.annotations.Nullable;
 public interface SupervisorFactory {
 
   /**
-   * The kind of supervisor this factory makes, as written in {@link SupervisorProfile#type()}.
+   * The kind of supervisor this factory makes, as written in {@link Supervisor#type()}.
    *
    * @return the type name
    */
@@ -31,7 +31,7 @@ public interface SupervisorFactory {
    * @throws IllegalArgumentException if the settings are invalid; the message is shown to the
    *     caller, so it must not repeat a secret
    */
-  ExecutionSupervisor create(SupervisorProfile profile);
+  ExecutionSupervisor create(Supervisor profile);
 
   /**
    * Checks a profile without keeping anything. The default makes a supervisor and drops it, which
@@ -41,7 +41,7 @@ public interface SupervisorFactory {
    * @param profile the profile
    * @throws IllegalArgumentException if the settings are invalid
    */
-  default void validate(final SupervisorProfile profile) {
+  default void validate(final Supervisor profile) {
     create(profile);
   }
 
@@ -60,6 +60,18 @@ public interface SupervisorFactory {
   @SuppressWarnings("PMD.ReturnEmptyCollectionRatherThanNull") // null means no restriction
   default @Nullable Set<String> defaultAllowedCommands() {
     return null;
+  }
+
+  /**
+   * The command types one supervisor may send when its settings do not say. The default is the
+   * type's {@link #defaultAllowedCommands()}; override it for a type whose settings decide, such as
+   * an action.
+   *
+   * @param supervisor the supervisor
+   * @return the command names, or {@code null} for no restriction
+   */
+  default @Nullable Set<String> defaultAllowedCommands(final Supervisor supervisor) {
+    return defaultAllowedCommands();
   }
 
   /**

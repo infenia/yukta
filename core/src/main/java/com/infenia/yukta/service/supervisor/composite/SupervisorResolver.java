@@ -3,8 +3,8 @@
 package com.infenia.yukta.service.supervisor.composite;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +27,7 @@ public class SupervisorResolver {
   private final ObjectProvider<SupervisorFactory> factories;
 
   /** The profiles by id. */
-  private final Map<String, SupervisorProfile> profiles = new ConcurrentHashMap<>();
+  private final Map<String, Supervisor> profiles = new ConcurrentHashMap<>();
 
   /**
    * Creates the resolver.
@@ -43,9 +43,9 @@ public class SupervisorResolver {
    *
    * @param all every stored profile
    */
-  public void refresh(final Collection<SupervisorProfile> all) {
-    final Map<String, SupervisorProfile> next =
-        all.stream().collect(Collectors.toMap(SupervisorProfile::id, Function.identity()));
+  public void refresh(final Collection<Supervisor> all) {
+    final Map<String, Supervisor> next =
+        all.stream().collect(Collectors.toMap(Supervisor::id, Function.identity()));
     profiles.keySet().retainAll(next.keySet());
     profiles.putAll(next);
   }
@@ -56,7 +56,7 @@ public class SupervisorResolver {
    * @param id the profile id
    * @return the profile, if stored
    */
-  public Optional<SupervisorProfile> profile(final String id) {
+  public Optional<Supervisor> profile(final String id) {
     return Optional.ofNullable(profiles.get(id));
   }
 
@@ -68,7 +68,7 @@ public class SupervisorResolver {
    * @throws IllegalArgumentException if the profile or its type is unknown, or its settings invalid
    */
   public ExecutionSupervisor resolve(final String id) {
-    final SupervisorProfile profile =
+    final Supervisor profile =
         profile(id).orElseThrow(() -> new IllegalArgumentException("Unknown child profile: " + id));
     return factories.stream()
         .filter(factory -> factory.type().equals(profile.type()))
@@ -87,12 +87,12 @@ public class SupervisorResolver {
     return profiles.values().stream()
         .filter(profile -> CompositeSupervisorFactory.PROFILE_TYPE.equals(profile.type()))
         .filter(profile -> uses(profile, id, 0))
-        .map(SupervisorProfile::id)
+        .map(Supervisor::id)
         .sorted()
         .toList();
   }
 
-  private boolean uses(final SupervisorProfile composite, final String id, final int depth) {
+  private boolean uses(final Supervisor composite, final String id, final int depth) {
     if (depth > CompositeSettings.MAX_DEPTH) {
       return false;
     }

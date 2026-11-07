@@ -364,14 +364,14 @@ async function ticketRun(argv: string[], ykPath: string): Promise<number> {
   }
 }
 
-/** The dogfood supervisor of the ticket questions (supervisor/*.json, #1923): the internal session with its workflow, the profile and the binding, posted to the dev server
+/** The dogfood supervisor of the ticket questions (supervisor/*.json, #1923): the internal session with its workflow, the supervisor and its attachment, posted to the dev server
  * with the dev key (ADMIN). __TICKET__ and __STATE__ are replaced; an object that exists already (409) is left as it is. */
 export async function installSupervisor(base = DEV_URL, dir = join(KIT, 'supervisor'), state = STATE_DIR): Promise<string[]> {
   const sub = (s: string): string => s.split('__TICKET__').join(KIT).split('__STATE__').join(state)
   const steps: [string, string][] = [
     ['session.json', '/api/sessions'],
-    ['profile.json', '/api/supervisors/profiles'],
-    ['binding.json', '/api/supervisors/bindings'],
+    ['supervisor.json', '/api/supervisors'],
+    ['attachment.json', '/api/supervisors/attachments'],
   ]
   const out: string[] = []
   for (const [file, path] of steps) {

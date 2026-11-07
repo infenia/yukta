@@ -42,11 +42,13 @@ class SupervisorCommonSettingsTest {
           }
 
           @Override
-          public ExecutionSupervisor create(final SupervisorProfile profile) {
+          public ExecutionSupervisor create(final Supervisor profile) {
             throw new UnsupportedOperationException();
           }
         };
 
+    assertThat(factory.defaultAllowedCommands(new Supervisor("s", "plain", Map.of(), false)))
+        .isNull();
     assertThat(factory.describe().displayName()).isEqualTo("plain");
     assertThat(factory.describe().category()).isEqualTo(SupervisorCategory.INTEGRATION);
     assertThat(factory.getConfigSchema()).isEqualTo(List.of());

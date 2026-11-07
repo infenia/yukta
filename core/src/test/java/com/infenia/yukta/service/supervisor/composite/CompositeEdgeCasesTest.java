@@ -12,8 +12,8 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -220,7 +220,7 @@ class CompositeEdgeCasesTest {
   }
 
   private static CompositeSettings read(final Map<String, Object> map) {
-    return CompositeSettings.read(new SupervisorProfile("p", "composite", map, false));
+    return CompositeSettings.read(new Supervisor("p", "composite", map, false));
   }
 
   /** A factory of control planes and of plain supervisors. */
@@ -257,8 +257,7 @@ class CompositeEdgeCasesTest {
   }
 
   private static SupervisorFactory factory(
-      final String type,
-      final java.util.function.Function<SupervisorProfile, ExecutionSupervisor> make) {
+      final String type, final java.util.function.Function<Supervisor, ExecutionSupervisor> make) {
     return new SupervisorFactory() {
       @Override
       public String type() {
@@ -266,32 +265,32 @@ class CompositeEdgeCasesTest {
       }
 
       @Override
-      public ExecutionSupervisor create(final SupervisorProfile profile) {
+      public ExecutionSupervisor create(final Supervisor profile) {
         return make.apply(profile);
       }
     };
   }
 
-  private static SupervisorProfile profile(
+  private static Supervisor profile(
       final String id, final String type, final String mode, final String... children) {
-    return new SupervisorProfile(
+    return new Supervisor(
         id, type, Map.of("mode", mode, "children", new ArrayList<>(List.of(children))), false);
   }
 
   @Test
   void resolverMakesChildrenAndFindsNestedParents() {
     final Kinds kinds = new Kinds();
-    final var leaf = new SupervisorProfile("leaf", "plane", Map.of(), false);
+    final var leaf = new Supervisor("leaf", "plane", Map.of(), false);
     final var mid = profile("mid", "composite", "CHAIN", "leaf");
     final var top = profile("top", "composite", "PARALLEL", "mid");
-    final var odd = new SupervisorProfile("odd", "composite", Map.of("children", "x"), false);
+    final var odd = new Supervisor("odd", "composite", Map.of("children", "x"), false);
     kinds.resolver.refresh(List.of(leaf, mid, top, odd));
 
     assertThat(kinds.resolver.resolve("leaf").id()).isEqualTo("leaf");
     assertThat(kinds.resolver.compositesUsing("leaf")).containsExactly("mid", "top");
     assertThat(kinds.resolver.compositesUsing("top")).isEmpty();
     assertThatThrownBy(() -> kinds.resolver.resolve("nope")).hasMessageContaining("Unknown child");
-    kinds.resolver.refresh(List.of(new SupervisorProfile("alien", "alien", Map.of(), false)));
+    kinds.resolver.refresh(List.of(new Supervisor("alien", "alien", Map.of(), false)));
     assertThatThrownBy(() -> kinds.resolver.resolve("alien")).hasMessageContaining("unknown type");
   }
 
@@ -300,8 +299,8 @@ class CompositeEdgeCasesTest {
     final Kinds kinds = new Kinds();
     kinds.resolver.refresh(
         List.of(
-            new SupervisorProfile("p1", "plane", Map.of(), false),
-            new SupervisorProfile("s1", "plain", Map.of(), false)));
+            new Supervisor("p1", "plane", Map.of(), false),
+            new Supervisor("s1", "plain", Map.of(), false)));
 
     final var chain = profile("c", "composite", "CHAIN", "p1");
     assertThat(((CompositeSupervisor) kinds.composite.create(chain)).childIds())
@@ -316,7 +315,7 @@ class CompositeEdgeCasesTest {
   void treeCheckWalksNestedCompositesWithoutFalseAlarms() {
     final Kinds kinds = new Kinds();
     final var inner = profile("inner", "composite", "PARALLEL", "p1");
-    kinds.resolver.refresh(List.of(new SupervisorProfile("p1", "plane", Map.of(), false), inner));
+    kinds.resolver.refresh(List.of(new Supervisor("p1", "plane", Map.of(), false), inner));
     assertThat(kinds.composite.create(profile("outer", "composite", "PARALLEL", "inner")))
         .isNotNull();
   }
@@ -393,14 +392,14 @@ class CompositeEdgeCasesTest {
   @Test
   void deepOrOddCompositesAreNotFollowedForever() {
     final Kinds kinds = new Kinds();
-    final List<SupervisorProfile> all = new ArrayList<>();
-    all.add(new SupervisorProfile("leaf", "plane", Map.of(), false));
+    final List<Supervisor> all = new ArrayList<>();
+    all.add(new Supervisor("leaf", "plane", Map.of(), false));
     String below = "leaf";
     for (int i = 0; i < 6; i++) {
       all.add(profile("c" + i, "composite", "PARALLEL", below));
       below = "c" + i;
     }
-    all.add(new SupervisorProfile("odd", "composite", Map.of("children", List.of(1)), false));
+    all.add(new Supervisor("odd", "composite", Map.of("children", List.of(1)), false));
     kinds.resolver.refresh(all);
     assertThat(kinds.resolver.compositesUsing("leaf")).contains("c0", "c1", "c2");
     assertThat(kinds.resolver.compositesUsing("c5")).isEmpty();

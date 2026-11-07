@@ -1,0 +1,6 @@
+{
+  "id": "section-workflow-binding",
+  "supervisorId": "section-workflow",
+  "scope": "workflow:my-session/my-workflow//build.*",
+  "enabled": true
+}

@@ -54,8 +54,7 @@ describe('WorkflowTitleBar', () => {
     expect(right).not.toBeNull();
     expect(right).toContainElement(actions);
     expect(
-      group.compareDocumentPosition(actions) &
-        Node.DOCUMENT_POSITION_FOLLOWING
+      group.compareDocumentPosition(actions) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   });
 
@@ -93,7 +92,9 @@ describe('WorkflowTitleBar', () => {
         actions={<button type="button">Act</button>}
       />
     );
-    const right = screen.getByRole('button', { name: 'Act' }).closest('.ml-auto');
+    const right = screen
+      .getByRole('button', { name: 'Act' })
+      .closest('.ml-auto');
     expect(right).not.toBeNull();
     expect(right?.children).toHaveLength(1);
   });

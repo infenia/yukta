@@ -1,6 +1,0 @@
-{
-  "id": "section-workflow-binding",
-  "profileId": "section-workflow",
-  "scope": "workflow:my-session/my-workflow//build.*",
-  "enabled": true
-}

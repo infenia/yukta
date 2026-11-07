@@ -68,12 +68,12 @@ The command is not run and not refused. The server parks it in memory and raises
 A release workflow `release` in session `s1` builds (`build.compile`, `build.test`) and then deploys (`deploy.staging`, `deploy.prod`). One profile watches the build, another the deploy, and a third the whole workflow:
 
 ```bash
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"build-guard","profileId":"build-rules","scope":"workflow:s1/release//build.*"}'
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"deploy-guard","profileId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
-curl -X POST http://localhost:9858/api/supervisors/bindings -H 'Content-Type: application/json' \
-  -d '{"id":"release-guard","profileId":"release-rules","scope":"workflow:s1/release"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"build-guard","supervisorId":"build-rules","scope":"workflow:s1/release//build.*"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"deploy-guard","supervisorId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
+curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
+  -d '{"id":"release-guard","supervisorId":"release-rules","scope":"workflow:s1/release"}'
 ```
 
 `build-guard` sees only the build nodes and may pause, skip or step them; a `PauseNodeCommand` it sends for `deploy.prod` is refused as `out-of-scope`. A person pausing `deploy.prod` is reviewed by `deploy-guard` and `release-guard`; a person stopping the whole run is reviewed by `release-guard` only.
@@ -90,18 +90,85 @@ The rule format is in [Rule files](/running/rule-files).
 
 ## Attach a supervisor while the server runs
 
-Besides the supervisors configured at startup, you can create **profiles** and **bind** them to a scope at run time, without a restart.
+Besides the supervisors configured at startup, you can create **supervisors** and **attach** them to a scope at run time, without a restart.
 
-- A **profile** names a supervisor type (`GET /api/supervisors/types`), its settings and whether its commands are only recorded (`dryRun`). For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
-- Profile and binding ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
-- A **binding** attaches a profile to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several bindings of the same profile. `POST /api/supervisors/bindings` starts it at once; `DELETE /api/supervisors/bindings/{id}` stops it, and deleting a session removes the bindings limited to it.
-- A profile's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
-- Changing a profile (`PUT /api/supervisors/profiles/{id}`) restarts the supervisors that use it. A profile that a binding uses cannot be deleted.
+- A **supervisor** names a supervisor type from the catalog (`GET /api/supervisor-types`; `GET /api/supervisor-types/{type}` gives its description, the settings it takes, the commands it may send by default and an example), its settings and whether its commands are only recorded (`dryRun`). Settings are checked against the type when you save: an unknown key or a value of the wrong type is refused with 400 and a `settings.<key>` field error. `POST /api/supervisors/validate` checks a draft without saving it. For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
+- Supervisor and attachment ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
+- An **attachment** attaches a supervisor to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several attachments of the same supervisor. `POST /api/supervisors/attachments` starts it at once; `PATCH /api/supervisors/attachments/{id}` with `{"enabled": false}` pauses it; `DELETE /api/supervisors/attachments/{id}` stops it, and deleting a session removes the attachments limited to it. `GET /api/supervisors/attachments?session=&workflow=&source=` lists them, and with `session` or `workflow` the ones that apply there. An attachment has a source: `MANUAL` (made here), `DEFINITION` (declared by a session or workflow definition) or `SYSTEM` (a supervisor the server configures itself); only `MANUAL` ones can be changed here, the others answer 409.
+- A supervisor's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
+- Changing a supervisor (`PUT /api/supervisors/{id}`; a setting sent back as `***` keeps its stored secret) restarts the attachments that use it. A supervisor that an attachment uses cannot be deleted.
 - An attached supervisor sees events and reviews commands from the moment it is attached, so a run that is already going is supervised from there, not from its start.
-- At most 50 bindings. Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
-- Reading needs a viewer key; creating, changing and removing needs an admin key. Profiles and bindings are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor_profile` and `supervisor_binding`; an enabled binding then starts again at startup. The settings are stored as given, a model API key included.
-- `GET /api/supervisors/decisions?binding=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
-- The MCP tools `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents; profiles are created through the REST API.
+- At most `yukta.supervisor.max-attachments` attachments (default 200; bindings are called attachments from here on). Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
+- Reading needs a viewer key; creating, changing and removing needs an admin key. Supervisors and attachments are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor` and `supervisor_attachment`; an enabled attachment then starts again at startup. The settings are stored as given, a model API key included.
+- `GET /api/supervisors/decisions?supervisor=&attachment=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
+- The MCP tools `list_supervisor_types`, `get_supervisor_type`, `save_supervisor`, `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents. `GET /api/supervisors/status` shows what runs (scope and command counts).
+
+## Failure guard and approval gate
+
+Two supervisor types you only configure, no rules to write. Create them like any supervisor (`POST /api/supervisors`, see `GET /api/supervisor-types/{type}` for the settings) and attach them to a scope.
+
+### `failure-guard`
+
+Acts after nodes have failed a number of times within a time window, counted per run.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `failures` | `3` | How many failures trigger the action |
+| `withinSeconds` | `60` | The window in which they are counted |
+| `nodes` | all | Only failures of these nodes count: node ids or `<prefix>.*` |
+| `errorContains` | any | Only failures whose `error` metadata contains this text count |
+| `action` | `PAUSE_WORKFLOW` | `PAUSE_WORKFLOW`, `STOP_WORKFLOW` or `PAUSE_NODE` |
+
+It may send only the command of its action, and nothing else.
+
+### `stall-watchdog`
+
+Acts on a node that has run too long or has written no log line for a while. It follows the events it sees and checks on a timer.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `maxRunningSeconds` | – | Longest a node may run. At least one of the two limits is required |
+| `maxSilenceSeconds` | – | Longest a running node may go without a log line |
+| `nodes` | all | Only these nodes: node ids or `<prefix>.*` |
+| `action` | `PAUSE_NODE` | `PAUSE_NODE`, `STOP_NODE`, `PAUSE_WORKFLOW` or `STOP_WORKFLOW` |
+| `once` | `true` | Act once per run of a node; `false` acts at every check while it stalls |
+| `checkEverySeconds` | `10` | How often it looks |
+
+After a gap in the events (`EventsMissed`) it forgets what it follows and does not act on what it can no longer see. It follows at most 10,000 nodes at once.
+
+### `approval-gate`
+
+Holds the chosen commands until a person approves them. It reviews commands and sends none.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `commands` | required | Among `StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand` |
+| `nodes` | all | Hold only commands for these nodes: node ids or `<prefix>.*` |
+| `risk` | `HIGH` | Who may approve: `HIGH` only a person |
+| `route` | default route | The route of the approval request |
+| `ttl` | server default | Seconds the request waits |
+| `reason` | – | Shown to whoever approves |
+
+A command sent by a person is never held, so a person can always stop a run; the gate holds what other supervisors send.
+
+### `webhook`
+
+Hands decisions to a web service. It posts `{"kind": "event", "supervisorId", "attachmentId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked in what it sends.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `url` | required | The endpoint (http or https) |
+| `headers` | – | Headers to send; a value may be `${env.NAME}` |
+| `secretHeaders` | – | Headers with secrets; shown as `***` in every read |
+| `events` | `InputRequested`, `NodeStatusChanged` | The event types to post |
+| `timeoutMs` | `3000` | How long to wait for a reply, at most `10000` |
+| `review` | `false` | Also post the commands to review |
+| `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
+| `maxConcurrent` | `4` | Most calls at once |
+
+A reply of `{"commands": [...]}` is read through the same allow-list as [workflow supervisors](#workflow-supervisors), at most 10 commands, and the supervisor sends **only** the commands `allowedCommands` names (it may send none until it names some). A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. A timeout, an error status or a reply that cannot be read is no opinion for an event.
+
+It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`). A private, loopback or link-local address is refused unless the list names the host, and redirects are not followed.
 
 ## Answer input requests
 
@@ -231,6 +298,7 @@ Each outcome is in the decision list, the control audit and `yukta.supervisor.co
 
 | Setting | Default | Meaning |
 |---|---|---|
+| `yukta.supervisor.max-attachments` | `200` | Most attachments at once |
 | `yukta.supervisor.arbiter.window` | `500ms` | How long conflicting commands wait for each other; `0` turns it off |
 | `yukta.supervisor.arbiter.flap-period` | `60s` | The period in which turn-arounds are counted |
 | `yukta.supervisor.arbiter.flap-limit` | `4` | Most turn-arounds of one target by one supervisor in the period |

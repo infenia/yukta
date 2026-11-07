@@ -4,10 +4,10 @@ package com.infenia.yukta.service.supervisor.composite;
 
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.ConfigField.Type;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -49,7 +49,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
-  public ExecutionSupervisor create(final SupervisorProfile profile) {
+  public ExecutionSupervisor create(final Supervisor profile) {
     final CompositeSettings settings = CompositeSettings.read(profile);
     final SupervisorResolver resolver = resolvers.getObject();
     checkTree(resolver, profile, new LinkedHashSet<>());
@@ -72,7 +72,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
 
   /** Looks for a cycle and for nesting that is too deep, before anything is built. */
   private static void checkTree(
-      final SupervisorResolver resolver, final SupervisorProfile node, final Set<String> path) {
+      final SupervisorResolver resolver, final Supervisor node, final Set<String> path) {
     if (!path.add(node.id())) {
       throw new IllegalArgumentException("Composite profiles form a cycle at '" + node.id() + "'");
     }
@@ -81,7 +81,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
           "Composites nest at most " + CompositeSettings.MAX_DEPTH + " deep");
     }
     for (final String childId : CompositeSettings.read(node).children()) {
-      final SupervisorProfile child =
+      final Supervisor child =
           resolver
               .profile(childId)
               .orElseThrow(() -> new IllegalArgumentException("Unknown child profile: " + childId));

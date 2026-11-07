@@ -3,11 +3,11 @@
 package com.infenia.yukta.service.supervisor.workflow;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.ConfigField.Type;
 import com.infenia.yukta.plugin.core.UiDesign;
@@ -49,7 +49,7 @@ public class WorkflowSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
-  public ExecutionSupervisor create(final SupervisorProfile profile) {
+  public ExecutionSupervisor create(final Supervisor profile) {
     final WorkflowSettings settings = WorkflowSettings.read(profile, runner.reservedSlots());
     final SupervisorCapabilities capabilities =
         SupervisorCapabilities.from(profile, defaultAllowedCommands());

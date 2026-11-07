@@ -3,11 +3,11 @@
 package com.infenia.yukta.supervisor.rules;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.time.Clock;
@@ -34,7 +34,7 @@ public class RuleSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
-  public ExecutionSupervisor create(final SupervisorProfile profile) {
+  public ExecutionSupervisor create(final Supervisor profile) {
     return new RuleSupervisor(
         RuleSupervisor.read(profile.settings()),
         Clock.systemUTC(),

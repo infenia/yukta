@@ -36,7 +36,7 @@ export function HeatStrip({
             key={i}
             title={c.label}
             data-failing={failing || undefined}
-            className="bg-muted aspect-square rounded-[2px]"
+            className="aspect-square rounded-[2px] bg-muted"
             style={{
               backgroundColor:
                 c.volume > 0
@@ -84,7 +84,7 @@ export function StatusMatrix({
         <li
           key={id}
           title={`${label}: ${state}`}
-          className={`${TONE[MATRIX_TONE[state]]} text-label-sm text-on-surface flex items-center gap-1.5`}
+          className={`${TONE[MATRIX_TONE[state]]} flex items-center gap-1.5 text-label-sm text-on-surface`}
         >
           <span
             aria-hidden="true"

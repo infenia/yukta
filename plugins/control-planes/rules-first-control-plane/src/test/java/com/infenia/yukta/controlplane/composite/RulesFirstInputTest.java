@@ -10,7 +10,7 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.decision.Answer;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.input.Audience;
@@ -68,8 +68,7 @@ class RulesFirstInputTest {
     return (ControlPlanePlugin)
         new RulesFirstControlPlaneFactory(beans.getBeanProvider(DecisionModel.class))
             .create(
-                new SupervisorProfile(
-                    "p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false));
+                new Supervisor("p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false));
   }
 
   private static ExecutionEvent requested(final String environment) {
