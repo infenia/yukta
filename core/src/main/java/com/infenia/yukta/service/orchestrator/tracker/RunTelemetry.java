@@ -152,8 +152,9 @@ final class RunTelemetry {
     meters.counter(name, "type", type).increment();
   }
 
-  /* default */ void edgeDropped(final String type, final String nodeId) {
-    meters.counter("yukta.edge.dropped", "type", type, "node", nodeId).increment();
+  /* default */ void edgeDropped(final String type) {
+    // not tagged with the node id: ids are user-chosen and a meter is never evicted
+    meters.counter("yukta.edge.dropped", "type", type).increment();
   }
 
   /* default */ void logAppendFailed(final String name, final String type) {

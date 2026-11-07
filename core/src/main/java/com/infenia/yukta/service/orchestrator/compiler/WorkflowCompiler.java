@@ -42,6 +42,9 @@ public class WorkflowCompiler {
   /** Buffer size for workflow streams. */
   private static final int BUFFER_SIZE = 1024;
 
+  /** The largest node {@code bufferSize} used; a larger one is cut to it. */
+  private static final int MAX_BUFFER_SIZE = 65_536;
+
   /** Reference count timeout in seconds for disposing resources. */
   private static final long REF_COUNT_TIMEOUT = 30L;
 
@@ -368,7 +371,8 @@ public class WorkflowCompiler {
     final Object bufferVal = node.config().get("bufferSize");
     final int result;
     if (bufferVal instanceof Number numValue && numValue.intValue() > 0) {
-      result = numValue.intValue();
+      // the value is the prefetch of a queue allocated up front: an absurd one must not fit
+      result = Math.min(numValue.intValue(), MAX_BUFFER_SIZE);
       log.atTrace()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .addKeyValue("bufferSize", result)
