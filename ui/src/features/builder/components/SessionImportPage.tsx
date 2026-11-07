@@ -105,95 +105,100 @@ export function SessionImportPage() {
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6">
-      <PageHeader
-        title="Import session"
-        description="Load a session exported from Yukta or written by hand. Nothing is saved until you apply it."
-      />
-      <section className="border-border bg-card shadow-card flex flex-col gap-5 rounded-2xl border p-5 sm:p-6">
-        <label
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragging(true);
-          }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={drop}
-          className={cn(
-            'border-border text-on-surface-variant hover:bg-muted/50 focus-within:ring-ring/30 flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors focus-within:ring-3',
-            dragging && 'border-primary bg-accent'
-          )}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-primary text-3xl"
-          >
-            upload
-          </span>
-          <span className="text-label-md text-on-surface">
-            {fileName ?? 'Drop a .json file here, or click to browse'}
-          </span>
-          <input
-            type="file"
-            aria-label="Session file (.json)"
-            accept=".json,application/json"
-            className="sr-only"
-            onChange={(event) => void readFile(event.target.files?.[0])}
-          />
-        </label>
-        <div className="text-label-sm text-on-surface-variant flex items-center gap-3">
-          <span className="bg-border h-px flex-1" />
-          or
-          <span className="bg-border h-px flex-1" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <label
-            htmlFor="session-json"
-            className="text-label-md text-on-surface"
-          >
-            Or paste the JSON
-          </label>
-          <textarea
-            id="session-json"
-            value={text}
-            onChange={(event) => {
-              setText(event.target.value);
-              setFileName(null);
-              setReview(null);
-            }}
-            rows={14}
-            spellCheck={false}
-            placeholder='{ "sessionId": "my-session", "workflows": { ... } }'
-            aria-invalid={live !== null && 'error' in live}
-            className={`${textareaFieldClassName} text-code-sm`}
-          />
-          <LiveStatus live={live} />
-        </div>
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            onClick={() => void check()}
-            disabled={busy || text.trim() === ''}
-          >
-            Check
-          </Button>
-        </div>
-      </section>
-      {problems.length > 0 && (
-        <Callout kind="danger" title="This cannot be imported">
-          <ul>
-            {problems.map((problem) => (
-              <li key={problem}>{problem}</li>
-            ))}
-          </ul>
-        </Callout>
-      )}
-      {review && (
-        <ReviewPanel
-          review={review}
-          busy={busy}
-          onApply={() => void apply(review)}
+    <div className="bg-background flex flex-1 flex-col gap-0">
+      <div className="relative isolate px-4 pt-6 sm:px-6">
+        <PageHeader
+          backdrop
+          title="Import session"
+          description="Load a session exported from Yukta or written by hand. Nothing is saved until you apply it."
         />
-      )}
+      </div>
+      <div className="flex flex-col gap-6 px-4 pb-8 sm:px-6">
+        <section className="border-border bg-card shadow-card flex flex-col gap-5 rounded-2xl border p-5 sm:p-6">
+          <label
+            onDragOver={(event) => {
+              event.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={drop}
+            className={cn(
+              'border-border text-on-surface-variant focus-within:ring-ring/30 hover:bg-muted/50 flex cursor-pointer flex-col items-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors focus-within:ring-3',
+              dragging && 'border-primary bg-accent'
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-primary text-3xl"
+            >
+              upload
+            </span>
+            <span className="text-label-md text-on-surface">
+              {fileName ?? 'Drop a .json file here, or click to browse'}
+            </span>
+            <input
+              type="file"
+              aria-label="Session file (.json)"
+              accept=".json,application/json"
+              className="sr-only"
+              onChange={(event) => void readFile(event.target.files?.[0])}
+            />
+          </label>
+          <div className="text-label-sm text-on-surface-variant flex items-center gap-3">
+            <span className="bg-border h-px flex-1" />
+            or
+            <span className="bg-border h-px flex-1" />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label
+              htmlFor="session-json"
+              className="text-label-md text-on-surface"
+            >
+              Or paste the JSON
+            </label>
+            <textarea
+              id="session-json"
+              value={text}
+              onChange={(event) => {
+                setText(event.target.value);
+                setFileName(null);
+                setReview(null);
+              }}
+              rows={14}
+              spellCheck={false}
+              placeholder='{ "sessionId": "my-session", "workflows": { ... } }'
+              aria-invalid={live !== null && 'error' in live}
+              className={`${textareaFieldClassName} text-code-sm`}
+            />
+            <LiveStatus live={live} />
+          </div>
+          <div className="flex justify-end">
+            <Button
+              type="button"
+              onClick={() => void check()}
+              disabled={busy || text.trim() === ''}
+            >
+              Check
+            </Button>
+          </div>
+        </section>
+        {problems.length > 0 && (
+          <Callout kind="danger" title="This cannot be imported">
+            <ul>
+              {problems.map((problem) => (
+                <li key={problem}>{problem}</li>
+              ))}
+            </ul>
+          </Callout>
+        )}
+        {review && (
+          <ReviewPanel
+            review={review}
+            busy={busy}
+            onApply={() => void apply(review)}
+          />
+        )}
+      </div>
     </div>
   );
 }

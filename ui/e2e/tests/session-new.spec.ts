@@ -103,7 +103,7 @@ test.describe('New session', () => {
     });
     await page.goto('/sessions/new');
 
-    await page.getByRole('button', { name: 'Use Hello world' }).click();
+    await page.getByRole('button', { name: 'Use template' }).click();
     await expect(page.getByLabel('Session ID')).toHaveValue('01-hello-world-1');
     await page.getByLabel('Working directory').fill('/srv/repos/demo');
     await page.getByRole('button', { name: 'Create session' }).click();
@@ -180,7 +180,7 @@ test.describe('New session: choosing a start', () => {
       await page.setViewportSize({ width, height: 800 });
       await page.goto('/sessions/new');
       await expect(
-        page.getByRole('button', { name: 'Use Hello world' })
+        page.getByRole('button', { name: 'Use template' })
       ).toBeVisible();
       await expect(page).toHaveScreenshot(
         `session-new-gallery-${name}.webp`,

@@ -74,13 +74,13 @@ export function TemplateGallery({
           </li>
         ))}
       </ul>
-      <div className="mt-auto flex gap-2 pt-2">
+      <div className="mt-auto flex flex-wrap gap-2 pt-2">
         <Button size="sm" onClick={() => open(t.id, onPick)}>
-          Use {t.title}
+          Use template
         </Button>
         <Button
           size="sm"
-          variant="ghost"
+          variant="outline"
           onClick={() => open(t.id, setPreview)}
         >
           Preview
@@ -95,7 +95,7 @@ export function TemplateGallery({
       {templates.isError && (
         <InlineError message="Templates could not be loaded; you can still start blank." />
       )}
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         <li className="border-border bg-card flex flex-col gap-2 rounded-xl border p-4">
           <h3 className="text-label-md text-on-surface">Blank session</h3>
           <p className="text-body-sm text-on-surface-variant">
