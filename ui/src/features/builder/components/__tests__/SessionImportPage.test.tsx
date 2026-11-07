@@ -10,7 +10,7 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen } from '@testing-library/react';
+import { fireEvent, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -193,6 +193,29 @@ describe('SessionImportPage', () => {
       JSON.stringify(session())
     );
     await user.upload(screen.getByLabelText('Session file (.json)'), []);
+  });
+
+  it('highlights the drop zone while a file is dragged over it, and reads a dropped file', async () => {
+    page();
+    const zone = screen.getByLabelText('Session file (.json)').closest('label');
+    if (!zone) throw new Error('drop zone not found');
+    fireEvent.dragOver(zone);
+    expect(zone).toHaveClass('border-primary');
+    fireEvent.dragLeave(zone);
+    expect(zone).not.toHaveClass('border-primary');
+    fireEvent.drop(zone, {
+      dataTransfer: {
+        files: [
+          new File([JSON.stringify(session())], 'dropped.json', {
+            type: 'application/json',
+          }),
+        ],
+      },
+    });
+    expect(await screen.findByText('dropped.json')).toBeInTheDocument();
+    expect(screen.getByLabelText('Or paste the JSON')).toHaveValue(
+      JSON.stringify(session())
+    );
   });
 
   it('shows the workflow the server finds invalid, and a failing validation call', async () => {

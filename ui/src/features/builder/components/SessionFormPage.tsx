@@ -3,7 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
@@ -107,16 +107,42 @@ function NewSession() {
   const [start, setStart] = useState<TemplateDetail | null | undefined>();
   if (start === undefined) {
     return (
-      <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
-        <PageHeader
-          title="New session"
-          description="Choose a start. A template is a working example pipeline you can change after creating it."
-        />
-        <TemplateGallery onPick={(template) => setStart(template ?? null)} />
+      <div className="bg-background flex flex-1 flex-col gap-0">
+        <NewSessionHeader description="Choose a start. A template is a working example pipeline you can change after creating it." />
+        <div className="px-4 pb-8 sm:px-6">
+          <TemplateGallery onPick={(template) => setStart(template ?? null)} />
+        </div>
       </div>
     );
   }
   return <SessionForm template={start ?? undefined} />;
+}
+
+/** The header of the New session pages, on the Sessions page's hero backdrop. Import is here, not on the list. */
+function NewSessionHeader({ description }: { description: string }) {
+  return (
+    <div className="relative isolate px-4 pt-6 sm:px-6">
+      <PageHeader
+        backdrop
+        title="New session"
+        description={description}
+        actions={
+          <Link
+            to="/sessions/import"
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              upload
+            </span>
+            Import session
+          </Link>
+        }
+      />
+    </div>
+  );
 }
 
 function EditSession({ sessionId }: { sessionId: string }) {
@@ -365,29 +391,9 @@ function SessionForm({
     );
   }
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-6 sm:px-6">
-      <PageHeader
-        title="New session"
-        description="A session groups related workflows and their runs. You add workflows after creating it, or import a whole session as JSON."
-      />
-      <nav
-        aria-label="How to create"
-        className="border-border flex gap-5 border-b"
-      >
-        <span
-          aria-current="page"
-          className="border-primary text-label-md text-on-surface -mb-px border-b-2 py-2"
-        >
-          Fill in details
-        </span>
-        <Link
-          to="/sessions/import"
-          className="text-label-md text-on-surface-variant hover:text-on-surface py-2"
-        >
-          Import session
-        </Link>
-      </nav>
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
+    <div className="bg-background flex flex-1 flex-col gap-0">
+      <NewSessionHeader description="A session groups related workflows and their runs. You add workflows after creating it, or import a whole session as JSON." />
+      <div className="grid gap-8 px-4 pb-8 sm:px-6 lg:grid-cols-2">
         {form}
         <ScriptedPanel
           session={newSession(fields, toTags(rows), template, supervisors)}
