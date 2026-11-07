@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -51,8 +52,7 @@ class ExecutionControlControllerTest {
 
   /** The scheduler behind the drain switch. */
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.create(
-          0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+      ExecutionSchedulerFixture.create(0, 0, 10, OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
 
   /** The client. */
   private WebTestClient client;
@@ -354,8 +354,7 @@ class ExecutionControlControllerTest {
   @Test
   void drainStatus_isNotIdleWhileStartWaits() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final ExecutionScheduler.Permit running =
         java.util.Objects.requireNonNull(limited.acquire("s1", "wf", 0, null).permit().block());
     limited.acquire("s1", "wf", 0, null);

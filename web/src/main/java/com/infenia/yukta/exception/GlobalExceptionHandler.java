@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.exception;
 
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.filter.RequestTracingFilter;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
@@ -38,6 +37,7 @@ import org.springframework.web.reactive.result.method.annotation.ResponseEntityE
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Global exception handler for the application. */
 @Slf4j

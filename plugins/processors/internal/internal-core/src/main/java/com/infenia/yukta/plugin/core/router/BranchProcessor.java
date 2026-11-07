@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.NoMatchingBranchException;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import java.util.ArrayList;
@@ -238,7 +239,7 @@ public final class BranchProcessor implements ProcessorPlugin {
     return Flux.error(
         exception instanceof NoMatchingBranchException
             ? exception
-            : new RuntimeException(ERR_PREFIX + "Branch evaluation failed", exception));
+            : new WorkflowExecutionException(ERR_PREFIX + "Branch evaluation failed", exception));
   }
 
   private void evaluateBranches(

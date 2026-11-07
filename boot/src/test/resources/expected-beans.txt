@@ -1,6 +1,4 @@
 com.infenia.yukta.YuktaApplication
-com.infenia.yukta.config.AppConfiguration
-com.infenia.yukta.config.DefaultsAutoConfiguration
 com.infenia.yukta.config.EgressConfiguration
 com.infenia.yukta.config.ExposureGuard
 com.infenia.yukta.config.MessageReflectionHints
@@ -51,7 +49,6 @@ com.infenia.yukta.filter.SecurityHeadersFilter
 com.infenia.yukta.logging.api.PluginLogStoreConfig
 com.infenia.yukta.logging.impl.memory.InMemoryPluginLogStore
 com.infenia.yukta.logging.impl.memory.LogStoreAutoConfiguration
-com.infenia.yukta.logging.impl.memory.LogStoreSubscriber
 com.infenia.yukta.mapper.AppConfigMapperImpl
 com.infenia.yukta.mapper.SessionMapperImpl
 com.infenia.yukta.mapper.WorkflowMapperImpl
@@ -169,6 +166,7 @@ com.infenia.yukta.service.leader.SingleServerLeader
 com.infenia.yukta.service.leader.TakeoverRecovery
 com.infenia.yukta.service.log.ExecutionRecovery
 com.infenia.yukta.service.log.InMemoryExecutionLogStore
+com.infenia.yukta.service.log.LogStoreSubscriber
 com.infenia.yukta.service.metrics.MetricsConfiguration
 com.infenia.yukta.service.metrics.MetricsConfiguration$1
 com.infenia.yukta.service.metrics.MetricsProperties
@@ -221,6 +219,8 @@ com.infenia.yukta.service.workflow.WorkflowService
 com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore
 com.infenia.yukta.service.workflow.store.PreparedWorkflowCache
 com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
+com.infenia.yukta.startup.AppConfiguration
+com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
 com.infenia.yukta.supervisor.guards.ApprovalGateFactory
 com.infenia.yukta.supervisor.guards.FailureGuardFactory

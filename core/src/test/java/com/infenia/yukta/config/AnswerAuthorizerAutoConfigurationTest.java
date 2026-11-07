@@ -16,6 +16,7 @@ import com.infenia.yukta.service.input.AnswerContext;
 import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.InputTestSupport;
+import com.infenia.yukta.startup.DefaultsAutoConfiguration;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;

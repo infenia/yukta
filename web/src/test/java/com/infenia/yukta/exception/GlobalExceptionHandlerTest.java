@@ -7,7 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.exc.UnrecognizedPropertyException;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import jakarta.validation.ConstraintViolationException;
@@ -30,6 +29,7 @@ import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.test.StepVerifier;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 
 /** Tests for GlobalExceptionHandler. */
 @NoArgsConstructor

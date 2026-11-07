@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -52,8 +53,7 @@ class SubWorkflowRunnerTest {
   private final WorkflowDefinition definition =
       Fixtures.workflow("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.create(
-          1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+      ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, java.time.Duration.ZERO);
   private final SubWorkflowRunner runner =
       new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
 

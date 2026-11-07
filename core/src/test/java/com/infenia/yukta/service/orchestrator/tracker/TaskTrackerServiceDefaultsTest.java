@@ -14,26 +14,29 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyStaticImports")
 class TaskTrackerServiceDefaultsTest {
+
+  private static final String LINE = "line";
 
   @Test
   void executionLogAppendDefaultDelegatesToAppendLog() {
     final TaskTrackerService tracker = mock(TaskTrackerService.class, CALLS_REAL_METHODS);
     final Mono<Void> appended = Mono.empty();
-    when(tracker.appendLog("e1", "line")).thenReturn(appended);
+    when(tracker.appendLog("e1", LINE)).thenReturn(appended);
 
-    assertThat(tracker.append("e1", "line")).isSameAs(appended);
+    assertThat(tracker.append("e1", LINE)).isSameAs(appended);
 
-    verify(tracker).appendLog("e1", "line");
+    verify(tracker).appendLog("e1", LINE);
   }
 
   @Test
   void streamAwareEmitFallsBackToThePlainEmitForImplementationsThatKeepNoStream() {
     final TaskTrackerService tracker = mock(TaskTrackerService.class, CALLS_REAL_METHODS);
 
-    tracker.emitLogEvent("e1", "n1", "line", true);
+    tracker.emitLogEvent("e1", "n1", LINE, true);
 
-    verify(tracker).emitLogEvent("e1", "n1", "line");
+    verify(tracker).emitLogEvent("e1", "n1", LINE);
   }
 
   @Test

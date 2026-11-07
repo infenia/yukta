@@ -14,6 +14,7 @@ Java 25 (toolchain) · Spring Boot (WebFlux; version in `gradle/libs.versions.to
 
 This is a multi-module Gradle monorepo. Launch Claude from the specific package folder for efficiency — each module below has its own `CLAUDE.md` with module-specific build commands and architecture notes; this file covers only what's true repo-wide.
 
+- **`architecture`**: test-only ArchUnit rules (module layering, plugin independence, coding conventions); `plus/plus-architecture` does the same for Plus. See `.claude/rules/architecture.md`.
 - **`boot`**: Spring Boot application entry point and GraalVM native config.
 - **`build-logic`**: Gradle build conventions (Java, Quality, JaCoCo).
 - **`cli`**: Lightweight Go-based CLI for remote server interaction.
@@ -36,6 +37,7 @@ on demand. See the `yukta` skill.
 yk gradle :core:compileJava :core:compileTestJava
 yk gradle :core:test --tests com.infenia.yukta.service.orchestrator.WorkflowOrchestratorTest
 yk gradle spotlessApply     # format (before commit)
+yk gradle :architecture:test :plus:plus-architecture:test   # the ArchUnit architecture rules
 yk check                    # the scoped, self-healing gate for your changes (yk check --full before a PR); yk plan shows what it would run
 yk tool -C cli go test ./...                      # Go (cli/)
 yk tool -C ui npx --no-install prettier --check .  # UI (ui/): pnpm/npx/node_modules/.bin commands

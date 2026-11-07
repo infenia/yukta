@@ -1,0 +1,34 @@
+' SPDX-License-Identifier: Apache-2.0
+' SPDX-FileCopyrightText: 2026 Infenia Private Limited
+'
+' Target dependencies between the top-level packages of the core module. An arrow means "may use".
+' The core rules (CoreRules.PACKAGES_FOLLOW_THE_DIAGRAM) fail on any dependency not drawn here.
+' Foundation packages sit at the bottom; startup wires everything and sits on top.
+@startuml
+[validation] <<com.infenia.yukta.validation..>> as validation
+[util] <<com.infenia.yukta.util..>> as util
+[edition] <<com.infenia.yukta.edition..>> as edition
+[model] <<com.infenia.yukta.model..>> as model
+[event] <<com.infenia.yukta.event..>> as event
+[config] <<com.infenia.yukta.config..>> as config
+[logging] <<com.infenia.yukta.logging..>> as logging
+[security] <<com.infenia.yukta.security..>> as security
+[service] <<com.infenia.yukta.service..>> as service
+[startup] <<com.infenia.yukta.startup..>> as startup
+
+model --> validation
+event --> model
+config --> model
+config --> edition
+service --> config
+service --> event
+service --> logging
+service --> model
+service --> security
+service --> util
+service --> validation
+startup --> config
+startup --> edition
+startup --> security
+startup --> service
+@enduml

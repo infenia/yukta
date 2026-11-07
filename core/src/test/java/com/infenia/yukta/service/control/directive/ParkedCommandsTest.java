@@ -12,6 +12,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.input.InputRoute;
+import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.Decision;
@@ -36,9 +38,7 @@ import com.infenia.yukta.service.input.CommandProposals;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputTestSupport;
-import com.infenia.yukta.service.input.route.InputRoute;
 import com.infenia.yukta.service.input.route.RouteResolver;
-import com.infenia.yukta.service.input.route.Tier;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;

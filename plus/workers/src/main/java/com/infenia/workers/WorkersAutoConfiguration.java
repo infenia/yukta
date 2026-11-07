@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.workers;
 
-import com.infenia.yukta.config.DefaultsAutoConfiguration;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.startup.DefaultsAutoConfiguration;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;

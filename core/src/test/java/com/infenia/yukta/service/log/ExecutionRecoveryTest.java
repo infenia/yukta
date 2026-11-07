@@ -5,6 +5,7 @@ package com.infenia.yukta.service.log;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
@@ -248,8 +249,7 @@ class ExecutionRecoveryTest {
   @Test
   void newestLimitsChangedEvent_isReappliedToTheScheduler() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.create(
-            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(9, 9, 10, OnLimit.REJECT, Duration.ZERO);
     store.append(ExecutionLogEvent.limitsChanged(1, 1));
     store.append(ExecutionLogEvent.limitsChanged(4, 2));
     store.append(
@@ -270,8 +270,7 @@ class ExecutionRecoveryTest {
   @Test
   void auditTextAlone_doesNotChangeTheLimits() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.create(
-            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(9, 9, 10, OnLimit.REJECT, Duration.ZERO);
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
     final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);

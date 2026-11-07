@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+
 plugins {
     id("com.infenia.yukta.library-conventions")
+    `java-test-fixtures`
 }
 
 // Test-only module: it holds the ArchUnit rules and needs every Java module on its classpath.
@@ -34,5 +37,13 @@ dependencies {
     testImplementation(project(":plugins:control-planes:rule-control-plane"))
     testImplementation(project(":plugins:control-planes:model-control-plane"))
     testImplementation(project(":plugins:control-planes:rules-first-control-plane"))
-    testImplementation(libs.archunit.junit5)
+    // The shared rules and helpers (testFixtures) are reused by plus:plus-architecture
+    testFixturesApi(libs.archunit.junit5)
+    testImplementation(libs.reactor.core)
+    testImplementation(libs.spring.boot.starter)
+}
+
+// A failing rule lists every violating dependency, also in the CI log
+tasks.withType<Test>().configureEach {
+    testLogging { exceptionFormat = TestExceptionFormat.FULL }
 }

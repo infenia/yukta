@@ -10,13 +10,13 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
@@ -59,8 +59,7 @@ class DefaultControlBusGatewayInputTest {
           mock(WorkflowOrchestrator.class),
           mock(WorkflowDefinitionStore.class),
           mock(PreparedWorkflowCache.class),
-          ExecutionSchedulerFixture.create(
-              0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30)),
+          ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30)),
           StartIdempotencyFixture.create(Duration.ofMinutes(10)),
           new InMemoryExecutionLogStore());
 
