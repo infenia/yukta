@@ -15,17 +15,17 @@ import reactor.core.publisher.Mono;
  */
 final class AutoKeyWindow {
 
-  private record Entry(Mono<String> execution, Instant until) {}
-
   private final Duration window;
   private final Map<String, Entry> entries = new ConcurrentHashMap<>();
+
+  private record Entry(Mono<String> execution, Instant until) {}
 
   /**
    * Creates the window.
    *
    * @param window how long a start stands in for its repeats; zero turns it off
    */
-  AutoKeyWindow(final Duration window) {
+  /* default */ AutoKeyWindow(final Duration window) {
     this.window = window;
   }
 
@@ -36,7 +36,7 @@ final class AutoKeyWindow {
    * @param start starts a new execution and returns its id
    * @return the id of the first start inside the window, or of a new one
    */
-  Mono<String> once(final String scope, final Supplier<Mono<String>> start) {
+  /* default */ Mono<String> once(final String scope, final Supplier<Mono<String>> start) {
     if (window.isZero() || window.isNegative()) {
       return start.get();
     }

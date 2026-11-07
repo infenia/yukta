@@ -182,7 +182,8 @@ class StartIdempotencyTest {
   @Test
   void pastTheKeyLimit_anEvictedKeyStartsAgain() {
     final StartIdempotency capped =
-        new StartIdempotency(Duration.ofMinutes(10), nanos::get, null, 2);
+        new StartIdempotency(
+            Duration.ofMinutes(10), nanos::get, new InMemoryExecutionLogStore(), 2);
     for (int i = 0; i < 50; i++) {
       capped.once("s/w", "k" + i, this::start).block();
     }

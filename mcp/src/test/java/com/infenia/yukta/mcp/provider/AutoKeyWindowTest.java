@@ -37,6 +37,15 @@ class AutoKeyWindowTest {
   }
 
   @Test
+  void negativeWindowStartsEveryTime() {
+    final AutoKeyWindow window = new AutoKeyWindow(Duration.ofMinutes(-1));
+
+    StepVerifier.create(window.once("s", this::start)).expectNext("run-1").verifyComplete();
+    StepVerifier.create(window.once("s", this::start)).expectNext("run-2").verifyComplete();
+    assertThat(starts).hasValue(2);
+  }
+
+  @Test
   void failedStartIsNotRemembered() {
     final AutoKeyWindow window = new AutoKeyWindow(Duration.ofMinutes(1));
 
