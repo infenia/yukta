@@ -2115,6 +2115,26 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
+  void killLocally_endsTheRunWithoutAskingAnySupervisor_andIgnoresAnUnknownRun() {
+    final ExecutionControl control = mock(ExecutionControl.class);
+    final java.util.concurrent.atomic.AtomicBoolean stopRequested =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    final reactor.core.publisher.Sinks.One<Void> safeStop = reactor.core.publisher.Sinks.one();
+    when(control.stopRequested()).thenReturn(stopRequested);
+    when(control.safeStopSink()).thenReturn(safeStop);
+    when(executionControlStore.findByExecutionId("e-kill")).thenReturn(Optional.of(control));
+    when(executionControlStore.findByExecutionId("gone")).thenReturn(Optional.empty());
+
+    gateway.killLocally("gone", "leader lease lost");
+    gateway.killLocally("e-kill", "leader lease lost");
+
+    assertThat(stopRequested).isTrue();
+    StepVerifier.create(safeStop.asMono()).verifyComplete();
+    verify(executionControlStore).remove("e-kill");
+    verify(executionControlStore, never()).remove("gone");
+  }
+
+  @Test
   void startWorkflow_whileTheWorkflowIsBeingDeleted_isRefused() {
     when(preparedWorkflowCache.isDeleting("s-del", "w-del")).thenReturn(true);
 
