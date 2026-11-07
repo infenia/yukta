@@ -16,9 +16,6 @@ import java.util.Map;
  * @param initiatedTime when the session was created
  * @param tags additional tags
  * @param projectPath the working directory
- * @param executionTimeout the execution timeout in seconds
- * @param fileLogDir the modified-files log directory
- * @param resultLogDir the results log directory
  * @param workflows the workflow definitions
  */
 @SuppressFBWarnings("EI_EXPOSE_REP")
@@ -30,19 +27,15 @@ public record SessionSnapshot(
     String initiatedTime,
     Map<String, String> tags,
     String projectPath,
-    Long executionTimeout,
-    String fileLogDir,
-    String resultLogDir,
     Map<String, WorkflowDefinition> workflows) {
 
   /**
-   * Builds the record from the nine values the stores read one by one, in the order projectPath,
-   * executionTimeout, fileLogDir, resultLogDir, initiator, initiatedTime, tags, description,
-   * workflows.
+   * Builds the record from the six values the stores read one by one, in the order projectPath,
+   * initiator, initiatedTime, tags, description, workflows.
    *
    * @param sessionId the session identifier
    * @param name the session name
-   * @param v the nine values
+   * @param v the six values
    * @return the record
    */
   @SuppressWarnings("unchecked")
@@ -51,14 +44,11 @@ public record SessionSnapshot(
     return new SessionSnapshot(
         sessionId,
         name,
-        (String) v[7],
         (String) v[4],
-        (String) v[5],
-        (Map<String, String>) v[6],
-        (String) v[0],
-        (Long) v[1],
+        (String) v[1],
         (String) v[2],
-        (String) v[3],
-        (Map<String, WorkflowDefinition>) v[8]);
+        (Map<String, String>) v[3],
+        (String) v[0],
+        (Map<String, WorkflowDefinition>) v[5]);
   }
 }

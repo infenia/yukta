@@ -89,7 +89,7 @@ A client starts a workflow and web answers. Click a step to see what happens, wh
 
 </Step>
 <Step title="Core starts run">
-**What happens.** The controller calls WorkflowService.validateAndStartWorkflow (with the key if given). Core finds the workflow, asks the scheduler for a slot and returns an execution id.
+**What happens.** The controller calls WorkflowService.start (with the key if given). Core finds the workflow, asks the scheduler for a slot and returns an execution id.
 
 **Why it works this way.** Web adds no rules of its own. Limits, queueing, retry of the same key and ordering are core's, so the same behaviour holds for the REST API, the UI and the MCP tools.
 
@@ -310,20 +310,19 @@ The few settings that decide who can reach the server and how strict it is, plus
 
 *plugins, nodes, supervisors*
 
-Read-only views of what the server offers and what is attached to it: plugin types, live nodes and heartbeats, and supervisors; plus an admin command to a live node.
+Read-only views of what the server offers and what is attached to it: plugin types and supervisors; plus an admin command to a live node.
 
 - GET /api/plugins lists every plugin type and its category. GET /api/plugins/\{type\} adds the description, a usage pattern, UI design hints, the output ports and the configSchema: the list of config fields the plugin declares. An editor uses it to build a form for a node.
-- The control-bus views identify nodes by workflow id and node id only, with no session or execution in the path: GET /api/control/nodes (all live nodes), /api/control/workflows/\{wid\}/nodes, and .../nodes/\{nid\}/heartbeat (the last heartbeat message).
 - POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command sends an administrative command to a live plugin. The body is a map of 1 to 100 entries (it is the map itself, not wrapped in a field). Web builds a control message marked with source 'CONSOLE' and returns the plugin's response payload. Example: \{"action": "flush"\}.
 - GET /api/supervisors/status lists the supervisors and control-plane plugins attached to the control bus, in review order, with id, kind, type, dry-run flag, rate limit and counters since startup: applied, rejected, recorded (dry-run) and rate-limited.
 - The plugin catalogue handles its own errors: an unknown type is a locally built 404, and a failure listing plugins becomes a 500 with the exception text.
 
 - **Guarantees.** The catalogue is read-only. The admin command goes through the control bus like any other command.
 - **State.** None. Counters live in core's supervisor host.
-- **Ceiling.** Control-bus views are not scoped to a session; two sessions that reuse a workflow id are not told apart by the path.
+- **Ceiling.** The admin command names the session in the query, because workflow ids are only unique within a session.
 - **On failure.** Unknown plugin type or node: 404. Empty or oversized command: 400.
 
-**Settings:** `GET /api/plugins[/{type}]`, `GET /api/control/nodes`, `GET /api/control/workflows/{wid}/nodes[/{nid}/heartbeat]`, `POST .../nodes/{nid}/command`, `GET /api/supervisors`
+**Settings:** `GET /api/plugins[/{type}]`, `POST /api/control/workflows/{wid}/nodes/{nid}/command`, `GET /api/supervisors`
 
 ### Ownership check
 
@@ -537,7 +536,7 @@ Capabilities grouped by what a client wants to do. Each card says what it does, 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Plugin catalogue with config schema | What node types exist and how to configure them. | GET /api/plugins and /api/plugins/\{type\} (ports, UI design, configSchema). | Read-only. | A listing failure becomes a 500 that includes exception text. |
-| Control-bus views and supervisors | Live nodes, heartbeats, admin command, supervisors with counters. | GET /api/control/..., POST .../command, GET /api/supervisors. | Command body is 1 to 100 entries. | Not scoped by session; counters are since startup. |
+| Admin command and supervisors | Admin command to a live node, supervisors with counters. | POST /api/control/.../command, GET /api/supervisors. | Command body is 1 to 100 entries. | Not scoped by session; counters are since startup. |
 
 ## What is enforced, and what is not
 
@@ -680,9 +679,6 @@ All send numbered events and a ': ping' comment every 15 s. Reconnect with the L
 |---|---|---|---|---|
 | GET | /api/plugins | All plugin types with category | Handles its own errors (500 with exception text) | 500 |
 | GET | /api/plugins/\{type\} | Description, usage pattern, UI design, output ports, configSchema | 404 built locally | 404 |
-| GET | /api/control/nodes | All nodes registered on the control bus | Not scoped by session | - |
-| GET | /api/control/workflows/\{wid\}/nodes | Live nodes of a workflow id | Not scoped by session | - |
-| GET | /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Last heartbeat message of a node | - | - |
 | POST | /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Send an admin command to a live plugin | Body is a map of 1 to 100 entries; source 'CONSOLE'. Returns the plugin's response payload | 400 body, 404 node |
 | GET | /api/supervisors/status | Supervisors and control-plane plugins in review order | Fields: id, kind, type, order, dryRun, maxCommandsPerSecond, applied, rejected, recorded, rateLimited | - |
 

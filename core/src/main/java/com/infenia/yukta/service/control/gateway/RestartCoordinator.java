@@ -125,9 +125,7 @@ final class RestartCoordinator extends ControlDispatch {
               final String newExecutionId = UUID.randomUUID().toString();
               final Sinks.One<String> sink = Sinks.one();
               pendingRestarts.put(newExecutionId, sink);
-              return executeCommand(
-                      buildCommand(
-                          commandFactory.apply(newExecutionId), CONTROL_COMMAND_PRIORITY + 20))
+              return executeCommand(buildCommand(commandFactory.apply(newExecutionId)))
                   .doOnSubscribe(_ -> onSubscribeLogger.accept(newExecutionId))
                   .then(sink.asMono())
                   .timeout(RESTART_TIMEOUT)

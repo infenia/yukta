@@ -4,7 +4,6 @@ package com.infenia.yukta.service.session.store;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
-import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -36,54 +35,12 @@ public interface SessionConfigStore {
   Mono<String> getProjectPath(@SessionId String sessionId);
 
   /**
-   * Set the external working directory override for a session.
-   *
-   * @param sessionId the session identifier
-   * @param path the working directory
-   * @return Mono that completes when the path is set
-   */
-  Mono<Void> setProjectPath(@SessionId String sessionId, @ProjectPath String path);
-
-  /**
-   * Get the execution timeout in seconds for a session.
-   *
-   * @param sessionId the session identifier
-   * @return Mono containing the timeout
-   */
-  Mono<Long> getExecutionTimeout(@SessionId String sessionId);
-
-  /**
-   * Get the modified files log directory for a session.
-   *
-   * @param sessionId the session identifier
-   * @return Mono containing the log directory
-   */
-  Mono<String> getFileLogDir(String sessionId);
-
-  /**
-   * Get the results log directory for a session.
-   *
-   * @param sessionId the session identifier
-   * @return Mono containing the log directory
-   */
-  Mono<String> getResultLogDir(String sessionId);
-
-  /**
    * Get the description for a session.
    *
    * @param sessionId the session identifier
    * @return Mono containing the description
    */
   Mono<String> getDescription(@SessionId String sessionId);
-
-  /**
-   * Set the description for a session.
-   *
-   * @param sessionId the session identifier
-   * @param description the description
-   * @return Mono that completes when the description is set
-   */
-  Mono<Void> setDescription(@SessionId String sessionId, String description);
 
   /**
    * Get the initiator for a session.
@@ -111,30 +68,12 @@ public interface SessionConfigStore {
   Mono<String> getInitiatedTime(@SessionId String sessionId);
 
   /**
-   * Set the initiated time for a session.
-   *
-   * @param sessionId the session identifier
-   * @param initiatedTime the initiated time
-   * @return Mono that completes when the initiated time is set
-   */
-  Mono<Void> setInitiatedTime(@SessionId String sessionId, String initiatedTime);
-
-  /**
    * Get the tags for a session.
    *
    * @param sessionId the session identifier
    * @return Mono containing the tags
    */
   Mono<Map<String, String>> getTags(@SessionId String sessionId);
-
-  /**
-   * Set the tags for a session.
-   *
-   * @param sessionId the session identifier
-   * @param tags the tags
-   * @return Mono that completes when the tags are set
-   */
-  Mono<Void> setTags(@SessionId String sessionId, Map<String, String> tags);
 
   /**
    * Get all configurations for a session as a map.

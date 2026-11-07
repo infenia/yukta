@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.compiler;
 
+import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.NodePolicy;
@@ -16,7 +17,6 @@ import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
 import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
 import com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,8 +66,8 @@ public class WorkflowCompiler {
   /** The virtual thread scheduler for non-blocking execution. */
   private final Scheduler virtualThreadScheduler;
 
-  /** The session configuration store for accessing session settings. */
-  private final SessionConfigStore configService;
+  /** The settings; the run deadline is {@code yukta.execution.timeout}. */
+  private final YuktaProperties properties;
 
   /** The execution control registry for managing workflow execution control. */
   private final ExecutionControlStore executionControlStore;
@@ -288,9 +288,8 @@ public class WorkflowCompiler {
         .log("Node assembly complete");
 
     return ExecutionResources.run(
-        configService,
+        properties.execution().timeout(),
         virtualThreadScheduler,
-        sessionId,
         terminals,
         connectors,
         disposables,

@@ -98,22 +98,6 @@ const server = setupServer(
       },
     ])
   ),
-  http.get('/api/control/heartbeats', () =>
-    ok([
-      {
-        workflowId: 'wf',
-        nodeId: 'fresh',
-        executionId: 'e',
-        timestamp: new Date(now - 2000).toISOString(),
-      },
-      {
-        workflowId: 'wf',
-        nodeId: 'dead',
-        executionId: 'e',
-        timestamp: new Date(now - 10 * 60_000).toISOString(),
-      },
-    ])
-  ),
   http.get('/api/sessions/summaries', () =>
     ok([
       {
@@ -280,7 +264,7 @@ describe('the Mission Control dashboard', () => {
     ).toBeGreaterThan(0);
   });
 
-  it('ranks plugins and flags the node heartbeats by age', async () => {
+  it('ranks plugins by failure rate and latency', async () => {
     modules = [
       { module: 'echo', executions: 10, failures: 5, avgMs: 250 },
       { module: 'http', executions: 2, failures: 0, avgMs: 2500 },
@@ -292,7 +276,6 @@ describe('the Mission Control dashboard', () => {
     expect(within(rows[1]).getByText('50%')).toBeInTheDocument();
     expect(within(rows[1]).getByText('250 ms')).toBeInTheDocument();
     expect(within(rows[2]).getByText('2.5 s')).toBeInTheDocument();
-    expect(await screen.findByText(/wf \/ dead/)).toBeInTheDocument();
   });
 
   it('lists live runs, flags the slow one and pauses or stops from the row', async () => {

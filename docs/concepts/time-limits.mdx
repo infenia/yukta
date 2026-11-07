@@ -14,7 +14,7 @@ Yukta bounds an execution with five independent clocks. All of them are **pause-
 | Clock | Scope | Resets on | Ends with |
 |---|---|---|---|
 | Queue wait | A start waiting for a slot | not applicable | `TIMED_OUT` after `yukta.execution.queue-timeout` (off by default) |
-| Run deadline | The whole execution | never | `TIMED_OUT`. 3600 seconds by default (`yukta.session.execution-timeout-seconds`) |
+| Run deadline | The whole execution | never | `TIMED_OUT`. 1 hour by default (`yukta.execution.timeout`) |
 | Node idle | One node | Any input, output, retry attempt or heartbeat | The node ends `TIMED_OUT` |
 | Element timeout | One attempt at one message | Each attempt | The attempt fails, so retry and error routing apply |
 | Node deadline | One node, from its first activity | never (paused time is excluded) | The node ends `TIMED_OUT` |
@@ -55,7 +55,7 @@ Set both in a node's `engine` object:
 
 ## Run deadline
 
-The run deadline bounds the whole execution and defaults to 3600 seconds. Change it with `yukta.session.execution-timeout-seconds` (environment form `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
+The run deadline bounds the whole execution and defaults to 1 hour. Change it with `yukta.execution.timeout` (environment form `YUKTA_EXECUTION_TIMEOUT`, for example `2h`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
 
 ## Next steps
 

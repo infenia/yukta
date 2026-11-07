@@ -104,9 +104,6 @@ bruno/
 │   ├── Get Log Content.bru
 │   └── Get Raw Log Content.bru
 ├── ControlBusController/                 (4 requests)
-│   ├── Get All Active Nodes.bru
-│   ├── Get Active Nodes in Workflow.bru
-│   ├── Get Node Heartbeat.bru
 │   └── Send Command to Node.bru
 ├── PluginController/                     (2 requests)
 │   ├── List Plugins.bru
@@ -158,9 +155,6 @@ bruno/
 
 | Request | Method | Folder | Purpose |
 |---------|--------|--------|---------|
-| Get All Active Nodes | GET | ControlBusController | List all active nodes globally |
-| Get Active Nodes in Workflow | GET | ControlBusController | List active nodes in a specific workflow |
-| Get Node Heartbeat | GET | ControlBusController | Get node's most recent heartbeat |
 | Send Command to Node | POST | ControlBusController | Send administrative command to a node |
 
 ### PluginController (`/api/plugins`)
@@ -205,9 +199,7 @@ bruno/
 
 1. **WorkflowController/Get Workflow Status** → Check current state
 2. **LogManagementController/Get Log Content** → Read execution logs
-3. **ControlBusController/Get Active Nodes in Workflow** → Check node status
-4. **ControlBusController/Get Node Heartbeat** → Verify node health
-5. **ControlBusController/Send Command to Node** → Send diagnostic commands
+3. **ControlBusController/Send Command to Node** → Send diagnostic commands
 
 ## Response Format
 
@@ -329,7 +321,6 @@ While using an environment:
 6. GET  /api/workflow/{sessionId}/status/{execId}  (WorkflowController/Get Workflow Status)
 7. GET  /api/logs/{sessionId}                      (LogManagementController/List Logs)
 8. GET  /api/logs/{sessionId}/{filename}           (LogManagementController/Get Log Content)
-9. GET  /api/control/workflows/{wfId}/nodes        (ControlBusController/Get Active Nodes)
 ```
 
 ## Setup by Deployment Type

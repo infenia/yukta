@@ -13,7 +13,6 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigResponse;
-import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
@@ -83,8 +82,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartReturns202WithExecutionId() {
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), anyMap(), any())).thenReturn(Mono.just("e1"));
 
     client
         .post()
@@ -102,8 +100,8 @@ class WorkflowControllerTest {
   @Test
   void testStartRecordsTheInitiatorTheRequestNames() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), payloads.capture(), any()))
+        .thenReturn(Mono.just("e1"));
 
     client
         .post()
@@ -124,8 +122,8 @@ class WorkflowControllerTest {
   @Test
   void testStartWithoutNameRecordsNothingWhenNoKeyIsInUse() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), payloads.capture(), any()))
+        .thenReturn(Mono.just("e1"));
 
     client
         .post()
@@ -177,8 +175,7 @@ class WorkflowControllerTest {
 
   @Test
   void testEmptyOptionsNeedNoRoleAndNoKeyMeansAdmin() {
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), anyMap(), any())).thenReturn(Mono.just("e1"));
 
     clientWithKey("op")
         .post()
@@ -201,8 +198,8 @@ class WorkflowControllerTest {
   @Test
   void testAdminStartOptionsReplaceForgedPayloadKeys() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), payloads.capture(), any()))
+        .thenReturn(Mono.just("e1"));
 
     clientWithKey("root", ApiRole.ADMIN)
         .post()
@@ -221,8 +218,8 @@ class WorkflowControllerTest {
   @Test
   void testStartWithoutNameRecordsTheKeyOfTheCaller() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), payloads.capture(), any()))
+        .thenReturn(Mono.just("e1"));
 
     clientWithKey("ci-bot")
         .post()
@@ -239,8 +236,8 @@ class WorkflowControllerTest {
   @Test
   void testBlankInitiatorIsNotRecordedAndFallsBackToTheCallerKey() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), payloads.capture(), any()))
+        .thenReturn(Mono.just("e1"));
 
     clientWithKey("ci-bot")
         .post()
@@ -256,8 +253,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartWithIdempotencyKeyUsesKeyedOverload() {
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), eq("k1")))
-        .thenReturn(Mono.just(new WorkflowExecution("e9", Mono.empty())));
+    when(workflowService.start(eq("s1"), eq("wf"), anyMap(), eq("k1"))).thenReturn(Mono.just("e9"));
 
     client
         .post()
@@ -275,7 +271,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartOfUnknownWorkflowIs404() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
+    when(workflowService.start(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new NotFoundException("Workflow not found for session: s1")));
 
     client
@@ -290,7 +286,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartRejectedByLimitIs429() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
+    when(workflowService.start(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new ExecutionRejectedException("limit reached")));
 
     client
@@ -305,7 +301,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartFailureIsNot404AndDoesNotLeakMessage() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
+    when(workflowService.start(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new RuntimeException("jdbc:secret@10.0.0.5")));
 
     client

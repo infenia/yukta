@@ -134,8 +134,7 @@ class ContractsTest {
   public class InMemorySessions extends SessionConfigStoreContract {
     @Override
     protected SessionConfigStore create() {
-      return new InMemorySessionConfigStore(
-          new SessionConfigProperties(), new InMemoryWorkflowDefinitionStore());
+      return new InMemorySessionConfigStore(new InMemoryWorkflowDefinitionStore());
     }
   }
 

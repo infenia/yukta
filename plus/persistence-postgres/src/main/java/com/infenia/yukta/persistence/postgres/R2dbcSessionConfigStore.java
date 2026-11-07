@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -33,9 +32,6 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
 
   /** Reads and writes the tags as JSON. */
   private final ObjectMapper mapper;
-
-  /** Execution timeout and directories. */
-  private final SessionConfigProperties props;
 
   /** Where the workflows of a session are kept. */
   private final WorkflowDefinitionStore workflowDefinitionStore;
@@ -82,43 +78,8 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setProjectPath(final String sessionId, final String path) {
-    return client
-        .sql(
-            """
-            INSERT INTO session_config (session_id, project_path) VALUES (:s, :v)
-            ON CONFLICT (session_id) DO UPDATE SET project_path = EXCLUDED.project_path
-            """)
-        .bind("s", sessionId)
-        .bind("v", path)
-        .fetch()
-        .rowsUpdated()
-        .then();
-  }
-
-  @Override
-  public Mono<Long> getExecutionTimeout(final String sessionId) {
-    return Mono.just(props.getExecutionTimeoutSeconds());
-  }
-
-  @Override
-  public Mono<String> getFileLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getFileLogSubDir());
-  }
-
-  @Override
-  public Mono<String> getResultLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getResultLogSubDir());
-  }
-
-  @Override
   public Mono<String> getDescription(final String sessionId) {
     return column(sessionId, "description");
-  }
-
-  @Override
-  public Mono<Void> setDescription(final String sessionId, final String description) {
-    return setIfEmpty(sessionId, "description", description);
   }
 
   @Override
@@ -137,11 +98,6 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setInitiatedTime(final String sessionId, final String initiatedTime) {
-    return setIfEmpty(sessionId, "initiated_time", initiatedTime);
-  }
-
-  @Override
   public Mono<Map<String, String>> getTags(final String sessionId) {
     return client
         .sql("SELECT CAST(tags AS text) AS tags FROM session_config WHERE session_id = :s")
@@ -150,29 +106,6 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
         .one()
         .map(json -> mapper.readValue(json, TAGS))
         .defaultIfEmpty(Map.of());
-  }
-
-  @Override
-  public Mono<Void> setTags(final String sessionId, final Map<String, String> tags) {
-    if (tags == null) {
-      return Mono.empty();
-    }
-    return Mono.fromCallable(() -> mapper.writeValueAsString(tags))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO session_config (session_id, tags)
-                        VALUES (:s, CAST(:v AS jsonb))
-                        ON CONFLICT (session_id) DO UPDATE SET tags = EXCLUDED.tags
-                        WHERE session_config.tags = CAST('{}' AS jsonb)
-                        """)
-                    .bind("s", sessionId)
-                    .bind("v", json)
-                    .fetch()
-                    .rowsUpdated())
-        .then();
   }
 
   @Override
@@ -187,9 +120,6 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
                 Mono.zip(
                     arr -> SessionSnapshot.fromValues(sessionId, name, arr),
                     getProjectPath(sessionId),
-                    getExecutionTimeout(sessionId),
-                    getFileLogDir(sessionId),
-                    getResultLogDir(sessionId),
                     getInitiator(sessionId),
                     getInitiatedTime(sessionId),
                     getTags(sessionId),

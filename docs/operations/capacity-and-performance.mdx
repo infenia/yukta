@@ -73,7 +73,7 @@ All admission limits are off by default. Set them to match the machine and prote
 | `yukta.execution.queue-capacity` | How many starts may wait (default 100). More are refused with `429` |
 | `yukta.execution.on-limit=REJECT` | Refuse instead of queue when you prefer clients to back off |
 | `yukta.execution.queue-timeout` | A start that waits too long ends `TIMED_OUT` |
-| `yukta.session.execution-timeout-seconds` | Bound a run so a stuck run does not hold a slot forever |
+| `yukta.execution.timeout` | Bound a run so a stuck run does not hold a slot forever |
 
 A paused run keeps its slot and its clocks are frozen, so paused runs count against `max-concurrent`.
 

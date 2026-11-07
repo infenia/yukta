@@ -6,7 +6,6 @@ import com.infenia.yukta.mcp.dto.WorkflowStartResult;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
@@ -127,8 +126,8 @@ public class WorkflowExecutionProvider {
               ExecutionLogEvent.withInitiator(Map.of(), initiator(context));
           return keyed
               ? workflowService
-                  .validateAndStartWorkflow(sessionId, workflowId, payload, idempotencyKey.strip())
-                  .map(execution -> new WorkflowStartResult(execution.executionId(), false))
+                  .start(sessionId, workflowId, payload, idempotencyKey.strip())
+                  .map(executionId -> new WorkflowStartResult(executionId, false))
               : startMergingRepeats(sessionId, workflowId, payload);
         });
   }
@@ -155,9 +154,7 @@ public class WorkflowExecutionProvider {
                 Mono.defer(
                     () -> {
                       started.set(true);
-                      return workflowService
-                          .validateAndStartWorkflow(sessionId, workflowId, payload, null)
-                          .map(WorkflowExecution::executionId);
+                      return workflowService.start(sessionId, workflowId, payload, null);
                     }))
         .map(executionId -> new WorkflowStartResult(executionId, !started.get()));
   }

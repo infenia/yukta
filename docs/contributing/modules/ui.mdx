@@ -261,9 +261,9 @@ Three pages for discovery and oversight: the plugin catalogue, recent runs of a 
 - **Guarantees.** Read-only: these pages change nothing on the server.
 - **State.** No local state beyond filters and the selected item.
 - **Ceiling.** Each open Control page makes two requests every 5 seconds per browser. History shows at most 50 runs per session.
-- **On failure.** Each list has its own error state with a retry button; a failed heartbeat shows 'No heartbeat'.
+- **On failure.** Each list has its own error state with a retry button.
 
-**Settings:** `GET /api/plugins, /api/workflow/{session}/history, /api/control/nodes, /api/supervisors`
+**Settings:** `GET /api/plugins, /api/workflow/{session}/history, /api/supervisors`
 
 ### Status Mapping
 
@@ -496,7 +496,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 |---|---|---|---|---|
 | Plugin catalogue | Learn what can be built. | Grouped list, config table, usage text and a canvas preview; filter by name. | Always matches the server's plugins. | Decision plugins use the generic category icon. |
 | Run history | Find earlier runs. | Newest 50 runs of a chosen session, linking to the run page. | One call per session. | No search, no paging, no filter by status. |
-| Control bus and supervisors | See the automation. | Nodes on the control bus with optional heartbeat; supervisors with mode, rate cap and command counters. Polled every 5 s. | Auto-refreshing view. | Read-only; polling rather than events. |
+| Supervisors | See the automation. | Supervisors with mode, rate cap and command counters. Polled every 5 s. | Auto-refreshing view. | Read-only; polling rather than events. |
 
 ### Platform
 
@@ -618,7 +618,6 @@ Everything goes to the same origin under /api. Paths marked legacy are deprecate
 | POST /api/executions/\{eid\}/restart/\{nodeId\} | Node menu | Starts a new run from that node. |
 | POST /api/executions/\{eid\}/nodes/\{nid\}/pause \| resume \| stop \| skip \| retry \| step \| step/enable \| step/disable | Node menu |  |
 | GET /api/plugins, GET /api/plugins/\{type\} | Plugins, Builder | Type, category, ports, config schema, usage. |
-| GET /api/control/nodes, /api/control/workflows/\{wid\}/nodes, .../nodes/\{nid\}/heartbeat | Control |  |
 | GET /api/supervisors | Control | Counters since startup. |
 
 ### Status mapping

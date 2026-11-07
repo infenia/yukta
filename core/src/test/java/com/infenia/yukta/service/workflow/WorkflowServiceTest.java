@@ -5,7 +5,6 @@ package com.infenia.yukta.service.workflow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
@@ -39,7 +38,7 @@ class WorkflowServiceTest {
   }
 
   @Test
-  void testValidateAndStartWorkflowSuccess() {
+  void testStartSuccess() {
     final String sessionId = "sess-123";
     final String workflowId = "wf-456";
     final String executionId = "exec-789";
@@ -47,18 +46,13 @@ class WorkflowServiceTest {
     when(controlBus.startWorkflow(sessionId, workflowId, Map.of(), null))
         .thenReturn(Mono.just(executionId));
 
-    StepVerifier.create(
-            workflowService.validateAndStartWorkflow(sessionId, workflowId, Map.of(), null))
-        .assertNext(
-            execution -> {
-              assertThat(execution.executionId()).isEqualTo(executionId);
-              assertThat(execution.result()).isNotNull();
-            })
+    StepVerifier.create(workflowService.start(sessionId, workflowId, Map.of(), null))
+        .expectNext(executionId)
         .verifyComplete();
   }
 
   @Test
-  void testValidateAndStartWorkflowNotFound() {
+  void testStartNotFound() {
     final String sessionId = "sess-missing";
     final String workflowId = "wf-missing";
 
@@ -68,8 +62,7 @@ class WorkflowServiceTest {
                 new IllegalArgumentException(
                     "Workflow not found for session: " + sessionId + ", workflow: " + workflowId)));
 
-    StepVerifier.create(
-            workflowService.validateAndStartWorkflow(sessionId, workflowId, Map.of(), null))
+    StepVerifier.create(workflowService.start(sessionId, workflowId, Map.of(), null))
         .expectErrorMatches(
             e ->
                 e instanceof IllegalArgumentException
@@ -78,7 +71,7 @@ class WorkflowServiceTest {
   }
 
   @Test
-  void testValidateAndStartWorkflowReturnsExecutionWithId() {
+  void testStartReturnsExecutionWithId() {
     final String sessionId = "sess-exec";
     final String workflowId = "wf-exec";
     final String executionId = "exec-001";
@@ -86,31 +79,27 @@ class WorkflowServiceTest {
     when(controlBus.startWorkflow(sessionId, workflowId, Map.of(), null))
         .thenReturn(Mono.just(executionId));
 
-    final WorkflowExecution execution =
-        workflowService.validateAndStartWorkflow(sessionId, workflowId, Map.of(), null).block();
-
-    assertThat(execution).isNotNull();
-    assertThat(execution.executionId()).isEqualTo(executionId);
+    assertThat(workflowService.start(sessionId, workflowId, Map.of(), null).block())
+        .isEqualTo(executionId);
   }
 
   @Test
-  void testValidateAndStartWorkflowForwardsPayload() {
+  void testStartForwardsPayload() {
     final Map<String, Object> payload = Map.of("message", "hi");
     when(controlBus.startWorkflow("sess-p", "wf-p", payload, null)).thenReturn(Mono.just("exec-p"));
 
-    StepVerifier.create(workflowService.validateAndStartWorkflow("sess-p", "wf-p", payload, null))
-        .assertNext(execution -> assertThat(execution.executionId()).isEqualTo("exec-p"))
+    StepVerifier.create(workflowService.start("sess-p", "wf-p", payload, null))
+        .expectNext("exec-p")
         .verifyComplete();
   }
 
   @Test
-  void testValidateAndStartWorkflowWithIdempotencyKeyForwardsTheKey() {
+  void testStartWithIdempotencyKeyForwardsTheKey() {
     when(controlBus.startWorkflow("sess-1", "wf-1", Map.of(), "key-1"))
         .thenReturn(Mono.just("exec-first"));
 
-    StepVerifier.create(
-            workflowService.validateAndStartWorkflow("sess-1", "wf-1", Map.of(), "key-1"))
-        .assertNext(execution -> assertThat(execution.executionId()).isEqualTo("exec-first"))
+    StepVerifier.create(workflowService.start("sess-1", "wf-1", Map.of(), "key-1"))
+        .expectNext("exec-first")
         .verifyComplete();
   }
 }

@@ -85,7 +85,7 @@ The vocabulary used throughout. Terms appear in `code` style where they match a 
 | **Node** | One step: `nodeId`, plugin `type`, `config`. Its kind is set by the plugin category: **Trigger** starts the flow (no input), **Processor** transforms messages, **Terminal** ends a branch. | `WorkflowNode`, `NodeAssembler` |
 | **Edge and port** | A one-way connection `source → target`. An optional `sourcePort` selects a named output; the only built-in port is `error`, used for dead letters. | `WorkflowEdge` |
 | **Message** | The unit of data on an edge: payload, headers and a stable `id`. A trigger may emit many per run. Retries repeat the same id and add an `attempt` header. | `MessageMapper` (plugin-api) |
-| **Run (execution)** | One live execution of a workflow with its own `executionId`, a status and a status per node. | `WorkflowExecution`, `WorkflowState` |
+| **Run (execution)** | One live execution of a workflow with its own `executionId`, a status and a status per node. | `WorkflowState`, `ExecutionControl` |
 | **Plugin** | Code that gives a node its behaviour. The engine only knows the contract. | `PluginRegistry` |
 | **Engine policy** | The reserved `engine` object in a node's config (retry, onError, timeouts, placement). The engine reads it; plugins never see it. | `NodePolicy` |
 | **Command** | An instruction to a live run (pause, stop, skip, signal ...), applied in order and audited. | `ExecutionControlCommand` |
@@ -229,7 +229,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` `TakeoverRecovery` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
-| `logging.api` | Plugin logging API and log store | `PluginLogger` `PluginLoggerFactory` `PluginLogStore` | EXT-02, OBS-02 |
+| `logging.api` | Plugin log store and node output paging | `PluginLogStore` `NodeOutputPager` | EXT-02, OBS-02 |
 | `model.* · event · validation · util · config` | Records, tracker events, identifier validators, helpers, Spring config | `NodePolicy` `TaskStatus` `SinkEmit` `VariableResolver` `SessionConfigProperties` | various |
 
 ## Feature catalog
@@ -402,7 +402,7 @@ Five independent clocks, all pause-aware, so a timeout means what you expect.
 | Clock | Scope | Resets on | Ends with |
 |---|---|---|---|
 | **Queue wait** | a start waiting for a slot | n/a | `TIMED_OUT` after `yukta.execution.queue-timeout` (off by default) |
-| **Run deadline** | whole run | never | `TIMED_OUT` via `ExecutionTimeoutException`; session setting, default 3600 s |
+| **Run deadline** | whole run | never | `TIMED_OUT` via `ExecutionTimeoutException`; `yukta.execution.timeout`, default 1 h |
 | **Node idle** | one node | any input, output, retry attempt or heartbeat | node `TIMED_OUT` |
 | **Element timeout** | one message attempt | each attempt | attempt fails, so `retry` / `onError` apply |
 | **Node deadline** | one node, from first activity | never (paused time excluded) | node `TIMED_OUT` |
@@ -651,15 +651,16 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 
 **Status:** partial
 
-An older channel beside run commands, carrying heartbeats, statistics and raw signals to a node's plugin.
+A command addressed to one node of a run reaches the live plugin's `onControlSignal`, and the plugin's answer comes back to the caller (`POST /api/control/workflows/{id}/nodes/{node}/command`, `controlbus command`).
 
 **Behaviour**
 
-- Keyed by **workflow and node** (not by run), it bypasses the reviewers and is not audited like run commands. Handlers: `ControlHeartbeatHandler`, `ControlStatisticsHandler`, `ControlSignalHandler`.
+- Keyed by **workflow, run and node** (`ControlKey`), it bypasses the reviewers and is not audited like run commands. The node must be live: a node with no registered plugin is a 404.
+- Run commands (pause, stop, ...) are a separate path and go through the reviewed, audited pipeline.
 
-**Source:** `ControlBusService` `DirectiveDispatcher` `ActivePluginRegistry`
+**Source:** `ControlBusService` `ActivePluginRegistry`
 
-**Limits:** No code emits heartbeats or statistics through it today. Two sessions with equal workflow and node ids would share its state if one ever did (tracked as a latent item, see the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore)).
+**Limits:** Most plugins do not override `onControlSignal`, so the answer is usually empty.
 
 ### CTL-09: Input requests
 
@@ -864,7 +865,7 @@ Stores each session's configuration (workflows, execution timeout, tags) and its
 **Behaviour**
 
 - Applying a session configuration stores the session and its workflows, and drops a cached prepared workflow if the stored definition has moved on.
-- Default execution timeout (the run deadline of [ENG-05](#eng-05-clocks-and-timeouts)) is 3600 s and can be set per session.
+- The run deadline ([ENG-05](#eng-05-clocks-and-timeouts)) is a server-wide setting, `yukta.execution.timeout`, not a property of a session.
 
 **Configure:** `yukta.session.store-type` (in-memory \| file \| postgres)
 
@@ -1000,14 +1001,14 @@ Triggers produce messages, processors transform them, terminals consume them. Co
 
 **Status:** stable
 
-A small functional API through which plugins write structured log lines tied to their execution.
+A small interface through which plugins write log lines tied to their execution.
 
 **Behaviour**
 
-- `PluginLoggerFactory` is a `@FunctionalInterface` with one method, `create(LoggerContext)`. `LoggerContext` is a record of execution id, session id, plugin id and plugin name; default methods for 3- and 4-argument creation keep older callers working.
-- `DefaultPluginLoggerFactory` extracts the values and builds a `DefaultPluginLogger`. Lines flow to [live logs](#obs-02-live-logs).
+- The engine puts a `PluginLogSink` in the Reactor context of every node (`WorkflowContext`); a plugin calls it with the stream, the line and the level.
+- Lines go to the tracker and from there to the log store. See [live logs](#obs-02-live-logs).
 
-**Source:** `PluginLogger` `PluginLoggerFactory` `PluginLogStore`
+**Source:** `PluginLogSink` `PluginLogStore`
 
 ### EXT-03: LLM and MCP budgets
 

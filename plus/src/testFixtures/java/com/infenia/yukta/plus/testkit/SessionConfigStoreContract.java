@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * return a store that starts empty from {@link #create()}.
  */
 public abstract class SessionConfigStoreContract {
+  private static final String FIRST = "first";
 
   /** Creates the contract. */
   protected SessionConfigStoreContract() {
@@ -48,9 +49,9 @@ public abstract class SessionConfigStoreContract {
   void appliedConfigurationCanBeReadBack() {
     final SessionConfigStore store = create();
 
-    store.applySessionConfig(session("s1", "first")).block();
+    store.applySessionConfig(session("s1", FIRST)).block();
 
-    assertThat(store.getDescription("s1").block()).isEqualTo("first");
+    assertThat(store.getDescription("s1").block()).isEqualTo(FIRST);
     assertThat(store.getInitiator("s1").block()).isEqualTo("initiator");
     assertThat(store.getProjectPath("s1").block()).isEqualTo("/tmp");
     assertThat(store.getTags("s1").block()).containsEntry("team", "a");
@@ -58,37 +59,27 @@ public abstract class SessionConfigStoreContract {
   }
 
   /**
-   * The setters on a session that was never applied. What a setter does to a value that is already
-   * set differs between the stores (the in-memory and file stores keep the first description,
-   * PostgreSQL overwrites), so it is deliberately not part of the contract.
+   * The initiator is the one value with a setter: it is set when a run is the first sign of a
+   * session.
    */
   @Test
-  void settersOnNewSession_makeTheValuesReadable() {
+  void initiatorOnNewSession_isReadable() {
     final SessionConfigStore store = create();
 
-    store.setDescription("s1", "described").block();
     store.setInitiator("s1", "someone").block();
-    store.setProjectPath("s1", "/var").block();
-    store.setTags("s1", Map.of("env", "prod")).block();
-    store.setInitiatedTime("s1", "2026-01-01T00:00:00Z").block();
 
-    assertThat(store.getDescription("s1").block()).isEqualTo("described");
     assertThat(store.getInitiator("s1").block()).isEqualTo("someone");
-    assertThat(store.getProjectPath("s1").block()).isEqualTo("/var");
-    assertThat(store.getTags("s1").block()).containsOnly(Map.entry("env", "prod"));
-    assertThat(store.getInitiatedTime("s1").block()).isEqualTo("2026-01-01T00:00:00Z");
   }
 
   @Test
   void sessionsDoNotShareValues() {
     final SessionConfigStore store = create();
+    store.applySessionConfig(session("s1", FIRST)).block();
     store.applySessionConfig(session("s2", "second")).block();
 
-    store.setDescription("s1", "other").block();
-
     assertThat(store.getDescription("s2").block()).isEqualTo("second");
-    assertThat(store.getDescription("s1").block()).isEqualTo("other");
-    assertThat(store.getSessionIds().collectList().block()).contains("s2");
+    assertThat(store.getDescription("s1").block()).isEqualTo(FIRST);
+    assertThat(store.getSessionIds().collectList().block()).contains("s1", "s2");
     assertThat(store.getAllConfigs("s2").block()).isNotNull();
   }
 

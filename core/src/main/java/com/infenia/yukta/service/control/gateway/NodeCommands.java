@@ -28,11 +28,7 @@ final class NodeCommands extends ControlDispatch {
 
   /* default */ Mono<Void> pauseNode(final String executionId, final String nodeId) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new PauseNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
+        .flatMap(control -> executeCommand(buildCommand(new PauseNodeCommand(executionId, nodeId))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -53,10 +49,7 @@ final class NodeCommands extends ControlDispatch {
   /* default */ Mono<Void> resumeNode(final String executionId, final String nodeId) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
         .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new ResumeNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
+            control -> executeCommand(buildCommand(new ResumeNodeCommand(executionId, nodeId))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -80,9 +73,7 @@ final class NodeCommands extends ControlDispatch {
         .flatMap(
             control ->
                 executeCommand(
-                    buildCommand(
-                        new StopNodeCommand(executionId, nodeId, immediate, reason),
-                        CONTROL_COMMAND_PRIORITY + 10)))
+                    buildCommand(new StopNodeCommand(executionId, nodeId, immediate, reason))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -109,12 +100,12 @@ final class NodeCommands extends ControlDispatch {
 
   /* default */ Mono<Void> answerInput(final AnswerInputCommand command) {
     return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
-        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
+        .flatMap(_ -> executeCommand(buildCommand(command)));
   }
 
   /* default */ Mono<Void> escalateInput(final EscalateInputCommand command) {
     return Mono.fromSupplier(() -> findExecutionOrThrow(command.executionId()))
-        .flatMap(_ -> executeCommand(buildCommand(command, CONTROL_COMMAND_PRIORITY)));
+        .flatMap(_ -> executeCommand(buildCommand(command)));
   }
 
   /* default */ Mono<Void> clearBreakpoint(final String executionId, final String nodeId) {
@@ -128,18 +119,14 @@ final class NodeCommands extends ControlDispatch {
             control ->
                 executeCommand(
                     buildCommand(
-                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue),
-                        CONTROL_COMMAND_PRIORITY)));
+                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue))));
   }
 
   /* default */ Mono<Void> skipNode(
       final String executionId, final String nodeId, final boolean skip) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
         .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SkipNodeCommand(executionId, nodeId, skip), CONTROL_COMMAND_PRIORITY)))
+            control -> executeCommand(buildCommand(new SkipNodeCommand(executionId, nodeId, skip))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -165,10 +152,7 @@ final class NodeCommands extends ControlDispatch {
   /* default */ Mono<Void> enableStepMode(final String executionId, final String nodeId) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
         .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new EnableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
+            control -> executeCommand(buildCommand(new EnableStepModeCommand(executionId, nodeId))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -189,9 +173,7 @@ final class NodeCommands extends ControlDispatch {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
         .flatMap(
             control ->
-                executeCommand(
-                    buildCommand(
-                        new DisableStepModeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
+                executeCommand(buildCommand(new DisableStepModeCommand(executionId, nodeId))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()
@@ -210,11 +192,7 @@ final class NodeCommands extends ControlDispatch {
 
   /* default */ Mono<Void> stepNode(final String executionId, final String nodeId) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new StepNodeCommand(executionId, nodeId), CONTROL_COMMAND_PRIORITY)))
+        .flatMap(control -> executeCommand(buildCommand(new StepNodeCommand(executionId, nodeId))))
         .doOnSubscribe(
             _ ->
                 log.atInfo()

@@ -26,7 +26,9 @@ public record WorkflowDefinition(
     @Schema(description = "Unique workflow identifier")
         @NotBlank(message = "Workflow ID is mandatory")
         String workflowId,
-    @Schema(description = "A human-readable description of the workflow", example = "Quality check")
+    @Schema(
+            description = "A human-readable description of the workflow",
+            example = "Nightly report")
         @NotBlank(message = "Workflow description is mandatory")
         @Size(max = 256, message = "Workflow description must be at most 256 characters")
         String description,

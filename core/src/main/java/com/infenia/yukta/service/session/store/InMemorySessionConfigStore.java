@@ -2,12 +2,10 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.session.store;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfig;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import com.infenia.yukta.validation.ProjectPath;
 import com.infenia.yukta.validation.SessionId;
 import jakarta.annotation.PostConstruct;
 import jakarta.validation.Valid;
@@ -33,9 +31,6 @@ import reactor.core.publisher.Mono;
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 public class InMemorySessionConfigStore implements SessionConfigStore {
-
-  /** The session configuration properties. */
-  private final SessionConfigProperties props;
 
   /** The workflow definition store for persisting workflow definitions. */
   private final WorkflowDefinitionStore workflowDefinitionStore;
@@ -90,78 +85,9 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setProjectPath(
-      @SessionId final String sessionId, @ProjectPath final String path) {
-    sessions.compute(
-        sessionId,
-        (_, config) -> {
-          if (config == null) {
-            return new SessionConfig(path, "", "", Map.of(), "", "");
-          }
-          return new SessionConfig(
-              path,
-              config.initiator(),
-              config.initiatedTime(),
-              config.tags(),
-              config.description(),
-              config.name());
-        });
-    log.atDebug()
-        .addKeyValue("sessionId", sessionId)
-        .addKeyValue("projectPath", path)
-        .log("Set working directory for session");
-    return Mono.empty();
-  }
-
-  @Override
-  public Mono<Long> getExecutionTimeout(@SessionId final String sessionId) {
-    return Mono.just(props.getExecutionTimeoutSeconds());
-  }
-
-  @Override
-  public Mono<String> getFileLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getFileLogSubDir());
-  }
-
-  @Override
-  public Mono<String> getResultLogDir(final String sessionId) {
-    return Mono.just(props.getBaseDir() + "/" + props.getResultLogSubDir());
-  }
-
-  @Override
   public Mono<String> getDescription(@SessionId final String sessionId) {
     final SessionConfig config = sessions.get(sessionId);
     return Mono.just(config != null ? config.description() : "");
-  }
-
-  @Override
-  public Mono<Void> setDescription(@SessionId final String sessionId, final String description) {
-    if (description != null) {
-      final boolean[] isNew = {false};
-      sessions.compute(
-          sessionId,
-          (_, config) -> {
-            if (config == null) {
-              isNew[0] = true;
-              return new SessionConfig("", "", "", Map.of(), description, "");
-            } else if (config.description().isEmpty()) {
-              isNew[0] = true;
-              return new SessionConfig(
-                  config.projectPath(),
-                  config.initiator(),
-                  config.initiatedTime(),
-                  config.tags(),
-                  description,
-                  config.name());
-            }
-            return config;
-          });
-      log.atDebug()
-          .addKeyValue("sessionId", sessionId)
-          .addKeyValue("isNew", isNew[0])
-          .log("Set description for session");
-    }
-    return Mono.empty();
   }
 
   @Override
@@ -208,71 +134,9 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
   }
 
   @Override
-  public Mono<Void> setInitiatedTime(
-      @SessionId final String sessionId, final String initiatedTime) {
-    if (initiatedTime != null) {
-      final boolean[] isNew = {false};
-      sessions.compute(
-          sessionId,
-          (_, config) -> {
-            if (config == null) {
-              isNew[0] = true;
-              return new SessionConfig("", "", initiatedTime, Map.of(), "", "");
-            } else if (config.initiatedTime().isEmpty()) {
-              isNew[0] = true;
-              return new SessionConfig(
-                  config.projectPath(),
-                  config.initiator(),
-                  initiatedTime,
-                  config.tags(),
-                  config.description(),
-                  config.name());
-            }
-            return config;
-          });
-      log.atDebug()
-          .addKeyValue("sessionId", sessionId)
-          .addKeyValue("isNew", isNew[0])
-          .log("Set initiated time for session");
-    }
-    return Mono.empty();
-  }
-
-  @Override
   public Mono<Map<String, String>> getTags(@SessionId final String sessionId) {
     final SessionConfig config = sessions.get(sessionId);
     return Mono.just(config != null ? config.tags() : Map.of());
-  }
-
-  @Override
-  public Mono<Void> setTags(@SessionId final String sessionId, final Map<String, String> tags) {
-    if (tags != null) {
-      final boolean[] isNew = {false};
-      sessions.compute(
-          sessionId,
-          (_, config) -> {
-            if (config == null) {
-              isNew[0] = true;
-              return new SessionConfig("", "", "", tags, "", "");
-            } else if (config.tags().isEmpty()) {
-              isNew[0] = true;
-              return new SessionConfig(
-                  config.projectPath(),
-                  config.initiator(),
-                  config.initiatedTime(),
-                  tags,
-                  config.description(),
-                  config.name());
-            }
-            return config;
-          });
-      log.atDebug()
-          .addKeyValue("sessionId", sessionId)
-          .addKeyValue("tagCount", tags.size())
-          .addKeyValue("isNew", isNew[0])
-          .log("Set tags for session");
-    }
-    return Mono.empty();
   }
 
   @Override
@@ -289,9 +153,6 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
               return configs;
             },
             getProjectPath(sessionId),
-            getExecutionTimeout(sessionId),
-            getFileLogDir(sessionId),
-            getResultLogDir(sessionId),
             getInitiator(sessionId),
             getInitiatedTime(sessionId),
             getTags(sessionId),

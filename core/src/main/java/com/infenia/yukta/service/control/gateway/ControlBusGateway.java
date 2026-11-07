@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -429,53 +428,4 @@ public interface ControlBusGateway {
    */
   Mono<List<com.infenia.yukta.model.execution.WorkflowExecutionSummary>> getHistory(
       String sessionId, String workflowId);
-
-  // --- State Queries ---
-
-  /**
-   * Get the last heartbeat for a node of a run.
-   *
-   * @param sessionId the session that owns the workflow
-   * @param workflowId the workflow identifier
-   * @param executionId the run, or null when the session has exactly one live run of the workflow
-   * @param nodeId the node identifier
-   * @return the last heartbeat message, or null if none
-   */
-  @Nullable Message<?> getLastHeartbeat(
-      String sessionId, String workflowId, @Nullable String executionId, String nodeId);
-
-  /**
-   * Get the last statistics message for a node of a run.
-   *
-   * @param sessionId the session that owns the workflow
-   * @param workflowId the workflow identifier
-   * @param executionId the run, or null when the session has exactly one live run of the workflow
-   * @param nodeId the node identifier
-   * @return the last statistics message, or null if none
-   */
-  @Nullable Message<?> getLastStatistics(
-      String sessionId, String workflowId, @Nullable String executionId, String nodeId);
-
-  /**
-   * List the node IDs of a session's workflow that have emitted heartbeats, over its live runs.
-   *
-   * @param sessionId the session that owns the workflow
-   * @param workflowId the workflow identifier
-   * @return list of node IDs scoped to the session's workflow
-   */
-  List<String> getActiveNodes(String sessionId, String workflowId);
-
-  /**
-   * List all node IDs across all workflows that have emitted heartbeats.
-   *
-   * @return list of all active node IDs
-   */
-  List<String> getActiveNodes();
-
-  /**
-   * The last heartbeat of every node of every run.
-   *
-   * @return one heartbeat per node and run that sent one
-   */
-  List<NodeHeartbeat> getHeartbeats();
 }

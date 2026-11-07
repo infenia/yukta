@@ -23,18 +23,13 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 /** Unit tests for {@link FileSessionConfigStore}. */
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.AvoidInstantiatingObjectsInLoops"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class FileSessionConfigStoreTest {
 
   /** The sessions directory name. */
@@ -74,9 +69,6 @@ class FileSessionConfigStoreTest {
   void setUp() {
     props = new SessionConfigProperties();
     props.setBaseDir(tempDir.toString());
-    props.setFileLogSubDir("modified-files");
-    props.setResultLogSubDir("results");
-    props.setExecutionTimeoutSeconds(3600L);
     final ObjectMapper objectMapper = new ObjectMapper();
     when(workflowDefinitionStore.findAll(org.mockito.ArgumentMatchers.anyString()))
         .thenReturn(Mono.just(Map.of()));
@@ -84,111 +76,9 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  void concurrentUpdatesOfDifferentFields_areNotLost() {
-    for (int i = 0; i < 100; i++) {
-      final String sessionId = "sess-race-" + i;
-      Mono.when(
-              configStore.setInitiator(sessionId, "alice").subscribeOn(Schedulers.parallel()),
-              configStore.setDescription(sessionId, "desc").subscribeOn(Schedulers.parallel()),
-              configStore.setTags(sessionId, Map.of("k", "v")).subscribeOn(Schedulers.parallel()),
-              configStore.setProjectPath(sessionId, "/p").subscribeOn(Schedulers.parallel()))
-          .block();
-
-      final FileSessionConfigStore reloaded =
-          new FileSessionConfigStore(props, new ObjectMapper(), workflowDefinitionStore);
-      assertThat(reloaded.getInitiator(sessionId).block()).isEqualTo("alice");
-      assertThat(reloaded.getDescription(sessionId).block()).isEqualTo("desc");
-      assertThat(reloaded.getTags(sessionId).block()).containsEntry("k", "v");
-      assertThat(reloaded.getProjectPath(sessionId).block()).isEqualTo("/p");
-    }
-  }
-
-  @Test
-  void testDefaultValues() {
-    final String sessionId = "sess-default";
-    StepVerifier.create(configStore.getProjectPath(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getExecutionTimeout(sessionId))
-        .expectNext(3600L)
-        .verifyComplete();
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(Map.of()).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getFileLogDir(sessionId))
-        .expectNext(tempDir.toString() + "/modified-files")
-        .verifyComplete();
-    StepVerifier.create(configStore.getResultLogDir(sessionId))
-        .expectNext(tempDir.toString() + "/results")
-        .verifyComplete();
-  }
-
-  @Test
-  void testProjectPathPersistence() {
-    final String sessionId = "sess-project";
-    final String projectPath = "/api/project";
-
-    StepVerifier.create(configStore.setProjectPath(sessionId, projectPath)).verifyComplete();
-
-    StepVerifier.create(configStore.getProjectPath(sessionId))
-        .expectNext(projectPath)
-        .verifyComplete();
-  }
-
-  @Test
-  void save_leavesNoTempFilesAndReplacesExistingFile() throws IOException {
-    final String sessionId = "sess-atomic";
-
-    StepVerifier.create(configStore.setProjectPath(sessionId, "/first")).verifyComplete();
-    StepVerifier.create(configStore.setProjectPath(sessionId, "/second")).verifyComplete();
-
-    try (var files = Files.list(tempDir.resolve("sessions"))) {
-      assertThat(files.map(f -> f.toFile().getName()).toList())
-          .containsExactly(sessionId + ".json");
-    }
-    assertThat(Files.readString(tempDir.resolve("sessions/" + sessionId + ".json")))
-        .contains("/second");
-  }
-
-  @Test
-  void testGetSessionIds() {
-    configStore.setProjectPath("s1", "/p1").block();
-    configStore.setProjectPath("s2", "/p2").block();
-
-    StepVerifier.create(configStore.getSessionIds().collectList())
-        .expectNextMatches(ids -> ids.size() == 2 && ids.containsAll(List.of("s1", "s2")))
-        .verifyComplete();
-  }
-
-  @Test
   void testGetSessionIdsEmpty() {
     StepVerifier.create(configStore.getSessionIds().collectList())
         .expectNext(List.of())
-        .verifyComplete();
-  }
-
-  @Test
-  void testCacheBehavior() {
-    final String sessionId = "cache-test";
-    final String origPath = "/orig";
-    configStore.setProjectPath(sessionId, origPath).block();
-
-    // Verify it's cached
-    StepVerifier.create(configStore.getProjectPath(sessionId))
-        .expectNext(origPath)
-        .verifyComplete();
-
-    // Directly modify the file to bypass cache
-    final Path sessionFile = tempDir.resolve(SESSIONS_DIR).resolve(sessionId + JSON_EXT);
-    try {
-      final String content = Files.readString(sessionFile);
-      Files.writeString(sessionFile, content.replace(origPath, "/modified"));
-    } catch (final IOException e) {
-      throw new IllegalStateException("Failed to modify session file", e);
-    }
-
-    // Should still return cached value
-    StepVerifier.create(configStore.getProjectPath(sessionId))
-        .expectNext(origPath)
         .verifyComplete();
   }
 
@@ -205,155 +95,12 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  void testMetadataPersistence() {
-    final String sessionId = "sess-metadata";
-    final String initiator = "John Doe";
-    final String time = "2026-02-21T21:00:00Z";
-    final String description = "Sample Session";
-    final Map<String, String> tags = Map.of("clientId", "c1");
-
-    StepVerifier.create(configStore.setInitiator(sessionId, initiator)).verifyComplete();
-    StepVerifier.create(configStore.setDescription(sessionId, description)).verifyComplete();
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, time)).verifyComplete();
-    StepVerifier.create(configStore.setTags(sessionId, tags)).verifyComplete();
-
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext(initiator).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext(time).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId))
-        .expectNext(description)
-        .verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(tags).verifyComplete();
-  }
-
-  @Test
-  void testPutIfAbsentBehaviorForMetadata() {
-    final String sessionId = "sess-put-if-absent";
-    final String initiator = "John Doe";
-
-    StepVerifier.create(configStore.setInitiator(sessionId, initiator)).verifyComplete();
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext(initiator).verifyComplete();
-
-    StepVerifier.create(configStore.setInitiator(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext(initiator).verifyComplete();
-
-    // Verify for others as well
-    StepVerifier.create(configStore.setDescription(sessionId, TEST_DESC)).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId))
-        .expectNext(TEST_DESC)
-        .verifyComplete();
-    StepVerifier.create(configStore.setDescription(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId))
-        .expectNext(TEST_DESC)
-        .verifyComplete();
-
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, NOW)).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext(NOW).verifyComplete();
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, OTHER)).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext(NOW).verifyComplete();
-
-    final Map<String, String> tags2 = Map.of("k", "v");
-    StepVerifier.create(configStore.setTags(sessionId, tags2)).verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(tags2).verifyComplete();
-    StepVerifier.create(configStore.setTags(sessionId, Map.of(OTHER, "Val"))).verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(tags2).verifyComplete();
-  }
-
-  @Test
-  void testGetAllConfigs() {
-    final String sessionId = "sess-all-configs";
-    configStore.setInitiator(sessionId, "Jules").block();
-    configStore.setInitiatedTime(sessionId, NOW).block();
-    configStore.setTags(sessionId, Map.of("k", "v")).block();
-    configStore.setDescription(sessionId, "Sample").block();
-    configStore.setProjectPath(sessionId, "/meta/path").block();
-
-    StepVerifier.create(configStore.getAllConfigs(sessionId))
-        .expectNextMatches(
-            c ->
-                "Jules".equals(c.initiator())
-                    && NOW.equals(c.initiatedTime())
-                    && Map.of("k", "v").equals(c.tags())
-                    && "Sample".equals(c.description())
-                    && "/meta/path".equals(c.projectPath())
-                    && c.executionTimeout() != null
-                    && c.fileLogDir() != null
-                    && c.resultLogDir() != null)
-        .verifyComplete();
-  }
-
-  @Test
-  void testMetadataUpdateOnExistingFileWithEmptyFields() throws IOException {
-    final String sessionId = "sess-empty-metadata";
-    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
-    Files.createDirectories(sessionsDir);
-    // Create file with empty metadata
-    Files.writeString(
-        sessionsDir.resolve(sessionId + JSON_EXT),
-        "{\"projectPath\":\"\",\"description\":\"\",\"initiator\":"
-            + "\"\",\"initiatedTime\":\"\",\"tags\":{}}");
-
-    final String newDesc = "New Description";
-    StepVerifier.create(configStore.setDescription(sessionId, newDesc)).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId)).expectNext(newDesc).verifyComplete();
-
-    final String newInit = "New Initiator";
-    StepVerifier.create(configStore.setInitiator(sessionId, newInit)).verifyComplete();
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext(newInit).verifyComplete();
-
-    final String newTime = "New Time";
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, newTime)).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId))
-        .expectNext(newTime)
-        .verifyComplete();
-
-    final Map<String, String> newTags = Map.of("new", "tag");
-    StepVerifier.create(configStore.setTags(sessionId, newTags)).verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(newTags).verifyComplete();
-  }
-
-  @Test
-  void testMetadataUpdateOnExistingFileWithNullTags() throws IOException {
-    final String sessionId = "sess-null-tags-json";
-    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
-    Files.createDirectories(sessionsDir);
-    // Create file without tags field
-    Files.writeString(sessionsDir.resolve(sessionId + JSON_EXT), "{\"projectPath\":\"/path\"}");
-
-    final Map<String, String> newTags = Map.of("new", "tag");
-    StepVerifier.create(configStore.setTags(sessionId, newTags)).verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(newTags).verifyComplete();
-  }
-
-  @Test
   void testGetSessionIdsIoException() throws IOException {
     // Create a file where the sessions directory should be to trigger IOException on Files.list
     final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
     Files.writeString(sessionsDir, "not a directory");
 
     StepVerifier.create(configStore.getSessionIds()).expectError(IOException.class).verify();
-  }
-
-  @Test
-  void testMetadataUpdateOnExistingFileWithNullFields() throws IOException {
-    final String sessionId = "sess-null-metadata-json";
-    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
-    Files.createDirectories(sessionsDir);
-    // Create file without metadata fields
-    Files.writeString(sessionsDir.resolve(sessionId + JSON_EXT), "{}");
-
-    final String newDesc = "New Description";
-    StepVerifier.create(configStore.setDescription(sessionId, newDesc)).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId)).expectNext(newDesc).verifyComplete();
-
-    final String newInit = "New Initiator";
-    StepVerifier.create(configStore.setInitiator(sessionId, newInit)).verifyComplete();
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext(newInit).verifyComplete();
-
-    final String newTime = "New Time";
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, newTime)).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId))
-        .expectNext(newTime)
-        .verifyComplete();
   }
 
   @Test
@@ -365,61 +112,6 @@ class FileSessionConfigStoreTest {
     Files.createDirectories(sessionsDir.resolve(sessionId + JSON_EXT));
 
     StepVerifier.create(configStore.getProjectPath(sessionId)).expectError().verify();
-  }
-
-  @Test
-  void testSaveSessionConfigIoException() throws IOException {
-    final String sessionId = "sess-save-error";
-    // Create a file where the sessions directory should be to trigger IOException on
-    // createDirectories
-    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
-    Files.writeString(sessionsDir, "not a directory");
-
-    StepVerifier.create(configStore.setProjectPath(sessionId, TEST_PATH)).expectError().verify();
-  }
-
-  @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
-  void testFileStorageStructure() throws IOException {
-    final String sessionId = "sess-structure";
-    configStore.setProjectPath(sessionId, "/test/path").block();
-
-    final Path sessionsDir = tempDir.resolve(SESSIONS_DIR);
-    final Path sessionFile = sessionsDir.resolve(sessionId + JSON_EXT);
-
-    assert Files.exists(sessionFile);
-    final String content = Files.readString(sessionFile);
-    assert content.contains("projectPath");
-    assert content.contains("/test/path");
-  }
-
-  @Test
-  void testSetNullMetadata() {
-    final String sessionId = "sess-null-meta";
-    StepVerifier.create(configStore.setInitiator(sessionId, null)).verifyComplete();
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, null)).verifyComplete();
-    StepVerifier.create(configStore.setTags(sessionId, null)).verifyComplete();
-    StepVerifier.create(configStore.setDescription(sessionId, null)).verifyComplete();
-
-    StepVerifier.create(configStore.getInitiator(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext("").verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(Map.of()).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId)).expectNext("").verifyComplete();
-  }
-
-  @Test
-  void testLoadFromDiskNewInstance() {
-    final String sessionId = "sess-persistence";
-    configStore.setProjectPath(sessionId, "/persistent/path").block();
-
-    // Create a new store instance pointing to the same baseDir
-    final FileSessionConfigStore newStore =
-        new FileSessionConfigStore(props, new ObjectMapper(), workflowDefinitionStore);
-
-    // Should load from disk
-    StepVerifier.create(newStore.getProjectPath(sessionId))
-        .expectNext("/persistent/path")
-        .verifyComplete();
   }
 
   @Test
@@ -486,33 +178,6 @@ class FileSessionConfigStoreTest {
     Files.writeString(sessionsDir.resolve(sessionId + JSON_EXT), "{ invalid json }");
 
     StepVerifier.create(configStore.getProjectPath(sessionId)).expectError().verify();
-  }
-
-  @Test
-  void testSetInitiatedTimeFirst() {
-    final String sessionId = "sess-time-first";
-    StepVerifier.create(configStore.setInitiatedTime(sessionId, NOW)).verifyComplete();
-    StepVerifier.create(configStore.getInitiatedTime(sessionId)).expectNext(NOW).verifyComplete();
-  }
-
-  @Test
-  void testSetTagsFirst() {
-    final String sessionId = "sess-tags-first";
-    final Map<String, String> tags = Map.of("a", "b");
-    StepVerifier.create(configStore.setTags(sessionId, tags)).verifyComplete();
-    StepVerifier.create(configStore.getTags(sessionId)).expectNext(tags).verifyComplete();
-  }
-
-  @Test
-  void testMetadataUpdateWhenExistingIsSame() {
-    final String sessionId = "sess-same-meta";
-    configStore.setDescription(sessionId, TEST_DESC).block();
-
-    // Calling again with same value
-    StepVerifier.create(configStore.setDescription(sessionId, TEST_DESC)).verifyComplete();
-    StepVerifier.create(configStore.getDescription(sessionId))
-        .expectNext(TEST_DESC)
-        .verifyComplete();
   }
 
   @Test
@@ -641,5 +306,63 @@ class FileSessionConfigStoreTest {
     StepVerifier.create(configStore.removeSession("stuck"))
         .expectError(java.io.UncheckedIOException.class)
         .verify();
+  }
+
+  private static SessionConfigData data(final String id, final String initiator) {
+    return new SessionConfigData(id, "n", "d", initiator, Map.of("k", "v"), "/p", Map.of());
+  }
+
+  @Test
+  void setInitiator_null_changesNothing() {
+    StepVerifier.create(configStore.setInitiator("nobody", null)).verifyComplete();
+
+    assertThat(configStore.getSessionIds().collectList().block()).isEmpty();
+  }
+
+  @Test
+  void setInitiator_keepsTheInitiatorAlreadySet() {
+    configStore.applySessionConfig(data("s1", "first")).block();
+
+    configStore.setInitiator("s1", "second").block();
+
+    assertThat(configStore.getInitiator("s1").block()).isEqualTo("first");
+  }
+
+  @Test
+  void setInitiator_fillsAnEmptyInitiator() {
+    configStore.applySessionConfig(data("s1", "")).block();
+
+    configStore.setInitiator("s1", "someone").block();
+
+    assertThat(configStore.getInitiator("s1").block()).isEqualTo("someone");
+  }
+
+  @Test
+  void reopenedStoreReadsWhatTheFirstWrote() {
+    configStore.applySessionConfig(data("s1", "first")).block();
+    final FileSessionConfigStore reopened =
+        new FileSessionConfigStore(props, new ObjectMapper(), workflowDefinitionStore);
+
+    assertThat(reopened.getInitiator("s1").block()).isEqualTo("first");
+    assertThat(reopened.getTags("s1").block()).containsEntry("k", "v");
+    assertThat(reopened.getInitiatedTime("s1").block()).isNotNull();
+    assertThat(reopened.getProjectPath("s1").block()).isEqualTo("/p");
+  }
+
+  @Test
+  void anUnknownSessionReadsAsEmpty() {
+    assertThat(configStore.getInitiator("none").block()).isEmpty();
+    assertThat(configStore.getDescription("none").block()).isEmpty();
+  }
+
+  @Test
+  void setInitiator_fillsFileWithoutAnyInitiator() throws IOException {
+    final Path sessions = tempDir.resolve(SESSIONS_DIR);
+    Files.createDirectories(sessions);
+    Files.writeString(sessions.resolve("bare" + JSON_EXT), "{}");
+
+    configStore.setInitiator("bare", "someone").block();
+
+    assertThat(configStore.getInitiator("bare").block()).isEqualTo("someone");
   }
 }

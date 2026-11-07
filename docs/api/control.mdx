@@ -27,13 +27,10 @@ All responses use the [envelope](/api/overview#response-envelope). An unknown ex
 | `POST /api/executions/{executionId}/nodes/{nodeId}/retry` | Retry a failed node | `OPERATOR` |
 | `POST /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Set a breakpoint | `OPERATOR` |
 | `DELETE /api/executions/{executionId}/nodes/{nodeId}/breakpoint` | Clear a breakpoint | `OPERATOR` |
-| `GET /api/control/nodes` | List active nodes | `VIEWER` |
-| `GET /api/control/workflows/{workflowId}/nodes?sessionId=` | List active nodes of a workflow | `VIEWER` |
-| `GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat?sessionId=&executionId=` | Read a node's last heartbeat | `VIEWER` |
 | `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command?sessionId=&executionId=` | Send a command to a node | `ADMIN` |
 | `GET /api/control/audit` | List control commands | `VIEWER` |
 
-`sessionId` is required on the three `/api/control/workflows/...` calls, because workflow ids are only unique within a session. Give `executionId` too when the session has several live runs of the workflow; without it such a call answers `409`, and `404` when the session has no live run of it.
+`sessionId` is required on the `/api/control/workflows/...` call, because workflow ids are only unique within a session. Give `executionId` too when the session has several live runs of the workflow; without it such a call answers `409`, and `404` when the session has no live run of it.
 
 Every execution and node control call, except retry, returns `data.executionId`, the id of the execution it acted on. The deprecated `/api/workflow/{sessionId}/{executionId}/...` forms of these calls are listed under [deprecated aliases](/api/overview#deprecated-aliases).
 
@@ -142,30 +139,6 @@ POST /api/executions/550e8400-e29b-41d4-a716-446655440000/nodes/deploy/breakpoin
 ## Control states
 
 The `controlState` of an execution status reports the latest operator command. Its values are `PAUSED`, `RESUMED`, `NODE_PAUSED`, `NODE_RESUMED`, `NODE_STEPPED`, `NODE_STOPPED`, `NODE_SKIPPED`, `NODE_UNSKIPPED`, `STEP_MODE_ENABLED`, `STEP_MODE_DISABLED` and `STOPPING`. It is separate from the run `status` and never ends a run by itself.
-
-## List active nodes
-
-`GET /api/control/nodes`
-`GET /api/control/workflows/{workflowId}/nodes`
-
-Lists the nodes registered on the control bus, that is nodes that have sent a heartbeat. The first call covers all workflows, the second one workflow.
-
-**Response `data`**: an array of node ids.
-
-```json
-{
-  "timestamp": "2026-07-19T10:15:30.123456",
-  "status": 200,
-  "message": "Active nodes retrieved",
-  "data": ["trigger", "map", "end"]
-}
-```
-
-## Read a node's heartbeat
-
-`GET /api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat`
-
-Returns the most recent heartbeat message of a node, as a message object in `data`.
 
 ## Send a command to a node
 

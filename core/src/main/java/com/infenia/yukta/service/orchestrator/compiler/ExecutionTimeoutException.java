@@ -15,6 +15,6 @@ public class ExecutionTimeoutException extends TimeoutException {
    * @param seconds the execution timeout that was exceeded
    */
   public ExecutionTimeoutException(final long seconds) {
-    super("Execution exceeded the session timeout of " + seconds + "s");
+    super("Execution exceeded the run timeout of " + seconds + "s");
   }
 }

@@ -9,9 +9,9 @@ import org.jspecify.annotations.Nullable;
  * Keys of the control bus: one node of one run of one workflow.
  *
  * <p>A key is {@code workflowId NUL executionId NUL nodeId}. Two runs of the same workflow have the
- * same node ids, so without the execution id their heartbeats, statistics and plugin registrations
- * would overwrite each other. A key made without an execution id ({@code workflowId NUL nodeId}) is
- * for a signal that does not belong to a run.
+ * same node ids, so without the execution id their plugin registrations would overwrite each other.
+ * A key made without an execution id ({@code workflowId NUL nodeId}) is for a plugin that does not
+ * belong to a run.
  */
 @UtilityClass
 public class ControlKey {
@@ -32,48 +32,5 @@ public class ControlKey {
     return executionId == null || executionId.isEmpty()
         ? workflowId + SEPARATOR + nodeId
         : workflowId + SEPARATOR + executionId + SEPARATOR + nodeId;
-  }
-
-  /**
-   * The workflow of a key.
-   *
-   * @param key the key
-   * @return the workflow id
-   */
-  public static String workflowId(final String key) {
-    return key.substring(0, key.indexOf(SEPARATOR));
-  }
-
-  /**
-   * The run of a key.
-   *
-   * @param key the key
-   * @return the execution id, or empty if the key has none
-   */
-  public static String executionId(final String key) {
-    final int first = key.indexOf(SEPARATOR);
-    final int last = key.lastIndexOf(SEPARATOR);
-    return first == last ? "" : key.substring(first + 1, last);
-  }
-
-  /**
-   * The node of a key.
-   *
-   * @param key the key
-   * @return the node id
-   */
-  public static String nodeId(final String key) {
-    return key.substring(key.lastIndexOf(SEPARATOR) + 1);
-  }
-
-  /**
-   * Whether a key is for a node of a workflow.
-   *
-   * @param key the key
-   * @param workflowId the workflow
-   * @return true if the workflow matches
-   */
-  public static boolean isIn(final String key, final String workflowId) {
-    return key.indexOf(SEPARATOR) >= 0 && workflowId(key).equals(workflowId);
   }
 }

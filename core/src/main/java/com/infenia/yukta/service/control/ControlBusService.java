@@ -3,58 +3,24 @@
 package com.infenia.yukta.service.control;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
-import com.infenia.yukta.util.SinkEmit;
-import jakarta.annotation.Nullable;
-import jakarta.annotation.PostConstruct;
 import jakarta.validation.constraints.NotBlank;
-import java.time.Duration;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.BiFunction;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import reactor.core.Scannable;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.Sinks;
-import reactor.core.scheduler.Schedulers;
-import reactor.util.retry.Retry;
 
 /**
  * Service for managing the system's Control Bus.
  *
- * <p>Handles administrative commands, heartbeats, and performance metrics from plugins. Dispatches
- * signals to registered handlers for extensible processing.
+ * <p>Applies execution control commands in order and sends a command to a live node.
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.AvoidCatchingGenericException"})
 public class ControlBusService {
-
-  /** Metadata key of a control message that names the run it comes from. */
-  public static final String EXECUTION_ID_KEY = "executionId";
-
-  /** Number of messages to batch before processing. */
-  private final int batchSize;
-
-  /** Duration to wait before processing a batch. */
-  private final Duration batchTimeout;
-
-  /** Buffer size for the control sink. */
-  private final int bufferSize;
-
-  /** List of signal handlers for dispatching messages. */
-  private final List<ControlSignalHandler> handlers;
 
   /** Registry of plugin instances actively servicing workflow nodes. */
   private final ActivePluginRegistry activePluginRegistry;
@@ -63,117 +29,13 @@ public class ControlBusService {
   @SuppressWarnings("PMD.AvoidUsingVolatile")
   private volatile Function<ExecutionControlCommand, Mono<Void>> commandExecutor;
 
-  /** Default size of the control sink buffer. */
-  private static final int DEFAULT_BUFFER_SIZE = 256;
-
-  /** Default number of signals handled per batch. */
-  private static final int DEFAULT_BATCH_SIZE = 100;
-
-  /** Default longest wait, in milliseconds, to fill a batch. */
-  private static final int DEFAULT_BATCH_TIMEOUT_MS = 50;
-
-  /** Sink for emitting control messages. */
-  private Sinks.Many<Message<?>> controlSink =
-      Sinks.many().multicast().onBackpressureBuffer(DEFAULT_BUFFER_SIZE, false);
-
-  /** First delay before the consumer resubscribes after a failure. */
-  private static final Duration CONSUMER_RETRY_DELAY = Duration.ofMillis(100);
-
-  /** Longest delay between resubscribe attempts. */
-  private static final Duration CONSUMER_MAX_RETRY_DELAY = Duration.ofSeconds(5);
-
-  /** Handler for retry logic when emitting fails. */
-  private static final Sinks.EmitFailureHandler RETRY_HANDLER =
-      Sinks.EmitFailureHandler.busyLooping(Duration.ofMillis(100));
-
   /**
    * Constructor for ControlBusService.
    *
-   * @param handlers the list of signal handlers for dispatching messages
    * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
-  @Autowired
-  public ControlBusService(
-      final List<ControlSignalHandler> handlers, final ActivePluginRegistry activePluginRegistry) {
-    this(
-        DEFAULT_BATCH_SIZE,
-        DEFAULT_BATCH_TIMEOUT_MS,
-        DEFAULT_BUFFER_SIZE,
-        handlers,
-        activePluginRegistry);
-  }
-
-  /**
-   * Constructor for ControlBusService with explicit bounds.
-   *
-   * @param batchSize the number of messages to batch before processing
-   * @param batchTimeoutMs the timeout in milliseconds for batching
-   * @param bufferSize the size of the control sink buffer
-   * @param handlers the list of signal handlers for dispatching messages
-   * @param activePluginRegistry the registry of plugin instances actively servicing nodes
-   */
-  public ControlBusService(
-      final int batchSize,
-      final int batchTimeoutMs,
-      final int bufferSize,
-      final List<ControlSignalHandler> handlers,
-      final ActivePluginRegistry activePluginRegistry) {
-    this.batchSize = batchSize;
-    this.batchTimeout = Duration.ofMillis(batchTimeoutMs);
-    this.bufferSize = Math.max(bufferSize, DEFAULT_BUFFER_SIZE);
-    this.handlers = List.copyOf(handlers);
+  public ControlBusService(final ActivePluginRegistry activePluginRegistry) {
     this.activePluginRegistry = activePluginRegistry;
-  }
-
-  /** Initialize the control sink and background event consumer. */
-  @PostConstruct
-  public void init() {
-    if (bufferSize == DEFAULT_BUFFER_SIZE) {
-      log.atDebug().log("Initialized control sink with default buffer size");
-    } else {
-      controlSink = Sinks.many().multicast().onBackpressureBuffer(bufferSize, false);
-      log.atDebug()
-          .addArgument(bufferSize)
-          .log("Initialized control sink with custom buffer size: {}");
-    }
-
-    controlSink
-        .asFlux()
-        .publishOn(Schedulers.parallel())
-        .bufferTimeout(batchSize, batchTimeout)
-        .doOnSubscribe(
-            _ -> log.atDebug().log("Control bus consumer subscribed, starting batch processing"))
-        .concatMap(
-            batch ->
-                Mono.fromRunnable(() -> handleControlBatch(batch))
-                    .doOnSuccess(
-                        _ ->
-                            log.atTrace()
-                                .addArgument(batch.size())
-                                .log("Processed control signal batch with {} messages"))
-                    .onErrorResume(
-                        e -> {
-                          log.atError()
-                              .addArgument(batch.size())
-                              .setCause(e)
-                              .log("Error processing control signal batch with {} messages");
-                          return Mono.empty();
-                        }))
-        .retryWhen(
-            Retry.backoff(Long.MAX_VALUE, CONSUMER_RETRY_DELAY)
-                .maxBackoff(CONSUMER_MAX_RETRY_DELAY)
-                .filter(
-                    _ ->
-                        !Boolean.TRUE.equals(
-                            controlSink.scanOrDefault(Scannable.Attr.TERMINATED, false)))
-                .doBeforeRetry(
-                    signal ->
-                        log.atError()
-                            .setCause(signal.failure())
-                            .log("Control bus consumer failed, resubscribing")))
-        .then()
-        .subscribe(
-            null, e -> log.atError().setCause(e).log("Control bus consumer stopped unexpectedly"));
   }
 
   /**
@@ -189,153 +51,24 @@ public class ControlBusService {
   }
 
   /**
-   * Emit a control signal to the bus.
+   * Emit a control command to the bus.
    *
-   * <p>An execution control command is applied in order and this completes only once it has been
-   * applied (or fails with the reason it was rejected).
+   * <p>The command is applied in order and this completes only once it has been applied (or fails
+   * with the reason it was rejected).
    *
-   * @param signal the control signal message
-   * @return a Mono that completes when the signal is emitted
+   * @param signal the control command message
+   * @return a Mono that completes when the command has been applied
    */
-  @SuppressWarnings("PMD.GuardLogStatement")
   public Mono<Void> emit(final Message<?> signal) {
-    final Object payload = signal.payload();
     final Function<ExecutionControlCommand, Mono<Void>> executor = commandExecutor;
-    if (executor != null && payload instanceof ExecutionControlCommand command) {
+    if (executor != null && signal.payload() instanceof ExecutionControlCommand command) {
       return executor.apply(command);
     }
-    final String payloadType = payload != null ? payload.getClass().getSimpleName() : "null";
-    log.atTrace().addArgument(payloadType).log("Emitting control signal of type: {}");
-    return Mono.create(
-        sink -> {
-          try {
-            if (!SinkEmit.offer(controlSink, signal)) {
-              sink.error(new IllegalStateException("Control bus is full or closed"));
-              return;
-            }
-            log.atDebug()
-                .addArgument(signal.sourceNodeId())
-                .addArgument(signal.workflowId())
-                .log("Control signal emitted from node: {} in workflow: {}");
-            sink.success();
-          } catch (final Exception e) {
-            log.atError().setCause(e).log("Failed to emit control signal to bus");
-            sink.error(new IllegalStateException("Control bus emit failed", e));
-          }
-        });
-  }
-
-  /**
-   * Get a stream of all control signals.
-   *
-   * @return a Flux of control messages
-   */
-  public Flux<Message<?>> getControlStream() {
-    return controlSink.asFlux();
-  }
-
-  /**
-   * Get the last heartbeat for a node of one run.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionId the run
-   * @param nodeId the node identifier
-   * @return the last heartbeat message, or null
-   */
-  @Nullable
-  public Message<?> getLastHeartbeat(
-      @NotBlank final String workflowId,
-      @Nullable final String executionId,
-      @NotBlank final String nodeId) {
-    return read(
-        ControlKey.forNode(workflowId, executionId, nodeId),
-        ControlSignalHandler::getLastHeartbeat);
-  }
-
-  /**
-   * The last heartbeat of every node of every run, in one read, so a list of live nodes needs no
-   * request per node.
-   *
-   * @return one heartbeat per node and run that sent one
-   */
-  public List<NodeHeartbeat> getHeartbeats() {
-    return activeKeys().stream()
-        .distinct()
-        .flatMap(
-            key ->
-                Stream.ofNullable(read(key, ControlSignalHandler::getLastHeartbeat))
-                    .map(
-                        beat ->
-                            new NodeHeartbeat(
-                                "",
-                                ControlKey.workflowId(key),
-                                ControlKey.executionId(key),
-                                ControlKey.nodeId(key),
-                                beat.timestamp())))
-        .toList();
-  }
-
-  /**
-   * Get the last statistics for a node of one run.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionId the run
-   * @param nodeId the node identifier
-   * @return the last statistics message, or null
-   */
-  @Nullable
-  public Message<?> getLastStatistics(
-      @NotBlank final String workflowId,
-      @Nullable final String executionId,
-      @NotBlank final String nodeId) {
-    return read(
-        ControlKey.forNode(workflowId, executionId, nodeId),
-        ControlSignalHandler::getLastStatistics);
-  }
-
-  /** The message a handler holds for a key. */
-  @Nullable
-  private Message<?> read(
-      final String key, final BiFunction<ControlSignalHandler, String, Message<?>> getter) {
-    return handlers.stream()
-        .map(h -> getter.apply(h, key))
-        .filter(Objects::nonNull)
-        .findFirst()
-        .orElse(null);
-  }
-
-  /** The keys every handler holds state for. */
-  private List<String> activeKeys() {
-    return handlers.stream()
-        .map(ControlSignalHandler::getActiveNodes)
-        .flatMap(List::stream)
-        .toList();
-  }
-
-  /**
-   * List the node IDs of a workflow that have emitted heartbeats in the given runs.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionIds the runs to look at
-   * @return the node IDs, each once however many runs reported
-   */
-  public List<String> getActiveNodes(
-      @NotBlank final String workflowId, final java.util.Collection<String> executionIds) {
-    return activeKeys().stream()
-        .filter(key -> ControlKey.isIn(key, workflowId))
-        .filter(key -> executionIds.contains(ControlKey.executionId(key)))
-        .map(ControlKey::nodeId)
-        .distinct()
-        .toList();
-  }
-
-  /**
-   * List all node IDs across all workflows that have emitted heartbeats.
-   *
-   * @return list of all active node IDs, each once
-   */
-  public List<String> getActiveNodes() {
-    return activeKeys().stream().map(ControlKey::nodeId).distinct().toList();
+    final Object payload = signal.payload();
+    return Mono.error(
+        new IllegalArgumentException(
+            "Not an execution control command: "
+                + (payload == null ? "null" : payload.getClass().getSimpleName())));
   }
 
   /**
@@ -382,91 +115,5 @@ public class ControlBusService {
                     .addArgument(workflowId)
                     .setCause(err)
                     .log("Error sending command to node: {} in workflow: {}"));
-  }
-
-  /**
-   * Shutdown the control bus gracefully.
-   *
-   * <p>Signals completion on the control sink, terminating the control stream and allowing
-   * subscribers to close cleanly.
-   */
-  public void shutdown() {
-    controlSink.emitComplete(RETRY_HANDLER);
-  }
-
-  private void handleControlBatch(final List<Message<?>> batch) {
-    log.atTrace().addArgument(batch.size()).log("Processing control signal batch of size: {}");
-    final List<Message<?>> prioritized =
-        batch.stream()
-            .sorted(
-                Comparator.comparingInt((final Message<?> m) -> m.priority())
-                    .reversed()
-                    .thenComparing(
-                        Message::timestamp, Comparator.nullsFirst(Comparator.naturalOrder())))
-            .toList();
-
-    int handledCount = 0;
-    int skippedCount = 0;
-
-    for (final Message<?> msg : prioritized) {
-      if (processMessage(msg)) {
-        handledCount++;
-      } else {
-        skippedCount++;
-      }
-    }
-    log.atDebug()
-        .addArgument(batch.size())
-        .addArgument(handledCount)
-        .addArgument(skippedCount)
-        .log("Batch processing complete: {} messages, {} handled, {} skipped");
-  }
-
-  /** The run a control message comes from, or null if it does not say. */
-  @Nullable
-  private static String executionIdOf(final Message<?> msg) {
-    final Object executionId = msg.metadata().get(EXECUTION_ID_KEY);
-    return executionId == null ? null : executionId.toString();
-  }
-
-  private boolean processMessage(final Message<?> msg) {
-    final Object payload = msg.payload();
-    final String nodeId = msg.sourceNodeId();
-    final String workflowId = msg.workflowId();
-
-    if (nodeId == null || payload == null || workflowId == null) {
-      final String payloadStatus = payload != null ? "present" : "null";
-      log.atWarn()
-          .log(
-              "Skipped signal due to missing required fields: nodeId={}, workflowId={},"
-                  + " payload={}",
-              nodeId,
-              workflowId,
-              payloadStatus);
-      return false;
-    }
-
-    final String key = ControlKey.forNode(workflowId, executionIdOf(msg), nodeId);
-    final String payloadType = payload.getClass().getSimpleName();
-
-    for (final ControlSignalHandler handler : handlers) {
-      if (handler.canHandle(payload)) {
-        log.atTrace()
-            .addArgument(payloadType)
-            .addArgument(nodeId)
-            .addArgument(workflowId)
-            .addArgument(handler.getClass().getSimpleName())
-            .log("Dispatching {} signal from node: {} in workflow: {} to handler: {}");
-        handler.handle(key, msg, payload);
-        return true;
-      }
-    }
-
-    log.atWarn()
-        .addArgument(payloadType)
-        .addArgument(nodeId)
-        .addArgument(workflowId)
-        .log("No handler found for signal type {} from node: {} in workflow: {}");
-    return false;
   }
 }

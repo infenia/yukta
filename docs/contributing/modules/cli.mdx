@@ -195,7 +195,7 @@ Defines the top-level `yukta-cli` command and the four options every command inh
 
 Declares every command, its arguments and flags, calls the matching client function and chooses how to print the result.
 
-- There are five groups. `session` (list, get, summaries, workflow get/graph/executions), `workflow` (start, stop, pause, resume, status, status-stream, history, executions stop/restart, node pause/resume/stop/skip, node step enable/disable/next), `plugin` (list, get), `controlbus` (nodes, all-nodes, heartbeat, command) and `logs`. Group names follow the server's resources, so someone who knows the REST API can guess the command.
+- There are five groups. `session` (list, get, summaries, workflow get/graph/executions), `workflow` (start, stop, pause, resume, status, status-stream, history, executions stop/restart, node pause/resume/stop/skip, node step enable/disable/next), `plugin` (list, get), `controlbus` (command, watch, audit) and `logs`. Group names follow the server's resources, so someone who knows the REST API can guess the command.
 - Most 'do something to this id' commands are built by one generic helper, `Action`. A command supplies its usage text, how many arguments it takes, the client call to make and a one-line success message. The helper adds the 'if `-o json` print the raw answer, else print the message' behaviour. This replaced about a dozen near-identical files and means pause, resume, step and stop all behave the same way.
 - Commands that take JSON (`controlbus command` and `session apply`) accept either a file path or inline JSON. The code checks whether a file with that name exists; if so it reads it, otherwise it treats the argument itself as JSON. Example: `yukta-cli controlbus command --session s1 wf1 node1 cmd.jsno` (typo) does not say 'file not found'. It says 'invalid JSON', because the typo was parsed as JSON text.
 - `workflow start` takes `--payload` or `--payload-file`. They exclude each other, and the content must be a JSON object. `workflow stop` takes no options and always sends the default stop mode, so the server's `?mode=DRAIN|CANCEL|KILL` choice is unreachable. `workflow node stop` has `--immediate` and `--reason`, but it always sends `reason=`, even when empty, which replaces the server's default reason text.
@@ -206,7 +206,7 @@ Declares every command, its arguments and flags, calls the matching client funct
 - **Ceiling.** About forty commands across five groups. Each new server endpoint needs a hand-written command, which does not scale as the API grows.
 - **On failure.** A bad argument count or invalid JSON stops the command before any network call, and exits 1.
 
-**Settings:** `yukta-cli session list|get|summaries`, `yukta-cli session workflow get|graph|executions`, `yukta-cli workflow start|stop|pause|resume|status|status-stream|history`, `yukta-cli workflow node ...`, `yukta-cli workflow executions stop|restart`, `yukta-cli plugin list|get`, `yukta-cli controlbus nodes|all-nodes|heartbeat|command`, `yukta-cli logs [--entries]`
+**Settings:** `yukta-cli session list|get|summaries`, `yukta-cli session workflow get|graph|executions`, `yukta-cli workflow start|stop|pause|resume|status|status-stream|history`, `yukta-cli workflow node ...`, `yukta-cli workflow executions stop|restart`, `yukta-cli plugin list|get`, `yukta-cli controlbus command|watch|audit`, `yukta-cli logs [--entries]`
 
 ### Output Formatter
 
@@ -216,8 +216,8 @@ Prints aligned tables and indented JSON, and writes errors to standard error.
 
 - A table is written with Go's tab writer: columns are padded by two spaces. A header row comes first. This is for people reading a terminal.
 - JSON output is indented by two spaces and written to standard output, so it can be piped to `jq`. Encoding errors go to standard error and do not stop the program.
-- Which output a command gives is decided by the command, not by this component, and the choices are uneven. `session list`, `plugin list`, `controlbus nodes` print real tables. `workflow status` and `history` print plain text lines instead of a table. `session summaries`, `session workflow graph`, `session workflow executions` and `session workflow get` always print JSON whatever `-o` says. `workflow status-stream` always prints one indented JSON object per event. `logs` prints each line as the server sent it.
-- `controlbus heartbeat` in table mode walks a Go map, so its rows come out in random order from run to run. `controlbus command` sorts its keys first.
+- Which output a command gives is decided by the command, not by this component, and the choices are uneven. `session list` and `plugin list` print real tables. `workflow status` and `history` print plain text lines instead of a table. `session summaries`, `session workflow graph`, `session workflow executions` and `session workflow get` always print JSON whatever `-o` says. `workflow status-stream` always prints one indented JSON object per event. `logs` prints each line as the server sent it.
+- `controlbus command` sorts its keys first.
 
 - **Guarantees.** Data goes to standard output and errors to standard error, so piping JSON into another tool is safe.
 - **State.** None.
@@ -252,7 +252,7 @@ Builds every request and turns the server's answer into either bytes or an error
 One Go function per server endpoint (sessions, workflows and executions, plugins, control bus, logs), each with hand-written types for the answers.
 
 - Each function checks its ids are not empty, builds the path, sends the request and decodes only the `data` field of the envelope into a Go type. Example types: `WorkflowStartResponse{executionId}`, `WorkflowProgress{executionId, status, tasks[]}`, `PluginDetails`.
-- Some answers are typed (workflow start, progress, history, plugins). Others are left as `map[string]any` or `any` (session details, workflow definition, graph, summaries, heartbeat, command reply). The loosely typed ones cannot drift in a way that breaks, but they also give no help to someone reading the code.
+- Some answers are typed (workflow start, progress, history, plugins). Others are left as `map[string]any` or `any` (session details, workflow definition, graph, summaries, command reply). The loosely typed ones cannot drift in a way that breaks, but they also give no help to someone reading the code.
 - The CLI uses the execution paths for run control (`/api/executions/{executionId}/pause`, `/api/executions/{executionId}` and the node paths `/api/executions/{executionId}/nodes/{nodeId}/...`); only start, stop-workflow and history still use `/api/workflow/...`, which have no other route. These paths carry no session, so the server no longer checks that a run belongs to the session the user typed. `workflow status` makes that check itself from the `sessionId` in the answer; the other commands still take the session argument but do not send it.
 - The decoding step treats a missing or renamed field as an empty value rather than an error. If the server renamed `executionId`, `workflow start` would print an empty id and exit 0.
 - No test compares these types or paths to the server's real API description (the OpenAPI document at `/v3/api-docs`). They are checked only against fake servers written by the same author, so a wrong assumption would be repeated in both places.
@@ -502,7 +502,7 @@ What the program can do today, grouped by area. 'Limit' names the practical edge
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Node inspection and commands | List active nodes, read a node's last heartbeat, send it a command. | `controlbus nodes\|all-nodes\|heartbeat\|command`. | Command payload is checked as JSON first. | The server expects a non-empty object of at most 100 entries; the CLI does not check that. |
+| Node commands | Send a command to a live node. | `controlbus command`. | Command payload is checked as JSON first. | The server expects a non-empty object of at most 100 entries; the CLI does not check that. |
 
 ### Access
 
@@ -601,9 +601,6 @@ What each command calls. sid = session id, eid = execution id, nid = node id, wi
 | logs &lt;sid&gt; &lt;eid&gt; [--entries] | GET /api/sessions/\{sid\}/executions/\{eid\}/logs[/entries] | SSE. Ends when the execution reaches a final state. |
 | plugin list | GET /api/plugins | Table: type and category. |
 | plugin get &lt;type&gt; | GET /api/plugins/\{type\} | Table omits the UI HTML; JSON includes it. |
-| controlbus nodes &lt;wid&gt; | GET /api/control/workflows/\{wid\}/nodes |  |
-| controlbus all-nodes | GET /api/control/nodes |  |
-| controlbus heartbeat &lt;wid&gt; &lt;nid&gt; | GET /api/control/workflows/\{wid\}/nodes/\{nid\}/heartbeat | Table rows in random order. |
 | controlbus command &lt;wid&gt; &lt;nid&gt; &lt;json-or-file&gt; | POST /api/control/workflows/\{wid\}/nodes/\{nid\}/command | Body is the raw JSON object; the server needs 1 to 100 entries. |
 | controlbus watch [--execution] [--tree] [--type] [--until-done] [--follow-restarts] [--quiet] | GET /api/events/stream | One line per event; --quiet shows only problems and the end; --tree (default) includes the sub-workflow runs; --follow-restarts goes on with a restart. |
 | result &lt;sid&gt; &lt;eid&gt; | GET /api/sessions/\{sid\}/executions/\{eid\}/results | What reached the terminal nodes. |
@@ -776,7 +773,6 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 | Node | One step of a workflow. | Node commands act on a single step of a live run. |
 | Step mode | A debugging state where a node waits and is advanced one step at a time. | `workflow node step enable\|next\|disable`. |
 | Control bus | The server's channel for observing nodes and sending commands to them. | The `controlbus` command group. |
-| Heartbeat | A signal a node emits to show it is alive. | `controlbus heartbeat` prints the last one. |
 | DRAIN, CANCEL, KILL | Stop modes: let in-flight work finish, cancel at once, cancel and remove the run. | The CLI cannot choose; it gets DRAIN. |
 | Legacy path | The older, session-qualified URL form the server marks as deprecated. | The CLI uses it for most run control. |
 | Static binary | An executable with everything built in (here `CGO_ENABLED=0`). | One file to download and run. |

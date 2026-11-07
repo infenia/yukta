@@ -68,7 +68,7 @@ See [Admission and limits](/running/admission-and-limits).
 | Where | Cause | Fix |
 |---|---|---|
 | Execution, before it ran | It waited longer than `yukta.execution.queue-timeout` | Raise limits or the timeout |
-| Execution | The run deadline passed (`yukta.session.execution-timeout-seconds`, 3600 s) | Raise it, or split the work |
+| Execution | The run deadline passed (`yukta.execution.timeout`, 1 hour) | Raise it, or split the work |
 | Node, idle | No input, output, retry or heartbeat for the node's idle timeout (`timeoutSeconds`, else the plugin default, 30 s for many) | Set `timeoutSeconds`. Long silent work needs the plugin to send heartbeats |
 | Node, deadline | `engine.deadlineMs` passed | Raise it |
 | One message | `engine.elementTimeoutMs` passed. The attempt fails, so retry and `onError` apply | Raise it, or add retries |

@@ -5,7 +5,6 @@ package com.infenia.yukta.service.session.store;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -18,12 +17,11 @@ class SessionConfigStoreConfigurationTest {
   @Test
   void inMemorySessionConfigStore_createsValidInstance() {
     // Given
-    final SessionConfigProperties props = new SessionConfigProperties();
     final WorkflowDefinitionStore store = mock(WorkflowDefinitionStore.class);
     final SessionConfigStoreConfiguration config = new SessionConfigStoreConfiguration();
 
     // When
-    final SessionConfigStore sessionStore = config.inMemorySessionConfigStore(props, store);
+    final SessionConfigStore sessionStore = config.inMemorySessionConfigStore(store);
 
     // Then
     assertThat(sessionStore).isNotNull();

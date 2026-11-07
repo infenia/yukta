@@ -96,15 +96,13 @@ public class WorkflowController {
               final Map<String, Object> clean =
                   ExecutionLogEvent.withInitiator(request.payload(), initiator(request, context));
               final Map<String, Object> payload = options == null ? clean : options.into(clean);
-              return workflowService.validateAndStartWorkflow(
+              return workflowService.start(
                   request.sessionId(), request.workflowId(), payload, idempotencyKey);
             })
         .map(
-            execution ->
+            executionId ->
                 ApiResponse.success(
-                    202,
-                    "Workflow start accepted",
-                    new WorkflowStartResponse(execution.executionId())));
+                    202, "Workflow start accepted", new WorkflowStartResponse(executionId)));
   }
 
   /** Whether the caller may set start options: an ADMIN key, or no key at all (auth is off). */

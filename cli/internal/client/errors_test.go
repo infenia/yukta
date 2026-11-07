@@ -22,9 +22,6 @@ func calls() map[string]func(c *Client) error {
 		"ApplyConfig":         func(c *Client) error { return c.ApplyConfig([]byte(`{}`)) },
 		"ListPlugins":         func(c *Client) error { _, err := c.ListPlugins(); return err },
 		"GetPluginDetails":    func(c *Client) error { _, err := c.GetPluginDetails("p"); return err },
-		"GetActiveNodes":      func(c *Client) error { _, err := c.GetActiveNodesInWorkflow("s", "w"); return err },
-		"GetAllActiveNodes":   func(c *Client) error { _, err := c.GetAllActiveNodes(); return err },
-		"GetLastHeartbeat":    func(c *Client) error { _, err := c.GetLastHeartbeat("s", "w", "", "n"); return err },
 		"SendCommand":         func(c *Client) error { _, err := c.SendCommand("s", "w", "", "n", []byte(`{}`)); return err },
 		"GetSessionSummaries": func(c *Client) error { _, err := c.GetSessionSummaries(); return err },
 		"GetWorkflowGraph":    func(c *Client) error { _, err := c.GetWorkflowGraph("s", "w"); return err },
@@ -94,7 +91,7 @@ func TestDecodeFailures(t *testing.T) {
 	c := NewClient(garbage.URL)
 	for _, name := range []string{
 		"GetSessions", "GetSessionDetails", "GetWorkflow", "ListPlugins", "GetPluginDetails",
-		"GetActiveNodes", "GetAllActiveNodes", "GetLastHeartbeat", "SendCommand",
+		"SendCommand",
 		"StartWorkflow", "StopWorkflow", "StopExecution", "RestartExecution", "RestartFromNode",
 		"PauseWorkflow", "ResumeWorkflow", "GetWorkflowStatus", "GetWorkflowHistory",
 		"PauseNode", "ResumeNode", "EnableStepMode", "DisableStepMode", "StepNode", "StopNode", "SkipNode",

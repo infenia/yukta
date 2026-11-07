@@ -24,12 +24,12 @@ func TestControlBusCmd_registersSubcommands(t *testing.T) {
 	cmd := ControlBusCmd(c)
 
 	subcommands := cmd.Commands()
-	if len(subcommands) != 6 {
-		t.Errorf("expected 6 subcommands, got %d", len(subcommands))
+	if len(subcommands) != 3 {
+		t.Errorf("expected 3 subcommands, got %d", len(subcommands))
 	}
 
-	// Check for subcommands by prefix (Use field includes args like "nodes <workflow-id>")
-	expectedSubcommands := []string{"nodes", "all-nodes", "heartbeat", "command", "watch", "audit"}
+	// Check for subcommands by prefix (Use field includes args like "command <workflow-id>")
+	expectedSubcommands := []string{"command", "watch", "audit"}
 	found := make(map[string]bool)
 
 	for _, sub := range subcommands {

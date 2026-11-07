@@ -6,17 +6,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +23,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for ControlBusController. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.TooManyStaticImports")
 class ControlBusControllerTest {
 
   /** First test node identifier. */
@@ -53,85 +49,6 @@ class ControlBusControllerTest {
         WebTestClient.bindToController(controller)
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
-  }
-
-  @Test
-  void testGetActiveNodes() {
-    when(controlBusGateway.getActiveNodes()).thenReturn(List.of(NODE1, NODE2));
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/nodes")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data[0]")
-            .isEqualTo(NODE1)
-            .jsonPath(MESSAGE_PATH)
-            .isEqualTo("Active nodes retrieved")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void heartbeatsListsEveryNodeOfEveryRun() {
-    when(controlBusGateway.getHeartbeats())
-        .thenReturn(
-            List.of(
-                new NodeHeartbeat(
-                    "s1", "wf1", "run-1", NODE1, Instant.parse("2026-10-30T10:00:00Z"))));
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/heartbeats")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data[0].executionId")
-            .isEqualTo("run-1")
-            .jsonPath("$.data[0].nodeId")
-            .isEqualTo(NODE1)
-            .jsonPath(MESSAGE_PATH)
-            .isEqualTo("Heartbeats retrieved")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void testGetLastHeartbeat() {
-    final Message<?> healthBytes = DefaultMessage.create(null, "ok").withControl(true);
-    doReturn(healthBytes).when(controlBusGateway).getLastHeartbeat("s1", "wf1", null, "n1");
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat?sessionId=s1")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data.payload")
-            .isEqualTo("ok")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
-  }
-
-  @Test
-  void testGetLastHeartbeatWithNoHeartbeatIsNotFound() {
-    doReturn(null).when(controlBusGateway).getLastHeartbeat("s1", "wf1", null, "n1");
-
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/workflows/wf1/nodes/n1/heartbeat?sessionId=s1")
-            .exchange()
-            .expectStatus()
-            .isNotFound()
-            .expectBody()
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(404);
   }
 
   @Test
@@ -174,24 +91,5 @@ class ControlBusControllerTest {
   @Test
   void testNullCommandPayloadBecomesEmpty() {
     assertThat(new com.infenia.yukta.dto.request.NodeCommandRequest(null).payload()).isEmpty();
-  }
-
-  @Test
-  void testGetActiveNodesInWorkflow() {
-    when(controlBusGateway.getActiveNodes("s1", "wf1")).thenReturn(List.of(NODE1, NODE2));
-    final var result =
-        webClient
-            .get()
-            .uri("/api/control/workflows/wf1/nodes?sessionId=s1")
-            .exchange()
-            .expectStatus()
-            .isOk()
-            .expectBody()
-            .jsonPath("$.data[0]")
-            .isEqualTo(NODE1)
-            .jsonPath(MESSAGE_PATH)
-            .isEqualTo("Active nodes retrieved")
-            .returnResult();
-    assertThat(result.getStatus().value()).isEqualTo(200);
   }
 }

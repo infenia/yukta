@@ -5,19 +5,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
-import { getHeartbeats } from '../../api/controlBus';
 import { useWorkers } from '../../api/workers';
-import {
-  AiUsagePanel,
-  BusPanel,
-  VitalsPanel,
-  WorkerSlotsPanel,
-} from '../HealthPanels';
+import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from '../HealthPanels';
 
-const NOW = 1_000_000;
-
-vi.mock('../useNow', () => ({ useNow: () => NOW }));
-vi.mock('../../api/controlBus', () => ({ getHeartbeats: vi.fn() }));
 vi.mock('../../api/workers', () => ({ useWorkers: vi.fn() }));
 vi.mock('@/features/metrics/hooks', () => ({ useMetricSnapshot: vi.fn() }));
 vi.mock('@/components/dashboard/Gauges', () => ({
@@ -44,43 +34,6 @@ const q = (over: Record<string, unknown> = {}) =>
     refetch: vi.fn(),
     ...over,
   }) as never;
-
-describe('BusPanel', () => {
-  it('says so with no heartbeat and grades the age of each', async () => {
-    vi.mocked(getHeartbeats).mockResolvedValue([] as never);
-    const { unmount } = renderWithProviders(<BusPanel live={false} />);
-    expect(
-      await screen.findByText('No node has sent a heartbeat')
-    ).toBeInTheDocument();
-    unmount();
-
-    const beats = [
-      {
-        workflowId: 'w',
-        nodeId: 'fresh',
-        executionId: 'e1',
-        timestamp: new Date(NOW - 10_000).toISOString(),
-      },
-      {
-        workflowId: 'w',
-        nodeId: 'late',
-        executionId: 'e2',
-        timestamp: new Date(NOW - 45_000).toISOString(),
-      },
-      {
-        workflowId: 'w',
-        nodeId: 'gone',
-        executionId: 'e3',
-        timestamp: new Date(NOW - 90_000).toISOString(),
-      },
-    ];
-    vi.mocked(getHeartbeats).mockResolvedValue(beats as never);
-    renderWithProviders(<BusPanel live />);
-    expect(await screen.findByText('w / fresh=ok')).toBeInTheDocument();
-    expect(screen.getByText('w / late=stale')).toBeInTheDocument();
-    expect(screen.getByText('w / gone=down')).toBeInTheDocument();
-  });
-});
 
 describe('WorkerSlotsPanel', () => {
   it('shows each worker, its drain and whether it is full', () => {
