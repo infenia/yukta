@@ -41,6 +41,7 @@ describe('AppHeader', () => {
     ['/sessions/s1', 'Sessions'],
     ['/sessions/s1/workflow/w1/edit', 'Sessions'],
     ['/plugins', 'Plugins'],
+    ['/supervisors', 'Supervisors'],
     ['/runs', 'Runs'],
     ['/control', 'Control'],
   ])('marks the section of %s as current', (path, label) => {
@@ -104,7 +105,7 @@ describe('AppHeader', () => {
     ).toEqual(['/']);
   });
 
-  it('links Sessions, Runs, Plugins and Control from the sidebar', () => {
+  it('links Sessions, Runs, Plugins, Supervisors and Control from the sidebar', () => {
     renderWithRouter(<Sidebar />);
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'w-16', 'hidden', 'sm:flex');
@@ -116,6 +117,7 @@ describe('AppHeader', () => {
       ['Sessions', '/sessions'],
       ['Runs', '/runs'],
       ['Plugins', '/plugins'],
+      ['Supervisors', '/supervisors'],
       ['Control', '/control'],
     ]);
   });
@@ -234,6 +236,6 @@ describe('MobileNav', () => {
     );
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'bottom-0', 'sm:hidden');
-    expect(screen.getAllByRole('link')).toHaveLength(5);
+    expect(screen.getAllByRole('link')).toHaveLength(6);
   });
 });

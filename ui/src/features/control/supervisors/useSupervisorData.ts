@@ -5,14 +5,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useFallbackPoll } from '../context/ControlEventsContext';
 import {
   attach,
-  createProfile,
   deleteProfile,
   detach,
   getBindings,
   getDecisions,
   getProfiles,
   getSupervisors,
-  getTypes,
   replaceProfile,
 } from '../api/supervisors';
 
@@ -40,13 +38,6 @@ export const useBindings = () => {
 export const useProfiles = () =>
   useQuery({ queryKey: [...ROOT, 'profiles'], queryFn: getProfiles });
 
-export const useSupervisorTypes = () =>
-  useQuery({
-    queryKey: [...ROOT, 'types'],
-    queryFn: getTypes,
-    staleTime: Infinity,
-  });
-
 export const useDecisions = (limit = 30) => {
   const poll = useFallbackPoll();
   return useQuery({
@@ -65,7 +56,6 @@ function useWrite<A, R>(fn: (arg: A) => Promise<R>) {
   });
 }
 
-export const useCreateProfile = () => useWrite(createProfile);
 export const useReplaceProfile = () => useWrite(replaceProfile);
 export const useDeleteProfile = () => useWrite(deleteProfile);
 export const useAttach = () => useWrite(attach);
