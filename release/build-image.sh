@@ -44,7 +44,7 @@ revision="$(git -C "$REPO_ROOT" rev-parse HEAD)"
 smoke_test() {
   local image="$1" platform="$2" port=18080 name="yukta-smoke-$$"
   docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:9858" \
-    -e YUKTA_API_KEY=smoke-test-key "$image" >/dev/null
+    -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then

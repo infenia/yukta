@@ -31,7 +31,7 @@ COPY dist/linux-${TARGETARCH}/yukta /app/yukta
 EXPOSE 9858
 
 # Inside a container the app must listen on all interfaces; publish the port deliberately.
-# The server refuses to start in this mode without an API key: run with -e YUKTA_API_KEY=<key>.
+# The server refuses to start in this mode without an API key: run with -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<key> -e YUKTA_API_KEYS_0_ROLE=ADMIN.
 ENV YUKTA_SERVER_ADDRESS=0.0.0.0
 
 USER nonroot

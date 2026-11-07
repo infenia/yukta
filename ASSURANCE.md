@@ -53,7 +53,7 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
 1. **Network edge**, where requests enter through REST (`/api/**`), MCP (`/mcp`), management
    (`/actuator/**`) and the UI. Yukta serves plain HTTP, so TLS termination belongs to a reverse
    proxy in front of it. A native install binds to loopback by default. The container image binds
-   `0.0.0.0` and so requires `YUKTA_API_KEY` (see
+   `0.0.0.0` and so requires an API key in `YUKTA_API_KEYS_0_KEY` (see
    [docs/operations/security.mdx](docs/operations/security.mdx)).
 2. **Role boundary** between `VIEWER`, `OPERATOR` and `ADMIN`, and the session boundary for
    limited keys.

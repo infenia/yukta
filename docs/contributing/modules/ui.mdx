@@ -61,7 +61,7 @@ You open a workflow's run page and watch a run live. Click a step to see what ha
 
 **Why.** A single page app has one real file; the browser router decides which screen to draw. boot also adds a Content-Security-Policy header so the page can only load scripts and connect to its own origin.
 
-**Can go wrong.** If the server was started with yukta.api-key (needed for remote access) the page loads but every /api call then answers 401, because the UI sends no key (risk noAuthHeader).
+**Can go wrong.** If the server was started with yukta.api-keys (needed for remote access) the page loads but every /api call then answers 401, because the UI sends no key (risk noAuthHeader).
 
 </Step>
 <Step title="Load page code">
@@ -179,7 +179,7 @@ The single path for REST calls: builds safe URLs, unwraps the response envelope,
 - A non-2xx answer throws ApiError carrying the server's message and a list of field errors (field and message). Example: saving with a bad session id shows 'sessionId: must not be blank'. A 204 returns nothing; a successful non-JSON body is an error.
 - The api tagged template builds paths such as api`/api/sessions/$\{id\}` and URL-encodes every value. An id containing '/' or '?' therefore cannot reach a different endpoint. The action suffix of node commands (for example step/enable) comes from a closed list and is appended unencoded on purpose.
 - TanStack Query is configured with: fresh for 5 minutes, kept 10 minutes after last use, no refetch on window focus, and one retry for queries and for mutations. Mutations such as start and stop also invalidate the status and workflow-list queries on success.
-- fetchApi adds no Authorization or X-API-Key header and no credentials option. The server's ApiKeyFilter requires one on every /api/ request when yukta.api-key is set.
+- fetchApi adds no Authorization or X-API-Key header and no credentials option. The server's ApiKeyFilter requires one on every /api/ request when yukta.api-keys is set.
 
 - **Guarantees.** Every REST failure reaches the screen as an Error with a readable message; ids are always encoded.
 - **State.** The query cache is in memory only: gone on reload.
@@ -443,7 +443,7 @@ Why the bundled UI cannot work against a server that requires an API key (a fail
 
 <Steps>
 <Step title="The operator exposes the server">
-To reach Yukta from another machine the operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-key. With a key set, every /api request must carry Authorization: Bearer or X-API-Key.
+To reach Yukta from another machine the operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-keys. With a key set, every /api request must carry Authorization: Bearer or X-API-Key.
 </Step>
 <Step title="The page still loads">
 index.html and the assets are not under /api, so they are served without a key. The operator sees the app shell.
@@ -569,7 +569,7 @@ Values taken from the code. Changing one means a code change, there are no runti
 | Ids are URL-encoded in REST paths | \*\*Yes.\*\* Enforced by the api tag; a test covers it |
 | Workflow validity | \*\*Yes.\*\* Decided by the server at validate and save time, not by the UI |
 | Same-origin scripts only | \*\*Yes.\*\* Content-Security-Policy on index.html (inline styles allowed) |
-| Authentication | \*\*No.\*\* The UI sends no credentials; with yukta.api-key set all calls fail |
+| Authentication | \*\*No.\*\* The UI sends no credentials; with yukta.api-keys set all calls fail |
 | Who may start, stop or edit | \*\*No.\*\* No role checks in the UI; every control is shown to every visitor |
 | Bundle size, header and version rules | \*\*Yes.\*\* Enforced by build and ':ui:check' |
 | Unit tests and coverage | \*\*Partly.\*\* A 100% threshold is configured, but I found no call in ':ui:check' or CI that runs it |

@@ -227,14 +227,14 @@ public class SupervisorService {
     Flux.defer(() -> refreshResolver().thenMany(store.attachments()))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
-        .filter(SupervisorService::validStoredId)
         .concatMap(
             binding ->
                 store
                     .supervisors()
                     .filter(profile -> profile.id().equals(binding.supervisorId()))
                     .next()
-                    // a stored profile that no longer fits its schema is skipped with a warning
+                    // a stored row that no longer fits the rules fails its own restore (counted)
+                    .doOnNext(_ -> SupervisorIds.validate(binding.id(), "binding id"))
                     .doOnNext(this::checkSettings)
                     .doOnNext(profile -> start(binding, profile))
                     .doOnNext(_ -> restored.incrementAndGet())
@@ -517,17 +517,6 @@ public class SupervisorService {
           "Unknown supervisor type '" + profile.type() + "'; use one of " + types());
     }
     return factory;
-  }
-
-  /** A stored binding with a bad id is skipped with a warning; the migration renames such ids. */
-  private static boolean validStoredId(final SupervisorAttachment binding) {
-    final boolean valid = SupervisorIds.isValid(binding.id());
-    if (!valid) {
-      log.atWarn()
-          .addKeyValue("binding", binding.id())
-          .log("Skipped a supervisor binding whose id breaks the naming rule");
-    }
-    return valid;
   }
 
   private void validate(final Supervisor profile) {

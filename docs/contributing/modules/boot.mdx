@@ -85,7 +85,7 @@ A cold start of the native binary, up to a user pasting the link /sessions/x int
 
 **Why it is built this way.** Loopback means a laptop install is not reachable from the office network. The container image sets YUKTA_SERVER_ADDRESS=0.0.0.0 because a container must listen on all its interfaces.
 
-**Can go wrong.** Bind to 0.0.0.0 with no yukta.api-key and the REST API is open. Even with a key, /actuator and Swagger have no key check (see Risks).
+**Can go wrong.** Bind to 0.0.0.0 with no yukta.api-keys and the REST API is open. Even with a key, /actuator and Swagger have no key check (see Risks).
 
 </Step>
 <Step title="GET /sessions/x">
@@ -385,13 +385,13 @@ A realistic misconfiguration: remote access with a key but no profile.
 
 <Steps>
 <Step title="Operator binds to 0.0.0.0">
-They set YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-key=secret for remote access, and run the jar as before. Without a key the server would now refuse to start (ExposureGuard).
+They set YUKTA_SERVER_ADDRESS=0.0.0.0 and yukta.api-keys=secret for remote access, and run the jar as before. Without a key the server would now refuse to start (ExposureGuard).
 </Step>
 <Step title="Profile was never set">
 A JVM jar has no native rule, so the default dev profile still applies, with loggers, mappings and threaddump exposed.
 </Step>
 <Step title="API is protected, the rest is not">
-/api and /actuator (except health) now need the key, and so do /swagger-ui.html and /v3/api-docs, which the prod profile also switches off. If only yukta.mcp.api-key is set, ExposureGuard now refuses to start on a non-loopback address, because /api would be open.
+/api and /actuator (except health) now need the key, and so do /swagger-ui.html and /v3/api-docs, which the prod profile also switches off.
 </Step>
 <Step title="Payloads reach the log">
 Dev sets the orchestrator stream package to TRACE, which writes message payloads to the console. In a shared log system those payloads are now visible to others.
@@ -500,8 +500,8 @@ Pick a profile and see what holds. Rows marked part or lost are the reasons for 
 | Startup banner | \*\*Note.\*\* Console banner. | \*\*Note.\*\* Off. |
 | Lazy initialisation | \*\*Yes.\*\* Off: errors at start. | \*\*Yes.\*\* Off: errors at start (guarded by a test). |
 | Network address | \*\*Yes.\*\* 127.0.0.1 unless YUKTA_SERVER_ADDRESS. | \*\*Yes.\*\* 127.0.0.1 unless YUKTA_SERVER_ADDRESS. |
-| API key on /api | \*\*Partly.\*\* Only if a key is set (yukta.api-key or yukta.api-keys). Without it the API is open on loopback. | \*\*Partly.\*\* Same. |
-| MCP key on /mcp | \*\*Partly.\*\* The same keys, or yukta.mcp.api-key, if any is set. | \*\*Partly.\*\* Same. |
+| API key on /api | \*\*Partly.\*\* Only if a key is set (`yukta.api-keys`). Without it the API is open on loopback. | \*\*Partly.\*\* Same. |
+| MCP key on /mcp | \*\*Partly.\*\* The same keys, if any is set. | \*\*Partly.\*\* Same. |
 | Auth on /actuator and Swagger | \*\*Partly.\*\* Actuator: yes when a key is set (ADMIN, except health). Swagger and /v3: none. | \*\*Partly.\*\* Same. |
 
 ### What survives a restart (defaults)
@@ -563,7 +563,7 @@ JVM vs native.
 | Run as a daemon | java -jar boot/build/libs/\*.jar start | Also stop, status, restart, logs [-f]; state in $YUKTA_HOME |
 | Build native | ./gradlew :boot:nativeCompile | Output boot/build/native/nativeCompile/yukta; slow, needs GraalVM 25 |
 | Run native | ./boot/build/native/nativeCompile/yukta | prod chosen by main() if no profile argument |
-| Remote access | YUKTA_SERVER_ADDRESS=0.0.0.0 yukta.api-key=&lt;secret&gt; | Without a key the server refuses to start; set the REST keys (they cover /mcp too), not just yukta.mcp.api-key. Swagger and /v3 are still open |
+| Remote access | YUKTA_SERVER_ADDRESS=0.0.0.0 yukta.api-keys=&lt;secret&gt; | Without a key the server refuses to start; the keys cover /mcp too. Swagger and /v3 are still open |
 | Run module tests | ./gradlew :boot:test | Needs the PROCESS_EXECUTOR plugin |
 
 ### Plugin catalogue
@@ -589,8 +589,8 @@ JVM vs native.
 
 | Path | Served by | Guard |
 |---|---|---|
-| /api/\*\* | web controllers (REST and SSE) | yukta.api-key or yukta.api-keys if set |
-| /mcp | mcp server (stateless, async) | the same keys, or yukta.mcp.api-key, if any is set |
+| /api/\*\* | web controllers (REST and SSE) | `yukta.api-keys` if set |
+| /mcp | mcp server (stateless, async) | the same keys, if any is set |
 | /sse | alias rewritten to /mcp | same as /mcp |
 | /actuator/\*\* | actuator | ADMIN key when a key is set (health excepted) |
 | /swagger-ui.html, /v3/\*\* | springdoc | the key, when one is set; off in prod |

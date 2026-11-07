@@ -12,7 +12,7 @@ The mcp module is Yukta's door for AI agents. An agent (a program driven by a la
 | 30 tools, thin by design | Every tool is a few lines that call a provider, which calls core. The module repeats what the web layer does (ownership checks, control actions) without depending on it. |
 | Stateless HTTP | Each request stands alone at /mcp. There is no connection to keep and nothing is pushed to the agent: it polls status and logs. |
 | Made for a model reader | Errors say what to call next, lists are wrapped in records so none is cut short, and tool hints tell the client which calls only read and which can destroy. |
-| Open unless you set a key | The endpoint accepts the same named keys as REST (roles VIEWER, OPERATOR, ADMIN, optional session limits) plus yukta.mcp.api-key, and each tools/call is checked against the key's role. No key is set in the shipped config, so on loopback it is still open; boot refuses to listen on another address without a key. |
+| Open unless you set a key | The endpoint accepts the same named keys as REST (roles VIEWER, OPERATOR, ADMIN, optional session limits), and each tools/call is checked against the key's role. No key is set in the shipped config, so on loopback it is still open; boot refuses to listen on another address without a key. |
 
 <Note>
   Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Amcp), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Amcp) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Amcp). Its evolution path and quality lenses are in [design/assessments/mcp.md](https://github.com/infenia/yukta/blob/main/design/assessments/mcp.md).
@@ -157,18 +157,18 @@ it can read the overview and architecture resources, or ask for a plugin's detai
 Sits in front of the web server and decides whether a request to /mcp or /sse may continue, and rewrites the old /sse address to /mcp.
 
 - It is a web filter with the highest priority, so it runs before anything else. It looks only at two paths, /mcp and /sse. Every other path (REST, the UI) passes straight through untouched.
-- If no key is configured (yukta.mcp.api-key, yukta.api-key or yukta.api-keys), every request is let in. Otherwise the request must carry a key as 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key'; a miss gives 401, an ambiguous path 400. For a key that is not an unrestricted ADMIN, the filter reads the POST body (at most 1 MiB, else 413) and checks every tools/call in it against the key's role (McpToolAccess: VIEWER reads, OPERATOR starts and controls, ADMIN does everything including create_session; an unknown tool needs ADMIN) and, for a session-limited key, against its sessions.
+- If no key is configured (`yukta.api-keys`), every request is let in. Otherwise the request must carry a key as 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key'; a miss gives 401, an ambiguous path 400. For a key that is not an unrestricted ADMIN, the filter reads the POST body (at most 1 MiB, else 413) and checks every tools/call in it against the key's role (McpToolAccess: VIEWER reads, OPERATOR starts and controls, ADMIN does everything including create_session; an unknown tool needs ADMIN) and, for a session-limited key, against its sessions.
 - The comparison is constant-time (MessageDigest.isEqual). A normal string comparison stops at the first wrong character, and an attacker timing many requests could learn the key one character at a time.
 - A missing or wrong key gets HTTP 401 with an empty body. The check runs before the alias rewrite, so /sse is guarded exactly like /mcp.
 - The alias exists because the endpoint used to be called /sse (although it speaks streamable HTTP, not the older SSE protocol). Renaming it to /mcp would have broken every client already configured. The filter rewrites the path of an /sse request to /mcp and passes it on.
-- The same keys that protect /api also open /mcp, plus yukta.mcp.api-key, which is an ADMIN key. With named keys the Reactor context carries the actor 'key:&lt;name&gt;'.
+- The same keys that protect /api also open /mcp,, which is an ADMIN key. With named keys the Reactor context carries the actor 'key:&lt;name&gt;'.
 
 - **Guarantees.** When a key is configured, no request reaches a tool without presenting it, on either path, and the compare does not leak by timing.
 - **State.** None except the key read once at startup. A key change needs a restart.
 - **Ceiling.** Keys are static configuration: no expiry, and a change needs a restart. Rejections are not logged. Nothing limits request rate.
 - **On failure.** A wrong key is a bare 401. There is no lockout, no counter and no log line for repeated failures.
 
-**Settings:** `yukta.mcp.api-key, yukta.api-key, yukta.api-keys (empty = open)`, `Authorization: Bearer <key>`, `X-API-Key: <key>`, `paths: /mcp, /sse (alias)`
+**Settings:** `yukta.api-keys (empty = open)`, `Authorization: Bearer <key>`, `X-API-Key: <key>`, `paths: /mcp, /sse (alias)`
 
 ### Protocol runtime
 
@@ -437,7 +437,7 @@ The key filter in both states, and why the shipped default is open.
 
 <Steps>
 <Step title="Operator sets a key">
-The operator sets a key (yukta.mcp.api-key, or the REST keys, which now cover /mcp too). Out of the box nothing is set: the endpoint is open, and the server listens on 127.0.0.1 only. A non-loopback address makes boot refuse to start without a key.
+The operator sets a key (`yukta.api-keys`, which cover REST and /mcp). Out of the box nothing is set: the endpoint is open, and the server listens on 127.0.0.1 only. A non-loopback address makes boot refuse to start without a key.
 </Step>
 <Step title="A request without it">
 A client posts to /mcp or /sse with no key or the wrong key. The filter compares in constant time and answers 401 with an empty body.
@@ -446,10 +446,10 @@ A client posts to /mcp or /sse with no key or the wrong key. The filter compares
 With 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key: &lt;key&gt;' the request continues. A request to /sse is rewritten to /mcp first and then served as normal.
 </Step>
 <Step title="What a key gives">
-Keys can be narrowed now: a VIEWER key cannot call start_workflow, control_\* or create_session; a session-limited key must name a sessionId of its own. The single yukta.mcp.api-key is still an ADMIN key with every power.
+Keys can be narrowed now: a VIEWER key cannot call start_workflow, control_\* or create_session; a session-limited key must name a sessionId of its own.
 </Step>
 <Step title="A different key on REST">
-One key setting now covers REST and MCP (yukta.api-key and yukta.api-keys apply to both). The one trap left is the reverse: boot's start-up guard counts yukta.mcp.api-key as a key, so a server with only that key set may listen on any address while /api stays open (boot guide, guardMcpKeyOnly).
+One key setting now covers REST and MCP (yukta.api-keys applies to both).
 </Step>
 </Steps>
 
@@ -540,7 +540,7 @@ The mcp module keeps no state of its own, so most 'what survives' answers come f
 |---|---|---|
 | Endpoint | /mcp (streamable HTTP); /sse is a rewrite alias | Old clients keep working after the rename. |
 | Transport mode | STATELESS, ASYNC, stdio off | Any request can be served alone; no connection to track. |
-| API key | \*\*Partly.\*\* Keys or yukta.mcp.api-key; empty = open | Optional on loopback; boot refuses a non-loopback address without a key. |
+| API key | \*\*Partly.\*\* Keys; empty = open | Optional on loopback; boot refuses a non-loopback address without a key. |
 | Log lines per call | 5,000 maximum; default when tailLines is absent or not positive | One call cannot flood an agent's context. |
 | Regex pattern length | 200 characters | Limits the work a pattern can ask for. |
 | Regex time | 50 ms per line | Stops catastrophic backtracking. |
@@ -723,11 +723,11 @@ Behaviours of the framework the code is shaped around.
 <Accordion title="One optional shared API key in a filter inside the module">
 **Context.** The MCP endpoint is mounted by Spring AI, outside the web module's REST filter, and must work for clients that can only send a header.
 
-**Decision.** McpEndpointFilter checks yukta.mcp.api-key (Bearer or X-API-Key, constant-time) on /mcp and /sse. Empty means open. The key is separate from yukta.api-key. The server binds to loopback by default.
+**Decision.** McpEndpointFilter checks yukta.api-keys (Bearer or X-API-Key, constant-time) on /mcp and /sse. Empty means open. The server binds to loopback by default.
 
 **Consequences.** A one-line setup that suits a single-user or single-team install. It gives no identity, scopes or rotation, and open-by-default relies on the bind address.
 
-**Alternatives considered.** Spring Security with OAuth: gives identities and scopes, but is a large dependency and setup for a local-first tool. Reuse yukta.api-key for both: one setting to remember, but a key for REST also opens MCP. A reverse proxy only: no code, but nothing protects a direct bind.
+**Alternatives considered.** Spring Security with OAuth: gives identities and scopes, but is a large dependency and setup for a local-first tool. Reuse yukta.api-keys for both: one setting to remember, but a key for REST also opens MCP. A reverse proxy only: no code, but nothing protects a direct bind.
 
 **Revisit when.** the server is exposed to a network, shared between teams, or audited for who did what.
 

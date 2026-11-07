@@ -123,7 +123,7 @@ On a placed node, set the allow-list on the worker. See [Security](/operations/s
 
 ## The server refuses to start on a non-loopback address
 
-The server refuses to listen on any address but loopback unless a key exists. The message reads "Refusing to listen on '...' without an API key". Either set `yukta.api-key` (`YUKTA_API_KEY`) or `yukta.api-keys`, or set `YUKTA_SERVER_ADDRESS=127.0.0.1`. The container image listens on `0.0.0.0`, so it always needs a key. See [Security](/operations/security#exposing-the-server).
+The server refuses to listen on any address but loopback unless a key exists. The message reads "Refusing to listen on '...' without an API key". Either set `yukta.api-keys`, or set `YUKTA_SERVER_ADDRESS=127.0.0.1`. The container image listens on `0.0.0.0`, so it always needs a key. See [Security](/operations/security#exposing-the-server).
 
 ## Log lines are missing
 

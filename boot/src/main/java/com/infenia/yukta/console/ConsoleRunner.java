@@ -60,7 +60,8 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
       return;
     }
     final String port = ctx.getEnvironment().getProperty("local.server.port", "9858");
-    final String key = ctx.getEnvironment().getProperty("yukta.api-key", "");
+    // the console polls with the first key; a sha256: key cannot be sent, so it needs a plain one
+    final String key = ctx.getEnvironment().getProperty("yukta.api-keys[0].key", "");
     final String version =
         ctx.getBeanProvider(BuildProperties.class).stream()
             .findFirst()

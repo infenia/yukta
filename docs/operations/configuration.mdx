@@ -30,7 +30,7 @@ Settings are keys such as `yukta.execution.max-concurrent`. The server reads the
 
 Durations accept a number with a unit, such as `30s`, `10m` or `1h`. A plain `0` means off where the table says so.
 
-These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
+These environment variables are used in the project's own scripts and image: `YUKTA_SERVER_ADDRESS`, `YUKTA_API_KEYS_0_KEY`, `YUKTA_LIMITS_MAX_BODY`, `YUKTA_SESSION_BASE_DIR`, `YUKTA_SESSION_EXECUTION_TIMEOUT_SECONDS`, `YUKTA_PROCESS_ALLOW_ANY`, `SERVER_PORT` and `SPRING_PROFILES_ACTIVE`.
 
 Four groups are not read from the configuration file. `yukta.script.timeout-ms`, `yukta.script.max-statements`, `yukta.script.max-heap-bytes`, `yukta.spel.timeout-ms` and `yukta.spel.max-length` are read only as system properties. The variable allow-list is read from the system property `yukta.variables.allowed` or the environment variable `YUKTA_VARIABLES_ALLOWED`. Workflow variables are read from system properties `yukta.var.*` or environment variables `YUKTA_VAR_*`. Secrets are read only from environment variables `YUKTA_SECRET_*`.
 
@@ -161,12 +161,10 @@ See [Security](/operations/security).
 
 | Setting | Default | Meaning and effect |
 |---|---|---|
-| `yukta.api-key` (`YUKTA_API_KEY`) | unset | One key with the `ADMIN` role for REST and MCP |
 | `yukta.api-keys[i].name` | `unnamed` | Name of a key. Appears in the audit as `key:<name>` |
 | `yukta.api-keys[i].key` | required | The key, as plain text or `sha256:<64 hex digits>` |
 | `yukta.api-keys[i].role` | `VIEWER` | `VIEWER`, `OPERATOR` or `ADMIN` |
 | `yukta.api-keys[i].sessions` | required unless `ADMIN` | Session ids the key may reach, or `*` for all. A `VIEWER` or `OPERATOR` key without it fails start-up |
-| `yukta.mcp.api-key` | unset | An extra `ADMIN` key that works only on `/mcp` |
 | `yukta.mcp.rate-limit-per-minute` | `600` | Requests per minute one caller (key) may make to `/mcp`; more get `429` with `Retry-After`. Not applied when no key is configured (loopback only), like `yukta.rate-limit-per-minute`. `0` turns the limit off |
 | `yukta.mcp.heavy-rate-limit-per-minute` | `60` | Costly tool calls per minute one caller may make: `start_workflow` and `get_execution_logs` with a `filterPattern` (a regex run over every line). More get `429` with `Retry-After` and add to the `yukta.mcp.heavy.refused` counter. Not applied when no key is configured. `0` turns it off |
 | `yukta.mcp.log-redact-patterns` | bearer tokens, `key=value` secrets, `sk-`, `ghp_`, `AKIA` keys | Regexes (comma separated) whose matches an agent sees as `[REDACTED]` in log lines read through MCP. Setting it replaces the defaults. Applied before the log filter, so a filter cannot probe a redacted value |

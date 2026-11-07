@@ -29,10 +29,13 @@ export function EffectiveSupervision({
   sessionId,
   workflowId,
   className = '',
+  compact = false,
 }: {
   sessionId: string;
   workflowId?: string;
   className?: string;
+  /** No strip padding or border: for use inside another header. */
+  compact?: boolean;
 }) {
   const { data, isPending, error } = useAttachments({
     session: sessionId,
@@ -42,7 +45,7 @@ export function EffectiveSupervision({
   return (
     <section
       aria-label="Supervisors"
-      className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 ${className}`}
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1 ${compact ? '' : 'px-4 py-2 sm:px-6'} ${className}`}
     >
       <h2 className="text-overline">Supervision</h2>
       <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">

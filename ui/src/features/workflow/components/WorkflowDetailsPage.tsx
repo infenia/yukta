@@ -200,6 +200,29 @@ export function WorkflowDetailsPage() {
       <WorkflowTitleBar
         workflowId={workflowId}
         description={graph.description}
+        leading={
+          parent.data && (
+            <Link
+              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                chevron_left
+              </span>
+              Parent run
+            </Link>
+          )
+        }
+        meta={
+          <EffectiveSupervision
+            sessionId={sessionId}
+            workflowId={workflowId}
+            compact
+          />
+        }
         runGroup={
           <RunHistoryDropdown
             executions={executions}
@@ -218,20 +241,6 @@ export function WorkflowDetailsPage() {
         }
         actions={
           <>
-            {parent.data && (
-              <Link
-                to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
-                className={buttonVariants({ variant: 'ghost' })}
-              >
-                <span
-                  aria-hidden="true"
-                  className="material-symbols-outlined text-base"
-                >
-                  chevron_left
-                </span>
-                Parent run
-              </Link>
-            )}
             <Tip label="Edit workflow">
               <Link
                 to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
@@ -313,12 +322,6 @@ export function WorkflowDetailsPage() {
           liveRun={anyRunLive}
         />
       )}
-
-      <EffectiveSupervision
-        sessionId={sessionId}
-        workflowId={workflowId}
-        className="border-border border-b"
-      />
 
       <InputsPanel sessionId={sessionId} workflowId={workflowId} live={live} />
 

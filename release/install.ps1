@@ -241,7 +241,7 @@
         Say ''
         if (-not $cliOnly -and -not $installedServer) {
             Say 'Note: this release has no native Windows server yet. Run the server with Docker Desktop instead:'
-            Say "  docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:$version"
+            Say "  docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:$version"
         }
         Say "  verified:   $verified$(if ($sigNote) { "  [$sigNote]" })"
         if ($installedServer) { Say "Installed: $(Join-Path $dir 'yukta.exe') (server) $version" }

@@ -48,7 +48,7 @@ The CLI shares no code with the Java side. It is a separate Go program in the sa
 | REST and the envelope | The server answers JSON wrapped in an envelope: status, message and a `data` field. The CLI reads only `data`. | `{"status":200,"message":"...","data":{"executionId":"e42"}}` |
 | SSE (Server-Sent Events) | A normal HTTP response that never ends. The server keeps writing lines starting with `data:`, one event per blank-line-separated block. Used for live status and logs. | `workflow status-stream` and `logs`. |
 | Cobra command tree | Cobra is the Go library that turns words like `workflow node pause` into a function call and generates --help text. Commands nest like folders. | root, then workflow, then node, then pause. |
-| Bearer token | A secret the CLI sends in the `Authorization` header. The server requires one only when its `yukta.api-key` setting is set. | `--token` or the `YUKTA_TOKEN` environment variable. |
+| Bearer token | A secret the CLI sends in the `Authorization` header. The server requires one only when its `yukta.api-keys` setting is set. | `--token` or the `YUKTA_TOKEN` environment variable. |
 | Global flags | Options valid on every command: `--url` (which server), `--token`, `--timeout` (seconds before giving up on a normal call) and `-o table\|json`. | `yukta-cli -o json plugin list` |
 
 ### One example, end to end
@@ -176,7 +176,7 @@ Starts the program: creates one HTTP client, builds the root command, attaches t
 Defines the top-level `yukta-cli` command and the four options every command inherits, and applies the defaults.
 
 - `--url` defaults to the `YUKTA_SERVER_URL` environment variable, or `http://localhost:9858` when that is unset. The flag always wins over the variable. The default is read when the command tree is built, which is why a test or a script must set the variable before the program starts.
-- `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-key` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable or `--token-file <path>` is the safer way. The CLI refuses to send a token over plain `http` to a host that is not loopback unless `--insecure-token` (or `YUKTA_INSECURE_TOKEN=1`, for CI and other trusted networks) is given, and a 401 answer hints at `YUKTA_TOKEN`.
+- `--token` defaults to `YUKTA_TOKEN`. It is sent as `Authorization: Bearer ...` on normal requests and on streams. The server accepts it only when `yukta.api-keys` is configured; otherwise the server ignores it. Passing the secret as a flag puts it in shell history and in the process list (visible to other users on the machine), so the environment variable or `--token-file <path>` is the safer way. The CLI refuses to send a token over plain `http` to a host that is not loopback unless `--insecure-token` (or `YUKTA_INSECURE_TOKEN=1`, for CI and other trusted networks) is given, and a 401 answer hints at `YUKTA_TOKEN`.
 - Followed streams (`logs`, `workflow status-stream`, `result`) reconnect with `Last-Event-ID` and exit 1 if they cannot finish. `YUKTA_STREAM_IDLE` (default `45s`, three missed 15 s server pings; `0` turns it off) and `YUKTA_STREAM_RECONNECTS` (default `5` in a row) tune this for proxies that buffer SSE. Invalid or negative values are ignored.
 - `--timeout` defaults to 30 seconds and applies only to normal calls. `0` turns it off. Streams ignore it on purpose, because a status stream may run for hours.
 - `-o` / `--output` is `table` by default or `json`. The value is held in a package-level variable that commands read through a getter. Nothing validates it: `-o yaml` is accepted and treated as table by most commands, and only `session get` rejects it.
@@ -386,7 +386,7 @@ A 429 means 'try again soon', and a pipeline could do that, but the CLI gives up
 Cobra prints `Error: ...` followed by the full usage text. Then `main` prints `error: ...` again. The one useful line is repeated and wrapped in help text, so it is easy to miss in CI logs.
 </Step>
 <Step title="The 401 variant">
-If the server has `yukta.api-key` set and no token was given, every call returns 401 with `WWW-Authenticate: Bearer`. The CLI reports the same generic `API error: status 401`, with no hint to set `YUKTA_TOKEN`.
+If the server has `yukta.api-keys` set and no token was given, every call returns 401 with `WWW-Authenticate: Bearer`. The CLI reports the same generic `API error: status 401`, with no hint to set `YUKTA_TOKEN`.
 </Step>
 </Steps>
 
@@ -551,7 +551,7 @@ Per-call semantics. The CLI keeps no data between runs.
 | Required ids and argument counts | \*\*Yes.\*\* CLI, before any request. |
 | Payload is a JSON object (start) | \*\*Yes.\*\* CLI, and also the server's request validation. |
 | Command payload non-empty, at most 100 entries | \*\*Partly.\*\* Server only. The CLI checks only that the text is valid JSON. |
-| Authentication | \*\*Note.\*\* Server decides (`yukta.api-key`). The CLI only sends the token. |
+| Authentication | \*\*Note.\*\* Server decides (`yukta.api-keys`). The CLI only sends the token. |
 | Run belongs to the session | \*\*Partly.\*\* Server checks it on the session-qualified paths the CLI uses; the shorter execution-only paths skip that check. |
 | Run limit and queue | \*\*Note.\*\* Server. A refusal arrives as 429 and the CLI does not retry. |
 | Output format value | \*\*No.\*\* Not validated except by `session get`. |
@@ -763,7 +763,7 @@ The Makefile is the source of truth. Gradle task names are listed for people who
 | Last-Event-ID | An HTTP header a reconnecting stream client sends so the server skips events it already delivered. | The server supports it; the CLI does not use it. |
 | Keep-alive ping | A comment line the server sends every 15 seconds on an idle stream. | Stops proxies from closing it; the CLI ignores it. |
 | Bearer token | A secret sent in the Authorization header as proof of permission. | The CLI's way to pass the server's API key. |
-| API key (yukta.api-key) | The server setting that turns on authentication for /api paths. | If it is set, the CLI needs --token or YUKTA_TOKEN. |
+| API key (yukta.api-keys) | The server setting that turns on authentication for /api paths. | If it is set, the CLI needs --token or YUKTA_TOKEN. |
 | Loopback | The address 127.0.0.1, reachable only from the same machine. | The server's default, which is why an open API is acceptable locally. |
 | Idempotency key | A caller-chosen label that makes a repeated request return the first result instead of acting twice. | The server supports it on start; the CLI cannot send it. |
 | Pagination and cursor | Returning a long list in pages; a cursor is the 'where I stopped' marker for the next page. | The CLI never asks for page two. |

@@ -372,7 +372,10 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('logs-panel')).toBeInTheDocument();
 
     await waitFor(() =>
-      expect(screen.getByTestId('status-chip')).toHaveTextContent('Running')
+      expect(screen.getByTestId('run-status')).toHaveAttribute(
+        'aria-label',
+        'Running'
+      )
     );
     expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
       'Succeeded'
@@ -395,7 +398,7 @@ describe('WorkflowDetailsPage', () => {
     const toolbar = must(
       screen.getByRole('heading', { name: 'wf-982-xk-11' }).parentElement
     );
-    expect(toolbar.textContent).toContain('Runexec-091');
+    expect(toolbar.textContent).toContain('exec-091');
     expect(
       within(toolbar).getByRole('button', { name: 'Workflow progress' })
     ).toHaveAttribute('aria-pressed', 'true');
@@ -533,7 +536,10 @@ describe('WorkflowDetailsPage', () => {
       )
     );
     await waitFor(() =>
-      expect(screen.getByTestId('status-chip')).toHaveTextContent('Succeeded')
+      expect(screen.getByTestId('run-status')).toHaveAttribute(
+        'aria-label',
+        'Succeeded'
+      )
     );
   });
 

@@ -55,7 +55,7 @@ Yukta separates *what must happen* from *who does the work*. The process lives i
 | Linux (server + CLI) | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh \| sh` |
 | Windows (CLI) | `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 \| iex` |
 | macOS (CLI) | download `yukta-cli-darwin-arm64` or `-amd64` from the [release](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.2) |
-| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEY=change-me ghcr.io/infenia/yukta:0.1.0-alpha.2` |
+| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:0.1.0-alpha.2` |
 | Debian / RPM | `.deb` and `.rpm` packages on the [releases page](https://github.com/infenia/yukta/releases) |
 | From source | JDK 25, then `./gradlew bootRun` (see [Develop](#develop)) |
 
@@ -162,7 +162,7 @@ Browse them in the [plugin docs](https://yukta.infenia.com/plugins/overview), wi
 
 ## Security
 
-The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-key`; the server refuses to start on another address without a key. Keys have roles (`VIEWER`, `OPERATOR`, `ADMIN`). `PROCESS_EXECUTOR` refuses every command until you allow some, and workflows can run processes, scripts and SQL, so treat workflow authorship as a trusted operation. See [Security](https://yukta.infenia.com/operations/security) and report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
+The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-keys` (a named key with a role); the server refuses to start on another address without a key. Keys have roles (`VIEWER`, `OPERATOR`, `ADMIN`). `PROCESS_EXECUTOR` refuses every command until you allow some, and workflows can run processes, scripts and SQL, so treat workflow authorship as a trusted operation. See [Security](https://yukta.infenia.com/operations/security) and report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
 
 ## Documentation
 
