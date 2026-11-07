@@ -188,7 +188,7 @@ The contract between the engine and the work a node does: triggers produce messa
 - **Ceiling.** Plugins run inside the same server process today, so a heavy or untrusted plugin competes with the engine for CPU and memory.
 - **On failure.** Throwing IllegalArgumentException means 'bad input' and is never retried.
 
-**Settings:** `yukta.process.allowed-commands`, `yukta.process.allow-any (off)`, `yukta.script.timeout-ms (10000), yukta.script.max-statements (50000000)`, `yukta.mcp-client.allowed-tools, max-argument-bytes, deny-argument-patterns; MCP_TOOL_CALL requireApproval, approvalSignal, approvalTimeoutSeconds`, `yukta.llm.deny-input-patterns, deny-output-patterns, max-input-chars`, `YUKTA_LIMITS_MAX_BODY (1MB, 413 above)`, `yukta.api-key, yukta.api-keys[].{name,key,role,sessions}; key may be sha256:<hex>`, `yukta.allowed-hosts, yukta.allowed-origins`, `yukta.variables.allowed`
+**Settings:** `yukta.process.allowed-commands`, `yukta.process.allow-any (off)`, `yukta.script.timeout-ms (10000), yukta.script.max-statements (50000000)`, `yukta.mcp-client.allowed-tools, max-argument-bytes, deny-argument-patterns; MCP_TOOL_CALL requireApproval, approvalSignal, approvalTimeoutSeconds`, `yukta.llm.deny-input-patterns, deny-output-patterns, max-input-chars`, `YUKTA_LIMITS_MAX_BODY (1MB, 413 above)`, `yukta.api-keys[].{name,key,role,sessions}; key may be sha256:<hex>`, `yukta.allowed-hosts, yukta.allowed-origins`, `yukta.variables.allowed`
 
 ### Supervisors
 

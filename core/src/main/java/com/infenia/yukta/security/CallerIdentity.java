@@ -43,7 +43,7 @@ public class CallerIdentity {
    * The answer to "who am I".
    *
    * @param authenticated whether the request carried a key
-   * @param keyName the key's name ({@code default} for {@code yukta.api-key}), or null
+   * @param keyName the key's name, or null
    * @param role the role; ADMIN when no key is configured
    * @param sessions the only sessions the key may reach, or null for all
    * @param authEnabled whether any key is configured

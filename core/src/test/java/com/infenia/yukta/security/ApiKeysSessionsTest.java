@@ -21,8 +21,7 @@ class ApiKeysSessionsTest {
                 .withProperty("yukta.api-keys[0].name", "everything")
                 .withProperty("yukta.api-keys[0].key", "everything-key")
                 .withProperty("yukta.api-keys[0].role", "OPERATOR")
-                .withProperty("yukta.api-keys[0].sessions", "*"),
-            null);
+                .withProperty("yukta.api-keys[0].sessions", "*"));
 
     final var match = keys.find("everything-key");
     assertThat(match.sessions()).isEmpty();
@@ -36,7 +35,7 @@ class ApiKeysSessionsTest {
         new MockEnvironment()
             .withProperty("yukta.api-keys[0].name", "viewer")
             .withProperty("yukta.api-keys[0].key", "viewer-key");
-    assertThatThrownBy(() -> ApiKeys.read(viewer, null))
+    assertThatThrownBy(() -> ApiKeys.read(viewer))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("viewer");
 
@@ -45,8 +44,7 @@ class ApiKeysSessionsTest {
             new MockEnvironment()
                 .withProperty("yukta.api-keys[0].name", "admin")
                 .withProperty("yukta.api-keys[0].key", "admin-key")
-                .withProperty("yukta.api-keys[0].role", "ADMIN"),
-            null);
+                .withProperty("yukta.api-keys[0].role", "ADMIN"));
     assertThat(admin.find("admin-key").reaches("any-session")).isTrue();
   }
 }

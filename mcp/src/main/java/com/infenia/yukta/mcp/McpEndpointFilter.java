@@ -36,18 +36,17 @@ import reactor.core.publisher.Mono;
 /**
  * Guards the MCP endpoint ({@value #ENDPOINT}). When a key is configured, requests must carry it as
  * {@code Authorization: Bearer <key>} or {@code X-API-Key: <key>}. The keys are the REST keys
- * ({@code yukta.api-key}, {@code yukta.api-keys}) plus the optional {@code yukta.mcp.api-key}, so
- * setting only the REST key closes MCP too. A key that is not an unrestricted {@code ADMIN} has the
- * JSON-RPC body read: a {@code tools/call} needs the role {@link McpToolAccess} lists for the tool
- * and, for a session-limited key, a {@code sessionId} of its own (403 otherwise). The path is
- * matched after decoding, and a path with parameters, encoded separators or dot segments is refused
- * with 400. Each caller (key) may make {@code yukta.mcp.rate-limit-per-minute} requests per minute
- * (default 600, 0 = unlimited); more get 429 with {@code Retry-After}. {@code start_workflow} and
- * {@code get_execution_logs} with a {@code filterPattern} (a regex run over every line) also count
- * against {@code yukta.mcp.heavy-rate-limit-per-minute} (default 60, 0 = unlimited), refused calls
- * are counted in {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not
- * limited. Also keeps the former {@value #LEGACY_ENDPOINT} path working by rewriting it to the
- * endpoint.
+ * ({@code yukta.api-keys}), so setting a key closes MCP too. A key that is not an unrestricted
+ * {@code ADMIN} has the JSON-RPC body read: a {@code tools/call} needs the role {@link
+ * McpToolAccess} lists for the tool and, for a session-limited key, a {@code sessionId} of its own
+ * (403 otherwise). The path is matched after decoding, and a path with parameters, encoded
+ * separators or dot segments is refused with 400. Each caller (key) may make {@code
+ * yukta.mcp.rate-limit-per-minute} requests per minute (default 600, 0 = unlimited); more get 429
+ * with {@code Retry-After}. {@code start_workflow} and {@code get_execution_logs} with a {@code
+ * filterPattern} (a regex run over every line) also count against {@code
+ * yukta.mcp.heavy-rate-limit-per-minute} (default 60, 0 = unlimited), refused calls are counted in
+ * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited. Also
+ * keeps the former {@value #LEGACY_ENDPOINT} path working by rewriting it to the endpoint.
  */
 @Component
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
@@ -86,7 +85,7 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
   /**
    * Create the filter from the configuration.
    *
-   * @param environment holds the REST keys and {@code yukta.mcp.api-key}
+   * @param environment holds {@code yukta.api-keys}
    */
   public McpEndpointFilter(final Environment environment) {
     this(ApiKeyAuthenticator.read(environment), environment);
@@ -145,17 +144,6 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
     this.heavyLimiter = heavyLimiter;
   }
 
-  /**
-   * Create the filter with one key that may do everything.
-   *
-   * @param apiKey the required key, or empty to leave the endpoint open
-   */
-  public McpEndpointFilter(final String apiKey) {
-    this.authenticator = ApiKeyAuthenticator.single(apiKey);
-    this.limiter = new CallRateLimiter(DEFAULT_RATE_LIMIT);
-    this.heavyLimiter = new CallRateLimiter(DEFAULT_HEAVY_RATE_LIMIT);
-  }
-
   @Override
   public void bindTo(final MeterRegistry registry) {
     FunctionCounter.builder("yukta.mcp.heavy.refused", heavyRefused, LongAdder::doubleValue)
@@ -185,21 +173,18 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
     return limited(match.name()) ? tooMany(exchange) : proceed(exchange, chain, match, legacy);
   }
 
-  /** Hands an authenticated, within-limit request on, naming the actor for a named key. */
+  /** Hands an authenticated, within-limit request on, naming the actor. */
   private Mono<Void> proceed(
       final ServerWebExchange exchange,
       final WebFilterChain chain,
       final ApiKeys.Match match,
       final boolean legacy) {
-    final Mono<Void> next =
-        checked(exchange, chain, match, legacy)
-            .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
-    return authenticator.named()
-        ? next.contextWrite(
+    return checked(exchange, chain, match, legacy)
+        .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match))
+        .contextWrite(
             ctx ->
                 ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
-                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY))
-        : next;
+                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
   }
 
   /**

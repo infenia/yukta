@@ -36,11 +36,19 @@ class ApiKeyFilterTest {
   /** Actor seen downstream. */
   private final AtomicReference<String> actor = new AtomicReference<>();
 
+  private static MockEnvironment adminKey(final String key) {
+    final var env = new MockEnvironment();
+    return key.isEmpty()
+        ? env
+        : env.withProperty("yukta.api-keys[0].key", key)
+            .withProperty("yukta.api-keys[0].role", "ADMIN");
+  }
+
   private MockServerWebExchange run(
       final String key, final MockServerHttpRequest.BaseBuilder<?> rq) {
     passed.set(false);
     final MockServerWebExchange exchange = MockServerWebExchange.from(rq);
-    new ApiKeyFilter(key)
+    new ApiKeyFilter(adminKey(key))
         .filter(
             exchange,
             _ -> {
@@ -139,15 +147,17 @@ class ApiKeyFilterTest {
   }
 
   @Test
-  void testNamedKeysRecordTheActor_butTheSingleKeyDoesNot() {
+  void testEveryKeyRecordsTheActor_andAnUnnamedOneIsCalledUnnamed() {
     runWith(roles(), MockServerHttpRequest.get("/api/sessions").header("X-API-Key", "o-key"));
     assertThat(actor).hasValue("key:ops");
 
     runWith(
-        new MockEnvironment().withProperty("yukta.api-key", "secret"),
+        new MockEnvironment()
+            .withProperty("yukta.api-keys[0].key", "secret")
+            .withProperty("yukta.api-keys[0].role", "ADMIN"),
         MockServerHttpRequest.post("/api/sessions").header("X-API-Key", "secret"));
     assertThat(passed).isTrue();
-    assertThat(actor).hasValue(null);
+    assertThat(actor).hasValue("key:unnamed");
   }
 
   @Test
@@ -182,7 +192,7 @@ class ApiKeyFilterTest {
   void testRequestsBeyondTheKeysRateLimitGet429() {
     System.setProperty("yukta.rate-limit-per-minute", "2");
     try {
-      final ApiKeyFilter filter = new ApiKeyFilter("secret");
+      final ApiKeyFilter filter = new ApiKeyFilter(adminKey("secret"));
       final HttpStatus[] seen = new HttpStatus[3];
       for (int i = 0; i < seen.length; i++) {
         final MockServerWebExchange exchange =
@@ -206,7 +216,7 @@ class ApiKeyFilterTest {
   void testFailedKeysFromOneAddress_get429_evenForGoodKeyThen() throws Exception {
     System.setProperty("yukta.auth-failures-per-minute", "2");
     try {
-      final ApiKeyFilter filter = new ApiKeyFilter("secret");
+      final ApiKeyFilter filter = new ApiKeyFilter(adminKey("secret"));
       final InetSocketAddress guesser = from(1);
       final InetSocketAddress other = from(2);
       final List<HttpStatus> seen = new ArrayList<>();

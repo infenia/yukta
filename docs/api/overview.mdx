@@ -33,7 +33,7 @@ A server started with the `dev` profile (for example `./gradlew bootRun`) publis
 
 ## Authentication
 
-A fresh server listens on loopback only and requires no key. When you configure `yukta.api-key` or `yukta.api-keys`, every request under `/api` must carry a key in one of two headers:
+A fresh server listens on loopback only and requires no key. When you configure `yukta.api-keys`, every request under `/api` must carry a key in one of two headers:
 
 ```http
 Authorization: Bearer <key>
@@ -47,7 +47,7 @@ A missing or unknown key is answered with `401` and a `WWW-Authenticate: Bearer`
 
 ### Roles
 
-`yukta.api-key` defines one key with the `ADMIN` role. `yukta.api-keys` defines named keys, each with a role and an optional list of sessions.
+`yukta.api-keys` defines named keys, each with a role and an optional list of sessions.
 
 | Role | May call |
 |---|---|
@@ -57,7 +57,7 @@ A missing or unknown key is answered with `401` and a `WWW-Authenticate: Bearer`
 
 ### Who am I
 
-`GET /api/me` (any key, including a session-limited one) answers with the caller: `authenticated`, `keyName` (`default` for `yukta.api-key`), `role`, `sessions` (`null` for all), `authEnabled`, and `permissions`: `startRuns`, `controlRuns`, `editSessions`, `deleteSessions`, `changeLimits` and `sendCommands`, each `true` or `false`. With no key configured it answers `authEnabled: false` and the `ADMIN` role. It never returns the key or its hash. The CLI's `yukta-cli whoami` and the MCP `whoami` tool return the same.
+`GET /api/me` (any key, including a session-limited one) answers with the caller: `authenticated`, `keyName`, `role`, `sessions` (`null` for all), `authEnabled`, and `permissions`: `startRuns`, `controlRuns`, `editSessions`, `deleteSessions`, `changeLimits` and `sendCommands`, each `true` or `false`. With no key configured it answers `authEnabled: false` and the `ADMIN` role. It never returns the key or its hash. The CLI's `yukta-cli whoami` and the MCP `whoami` tool return the same.
 
 Each endpoint page names the role it needs. When keys are configured, a request path that uses `..` segments, encoded separators or path parameters is refused with `400`, so no spelling of a path bypasses the check.
 

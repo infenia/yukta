@@ -16,8 +16,7 @@ import org.springframework.stereotype.Component;
  * Refuses to start when the server listens beyond loopback and the REST API or the MCP endpoint has
  * no API key (a key for only one of them leaves the other open): the API, the MCP tools and (unless
  * {@code yukta.process.allowed-commands} is set) process execution would be open to the network.
- * Set {@code yukta.api-key} or {@code yukta.api-keys}, or bind {@code YUKTA_SERVER_ADDRESS} to a
- * loopback address.
+ * Set {@code yukta.api-keys}, or bind {@code YUKTA_SERVER_ADDRESS} to a loopback address.
  */
 @Component
 public class ExposureGuard {
@@ -67,7 +66,7 @@ public class ExposureGuard {
               + (restOpen && mcpOpen
                   ? "the REST API and MCP have"
                   : restOpen ? "the REST API has" : "MCP has")
-              + " none. Set yukta.api-key (YUKTA_API_KEY) or yukta.api-keys (one key covers both),"
+              + " none. Set yukta.api-keys (a key covers both),"
               + " or set YUKTA_SERVER_ADDRESS=127.0.0.1.");
     }
   }

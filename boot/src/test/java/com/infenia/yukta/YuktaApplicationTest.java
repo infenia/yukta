@@ -85,7 +85,7 @@ class YuktaApplicationTest {
   void infoOutputHandlesVersionAndHelpOnly() {
     assertThat(YuktaApplication.infoOutput("--version")).startsWith("yukta version ");
     assertThat(YuktaApplication.infoOutput(PORT_ARG, "--help")).contains("Usage: yukta");
-    assertThat(YuktaApplication.infoOutput("-h")).contains("YUKTA_API_KEY");
+    assertThat(YuktaApplication.infoOutput("-h")).contains("YUKTA_API_KEYS_0_KEY");
     assertThat(YuktaApplication.infoOutput(PORT_ARG)).isNull();
   }
 

@@ -15,34 +15,27 @@ import org.springframework.mock.env.MockEnvironment;
 class ApiKeyAuthenticatorTest {
 
   @Test
-  void single_usesTheKeyOnBothSurfaces() {
-    final ApiKeyAuthenticator auth = ApiKeyAuthenticator.single("k");
+  void read_usesTheNamedKeysOnBothSurfaces() {
+    final ApiKeyAuthenticator auth =
+        ApiKeyAuthenticator.read(
+            new MockEnvironment()
+                .withProperty("yukta.api-keys[0].name", "bob")
+                .withProperty("yukta.api-keys[0].key", "b")
+                .withProperty("yukta.api-keys[0].sessions", "*"));
     final HttpHeaders good = new HttpHeaders();
-    good.set("X-API-Key", "k");
+    good.set("X-API-Key", "b");
 
     assertThat(auth.isOpen(Scope.REST)).isFalse();
     assertThat(auth.authenticate(Scope.REST, good)).isNotNull();
     assertThat(auth.authenticate(Scope.MCP, good)).isNotNull();
     assertThat(auth.authenticate(Scope.MCP, new HttpHeaders())).isNull();
-    assertThat(auth.named()).isFalse();
-    assertThat(ApiKeyAuthenticator.single("").isOpen(Scope.MCP)).isTrue();
   }
 
   @Test
-  void read_givesMcpItsOwnKeyAndNamedKeysAreReported() {
-    final ApiKeyAuthenticator auth =
-        ApiKeyAuthenticator.read(
-            new MockEnvironment()
-                .withProperty("yukta.mcp.api-key", "m")
-                .withProperty("yukta.api-keys[0].name", "bob")
-                .withProperty("yukta.api-keys[0].key", "b")
-                .withProperty("yukta.api-keys[0].sessions", "*"));
-    final HttpHeaders mcp = new HttpHeaders();
-    mcp.set("X-API-Key", "m");
+  void read_withoutKeysLeavesBothSurfacesOpen() {
+    final ApiKeyAuthenticator auth = ApiKeyAuthenticator.read(new MockEnvironment());
 
-    assertThat(auth.named()).isTrue();
-    assertThat(auth.authenticate(Scope.MCP, mcp)).isNotNull();
-    assertThat(auth.authenticate(Scope.REST, mcp)).isNull();
-    assertThat(auth.isOpen(Scope.REST)).isFalse();
+    assertThat(auth.isOpen(Scope.REST)).isTrue();
+    assertThat(auth.isOpen(Scope.MCP)).isTrue();
   }
 }

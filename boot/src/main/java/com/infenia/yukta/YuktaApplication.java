@@ -58,7 +58,7 @@ public class YuktaApplication {
 
       Environment variables:
         YUKTA_MODE             run mode, as --mode
-        YUKTA_API_KEY          API key required by the REST API
+        YUKTA_API_KEYS_0_KEY    key of the first API key (also _NAME, _ROLE)
         YUKTA_SERVER_ADDRESS   address to bind (default: loopback)
         YUKTA_BOOTSTRAP_DIR    directory of workflows loaded at start\
       """;

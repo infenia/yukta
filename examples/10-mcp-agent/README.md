@@ -8,7 +8,7 @@ its tools at `http://localhost:9858/mcp` (streamable HTTP).
 
 ```bash
 claude mcp add --transport http yukta http://localhost:9858/mcp
-# with an API key configured on the server (yukta.mcp.api-key):
+# with an API key configured on the server (yukta.api-keys):
 claude mcp add --transport http yukta http://localhost:9858/mcp --header "Authorization: Bearer $YUKTA_API_KEY"
 ```
 

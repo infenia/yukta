@@ -25,10 +25,9 @@ import org.springframework.http.HttpHeaders;
 
 /**
  * The API keys of the server, shared by the REST and the MCP filter. Keys come from {@code
- * yukta.api-key} (one key that may do everything) and {@code yukta.api-keys} (named keys with a
- * role, an optional list of sessions and an optional expiry). A configured key is plain text or
- * {@code sha256:<hex>} (the hash of the key), so the file need not hold the secret; listing several
- * keys at once lets a key be rotated without downtime.
+ * yukta.api-keys}: named keys with a role, an optional list of sessions and an optional expiry. A
+ * configured key is plain text or {@code sha256:<hex>} (the hash of the key), so the file need not
+ * hold the secret; listing several keys at once lets a key be rotated without downtime.
  */
 @Slf4j
 public final class ApiKeys {
@@ -48,14 +47,8 @@ public final class ApiKeys {
   /** Written in {@code sessions} to say a key reaches every session. */
   private static final String ALL_SESSIONS = "*";
 
-  /** Name the single {@code yukta.api-key} goes by. */
-  private static final String DEFAULT_NAME = "default";
-
   /** The configured keys. */
   private final List<Key> keys;
-
-  /** Whether named keys exist, so a key name is the actor of a request. */
-  private final boolean namedKeys;
 
   /**
    * A key as written in the configuration; {@code expires} (an ISO-8601 instant) is optional, and
@@ -116,7 +109,7 @@ public final class ApiKeys {
   /** A key by the hex of its SHA-256 hash. */
   private record Key(String digest, Match match, @Nullable Instant expires) {}
 
-  private ApiKeys(final List<Key> keys, final boolean named) {
+  private ApiKeys(final List<Key> keys) {
     // the same secret twice would give it whichever role comes last
     final Set<String> digests = new HashSet<>();
     for (final Key key : keys) {
@@ -126,18 +119,15 @@ public final class ApiKeys {
       }
     }
     this.keys = List.copyOf(keys);
-    this.namedKeys = named;
   }
 
   /**
-   * Read the keys from the configuration, plus an extra key of the given property (the MCP key).
+   * Read the keys from the configuration.
    *
-   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
-   * @param extraKeyProperty property of one more key that may do everything, or null
+   * @param environment holds {@code yukta.api-keys}
    * @return the keys
    */
-  public static ApiKeys read(
-      final Environment environment, @Nullable final String extraKeyProperty) {
+  public static ApiKeys read(final Environment environment) {
     final List<KeyEntry> entries =
         Binder.get(environment)
             // a misspelt property (session: for sessions:) must not quietly widen a key's reach
@@ -147,24 +137,6 @@ public final class ApiKeys {
                 new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
-    add(
-        all,
-        DEFAULT_NAME,
-        environment.getProperty("yukta.api-key"),
-        ApiRole.ADMIN,
-        Set.of(),
-        null,
-        false);
-    if (extraKeyProperty != null) {
-      add(
-          all,
-          "mcp",
-          environment.getProperty(extraKeyProperty),
-          ApiRole.ADMIN,
-          Set.of(),
-          null,
-          false);
-    }
     for (final KeyEntry entry : entries) {
       add(
           all,
@@ -175,7 +147,7 @@ public final class ApiKeys {
           entry.expires(),
           entry.agent());
     }
-    return new ApiKeys(all, !entries.isEmpty());
+    return new ApiKeys(all);
   }
 
   /**
@@ -194,27 +166,15 @@ public final class ApiKeys {
     return Set.copyOf(entry.sessions());
   }
 
-  /**
-   * Keys made of one key that may do everything.
-   *
-   * @param apiKey the key, or empty for none
-   * @return the keys
-   */
-  public static ApiKeys single(final String apiKey) {
-    final List<Key> all = new ArrayList<>();
-    add(all, DEFAULT_NAME, apiKey, ApiRole.ADMIN, Set.of(), null, false);
-    return new ApiKeys(all, false);
-  }
-
   private static void add(
       final List<Key> all,
       final String name,
-      @Nullable final String key,
+      final String key,
       final ApiRole role,
       final Set<String> sessions,
       @Nullable final Instant expires,
       final boolean agent) {
-    if (key == null || key.isBlank()) {
+    if (key.isBlank()) {
       return;
     }
     if (!key.startsWith(HASH_PREFIX) && key.length() < MIN_KEY_LENGTH) {
@@ -249,15 +209,6 @@ public final class ApiKeys {
    */
   public boolean isEmpty() {
     return keys.isEmpty();
-  }
-
-  /**
-   * Whether the control commands of a request are recorded under the key name (named keys exist).
-   *
-   * @return true if the key name is the actor
-   */
-  public boolean named() {
-    return namedKeys;
   }
 
   /**
