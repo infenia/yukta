@@ -45,16 +45,6 @@ public class WorkerRegistry {
     this(properties.workers().lease(), meters, Clock.systemUTC());
   }
 
-  /**
-   * Creates the registry with an explicit lease.
-   *
-   * @param lease how long a heartbeat keeps a worker
-   * @param meters where the meters are registered
-   */
-  public WorkerRegistry(final Duration lease, final MeterRegistry meters) {
-    this(lease, meters, Clock.systemUTC());
-  }
-
   /* default */ WorkerRegistry(
       final Duration lease, final MeterRegistry meters, final Clock clock) {
     this.leaseTime = lease;

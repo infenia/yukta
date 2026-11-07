@@ -87,7 +87,7 @@ class SupervisorHostTest {
       final int perSecond,
       final int bufferSize) {
     host =
-        new SupervisorHost(
+        SupervisorHostFixture.create(
             providerOf(supervisor), feed, dispatcher, log, meters, dryRun, perSecond, bufferSize);
     host.start();
   }
@@ -488,7 +488,7 @@ class SupervisorHostTest {
     final var plane = new ControlReviewerTest.NamedPlane();
     final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
     host =
-        new SupervisorHost(
+        SupervisorHostFixture.create(
             providerOf(plane, plain), feed, dispatcher, log, meters, true, 7, 10_000);
     meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "applied").increment(3);
     meters.counter("yukta.supervisor.commands", "id", "rules", "outcome", "rejected").increment();
@@ -533,7 +533,7 @@ class SupervisorHostTest {
   @Test
   void startFailsForBeanSupervisorWhoseIdBreaksRule() {
     host =
-        new SupervisorHost(
+        SupervisorHostFixture.create(
             providerOf(supervisor("key:admin", SupervisorHostTest::pauseOnFailure)),
             feed,
             dispatcher,

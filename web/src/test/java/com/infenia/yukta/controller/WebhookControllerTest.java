@@ -12,11 +12,11 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import com.infenia.yukta.testing.Fixtures;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
 import java.util.HexFormat;
@@ -57,12 +57,11 @@ class WebhookControllerTest {
   private void hook(final Map<String, Object> extra) {
     final Map<String, Object> config = new java.util.concurrent.ConcurrentHashMap<>(extra);
     config.put("path", "push");
-    final var node = new WorkflowDefinition.Node("t", "WEBHOOK_TRIGGER", config);
-    final var other = new WorkflowDefinition.Node("x", "API_TRIGGER", Map.of("path", "push"));
+    final var node = Fixtures.node("t", "WEBHOOK_TRIGGER", config);
+    final var other = Fixtures.node("x", "API_TRIGGER", Map.of("path", "push"));
     when(sessions.getSessionWorkflows("s1"))
         .thenReturn(
-            Mono.just(
-                Map.of("wf", new WorkflowDefinition("wf", "d", List.of(other, node), List.of()))));
+            Mono.just(Map.of("wf", Fixtures.workflow("wf", "d", List.of(other, node), List.of()))));
   }
 
   @BeforeEach

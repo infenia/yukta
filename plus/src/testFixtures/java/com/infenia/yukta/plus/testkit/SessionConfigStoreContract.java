@@ -6,8 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -33,8 +33,8 @@ public abstract class SessionConfigStoreContract {
 
   private static SessionConfigData session(final String sessionId, final String description) {
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(
-            "w", "a workflow", List.of(new Node("n", "CONSTANT_SOURCE", Map.of())), List.of());
+        Fixtures.workflow(
+            "w", "a workflow", List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())), List.of());
     return new SessionConfigData(
         sessionId,
         "name-" + sessionId,

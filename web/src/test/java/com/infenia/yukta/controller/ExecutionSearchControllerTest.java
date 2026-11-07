@@ -11,6 +11,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -35,7 +36,7 @@ class ExecutionSearchControllerTest {
 
   private static WorkflowExecutionSummary run(
       final String runId, final String workflow, final TaskStatus status, final Instant start) {
-    return new WorkflowExecutionSummary(runId, workflow, status, start, null);
+    return Fixtures.summary(runId, workflow, status, start, null);
   }
 
   private void history() {
@@ -147,7 +148,7 @@ class ExecutionSearchControllerTest {
                         null,
                         null,
                         "yk check"),
-                    new WorkflowExecutionSummary(
+                    Fixtures.summary(
                         "a2",
                         "wf",
                         TaskStatus.SUCCESS,
@@ -176,7 +177,7 @@ class ExecutionSearchControllerTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    new WorkflowExecutionSummary(
+                    Fixtures.summary(
                         "a1",
                         "wf",
                         TaskStatus.FAILURE,

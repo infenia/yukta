@@ -23,14 +23,15 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.service.input.InputBroker;
+import com.infenia.yukta.service.input.InputBrokerFixture;
 import com.infenia.yukta.service.input.InputFlow;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.supervisor.BoundSupervisor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -80,7 +81,7 @@ class InputRequestThreatsTest {
     when(flow.attached.find(id))
         .thenReturn(
             Optional.of(
-                new BoundSupervisor(
+                Fixtures.boundSupervisor(
                     new SupervisorAttachment(id, "p", scope, true),
                     mock(ExecutionSupervisor.class),
                     false,
@@ -168,7 +169,7 @@ class InputRequestThreatsTest {
     feed.events().subscribe(events::add);
     final var store = new com.infenia.yukta.service.input.InMemoryInputRequestStore(10);
     final InputBroker broker =
-        new InputBroker(
+        InputBrokerFixture.create(
             store,
             feed,
             log,
@@ -205,7 +206,7 @@ class InputRequestThreatsTest {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final MutableClock clock = new MutableClock();
     final InputBroker broker =
-        new InputBroker(
+        InputBrokerFixture.create(
             new com.infenia.yukta.service.input.InMemoryInputRequestStore(10),
             new ExecutionEventFeed(),
             log,

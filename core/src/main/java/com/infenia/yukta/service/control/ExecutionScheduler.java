@@ -178,45 +178,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * Creates a scheduler without per-session or per-workflow queue limits.
-   *
-   * @param maxConcurrent global limit, 0 for none
-   * @param maxPerWorkflow per-workflow limit, 0 for none
-   * @param queueCapacity how many starts may wait
-   * @param onLimit what to do with a start that does not fit
-   * @param shutdownTimeout how long running executions are given on shutdown
-   * @param queueTimeout longest a start may wait for a slot, zero for no limit
-   */
-  public ExecutionScheduler(
-      final int maxConcurrent,
-      final int maxPerWorkflow,
-      final int queueCapacity,
-      final OnLimit onLimit,
-      final Duration shutdownTimeout,
-      final Duration queueTimeout) {
-    this(
-        maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, queueTimeout, 0, 0);
-  }
-
-  /**
-   * Creates a scheduler whose queued starts wait as long as it takes.
-   *
-   * @param maxConcurrent global limit, 0 for none
-   * @param maxPerWorkflow per-workflow limit, 0 for none
-   * @param queueCapacity how many starts may wait
-   * @param onLimit what to do with a start that does not fit
-   * @param shutdownTimeout how long running executions are given on shutdown
-   */
-  public ExecutionScheduler(
-      final int maxConcurrent,
-      final int maxPerWorkflow,
-      final int queueCapacity,
-      final OnLimit onLimit,
-      final Duration shutdownTimeout) {
-    this(maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, Duration.ZERO);
-  }
-
-  /**
    * Refuses a start that could not be admitted or queued, so the caller finds out immediately.
    *
    * @param sessionId the session

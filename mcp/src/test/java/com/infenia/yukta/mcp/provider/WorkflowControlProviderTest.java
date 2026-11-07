@@ -21,6 +21,7 @@ import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -49,7 +50,7 @@ class WorkflowControlProviderTest {
   }
 
   private WorkflowProgress progressOwnedBy(final String sessionId) {
-    return new WorkflowProgress(
+    return Fixtures.workflowProgress(
         EXECUTION, sessionId, "wf-1", TaskStatus.RUNNING, List.of(), Instant.now(), null);
   }
 
@@ -542,7 +543,7 @@ class WorkflowControlProviderTest {
   }
 
   private static WorkflowExecutionSummary run(final String id, final TaskStatus status) {
-    return new WorkflowExecutionSummary(
+    return Fixtures.summary(
         id, "wf", status, java.time.Instant.now(), null, EXECUTION, EXECUTION, null);
   }
 

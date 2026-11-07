@@ -8,13 +8,13 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +40,7 @@ class JoinRulesAcceptanceTest {
   @Autowired private SubWorkflowGateway subWorkflows;
 
   private static Node shell(final String nodeId, final String script) {
-    return new Node(
+    return Fixtures.node(
         nodeId,
         "PROCESS_EXECUTOR",
         Map.of("command", List.of("sh", "-c", script), "outputFormat", "RAW"));
@@ -51,18 +51,18 @@ class JoinRulesAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 "fan-out",
                 "one branch fails behind an ALL_DONE join",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                     shell("good", "echo good"),
                     shell("bad", "echo bad; exit 3"),
-                    new Node(
+                    Fixtures.node(
                         "join",
                         "AGGREGATE",
                         Map.of("size", 2, "engine", Map.of("trigger", "ALL_DONE"))),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(
                     new Edge("t", "good", null),
                     new Edge("t", "bad", null),

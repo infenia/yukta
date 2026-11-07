@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.ControlReviewerTest.Reviewer;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -36,9 +37,9 @@ class ControlReviewerDryRunTest {
     final var binding = new SupervisorAttachment("try-it", "p", new SupervisorScope.Global(), true);
     final Reviewer refuser =
         new Reviewer("try-it", 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
-    final ControlReviewer reviewer = new ControlReviewer(providerOf());
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf());
     final AttachedSupervisors attached = new AttachedSupervisors();
-    attached.put(new BoundSupervisor(binding, refuser, true));
+    attached.put(Fixtures.boundSupervisor(binding, refuser, true));
     reviewer.setAttachedSupervisors(attached);
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
@@ -49,7 +50,7 @@ class ControlReviewerDryRunTest {
     final Reviewer refuser =
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final SupervisorHost host = Mockito.mock(SupervisorHost.class);
-    final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf(refuser));
     reviewer.setDryRun(
         hostProvider(host), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
 
@@ -62,7 +63,7 @@ class ControlReviewerDryRunTest {
   void review_dryRunModeWithoutHostStillAllowsTheCommand() {
     final Reviewer refuser =
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
-    final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf(refuser));
     reviewer.setDryRun(
         hostProvider(null), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
 
@@ -74,7 +75,7 @@ class ControlReviewerDryRunTest {
     final Reviewer refuser =
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final SupervisorHost host = Mockito.mock(SupervisorHost.class);
-    final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf(refuser));
     reviewer.setDryRun(
         hostProvider(host), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "false")));
 

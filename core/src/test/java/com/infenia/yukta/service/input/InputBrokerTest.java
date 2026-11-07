@@ -58,7 +58,7 @@ class InputBrokerTest {
 
   private InputBroker broker(final YuktaProperties.Input limits) {
     feed.events().subscribe(events::add);
-    return new InputBroker(
+    return InputBrokerFixture.create(
         store, feed, log, meters, new InputRedactor(List.of("note")), limits, clock);
   }
 
@@ -295,7 +295,15 @@ class InputBrokerTest {
     final InputRequestStore failing = Mockito.spy(store);
     final InputBroker flaky =
         new InputBroker(
-            failing, feed, log, meters, new InputRedactor(List.of("note")), limits(), clock);
+            failing,
+            feed,
+            log,
+            meters,
+            new InputRedactor(List.of("note")),
+            limits(),
+            clock,
+            new com.infenia.yukta.service.input.route.RouteResolver(Map.of(), null),
+            null);
     final Disposable asker = flaky.ask(who("e1", "n1"), spec("k1")).subscribe(r -> {}, e -> {});
     Mockito.doReturn(Mono.error(new IllegalStateException("store down")))
         .when(failing)
@@ -592,7 +600,8 @@ class InputBrokerTest {
     final InMemoryInputRequestStore real = new InMemoryInputRequestStore(100);
     final InputRequestStore racing = Mockito.spy(real);
     final InputBroker racingBroker =
-        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.create(
+            racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
     racingBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     final InputRequest request =
         racingBroker.listOpen(null, null).collectList().blockOptional().orElseThrow().getFirst();
@@ -617,7 +626,8 @@ class InputBrokerTest {
     Mockito.when(failing.findById(open.id()))
         .thenReturn(Mono.error(new IllegalStateException("store down")));
     final InputBroker failingBroker =
-        new InputBroker(failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.create(
+            failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     StepVerifier.create(failingBroker.sweep()).verifyComplete();
   }
@@ -644,7 +654,8 @@ class InputBrokerTest {
     final InputRequest request = onlyOpen();
     // a second broker on the same store has no waiter for the request
     final InputBroker other =
-        new InputBroker(store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.create(
+            store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     final InputRequest result = other.answer(request.id(), null, answer(request, "ann")).block();
 
@@ -659,7 +670,8 @@ class InputBrokerTest {
     // another caller stored a request for the key an instant before this one
     Mockito.doReturn(Mono.just(existing)).when(racing).createIfAbsent(ArgumentMatchers.any());
     final InputBroker loser =
-        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.create(
+            racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     loser.ask(who("e2", "n2"), spec("k2")).subscribe();
 

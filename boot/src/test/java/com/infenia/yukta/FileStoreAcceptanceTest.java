@@ -5,8 +5,8 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
@@ -47,8 +47,8 @@ class FileStoreAcceptanceTest {
   @Test
   void definitionsAreKeptOnDisk_withTheirVersions() {
     final WorkflowDefinition definition =
-        new WorkflowDefinition(
-            "w", "d", List.of(new Node("n", "CONSTANT_SOURCE", Map.of())), List.of());
+        Fixtures.workflow(
+            "w", "d", List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())), List.of());
 
     definitions.save("s", definition).block();
 

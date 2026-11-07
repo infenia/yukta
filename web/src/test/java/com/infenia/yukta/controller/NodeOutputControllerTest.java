@@ -11,9 +11,9 @@ import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -53,7 +53,7 @@ class NodeOutputControllerTest {
     when(task.nodeId()).thenReturn("run");
     when(controlBus.getCurrentProgress("e1"))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(task), Instant.now(), null, null));
     when(logStore.readExecution("e1"))
         .thenReturn(

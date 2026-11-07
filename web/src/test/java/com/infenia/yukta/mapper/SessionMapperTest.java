@@ -15,6 +15,7 @@ import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -675,9 +676,9 @@ class SessionMapperTest {
             Map.of("env", "prod", "region", "us-west"),
             "/home/project",
             Map.of(
-                "wf1", new WorkflowDefinition("wf1", "Workflow 1", List.of(), List.of()),
-                "wf2", new WorkflowDefinition("wf2", "Workflow 2", List.of(), List.of()),
-                "wf3", new WorkflowDefinition("wf3", "Workflow 3", List.of(), List.of())));
+                "wf1", Fixtures.workflow("wf1", "Workflow 1", List.of(), List.of()),
+                "wf2", Fixtures.workflow("wf2", "Workflow 2", List.of(), List.of()),
+                "wf3", Fixtures.workflow("wf3", "Workflow 3", List.of(), List.of())));
 
     final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(response);
 
@@ -701,7 +702,7 @@ class SessionMapperTest {
             "system",
             Map.of(),
             "/data/path",
-            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+            Map.of("wf1", Fixtures.workflow("wf1", "desc", List.of(), List.of())));
 
     final SessionListItem result = mapper.sessionConfigResponseToSessionListItem(response);
 
@@ -756,7 +757,7 @@ class SessionMapperTest {
             "john.doe",
             Map.of("tag1", "value1", "tag2", "value2"),
             "/path/to/project",
-            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+            Map.of("wf1", Fixtures.workflow("wf1", "desc", List.of(), List.of())));
 
     final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
 
@@ -780,9 +781,9 @@ class SessionMapperTest {
             Map.of("env", "staging"),
             "/multi/path",
             Map.of(
-                "wf1", new WorkflowDefinition("wf1", "First", List.of(), List.of()),
-                "wf2", new WorkflowDefinition("wf2", "Second", List.of(), List.of()),
-                "wf3", new WorkflowDefinition("wf3", "Third", List.of(), List.of())));
+                "wf1", Fixtures.workflow("wf1", "First", List.of(), List.of()),
+                "wf2", Fixtures.workflow("wf2", "Second", List.of(), List.of()),
+                "wf3", Fixtures.workflow("wf3", "Third", List.of(), List.of())));
 
     final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
 
@@ -804,7 +805,7 @@ class SessionMapperTest {
             "user",
             Map.of(),
             "/no/tags/path",
-            Map.of("wf1", new WorkflowDefinition("wf1", "desc", List.of(), List.of())));
+            Map.of("wf1", Fixtures.workflow("wf1", "desc", List.of(), List.of())));
 
     final SessionDetails details = mapper.sessionConfigResponseToSessionDetails(response);
 

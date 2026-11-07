@@ -5,10 +5,10 @@ package com.infenia.yukta.service.supervisor.workflow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -49,7 +49,7 @@ class WorkflowSupervisorChecksTest {
         .verify();
 
     when(definitions.find("sys", "wf"))
-        .thenReturn(Mono.just(new WorkflowDefinition("wf", "d", List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("wf", "d", List.of(), List.of())));
     StepVerifier.create(checks.check(profile())).verifyComplete();
   }
 }

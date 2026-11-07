@@ -15,7 +15,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
@@ -23,7 +23,7 @@ import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
-import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ControlReviewerFixture;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.util.List;
 import java.util.Map;
@@ -78,9 +78,9 @@ class DirectiveDispatcherSupervisorTest {
             processor,
             registry,
             mock(ControlBusService.class),
-            new ExecutionArchive(),
+            ExecutionArchiveFixture.create(),
             log,
-            new ControlReviewer(providerOf(supervisor)),
+            ControlReviewerFixture.create(providerOf(supervisor)),
             feed);
     feed.events().subscribe(events::add);
   }

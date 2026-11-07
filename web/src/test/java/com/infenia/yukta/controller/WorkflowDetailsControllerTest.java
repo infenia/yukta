@@ -9,11 +9,11 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.WorkflowMapper;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowGraphService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -46,17 +46,14 @@ class WorkflowDetailsControllerTest {
 
   /** A workflow with two nodes and an edge. */
   private static final WorkflowDefinition WITH_NODE =
-      new WorkflowDefinition(
+      Fixtures.workflow(
           "wf2",
           DESC,
-          List.of(
-              new WorkflowDefinition.Node("a", "x", null),
-              new WorkflowDefinition.Node("b", "y", null)),
+          List.of(Fixtures.node("a", "x", null), Fixtures.node("b", "y", null)),
           List.of(new WorkflowDefinition.Edge("a", "b", "default")));
 
   /** The value. */
-  private static final WorkflowDefinition DEF =
-      new WorkflowDefinition("wf", DESC, List.of(), List.of());
+  private static final WorkflowDefinition DEF = Fixtures.workflow("wf", DESC, List.of(), List.of());
 
   @BeforeEach
   void setUp() {
@@ -106,8 +103,8 @@ class WorkflowDetailsControllerTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    new WorkflowExecutionSummary("e2", "wf", TaskStatus.SUCCESS, now, null),
-                    new WorkflowExecutionSummary("e1", "wf", TaskStatus.SUCCESS, now, null))));
+                    Fixtures.summary("e2", "wf", TaskStatus.SUCCESS, now, null),
+                    Fixtures.summary("e1", "wf", TaskStatus.SUCCESS, now, null))));
 
     client
         .get()
@@ -152,14 +149,13 @@ class WorkflowDetailsControllerTest {
   @Test
   void testGraphCarriesDeclaredGroupsAndTheWorkflowRunBySubWorkflowNode() {
     final WorkflowDefinition staged =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "wf3",
             DESC,
             List.of(
-                new WorkflowDefinition.Node(
-                    "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), LINT),
-                new WorkflowDefinition.Node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
-                new WorkflowDefinition.Node("plain", "x", Map.of("workflowId", "heal"))),
+                Fixtures.node("lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), LINT),
+                Fixtures.node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
+                Fixtures.node("plain", "x", Map.of("workflowId", "heal"))),
             List.of());
     when(sessionService.getSessionWorkflow("s1", "wf3")).thenReturn(Mono.just(staged));
 
@@ -190,7 +186,7 @@ class WorkflowDetailsControllerTest {
             DESC,
             List.of(
                 new WorkflowDefinition.Node("a", "x", Map.of(), LINT, "violet"),
-                new WorkflowDefinition.Node("b", "x", Map.of())),
+                Fixtures.node("b", "x", Map.of())),
             List.of(),
             List.of(),
             Map.of(LINT, "teal"));

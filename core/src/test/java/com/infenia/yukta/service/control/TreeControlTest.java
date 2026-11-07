@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -29,8 +30,7 @@ class TreeControlTest {
   private static final String BROKEN = "broken";
 
   private static WorkflowExecutionSummary run(final String executionId, final TaskStatus status) {
-    return new WorkflowExecutionSummary(
-        executionId, "wf", status, Instant.now(), null, TOP, TOP, null);
+    return Fixtures.summary(executionId, "wf", status, Instant.now(), null, TOP, TOP, null);
   }
 
   private Mono<Void> record(final String executionId) {

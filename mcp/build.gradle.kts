@@ -18,6 +18,7 @@ dependencies {
     annotationProcessor(libs.spring.boot.configuration.processor)
 
     testImplementation(libs.spring.boot.starter.webflux.test)
+    testImplementation(testFixtures(project(":core")))
 }
 
 

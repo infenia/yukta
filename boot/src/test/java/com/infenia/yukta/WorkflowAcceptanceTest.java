@@ -7,7 +7,6 @@ import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -16,6 +15,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -58,7 +58,8 @@ class WorkflowAcceptanceTest {
   @Autowired private ExecutionLogStore executionLog;
 
   private static Node process(final String nodeId, final List<String> command) {
-    return new Node(nodeId, "PROCESS_EXECUTOR", Map.of("command", command, "outputFormat", "RAW"));
+    return Fixtures.node(
+        nodeId, "PROCESS_EXECUTOR", Map.of("command", command, "outputFormat", "RAW"));
   }
 
   /** Defines a trigger, the given step and a terminal, and returns the session and workflow ids. */
@@ -68,13 +69,13 @@ class WorkflowAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "acceptance",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                     step,
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", step.nodeId(), null), new Edge(step.nodeId(), "end", null))))
         .block();
     return session + "/" + workflowId;
@@ -147,7 +148,7 @@ class WorkflowAcceptanceTest {
   void flakyStep_isRetried_andRunSucceeds() throws IOException {
     final Path marker = Files.createTempDirectory("flaky").resolve("seen");
     final Node flaky =
-        new Node(
+        Fixtures.node(
             "p",
             "PROCESS_EXECUTOR",
             Map.of(
@@ -165,7 +166,7 @@ class WorkflowAcceptanceTest {
   @Test
   void failingStep_failsRun_andLeavesNoNodeRunning() {
     final Node failing =
-        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3")));
+        Fixtures.node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3")));
 
     final WorkflowProgress progress = awaitTerminal(start(define(failing)));
 

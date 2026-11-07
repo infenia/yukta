@@ -8,12 +8,12 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -39,7 +39,7 @@ class SkippedBranchAcceptanceTest {
   @Autowired private TaskTrackerService tracker;
 
   private static Node shell(final String nodeId, final String script) {
-    return new Node(
+    return Fixtures.node(
         nodeId,
         "PROCESS_EXECUTOR",
         Map.of(
@@ -60,15 +60,15 @@ class SkippedBranchAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "routed",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                     shell("check", "true"),
-                    new Node("ok", "CONSOLE_TERMINAL", Map.of()),
+                    Fixtures.node("ok", "CONSOLE_TERMINAL", Map.of()),
                     shell("repair", "true"),
-                    new Node("fixed", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("fixed", "CONSOLE_TERMINAL", Map.of())),
                 List.of(
                     new Edge("t", "check", null),
                     new Edge("check", "ok", "success"),

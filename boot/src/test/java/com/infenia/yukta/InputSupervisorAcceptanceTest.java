@@ -6,9 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
@@ -20,6 +18,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.supervisor.rules.RuleSupervisorFactory;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -60,13 +59,13 @@ class InputSupervisorAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "asks",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node("q", "ASK_INPUT", Map.of("prompt", PROMPT, "risk", risk)),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("q", "ASK_INPUT", Map.of("prompt", PROMPT, "risk", risk)),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "q", null), new Edge("q", "end", null))))
         .block(WAIT);
     return Objects.requireNonNull(

@@ -7,9 +7,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.result.ExecutionResultService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -34,7 +34,7 @@ class ResultProviderTest {
     provider = new ResultProvider(results, controlBus);
     when(controlBus.getProgress("s1", "e1"))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null));
   }
 

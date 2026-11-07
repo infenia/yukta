@@ -21,6 +21,7 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.ActiveRunsException;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -58,7 +59,7 @@ class SessionConfigControllerTest {
   private WebTestClient client;
 
   private static WorkflowDefinition workflow(final String id) {
-    return new WorkflowDefinition(id, "desc", List.of(), List.of());
+    return Fixtures.workflow(id, "desc", List.of(), List.of());
   }
 
   private static SessionConfigResponse config(final String id) {
@@ -88,11 +89,11 @@ class SessionConfigControllerTest {
   @Test
   void literalSecretsAreMaskedInTheConfigAndTheWorkflow() {
     final WorkflowDefinition withSecrets =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "wf",
             "desc",
             List.of(
-                new WorkflowDefinition.Node(
+                Fixtures.node(
                     "n1",
                     "HTTP_REQUEST",
                     Map.of(
@@ -230,7 +231,7 @@ class SessionConfigControllerTest {
   }
 
   private static WorkflowExecutionSummary run(final String id, final Instant start) {
-    return new WorkflowExecutionSummary(id, "wf", TaskStatus.SUCCESS, start, null);
+    return Fixtures.summary(id, "wf", TaskStatus.SUCCESS, start, null);
   }
 
   @Test
@@ -266,9 +267,7 @@ class SessionConfigControllerTest {
         .thenReturn(
             Mono.just(
                 Map.of(
-                    "wf",
-                    new WorkflowExecutionSummary(
-                        "e1", "wf", TaskStatus.SUCCESS, Instant.now(), null))));
+                    "wf", Fixtures.summary("e1", "wf", TaskStatus.SUCCESS, Instant.now(), null))));
     when(sessionService.getSessionConfig(NOPE)).thenReturn(Mono.empty());
 
     client

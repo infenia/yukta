@@ -36,6 +36,7 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -207,9 +208,7 @@ class AppMcpToolsTest {
 
   @Test
   void testGetExecutionTree() {
-    final var run =
-        new com.infenia.yukta.model.execution.WorkflowExecutionSummary(
-            "e1", "wf", TaskStatus.RUNNING, null, null);
+    final var run = Fixtures.summary("e1", "wf", TaskStatus.RUNNING, null, null);
     when(workflowControlProvider.getExecutionTree("s1", "e1")).thenReturn(Mono.just(List.of(run)));
 
     StepVerifier.create(mcpTools.getExecutionTree("s1", "e1"))

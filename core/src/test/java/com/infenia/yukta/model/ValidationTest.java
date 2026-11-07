@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
@@ -35,9 +36,9 @@ class ValidationTest {
 
   @Test
   void testWorkflowDefinitionValid() {
-    final WorkflowDefinition.Node node = new WorkflowDefinition.Node("n1", "gradle", Map.of());
+    final WorkflowDefinition.Node node = Fixtures.node("n1", "gradle", Map.of());
     final WorkflowDefinition def =
-        new WorkflowDefinition("test-workflow", "desc", List.of(node), List.of());
+        Fixtures.workflow("test-workflow", "desc", List.of(node), List.of());
     final Set<ConstraintViolation<WorkflowDefinition>> violations = validator.validate(def);
     assertThat(violations).isEmpty();
   }
@@ -45,11 +46,8 @@ class ValidationTest {
   @Test
   void testSessionConfigDataValid() {
     final WorkflowDefinition def =
-        new WorkflowDefinition(
-            "test-workflow",
-            "desc",
-            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            "test-workflow", "desc", List.of(Fixtures.node("n1", "gradle", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             "session-1",
@@ -65,8 +63,7 @@ class ValidationTest {
 
   @Test
   void testSessionConfigDataInvalidSession() {
-    final WorkflowDefinition def =
-        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             "../session",
@@ -84,8 +81,7 @@ class ValidationTest {
 
   @Test
   void testSessionConfigDataDescriptionTooLong() {
-    final WorkflowDefinition def =
-        new WorkflowDefinition("test-workflow", "desc", List.of(), List.of());
+    final WorkflowDefinition def = Fixtures.workflow("test-workflow", "desc", List.of(), List.of());
     final String longDesc = "a".repeat(257);
     final SessionConfigData data =
         new SessionConfigData(

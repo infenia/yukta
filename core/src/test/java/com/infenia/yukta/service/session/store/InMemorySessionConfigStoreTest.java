@@ -10,6 +10,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -65,11 +66,8 @@ class InMemorySessionConfigStoreTest {
   void testApplySessionConfig() {
     final String sessionId = "sess-apply";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(
-            "test-workflow",
-            DESC,
-            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            "test-workflow", DESC, List.of(Fixtures.node("n1", "gradle", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,
@@ -103,8 +101,7 @@ class InMemorySessionConfigStoreTest {
   @Test
   void applySessionConfigDelegatesWorkflowsToStore() {
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(
-            WORKFLOW, DESC, List.of(new WorkflowDefinition.Node("n1", "t", Map.of())), List.of());
+        Fixtures.workflow(WORKFLOW, DESC, List.of(Fixtures.node("n1", "t", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             "s1",
@@ -156,11 +153,9 @@ class InMemorySessionConfigStoreTest {
   void applySessionConfigWithMultipleWorkflows() {
     final String sessionId = "sess-multi";
     final WorkflowDefinition workflow1 =
-        new WorkflowDefinition(
-            "wf1", "desc1", List.of(new WorkflowDefinition.Node("n1", "t1", Map.of())), List.of());
+        Fixtures.workflow("wf1", "desc1", List.of(Fixtures.node("n1", "t1", Map.of())), List.of());
     final WorkflowDefinition workflow2 =
-        new WorkflowDefinition(
-            "wf2", "desc2", List.of(new WorkflowDefinition.Node("n2", "t2", Map.of())), List.of());
+        Fixtures.workflow("wf2", "desc2", List.of(Fixtures.node("n2", "t2", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,

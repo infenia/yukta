@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Set;
@@ -51,7 +52,7 @@ class SupervisorHostCapabilitiesTest {
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
   private final SupervisorHost host =
-      new SupervisorHost(
+      SupervisorHostFixture.create(
           providerOf(), new ExecutionEventFeed(), dispatcher, log, meters, false, 20, 100);
 
   @AfterEach
@@ -77,7 +78,7 @@ class SupervisorHostCapabilitiesTest {
   private void attach(
       final SupervisorCapabilities capabilities, final ExecutionControlCommand... commands) {
     host.attach(
-        new BoundSupervisor(
+        Fixtures.boundSupervisor(
             new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             emitting(commands),
             false,
@@ -148,7 +149,7 @@ class SupervisorHostCapabilitiesTest {
   @Test
   void boundSupervisorMadeWithoutCapabilitiesMaySendAnythingButNeverAnswers() {
     final BoundSupervisor bound =
-        new BoundSupervisor(
+        Fixtures.boundSupervisor(
             new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             emitting(),
             false);

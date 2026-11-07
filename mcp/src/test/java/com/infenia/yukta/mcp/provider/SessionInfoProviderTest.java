@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -43,8 +44,7 @@ class SessionInfoProviderTest {
 
   @Test
   void testGetSessionDetails() {
-    final var wf =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var wf = Fixtures.workflow("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "session-1",
@@ -78,8 +78,7 @@ class SessionInfoProviderTest {
   @Test
   void testListSessionsSkipsFailingSession() {
     when(sessionService.getSessionIds(false)).thenReturn(Flux.just("s1", "s2"));
-    final var wf =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var wf = Fixtures.workflow("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
@@ -99,8 +98,7 @@ class SessionInfoProviderTest {
   @Test
   void testListSessionsMultiple() {
     when(sessionService.getSessionIds(false)).thenReturn(Flux.just("s1", "s2", "s3"));
-    final var wf =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf", "d", List.of(), List.of());
+    final var wf = Fixtures.workflow("wf", "d", List.of(), List.of());
     final var config1 =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1", "Test Session 1", "desc", "initiator", Map.of(), "/path", Map.of("wf", wf));

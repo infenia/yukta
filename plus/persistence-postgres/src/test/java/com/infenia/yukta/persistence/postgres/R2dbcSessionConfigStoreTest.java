@@ -8,6 +8,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -22,11 +23,8 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
   private R2dbcSessionConfigStore store;
 
   private static WorkflowDefinition workflow() {
-    return new WorkflowDefinition(
-        "w1",
-        "d",
-        List.of(new WorkflowDefinition.Node("n1", "CONSTANT_SOURCE", Map.of())),
-        List.of());
+    return Fixtures.workflow(
+        "w1", "d", List.of(Fixtures.node("n1", "CONSTANT_SOURCE", Map.of())), List.of());
   }
 
   @BeforeEach
@@ -41,7 +39,7 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     final Map<String, WorkflowDefinition> workflows =
         new java.util.concurrent.ConcurrentHashMap<>();
     workflows.put("w1", workflow());
-    workflows.put("bad", new WorkflowDefinition("bad\u0000id", "d", List.of(), List.of()));
+    workflows.put("bad", Fixtures.workflow("bad\u0000id", "d", List.of(), List.of()));
 
     assertThatThrownBy(
             () ->

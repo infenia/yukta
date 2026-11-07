@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 plugins {
     id("com.infenia.yukta.library-conventions")
+    `java-test-fixtures`
 }
 
 dependencies {
@@ -30,6 +31,13 @@ dependencies {
     testImplementation(libs.spring.boot.starter.actuator.test)
     testImplementation(libs.spring.boot.starter.jackson.test)
     testImplementation(libs.awaitility)
+
+    // Short forms of the model records for tests (testFixtures), shared by the modules above core
+    testFixturesApi(project(":plugin-api"))
+    testFixturesImplementation(libs.spring.boot.starter.validation)
+    testFixturesImplementation(libs.spring.boot.starter.webflux)
+    testFixturesImplementation(libs.spring.boot.starter.actuator)
+    testFixturesImplementation(libs.caffeine)
 }
 
 

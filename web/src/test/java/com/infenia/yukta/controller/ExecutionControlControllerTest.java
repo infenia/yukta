@@ -10,16 +10,17 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -50,7 +51,7 @@ class ExecutionControlControllerTest {
 
   /** The scheduler behind the drain switch. */
   private final ExecutionScheduler scheduler =
-      new ExecutionScheduler(
+      ExecutionSchedulerFixture.create(
           0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
 
   /** The client. */
@@ -62,7 +63,7 @@ class ExecutionControlControllerTest {
     resumer = mock(ExecutionResumer.class);
     tracker = mock(TaskTrackerService.class);
     final WorkflowProgress running =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null);
     when(controlBus.getCurrentProgress("e1")).thenReturn(running);
     when(controlBus.getProgress("s1", "e1")).thenReturn(running);
@@ -83,11 +84,11 @@ class ExecutionControlControllerTest {
     when(tracker.getTree("e1"))
         .thenReturn(
             List.of(
-                new WorkflowExecutionSummary(
+                Fixtures.summary(
                     "e1", "wf", TaskStatus.RUNNING, Instant.now(), null, null, "e1", null),
-                new WorkflowExecutionSummary(
+                Fixtures.summary(
                     "c1", "child", TaskStatus.RUNNING, Instant.now(), null, "e1", "e1", null),
-                new WorkflowExecutionSummary(
+                Fixtures.summary(
                     "c2", "child", TaskStatus.SUCCESS, Instant.now(), null, "e1", "e1", null)));
     when(controlBus.pauseWorkflow(any())).thenReturn(Mono.empty());
     when(controlBus.resumeWorkflow("e1")).thenReturn(Mono.empty());
@@ -353,7 +354,7 @@ class ExecutionControlControllerTest {
   @Test
   void drainStatus_isNotIdleWhileStartWaits() {
     final ExecutionScheduler limited =
-        new ExecutionScheduler(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final ExecutionScheduler.Permit running =
         java.util.Objects.requireNonNull(limited.acquire("s1", "wf", 0, null).permit().block());

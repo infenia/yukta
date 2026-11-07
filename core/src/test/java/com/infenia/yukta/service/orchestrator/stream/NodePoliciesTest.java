@@ -11,6 +11,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,7 +55,7 @@ class NodePoliciesTest {
   void retry_dropsOutputOfFailedAttempt() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () ->
@@ -69,7 +70,7 @@ class NodePoliciesTest {
   void route_sendsOnlyTheDeadLetter_notTheOutputOfTheFailedAttempt() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.create(
             NodePolicies.apply(
@@ -86,7 +87,8 @@ class NodePoliciesTest {
           NodePolicy.OnError.FAIL, NodePolicy.OnError.CONTINUE, NodePolicy.OnError.ROUTE
         }) {
       final AtomicInteger calls = new AtomicInteger();
-      final NodePolicy policy = new NodePolicy(RETRY3, onError, NodePolicy.JoinRule.ALL_SUCCESS);
+      final NodePolicy policy =
+          Fixtures.nodePolicy(RETRY3, onError, NodePolicy.JoinRule.ALL_SUCCESS);
 
       StepVerifier.create(
               NodePolicies.apply(
@@ -113,7 +115,7 @@ class NodePoliciesTest {
   void retry_succeedsOnLaterAttempt_afterBackoff() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () -> NodePolicies.apply(policy, "n1", input, _ -> flaky(calls, 2), () -> {}))
@@ -131,7 +133,7 @@ class NodePoliciesTest {
     final AtomicInteger calls = new AtomicInteger();
     final AtomicInteger attempts = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () ->
@@ -148,7 +150,7 @@ class NodePoliciesTest {
   void retry_doesNotRepeatAnInvalidInput() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
     final Flux<Message<?>> invalid =
         Flux.defer(
             () -> {
@@ -167,7 +169,7 @@ class NodePoliciesTest {
   void retry_exhausted_failsWithTheOriginalError() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () -> NodePolicies.apply(policy, "n1", input, _ -> flaky(calls, 99), () -> {}))
@@ -184,7 +186,7 @@ class NodePoliciesTest {
   void singleAttempt_doesNotRetry() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             new NodePolicy.Retry(1, Duration.ZERO, Duration.ZERO),
             NodePolicy.OnError.FAIL,
             NodePolicy.JoinRule.ALL_SUCCESS);
@@ -199,7 +201,7 @@ class NodePoliciesTest {
   @Test
   void continue_dropsTheFailingMessage() {
     final NodePolicy policy =
-        new NodePolicy(null, NodePolicy.OnError.CONTINUE, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(null, NodePolicy.OnError.CONTINUE, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.create(
             NodePolicies.apply(policy, "n1", input, _ -> flaky(new AtomicInteger(), 99), () -> {}))
@@ -209,7 +211,7 @@ class NodePoliciesTest {
   @Test
   void route_sendsTheFailingMessageToTheErrorPortTaggedWithItsFailure() {
     final NodePolicy policy =
-        new NodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.create(
             NodePolicies.apply(policy, "n1", input, _ -> flaky(new AtomicInteger(), 99), () -> {}))
@@ -235,7 +237,7 @@ class NodePoliciesTest {
   void retryThenRoute_routesOnlyAfterRetriesAreUsedUp() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () -> NodePolicies.apply(policy, "n1", input, _ -> flaky(calls, 99), () -> {}))
@@ -252,7 +254,7 @@ class NodePoliciesTest {
     final java.util.List<Object> seen = new java.util.ArrayList<>();
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
+        Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
     StepVerifier.withVirtualTime(
             () ->
@@ -276,7 +278,7 @@ class NodePoliciesTest {
   @Test
   void elementTimeout_failsSlowMessage_soRetryOrRouteApply() {
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             null, NodePolicy.OnError.ROUTE, NodePolicy.JoinRule.ALL_SUCCESS, Duration.ofSeconds(5));
 
     StepVerifier.withVirtualTime(
@@ -326,7 +328,7 @@ class NodePoliciesTest {
     final AtomicInteger ioCalls = new AtomicInteger();
     final AtomicInteger other = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             retryOnly(java.util.Set.of("java.io.IOException"), java.util.Set.of()),
             NodePolicy.OnError.FAIL,
             NodePolicy.JoinRule.ALL_SUCCESS);
@@ -354,7 +356,7 @@ class NodePoliciesTest {
   void noRetryOn_stopsRetryingThatException_evenWhenItIsCause() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             retryOnly(java.util.Set.of(), java.util.Set.of("SecurityException")),
             NodePolicy.OnError.FAIL,
             NodePolicy.JoinRule.ALL_SUCCESS);
@@ -372,7 +374,7 @@ class NodePoliciesTest {
   void illegalArgument_isRetriedOnlyWhenListedInRetryOn() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             retryOnly(java.util.Set.of("IllegalArgumentException"), java.util.Set.of()),
             NodePolicy.OnError.FAIL,
             NodePolicy.JoinRule.ALL_SUCCESS);
@@ -394,7 +396,7 @@ class NodePoliciesTest {
   void routedMessage_carriesAttemptsExceptionAndTime() {
     final AtomicInteger calls = new AtomicInteger();
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             retryOnly(java.util.Set.of(), java.util.Set.of()),
             NodePolicy.OnError.ROUTE,
             NodePolicy.JoinRule.ALL_SUCCESS);
@@ -423,7 +425,7 @@ class NodePoliciesTest {
   @Test
   void failureBudget_failsTheNodeOnceTooManyMessagesFailed() {
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             null,
             NodePolicy.OnError.CONTINUE,
             NodePolicy.JoinRule.ALL_SUCCESS,
@@ -467,7 +469,7 @@ class NodePoliciesTest {
   @Test
   void failureBudget_alsoStopsRoutingOnceExceeded() {
     final NodePolicy policy =
-        new NodePolicy(
+        Fixtures.nodePolicy(
             null,
             NodePolicy.OnError.ROUTE,
             NodePolicy.JoinRule.ALL_SUCCESS,

@@ -5,6 +5,7 @@ package com.infenia.yukta.model.execution;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -24,7 +25,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     assertThat(progress.executionId()).isEqualTo("exec-1");
@@ -47,7 +48,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of(task1, task2);
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.RUNNING, tasks, startTime, endTime);
 
     assertThat(progress.tasks()).hasSize(2).contains(task1, task2);
@@ -62,7 +63,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> originalTasks = List.of(task1);
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1",
             "session-1",
             "workflow-1",
@@ -82,7 +83,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.RUNNING, tasks, startTime, null);
 
     assertThat(progress.status()).isEqualTo(TaskStatus.RUNNING);
@@ -96,7 +97,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-2", "session-2", "workflow-2", TaskStatus.PENDING, tasks, null, endTime);
 
     assertThat(progress.status()).isEqualTo(TaskStatus.PENDING);
@@ -109,7 +110,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-3", "session-3", "workflow-3", TaskStatus.QUEUED, tasks, null, null);
 
     assertThat(progress.status()).isEqualTo(TaskStatus.QUEUED);
@@ -124,13 +125,13 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress inProgress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.RUNNING, tasks, startTime, null);
     final WorkflowProgress completed =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-2", "session-2", "workflow-2", TaskStatus.SUCCESS, tasks, startTime, endTime);
     final WorkflowProgress failed =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-3", "session-3", "workflow-3", TaskStatus.FAILURE, tasks, startTime, endTime);
 
     assertThat(inProgress.status()).isEqualTo(TaskStatus.RUNNING);
@@ -145,7 +146,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-xyz",
             "session-abc",
             "workflow-123",
@@ -176,7 +177,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of(task1, task2, task3);
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     assertThat(progress.tasks())
@@ -192,10 +193,10 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress1 =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
     final WorkflowProgress progress2 =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     assertThat(progress1).isEqualTo(progress2);
@@ -208,10 +209,10 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress1 =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
     final WorkflowProgress progress2 =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     assertThat(progress1.hashCode()).isEqualTo(progress2.hashCode());
@@ -224,7 +225,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of();
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     final String toString = progress.toString();
@@ -240,7 +241,7 @@ class WorkflowProgressTest {
     final List<TaskProgress> tasks = List.of(task);
 
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "exec-1", "session-1", "workflow-1", TaskStatus.SUCCESS, tasks, startTime, endTime);
 
     assertThat(progress)
@@ -260,9 +261,10 @@ class WorkflowProgressTest {
   @Test
   void definitionVersion_isNullUnlessGiven() {
     final WorkflowProgress without =
-        new WorkflowProgress("e", "s", "w", TaskStatus.RUNNING, List.of(), null, null, "PAUSED");
+        Fixtures.workflowProgress(
+            "e", "s", "w", TaskStatus.RUNNING, List.of(), null, null, "PAUSED");
     final WorkflowProgress with =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e", "s", "w", TaskStatus.RUNNING, List.of(), null, null, "PAUSED", "ab12");
 
     assertThat(without.definitionVersion()).isNull();

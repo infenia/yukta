@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -136,7 +137,7 @@ class SupervisorServiceCapabilitiesTest {
   void findsAnAttachedSupervisorByItsBindingId() {
     final AttachedSupervisors attached = new AttachedSupervisors();
     final BoundSupervisor bound =
-        new BoundSupervisor(
+        Fixtures.boundSupervisor(
             new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             mock(ExecutionSupervisor.class),
             false);

@@ -10,6 +10,7 @@ import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -134,10 +135,10 @@ class FileSessionConfigStoreTest {
   void testApplySessionConfig() {
     final String sessionId = "sess-apply";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "test-workflow",
             TEST_DESC,
-            List.of(new WorkflowDefinition.Node("n1", "gradle", Map.of())),
+            List.of(Fixtures.node("n1", "gradle", Map.of())),
             List.of());
     final SessionConfigData data =
         new SessionConfigData(
@@ -184,8 +185,7 @@ class FileSessionConfigStoreTest {
   void testApplySessionConfigDelegatesWorkflowsToStore() {
     final String sessionId = "sess-wf-delegate";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(
-            "wf1", TEST_DESC, List.of(new WorkflowDefinition.Node("n1", "t", Map.of())), List.of());
+        Fixtures.workflow("wf1", TEST_DESC, List.of(Fixtures.node("n1", "t", Map.of())), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,

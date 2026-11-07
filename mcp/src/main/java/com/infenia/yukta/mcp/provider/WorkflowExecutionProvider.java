@@ -9,7 +9,6 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.control.gateway.StartIdempotency;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
@@ -46,7 +45,7 @@ public class WorkflowExecutionProvider {
   private final ConfigRedactor configRedactor;
 
   /** Merges keyless starts of one session and workflow made within a short window. */
-  private final StartIdempotency autoKey;
+  private final AutoKeyWindow autoKey;
 
   /**
    * Creates the provider.
@@ -68,7 +67,7 @@ public class WorkflowExecutionProvider {
     this.sessionService = sessionService;
     this.controlBus = controlBus;
     this.configRedactor = configRedactor;
-    this.autoKey = new StartIdempotency(autoKeyWindow);
+    this.autoKey = new AutoKeyWindow(autoKeyWindow);
   }
 
   /**
@@ -149,7 +148,6 @@ public class WorkflowExecutionProvider {
     return autoKey
         .once(
             sessionId + "\0" + workflowId,
-            "auto",
             () ->
                 Mono.defer(
                     () -> {

@@ -66,40 +66,6 @@ public record WorkflowDefinition(
     groupColors = groupColors != null ? Map.copyOf(groupColors) : Map.of();
   }
 
-  /**
-   * A workflow without group colors.
-   *
-   * @param workflowId unique identifier for the workflow
-   * @param description a human-readable description of the workflow
-   * @param nodes the list of nodes in the DAG
-   * @param edges the list of edges connecting the nodes
-   * @param supervisors the supervisors declared for this workflow
-   */
-  public WorkflowDefinition(
-      final String workflowId,
-      final String description,
-      final List<Node> nodes,
-      final List<Edge> edges,
-      final List<SupervisorRef> supervisors) {
-    this(workflowId, description, nodes, edges, supervisors, Map.of());
-  }
-
-  /**
-   * A workflow that declares no supervisors.
-   *
-   * @param workflowId unique identifier for the workflow
-   * @param description a human-readable description of the workflow
-   * @param nodes the list of nodes in the DAG
-   * @param edges the list of edges connecting the nodes
-   */
-  public WorkflowDefinition(
-      final String workflowId,
-      final String description,
-      final List<Node> nodes,
-      final List<Edge> edges) {
-    this(workflowId, description, nodes, edges, List.of());
-  }
-
   /** The display colors a node or a group may take: named, so no workflow meaning is implied. */
   public static final class Palette {
     /** The palette names, as shown in the schema. */
@@ -148,33 +114,6 @@ public record WorkflowDefinition(
     /** Compact constructor. */
     public Node {
       config = config != null ? Map.copyOf(config) : Map.of();
-    }
-
-    /**
-     * A node without a color.
-     *
-     * @param nodeId unique identifier for the node
-     * @param type the type of plugin to use
-     * @param config configuration for the plugin
-     * @param group the stage the node belongs to, or null
-     */
-    public Node(
-        final String nodeId,
-        final String type,
-        final Map<String, Object> config,
-        final @Nullable String group) {
-      this(nodeId, type, config, group, null);
-    }
-
-    /**
-     * A node in no declared group.
-     *
-     * @param nodeId unique identifier for the node
-     * @param type the type of plugin to use
-     * @param config configuration for the plugin
-     */
-    public Node(final String nodeId, final String type, final Map<String, Object> config) {
-      this(nodeId, type, config, null, null);
     }
   }
 
