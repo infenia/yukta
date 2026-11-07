@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class AnswerTokens {
+public final class AnswerTokens {
 
   /** The MAC algorithm. */
   private static final String ALGORITHM = "HmacSHA256";
