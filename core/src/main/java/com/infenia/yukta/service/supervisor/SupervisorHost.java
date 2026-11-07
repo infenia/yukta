@@ -25,6 +25,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -302,6 +303,16 @@ public class SupervisorHost {
       }
       meters.find(COMMANDS_METRIC).tag("id", bindingId).counters().forEach(meters::remove);
       return attachedSupervisors.remove(bindingId) != null;
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Stops every attached supervisor, for a server that is no longer the leader. */
+  public void detachAll() {
+    lock.lock();
+    try {
+      new ArrayList<>(attachedSubscriptions.keySet()).forEach(this::detach);
     } finally {
       lock.unlock();
     }

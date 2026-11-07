@@ -20,6 +20,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
@@ -197,6 +198,15 @@ public class SupervisorService {
   public void setLeaderElection(final LeaderElection leaderElection) {
     this.election = leaderElection;
     leaderElection.onTakeover(this::restore);
+    // a demoted leader has no runs to supervise: the new leader restores the bindings
+    leaderElection.onLoss(host::detachAll);
+  }
+
+  /** Supervisor changes go to the leader: a standby has no runs, and the leader would not hear. */
+  private Mono<Void> leaderOnly() {
+    return election != null && !election.isLeader()
+        ? Mono.error(new NotLeaderException())
+        : Mono.empty();
   }
 
   /**
@@ -281,7 +291,8 @@ public class SupervisorService {
    *     unknown type or invalid settings
    */
   public Mono<Supervisor> saveSupervisor(final Supervisor profile) {
-    return refreshResolver()
+    return leaderOnly()
+        .then(refreshResolver())
         .then(
             Mono.defer(
                 () -> workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
@@ -440,6 +451,9 @@ public class SupervisorService {
           new ConflictException(
               "A supervisor named '" + binding.id() + "' is already configured; pick another id"));
     }
+    if (election != null && !election.isLeader()) {
+      return Mono.error(new NotLeaderException());
+    }
     // counted before the store is read, so concurrent attaches cannot all pass the limit
     attaching.incrementAndGet();
     return attachChecked(binding).doFinally(_ -> attaching.decrementAndGet());
@@ -517,6 +531,10 @@ public class SupervisorService {
    * @return completes when stopped; errors with {@link NotFoundException}
    */
   public Mono<Void> detach(final String bindingId) {
+    return leaderOnly().then(Mono.defer(() -> detachBinding(bindingId)));
+  }
+
+  private Mono<Void> detachBinding(final String bindingId) {
     // The store goes first: if it fails, the binding is still listed and still supervising,
     // not listed with nothing running.
     return store
@@ -544,7 +562,7 @@ public class SupervisorService {
             binding ->
                 sessionId.equals(binding.scope().sessionId())
                     || sessionId.equals(binding.originSessionId()))
-        .concatMap(binding -> detach(binding.id()))
+        .concatMap(binding -> detachBinding(binding.id()))
         .then();
   }
 

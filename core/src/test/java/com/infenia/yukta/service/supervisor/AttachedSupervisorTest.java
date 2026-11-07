@@ -100,6 +100,18 @@ class AttachedSupervisorTest {
   }
 
   @Test
+  void detachAllStopsEveryAttachedSupervisor() {
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
+    host.attach(bound("b2", new SupervisorScope.Global(), false));
+
+    host.detachAll();
+
+    assertThat(host.detach("b1")).isFalse();
+    assertThat(host.detach("b2")).isFalse();
+  }
+
+  @Test
   void attachedSupervisorSeesOnlyItsScopeUntilDetached() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     host.setAttachedSupervisors(attached);
