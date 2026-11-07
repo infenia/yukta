@@ -260,6 +260,11 @@ class CompositeEdgeCasesTest {
       final String type, final java.util.function.Function<Supervisor, ExecutionSupervisor> make) {
     return new SupervisorFactory() {
       @Override
+      public java.util.List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
+        return java.util.List.of();
+      }
+
+      @Override
       public String type() {
         return type;
       }

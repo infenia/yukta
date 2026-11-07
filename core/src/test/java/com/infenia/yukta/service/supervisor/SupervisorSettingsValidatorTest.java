@@ -77,8 +77,9 @@ class SupervisorSettingsValidatorTest {
     }
 
     @Test
-    void relaxedKeyNamesAreAccepted() {
-      assertThat(issues(Map.of(URL, "u", "max-risk", "LOW", "Can_Answer", true))).isEmpty();
+    void relaxedKeyNamesAreRefused() {
+      assertThat(issues(Map.of(URL, "u", "allowed-commands", List.of())))
+          .containsExactly(new Issue("settings.allowed-commands", "is not a setting of this type"));
     }
 
     @Test
