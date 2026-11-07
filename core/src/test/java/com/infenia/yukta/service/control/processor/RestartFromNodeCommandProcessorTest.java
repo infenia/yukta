@@ -18,9 +18,11 @@ import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -56,9 +58,10 @@ class RestartFromNodeCommandProcessorTest {
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
-      new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+      ExecutionSchedulerFixture.of(
+          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
-  private final ExecutionArchive archive = new ExecutionArchive();
+  private final ExecutionArchive archive = ExecutionArchiveFixture.of();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
 
   private RestartFromNodeCommandProcessor processor;
@@ -145,7 +148,8 @@ class RestartFromNodeCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
-    scheduler = new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    scheduler =
+        ExecutionSchedulerFixture.of(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartFromNodeCommandProcessor(

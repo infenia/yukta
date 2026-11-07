@@ -65,7 +65,7 @@ class SupervisorHostInternalTest {
     when(configs.getTags("sys")).thenReturn(Mono.just(Map.of(InternalSessions.TAG, "true")));
     when(configs.getTags("main")).thenReturn(Mono.just(Map.of()));
     final SupervisorHost created =
-        new SupervisorHost(
+        SupervisorHostFixture.of(
             providerOf(),
             feed,
             mock(DirectiveDispatcher.class),

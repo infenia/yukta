@@ -35,6 +35,9 @@ dependencies {
     // Short forms of the model records for tests (testFixtures), shared by the modules above core
     testFixturesApi(project(":plugin-api"))
     testFixturesImplementation(libs.spring.boot.starter.validation)
+    testFixturesImplementation(libs.spring.boot.starter.webflux)
+    testFixturesImplementation(libs.spring.boot.starter.actuator)
+    testFixturesImplementation(libs.caffeine)
 }
 
 

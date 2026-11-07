@@ -111,7 +111,7 @@ class SupervisorHostScopeEnforcementTest {
   private List<SupervisorDecision> run(
       final ExecutionSupervisor supervisor, final boolean dryRun, final int expected) {
     host =
-        new SupervisorHost(
+        SupervisorHostFixture.of(
             providerOf(supervisor),
             new ExecutionEventFeed(),
             dispatcher,

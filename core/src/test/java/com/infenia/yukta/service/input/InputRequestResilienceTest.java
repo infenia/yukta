@@ -38,7 +38,7 @@ class InputRequestResilienceTest {
   private final InputRequestStore store = spy(new InMemoryInputRequestStore(1000));
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
   private final InputBroker broker =
-      new InputBroker(
+      InputBrokerFixture.of(
           store,
           new ExecutionEventFeed(),
           new InMemoryExecutionLogStore(),

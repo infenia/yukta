@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.worker.WorkerRegistration;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.service.worker.WorkerRegistryFixture;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.Set;
@@ -23,7 +24,7 @@ import reactor.test.StepVerifier;
 class WorkerSessionHandlerTest {
 
   private final WorkerRegistry registry =
-      new WorkerRegistry(Duration.ofSeconds(15), new SimpleMeterRegistry());
+      WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry());
   private final WorkerConnections connections = new WorkerConnections();
   private final RSocketRequester requester = mock(RSocketRequester.class);
   private final WorkerSessionHandler handler =

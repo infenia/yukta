@@ -10,7 +10,6 @@ import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import jakarta.annotation.PreDestroy;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -38,23 +37,11 @@ public class PreparedWorkflowCache {
   /** Property key for workflow ID. */
   private static final String WORKFLOW_ID_KEY = "workflowId";
 
-  /** Default for most prepared workflows kept; the least recently used go first. */
-  private static final long DEFAULT_MAX_ENTRIES = 1_000;
-
   /** The Caffeine cache for prepared workflows. */
   private final Cache<String, Entry> cache;
 
   /** Sessions ({@code id}) and workflows ({@code id\0workflow}) that are being deleted. */
   private final java.util.Set<String> deleting = java.util.concurrent.ConcurrentHashMap.newKeySet();
-
-  /**
-   * Creates a cache with the default size limit and no shared meters.
-   *
-   * @param ttlMs TTL in milliseconds
-   */
-  public PreparedWorkflowCache(final long ttlMs) {
-    this(ttlMs, DEFAULT_MAX_ENTRIES, new SimpleMeterRegistry());
-  }
 
   /**
    * Spring-managed constructor.

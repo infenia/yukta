@@ -12,7 +12,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -31,14 +30,11 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /** Execution id by scope and key; entries expire a fixed time after they were written. */
   private final Cache<String, Mono<String>> entries;
 
-  /** Where keys are written and read back after a restart; null keeps them in memory only. */
-  @Nullable private final ExecutionLogStore log;
+  /** Where keys are written and read back after a restart. */
+  private final ExecutionLogStore log;
 
   /** How long a key remembers its execution. */
   private final Duration ttl;
-
-  /** Most keys remembered; beyond it the least recently used one is forgotten early. */
-  private static final long DEFAULT_MAX_KEYS = 100_000;
 
   /**
    * Creates the registry.
@@ -55,45 +51,8 @@ public class StartIdempotency implements SmartInitializingSingleton {
         properties.start().idempotencyMaxKeys());
   }
 
-  /**
-   * Creates the registry.
-   *
-   * @param ttl how long a key remembers its execution
-   * @param log the execution log, which keeps keys across a restart when it is on disk
-   * @param maxKeys most keys remembered; a key evicted before its TTL lets a repeat start again
-   */
-  public StartIdempotency(final Duration ttl, final ExecutionLogStore log, final long maxKeys) {
-    this(ttl, Ticker.systemTicker(), log, maxKeys);
-  }
-
-  /**
-   * Creates a registry with the default key limit.
-   *
-   * @param ttl how long a key remembers its execution
-   * @param log the execution log, which keeps keys across a restart when it is on disk
-   */
-  public StartIdempotency(final Duration ttl, final ExecutionLogStore log) {
-    this(ttl, Ticker.systemTicker(), log, DEFAULT_MAX_KEYS);
-  }
-
-  /**
-   * Creates a registry that keeps its keys in memory only.
-   *
-   * @param ttl how long a key remembers its execution
-   */
-  public StartIdempotency(final Duration ttl) {
-    this(ttl, Ticker.systemTicker(), null, DEFAULT_MAX_KEYS);
-  }
-
-  /* default */ StartIdempotency(final Duration ttl, final Ticker ticker) {
-    this(ttl, ticker, null, DEFAULT_MAX_KEYS);
-  }
-
   /* default */ StartIdempotency(
-      final Duration ttl,
-      final Ticker ticker,
-      @Nullable final ExecutionLogStore log,
-      final long maxKeys) {
+      final Duration ttl, final Ticker ticker, final ExecutionLogStore log, final long maxKeys) {
     this.ttl = ttl;
     this.log = log;
     this.entries =
@@ -108,9 +67,6 @@ public class StartIdempotency implements SmartInitializingSingleton {
   /** Reloads the keys written before the last restart that have not expired yet. */
   @Override
   public void afterSingletonsInstantiated() {
-    if (log == null) {
-      return;
-    }
     final Instant oldest = Instant.now().minus(ttl);
     for (final ExecutionLogEvent event :
         log.ofType(ExecutionLogEvent.Type.IDEMPOTENCY_KEY, oldest)) {
@@ -171,11 +127,8 @@ public class StartIdempotency implements SmartInitializingSingleton {
                 start
                     .get()
                     .doOnNext(
-                        executionId -> {
-                          if (log != null) {
-                            log.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey));
-                          }
-                        })
+                        executionId ->
+                            log.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey)))
                     .cache());
     // A failed start is not remembered, so the client can retry with the same key.
     return result.doOnError(_ -> entries.asMap().remove(mapKey, result));

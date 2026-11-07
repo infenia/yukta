@@ -120,14 +120,14 @@ class WorkerRegistryTest {
     registry.register(worker("w1", 1));
     registry.heartbeat("w1", 5);
     assertThat(registry.find("w1")).hasValueSatisfying(w -> assertThat(w.freeSlots()).isZero());
-    assertThat(new WorkerRegistry(Duration.ofSeconds(1), new SimpleMeterRegistry()).list())
+    assertThat(WorkerRegistryFixture.of(Duration.ofSeconds(1), new SimpleMeterRegistry()).list())
         .isEmpty();
   }
 
   @Test
   void leaseFromSettingsRegistersWorkerThatCanBeFound() {
     final WorkerRegistry fromSettings =
-        new WorkerRegistry(
+        WorkerRegistryFixture.of(
             YuktaSettings.bind(Map.of("yukta.workers.lease", "45s")), new SimpleMeterRegistry());
 
     fromSettings.register(worker("w1", 2));

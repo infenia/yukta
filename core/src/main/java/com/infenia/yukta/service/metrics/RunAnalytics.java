@@ -124,15 +124,6 @@ public class RunAnalytics {
   private Disposable subscription;
 
   /**
-   * Creates the aggregator.
-   *
-   * @param feed the event feed
-   */
-  public RunAnalytics(final ExecutionEventFeed feed) {
-    this(feed, Clock.systemUTC(), null);
-  }
-
-  /**
    * Creates the aggregator, seeded at start from the execution log when there is one.
    *
    * @param feed the event feed
@@ -142,16 +133,6 @@ public class RunAnalytics {
   public RunAnalytics(
       final ExecutionEventFeed feed, final ObjectProvider<ExecutionLogStore> logStore) {
     this(feed, Clock.systemUTC(), logStore.getIfAvailable());
-  }
-
-  /**
-   * Creates the aggregator with a given clock.
-   *
-   * @param feed the event feed
-   * @param clock where "now" comes from
-   */
-  /* default */ RunAnalytics(final ExecutionEventFeed feed, final Clock clock) {
-    this(feed, clock, null);
   }
 
   /* default */ RunAnalytics(

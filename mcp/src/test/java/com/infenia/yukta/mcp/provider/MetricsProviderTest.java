@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.metrics.MetricsProperties;
 import com.infenia.yukta.service.metrics.MetricsSampler;
 import com.infenia.yukta.service.metrics.RunAnalytics;
+import com.infenia.yukta.service.metrics.RunAnalyticsFixture;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -36,7 +37,7 @@ class MetricsProviderTest {
               100,
               List.of("yukta.")));
 
-  private final RunAnalytics analytics = new RunAnalytics(new ExecutionEventFeed());
+  private final RunAnalytics analytics = RunAnalyticsFixture.of(new ExecutionEventFeed());
 
   private final MetricsProvider provider = new MetricsProvider(sampler, analytics);
 

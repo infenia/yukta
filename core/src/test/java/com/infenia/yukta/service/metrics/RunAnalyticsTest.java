@@ -41,7 +41,7 @@ class RunAnalyticsTest {
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
 
   private final RunAnalytics analytics =
-      new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+      RunAnalyticsFixture.of(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
 
   private void run(
       final String id,
@@ -435,9 +435,9 @@ class RunAnalyticsTest {
 
   @Test
   void stopBeforeStartIsHarmless() {
-    new RunAnalytics(feed).stop();
+    RunAnalyticsFixture.of(feed).stop();
 
-    assertThat(new RunAnalytics(feed).liveRuns()).isEmpty();
+    assertThat(RunAnalyticsFixture.of(feed).liveRuns()).isEmpty();
   }
 
   @Test
@@ -641,7 +641,7 @@ class RunAnalyticsTest {
     @SuppressWarnings("unchecked")
     final ObjectProvider<ExecutionLogStore> provider = mock(ObjectProvider.class);
     when(provider.getIfAvailable()).thenReturn(store);
-    final var withLog = new RunAnalytics(new ExecutionEventFeed(), provider);
+    final var withLog = RunAnalyticsFixture.of(new ExecutionEventFeed(), provider);
     withLog.start();
     withLog.seedFromLog();
     await()
@@ -651,7 +651,7 @@ class RunAnalyticsTest {
     withLog.stop();
 
     when(provider.getIfAvailable()).thenReturn(null);
-    final var withoutLog = new RunAnalytics(new ExecutionEventFeed(), provider);
+    final var withoutLog = RunAnalyticsFixture.of(new ExecutionEventFeed(), provider);
     withoutLog.start();
     withoutLog.seedFromLog();
     assertThat(withoutLog.snapshot("session:s1")).doesNotContainKey("runs.finished");
@@ -711,7 +711,8 @@ class RunAnalyticsTest {
     final var started = ExecutionLogEvent.started("old", "s1", "w1", "v1");
     final var input =
         ExecutionLogEvent.input("old", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED"));
-    final var other = new RunAnalytics(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
+    final var other =
+        RunAnalyticsFixture.of(feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC));
 
     analytics.seed(List.of(started, input));
     other.seed(List.of(started));

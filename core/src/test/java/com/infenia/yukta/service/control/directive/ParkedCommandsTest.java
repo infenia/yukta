@@ -27,7 +27,7 @@ import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
-import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
@@ -45,7 +45,7 @@ import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.AttachedSupervisors;
 import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
-import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ControlReviewerFixture;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.service.supervisor.ReviewVerdict;
 import com.infenia.yukta.testsupport.YuktaSettings;
@@ -174,9 +174,9 @@ class ParkedCommandsTest {
             handler,
             registry,
             mock(ControlBusService.class),
-            new ExecutionArchive(),
+            ExecutionArchiveFixture.of(),
             log,
-            new ControlReviewer(providerOf(guard, other)),
+            ControlReviewerFixture.of(providerOf(guard, other)),
             feed);
     final ObjectProvider<DirectiveDispatcher> lazy = mock(ObjectProvider.class);
     when(lazy.getObject()).thenAnswer(_ -> dispatcher);
@@ -479,9 +479,9 @@ class ParkedCommandsTest {
             handler,
             registry,
             mock(ControlBusService.class),
-            new ExecutionArchive(),
+            ExecutionArchiveFixture.of(),
             log,
-            new ControlReviewer(providerOf(guard)),
+            ControlReviewerFixture.of(providerOf(guard)),
             feed);
 
     StepVerifier.create(plain.dispatchOrdered(STOP).contextWrite(AS_SUPERVISOR))

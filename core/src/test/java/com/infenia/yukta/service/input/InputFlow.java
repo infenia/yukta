@@ -65,7 +65,7 @@ public final class InputFlow {
 
   /** The broker. */
   public final InputBroker broker =
-      new InputBroker(
+      InputBrokerFixture.of(
           store,
           feed,
           log,

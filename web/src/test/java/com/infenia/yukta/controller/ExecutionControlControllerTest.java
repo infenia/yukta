@@ -13,6 +13,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -50,7 +51,7 @@ class ExecutionControlControllerTest {
 
   /** The scheduler behind the drain switch. */
   private final ExecutionScheduler scheduler =
-      new ExecutionScheduler(
+      ExecutionSchedulerFixture.of(
           0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
 
   /** The client. */
@@ -353,7 +354,7 @@ class ExecutionControlControllerTest {
   @Test
   void drainStatus_isNotIdleWhileStartWaits() {
     final ExecutionScheduler limited =
-        new ExecutionScheduler(
+        ExecutionSchedulerFixture.of(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final ExecutionScheduler.Permit running =
         java.util.Objects.requireNonNull(limited.acquire("s1", "wf", 0, null).permit().block());

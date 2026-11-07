@@ -19,6 +19,7 @@ import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -48,7 +49,8 @@ class SubWorkflowRunnerTest {
   private final WorkflowDefinition definition =
       Fixtures.workflow("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
-      new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+      ExecutionSchedulerFixture.of(
+          1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
   private final SubWorkflowRunner runner =
       new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
 

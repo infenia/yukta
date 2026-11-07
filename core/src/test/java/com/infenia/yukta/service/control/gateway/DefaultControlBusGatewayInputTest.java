@@ -13,10 +13,11 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.AnswerInputCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -54,13 +55,13 @@ class DefaultControlBusGatewayInputTest {
           controlBusService,
           taskTracker,
           store,
-          new ExecutionArchive(),
+          ExecutionArchiveFixture.of(),
           mock(WorkflowOrchestrator.class),
           mock(WorkflowDefinitionStore.class),
           mock(PreparedWorkflowCache.class),
-          new ExecutionScheduler(
+          ExecutionSchedulerFixture.of(
               0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30)),
-          new StartIdempotency(Duration.ofMinutes(10)),
+          StartIdempotencyFixture.of(Duration.ofMinutes(10)),
           new InMemoryExecutionLogStore());
 
   private void runExists(final String executionId) {

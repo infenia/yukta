@@ -32,7 +32,8 @@ class ExecutionSchedulerTest {
 
   private static ExecutionScheduler scheduler(
       final int global, final int perWorkflow, final int queue, final OnLimit onLimit) {
-    return new ExecutionScheduler(global, perWorkflow, queue, onLimit, Duration.ofMillis(300));
+    return ExecutionSchedulerFixture.of(
+        global, perWorkflow, queue, onLimit, Duration.ofMillis(300));
   }
 
   private static Permit granted(final Admission admission) {
@@ -214,7 +215,7 @@ class ExecutionSchedulerTest {
   @Test
   void queuedStart_givesUpAfterTheQueueTimeout_andFreesItsPlace() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(
+        ExecutionSchedulerFixture.of(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(100));
     final Permit first = granted(scheduler.acquire("s", "w", 0, null));
 
@@ -230,7 +231,7 @@ class ExecutionSchedulerTest {
   @Test
   void queuedStart_thatIsGrantedInTime_isNotTimedOut() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(
+        ExecutionSchedulerFixture.of(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofSeconds(5));
     final Permit first = granted(scheduler.acquire("s", "w", 0, null));
     final var waiting = scheduler.acquire("s", "w", 0, null).permit().toFuture();
@@ -628,7 +629,7 @@ class ExecutionSchedulerTest {
   @Test
   void queueTimeout_isCounted() {
     final ExecutionScheduler scheduler =
-        new ExecutionScheduler(
+        ExecutionSchedulerFixture.of(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(50));
     granted(scheduler.acquire("s", "w", 0, null));
 

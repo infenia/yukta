@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.service.input.InputBroker;
+import com.infenia.yukta.service.input.InputBrokerFixture;
 import com.infenia.yukta.service.input.InputFlow;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
@@ -168,7 +169,7 @@ class InputRequestThreatsTest {
     feed.events().subscribe(events::add);
     final var store = new com.infenia.yukta.service.input.InMemoryInputRequestStore(10);
     final InputBroker broker =
-        new InputBroker(
+        InputBrokerFixture.of(
             store,
             feed,
             log,
@@ -205,7 +206,7 @@ class InputRequestThreatsTest {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final MutableClock clock = new MutableClock();
     final InputBroker broker =
-        new InputBroker(
+        InputBrokerFixture.of(
             new com.infenia.yukta.service.input.InMemoryInputRequestStore(10),
             new ExecutionEventFeed(),
             log,

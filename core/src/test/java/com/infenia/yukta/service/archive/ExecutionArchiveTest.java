@@ -68,7 +68,7 @@ class ExecutionArchiveTest {
 
   @Test
   void defaultArchive_keepsTen_andNeverLessThanOne() {
-    final ExecutionArchive archive = new ExecutionArchive();
+    final ExecutionArchive archive = ExecutionArchiveFixture.of();
     for (int i = 0; i < 11; i++) {
       archive.put(execution("e" + i));
     }

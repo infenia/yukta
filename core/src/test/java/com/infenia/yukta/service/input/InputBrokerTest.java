@@ -56,7 +56,7 @@ class InputBrokerTest {
 
   private InputBroker broker(final YuktaProperties.Input limits) {
     feed.events().subscribe(events::add);
-    return new InputBroker(
+    return InputBrokerFixture.of(
         store, feed, log, meters, new InputRedactor(List.of("note")), limits, clock);
   }
 
@@ -573,7 +573,8 @@ class InputBrokerTest {
     final InMemoryInputRequestStore real = new InMemoryInputRequestStore(100);
     final InputRequestStore racing = org.mockito.Mockito.spy(real);
     final InputBroker racingBroker =
-        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.of(
+            racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
     racingBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     final InputRequest request =
         racingBroker.listOpen(null, null).collectList().blockOptional().orElseThrow().getFirst();
@@ -601,7 +602,8 @@ class InputBrokerTest {
     org.mockito.Mockito.when(failing.findById(open.id()))
         .thenReturn(Mono.error(new IllegalStateException("store down")));
     final InputBroker failingBroker =
-        new InputBroker(failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.of(
+            failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     StepVerifier.create(failingBroker.sweep()).verifyComplete();
   }
@@ -628,7 +630,8 @@ class InputBrokerTest {
     final InputRequest request = onlyOpen();
     // a second broker on the same store has no waiter for the request
     final InputBroker other =
-        new InputBroker(store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.of(
+            store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     final InputRequest result = other.answer(request.id(), null, answer(request, "ann")).block();
 
@@ -645,7 +648,8 @@ class InputBrokerTest {
         .when(racing)
         .createIfAbsent(org.mockito.ArgumentMatchers.any());
     final InputBroker loser =
-        new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
+        InputBrokerFixture.of(
+            racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     loser.ask(who("e2", "n2"), spec("k2")).subscribe();
 

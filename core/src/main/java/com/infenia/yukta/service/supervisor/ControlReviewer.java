@@ -72,15 +72,6 @@ public class ControlReviewer {
   }
 
   /**
-   * Create the reviewer with the default 5 s time limit.
-   *
-   * @param supervisors the registered supervisors
-   */
-  public ControlReviewer(final ObjectProvider<ExecutionSupervisor> supervisors) {
-    this(supervisors, Duration.ofSeconds(5));
-  }
-
-  /**
    * Includes the supervisors attached at run time in reviews.
    *
    * @param attachedSupervisors the set

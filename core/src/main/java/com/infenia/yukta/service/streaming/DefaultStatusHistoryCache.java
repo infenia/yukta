@@ -43,15 +43,6 @@ public class DefaultStatusHistoryCache implements StatusHistoryCache {
   private final Cache<String, Deque<WorkflowProgress>> cache;
 
   /**
-   * Create a new cache with the configured TTL.
-   *
-   * @param ttlMinutes the time-to-live in minutes (must be > 0 and <= 30)
-   */
-  public DefaultStatusHistoryCache(final int ttlMinutes) {
-    this(ttlMinutes, 200, 1000);
-  }
-
-  /**
    * Create a cache from the settings.
    *
    * @param properties the {@code yukta.streaming} settings

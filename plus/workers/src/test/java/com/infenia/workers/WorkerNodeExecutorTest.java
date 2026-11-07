@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import com.infenia.yukta.plugin.exception.RemoteFailureException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.service.worker.WorkerRegistryFixture;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.Map;
@@ -24,7 +25,7 @@ class WorkerNodeExecutorTest {
 
   private final WorkerNodeExecutor executor =
       new WorkerNodeExecutor(
-          new WorkerRegistry(Duration.ofSeconds(15), new SimpleMeterRegistry()),
+          WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry()),
           new WorkerConnections(),
           new ObjectMapper());
 
@@ -88,7 +89,7 @@ class WorkerNodeExecutorTest {
   @Test
   void pick_prefersFreeSlots_thenLowestId_skipsUnconnected() {
     final WorkerRegistry registry =
-        new WorkerRegistry(Duration.ofSeconds(15), new SimpleMeterRegistry());
+        WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry());
     final WorkerConnections connections = new WorkerConnections();
     final WorkerNodeExecutor picking =
         new WorkerNodeExecutor(registry, connections, new ObjectMapper());
