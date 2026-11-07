@@ -18,9 +18,7 @@ import org.springframework.validation.annotation.Validated;
 /**
  * The settings of the core module under {@code yukta.*}. A value out of range stops start-up with
  * the name of the setting, and the property names appear in the IDE through the generated
- * configuration metadata. The old {@code control.bus.*} and {@code workflow.cache.*} names are
- * mapped to {@code yukta.control-bus.*} and {@code yukta.cache.*} by {@link LegacyPropertyAliases},
- * for one release.
+ * configuration metadata.
  *
  * @param execution run limits and queueing
  * @param executionLog the in-memory execution log
@@ -49,7 +47,6 @@ public record YuktaProperties(
     @Valid @DefaultValue Start start,
     @Valid @DefaultValue Results results,
     @Valid @DefaultValue Workers workers,
-    @Valid @DefaultValue ControlBus controlBus,
     @Valid @DefaultValue Cache cache,
     @Valid @DefaultValue Control control) {
 
@@ -273,18 +270,6 @@ public record YuktaProperties(
    * @param lease how long a heartbeat keeps a worker
    */
   public record Workers(@NotNull @DefaultValue("15s") Duration lease) {}
-
-  /**
-   * The plugin-level control bus.
-   *
-   * @param batchSize signals handled per batch
-   * @param batchTimeout longest wait to fill a batch
-   * @param bufferSize buffer for signals
-   */
-  public record ControlBus(
-      @Min(1) @DefaultValue("100") int batchSize,
-      @NotNull @DefaultValue("50ms") Duration batchTimeout,
-      @Min(1) @DefaultValue("256") int bufferSize) {}
 
   /**
    * The prepared workflow cache.

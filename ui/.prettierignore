@@ -25,3 +25,4 @@ docs/
 
 # Generated from the server (see OpenApiSnapshotTest)
 openapi.json
+src/types/api.generated.ts

@@ -34,15 +34,6 @@ class ControlKeyTest {
   }
 
   @Test
-  void keyIsForNodeOfWorkflowWhateverTheRun() {
-    assertThat(ControlKey.isFor("wf\0run-1\0n", "wf", "n")).isTrue();
-    assertThat(ControlKey.isFor("wf\0run-2\0n", "wf", "n")).isTrue();
-    assertThat(ControlKey.isFor("wf\0n", "wf", "n")).isTrue();
-    assertThat(ControlKey.isFor("wf2\0run-1\0n", "wf", "n")).as("other workflow").isFalse();
-    assertThat(ControlKey.isFor("wf\0run-1\0n2", "wf", "n")).as("other node").isFalse();
-  }
-
-  @Test
   void keyBelongsToWorkflow() {
     assertThat(ControlKey.isIn("wf\0run-1\0n", "wf")).isTrue();
     assertThat(ControlKey.isIn("wf\0n", "wf")).isTrue();

@@ -250,30 +250,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * Asks for an execution slot.
-   *
-   * @param sessionId the session
-   * @param workflowId the workflow
-   * @return the slot at once if there is room, otherwise a Mono that waits for one; errors with
-   *     {@link ExecutionRejectedException} if the start has to be refused
-   */
-  public Admission acquire(final String sessionId, final String workflowId) {
-    return acquire(sessionId, workflowId, 0);
-  }
-
-  /**
-   * Asks for an execution slot with a priority.
-   *
-   * @param sessionId the session
-   * @param workflowId the workflow
-   * @param priority higher is admitted first when starts have to wait
-   * @return the slot at once if there is room, otherwise a Mono that waits for one
-   */
-  public Admission acquire(final String sessionId, final String workflowId, final int priority) {
-    return acquire(sessionId, workflowId, priority, null);
-  }
-
-  /**
    * Asks for an execution slot with a priority, for an execution that can be found later.
    *
    * @param sessionId the session
@@ -411,26 +387,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * Child runs alive now (counted only when a child limit is set).
-   *
-   * @return the count
-   */
-  public int childrenAlive() {
-    return liveChildren.get();
-  }
-
-  /**
-   * The per-workflow limit now in force.
-   *
-   * @return the limit, 0 for none
-   */
-  public int perWorkflowLimit() {
-    synchronized (lock) {
-      return maxPerWorkflow;
-    }
-  }
-
-  /**
    * Changes the limits while running. Raising them admits waiting starts at once; lowering them
    * lets running executions finish.
    *
@@ -525,16 +481,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   @Autowired(required = false)
   public void setLeaderElection(final LeaderElection leaderElection) {
     this.election = leaderElection;
-  }
-
-  /**
-   * Limits new starts (not restarts or resumes) per workflow and minute, whoever asks: REST, MCP,
-   * triggers or scheduled runs.
-   *
-   * @param perMinute starts per workflow and minute, 0 for no limit
-   */
-  public void setMaxStartsPerMinute(final int perMinute) {
-    this.startRate = new CallRateLimiter(perMinute);
   }
 
   private void assertStartRate(final String sessionId, final String workflowId) {
@@ -825,5 +771,35 @@ public class ExecutionScheduler implements SmartLifecycle {
     public void giveBack() {
       permit.subscribe(Permit::release, _ -> {});
     }
+  }
+
+  /**
+   * Child runs alive now (counted only when a child limit is set).
+   *
+   * @return the count
+   */
+  public int childrenAlive() {
+    return liveChildren.get();
+  }
+
+  /**
+   * The per-workflow limit now in force.
+   *
+   * @return the limit, 0 for none
+   */
+  public int perWorkflowLimit() {
+    synchronized (lock) {
+      return maxPerWorkflow;
+    }
+  }
+
+  /**
+   * Limits new starts (not restarts or resumes) per workflow and minute, whoever asks: REST, MCP,
+   * triggers or scheduled runs.
+   *
+   * @param perMinute starts per workflow and minute, 0 for no limit
+   */
+  public void setMaxStartsPerMinute(final int perMinute) {
+    this.startRate = new CallRateLimiter(perMinute);
   }
 }

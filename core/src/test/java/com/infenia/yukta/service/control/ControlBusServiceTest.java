@@ -14,12 +14,10 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
-import com.infenia.yukta.testsupport.YuktaSettings;
 import java.lang.reflect.Field;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -80,16 +78,25 @@ class ControlBusServiceTest {
 
   private ControlBusService controlBusService;
 
+  private ActivePluginRegistry activePluginRegistry;
+
   @BeforeEach
   void setUp() {
+    activePluginRegistry = new ActivePluginRegistry(List.of(handler1, handler2));
     controlBusService =
-        new ControlBusService(
-            100,
-            50,
-            256,
-            List.of(handler1, handler2),
-            new ActivePluginRegistry(List.of(handler1, handler2)));
+        new ControlBusService(100, 50, 256, List.of(handler1, handler2), activePluginRegistry);
     controlBusService.init();
+  }
+
+  @Test
+  @DisplayName("the default batch settings build a bus that accepts signals")
+  void defaultSettingsBuildBusThatAcceptsSignals() {
+    final ControlBusService fromDefaults =
+        new ControlBusService(
+            List.of(handler1, handler2), new ActivePluginRegistry(List.of(handler1, handler2)));
+    fromDefaults.init();
+
+    StepVerifier.create(fromDefaults.emit(message)).expectComplete().verify(Duration.ofSeconds(2));
   }
 
   @Test
@@ -113,22 +120,6 @@ class ControlBusServiceTest {
     bus.init();
 
     verify(failing, timeout(5_000).times(2)).scanOrDefault(Scannable.Attr.TERMINATED, false);
-  }
-
-  @Test
-  @DisplayName("settings build a bus that accepts signals")
-  void settingsBuildBusThatAcceptsSignals() {
-    final ControlBusService fromSettings =
-        new ControlBusService(
-            YuktaSettings.bind(
-                Map.of(
-                    "yukta.control-bus.batch-size", "10",
-                    "yukta.control-bus.batch-timeout", "20ms")),
-            List.of(handler1, handler2),
-            new ActivePluginRegistry(List.of(handler1, handler2)));
-    fromSettings.init();
-
-    StepVerifier.create(fromSettings.emit(message)).expectComplete().verify(Duration.ofSeconds(2));
   }
 
   @Nested
@@ -322,7 +313,7 @@ class ControlBusServiceTest {
     void registerPlugin_storesAndRetrievable() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
@@ -339,8 +330,8 @@ class ControlBusServiceTest {
 
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, altNodeId, altPlugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, altNodeId, altPlugin);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
@@ -354,19 +345,10 @@ class ControlBusServiceTest {
   class UnregisterPluginTests {
 
     @Test
-    @DisplayName("should release a registration made outside any run")
-    void unregisterPlugin_withoutRun_notifiesHandlersWithTheRunlessKey() {
-      controlBusService.registerPlugin(WORKFLOW_ID, NODE_ID, plugin);
-      controlBusService.unregisterPlugin(WORKFLOW_ID, NODE_ID);
-
-      verify(handler1).removeNode(WORKFLOW_ID + "\0" + NODE_ID);
-    }
-
-    @Test
     @DisplayName("should remove plugin and notify all handlers")
     void unregisterPlugin_cleansUp() {
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       verify(handler1).removeNode(COMPOSITE_KEY);
       verify(handler2).removeNode(COMPOSITE_KEY);
@@ -375,8 +357,8 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should prevent unregistered plugin from receiving commands")
     void unregisterPlugin_preventsFurtherCalls() {
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorMatches(
@@ -389,7 +371,7 @@ class ControlBusServiceTest {
     @Test
     @DisplayName("should not notify handlers when unregistering a never-registered node")
     void unregisterPlugin_nonExistent_doesNotNotifyHandlers() {
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
 
       verify(handler1, never()).removeNode(any());
       verify(handler2, never()).removeNode(any());
@@ -401,11 +383,11 @@ class ControlBusServiceTest {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
       // Two concurrent "executions" register the same shared plugin instance for the same key.
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       // First execution finishes and releases its registration; the second is still active.
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
       verify(handler1, never()).removeNode(COMPOSITE_KEY);
       verify(handler2, never()).removeNode(COMPOSITE_KEY);
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
@@ -413,7 +395,7 @@ class ControlBusServiceTest {
           .verifyComplete();
 
       // Second execution finishes; now the registration is fully released.
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
       verify(handler1).removeNode(COMPOSITE_KEY);
       verify(handler2).removeNode(COMPOSITE_KEY);
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
@@ -435,7 +417,7 @@ class ControlBusServiceTest {
     @DisplayName("should delegate to registered plugin")
     void sendCommand_pluginRegistered_delegatesToPlugin() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
@@ -460,7 +442,7 @@ class ControlBusServiceTest {
     void sendCommand_pluginErrors_propagatesError() {
       final RuntimeException error = new RuntimeException("Plugin failed");
       when(plugin.onControlSignal(message)).thenReturn(Mono.error(error));
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectErrorSatisfies(e -> assertThat(e).isSameAs(error))
@@ -473,7 +455,7 @@ class ControlBusServiceTest {
       final Message<?> nullPayloadMessage = mock(Message.class);
       when(nullPayloadMessage.payload()).thenReturn(null);
       when(plugin.onControlSignal(nullPayloadMessage)).thenReturn(Mono.just(nullPayloadMessage));
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       StepVerifier.create(
               controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, nullPayloadMessage))
@@ -540,7 +522,7 @@ class ControlBusServiceTest {
       final Message<?> command = mock(Message.class);
       when(command.payload()).thenReturn("a command");
       when(plugin.onControlSignal(command)).thenReturn(Mono.just(command));
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
 
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, command))
           .expectNext(command)
@@ -655,12 +637,12 @@ class ControlBusServiceTest {
     void fullLifecycle_registerUseUnregister() {
       doReturn(Mono.just(message)).when(plugin).onControlSignal(message);
 
-      controlBusService.registerPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
+      activePluginRegistry.register(WORKFLOW_ID, EXEC_ID, NODE_ID, plugin);
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectNext(message)
           .verifyComplete();
 
-      controlBusService.unregisterPlugin(WORKFLOW_ID, EXEC_ID, NODE_ID);
+      activePluginRegistry.unregister(WORKFLOW_ID, EXEC_ID, NODE_ID);
       StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
           .expectError(IllegalArgumentException.class)
           .verify(Duration.ofSeconds(2));

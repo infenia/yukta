@@ -12,7 +12,6 @@ public enum TaskStatus {
   RUNNING,
   SUCCESS,
   FAILURE,
-  ERROR,
   STOPPED,
   /** The node was cancelled before it finished (a stop, a timeout or a failing sibling). */
   CANCELLED,

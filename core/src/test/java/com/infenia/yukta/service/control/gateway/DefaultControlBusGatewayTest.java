@@ -37,7 +37,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -163,33 +162,6 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(signal)).thenReturn(Mono.error(new IllegalArgumentException("x")));
 
     StepVerifier.create(gateway.emit(signal)).verifyError(IllegalArgumentException.class);
-  }
-
-  @Test
-  void registerPlugin_validInputs_delegatesToControlBusService() {
-    // Given
-    final String workflowId = "workflow-1";
-    final String nodeId = "node-1";
-    final Plugin plugin = mock(Plugin.class);
-
-    // When
-    gateway.registerPlugin(workflowId, nodeId, plugin);
-
-    // Then
-    verify(controlBusService).registerPlugin(workflowId, nodeId, plugin);
-  }
-
-  @Test
-  void unregisterPlugin_validInputs_delegatesToControlBusService() {
-    // Given
-    final String workflowId = "workflow-1";
-    final String nodeId = "node-1";
-
-    // When
-    gateway.unregisterPlugin(workflowId, nodeId);
-
-    // Then
-    verify(controlBusService).unregisterPlugin(workflowId, nodeId);
   }
 
   @Test
@@ -614,7 +586,8 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -638,7 +611,8 @@ class DefaultControlBusGatewayTest {
         .thenReturn(List.of());
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -663,7 +637,7 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.stopExecution(executionId, reason);
+    final Mono<String> result = gateway.stopExecution(executionId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -682,7 +656,7 @@ class DefaultControlBusGatewayTest {
     when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
 
     // When
-    final Mono<String> result = gateway.stopExecution(executionId, reason);
+    final Mono<String> result = gateway.stopExecution(executionId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -704,7 +678,7 @@ class DefaultControlBusGatewayTest {
                 executionId, "sess", "wf", TaskStatus.RUNNING, List.of(), null, null));
     when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
 
-    StepVerifier.create(gateway.stopExecution(executionId, "stop"))
+    StepVerifier.create(gateway.stopExecution(executionId, "stop", StopMode.DRAIN))
         .expectNext(executionId)
         .verifyComplete();
 
@@ -720,7 +694,7 @@ class DefaultControlBusGatewayTest {
             new WorkflowProgress(
                 executionId, "sess", "wf", TaskStatus.SUCCESS, List.of(), null, null));
 
-    StepVerifier.create(gateway.stopExecution(executionId, "stop"))
+    StepVerifier.create(gateway.stopExecution(executionId, "stop", StopMode.DRAIN))
         .expectError(IllegalArgumentException.class)
         .verify();
 
@@ -758,7 +732,8 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -798,7 +773,8 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result)
@@ -834,7 +810,8 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.error(testError));
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -855,7 +832,8 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     // When
-    final Mono<List<String>> result = gateway.stopWorkflow(sessionId, workflowId, reason);
+    final Mono<List<String>> result =
+        gateway.stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
 
     // Then
     StepVerifier.create(result).assertNext(ids -> assertThat(ids).isNotNull()).verifyComplete();
@@ -2094,24 +2072,6 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void registerPlugin_multipleCalls_registersEachPlugin() {
-    // Given
-    final String workflowId = "wf-multi";
-    final String nodeId1 = "node-1";
-    final String nodeId2 = "node-2";
-    final Plugin plugin1 = mock(Plugin.class);
-    final Plugin plugin2 = mock(Plugin.class);
-
-    // When
-    gateway.registerPlugin(workflowId, nodeId1, plugin1);
-    gateway.registerPlugin(workflowId, nodeId2, plugin2);
-
-    // Then
-    verify(controlBusService).registerPlugin(workflowId, nodeId1, plugin1);
-    verify(controlBusService).registerPlugin(workflowId, nodeId2, plugin2);
-  }
-
-  @Test
   void getHistory_emptyHistory_returnsEmptyList() {
     // Given
     final String sessionId = "sess-empty-history";
@@ -2209,7 +2169,7 @@ class DefaultControlBusGatewayTest {
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
         .thenReturn(Mono.empty());
 
-    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId))
+    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, Map.of(), null))
         .expectNextCount(1)
         .verifyComplete();
 
@@ -2235,7 +2195,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     StepVerifier.create(
-            gateway.startWorkflow(sessionId, workflowId, Map.of("yukta.version", "0001-a")))
+            gateway.startWorkflow(sessionId, workflowId, Map.of("yukta.version", "0001-a"), null))
         .expectNextCount(1)
         .verifyComplete();
 
@@ -2262,7 +2222,7 @@ class DefaultControlBusGatewayTest {
     for (final Map<String, Object> payload :
         java.util.Arrays.<Map<String, Object>>asList(
             null, Map.of("yukta.version", 5), Map.of("yukta.version", " "))) {
-      StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload))
+      StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload, null))
           .expectNextCount(1)
           .verifyComplete();
     }
@@ -2288,7 +2248,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result)
@@ -2329,7 +2289,7 @@ class DefaultControlBusGatewayTest {
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), eq(payload), any()))
         .thenReturn(Mono.empty());
 
-    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload))
+    StepVerifier.create(gateway.startWorkflow(sessionId, workflowId, payload, null))
         .expectNextCount(1)
         .verifyComplete();
 
@@ -2353,7 +2313,7 @@ class DefaultControlBusGatewayTest {
             eq("sess-live"), eq("wf-live"), anyString(), eq(preparedWorkflow), anyMap(), any()))
         .thenReturn(Mono.<Void>never().doOnCancel(() -> cancelled.set(true)));
 
-    StepVerifier.create(gateway.startWorkflow("sess-live", "wf-live"))
+    StepVerifier.create(gateway.startWorkflow("sess-live", "wf-live", Map.of(), null))
         .expectNextCount(1)
         .verifyComplete();
     assertThat(cancelled).isFalse();
@@ -2367,7 +2327,7 @@ class DefaultControlBusGatewayTest {
   void startWorkflow_whileTheWorkflowIsBeingDeleted_isRefused() {
     when(preparedWorkflowCache.isDeleting("s-del", "w-del")).thenReturn(true);
 
-    StepVerifier.create(gateway.startWorkflow("s-del", "w-del"))
+    StepVerifier.create(gateway.startWorkflow("s-del", "w-del", Map.of(), null))
         .expectError(com.infenia.yukta.service.ConflictException.class)
         .verify();
   }
@@ -2380,7 +2340,7 @@ class DefaultControlBusGatewayTest {
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result)
@@ -2417,7 +2377,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result)
@@ -2455,7 +2415,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result)
@@ -2486,7 +2446,7 @@ class DefaultControlBusGatewayTest {
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.error(testError));
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -2511,7 +2471,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.error(testError));
 
     // When - execution starts asynchronously, so we get execution ID immediately
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then - returns execution ID without waiting for execution to complete
     StepVerifier.create(result).expectNextMatches(id -> !id.isEmpty()).verifyComplete();
@@ -2527,7 +2487,7 @@ class DefaultControlBusGatewayTest {
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.error(testError));
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result).expectError(RuntimeException.class).verify();
@@ -2551,8 +2511,8 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When - call twice
-    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId);
-    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
+    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then - execution IDs should be different
     final String execId1 = result1.block();
@@ -2580,7 +2540,7 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId);
+    final Mono<String> result = gateway.startWorkflow(sessionId, workflowId, Map.of(), null);
 
     // Then
     StepVerifier.create(result)
@@ -2633,8 +2593,8 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Mono.empty());
 
     // When
-    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId1);
-    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId2);
+    final Mono<String> result1 = gateway.startWorkflow(sessionId, workflowId1, Map.of(), null);
+    final Mono<String> result2 = gateway.startWorkflow(sessionId, workflowId2, Map.of(), null);
 
     // Then
     final String execId1 = result1.block();
@@ -2732,8 +2692,8 @@ class DefaultControlBusGatewayTest {
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
-    final var first = one.startWorkflow("s", "wf-race").toFuture();
-    final var second = one.startWorkflow("s", "wf-race").toFuture();
+    final var first = one.startWorkflow("s", "wf-race", Map.of(), null).toFuture();
+    final var second = one.startWorkflow("s", "wf-race", Map.of(), null).toFuture();
     preparing.tryEmitValue(prepared);
 
     assertThat(first.isDone() && second.isDone()).isTrue();
@@ -2750,7 +2710,7 @@ class DefaultControlBusGatewayTest {
     final var scheduler =
         new ExecutionScheduler(
             1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ofSeconds(30));
-    scheduler.acquire("s", "wf-full").permit().block();
+    scheduler.acquire("s", "wf-full", 0, null).permit().block();
     final DefaultControlBusGateway full =
         new DefaultControlBusGateway(
             controlBusService,
@@ -2764,7 +2724,7 @@ class DefaultControlBusGatewayTest {
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
-    StepVerifier.create(full.startWorkflow("s", "wf-full", Map.of()))
+    StepVerifier.create(full.startWorkflow("s", "wf-full", Map.of(), null))
         .expectError(ExecutionRejectedException.class)
         .verify();
 
@@ -2793,9 +2753,9 @@ class DefaultControlBusGatewayTest {
 
     StepVerifier.create(
             Flux.merge(
-                    gateway.startWorkflow("s", "wf-shared"),
-                    gateway.startWorkflow("s", "wf-shared"),
-                    gateway.startWorkflow("s", "wf-shared"))
+                    gateway.startWorkflow("s", "wf-shared", Map.of(), null),
+                    gateway.startWorkflow("s", "wf-shared", Map.of(), null),
+                    gateway.startWorkflow("s", "wf-shared", Map.of(), null))
                 .collectList())
         .assertNext(ids -> assertThat(ids).hasSize(3).doesNotHaveDuplicates())
         .verifyComplete();
@@ -2955,8 +2915,8 @@ class DefaultControlBusGatewayTest {
             auditLog);
     final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
     limited.setAuditSink(sunk::add);
-    real.acquire("s", "w").permit().block();
-    final var waiting = real.acquire("s", "w").permit().toFuture();
+    real.acquire("s", "w", 0, null).permit().block();
+    final var waiting = real.acquire("s", "w", 0, null).permit().toFuture();
 
     StepVerifier.create(limited.changeLimits(2, 0)).verifyComplete();
 
@@ -3077,7 +3037,7 @@ class DefaultControlBusGatewayTest {
             real,
             new StartIdempotency(java.time.Duration.ofMinutes(1)),
             log);
-    real.acquire("s", "w").permit().block();
+    real.acquire("s", "w", 0, null).permit().block();
     real.acquire("s", "w", 0, "waiting").permit().subscribe();
 
     StepVerifier.create(limited.changePriority("waiting", 5)).verifyComplete();

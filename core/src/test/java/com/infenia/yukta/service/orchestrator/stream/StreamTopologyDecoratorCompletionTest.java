@@ -49,11 +49,8 @@ class StreamTopologyDecoratorCompletionTest {
       final Flux<Message<?>> input) {
     when(store.save(anyString(), anyString(), any())).thenReturn(Mono.empty());
     when(store.saveAll(anyString(), anyString(), any())).thenCallRealMethod();
-    final Flux<Message<?>> output =
-        decorator.applyLoggingAndBroadcasting(
-            "e", "n", input, 16, disposables, new ArrayList<>(), () -> false, checkpoint);
-    return decorator.applyEdgeRouting(
-        new Flux[] {output}, new com.infenia.yukta.model.workflow.ParentEdgeInfo(0, "n", null));
+    return decorator.applyLoggingAndBroadcasting(
+        "e", "n", input, 16, disposables, new ArrayList<>(), () -> false, checkpoint);
   }
 
   private static Message<?> message() {

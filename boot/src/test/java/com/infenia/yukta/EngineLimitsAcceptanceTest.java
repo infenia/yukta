@@ -77,7 +77,7 @@ class EngineLimitsAcceptanceTest {
             .filter(line -> line.line().startsWith("NodeStalled:"))
             .subscribe(warnings::add);
 
-    final String executionId = gateway.startWorkflow(session, "wf").block();
+    final String executionId = gateway.startWorkflow(session, "wf", Map.of(), null).block();
     await().atMost(WAIT).until(() -> !unfinished(tracker.getProgressByExecutionId(executionId)));
     subscription.dispose();
 
@@ -99,7 +99,7 @@ class EngineLimitsAcceptanceTest {
     final Map<String, Object> engine = Map.of("concurrencyGroup", "tiny");
     define(session, List.of(sleeper("a", engine), sleeper("b", engine), sleeper("c", engine)));
 
-    final String executionId = gateway.startWorkflow(session, "wf").block();
+    final String executionId = gateway.startWorkflow(session, "wf", Map.of(), null).block();
     int mostRunning = 0;
     boolean sawQueued = false;
     final long deadline = System.nanoTime() + WAIT.toNanos();

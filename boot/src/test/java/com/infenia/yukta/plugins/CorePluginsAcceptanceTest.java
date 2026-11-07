@@ -220,7 +220,8 @@ class CorePluginsAcceptanceTest {
   @Test
   void waitForSignal_holdsTheRunUntilItIsApproved() {
     final var key = wf.chain(node("w", "WAIT_FOR_SIGNAL", Map.of("signal", "approve")));
-    final String executionId = gateway.startWorkflow(key.session(), key.workflowId()).block();
+    final String executionId =
+        gateway.startWorkflow(key.session(), key.workflowId(), Map.of(), null).block();
     await()
         .atMost(PluginWorkflows.WAIT)
         .until(
@@ -248,7 +249,8 @@ class CorePluginsAcceptanceTest {
   @Test
   void askInput_holdsTheRunUntilTheRequestIsAnswered() {
     final var key = wf.chain(node("q", "ASK_INPUT", Map.of("prompt", "Deploy?", "risk", "MEDIUM")));
-    final String executionId = gateway.startWorkflow(key.session(), key.workflowId()).block();
+    final String executionId =
+        gateway.startWorkflow(key.session(), key.workflowId(), Map.of(), null).block();
     await()
         .atMost(PluginWorkflows.WAIT)
         .until(

@@ -156,7 +156,7 @@ public class WorkflowExecutionProvider {
                     () -> {
                       started.set(true);
                       return workflowService
-                          .validateAndStartWorkflow(sessionId, workflowId, payload)
+                          .validateAndStartWorkflow(sessionId, workflowId, payload, null)
                           .map(WorkflowExecution::executionId);
                     }))
         .map(executionId -> new WorkflowStartResult(executionId, !started.get()));

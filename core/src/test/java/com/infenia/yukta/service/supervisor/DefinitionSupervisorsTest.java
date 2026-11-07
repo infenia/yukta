@@ -25,7 +25,6 @@ import com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -341,19 +340,6 @@ class DefinitionSupervisorsTest {
     StepVerifier.create(service.removeForSession(SESSION)).verifyComplete();
 
     assertThat(attachments()).isEmpty();
-  }
-
-  @Test
-  void sessionRefsAreKeptAndForgottenInTheStore() {
-    store.saveSessionRefs(SESSION, List.of(ref("g"))).block();
-
-    assertThat(store.sessionRefs(SESSION).block()).hasSize(1);
-    assertThat(store.sessionsWithRefs().collectList().block()).containsExactly(SESSION);
-
-    store.saveSessionRefs(SESSION, List.of()).block();
-
-    assertThat(store.sessionRefs(SESSION).block()).isEmpty();
-    assertThat(Set.copyOf(store.sessionsWithRefs().collectList().block())).isEmpty();
   }
 
   @Test

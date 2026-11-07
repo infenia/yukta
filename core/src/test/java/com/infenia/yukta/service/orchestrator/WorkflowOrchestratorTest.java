@@ -691,7 +691,7 @@ class WorkflowOrchestratorTest {
             compiler,
             preparator,
             new ExecutionResultService(100, Duration.ofMinutes(5), 10));
-    final ExecutionScheduler.Permit holder = limited.acquire("s", "w").permit().block();
+    final ExecutionScheduler.Permit holder = limited.acquire("s", "w", 0, null).permit().block();
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
         .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
@@ -738,7 +738,7 @@ class WorkflowOrchestratorTest {
             compiler,
             preparator,
             new ExecutionResultService(100, Duration.ofMinutes(5), 10));
-    limited.acquire("s", "w").permit().block();
+    limited.acquire("s", "w", 0, null).permit().block();
     final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("n1"));
     lenient()
         .when(executionControlFactory.create(anyString(), anyString(), anyString(), any(), any()))
@@ -914,7 +914,7 @@ class WorkflowOrchestratorTest {
     final ExecutionScheduler limited =
         new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
-    final ExecutionScheduler.Permit held = limited.acquire("s", "w").permit().block();
+    final ExecutionScheduler.Permit held = limited.acquire("s", "w", 0, null).permit().block();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-wait");
     assertThat(admission.immediate()).isFalse();
 
@@ -1077,7 +1077,7 @@ class WorkflowOrchestratorTest {
         .thenThrow(new IllegalStateException("cannot compile"));
     final ExecutionScheduler limited =
         new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    final ExecutionScheduler.Admission admission = limited.acquire("s", "w");
+    final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, null);
 
     StepVerifier.create(
             orchestrator.restartFromNode(

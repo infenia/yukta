@@ -108,17 +108,6 @@ public class ControlReviewer {
   }
 
   /**
-   * Same as {@link #setDryRun(ObjectProvider, YuktaProperties)} with an explicit flag.
-   *
-   * @param host the host lookup
-   * @param dryRun the global dry-run flag
-   */
-  public void setDryRun(final ObjectProvider<SupervisorHost> host, final boolean dryRun) {
-    this.hostLookup = host;
-    this.dryRun = dryRun;
-  }
-
-  /**
    * Reviews a command in supervisor order, stopping at the first refusal. A need for approval
    * counts as a refusal here: use {@link #verdict} where a command can be parked.
    *

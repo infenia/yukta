@@ -89,7 +89,7 @@ class PostgresPersistenceAcceptanceTest {
                 List.of(new Edge("t", "end", null))))
         .block();
 
-    final String executionId = gateway.startWorkflow(session, "wf").block();
+    final String executionId = gateway.startWorkflow(session, "wf", Map.of(), null).block();
     await()
         .atMost(Duration.ofSeconds(30))
         .until(

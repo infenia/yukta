@@ -91,7 +91,7 @@ public class RunAnalytics {
 
   /** Statuses that count as a failure. */
   private static final Set<String> FAILED =
-      Set.of(TaskStatus.FAILURE.name(), TaskStatus.ERROR.name(), TaskStatus.TIMED_OUT.name());
+      Set.of(TaskStatus.FAILURE.name(), TaskStatus.TIMED_OUT.name());
 
   /** The kind of scope for session and workflow keys. */
   private static final String OTHER = "other";

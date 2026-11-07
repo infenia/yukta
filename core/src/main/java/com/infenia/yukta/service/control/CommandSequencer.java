@@ -58,13 +58,4 @@ public final class CommandSequencer {
     mine.tryEmitEmpty();
     tails.remove(key, mine);
   }
-
-  /**
-   * Number of keys with work queued or running.
-   *
-   * @return the count of keys currently tracked
-   */
-  public int pendingKeys() {
-    return tails.size();
-  }
 }

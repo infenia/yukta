@@ -926,7 +926,7 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     // Emit ERROR status (should set endTime)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.ERROR, Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
 
     // Wait for event processing
     await()
@@ -937,12 +937,12 @@ class DefaultTaskTrackerServiceTest {
               final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
               return progress != null
                   && !progress.tasks().isEmpty()
-                  && TaskStatus.ERROR == progress.tasks().getFirst().status()
+                  && TaskStatus.FAILURE == progress.tasks().getFirst().status()
                   && progress.tasks().getFirst().endTime() != null;
             });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-    assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.ERROR);
+    assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.FAILURE);
     assertThat(progress.tasks().getFirst().endTime()).isNotNull();
   }
 
@@ -1744,7 +1744,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(firstEndTime).isNotNull();
 
     // Emit ERROR — endTime should NOT change (already terminal)
-    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.ERROR, Map.of());
+    tracker.emitTaskStatusEvent(executionId, "node1", "module", TaskStatus.FAILURE, Map.of());
 
     await()
         .during(Duration.ofMillis(300))
@@ -1816,7 +1816,8 @@ class DefaultTaskTrackerServiceTest {
         executionId, "node1", "mod2", TaskStatus.PENDING, Map.of("k2", "v2"));
 
     // Then emit ERROR to set endTime
-    tracker.emitTaskStatusEvent(executionId, "node1", "mod3", TaskStatus.ERROR, Map.of("k3", "v3"));
+    tracker.emitTaskStatusEvent(
+        executionId, "node1", "mod3", TaskStatus.FAILURE, Map.of("k3", "v3"));
 
     // Wait for processing
     await()
@@ -2034,7 +2035,7 @@ class DefaultTaskTrackerServiceTest {
     assertThat(tracker.getStatusStream(executionId) != null).isTrue();
 
     // Emit terminal status to trigger cleanup
-    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.ERROR);
+    tracker.emitWorkflowStatusEvent(executionId, TaskStatus.FAILURE);
 
     // Wait for cleanup (using short TTL from setUp)
     await()

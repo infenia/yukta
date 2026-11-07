@@ -3858,7 +3858,7 @@
             "type" : [ "string", "null" ]
           },
           "status" : {
-            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           }
         },
@@ -4258,7 +4258,7 @@
           },
           "status" : {
             "description" : "The execution status",
-            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           },
           "workflowId" : {
@@ -4396,7 +4396,7 @@
             "type" : "string"
           },
           "status" : {
-            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "ERROR", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
+            "enum" : [ "PENDING", "QUEUED", "RUNNING", "SUCCESS", "FAILURE", "STOPPED", "CANCELLED", "TIMED_OUT", "SKIPPED", "UPSTREAM_FAILED", "ABORTED" ],
             "type" : "string"
           },
           "tasks" : {

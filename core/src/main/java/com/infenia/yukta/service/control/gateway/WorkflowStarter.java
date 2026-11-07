@@ -50,11 +50,6 @@ class WorkflowStarter {
   private final Map<String, Disposable> live = new ConcurrentHashMap<>();
 
   /* default */ Mono<String> start(
-      final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    return startOnce(sessionId, workflowId, payload);
-  }
-
-  /* default */ Mono<String> start(
       final String sessionId,
       final String workflowId,
       final Map<String, Object> payload,

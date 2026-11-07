@@ -312,7 +312,8 @@ class ExecutionControlControllerTest {
 
   @Test
   void drain_refusesStartsAndReportsWhenIdle_untilUndone() {
-    final ExecutionScheduler.Permit running = scheduler.acquire("s1", "wf").permit().block();
+    final ExecutionScheduler.Permit running =
+        scheduler.acquire("s1", "wf", 0, null).permit().block();
 
     client
         .post()
@@ -327,7 +328,8 @@ class ExecutionControlControllerTest {
         .isEqualTo(1)
         .jsonPath("$.data.idle")
         .isEqualTo(false);
-    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isTrue();
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf", 0, null).refused())
+        .isTrue();
 
     running.release();
     client
@@ -344,7 +346,8 @@ class ExecutionControlControllerTest {
         .expectBody()
         .jsonPath("$.data.draining")
         .isEqualTo(false);
-    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf").refused()).isFalse();
+    org.assertj.core.api.Assertions.assertThat(scheduler.acquire("s1", "wf", 0, null).refused())
+        .isFalse();
   }
 
   @Test
@@ -353,10 +356,10 @@ class ExecutionControlControllerTest {
         new ExecutionScheduler(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final ExecutionScheduler.Permit running =
-        java.util.Objects.requireNonNull(limited.acquire("s1", "wf").permit().block());
-    limited.acquire("s1", "wf");
+        java.util.Objects.requireNonNull(limited.acquire("s1", "wf", 0, null).permit().block());
+    limited.acquire("s1", "wf", 0, null);
     running.release();
-    limited.acquire("s1", "other");
+    limited.acquire("s1", "other", 0, null);
     final WebTestClient waiting =
         WebTestClient.bindToController(
                 new ExecutionControlController(

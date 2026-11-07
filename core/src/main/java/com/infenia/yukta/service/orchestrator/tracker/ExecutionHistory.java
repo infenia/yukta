@@ -24,7 +24,7 @@ final class ExecutionHistory {
 
   /** Statuses that mean a node failed, for the first failed node of a run. */
   private static final Set<TaskStatus> FAILED =
-      EnumSet.of(TaskStatus.FAILURE, TaskStatus.ERROR, TaskStatus.TIMED_OUT);
+      EnumSet.of(TaskStatus.FAILURE, TaskStatus.TIMED_OUT);
 
   /** Per session, execution IDs that were cleaned up, oldest first. */
   private final Map<String, Deque<String>> finishedBySession = new ConcurrentHashMap<>();

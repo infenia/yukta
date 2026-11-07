@@ -42,7 +42,7 @@ class ActivePluginRegistryTest {
   @Test
   @DisplayName("should make a registered plugin lookupable")
   void register_thenLookup_returnsPlugin() {
-    registry.register(WORKFLOW_ID, NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
 
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).containsSame(plugin);
   }
@@ -82,9 +82,9 @@ class ActivePluginRegistryTest {
   @Test
   @DisplayName("should remove the plugin and notify handlers on unregister")
   void register_thenUnregister_removesAndNotifiesHandlers() {
-    registry.register(WORKFLOW_ID, NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
 
-    registry.unregister(WORKFLOW_ID, NODE_ID);
+    registry.unregister(WORKFLOW_ID, null, NODE_ID);
 
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
     verify(handler1).removeNode(COMPOSITE_KEY);
@@ -94,7 +94,7 @@ class ActivePluginRegistryTest {
   @Test
   @DisplayName("should not notify handlers when unregistering a never-registered node")
   void unregister_neverRegistered_doesNotNotifyHandlers() {
-    registry.unregister(WORKFLOW_ID, NODE_ID);
+    registry.unregister(WORKFLOW_ID, null, NODE_ID);
 
     verify(handler1, never()).removeNode(COMPOSITE_KEY);
     verify(handler2, never()).removeNode(COMPOSITE_KEY);
@@ -103,17 +103,17 @@ class ActivePluginRegistryTest {
   @Test
   @DisplayName("should keep the plugin registered until every outstanding registration is released")
   void register_twice_requiresTwoUnregistersToRemove() {
-    registry.register(WORKFLOW_ID, NODE_ID, plugin);
-    registry.register(WORKFLOW_ID, NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
 
-    registry.unregister(WORKFLOW_ID, NODE_ID);
+    registry.unregister(WORKFLOW_ID, null, NODE_ID);
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID))
         .as("plugin should still be reachable while one registration remains outstanding")
         .containsSame(plugin);
     verify(handler1, never()).removeNode(COMPOSITE_KEY);
     verify(handler2, never()).removeNode(COMPOSITE_KEY);
 
-    registry.unregister(WORKFLOW_ID, NODE_ID);
+    registry.unregister(WORKFLOW_ID, null, NODE_ID);
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
     verify(handler1).removeNode(COMPOSITE_KEY);
     verify(handler2).removeNode(COMPOSITE_KEY);
@@ -125,13 +125,13 @@ class ActivePluginRegistryTest {
     final String altNodeId = "node-2";
     final Plugin altPlugin = mock(Plugin.class);
 
-    registry.register(WORKFLOW_ID, NODE_ID, plugin);
-    registry.register(WORKFLOW_ID, altNodeId, altPlugin);
+    registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
+    registry.register(WORKFLOW_ID, null, altNodeId, altPlugin);
 
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).containsSame(plugin);
     assertThat(registry.lookup(WORKFLOW_ID, null, altNodeId)).containsSame(altPlugin);
 
-    registry.unregister(WORKFLOW_ID, NODE_ID);
+    registry.unregister(WORKFLOW_ID, null, NODE_ID);
 
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
     assertThat(registry.lookup(WORKFLOW_ID, null, altNodeId)).containsSame(altPlugin);

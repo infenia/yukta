@@ -225,11 +225,10 @@ Serves the React app from the ui jar and makes client-side routes work.
 
 ### Engine Tuning Defaults
 
-*yukta.\* and control.bus.\**
+*yukta.\**
 
 Writes down a handful of engine settings so they are visible and changeable without code.
 
-- yukta.control-bus.batch-size 100 and yukta.control-bus.batch-timeout 50ms (the old control.bus.* names still work for one release): the control bus collects up to 100 commands, or waits at most 50 ms, before processing a batch. yukta.control-bus.buffer-size 256 is its internal buffer. The code uses the same numbers as its built-in defaults.
 - yukta.tracker.cleanup-ttl 10m: how long a finished run's data stays in the tracker. yukta.streaming.status-history-ttl-minutes 5: how long recent progress is kept for late subscribers (the code accepts 1 to 30).
 - yukta.session.execution-timeout-seconds 3600, yukta.session.store-type in-memory, and the two sub-directory names file-log-sub-dir (modified-files) and result-log-sub-dir (results).
 - yukta.logs.store.backend memory with a 30-minute default retention (the comment says the maximum is 1440 minutes, 24 hours). Only the memory store is registered today, although the comment says memory | file.
@@ -240,7 +239,7 @@ Writes down a handful of engine settings so they are visible and changeable with
 - **Ceiling.** Because they are only defaults, a deployment that needs limits, a durable log or file stores must add keys of its own; boot does not provide a production profile for state.
 - **On failure.** A wrongly typed value stops start-up. A key that nothing reads, such as one left over after a rename, is silently ignored.
 
-**Settings:** `yukta.control-bus.*`, `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
+**Settings:** `yukta.tracker.cleanup-ttl`, `yukta.streaming.status-history-ttl-minutes`, `yukta.session.*`, `yukta.logs.store.*`
 
 ### Management Surface
 
@@ -458,7 +457,7 @@ Boot's capabilities are about packaging, configuration and hosting, not workflow
 | Profiles | Dev and prod overlays. | Base file plus application-dev or -prod; default profile dev. | Prod verified by ProfileConfigTest. | JVM default is dev, not prod. |
 | Loopback by default | Not reachable remotely. | server.address defaults to 127.0.0.1; override with YUKTA_SERVER_ADDRESS. | Fresh install is local only. | Remote means opt-in with care. |
 | Strict JSON | Reject unknown fields. | spring.jackson fail-on-unknown-properties true. | Typos in requests error out. | Older clients with extra fields break. |
-| Engine defaults | Control bus, tracker and history values. | control.bus.\* and yukta.\* keys in the base file. | Defaults visible in one place. | Not the full list of engine settings. |
+| Engine defaults | Control bus, tracker and history values. | yukta.\* keys in the base file. | Defaults visible in one place. | Not the full list of engine settings. |
 
 ### Web hosting
 

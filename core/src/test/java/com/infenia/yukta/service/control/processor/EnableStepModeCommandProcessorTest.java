@@ -47,7 +47,6 @@ class EnableStepModeCommandProcessorTest {
 
     // Then
     StepVerifier.create(result).verifyComplete();
-    assertThat(valve.isStepMode()).isTrue();
     assertThat(valve.isPaused()).isTrue();
     verify(taskTracker).emitControlStateEvent(executionId, ControlState.STEP_MODE_ENABLED);
   }

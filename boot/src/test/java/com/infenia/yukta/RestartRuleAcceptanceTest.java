@@ -109,7 +109,7 @@ class RestartRuleAcceptanceTest {
                 new Edge("apply", "retry", "success"),
                 new Edge("apply", "escalate", "failure")));
     definitions.save(session, definition).block();
-    gateway.startWorkflow(session, workflowId).block();
+    gateway.startWorkflow(session, workflowId, Map.of(), null).block();
     return runs.toString();
   }
 

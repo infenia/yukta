@@ -19,8 +19,8 @@ class SchedulerMetricsTest {
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);
 
-    final var running = scheduler.acquire("s", "w");
-    final var waiting = scheduler.acquire("s", "w");
+    final var running = scheduler.acquire("s", "w", 0, null);
+    final var waiting = scheduler.acquire("s", "w", 0, null);
     waiting.permit().subscribe();
 
     assertThat(registry.get("yukta.executions.running").gauge().value()).isEqualTo(1.0);
@@ -35,8 +35,8 @@ class SchedulerMetricsTest {
         new ExecutionScheduler(1, 0, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ofSeconds(1));
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);
-    scheduler.acquire("s", "w");
-    scheduler.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    scheduler.acquire("s", "w", 0, null);
+    scheduler.acquire("s", "w", 0, null).permit().subscribe(p -> {}, e -> {});
 
     assertThat(
             registry

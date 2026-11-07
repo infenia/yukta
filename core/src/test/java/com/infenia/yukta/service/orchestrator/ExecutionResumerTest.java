@@ -358,7 +358,7 @@ class ExecutionResumerTest {
     abortedRun(DefinitionVersion.of(prepared), "a");
     final ExecutionScheduler full =
         new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    full.acquire("s", "w");
+    full.acquire("s", "w", 0, null);
     final ExecutionResumer limited =
         new ExecutionResumer(log, checkpoints, definitions, orchestrator, full);
 

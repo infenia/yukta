@@ -34,35 +34,6 @@ public class WorkflowService {
   private final ControlBusGateway controlBus;
 
   /**
-   * Validate and run a specific workflow for a session.
-   *
-   * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
-   * @return a Mono containing the WorkflowExecution
-   * @throws IllegalArgumentException if session or workflow not found
-   */
-  public Mono<WorkflowExecution> validateAndStartWorkflow(
-      @SessionId final String sessionId, @WorkflowId final String workflowId) {
-    return validateAndStartWorkflow(sessionId, workflowId, Map.of());
-  }
-
-  /**
-   * Validate and run a specific workflow for a session with a trigger payload.
-   *
-   * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
-   * @param payload the trigger payload, read by the workflow's trigger node
-   * @return a Mono containing the WorkflowExecution
-   * @throws IllegalArgumentException if session or workflow not found
-   */
-  public Mono<WorkflowExecution> validateAndStartWorkflow(
-      @SessionId final String sessionId,
-      @WorkflowId final String workflowId,
-      final Map<String, Object> payload) {
-    return validateAndStartWorkflow(sessionId, workflowId, payload, null);
-  }
-
-  /**
    * Validate and run a workflow, safely retryable with an idempotency key.
    *
    * @param sessionId the session identifier
@@ -83,9 +54,7 @@ public class WorkflowService {
         .log("Validating and triggering workflow");
 
     final Mono<String> started =
-        idempotencyKey == null
-            ? controlBus.startWorkflow(sessionId, workflowId, payload)
-            : controlBus.startWorkflow(sessionId, workflowId, payload, idempotencyKey);
+        controlBus.startWorkflow(sessionId, workflowId, payload, idempotencyKey);
     return started
         .map(
             executionId -> {
