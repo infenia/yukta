@@ -121,6 +121,14 @@ const MIN_RANK: Record<MinLevel, number> = {
  * The collapsible EXECUTION LOGS terminal: streamed log lines with level colouring,
  * client-side filtering and toggleable auto-scroll.
  */
+/** The selected level pill takes the colour of the lines it keeps. */
+const LEVEL_TONE: Record<MinLevel, string> = {
+  all: 'text-on-surface',
+  info: 'text-primary',
+  warn: 'text-log-warn',
+  error: 'text-destructive',
+};
+
 export function LogsPanel({
   entries,
   isStreaming,
@@ -200,6 +208,19 @@ export function LogsPanel({
     null
   );
   const bodyRef = useRef<HTMLDivElement>(null);
+  const lastTop = useRef(0);
+  // Scrolling up leaves the newest line: stop following. Growth of the content never lowers
+  // scrollTop, so only the reader can trigger this.
+  const onBodyScroll = (event: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, scrollHeight, clientHeight } = event.currentTarget;
+    if (
+      scrollTop < lastTop.current - 1 &&
+      scrollHeight - scrollTop - clientHeight > 4
+    ) {
+      setAutoScroll(false);
+    }
+    lastTop.current = scrollTop;
+  };
 
   // Structured entries or, in raw mode, the server's own formatted lines.
   const visibleEntries = useMemo<(LogEntry | string)[]>(() => {
@@ -300,35 +321,6 @@ export function LogsPanel({
         />
       )}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-1.5 sm:min-h-11">
-        <button
-          type="button"
-          onClick={() => setCollapsed((value) => !value)}
-          aria-label={
-            collapsed ? 'Expand execution logs' : 'Collapse execution logs'
-          }
-          aria-expanded={!collapsed}
-          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">
-            {collapsed ? 'expand_less' : 'expand_more'}
-          </span>
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setCollapsed(false);
-            setMaximized((value) => !value);
-          }}
-          aria-label={
-            maximized ? 'Restore the logs height' : 'Maximize the logs'
-          }
-          aria-pressed={maximized}
-          className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
-        >
-          <span className="material-symbols-outlined text-base">
-            {maximized ? 'close_fullscreen' : 'open_in_full'}
-          </span>
-        </button>
         {/* The design has no icon or title here; the heading stays for screen readers */}
         <h2 className="sr-only">Execution logs</h2>
         {progress && (
@@ -412,7 +404,7 @@ export function LogsPanel({
                     className={cn(
                       'text-label-sm rounded-md px-2 py-0.5 tracking-wider uppercase disabled:opacity-50',
                       minLevel === level
-                        ? 'bg-card text-on-surface shadow-card'
+                        ? cn('bg-card shadow-card', LEVEL_TONE[level])
                         : 'text-on-surface-variant hover:text-on-surface'
                     )}
                   >
@@ -440,30 +432,46 @@ export function LogsPanel({
                 title="Keep the newest line in view"
                 onClick={() => setAutoScroll((value) => !value)}
                 className={cn(
-                  'text-label-sm rounded-full px-2.5 py-1',
+                  'text-label-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 transition-colors',
                   autoScroll
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-on-surface-variant hover:bg-muted'
+                    ? 'border-primary/30 bg-primary/10 text-primary'
+                    : 'text-on-surface-variant hover:bg-muted border-transparent'
                 )}
               >
+                <span
+                  aria-hidden
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    autoScroll ? 'bg-primary' : 'bg-outline'
+                  )}
+                />
                 Follow
               </button>
+              {/* The result shows inside the button: a status beside it would shift the toolbar */}
               <button
                 type="button"
                 onClick={copyLogs}
                 aria-label="Copy logs"
                 title="Copy the visible lines"
-                className="text-on-surface-variant hover:bg-muted hover:text-on-surface focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-on-surface flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+                className={cn(
+                  'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                  copyStatus === 'copied' && 'bg-success/10 text-success',
+                  copyStatus === 'failed' &&
+                    'bg-destructive/10 text-destructive',
+                  !copyStatus &&
+                    'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+                )}
               >
                 <span className="material-symbols-outlined text-base">
-                  content_copy
+                  {copyStatus === 'copied'
+                    ? 'check'
+                    : copyStatus === 'failed'
+                      ? 'error'
+                      : 'content_copy'}
                 </span>
               </button>
               {copyStatus && (
-                <span
-                  role="status"
-                  className="text-label-sm text-on-surface-variant"
-                >
+                <span role="status" className="sr-only">
                   {copyStatus === 'copied' ? 'Copied' : 'Copy failed'}
                 </span>
               )}
@@ -528,6 +536,37 @@ export function LogsPanel({
             </>
           )}
         </div>
+        <div className="flex items-center gap-1 max-sm:ml-auto">
+          <button
+            type="button"
+            onClick={() => setCollapsed((value) => !value)}
+            aria-label={
+              collapsed ? 'Expand execution logs' : 'Collapse execution logs'
+            }
+            aria-expanded={!collapsed}
+            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">
+              {collapsed ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setCollapsed(false);
+              setMaximized((value) => !value);
+            }}
+            aria-label={
+              maximized ? 'Restore the logs height' : 'Maximize the logs'
+            }
+            aria-pressed={maximized}
+            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center transition-colors"
+          >
+            <span className="material-symbols-outlined text-base">
+              {maximized ? 'close_fullscreen' : 'open_in_full'}
+            </span>
+          </button>
+        </div>
       </div>
       {!collapsed && showEvents && (
         <ol
@@ -554,6 +593,7 @@ export function LogsPanel({
             ref={bodyRef}
             className="bg-terminal text-code-sm h-full overflow-y-auto px-4 py-2 leading-5"
             data-testid="logs-body"
+            onScroll={onBodyScroll}
           >
             {visibleEntries.length === 0 ? (
               <p className="text-log-debug">No log output.</p>

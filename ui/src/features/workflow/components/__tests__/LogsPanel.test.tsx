@@ -245,6 +245,22 @@ describe('LogsPanel', () => {
     expect(toggle).toHaveAttribute('aria-checked', 'false');
   });
 
+  it('stops following when the reader scrolls up, not on growth or scrolling down', () => {
+    render(<LogsPanel entries={entries} isStreaming={false} />);
+    const toggle = screen.getByRole('switch', { name: /toggle auto-scroll/i });
+    const body = screen.getByTestId('logs-body');
+    Object.defineProperty(body, 'scrollHeight', { value: 1000 });
+    Object.defineProperty(body, 'clientHeight', { value: 200 });
+
+    body.scrollTop = 800; // at the end
+    fireEvent.scroll(body);
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    body.scrollTop = 300; // up
+    fireEvent.scroll(body);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
+
   it('renders the empty terminal without entries', () => {
     render(<LogsPanel entries={[]} isStreaming={false} />);
     expect(screen.getByTestId('logs-body')).toHaveTextContent('No log output.');
