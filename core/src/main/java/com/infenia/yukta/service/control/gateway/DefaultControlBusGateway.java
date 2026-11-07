@@ -42,6 +42,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -100,6 +101,9 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   /** Records changes that do not go through a run's command queue. */
   private final ExecutionLogStore executionLog;
+
+  /** Orders a limits change and its log entry. */
+  private final ReentrantLock limitsLock = new ReentrantLock();
 
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
@@ -530,13 +534,24 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Void> changeLimits(final int maxConcurrent, final int maxPerWorkflow) {
+    if (maxConcurrent < 0 || maxPerWorkflow < 0) {
+      // a negative number is not "unlimited": 0 is
+      return Mono.error(
+          new IllegalArgumentException("Limits cannot be negative; use 0 for no limit"));
+    }
     final String name = "SetLimits(" + maxConcurrent + ", " + maxPerWorkflow + ")";
     return reviewedAndLogged(
         new ExecutionControlCommand.SetLimitsCommand(maxConcurrent, maxPerWorkflow),
         name,
         () -> {
-          executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
-          executionLog.append(ExecutionLogEvent.limitsChanged(maxConcurrent, maxPerWorkflow));
+          // one change at a time, so the log ends in the order the limits were applied
+          limitsLock.lock();
+          try {
+            executionScheduler.setLimits(maxConcurrent, maxPerWorkflow);
+            executionLog.append(ExecutionLogEvent.limitsChanged(maxConcurrent, maxPerWorkflow));
+          } finally {
+            limitsLock.unlock();
+          }
           log.atInfo()
               .addKeyValue("maxConcurrent", maxConcurrent)
               .addKeyValue("maxPerWorkflow", maxPerWorkflow)

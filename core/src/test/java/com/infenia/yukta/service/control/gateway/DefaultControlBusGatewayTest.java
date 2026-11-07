@@ -2702,6 +2702,58 @@ class DefaultControlBusGatewayTest {
         .verifyComplete();
   }
 
+  private DefaultControlBusGateway gatewayWith(final ExecutionScheduler scheduler) {
+    return new DefaultControlBusGateway(
+        controlBusService,
+        taskTracker,
+        executionControlStore,
+        archive,
+        orchestrator,
+        workflowDefinitionStore,
+        preparedWorkflowCache,
+        scheduler,
+        StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
+  }
+
+  @Test
+  void setLimits_negativeValuesAreRefusedNotTakenForUnlimited() {
+    final ExecutionScheduler real =
+        ExecutionSchedulerFixture.create(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+
+    StepVerifier.create(gatewayWith(real).changeLimits(-1, 0))
+        .expectErrorMessage("Limits cannot be negative; use 0 for no limit")
+        .verify();
+    StepVerifier.create(gatewayWith(real).changeLimits(0, -3))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void startWorkflow_whenTheOrchestratorThrowsBeforeTheRun_theSlotIsGivenBack() {
+    final String sessionId = "sess-throw";
+    final String workflowId = "wf-throw";
+    final WorkflowDefinition definition = Fixtures.workflow(workflowId, "d", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final ExecutionScheduler real =
+        ExecutionSchedulerFixture.create(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenThrow(new IllegalArgumentException("invalid arguments"));
+
+    StepVerifier.create(gatewayWith(real).startWorkflow(sessionId, workflowId, Map.of(), null))
+        .expectErrorMessage("invalid arguments")
+        .verify();
+
+    assertThat(real.running()).isZero();
+  }
+
   @Test
   void setLimits_changesTheSchedulerLimits_andIsAudited() {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
