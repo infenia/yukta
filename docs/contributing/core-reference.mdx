@@ -651,15 +651,16 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 
 **Status:** partial
 
-An older channel beside run commands, carrying heartbeats, statistics and raw signals to a node's plugin.
+A command addressed to one node of a run reaches the live plugin's `onControlSignal`, and the plugin's answer comes back to the caller (`POST /api/control/workflows/{id}/nodes/{node}/command`, `controlbus command`).
 
 **Behaviour**
 
-- Keyed by **workflow and node** (not by run), it bypasses the reviewers and is not audited like run commands. Handlers: `ControlHeartbeatHandler`, `ControlStatisticsHandler`, `ControlSignalHandler`.
+- Keyed by **workflow, run and node** (`ControlKey`), it bypasses the reviewers and is not audited like run commands. The node must be live: a node with no registered plugin is a 404.
+- Run commands (pause, stop, ...) are a separate path and go through the reviewed, audited pipeline.
 
-**Source:** `ControlBusService` `DirectiveDispatcher` `ActivePluginRegistry`
+**Source:** `ControlBusService` `ActivePluginRegistry`
 
-**Limits:** No code emits heartbeats or statistics through it today. Two sessions with equal workflow and node ids would share its state if one ever did (tracked as a latent item, see the [bug backlog](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Acore)).
+**Limits:** Most plugins do not override `onControlSignal`, so the answer is usually empty.
 
 ### CTL-09: Input requests
 

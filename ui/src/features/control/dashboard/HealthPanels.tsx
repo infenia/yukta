@@ -1,52 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useQuery } from '@tanstack/react-query';
 import { ArcGauge, MeterBar } from '@/components/dashboard/Gauges';
 import { Panel } from '@/components/dashboard/Tile';
-import { StatusMatrix, type MatrixState } from '@/components/dashboard/Strips';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { GLOBAL, type Scope } from '@/features/metrics/api';
-import { getHeartbeats } from '../api/controlBus';
 import { useWorkers } from '../api/workers';
 import { PanelState } from './PanelState';
-import { useNow } from './useNow';
 import { aiUsage, formatMs, sumOf } from './format';
-
-/** A heartbeat older than this is stale, and older than twice this is down. */
-const STALE_MS = 30_000;
-
-const stateOf = (ageMs: number): MatrixState =>
-  ageMs <= STALE_MS ? 'ok' : ageMs <= 2 * STALE_MS ? 'stale' : 'down';
-
-/** One cell per control-bus node, green while its heartbeat is fresh, amber then red as it ages. */
-export function BusPanel({ live }: { live: boolean }) {
-  const beats = useQuery({
-    queryKey: ['control', 'heartbeats'],
-    queryFn: getHeartbeats,
-    refetchInterval: live ? 5000 : false,
-  });
-  const now = useNow(5000);
-  return (
-    <Panel title="Control bus">
-      <PanelState
-        isPending={beats.isPending}
-        error={beats.error}
-        empty={(beats.data ?? []).length === 0}
-        emptyText="No node has sent a heartbeat"
-        onRetry={() => void beats.refetch()}
-      >
-        <StatusMatrix
-          items={(beats.data ?? []).map((b) => ({
-            id: `${b.workflowId}/${b.nodeId}/${b.executionId}`,
-            label: `${b.workflowId} / ${b.nodeId}`,
-            state: stateOf(now - Date.parse(b.timestamp)),
-          }))}
-        />
-      </PanelState>
-    </Panel>
-  );
-}
 
 /** Slots in use per connected worker. */
 export function WorkerSlotsPanel({ live = true }: { live?: boolean }) {

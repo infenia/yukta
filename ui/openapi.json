@@ -660,52 +660,6 @@
         },
         "type" : "object"
       },
-      "ApiResponseListNodeHeartbeat" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "description" : "The response data",
-            "items" : {
-              "$ref" : "#/components/schemas/NodeHeartbeat"
-            },
-            "type" : "array"
-          },
-          "error" : {
-            "description" : "The HTTP status error name",
-            "example" : "Bad Request",
-            "type" : "string"
-          },
-          "errors" : {
-            "description" : "The list of field validation errors",
-            "items" : {
-              "$ref" : "#/components/schemas/FieldError"
-            },
-            "type" : "array"
-          },
-          "message" : {
-            "description" : "A human-readable message",
-            "example" : "Operation successful",
-            "type" : "string"
-          },
-          "path" : {
-            "description" : "The request path",
-            "example" : "/api/files",
-            "type" : "string"
-          },
-          "status" : {
-            "description" : "The HTTP status code",
-            "example" : 200,
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "timestamp" : {
-            "description" : "The time the response was generated",
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
       "ApiResponseListSessionListItem" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -1312,49 +1266,6 @@
             },
             "description" : "The response data",
             "type" : "object"
-          },
-          "error" : {
-            "description" : "The HTTP status error name",
-            "example" : "Bad Request",
-            "type" : "string"
-          },
-          "errors" : {
-            "description" : "The list of field validation errors",
-            "items" : {
-              "$ref" : "#/components/schemas/FieldError"
-            },
-            "type" : "array"
-          },
-          "message" : {
-            "description" : "A human-readable message",
-            "example" : "Operation successful",
-            "type" : "string"
-          },
-          "path" : {
-            "description" : "The request path",
-            "example" : "/api/files",
-            "type" : "string"
-          },
-          "status" : {
-            "description" : "The HTTP status code",
-            "example" : 200,
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "timestamp" : {
-            "description" : "The time the response was generated",
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "ApiResponseMessageObject" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "$ref" : "#/components/schemas/MessageObject",
-            "description" : "The response data"
           },
           "error" : {
             "description" : "The HTTP status error name",
@@ -3087,7 +2998,6 @@
         },
         "type" : "object"
       },
-      "MessageObject" : { },
       "MetricSample" : {
         "properties" : {
           "time" : {
@@ -3155,27 +3065,6 @@
         "properties" : {
           "payload" : {
             "description" : "The node's reply"
-          }
-        },
-        "type" : "object"
-      },
-      "NodeHeartbeat" : {
-        "properties" : {
-          "executionId" : {
-            "type" : "string"
-          },
-          "nodeId" : {
-            "type" : "string"
-          },
-          "sessionId" : {
-            "type" : "string"
-          },
-          "timestamp" : {
-            "format" : "date-time",
-            "type" : "string"
-          },
-          "workflowId" : {
-            "type" : "string"
           }
         },
         "type" : "object"
@@ -4655,81 +4544,6 @@
         "tags" : [ "Control audit API" ]
       }
     },
-    "/api/control/heartbeats" : {
-      "get" : {
-        "description" : "Lists the last heartbeat of every node of every run on the Control Bus, in one call",
-        "operationId" : "getHeartbeats",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListNodeHeartbeat"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get every node's heartbeat",
-        "tags" : [ "Control Bus & Observability API" ]
-      }
-    },
-    "/api/control/nodes" : {
-      "get" : {
-        "description" : "Lists all nodes currently registered on the Control Bus across all workflows",
-        "operationId" : "getAllActiveNodes",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListString"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get active nodes (global)",
-        "tags" : [ "Control Bus & Observability API" ]
-      }
-    },
-    "/api/control/workflows/{workflowId}/nodes" : {
-      "get" : {
-        "description" : "Lists all nodes in a specific workflow currently registered on the Control Bus",
-        "operationId" : "getActiveNodes",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "workflowId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListString"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get active nodes in workflow",
-        "tags" : [ "Control Bus & Observability API" ]
-      }
-    },
     "/api/control/workflows/{workflowId}/nodes/{nodeId}/command" : {
       "post" : {
         "description" : "Sends an administrative command to a specific node in a workflow",
@@ -4796,55 +4610,6 @@
           }
         },
         "summary" : "Send command to node in workflow",
-        "tags" : [ "Control Bus & Observability API" ]
-      }
-    },
-    "/api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat" : {
-      "get" : {
-        "description" : "Retrieves the most recent heartbeat for a specific node in a workflow",
-        "operationId" : "getLastHeartbeat",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "workflowId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "path",
-          "name" : "nodeId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "sessionId",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        }, {
-          "in" : "query",
-          "name" : "executionId",
-          "required" : false,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseMessageObject"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get node heartbeat in workflow",
         "tags" : [ "Control Bus & Observability API" ]
       }
     },

@@ -44,7 +44,6 @@ vi.mock('../RunPanels', () => ({
 }));
 vi.mock('../HealthPanels', () => ({
   AiUsagePanel: () => null,
-  BusPanel: () => null,
   VitalsPanel: () => null,
   WorkerSlotsPanel: () => null,
 }));

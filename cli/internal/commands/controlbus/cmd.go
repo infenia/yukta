@@ -18,9 +18,6 @@ func ControlBusCmd(c *client.Client) *cobra.Command {
 		Long:  "Commands for querying and controlling workflow nodes via the control bus.",
 	}
 
-	cmd.AddCommand(NodesCmd(c))
-	cmd.AddCommand(AllNodesCmd(c))
-	cmd.AddCommand(HeartbeatCmd(c))
 	cmd.AddCommand(CommandCmd(c))
 	cmd.AddCommand(WatchCmd(c))
 	var limit int

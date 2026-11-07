@@ -11,12 +11,7 @@ import {
   useMetricStream,
 } from '@/features/metrics/hooks';
 import { scopeOptions, sessionOf } from './scopes';
-import {
-  AiUsagePanel,
-  BusPanel,
-  VitalsPanel,
-  WorkerSlotsPanel,
-} from './HealthPanels';
+import { AiUsagePanel, VitalsPanel, WorkerSlotsPanel } from './HealthPanels';
 import { CapacityPanel } from './CapacityPanel';
 import { LatencyPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
@@ -70,7 +65,6 @@ export function DashboardView() {
           <HeatPanel scope={scope} live={live} />
         </div>
         <LeaderboardPanel scope={scope} range={range} live={live} />
-        <BusPanel live={live} />
         <WorkerSlotsPanel live={live} />
         <VitalsPanel />
         <div className="lg:col-span-2">

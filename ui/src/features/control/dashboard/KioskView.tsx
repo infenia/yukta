@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDashboardParams, useMetricStream } from '@/features/metrics/hooks';
-import { AiUsagePanel, BusPanel, WorkerSlotsPanel } from './HealthPanels';
+import { AiUsagePanel, WorkerSlotsPanel } from './HealthPanels';
 import { CapacityPanel } from './CapacityPanel';
 import { LatencyPanel, ThroughputPanel } from './ChartPanels';
 import { CommandStrip } from './CommandStrip';
@@ -32,7 +32,6 @@ export function KioskView({ onExit }: { onExit: () => void }) {
     </div>,
     <div key="health" className="grid gap-4 lg:grid-cols-3">
       <CapacityPanel live={live} />
-      <BusPanel live={live} />
       <WorkerSlotsPanel live={live} />
       <div className="lg:col-span-2">
         <HeatPanel scope={scope} live={live} />

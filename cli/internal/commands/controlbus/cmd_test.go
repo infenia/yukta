@@ -29,7 +29,7 @@ func TestControlBusCmd_registersSubcommands(t *testing.T) {
 	}
 
 	// Check for subcommands by prefix (Use field includes args like "nodes <workflow-id>")
-	expectedSubcommands := []string{"nodes", "all-nodes", "heartbeat", "command", "watch", "audit"}
+	expectedSubcommands := []string{"command", "watch", "audit"}
 	found := make(map[string]bool)
 
 	for _, sub := range subcommands {

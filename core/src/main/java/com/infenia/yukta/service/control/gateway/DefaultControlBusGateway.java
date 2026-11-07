@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.control.gateway;
 
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
@@ -332,10 +331,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
         .flatMap(
             control ->
-                executeCommand(
-                    ControlDispatch.buildCommand(
-                        new PauseWorkflowCommand(executionId),
-                        ControlDispatch.CONTROL_COMMAND_PRIORITY)))
+                executeCommand(ControlDispatch.buildCommand(new PauseWorkflowCommand(executionId))))
         .doOnSubscribe(
             _ -> log.atDebug().addKeyValue("executionId", executionId).log("Pausing workflow"))
         .doOnSuccess(
@@ -357,9 +353,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         .flatMap(
             control ->
                 executeCommand(
-                    ControlDispatch.buildCommand(
-                        new ResumeWorkflowCommand(executionId),
-                        ControlDispatch.CONTROL_COMMAND_PRIORITY)))
+                    ControlDispatch.buildCommand(new ResumeWorkflowCommand(executionId))))
         .doOnSubscribe(
             _ -> log.atDebug().addKeyValue("executionId", executionId).log("Resuming workflow"))
         .doOnSuccess(
@@ -399,8 +393,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                             executeCommand(
                                     ControlDispatch.buildCommand(
                                         new StopWorkflowCommand(
-                                            control.executionId(), reason, mode),
-                                        ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
+                                            control.executionId(), reason, mode)))
                                 .thenReturn(control.executionId())))
         .collectList()
         .doOnSubscribe(
@@ -439,8 +432,7 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                             executeCommand(
                                     ControlDispatch.buildCommand(
                                         new StopWorkflowCommand(
-                                            control.executionId(), reason, mode),
-                                        ControlDispatch.CONTROL_COMMAND_PRIORITY + 20))
+                                            control.executionId(), reason, mode)))
                                 .thenReturn(control.executionId()))
                     .orElseGet(() -> queries.finishOrphan(executionId)))
         .doOnSubscribe(
@@ -733,59 +725,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   public Mono<List<WorkflowExecutionSummary>> getHistory(
       final String sessionId, final String workflowId) {
     return queries.getHistory(sessionId, workflowId);
-  }
-
-  @Override
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Message<?> getLastHeartbeat(
-      final String sessionId,
-      final String workflowId,
-      @Nullable final String executionId,
-      final String nodeId) {
-    return queries.getLastHeartbeat(
-        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
-  }
-
-  @Override
-  @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  public Message<?> getLastStatistics(
-      final String sessionId,
-      final String workflowId,
-      @Nullable final String executionId,
-      final String nodeId) {
-    return queries.getLastStatistics(
-        workflowId, resolveRun(sessionId, workflowId, executionId), nodeId);
-  }
-
-  @Override
-  public List<NodeHeartbeat> getHeartbeats() {
-    return controlBusService.getHeartbeats().stream()
-        .map(
-            beat ->
-                new NodeHeartbeat(
-                    executionControlStore
-                        .findByExecutionId(beat.executionId())
-                        .map(ExecutionControl::sessionId)
-                        .orElse(""),
-                    beat.workflowId(),
-                    beat.executionId(),
-                    beat.nodeId(),
-                    beat.timestamp()))
-        .toList();
-  }
-
-  @Override
-  public List<String> getActiveNodes(final String sessionId, final String workflowId) {
-    return queries.getActiveNodes(
-        workflowId,
-        executionControlStore.findAllActiveByWorkflow(sessionId, workflowId).stream()
-            .map(ExecutionControl::executionId)
-            .toList());
-  }
-
-  @Override
-  public List<String> getActiveNodes() {
-    return queries.getActiveNodes();
   }
 
   @Override

@@ -4,14 +4,12 @@ package com.infenia.yukta.service.control.store;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ControlKey;
-import com.infenia.yukta.service.control.directive.ControlSignalHandler;
 import jakarta.validation.constraints.NotBlank;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import lombok.RequiredArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -24,10 +22,9 @@ import org.springframework.validation.annotation.Validated;
  * <p>Node-assembler strategies register a node's plugin when its stream/completion is subscribed
  * to, and unregister it when that stream terminates (success, error, or cancellation). Two runs of
  * the same workflow have their own registrations, so one run finishing never removes the plugin of
- * another, and its handlers' state ({@link ControlSignalHandler#removeNode(String)}) is cleared for
- * that run only. Within one run a key can still be registered more than once, so registrations are
- * refcounted: the map entry is removed, and the handlers notified, only when the last outstanding
- * registration for a key is released.
+ * another. Within one run a key can still be registered more than once, so registrations are
+ * refcounted: the map entry is removed only when the last outstanding registration for a key is
+ * released.
  *
  * <p>Registering without an execution id is for a caller that has no run; a lookup always names the
  * run, so it can never reach the node of another run or session.
@@ -39,11 +36,8 @@ import org.springframework.validation.annotation.Validated;
 @Slf4j
 @Component
 @Validated
-@RequiredArgsConstructor
+@NoArgsConstructor
 public class ActivePluginRegistry {
-
-  /** List of signal handlers notified when a node's registration is fully released. */
-  private final List<ControlSignalHandler> handlers;
 
   /** Map of active plugin registrations by {@link ControlKey}. */
   private final Map<String, Registration> activePlugins = new ConcurrentHashMap<>();
@@ -104,9 +98,8 @@ public class ActivePluginRegistry {
   /**
    * Release one outstanding registration for a node of a run.
    *
-   * <p>Only removes the entry and notifies {@link ControlSignalHandler#removeNode(String)} when
-   * this releases the last outstanding registration for the key. Releasing a key with no
-   * outstanding registrations is a no-op (no handlers are notified).
+   * <p>Only removes the entry when this releases the last outstanding registration for the key.
+   * Releasing a key with no outstanding registrations is a no-op.
    *
    * @param workflowId the workflow identifier
    * @param executionId the run, or null for none
@@ -133,7 +126,6 @@ public class ActivePluginRegistry {
           .addArgument(workflowId)
           .addArgument(executionId)
           .log("Unregistered plugin for node: {} in workflow: {}, run: {}");
-      handlers.forEach(h -> h.removeNode(key));
     } else {
       log.atTrace()
           .addArgument(nodeId)

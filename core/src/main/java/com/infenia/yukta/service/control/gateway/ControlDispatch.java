@@ -18,9 +18,6 @@ class ControlDispatch {
   /** Source identifier for control bus operations. */
   private static final String CONTROL_BUS_SOURCE = "CONTROL_BUS";
 
-  /** Priority level for control commands. */
-  /* default */ static final int CONTROL_COMMAND_PRIORITY = 100;
-
   /** The gateway that delivers commands. */
   private final ControlBusGateway gateway;
 
@@ -34,10 +31,9 @@ class ControlDispatch {
   }
 
   /* default */ static <T extends ExecutionControlCommand> Message<T> buildCommand(
-      final T command, final int priority) {
+      final T command) {
     return DefaultMessage.create(null, command)
         .withSourceNodeId(CONTROL_BUS_SOURCE)
-        .withPriority(priority)
         .withControl(true);
   }
 

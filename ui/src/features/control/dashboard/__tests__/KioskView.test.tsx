@@ -8,7 +8,6 @@ import { KioskView, KIOSK_CYCLE_MS } from '../KioskView';
 // The panels fetch their own data; here each is a named stand-in so the groups can be told apart.
 vi.mock('../HealthPanels', () => ({
   AiUsagePanel: () => <div>ai</div>,
-  BusPanel: () => <div>bus</div>,
   WorkerSlotsPanel: () => <div>slots</div>,
 }));
 vi.mock('../CapacityPanel', () => ({
@@ -50,7 +49,7 @@ describe('KioskView', () => {
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
     expect(screen.getByText('latency')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
-    expect(screen.getByText('bus')).toBeInTheDocument();
+    expect(screen.getByText('slots')).toBeInTheDocument();
     act(() => vi.advanceTimersByTime(KIOSK_CYCLE_MS));
     expect(screen.getByText('throughput')).toBeInTheDocument();
   });

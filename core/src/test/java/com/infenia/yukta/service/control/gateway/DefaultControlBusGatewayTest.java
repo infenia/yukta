@@ -16,7 +16,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -51,7 +50,6 @@ import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -270,7 +268,6 @@ class DefaultControlBusGatewayTest {
     assertThat(emittedMessage.payload()).isInstanceOf(PauseWorkflowCommand.class);
     final PauseWorkflowCommand cmd = (PauseWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
-    assertThat(emittedMessage.priority()).isEqualTo(100);
     assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
     assertThat(emittedMessage.controlMessage()).isTrue();
   }
@@ -543,7 +540,6 @@ class DefaultControlBusGatewayTest {
     assertThat(cmd.nodeId()).isEqualTo(nodeId);
     assertThat(cmd.immediate()).isEqualTo(immediate);
     assertThat(cmd.reason()).isEqualTo(reason);
-    assertThat(emittedMessage.priority()).isEqualTo(110); // CONTROL_COMMAND_PRIORITY + 10
   }
 
   @Test
@@ -748,7 +744,6 @@ class DefaultControlBusGatewayTest {
     final StopWorkflowCommand cmd = (StopWorkflowCommand) emittedMessage.payload();
     assertThat(cmd.executionId()).isEqualTo(executionId);
     assertThat(cmd.reason()).isEqualTo(reason);
-    assertThat(emittedMessage.priority()).isEqualTo(120); // CONTROL_COMMAND_PRIORITY + 20
     assertThat(emittedMessage.sourceNodeId()).isEqualTo("CONTROL_BUS");
     assertThat(emittedMessage.controlMessage()).isTrue();
   }
@@ -1273,86 +1268,6 @@ class DefaultControlBusGatewayTest {
     verify(taskTracker).getHistory(sessionId, workflowId);
   }
 
-  // --- State Query Tests ---
-
-  @Test
-  void getLastHeartbeat_validInputs_delegatesToControlBusService() {
-    // Given
-    final String workflowId = "workflow-2";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-12";
-    when(controlBusService.getLastHeartbeat(workflowId, "run-1", nodeId)).thenReturn(null);
-
-    // When
-    final Message<?> result = gateway.getLastHeartbeat("s1", workflowId, null, nodeId);
-
-    // Then
-    assertThat(result).isNull();
-    verify(controlBusService).getLastHeartbeat(workflowId, "run-1", nodeId);
-  }
-
-  @Test
-  void getLastStatistics_validInputs_delegatesToControlBusService() {
-    // Given
-    final String workflowId = "workflow-3";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-13";
-    when(controlBusService.getLastStatistics(workflowId, "run-1", nodeId)).thenReturn(null);
-
-    // When
-    final Message<?> result = gateway.getLastStatistics("s1", workflowId, null, nodeId);
-
-    // Then
-    assertThat(result).isNull();
-    verify(controlBusService).getLastStatistics(workflowId, "run-1", nodeId);
-  }
-
-  @Test
-  void getHeartbeats_addsTheSessionOfTheLiveRun() {
-    when(controlBusService.getHeartbeats())
-        .thenReturn(
-            List.of(
-                new NodeHeartbeat("", "workflow-4", "run-1", "node-14", Instant.EPOCH),
-                new NodeHeartbeat("", "workflow-4", "gone", "node-14", Instant.EPOCH)));
-    final ExecutionControl control = mock(ExecutionControl.class);
-    when(control.sessionId()).thenReturn("s1");
-    when(executionControlStore.findByExecutionId("run-1")).thenReturn(Optional.of(control));
-
-    assertThat(gateway.getHeartbeats())
-        .extracting(NodeHeartbeat::sessionId)
-        .containsExactly("s1", "");
-  }
-
-  @Test
-  void getActiveNodes_withWorkflowId_delegatesToControlBusService() {
-    // Given
-    final String workflowId = "workflow-4";
-    liveRun("s1", workflowId, "run-1");
-    final List<String> activeNodes = List.of("node-14", "node-15");
-    when(controlBusService.getActiveNodes(workflowId, List.of("run-1"))).thenReturn(activeNodes);
-
-    // When
-    final List<String> result = gateway.getActiveNodes("s1", workflowId);
-
-    // Then
-    assertThat(result).isEqualTo(activeNodes);
-    verify(controlBusService).getActiveNodes(workflowId, List.of("run-1"));
-  }
-
-  @Test
-  void getActiveNodes_noWorkflowId_delegatesToControlBusService() {
-    // Given
-    final List<String> allActiveNodes = List.of("node-16", "node-17", "node-18");
-    when(controlBusService.getActiveNodes()).thenReturn(allActiveNodes);
-
-    // When
-    final List<String> result = gateway.getActiveNodes();
-
-    // Then
-    assertThat(result).isEqualTo(allActiveNodes);
-    verify(controlBusService).getActiveNodes();
-  }
-
   @Test
   void executeCommand_validCommand_delegatesToEmit() {
     // Given
@@ -1875,66 +1790,6 @@ class DefaultControlBusGatewayTest {
   }
 
   @Test
-  void getLastHeartbeat_heartbeatNotFound_logsDebug() {
-    // Given
-    final String workflowId = "wf-no-hb";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-no-hb";
-    when(controlBusService.getLastHeartbeat(workflowId, "run-1", nodeId)).thenReturn(null);
-
-    // When
-    final Message<?> result = gateway.getLastHeartbeat("s1", workflowId, null, nodeId);
-
-    // Then
-    assertThat(result).isNull();
-  }
-
-  @Test
-  void getLastStatistics_statisticsNotFound_logsDebug() {
-    // Given
-    final String workflowId = "wf-no-stats";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-no-stats";
-    when(controlBusService.getLastStatistics(workflowId, "run-1", nodeId)).thenReturn(null);
-
-    // When
-    final Message<?> result = gateway.getLastStatistics("s1", workflowId, null, nodeId);
-
-    // Then
-    assertThat(result).isNull();
-  }
-
-  @Test
-  void getActiveNodes_withWorkflowId_logsAndReturnsNodes() {
-    // Given
-    final String workflowId = "wf-active";
-    liveRun("s1", workflowId, "run-1");
-    final List<String> activeNodes = List.of("node-1", "node-2", "node-3");
-    when(controlBusService.getActiveNodes(workflowId, List.of("run-1"))).thenReturn(activeNodes);
-
-    // When
-    final List<String> result = gateway.getActiveNodes("s1", workflowId);
-
-    // Then
-    assertThat(result).isEqualTo(activeNodes);
-    assertThat(result).hasSize(3);
-  }
-
-  @Test
-  void getActiveNodes_noWorkflowId_logsAndReturnsAllNodes() {
-    // Given
-    final List<String> allActiveNodes = List.of("node-a", "node-b", "node-c", "node-d");
-    when(controlBusService.getActiveNodes()).thenReturn(allActiveNodes);
-
-    // When
-    final List<String> result = gateway.getActiveNodes();
-
-    // Then
-    assertThat(result).isEqualTo(allActiveNodes);
-    assertThat(result).hasSize(4);
-  }
-
-  @Test
   void compileAndCacheWorkflow_validInputs_logsAndCompiles() {
     // Given
     final String sessionId = "sess-compile";
@@ -2082,70 +1937,6 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result).assertNext(actual -> assertThat(actual).isEmpty()).verifyComplete();
-  }
-
-  @Test
-  void getActiveNodes_emptyList_returnsEmpty() {
-    // Given
-    final String workflowId = "wf-no-active";
-    liveRun("s1", workflowId, "run-1");
-    when(controlBusService.getActiveNodes(workflowId, List.of("run-1"))).thenReturn(List.of());
-
-    // When
-    final List<String> result = gateway.getActiveNodes("s1", workflowId);
-
-    // Then
-    assertThat(result).isEmpty();
-  }
-
-  @Test
-  void getActiveNodes_allNodesEmpty_returnsEmpty() {
-    // Given
-    when(controlBusService.getActiveNodes()).thenReturn(List.of());
-
-    // When
-    final List<String> result = gateway.getActiveNodes();
-
-    // Then
-    assertThat(result).isEmpty();
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void getLastHeartbeat_heartbeatFound_returnsHeartbeat() {
-    // Given
-    final String workflowId = "wf-hb-found";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-hb-found";
-    final Message<String> heartbeat = DefaultMessage.create(null, "heartbeat-payload");
-    when((Message<String>) controlBusService.getLastHeartbeat(workflowId, "run-1", nodeId))
-        .thenReturn(heartbeat);
-
-    // When
-    final Message<?> result = gateway.getLastHeartbeat("s1", workflowId, null, nodeId);
-
-    // Then - covers the non-null branch (line 591-594)
-    assertThat(result).isEqualTo(heartbeat);
-    verify(controlBusService).getLastHeartbeat(workflowId, "run-1", nodeId);
-  }
-
-  @Test
-  @SuppressWarnings("unchecked")
-  void getLastStatistics_statisticsFound_returnsStatistics() {
-    // Given
-    final String workflowId = "wf-stats-found";
-    liveRun("s1", workflowId, "run-1");
-    final String nodeId = "node-stats-found";
-    final Message<String> statistics = DefaultMessage.create(null, "stats-payload");
-    when((Message<String>) controlBusService.getLastStatistics(workflowId, "run-1", nodeId))
-        .thenReturn(statistics);
-
-    // When
-    final Message<?> result = gateway.getLastStatistics("s1", workflowId, null, nodeId);
-
-    // Then - covers the non-null branch (line 612-615)
-    assertThat(result).isEqualTo(statistics);
-    verify(controlBusService).getLastStatistics(workflowId, "run-1", nodeId);
   }
 
   // --- startWorkflow Tests ---

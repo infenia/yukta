@@ -48,66 +48,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/control/heartbeats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get every node's heartbeat
-         * @description Lists the last heartbeat of every node of every run on the Control Bus, in one call
-         */
-        get: operations["getHeartbeats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/control/nodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get active nodes (global)
-         * @description Lists all nodes currently registered on the Control Bus across all workflows
-         */
-        get: operations["getAllActiveNodes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/control/workflows/{workflowId}/nodes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get active nodes in workflow
-         * @description Lists all nodes in a specific workflow currently registered on the Control Bus
-         */
-        get: operations["getActiveNodes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/control/workflows/{workflowId}/nodes/{nodeId}/command": {
         parameters: {
             query?: never;
@@ -122,26 +62,6 @@ export interface paths {
          * @description Sends an administrative command to a specific node in a workflow
          */
         post: operations["sendCommand"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/control/workflows/{workflowId}/nodes/{nodeId}/heartbeat": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get node heartbeat in workflow
-         * @description Retrieves the most recent heartbeat for a specific node in a workflow
-         */
-        get: operations["getLastHeartbeat"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2484,39 +2404,6 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseListNodeHeartbeat: {
-            /** @description The response data */
-            data?: components["schemas"]["NodeHeartbeat"][];
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseListSessionListItem: {
             /** @description The response data */
             data?: components["schemas"]["SessionListItem"][];
@@ -2955,39 +2842,6 @@ export interface components {
             data?: {
                 [key: string]: string;
             };
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseMessageObject: {
-            /** @description The response data */
-            data?: components["schemas"]["MessageObject"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4070,7 +3924,6 @@ export interface components {
             startedAt?: number;
             workflowId?: string;
         };
-        MessageObject: unknown;
         MetricSample: {
             /** Format: int64 */
             time?: number;
@@ -4104,14 +3957,6 @@ export interface components {
         NodeCommandResponse: {
             /** @description The node's reply */
             payload?: unknown;
-        };
-        NodeHeartbeat: {
-            executionId?: string;
-            nodeId?: string;
-            sessionId?: string;
-            /** Format: date-time */
-            timestamp?: string;
-            workflowId?: string;
         };
         NodeOutputSlice: {
             lines?: components["schemas"]["Line"][];
@@ -4836,70 +4681,6 @@ export interface operations {
             };
         };
     };
-    getHeartbeats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListNodeHeartbeat"];
-                };
-            };
-        };
-    };
-    getAllActiveNodes: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListString"];
-                };
-            };
-        };
-    };
-    getActiveNodes: {
-        parameters: {
-            query: {
-                sessionId: string;
-            };
-            header?: never;
-            path: {
-                workflowId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListString"];
-                };
-            };
-        };
-    };
     sendCommand: {
         parameters: {
             query: {
@@ -4928,32 +4709,6 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseNodeCommandResponse"];
-                };
-            };
-        };
-    };
-    getLastHeartbeat: {
-        parameters: {
-            query: {
-                sessionId: string;
-                executionId?: string;
-            };
-            header?: never;
-            path: {
-                workflowId: string;
-                nodeId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseMessageObject"];
                 };
             };
         };

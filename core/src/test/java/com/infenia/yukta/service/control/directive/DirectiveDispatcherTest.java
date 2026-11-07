@@ -29,7 +29,6 @@ import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
@@ -74,8 +73,6 @@ class DirectiveDispatcherTest {
     archive = new ExecutionArchive();
     controlBusService = mock(ControlBusService.class);
     processor = mock(CommandHandler.class);
-
-    when(controlBusService.getControlStream()).thenReturn(Flux.never());
 
     dispatcher =
         new DirectiveDispatcher(

@@ -22,22 +22,4 @@ class ControlKeyTest {
   void keyWithRunHasThreeParts() {
     assertThat(ControlKey.forNode("wf", "run-1", "n")).isEqualTo("wf\0run-1\0n");
   }
-
-  @Test
-  void theParts() {
-    assertThat(ControlKey.workflowId("wf\0run-1\0n")).isEqualTo("wf");
-    assertThat(ControlKey.executionId("wf\0run-1\0n")).isEqualTo("run-1");
-    assertThat(ControlKey.nodeId("wf\0run-1\0n")).isEqualTo("n");
-    assertThat(ControlKey.workflowId("wf\0n")).isEqualTo("wf");
-    assertThat(ControlKey.executionId("wf\0n")).isEmpty();
-    assertThat(ControlKey.nodeId("wf\0n")).isEqualTo("n");
-  }
-
-  @Test
-  void keyBelongsToWorkflow() {
-    assertThat(ControlKey.isIn("wf\0run-1\0n", "wf")).isTrue();
-    assertThat(ControlKey.isIn("wf\0n", "wf")).isTrue();
-    assertThat(ControlKey.isIn("wf2\0run-1\0n", "wf")).isFalse();
-    assertThat(ControlKey.isIn("no-separator", "no-separator")).isFalse();
-  }
 }

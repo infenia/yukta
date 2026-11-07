@@ -4,12 +4,8 @@ package com.infenia.yukta.service.control.store;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import com.infenia.yukta.plugin.core.Plugin;
-import com.infenia.yukta.service.control.directive.ControlSignalHandler;
-import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -26,17 +22,14 @@ class ActivePluginRegistryTest {
 
   private static final String WORKFLOW_ID = "workflow-1";
   private static final String NODE_ID = "node-1";
-  private static final String COMPOSITE_KEY = WORKFLOW_ID + "\0" + NODE_ID;
 
-  @Mock private ControlSignalHandler handler1;
-  @Mock private ControlSignalHandler handler2;
   @Mock private Plugin plugin;
 
   private ActivePluginRegistry registry;
 
   @BeforeEach
   void setUp() {
-    registry = new ActivePluginRegistry(List.of(handler1, handler2));
+    registry = new ActivePluginRegistry();
   }
 
   @Test
@@ -57,8 +50,6 @@ class ActivePluginRegistryTest {
 
     assertThat(registry.lookup(WORKFLOW_ID, "run-1", NODE_ID)).isEmpty();
     assertThat(registry.lookup(WORKFLOW_ID, "run-2", NODE_ID)).containsSame(plugin);
-    verify(handler1).removeNode(WORKFLOW_ID + "\0run-1\0" + NODE_ID);
-    verify(handler1, never()).removeNode(WORKFLOW_ID + "\0run-2\0" + NODE_ID);
   }
 
   @Test
@@ -70,7 +61,6 @@ class ActivePluginRegistryTest {
     registry.unregister(WORKFLOW_ID, "run-1", NODE_ID);
 
     assertThat(registry.lookup(WORKFLOW_ID, "run-1", NODE_ID)).containsSame(plugin);
-    verify(handler1, never()).removeNode(WORKFLOW_ID + "\0run-1\0" + NODE_ID);
   }
 
   @Test
@@ -80,24 +70,21 @@ class ActivePluginRegistryTest {
   }
 
   @Test
-  @DisplayName("should remove the plugin and notify handlers on unregister")
-  void register_thenUnregister_removesAndNotifiesHandlers() {
+  @DisplayName("should remove the plugin on unregister")
+  void register_thenUnregister_removes() {
     registry.register(WORKFLOW_ID, null, NODE_ID, plugin);
 
     registry.unregister(WORKFLOW_ID, null, NODE_ID);
 
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
-    verify(handler1).removeNode(COMPOSITE_KEY);
-    verify(handler2).removeNode(COMPOSITE_KEY);
   }
 
   @Test
-  @DisplayName("should not notify handlers when unregistering a never-registered node")
-  void unregister_neverRegistered_doesNotNotifyHandlers() {
+  @DisplayName("should ignore unregistering a never-registered node")
+  void unregister_neverRegistered_isIgnored() {
     registry.unregister(WORKFLOW_ID, null, NODE_ID);
 
-    verify(handler1, never()).removeNode(COMPOSITE_KEY);
-    verify(handler2, never()).removeNode(COMPOSITE_KEY);
+    assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
   }
 
   @Test
@@ -110,13 +97,9 @@ class ActivePluginRegistryTest {
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID))
         .as("plugin should still be reachable while one registration remains outstanding")
         .containsSame(plugin);
-    verify(handler1, never()).removeNode(COMPOSITE_KEY);
-    verify(handler2, never()).removeNode(COMPOSITE_KEY);
 
     registry.unregister(WORKFLOW_ID, null, NODE_ID);
     assertThat(registry.lookup(WORKFLOW_ID, null, NODE_ID)).isEmpty();
-    verify(handler1).removeNode(COMPOSITE_KEY);
-    verify(handler2).removeNode(COMPOSITE_KEY);
   }
 
   @Test

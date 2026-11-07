@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
-import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
@@ -137,70 +136,6 @@ final class ExecutionQueries {
                     .addKeyValue("workflowId", workflowId)
                     .addKeyValue("executionCount", history.size())
                     .log("Workflow execution history retrieved"));
-  }
-
-  /* default */ Message<?> getLastHeartbeat(
-      final String workflowId, final String executionId, final String nodeId) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Fetching last heartbeat");
-    final Message<?> heartbeat =
-        controlBusService.getLastHeartbeat(workflowId, executionId, nodeId);
-    if (heartbeat != null) {
-      log.atTrace()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("Last heartbeat found");
-    } else {
-      log.atDebug()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("No heartbeat found");
-    }
-    return heartbeat;
-  }
-
-  /* default */ Message<?> getLastStatistics(
-      final String workflowId, final String executionId, final String nodeId) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Fetching last statistics");
-    final Message<?> statistics =
-        controlBusService.getLastStatistics(workflowId, executionId, nodeId);
-    if (statistics != null) {
-      log.atTrace()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("Last statistics found");
-    } else {
-      log.atDebug()
-          .addKeyValue("workflowId", workflowId)
-          .addKeyValue("nodeId", nodeId)
-          .log("No statistics found");
-    }
-    return statistics;
-  }
-
-  /* default */ List<String> getActiveNodes(
-      final String workflowId, final List<String> executionIds) {
-    log.atDebug().addKeyValue("workflowId", workflowId).log("Fetching active nodes for workflow");
-    final List<String> activeNodes = controlBusService.getActiveNodes(workflowId, executionIds);
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("activeNodeCount", activeNodes.size())
-        .log("Active nodes retrieved");
-    return activeNodes;
-  }
-
-  /* default */ List<String> getActiveNodes() {
-    log.atDebug().log("Fetching all active nodes");
-    final List<String> allActiveNodes = controlBusService.getActiveNodes();
-    log.atDebug()
-        .addKeyValue("totalActiveNodes", allActiveNodes.size())
-        .log("All active nodes retrieved");
-    return allActiveNodes;
   }
 
   /**

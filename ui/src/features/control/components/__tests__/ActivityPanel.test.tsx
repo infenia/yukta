@@ -64,8 +64,7 @@ const server = setupServer(
   ),
   http.get('/api/edition', () =>
     ok({ edition: 'PLUS', license: 'x', features: [], source: null })
-  ),
-  http.get('/api/control/heartbeats', () => ok([]))
+  )
 );
 
 beforeAll(() => server.listen());
@@ -194,7 +193,9 @@ describe('ActivityPanel', () => {
   it('switches between the overview and the activity tab, keeping it in the URL', async () => {
     const user = userEvent.setup();
     renderActivity('');
-    expect(await screen.findByText('No active nodes.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Execution limits' })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'activity' }));
     expect(screen.getByTestId('where')).toHaveTextContent('tab=activity');
@@ -204,7 +205,9 @@ describe('ActivityPanel', () => {
 
     await user.click(screen.getByRole('tab', { name: 'overview' }));
     expect(screen.getByTestId('where')).not.toHaveTextContent('tab=');
-    expect(await screen.findByText('No active nodes.')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Execution limits' })
+    ).toBeInTheDocument();
   });
 
   it('shows live events newest first, and a placeholder before any', async () => {
