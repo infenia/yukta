@@ -1,5 +1,7 @@
 # Dogfood: develop Yukta with Yukta
 
+> How it works inside (workflows, TypeScript, heal, ticket pipeline): [ARCHITECTURE.md](ARCHITECTURE.md).
+
 **Use case:** every build, test and check of this repo runs as a Yukta workflow on a local dev server, so Claude Code (or you)
 reads one deterministic result line instead of choosing which checks to run. When a check fails, a repair workflow asks Claude
 models, cheapest first, to fix it before a developer has to step in.
