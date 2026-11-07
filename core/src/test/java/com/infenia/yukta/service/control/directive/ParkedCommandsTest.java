@@ -423,6 +423,21 @@ class ParkedCommandsTest {
   }
 
   @Test
+  void retriedRestartGetsTheSameRequestWhateverNewIdItCarries() {
+    final String first = park(new ExecutionControlCommand.RestartCommand("e1", "new-1"));
+    final String second = park(new ExecutionControlCommand.RestartCommand("e1", "new-2"));
+    final String fromNode =
+        park(new ExecutionControlCommand.RestartFromNodeCommand("e1", "n", "x"));
+    final String fromNodeAgain =
+        park(new ExecutionControlCommand.RestartFromNodeCommand("e1", "n", "y"));
+
+    assertThat(second).isEqualTo(first);
+    assertThat(fromNodeAgain).isEqualTo(fromNode);
+    assertThat(fromNode).isNotEqualTo(first);
+    assertThat(parked.size()).isEqualTo(2);
+  }
+
+  @Test
   void parkedCommandsCountAgainstTheOpenRequestCap() {
     for (int i = 0; i < 5; i++) {
       park(new ExecutionControlCommand.PauseNodeCommand("e1", "n" + i));
