@@ -1,13 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
 import { scopeLabel } from '../lib/scope';
 import { useAttachments } from '../hooks/useSupervisorTypes';
 import type { AttachmentView } from '../types';
-import { AttachDialog } from './AttachDialog';
 
 /** Where an attachment comes from, as seen from this session or workflow. */
 function badge(a: AttachmentView, sessionId: string, workflowId?: string) {
@@ -22,9 +19,10 @@ function badge(a: AttachmentView, sessionId: string, workflowId?: string) {
 }
 
 /**
- * The supervisors that apply to a session, or to one of its workflows: those its definition
- * declares, those attached by hand, those it inherits from a wider scope and the server's own.
- * Shows nothing while the list loads or if it cannot be read: it is an aside.
+ * The supervisors that apply to a session, or to one of its workflows, as one slim read-only row:
+ * those its definition declares, those attached by hand, those it inherits from a wider scope and
+ * the server's own. Shows nothing while the list loads, if it cannot be read or if none apply:
+ * it is an aside.
  */
 export function EffectiveSupervision({
   sessionId,
@@ -39,74 +37,37 @@ export function EffectiveSupervision({
     session: sessionId,
     workflow: workflowId,
   });
-  const [attaching, setAttaching] = useState(false);
-  if (isPending || error) return null;
-  const configure = workflowId
-    ? `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`
-    : `/sessions/${encodeURIComponent(sessionId)}/edit`;
+  if (isPending || error || data.length === 0) return null;
   return (
     <section
       aria-label="Supervisors"
-      className={`border-border bg-card flex flex-col gap-2 rounded-xl border px-4 py-3 ${className}`}
+      className={`flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 sm:px-6 ${className}`}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-label-md text-on-surface">
-          Supervision that applies here
-        </h2>
-        <span className="ml-auto flex gap-2">
-          <Link
-            to={configure}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+      <h2 className="text-overline">Supervision</h2>
+      <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {data.map((a) => (
+          <li
+            key={a.id}
+            title={scopeLabel(a.scope)}
+            className={`flex items-center gap-1.5 ${a.enabled ? '' : 'opacity-60'}`}
           >
-            Configure
-          </Link>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setAttaching(true)}
-          >
-            Attach manually
-          </Button>
-        </span>
-      </div>
-      {data.length === 0 ? (
-        <span className="text-body-sm text-on-surface-variant">
-          None apply to this {workflowId ? 'workflow' : 'session'}.
-        </span>
-      ) : (
-        <ul className="flex flex-col gap-1">
-          {data.map((a) => (
-            <li
-              key={a.id}
-              className={`flex flex-wrap items-center gap-2 ${a.enabled ? '' : 'opacity-60'}`}
+            <Link
+              to={`/supervisors/${encodeURIComponent(a.supervisorId)}`}
+              className="text-body-md text-primary font-medium hover:underline"
             >
-              <Link
-                to={`/supervisors/${encodeURIComponent(a.supervisorId)}`}
-                className="text-body-md text-primary font-medium hover:underline"
-              >
-                {a.supervisorId}
-              </Link>
-              <code className="text-code-sm text-on-surface-variant">
-                {scopeLabel(a.scope)}
-              </code>
-              <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
-                {badge(a, sessionId, workflowId)}
+              {a.supervisorId}
+            </Link>
+            <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
+              {badge(a, sessionId, workflowId)}
+            </span>
+            {!a.enabled && (
+              <span className="text-label-sm text-on-surface-variant">
+                disabled
               </span>
-              {!a.enabled && (
-                <span className="text-label-sm text-on-surface-variant">
-                  disabled
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-      {attaching && (
-        <AttachDialog
-          preset={{ sessionId, workflowId }}
-          onClose={() => setAttaching(false)}
-        />
-      )}
+            )}
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
