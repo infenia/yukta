@@ -1087,6 +1087,33 @@ class SessionServiceTest {
   }
 
   @Test
+  void applyConfig_attachesTheDeclaredSupervisorsEvenWhenLaterStepFails() {
+    final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+    sessionService.setDefinitionSupervisors(declared);
+    final WorkflowDefinition workflow =
+        Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
+    final SessionConfigData data =
+        new SessionConfigData(
+            SESSION_ID_1, "s", DESC, "i", Map.of(), PATH, Map.of("w1", workflow), List.of());
+    when(declared.check(data)).thenReturn(Mono.just(List.of()));
+    // the session is stored, then one workflow cannot be compiled
+    when(declared.apply(data)).thenReturn(Mono.error(new IllegalStateException("refs")));
+    when(configService.applySessionConfig(any())).thenReturn(Mono.empty());
+    when(workflowDefinitionStore.findAll(SESSION_ID_1)).thenReturn(Mono.just(Map.of()));
+    when(controlBus.compileAndCacheWorkflow(eq(SESSION_ID_1), any()))
+        .thenReturn(Mono.error(new RuntimeException("Compilation failed")));
+
+    StepVerifier.create(sessionService.applyConfig(data))
+        .expectErrorMessage("Compilation failed")
+        .verify();
+
+    // what the stored session declares is attached anyway, and a failure there does not hide
+    // the first error
+    verify(declared).apply(data);
+  }
+
+  @Test
   void applyConfig_refusesDeclaredSupervisorsThatDoNotCheckOutAndSavesNothing() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
         org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
