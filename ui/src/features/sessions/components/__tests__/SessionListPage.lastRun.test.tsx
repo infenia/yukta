@@ -109,11 +109,12 @@ describe('SessionListPage last run', () => {
     expect(within(differs).getByText('ci-7')).toBeInTheDocument();
   });
 
-  it('gives the Import session button the shared bordered icon-button style', async () => {
+  it('leaves Import session to the New session page', async () => {
     renderList();
-    const link = await screen.findByRole('link', { name: 'Import session' });
-    // iconButton('primary'): border from the outline variant, tinted hover from the tone
-    expect(link).toHaveClass('border-border', 'hover:bg-primary/10');
+    await screen.findAllByTestId('status-chip');
+    expect(
+      screen.queryByRole('link', { name: 'Import session' })
+    ).not.toBeInTheDocument();
   });
 
   it('labels each cell for the stacked phone layout', async () => {

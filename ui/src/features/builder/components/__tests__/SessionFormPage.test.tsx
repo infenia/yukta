@@ -326,7 +326,7 @@ describe('SessionFormPage, new', () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
     await user.click(
-      await screen.findByRole('button', { name: 'Use Hello world' })
+      await screen.findByRole('button', { name: 'Use template' })
     );
     expect(await screen.findByLabelText('Session ID')).toHaveValue(
       '01-hello-world-1'
@@ -472,7 +472,7 @@ describe('SessionFormPage, new', () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);
     await user.click(
-      await screen.findByRole('button', { name: 'Use Hello world' })
+      await screen.findByRole('button', { name: 'Use template' })
     );
     expect(await screen.findByRole('alert')).toBeInTheDocument();
   });

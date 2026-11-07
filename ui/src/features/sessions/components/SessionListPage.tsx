@@ -5,8 +5,6 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
-import { iconButton } from '@/components/ui/iconTone';
-import { Tip } from '@/components/ui/tooltip';
 import {
   useLegacyTable,
   getCoreRowModel,
@@ -159,29 +157,7 @@ export function SessionListPage() {
           data-testid="hero-backdrop"
           className={`hero-backdrop pointer-events-none absolute inset-x-0 top-0 -z-10 ${isEmpty ? 'h-128' : 'h-56'}`}
         />
-        <SessionsHeader
-          actions={
-            isEmpty ? undefined : (
-              <div className="flex gap-2">
-                <Tip label="Import session">
-                  <Link
-                    to="/sessions/import"
-                    aria-label="Import session"
-                    className={iconButton('primary')}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="material-symbols-outlined text-base"
-                    >
-                      upload
-                    </span>
-                  </Link>
-                </Tip>
-                {newSession}
-              </div>
-            )
-          }
-        />
+        <SessionsHeader actions={isEmpty ? undefined : newSession} />
 
         {isEmpty ? (
           <section
