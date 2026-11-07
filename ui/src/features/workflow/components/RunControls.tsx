@@ -34,7 +34,37 @@ import {
 const BUTTON = buttonVariants({ variant: 'outline' });
 /** A button inside the segmented run controls. */
 const SEG =
-  'text-label-md text-on-surface hover:bg-muted flex h-7 items-center gap-1 rounded-full px-2.5 font-medium disabled:pointer-events-none disabled:opacity-45';
+  'text-label-md text-on-surface hover:bg-muted flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 font-medium disabled:pointer-events-none disabled:opacity-45';
+
+/** An icon-only segment of the run controls: the label is the tooltip and the accessible name. */
+function ControlButton({
+  icon,
+  label,
+  tone,
+  disabled,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  tone: string;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`${SEG} ${tone}`}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span aria-hidden="true" className="material-symbols-outlined text-base">
+        {icon}
+      </span>
+    </button>
+  );
+}
 
 /** Priorities the scheduler accepts from the UI. */
 export const MIN_PRIORITY = -100;
@@ -199,30 +229,25 @@ export function RunControls({
           sessionId={sessionId}
           workflowId={workflowId}
           onStarted={onStarted}
-          className={SEG}
+          className={`${SEG} text-success`}
+          iconOnly
         />
         <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
-            <button
-              type="button"
-              className={`${SEG} text-primary`}
+            <ControlButton
+              icon="play_circle"
+              label="Resume"
+              tone="text-primary"
               onClick={() => act('resume')}
-            >
-              <span className="material-symbols-outlined text-base">
-                play_circle
-              </span>
-              Resume
-            </button>
+            />
           ) : (
-            <button
-              type="button"
-              className={SEG}
+            <ControlButton
+              icon="pause"
+              label="Pause"
+              tone="text-attention"
               disabled={category !== 'running'}
               onClick={() => act('pause')}
-            >
-              <span className="material-symbols-outlined text-base">pause</span>
-              Pause
-            </button>
+            />
           )}
         </RequirePermission>
         <DropdownMenu>
@@ -231,15 +256,15 @@ export function RunControls({
               className={`${SEG} text-destructive`}
               disabled={!live}
               aria-label="Stop options"
+              title="Stop"
             >
               <span className="material-symbols-outlined text-base">stop</span>
-              Stop
               <span className="material-symbols-outlined text-base">
                 arrow_drop_down
               </span>
             </DropdownMenuTrigger>
           </RequirePermission>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-max">
             <DropdownMenuItem
               onClick={() =>
                 setConfirm({ label: 'Stop this run', scope: 'run' })
@@ -280,17 +305,13 @@ export function RunControls({
           </DropdownMenuContent>
         </DropdownMenu>
         <RequirePermission perm="controlRuns">
-          <button
-            type="button"
-            className={SEG}
+          <ControlButton
+            icon="restart_alt"
+            label="Restart"
+            tone="text-primary"
             disabled={!canRestart}
             onClick={() => act('restart')}
-          >
-            <span className="material-symbols-outlined text-base">
-              restart_alt
-            </span>
-            Restart
-          </button>
+          />
         </RequirePermission>
       </div>
       {canPrioritize && (
@@ -308,13 +329,16 @@ export function RunControls({
         </RequirePermission>
       )}
       <DropdownMenu>
-        <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
-          <span className="material-symbols-outlined text-base">
+        <DropdownMenuTrigger
+          className={buttonVariants({ variant: 'outline', size: 'icon' })}
+          aria-label="Copy as"
+          title="Copy as…"
+        >
+          <span className="material-symbols-outlined text-primary text-base">
             content_copy
           </span>
-          Copy as…
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-max">
           <CopyAsMenu choices={choices} onCopy={copy} />
         </DropdownMenuContent>
       </DropdownMenu>

@@ -7,6 +7,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { StatusPill } from './StatusPill';
 import { formatClockTime } from '../lib/timeFormat';
 import type { ExecutionSummary } from '../types/workflow';
 
@@ -46,13 +47,16 @@ export function RunHistoryDropdown({
           {selectedExecutionId?.slice(0, 8) ?? '—'}
         </span>
         {selected && (
-          <span className="text-on-surface-variant font-normal">
-            · started {formatClockTime(selected.startTime)}
-          </span>
+          <>
+            <StatusPill status={selected.status} />
+            <span className="text-on-surface-variant font-normal">
+              · started {formatClockTime(selected.startTime)}
+            </span>
+          </>
         )}
         <span className="material-symbols-outlined text-base">expand_more</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="start" className="w-max">
         {executions.map((execution) => (
           <DropdownMenuItem
             key={execution.executionId}
@@ -66,8 +70,9 @@ export function RunHistoryDropdown({
               </span>
               <span className="text-code-sm">{execution.executionId}</span>
               <span className="text-body-sm text-on-surface-variant ml-auto">
-                {formatClockTime(execution.startTime)} · {execution.status}
+                {formatClockTime(execution.startTime)}
               </span>
+              <StatusPill status={execution.status} />
             </span>
           </DropdownMenuItem>
         ))}

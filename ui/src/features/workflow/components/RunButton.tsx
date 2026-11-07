@@ -86,6 +86,7 @@ export function RunButton({
   size,
   className,
   label = 'Run workflow',
+  iconOnly = false,
 }: {
   sessionId: string;
   workflowId: string;
@@ -95,6 +96,8 @@ export function RunButton({
   className?: string;
   /** The button's accessible name, e.g. "Run check" in a table of workflows. */
   label?: string;
+  /** Icon only: the label moves to the tooltip. */
+  iconOnly?: boolean;
 }) {
   const { start } = useExecutionControl(sessionId, workflowId);
   const [open, setOpen] = useState(false);
@@ -105,6 +108,7 @@ export function RunButton({
         <button
           type="button"
           aria-label={label}
+          title={iconOnly ? label : undefined}
           className={className ?? buttonVariants({ variant: 'outline', size })}
           onClick={() => {
             runKey.current = newIdempotencyKey();
@@ -117,7 +121,7 @@ export function RunButton({
           >
             play_arrow
           </span>
-          Run
+          {!iconOnly && 'Run'}
         </button>
       </RequirePermission>
       {open && (

@@ -37,7 +37,22 @@ describe('RunHistoryDropdown', () => {
     // the first 8 characters, as in the Runs list, and when it started
     expect(
       screen.getByRole('button', { name: /run history/i })
-    ).toHaveTextContent(/Run\s*exec-091\s*· started /);
+    ).toHaveTextContent(/Run\s*exec-091.*· started /);
+  });
+
+  it('shows each run status as a colored pill in the list', async () => {
+    const user = userEvent.setup();
+    render(
+      <RunHistoryDropdown
+        executions={[createMockExecution({ status: 'SUCCESS' })]}
+        selectedExecutionId={null}
+        onSelect={vi.fn()}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: /run history/i }));
+    const pill = await screen.findByTestId('status-chip');
+    expect(pill).toHaveTextContent('Succeeded');
+    expect(pill.className).toContain('text-success');
   });
 
   it('renders a dash before a selection exists', () => {

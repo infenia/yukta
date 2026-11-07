@@ -200,22 +200,21 @@ export function WorkflowDetailsPage() {
       <WorkflowTitleBar
         workflowId={workflowId}
         description={graph.description}
-        status={executionStatus}
         runGroup={
-          <>
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
-          </>
+          <RunHistoryDropdown
+            executions={executions}
+            selectedExecutionId={selectedExecutionId}
+            onSelect={selectExecution}
+          />
+        }
+        controls={
+          <RunControls
+            sessionId={sessionId}
+            workflowId={workflowId}
+            executionId={selectedExecutionId}
+            status={executionStatus}
+            onStarted={selectExecution}
+          />
         }
         actions={
           <>
@@ -279,7 +278,7 @@ export function WorkflowDetailsPage() {
                   </Button>
                 )}
               />
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-max">
                 <DropdownMenuItem
                   onClick={() => setVersionsOpen((value) => !value)}
                 >
