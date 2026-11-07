@@ -52,7 +52,7 @@ class SupervisorHostCapabilitiesTest {
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
   private final SupervisorHost host =
-      SupervisorHostFixture.of(
+      SupervisorHostFixture.create(
           providerOf(), new ExecutionEventFeed(), dispatcher, log, meters, false, 20, 100);
 
   @AfterEach

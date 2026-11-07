@@ -53,7 +53,7 @@ class AttachedSupervisorTest {
   private final AttachedSupervisors attached = new AttachedSupervisors();
 
   private final SupervisorHost host =
-      SupervisorHostFixture.of(
+      SupervisorHostFixture.create(
           providerOf(), feed, dispatcher, new InMemoryExecutionLogStore(), meters, false, 10, 1000);
 
   private final List<String> seen = new CopyOnWriteArrayList<>();
@@ -172,7 +172,7 @@ class AttachedSupervisorTest {
   @Test
   void theServerWideDryRunAppliesToAttachedSupervisorsToo() {
     final SupervisorHost recordingHost =
-        SupervisorHostFixture.of(
+        SupervisorHostFixture.create(
             providerOf(),
             feed,
             dispatcher,
@@ -201,7 +201,7 @@ class AttachedSupervisorTest {
 
   @Test
   void theReviewerAsksAttachedSupervisorsWhoseScopeCoversTheRun() {
-    final ControlReviewer reviewer = ControlReviewerFixture.of(providerOf());
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf());
     reviewer.setAttachedSupervisors(attached);
     attached.put(bound("b1", new SupervisorScope.Session("A"), false));
     attached.put(bound("b2", new SupervisorScope.Session("B"), false));

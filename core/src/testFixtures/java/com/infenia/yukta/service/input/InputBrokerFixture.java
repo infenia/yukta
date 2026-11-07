@@ -19,7 +19,7 @@ public final class InputBrokerFixture {
   private InputBrokerFixture() {}
 
   /** A InputBroker with the default for what the parameters leave out. */
-  public static InputBroker of(
+  public static InputBroker create(
       final InputRequestStore store,
       final ExecutionEventFeed feed,
       final ExecutionLogStore executionLog,

@@ -13,12 +13,12 @@ public final class DefaultStatusHistoryCacheFixture {
   private DefaultStatusHistoryCacheFixture() {}
 
   /** A DefaultStatusHistoryCache with the default for what the parameters leave out. */
-  public static DefaultStatusHistoryCache of(final int ttlMinutes) {
+  public static DefaultStatusHistoryCache create(final int ttlMinutes) {
     return new DefaultStatusHistoryCache(ttlMinutes, 200, 1000);
   }
 
   /** A DefaultStatusHistoryCache with the default for what the parameters leave out. */
-  public static DefaultStatusHistoryCache of(final YuktaProperties properties) {
+  public static DefaultStatusHistoryCache create(final YuktaProperties properties) {
     return new DefaultStatusHistoryCache(properties);
   }
 }

@@ -48,7 +48,7 @@ class MetricsControllerTest {
               100,
               List.of("yukta.")));
 
-  private final RunAnalytics analytics = RunAnalyticsFixture.of(new ExecutionEventFeed());
+  private final RunAnalytics analytics = RunAnalyticsFixture.create(new ExecutionEventFeed());
 
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
 

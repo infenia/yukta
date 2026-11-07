@@ -45,10 +45,10 @@ class RestartCommandProcessorTest {
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.of(
+      ExecutionSchedulerFixture.create(
           0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
-  private final ExecutionArchive archive = ExecutionArchiveFixture.of();
+  private final ExecutionArchive archive = ExecutionArchiveFixture.create();
 
   private RestartCommandProcessor processor;
 
@@ -92,7 +92,7 @@ class RestartCommandProcessorTest {
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
     scheduler =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
@@ -109,7 +109,7 @@ class RestartCommandProcessorTest {
   @Test
   void twoRestartsForTheLastSlot_onlyOneProceeds() {
     scheduler =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);

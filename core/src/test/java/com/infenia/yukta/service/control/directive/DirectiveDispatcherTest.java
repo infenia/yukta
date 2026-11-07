@@ -65,7 +65,7 @@ class DirectiveDispatcherTest {
   @BeforeEach
   void setUp() {
     registry = new InMemoryExecutionControlStore();
-    archive = ExecutionArchiveFixture.of();
+    archive = ExecutionArchiveFixture.create();
     controlBusService = mock(ControlBusService.class);
     processor = mock(CommandHandler.class);
 
@@ -76,7 +76,7 @@ class DirectiveDispatcherTest {
             controlBusService,
             archive,
             log,
-            ControlReviewerFixture.of(
+            ControlReviewerFixture.create(
                 new StaticListableBeanFactory().getBeanProvider(ExecutionSupervisor.class)),
             new ExecutionEventFeed());
   }

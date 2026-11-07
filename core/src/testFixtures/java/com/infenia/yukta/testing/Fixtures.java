@@ -23,6 +23,11 @@ import java.util.Map;
  * Short forms of the model records for tests: each fills the fields a test does not care about with
  * the default the records used to offer as extra constructors.
  */
+@SuppressWarnings({
+  "PMD.UseObjectForClearerAPI",
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods"
+})
 public final class Fixtures {
 
   private Fixtures() {}

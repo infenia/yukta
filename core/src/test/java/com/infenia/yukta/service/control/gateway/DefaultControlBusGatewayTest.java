@@ -98,7 +98,7 @@ class DefaultControlBusGatewayTest {
 
   private DefaultControlBusGateway gateway;
 
-  private final ExecutionArchive archive = ExecutionArchiveFixture.of();
+  private final ExecutionArchive archive = ExecutionArchiveFixture.create();
 
   @BeforeEach
   void setUp() {
@@ -111,9 +111,9 @@ class DefaultControlBusGatewayTest {
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache,
-            ExecutionSchedulerFixture.of(
+            ExecutionSchedulerFixture.create(
                 0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(10)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(10)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
   }
 
@@ -491,13 +491,13 @@ class DefaultControlBusGatewayTest {
             controlBusService,
             taskTracker,
             realRegistry,
-            ExecutionArchiveFixture.of(),
+            ExecutionArchiveFixture.create(),
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache,
-            ExecutionSchedulerFixture.of(
+            ExecutionSchedulerFixture.create(
                 0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30)),
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(10)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(10)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
@@ -2477,9 +2477,9 @@ class DefaultControlBusGatewayTest {
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache,
-            ExecutionSchedulerFixture.of(
+            ExecutionSchedulerFixture.create(
                 1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ofSeconds(30)),
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
     final var first = one.startWorkflow("s", "wf-race", Map.of(), null).toFuture();
@@ -2497,7 +2497,7 @@ class DefaultControlBusGatewayTest {
     final WorkflowDefinition definition = Fixtures.workflow("wf-full", "d", List.of(), List.of());
     when(workflowDefinitionStore.find("s", "wf-full")).thenReturn(Mono.just(definition));
     final var scheduler =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ofSeconds(30));
     scheduler.acquire("s", "wf-full", 0, null).permit().block();
     final DefaultControlBusGateway full =
@@ -2510,7 +2510,7 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             scheduler,
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
     StepVerifier.create(full.startWorkflow("s", "wf-full", Map.of(), null))
@@ -2656,7 +2656,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void limits_reportsTheCurrentSchedulerLimits() {
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             3, 1, 7, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final DefaultControlBusGateway limited =
         new DefaultControlBusGateway(
@@ -2668,7 +2668,7 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             real,
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
     StepVerifier.create(limited.limits())
@@ -2687,7 +2687,7 @@ class DefaultControlBusGatewayTest {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
         new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final DefaultControlBusGateway limited =
         new DefaultControlBusGateway(
@@ -2699,7 +2699,7 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             real,
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             auditLog);
     final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
     limited.setAuditSink(sunk::add);
@@ -2765,7 +2765,7 @@ class DefaultControlBusGatewayTest {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
         new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final DefaultControlBusGateway limited =
         new DefaultControlBusGateway(
@@ -2777,7 +2777,7 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             real,
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             auditLog);
     final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
         mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
@@ -2809,7 +2809,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void setPriority_isAuditedWhetherItWorkedOrNot() {
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore log =
         new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
@@ -2823,7 +2823,7 @@ class DefaultControlBusGatewayTest {
             workflowDefinitionStore,
             preparedWorkflowCache,
             real,
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             log);
     real.acquire("s", "w", 0, null).permit().block();
     real.acquire("s", "w", 0, "waiting").permit().subscribe();
@@ -2859,9 +2859,9 @@ class DefaultControlBusGatewayTest {
             orchestrator,
             workflowDefinitionStore,
             preparedWorkflowCache,
-            ExecutionSchedulerFixture.of(
+            ExecutionSchedulerFixture.create(
                 1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1)),
-            StartIdempotencyFixture.of(java.time.Duration.ofMinutes(1)),
+            StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             auditLog);
 
     StepVerifier.create(

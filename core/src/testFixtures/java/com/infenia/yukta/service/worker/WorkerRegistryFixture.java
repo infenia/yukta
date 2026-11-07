@@ -15,12 +15,13 @@ public final class WorkerRegistryFixture {
   private WorkerRegistryFixture() {}
 
   /** A WorkerRegistry with the default for what the parameters leave out. */
-  public static WorkerRegistry of(final YuktaProperties properties, final MeterRegistry meters) {
+  public static WorkerRegistry create(
+      final YuktaProperties properties, final MeterRegistry meters) {
     return new WorkerRegistry(properties, meters);
   }
 
   /** A WorkerRegistry with the default for what the parameters leave out. */
-  public static WorkerRegistry of(final Duration lease, final MeterRegistry meters) {
+  public static WorkerRegistry create(final Duration lease, final MeterRegistry meters) {
     return new WorkerRegistry(lease, meters, Clock.systemUTC());
   }
 }

@@ -11,7 +11,7 @@ public final class ExecutionArchiveFixture {
   private ExecutionArchiveFixture() {}
 
   /** A ExecutionArchive with the default for what the parameters leave out. */
-  public static ExecutionArchive of() {
+  public static ExecutionArchive create() {
     return new ExecutionArchive(10);
   }
 }

@@ -174,9 +174,9 @@ class ParkedCommandsTest {
             handler,
             registry,
             mock(ControlBusService.class),
-            ExecutionArchiveFixture.of(),
+            ExecutionArchiveFixture.create(),
             log,
-            ControlReviewerFixture.of(providerOf(guard, other)),
+            ControlReviewerFixture.create(providerOf(guard, other)),
             feed);
     final ObjectProvider<DirectiveDispatcher> lazy = mock(ObjectProvider.class);
     when(lazy.getObject()).thenAnswer(_ -> dispatcher);
@@ -479,9 +479,9 @@ class ParkedCommandsTest {
             handler,
             registry,
             mock(ControlBusService.class),
-            ExecutionArchiveFixture.of(),
+            ExecutionArchiveFixture.create(),
             log,
-            ControlReviewerFixture.of(providerOf(guard)),
+            ControlReviewerFixture.create(providerOf(guard)),
             feed);
 
     StepVerifier.create(plain.dispatchOrdered(STOP).contextWrite(AS_SUPERVISOR))

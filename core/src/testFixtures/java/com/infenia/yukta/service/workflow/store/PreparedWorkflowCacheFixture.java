@@ -13,7 +13,7 @@ public final class PreparedWorkflowCacheFixture {
   private PreparedWorkflowCacheFixture() {}
 
   /** A PreparedWorkflowCache with the default for what the parameters leave out. */
-  public static PreparedWorkflowCache of(final long ttlMs) {
+  public static PreparedWorkflowCache create(final long ttlMs) {
     return new PreparedWorkflowCache(ttlMs, 1_000, new SimpleMeterRegistry());
   }
 }

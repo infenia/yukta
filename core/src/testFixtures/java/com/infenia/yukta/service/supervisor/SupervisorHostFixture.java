@@ -16,7 +16,7 @@ public final class SupervisorHostFixture {
   private SupervisorHostFixture() {}
 
   /** A SupervisorHost with the default for what the parameters leave out. */
-  public static SupervisorHost of(
+  public static SupervisorHost create(
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
       final DirectiveDispatcher dispatcher,

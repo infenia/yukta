@@ -169,7 +169,7 @@ class InputRequestThreatsTest {
     feed.events().subscribe(events::add);
     final var store = new com.infenia.yukta.service.input.InMemoryInputRequestStore(10);
     final InputBroker broker =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             store,
             feed,
             log,
@@ -206,7 +206,7 @@ class InputRequestThreatsTest {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     final MutableClock clock = new MutableClock();
     final InputBroker broker =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             new com.infenia.yukta.service.input.InMemoryInputRequestStore(10),
             new ExecutionEventFeed(),
             log,

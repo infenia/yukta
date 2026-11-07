@@ -25,7 +25,7 @@ class WorkerNodeExecutorTest {
 
   private final WorkerNodeExecutor executor =
       new WorkerNodeExecutor(
-          WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry()),
+          WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry()),
           new WorkerConnections(),
           new ObjectMapper());
 
@@ -89,7 +89,7 @@ class WorkerNodeExecutorTest {
   @Test
   void pick_prefersFreeSlots_thenLowestId_skipsUnconnected() {
     final WorkerRegistry registry =
-        WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry());
+        WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
     final WorkerConnections connections = new WorkerConnections();
     final WorkerNodeExecutor picking =
         new WorkerNodeExecutor(registry, connections, new ObjectMapper());

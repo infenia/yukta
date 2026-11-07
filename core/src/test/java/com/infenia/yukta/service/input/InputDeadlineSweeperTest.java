@@ -33,7 +33,7 @@ class InputDeadlineSweeperTest {
   private final VirtualTimeScheduler scheduler = VirtualTimeScheduler.create();
   private final AtomicBoolean leader = new AtomicBoolean(true);
   private final InputBroker broker =
-      InputBrokerFixture.of(
+      InputBrokerFixture.create(
           new InMemoryInputRequestStore(10),
           new ExecutionEventFeed(),
           new InMemoryExecutionLogStore(),

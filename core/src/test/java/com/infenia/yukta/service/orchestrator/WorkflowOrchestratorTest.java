@@ -79,9 +79,9 @@ class WorkflowOrchestratorTest {
 
   private WorkflowOrchestrator orchestrator;
 
-  private final ExecutionArchive executionArchive = ExecutionArchiveFixture.of();
+  private final ExecutionArchive executionArchive = ExecutionArchiveFixture.create();
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.of(
+      ExecutionSchedulerFixture.create(
           0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final ExecutionLogStore executionLog = org.mockito.Mockito.mock(ExecutionLogStore.class);
 
@@ -682,7 +682,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_waitsInQueueWhenTheLimitIsReached_andReportsQueuedThenRunning() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final WorkflowOrchestrator queued =
         new WorkflowOrchestrator(
@@ -724,7 +724,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_endsTimedOutWhenItWaitedTooLongInTheQueue() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1,
             0,
             10,
@@ -764,7 +764,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_releasesItsSlotWhenTheBodyFails() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final WorkflowOrchestrator single =
         new WorkflowOrchestrator(
@@ -903,7 +903,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_reservedSlot_isUsedAndReleased() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-res");
@@ -919,7 +919,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_reservedQueuedSlot_waitsAndShowsQueued() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Permit held = limited.acquire("s", "w", 0, null).permit().block();
@@ -942,7 +942,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_startsTrackingOnTheCallersThread_soStartedRunCanBeRead() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-read");
@@ -959,7 +959,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_whenTrackingCannotStart_givesTheReservedSlotBack() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
@@ -1086,7 +1086,7 @@ class WorkflowOrchestratorTest {
     when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new IllegalStateException("cannot compile"));
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, null);
 
     StepVerifier.create(

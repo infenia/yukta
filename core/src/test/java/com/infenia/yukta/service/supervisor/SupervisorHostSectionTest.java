@@ -81,7 +81,7 @@ class SupervisorHostSectionTest {
     final Watcher deploy = new Watcher("deploy", SupervisorScope.parse("workflow:s/w//deploy.*"));
     final Watcher workflow = new Watcher("workflow", SupervisorScope.parse("workflow:s/w"));
     host =
-        SupervisorHostFixture.of(
+        SupervisorHostFixture.create(
             providerOf(build, deploy, workflow),
             feed,
             dispatcher,

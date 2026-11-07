@@ -36,7 +36,7 @@ class ExecutionRecoveryTest {
   void runThatNeverFinished_isRecordedAsAborted_andShownInHistory() {
     store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
 
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     assertThat(store.readAll())
         .extracting(ExecutionLogEvent::type)
@@ -59,7 +59,7 @@ class ExecutionRecoveryTest {
   void finishedRuns_areRestoredWithTheirNodeStatuses() {
     finishedRun("done", "FAILURE");
 
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     final var progress = tracker.getProgress("s1", "done");
     assertThat(progress.status()).isEqualTo(TaskStatus.FAILURE);
@@ -79,7 +79,7 @@ class ExecutionRecoveryTest {
     store.append(ExecutionLogEvent.started("old", "s1", "w1", "v1"));
     store.append(ExecutionLogEvent.finished("old", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
 
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     assertThat(tracker.getHistory("s1").block())
         .extracting(run -> run.executionId() + ":" + run.initiator())
@@ -94,7 +94,7 @@ class ExecutionRecoveryTest {
     store.append(
         ExecutionLogEvent.finished("long", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
 
-    ExecutionRecoveryFixture.of(store, tracker, 2).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 2).recover();
 
     assertThat(store.readAll())
         .extracting(ExecutionLogEvent::executionId)
@@ -123,7 +123,7 @@ class ExecutionRecoveryTest {
     finishedRun("r2", "SUCCESS");
     finishedRun("r3", "SUCCESS");
 
-    ExecutionRecoveryFixture.of(store, tracker, 2).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 2).recover();
 
     assertThat(store.readAll()).extracting(ExecutionLogEvent::executionId).containsOnly("r2", "r3");
     assertThat(tracker.getProgress("s1", "r1")).isNull();
@@ -132,7 +132,7 @@ class ExecutionRecoveryTest {
 
   @Test
   void anEmptyLog_isFine_andRecoveryRunsAfterTheSingletonsAreReady() {
-    final ExecutionRecovery recovery = ExecutionRecoveryFixture.of(store, tracker, 0);
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 0);
 
     recovery.afterSingletonsInstantiated();
 
@@ -144,7 +144,7 @@ class ExecutionRecoveryTest {
   void finishEventWithoutStart_isKeptButNotRestored() {
     store.append(ExecutionLogEvent.finished("orphan", "s1", "w1", "SUCCESS", Map.of()));
 
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     assertThat(store.readAll()).hasSize(1);
     assertThat(tracker.getProgress("s1", "orphan")).isNull();
@@ -203,7 +203,7 @@ class ExecutionRecoveryTest {
     // the server dies here: recovery marks the run aborted and keeps what had finished
     store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1", Map.of("k", "v")));
     store.append(ExecutionLogEvent.nodeFinished("crashed", "s1", "w1", "n1"));
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     assertThat(store.readAll())
         .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)
@@ -236,7 +236,7 @@ class ExecutionRecoveryTest {
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(2)", null));
     finishedRun("r1", "SUCCESS");
 
-    ExecutionRecoveryFixture.of(store, tracker, 1).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 1).recover();
 
     assertThat(store.readAll())
         .extracting(ExecutionLogEvent::executionId)
@@ -248,13 +248,14 @@ class ExecutionRecoveryTest {
   @Test
   void newestLimitsChangedEvent_isReappliedToTheScheduler() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.of(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(
+            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(ExecutionLogEvent.limitsChanged(1, 1));
     store.append(ExecutionLogEvent.limitsChanged(4, 2));
     store.append(
         ExecutionLogEvent.control(
             false, ExecutionLogEvent.SCHEDULER, "SetLimits(7, 7)", "refused"));
-    final ExecutionRecovery recovery = ExecutionRecoveryFixture.of(store, tracker, 100);
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);
     recovery.setExecutionScheduler(scheduler);
 
     recovery.recover();
@@ -269,10 +270,11 @@ class ExecutionRecoveryTest {
   @Test
   void auditTextAlone_doesNotChangeTheLimits() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.of(9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(
+            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     store.append(
         ExecutionLogEvent.control(true, ExecutionLogEvent.SCHEDULER, "SetLimits(3, 1)", null));
-    final ExecutionRecovery recovery = ExecutionRecoveryFixture.of(store, tracker, 100);
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);
     recovery.setExecutionScheduler(scheduler);
 
     recovery.recover();
@@ -285,14 +287,14 @@ class ExecutionRecoveryTest {
     store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
     finishedRun("done", "SUCCESS");
 
-    assertThat(ExecutionRecoveryFixture.of(store, tracker, 100).recover())
+    assertThat(ExecutionRecoveryFixture.create(store, tracker, 100).recover())
         .containsExactly("crashed");
   }
 
   @Test
   void whenTheElectionRecoversOnTakeover_startupLeavesTheLogAlone() {
     store.append(ExecutionLogEvent.started("living", "s1", "w1", "v1"));
-    final ExecutionRecovery recovery = ExecutionRecoveryFixture.of(store, tracker, 100);
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);
     recovery.setLeaderElection(
         new com.infenia.yukta.service.leader.LeaderElection() {
           @Override
@@ -320,7 +322,7 @@ class ExecutionRecoveryTest {
   void listenerIsToldWhichRunsWereInterrupted() {
     store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1"));
     final List<List<String>> told = new java.util.ArrayList<>();
-    final ExecutionRecovery recovery = ExecutionRecoveryFixture.of(store, tracker, 100);
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);
     recovery.onRecovered(told::add);
 
     recovery.recover();
@@ -340,7 +342,7 @@ class ExecutionRecoveryTest {
         ExecutionLogEvent.input(
             "done", "s1", "w1", "n1", Map.of("event", "INPUT_REQUESTED", "requestId", "q1")));
 
-    ExecutionRecoveryFixture.of(store, tracker, 100).recover();
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
 
     assertThat(store.readAll())
         .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_ABORTED)

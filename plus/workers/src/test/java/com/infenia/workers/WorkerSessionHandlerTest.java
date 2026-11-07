@@ -24,7 +24,7 @@ import reactor.test.StepVerifier;
 class WorkerSessionHandlerTest {
 
   private final WorkerRegistry registry =
-      WorkerRegistryFixture.of(Duration.ofSeconds(15), new SimpleMeterRegistry());
+      WorkerRegistryFixture.create(Duration.ofSeconds(15), new SimpleMeterRegistry());
   private final WorkerConnections connections = new WorkerConnections();
   private final RSocketRequester requester = mock(RSocketRequester.class);
   private final WorkerSessionHandler handler =

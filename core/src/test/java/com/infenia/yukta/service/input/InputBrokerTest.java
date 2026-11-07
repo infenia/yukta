@@ -56,7 +56,7 @@ class InputBrokerTest {
 
   private InputBroker broker(final YuktaProperties.Input limits) {
     feed.events().subscribe(events::add);
-    return InputBrokerFixture.of(
+    return InputBrokerFixture.create(
         store, feed, log, meters, new InputRedactor(List.of("note")), limits, clock);
   }
 
@@ -573,7 +573,7 @@ class InputBrokerTest {
     final InMemoryInputRequestStore real = new InMemoryInputRequestStore(100);
     final InputRequestStore racing = org.mockito.Mockito.spy(real);
     final InputBroker racingBroker =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
     racingBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     final InputRequest request =
@@ -602,7 +602,7 @@ class InputBrokerTest {
     org.mockito.Mockito.when(failing.findById(open.id()))
         .thenReturn(Mono.error(new IllegalStateException("store down")));
     final InputBroker failingBroker =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     StepVerifier.create(failingBroker.sweep()).verifyComplete();
@@ -630,7 +630,7 @@ class InputBrokerTest {
     final InputRequest request = onlyOpen();
     // a second broker on the same store has no waiter for the request
     final InputBroker other =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             store, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     final InputRequest result = other.answer(request.id(), null, answer(request, "ann")).block();
@@ -648,7 +648,7 @@ class InputBrokerTest {
         .when(racing)
         .createIfAbsent(org.mockito.ArgumentMatchers.any());
     final InputBroker loser =
-        InputBrokerFixture.of(
+        InputBrokerFixture.create(
             racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 
     loser.ask(who("e2", "n2"), spec("k2")).subscribe();

@@ -49,7 +49,7 @@ class SubWorkflowRunnerTest {
   private final WorkflowDefinition definition =
       Fixtures.workflow("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.of(
+      ExecutionSchedulerFixture.create(
           1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
   private final SubWorkflowRunner runner =
       new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);

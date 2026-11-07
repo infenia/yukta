@@ -101,9 +101,9 @@ class DirectiveDispatcherInputTest {
             mock(EscalateInputCommandProcessor.class)),
         registry,
         mock(ControlBusService.class),
-        ExecutionArchiveFixture.of(),
+        ExecutionArchiveFixture.create(),
         flow.log,
-        ControlReviewerFixture.of(providerOf(reviewer)),
+        ControlReviewerFixture.create(providerOf(reviewer)),
         new ExecutionEventFeed());
   }
 

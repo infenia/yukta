@@ -17,29 +17,30 @@ public final class StartIdempotencyFixture {
   private StartIdempotencyFixture() {}
 
   /** A StartIdempotency with the default for what the parameters leave out. */
-  public static StartIdempotency of(final YuktaProperties properties, final ExecutionLogStore log) {
+  public static StartIdempotency create(
+      final YuktaProperties properties, final ExecutionLogStore log) {
     return new StartIdempotency(properties, log);
   }
 
   /** A StartIdempotency with the default for what the parameters leave out. */
-  public static StartIdempotency of(
+  public static StartIdempotency create(
       final Duration ttl, final ExecutionLogStore log, final long maxKeys) {
     return new StartIdempotency(ttl, Ticker.systemTicker(), log, maxKeys);
   }
 
   /** A StartIdempotency with the default for what the parameters leave out. */
-  public static StartIdempotency of(final Duration ttl, final ExecutionLogStore log) {
+  public static StartIdempotency create(final Duration ttl, final ExecutionLogStore log) {
     return new StartIdempotency(ttl, Ticker.systemTicker(), log, 100_000);
   }
 
   /** A StartIdempotency with the default for what the parameters leave out. */
-  public static StartIdempotency of(final Duration ttl) {
+  public static StartIdempotency create(final Duration ttl) {
     return new StartIdempotency(
         ttl, Ticker.systemTicker(), new InMemoryExecutionLogStore(), 100_000);
   }
 
   /** A StartIdempotency with the default for what the parameters leave out. */
-  public static StartIdempotency of(final Duration ttl, final Ticker ticker) {
+  public static StartIdempotency create(final Duration ttl, final Ticker ticker) {
     return new StartIdempotency(ttl, ticker, new InMemoryExecutionLogStore(), 100_000);
   }
 }

@@ -15,7 +15,7 @@ class SchedulerMetricsTest {
   @Test
   void bindTo_reportsRunningAndQueuedExecutions() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(1));
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);
@@ -33,7 +33,7 @@ class SchedulerMetricsTest {
   @Test
   void bindTo_reportsRejectionsByReason() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ofSeconds(1));
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);

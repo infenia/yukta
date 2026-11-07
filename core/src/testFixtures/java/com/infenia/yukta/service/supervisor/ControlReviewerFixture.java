@@ -15,7 +15,7 @@ public final class ControlReviewerFixture {
   private ControlReviewerFixture() {}
 
   /** A ControlReviewer with the default for what the parameters leave out. */
-  public static ControlReviewer of(final ObjectProvider<ExecutionSupervisor> supervisors) {
+  public static ControlReviewer create(final ObjectProvider<ExecutionSupervisor> supervisors) {
     return new ControlReviewer(supervisors, Duration.ofSeconds(5));
   }
 }

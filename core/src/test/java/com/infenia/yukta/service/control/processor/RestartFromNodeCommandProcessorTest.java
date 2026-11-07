@@ -58,10 +58,10 @@ class RestartFromNodeCommandProcessorTest {
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.of(
+      ExecutionSchedulerFixture.create(
           0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
-  private final ExecutionArchive archive = ExecutionArchiveFixture.of();
+  private final ExecutionArchive archive = ExecutionArchiveFixture.create();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
 
   private RestartFromNodeCommandProcessor processor;
@@ -149,7 +149,7 @@ class RestartFromNodeCommandProcessorTest {
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
     scheduler =
-        ExecutionSchedulerFixture.of(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartFromNodeCommandProcessor(

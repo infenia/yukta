@@ -51,7 +51,7 @@ class ExecutionControlControllerTest {
 
   /** The scheduler behind the drain switch. */
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.of(
+      ExecutionSchedulerFixture.create(
           0, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
 
   /** The client. */
@@ -354,7 +354,7 @@ class ExecutionControlControllerTest {
   @Test
   void drainStatus_isNotIdleWhileStartWaits() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.of(
+        ExecutionSchedulerFixture.create(
             1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     final ExecutionScheduler.Permit running =
         java.util.Objects.requireNonNull(limited.acquire("s1", "wf", 0, null).permit().block());

@@ -22,7 +22,7 @@ import reactor.util.context.Context;
 class DefaultInputGatewayTest {
 
   private final InputBroker broker =
-      InputBrokerFixture.of(
+      InputBrokerFixture.create(
           new InMemoryInputRequestStore(10),
           new ExecutionEventFeed(),
           new InMemoryExecutionLogStore(),

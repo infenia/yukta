@@ -95,9 +95,9 @@ class DirectiveDispatcherTargetTest {
             handler,
             registry,
             mock(ControlBusService.class),
-            ExecutionArchiveFixture.of(),
+            ExecutionArchiveFixture.create(),
             new InMemoryExecutionLogStore(),
-            ControlReviewerFixture.of(providerOf(supervisor)),
+            ControlReviewerFixture.create(providerOf(supervisor)),
             feed);
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
     beans.addBean("requests", requests);

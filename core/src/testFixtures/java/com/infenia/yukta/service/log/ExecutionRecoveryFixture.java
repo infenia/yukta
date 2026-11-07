@@ -14,7 +14,7 @@ public final class ExecutionRecoveryFixture {
   private ExecutionRecoveryFixture() {}
 
   /** A ExecutionRecovery with the default for what the parameters leave out. */
-  public static ExecutionRecovery of(
+  public static ExecutionRecovery create(
       final ExecutionLogStore store, final TaskTrackerService tracker, final int retainedRuns) {
     return new ExecutionRecovery(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }

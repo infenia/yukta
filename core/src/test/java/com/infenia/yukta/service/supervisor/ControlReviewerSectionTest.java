@@ -78,7 +78,7 @@ class ControlReviewerSectionTest {
   void sectionReviewsNodeCommandsOfItsSectionOnly() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        ControlReviewerFixture.of(
+        ControlReviewerFixture.create(
             providerOf(
                 new Recorder("build", 1, BUILD, true, asked),
                 new Recorder("deploy", 2, DEPLOY, true, asked)));
@@ -100,7 +100,7 @@ class ControlReviewerSectionTest {
   void workflowWideCommandIsReviewedByTheWorkflowSupervisorNotTheSection() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        ControlReviewerFixture.of(
+        ControlReviewerFixture.create(
             providerOf(
                 new Recorder("build", 1, BUILD, false, asked),
                 new Recorder("workflow", 2, WORKFLOW, true, asked)));
@@ -115,7 +115,7 @@ class ControlReviewerSectionTest {
   void sectionAndWorkflowSupervisorBothReviewNodeOfTheSection() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        ControlReviewerFixture.of(
+        ControlReviewerFixture.create(
             providerOf(
                 new Recorder("workflow", 2, WORKFLOW, true, asked),
                 new Recorder("build", 1, BUILD, true, asked)));
@@ -130,7 +130,7 @@ class ControlReviewerSectionTest {
   void overlappingSectionsBothReviewAndTheFirstDenialWins() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        ControlReviewerFixture.of(
+        ControlReviewerFixture.create(
             providerOf(
                 new Recorder("wide", 2, BUILD, true, asked),
                 new Recorder(
@@ -155,7 +155,7 @@ class ControlReviewerSectionTest {
   void anInputAnswerIsReviewedByTheSectionOfTheAskingNode() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        ControlReviewerFixture.of(providerOf(new Recorder("build", 1, BUILD, false, asked)));
+        ControlReviewerFixture.create(providerOf(new Recorder("build", 1, BUILD, false, asked)));
     final ExecutionControlCommand escalate =
         new ExecutionControlCommand.EscalateInputCommand("e", "r", "why", null);
 

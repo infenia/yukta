@@ -23,7 +23,7 @@ class StartIdempotencyTest {
 
   private final AtomicLong nanos = new AtomicLong();
   private final StartIdempotency idempotency =
-      StartIdempotencyFixture.of(Duration.ofMinutes(10), nanos::get);
+      StartIdempotencyFixture.create(Duration.ofMinutes(10), nanos::get);
   private final AtomicInteger starts = new AtomicInteger();
 
   private Mono<String> start() {
@@ -33,7 +33,7 @@ class StartIdempotencyTest {
   @Test
   void settingsBuildRegistryThatStartsKeyOnce() {
     final StartIdempotency fromSettings =
-        StartIdempotencyFixture.of(
+        StartIdempotencyFixture.create(
             YuktaSettings.bind(Map.of("yukta.start.idempotency-ttl", "1m")),
             new InMemoryExecutionLogStore());
 
@@ -120,7 +120,7 @@ class StartIdempotencyTest {
 
   @Test
   void defaultConstructor_usesTheSystemClock() {
-    final StartIdempotency real = StartIdempotencyFixture.of(Duration.ofMinutes(1));
+    final StartIdempotency real = StartIdempotencyFixture.create(Duration.ofMinutes(1));
 
     assertThat(real.once("s/w", "k", () -> Mono.just("a")).block()).isEqualTo("a");
     assertThat(real.once("s/w", "k", () -> Mono.just("b")).block()).isEqualTo("a");
@@ -129,11 +129,11 @@ class StartIdempotencyTest {
   @Test
   void keys_surviveRestart_whenLogIsKept() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
-    final StartIdempotency before = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency before = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     before.afterSingletonsInstantiated();
     assertThat(before.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
 
-    final StartIdempotency after = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency after = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     after.afterSingletonsInstantiated();
 
     assertThat(after.once("s/w", "k1", this::start).block()).isEqualTo("exec-1");
@@ -144,16 +144,16 @@ class StartIdempotencyTest {
   @Test
   void expiredKeys_areNotReloaded_andFailedStartIsNotLogged() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
-    final StartIdempotency first = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency first = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     first
         .once("s/w", "failed", () -> Mono.<String>error(new IllegalStateException("no")))
         .onErrorResume(e -> Mono.empty())
         .block();
     first.once("s/w", "old", this::start).block();
 
-    final StartIdempotency tiny = StartIdempotencyFixture.of(Duration.ofNanos(1), log);
+    final StartIdempotency tiny = StartIdempotencyFixture.create(Duration.ofNanos(1), log);
     tiny.afterSingletonsInstantiated();
-    final StartIdempotency normal = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency normal = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     normal.afterSingletonsInstantiated();
 
     assertThat(log.readAll()).hasSize(1);
@@ -163,7 +163,7 @@ class StartIdempotencyTest {
 
   @Test
   void withoutLog_reloadingDoesNothing() {
-    final StartIdempotency idle = StartIdempotencyFixture.of(Duration.ofMinutes(1));
+    final StartIdempotency idle = StartIdempotencyFixture.create(Duration.ofMinutes(1));
     idle.afterSingletonsInstantiated();
 
     assertThat(idle.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
@@ -173,7 +173,7 @@ class StartIdempotencyTest {
   void otherLogEvents_areIgnoredWhenReloading() {
     final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
     log.append(ExecutionLogEvent.started("e", "s", "w", "v", Map.of()));
-    final StartIdempotency reloaded = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency reloaded = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
     reloaded.afterSingletonsInstantiated();
 
     assertThat(reloaded.once("s/w", "k", this::start).block()).isEqualTo("exec-1");
@@ -198,7 +198,7 @@ class StartIdempotencyTest {
   @Test
   void springConstructor_readsTheLimitsFromConfiguration() {
     final StartIdempotency configured =
-        StartIdempotencyFixture.of(Duration.ofMinutes(1), new InMemoryExecutionLogStore(), 10);
+        StartIdempotencyFixture.create(Duration.ofMinutes(1), new InMemoryExecutionLogStore(), 10);
 
     configured.once("s/w", "k", this::start).block();
     configured.once("s/w", "k", this::start).block();
@@ -213,7 +213,7 @@ class StartIdempotencyTest {
     log.append(
         ExecutionLogEvent.input(
             "exec-0", "s", "w", "n", Map.of("event", "INPUT_REQUESTED", "requestId", "q1")));
-    final StartIdempotency reloaded = StartIdempotencyFixture.of(Duration.ofMinutes(10), log);
+    final StartIdempotency reloaded = StartIdempotencyFixture.create(Duration.ofMinutes(10), log);
 
     assertThatCode(reloaded::afterSingletonsInstantiated).doesNotThrowAnyException();
     assertThat(starts.get()).isZero();

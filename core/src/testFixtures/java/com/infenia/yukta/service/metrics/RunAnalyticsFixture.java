@@ -15,18 +15,18 @@ public final class RunAnalyticsFixture {
   private RunAnalyticsFixture() {}
 
   /** A RunAnalytics with the default for what the parameters leave out. */
-  public static RunAnalytics of(final ExecutionEventFeed feed) {
+  public static RunAnalytics create(final ExecutionEventFeed feed) {
     return new RunAnalytics(feed, Clock.systemUTC(), null);
   }
 
   /** A RunAnalytics with the default for what the parameters leave out. */
-  public static RunAnalytics of(
+  public static RunAnalytics create(
       final ExecutionEventFeed feed, final ObjectProvider<ExecutionLogStore> logStore) {
     return new RunAnalytics(feed, logStore);
   }
 
   /** A RunAnalytics with the default for what the parameters leave out. */
-  public static RunAnalytics of(final ExecutionEventFeed feed, final Clock clock) {
+  public static RunAnalytics create(final ExecutionEventFeed feed, final Clock clock) {
     return new RunAnalytics(feed, clock, null);
   }
 }

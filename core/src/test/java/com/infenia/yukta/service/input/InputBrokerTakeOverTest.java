@@ -43,7 +43,7 @@ class InputBrokerTakeOverTest {
   private final ExecutionControlStore runs = mock(ExecutionControlStore.class);
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
   private final InputBroker broker =
-      InputBrokerFixture.of(
+      InputBrokerFixture.create(
           store,
           new ExecutionEventFeed(),
           new InMemoryExecutionLogStore(),

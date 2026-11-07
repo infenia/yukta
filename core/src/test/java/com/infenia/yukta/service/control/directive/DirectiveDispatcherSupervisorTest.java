@@ -78,9 +78,9 @@ class DirectiveDispatcherSupervisorTest {
             processor,
             registry,
             mock(ControlBusService.class),
-            ExecutionArchiveFixture.of(),
+            ExecutionArchiveFixture.create(),
             log,
-            ControlReviewerFixture.of(providerOf(supervisor)),
+            ControlReviewerFixture.create(providerOf(supervisor)),
             feed);
     feed.events().subscribe(events::add);
   }

@@ -55,13 +55,13 @@ class DefaultControlBusGatewayInputTest {
           controlBusService,
           taskTracker,
           store,
-          ExecutionArchiveFixture.of(),
+          ExecutionArchiveFixture.create(),
           mock(WorkflowOrchestrator.class),
           mock(WorkflowDefinitionStore.class),
           mock(PreparedWorkflowCache.class),
-          ExecutionSchedulerFixture.of(
+          ExecutionSchedulerFixture.create(
               0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30)),
-          StartIdempotencyFixture.of(Duration.ofMinutes(10)),
+          StartIdempotencyFixture.create(Duration.ofMinutes(10)),
           new InMemoryExecutionLogStore());
 
   private void runExists(final String executionId) {

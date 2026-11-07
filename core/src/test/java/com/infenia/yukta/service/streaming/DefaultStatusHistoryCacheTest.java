@@ -71,7 +71,7 @@ class DefaultStatusHistoryCacheTest {
   @DisplayName("settings cap the history per run")
   void settings_capTheHistoryPerRun() {
     final DefaultStatusHistoryCache capped =
-        DefaultStatusHistoryCacheFixture.of(
+        DefaultStatusHistoryCacheFixture.create(
             YuktaSettings.bind(Map.of("yukta.streaming.status-history-max-per-run", "2")));
     for (int i = 0; i < 5; i++) {
       capped.put(EXEC_ID_1, createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING));
@@ -101,21 +101,23 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("constructor_validTtl_succeeds")
   void constructor_validTtl_succeeds() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
     assertThat(cache).isNotNull();
   }
 
   @Test
   @DisplayName("constructor_ttlEqualTo30_succeeds")
   void constructor_ttlEqualTo30_succeeds() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(TTL_BOUNDARY_30);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(TTL_BOUNDARY_30);
     assertThat(cache).isNotNull();
   }
 
   @Test
   @DisplayName("constructor_ttlEqualTo1_succeeds")
   void constructor_ttlEqualTo1_succeeds() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(1);
+    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.create(1);
     assertThat(cache).isNotNull();
   }
 
@@ -123,7 +125,7 @@ class DefaultStatusHistoryCacheTest {
   @DisplayName("constructor_ttlTooHigh_throwsException")
   void constructor_ttlTooHigh_throwsException() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.of(TTL_TOO_HIGH))
+        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.create(TTL_TOO_HIGH))
         .withMessageContaining("TTL cannot exceed 30 minutes");
   }
 
@@ -131,7 +133,7 @@ class DefaultStatusHistoryCacheTest {
   @DisplayName("constructor_ttlZero_throwsException")
   void constructor_ttlZero_throwsException() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.of(TTL_ZERO))
+        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.create(TTL_ZERO))
         .withMessageContaining("TTL must be greater than 0 minutes");
   }
 
@@ -139,7 +141,7 @@ class DefaultStatusHistoryCacheTest {
   @DisplayName("constructor_ttlNegative_throwsException")
   void constructor_ttlNegative_throwsException() {
     assertThatExceptionOfType(IllegalArgumentException.class)
-        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.of(TTL_NEGATIVE))
+        .isThrownBy(() -> DefaultStatusHistoryCacheFixture.create(TTL_NEGATIVE))
         .withMessageContaining("TTL must be greater than 0 minutes");
   }
 
@@ -148,7 +150,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("put_singleProgress_success")
   void put_singleProgress_success() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
     final WorkflowProgress progress = createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING);
 
     cache.put(EXEC_ID_1, progress);
@@ -160,7 +163,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("put_multipleProgress_maintainsOrder")
   void put_multipleProgress_maintainsOrder() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
     final String executionId = EXEC_ID_1;
 
     final WorkflowProgress progress1 = createWorkflowProgress(executionId, STATUS_PENDING);
@@ -184,7 +188,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("get_executionNotFound_returnsEmptyList")
   void get_executionNotFound_returnsEmptyList() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
 
     final List<WorkflowProgress> retrieved = cache.get("non-existent-exec");
 
@@ -196,7 +201,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("get_returnsImmutableCopy")
   void get_returnsImmutableCopy() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
     final String executionId = EXEC_ID_1;
     final WorkflowProgress progress = createWorkflowProgress(executionId, STATUS_RUNNING);
 
@@ -220,7 +226,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("put_differentExecutions_isolated")
   void put_differentExecutions_isolated() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
 
     final WorkflowProgress progress1 = createWorkflowProgress(EXEC_ID_1, STATUS_RUNNING);
     final WorkflowProgress progress2 = createWorkflowProgress(EXEC_ID_2, STATUS_RUNNING);
@@ -295,7 +302,8 @@ class DefaultStatusHistoryCacheTest {
   @Test
   @DisplayName("put_runtimeExceptionDuringPut_logsWarning")
   void put_runtimeExceptionDuringPut_logsWarning() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(CACHE_TTL_MINUTES);
+    final DefaultStatusHistoryCache cache =
+        DefaultStatusHistoryCacheFixture.create(CACHE_TTL_MINUTES);
     final String executionId = EXEC_ID_1;
     final WorkflowProgress progress = createWorkflowProgress(executionId, STATUS_RUNNING);
 
@@ -312,7 +320,7 @@ class DefaultStatusHistoryCacheTest {
 
   @Test
   void putOfNullProgress_isSwallowedAndLogged() {
-    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.of(5);
+    final DefaultStatusHistoryCache cache = DefaultStatusHistoryCacheFixture.create(5);
 
     cache.put("e1", null);
 

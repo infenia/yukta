@@ -37,7 +37,7 @@ class MetricsProviderTest {
               100,
               List.of("yukta.")));
 
-  private final RunAnalytics analytics = RunAnalyticsFixture.of(new ExecutionEventFeed());
+  private final RunAnalytics analytics = RunAnalyticsFixture.create(new ExecutionEventFeed());
 
   private final MetricsProvider provider = new MetricsProvider(sampler, analytics);
 

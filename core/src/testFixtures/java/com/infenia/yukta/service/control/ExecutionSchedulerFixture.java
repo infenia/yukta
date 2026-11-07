@@ -13,7 +13,7 @@ public final class ExecutionSchedulerFixture {
   private ExecutionSchedulerFixture() {}
 
   /** A ExecutionScheduler with the default for what the parameters leave out. */
-  public static ExecutionScheduler of(
+  public static ExecutionScheduler create(
       final int maxConcurrent,
       final int maxPerWorkflow,
       final int queueCapacity,
@@ -25,13 +25,13 @@ public final class ExecutionSchedulerFixture {
   }
 
   /** A ExecutionScheduler with the default for what the parameters leave out. */
-  public static ExecutionScheduler of(
+  public static ExecutionScheduler create(
       final int maxConcurrent,
       final int maxPerWorkflow,
       final int queueCapacity,
       final ExecutionScheduler.OnLimit onLimit,
       final Duration shutdownTimeout) {
-    return of(
+    return create(
         maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, Duration.ZERO);
   }
 }
