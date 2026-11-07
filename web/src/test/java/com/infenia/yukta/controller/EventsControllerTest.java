@@ -65,6 +65,15 @@ class EventsControllerTest {
   }
 
   /** The feed drops what it publishes before a reader subscribed: publish only after one did. */
+  /**
+   * Ends the stream once it has been idle for {@link #IDLE}. The first event gets {@link
+   * #FIRST_EVENT_DEADLINE}, so a stalled runner does not end the wait with nothing (#1904).
+   */
+  private static <T> Flux<T> untilIdle(final Flux<T> source) {
+    return source.timeout(
+        Flux.interval(FIRST_EVENT_DEADLINE), _ -> Flux.interval(IDLE), Flux.<T>empty());
+  }
+
   private static void awaitSubscribed(final ExecutionEventFeed feed) {
     Flux.interval(Duration.ofMillis(1))
         .takeUntil(tick -> feed.subscriberCount() > 0)
@@ -91,7 +100,7 @@ class EventsControllerTest {
         stream
             .filter(event -> event.data() != null)
             .map(ServerSentEvent::data)
-            .timeout(IDLE, Flux.empty())
+            .transform(EventsControllerTest::untilIdle)
             .collectList()
             .toFuture();
     Flux.just(
@@ -188,7 +197,7 @@ class EventsControllerTest {
             .stream("e1", true, null, null)
                 .filter(event -> event.data() != null)
                 .map(ServerSentEvent::data)
-                .timeout(IDLE, Flux.empty())
+                .transform(EventsControllerTest::untilIdle)
                 .collectList()
                 .toFuture();
     Flux.just(new ExecutionEvent.EventsMissed(3, Instant.now()), workflow("e1", "SUCCESS"))
@@ -250,11 +259,7 @@ class EventsControllerTest {
             .stream(null, false, type, null)
                 .mapNotNull(ServerSentEvent::data)
                 .map(EventsController.Envelope::type)
-                // A stalled runner must not end the wait before the first event (#1904).
-                .timeout(
-                    Flux.interval(FIRST_EVENT_DEADLINE),
-                    _ -> Flux.interval(IDLE),
-                    Flux.<String>empty())
+                .transform(EventsControllerTest::untilIdle)
                 .collectList()
                 .toFuture();
     final Instant now = Instant.now();
