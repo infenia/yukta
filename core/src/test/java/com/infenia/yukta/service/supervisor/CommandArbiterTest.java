@@ -219,7 +219,8 @@ class CommandArbiterTest {
   }
 
   private int records(final String field) {
-    return ((Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(arbiter, field))
+    return java.util.Objects.requireNonNull(
+            (Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(arbiter, field))
         .size();
   }
 
