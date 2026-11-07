@@ -29,8 +29,8 @@ import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.supervisor.BoundSupervisor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
@@ -80,7 +80,7 @@ class InputRequestThreatsTest {
     when(flow.attached.find(id))
         .thenReturn(
             Optional.of(
-                new BoundSupervisor(
+                Fixtures.boundSupervisor(
                     new SupervisorAttachment(id, "p", scope, true),
                     mock(ExecutionSupervisor.class),
                     false,

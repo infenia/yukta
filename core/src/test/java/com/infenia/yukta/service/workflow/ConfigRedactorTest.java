@@ -11,6 +11,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -31,8 +32,7 @@ class ConfigRedactorTest {
   private final ConfigRedactor redactor = new ConfigRedactor(registry);
 
   private WorkflowDefinition workflow(final String type, final Map<String, Object> config) {
-    return new WorkflowDefinition(
-        "w", "d", List.of(new WorkflowDefinition.Node("n1", type, config)), List.of());
+    return Fixtures.workflow("w", "d", List.of(Fixtures.node("n1", type, config)), List.of());
   }
 
   private Map<String, Object> redactedConfig(final String type, final Map<String, Object> config) {
@@ -53,7 +53,7 @@ class ConfigRedactorTest {
   @Test
   void redactingKeepsTheNodeGroup() {
     final WorkflowDefinition grouped =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w", "d", List.of(new WorkflowDefinition.Node("n1", "X", Map.of(), "lint")), List.of());
     assertThat(redactor.redact(grouped).nodes().getFirst().group()).isEqualTo("lint");
   }
@@ -169,11 +169,7 @@ class ConfigRedactorTest {
         new com.infenia.yukta.model.supervisor.SupervisorRef("guard", List.of("a.*"), null);
     final WorkflowDefinition declared =
         new WorkflowDefinition(
-            "w",
-            "d",
-            List.of(new WorkflowDefinition.Node("n", "T", Map.of())),
-            List.of(),
-            List.of(ref));
+            "w", "d", List.of(Fixtures.node("n", "T", Map.of())), List.of(), List.of(ref));
 
     assertThat(redactor.redact(declared).supervisors()).containsExactly(ref);
     assertThat(

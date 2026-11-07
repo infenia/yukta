@@ -9,7 +9,6 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
@@ -19,6 +18,7 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
@@ -57,19 +57,19 @@ class SubWorkflowAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "sub-workflow acceptance",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                     step,
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", step.nodeId(), null), new Edge(step.nodeId(), "end", null))))
         .block();
   }
 
   private static Node echo(final String text) {
-    return new Node(
+    return Fixtures.node(
         "p", "PROCESS_EXECUTOR", Map.of("command", List.of("echo", text), "outputFormat", "RAW"));
   }
 
@@ -119,10 +119,12 @@ class SubWorkflowAcceptanceTest {
     define(
         session,
         "bad-child",
-        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
-    define(session, "parent", new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "child")));
+        Fixtures.node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
+    define(session, "parent", Fixtures.node("sub", "SUB_WORKFLOW", Map.of("workflowId", "child")));
     define(
-        session, "bad-parent", new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "bad-child")));
+        session,
+        "bad-parent",
+        Fixtures.node("sub", "SUB_WORKFLOW", Map.of("workflowId", "bad-child")));
 
     final WorkflowProgress good =
         awaitTerminal(gateway.startWorkflow(session, "parent", Map.of(), null).block());
@@ -138,16 +140,17 @@ class SubWorkflowAcceptanceTest {
     final List<String> ports = List.of("success", "failure", "retry", "escalate");
     final List<Node> nodes = new java.util.ArrayList<>();
     final List<Edge> edges = new java.util.ArrayList<>();
-    nodes.add(new Node("t", "CONSTANT_SOURCE", Map.of()));
+    nodes.add(Fixtures.node("t", "CONSTANT_SOURCE", Map.of()));
     nodes.add(
-        new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", workflowId, "routeByOutcome", true)));
+        Fixtures.node(
+            "sub", "SUB_WORKFLOW", Map.of("workflowId", workflowId, "routeByOutcome", true)));
     edges.add(new Edge("t", "sub", null));
     for (final String port : ports) {
-      nodes.add(new Node("on-" + port, "CONSOLE_TERMINAL", Map.of()));
+      nodes.add(Fixtures.node("on-" + port, "CONSOLE_TERMINAL", Map.of()));
       edges.add(new Edge("sub", "on-" + port, port));
     }
     definitions
-        .save(session, new WorkflowDefinition("parent-of-" + workflowId, "routes", nodes, edges))
+        .save(session, Fixtures.workflow("parent-of-" + workflowId, "routes", nodes, edges))
         .block();
   }
 
@@ -165,12 +168,12 @@ class SubWorkflowAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 "escalating",
                 "ends in ESCALATE",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node(
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node(
                         "out",
                         "OUTCOME_TERMINAL",
                         Map.of("outcome", "ESCALATE", "reason", "needs a human"))),
@@ -179,7 +182,7 @@ class SubWorkflowAcceptanceTest {
     define(
         session,
         "failing",
-        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
+        Fixtures.node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sh", "-c", "exit 3"))));
     defineRoutingParent(session, "escalating");
     defineRoutingParent(session, "failing");
 
@@ -203,16 +206,16 @@ class SubWorkflowAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 "child",
                 "reads its start payload two nodes in",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node(
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node(
                         "first",
                         "PROCESS_EXECUTOR",
                         Map.of("command", List.of("echo", "first"), "outputFormat", "RAW")),
-                    new Node(
+                    Fixtures.node(
                         "second",
                         "PROCESS_EXECUTOR",
                         Map.of(
@@ -220,7 +223,7 @@ class SubWorkflowAcceptanceTest {
                             List.of("echo", "project=${start.project}"),
                             "outputFormat",
                             "RAW")),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(
                     new Edge("t", "first", null),
                     new Edge("first", "second", null),
@@ -239,17 +242,17 @@ class SubWorkflowAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 "parent",
                 "passes its start payload on",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node(
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node(
                         "sub",
                         "SUB_WORKFLOW",
                         Map.of(
                             "workflowId", "child", "payload", Map.of("project", "${start.root}"))),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "sub", null), new Edge("sub", "end", null))))
         .block();
     final WorkflowProgress parent =
@@ -273,11 +276,12 @@ class SubWorkflowAcceptanceTest {
     define(
         session,
         "slow-child",
-        new Node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sleep", "3"))));
+        Fixtures.node("p", "PROCESS_EXECUTOR", Map.of("command", List.of("sleep", "3"))));
     define(
         session,
         "waiting-parent",
-        new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "slow-child", "timeoutSeconds", 60)));
+        Fixtures.node(
+            "sub", "SUB_WORKFLOW", Map.of("workflowId", "slow-child", "timeoutSeconds", 60)));
 
     final String parent = gateway.startWorkflow(session, "waiting-parent", Map.of(), null).block();
     await().atMost(WAIT).until(() -> tracker.getTree(parent).size() == 2);

@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.StopMode;
@@ -16,6 +15,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -72,20 +72,20 @@ class SupervisorAcceptanceTest {
     final String session = "sup-" + UUID.randomUUID();
     final String workflowId = "wf-" + UUID.randomUUID();
     final Node step =
-        new Node(
+        Fixtures.node(
             "p",
             "PROCESS_EXECUTOR",
             Map.of("command", List.of("sleep", "60"), "outputFormat", "RAW"));
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "supervised",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                     step,
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "p", null), new Edge("p", "end", null))))
         .block();
 

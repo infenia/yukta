@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,8 +51,7 @@ class WorkflowGraphServiceTest {
     when(pluginRegistry.get(PLUGIN_TYPE)).thenReturn(plugin);
 
     final var result =
-        service.enrichNode(
-            new WorkflowDefinition.Node(NODE_ID, PLUGIN_TYPE, Map.of("key", "value")));
+        service.enrichNode(Fixtures.node(NODE_ID, PLUGIN_TYPE, Map.of("key", "value")));
 
     assertThat(result)
         .isNotNull()
@@ -75,8 +75,7 @@ class WorkflowGraphServiceTest {
   void enrichNode_withUnknownPlugin_returnsBareNode() {
     when(pluginRegistry.get(PLUGIN_TYPE)).thenReturn(null);
 
-    final var result =
-        service.enrichNode(new WorkflowDefinition.Node(NODE_ID, PLUGIN_TYPE, Map.of()));
+    final var result = service.enrichNode(Fixtures.node(NODE_ID, PLUGIN_TYPE, Map.of()));
 
     assertThat(result)
         .isNotNull()
@@ -95,8 +94,7 @@ class WorkflowGraphServiceTest {
     final Plugin plugin = mockPlugin(PluginCategory.TRIGGER, "Trigger", null, List.of("default"));
     when(pluginRegistry.get(PLUGIN_TYPE)).thenReturn(plugin);
 
-    final var result =
-        service.enrichNode(new WorkflowDefinition.Node(NODE_ID, PLUGIN_TYPE, Map.of()));
+    final var result = service.enrichNode(Fixtures.node(NODE_ID, PLUGIN_TYPE, Map.of()));
 
     assertThat(result.uiDesign()).isNull();
     assertThat(result.description()).isEqualTo("Trigger");
@@ -104,11 +102,11 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withValidDag_returnsTopologicalOrder() {
-    final var node1 = new WorkflowDefinition.Node("n1", "trigger", Map.of());
-    final var node2 = new WorkflowDefinition.Node("n2", "processor", Map.of());
-    final var node3 = new WorkflowDefinition.Node("n3", "terminal", Map.of());
+    final var node1 = Fixtures.node("n1", "trigger", Map.of());
+    final var node2 = Fixtures.node("n2", "processor", Map.of());
+    final var node3 = Fixtures.node("n3", "terminal", Map.of());
     final var definition =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_ID,
             "Test",
             List.of(node1, node2, node3),
@@ -129,10 +127,10 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withCycle_fallsBackToDeclarationOrder() {
-    final var node1 = new WorkflowDefinition.Node("n1", "processor", Map.of());
-    final var node2 = new WorkflowDefinition.Node("n2", "processor", Map.of());
+    final var node1 = Fixtures.node("n1", "processor", Map.of());
+    final var node2 = Fixtures.node("n2", "processor", Map.of());
     final var definition =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_ID,
             "Test",
             List.of(node1, node2),
@@ -150,9 +148,9 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withEdgeToUnknownNode_skipsEdge() {
-    final var node1 = new WorkflowDefinition.Node("n1", "trigger", Map.of());
+    final var node1 = Fixtures.node("n1", "trigger", Map.of());
     final var definition =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_ID,
             "Test",
             List.of(node1),
@@ -171,7 +169,7 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withEmptyGraph_returnsEmptyOrder() {
-    final var definition = new WorkflowDefinition(WORKFLOW_ID, "Test", List.of(), List.of());
+    final var definition = Fixtures.workflow(WORKFLOW_ID, "Test", List.of(), List.of());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
         .thenReturn(List.of());
 
@@ -182,8 +180,8 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withSingleNode_returnsNode() {
-    final var node = new WorkflowDefinition.Node("n1", "processor", Map.of());
-    final var definition = new WorkflowDefinition(WORKFLOW_ID, "Test", List.of(node), List.of());
+    final var node = Fixtures.node("n1", "processor", Map.of());
+    final var definition = Fixtures.workflow(WORKFLOW_ID, "Test", List.of(node), List.of());
 
     final var nodeObj = new WorkflowNode("n1", "processor", Map.of());
     when(topologicalSortService.computeTopologicalOrder(anyList(), anyMap(), anyMap()))
@@ -196,12 +194,12 @@ class WorkflowGraphServiceTest {
 
   @Test
   void computeTopologicalOrder_withComplexDag_preservesOrder() {
-    final var n1 = new WorkflowDefinition.Node("n1", "trigger", Map.of());
-    final var n2 = new WorkflowDefinition.Node("n2", "processor", Map.of());
-    final var n3 = new WorkflowDefinition.Node("n3", "processor", Map.of());
-    final var n4 = new WorkflowDefinition.Node("n4", "terminal", Map.of());
+    final var n1 = Fixtures.node("n1", "trigger", Map.of());
+    final var n2 = Fixtures.node("n2", "processor", Map.of());
+    final var n3 = Fixtures.node("n3", "processor", Map.of());
+    final var n4 = Fixtures.node("n4", "terminal", Map.of());
     final var definition =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_ID,
             "Test",
             List.of(n1, n2, n3, n4),
@@ -228,8 +226,7 @@ class WorkflowGraphServiceTest {
     final Plugin plugin = mockPlugin(PluginCategory.TERMINAL, "Terminal", null, List.of());
     when(pluginRegistry.get(PLUGIN_TYPE)).thenReturn(plugin);
 
-    final var result =
-        service.enrichNode(new WorkflowDefinition.Node(NODE_ID, PLUGIN_TYPE, Map.of()));
+    final var result = service.enrichNode(Fixtures.node(NODE_ID, PLUGIN_TYPE, Map.of()));
 
     assertThat(result.outputPorts()).isEmpty();
   }

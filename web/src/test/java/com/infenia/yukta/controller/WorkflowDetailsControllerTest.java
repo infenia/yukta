@@ -9,11 +9,11 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.WorkflowMapper;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowGraphService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -40,17 +40,15 @@ class WorkflowDetailsControllerTest {
 
   /** A workflow with two nodes and an edge. */
   private static final WorkflowDefinition WITH_NODE =
-      new WorkflowDefinition(
+      Fixtures.workflow(
           "wf2",
           "desc",
-          List.of(
-              new WorkflowDefinition.Node("a", "x", null),
-              new WorkflowDefinition.Node("b", "y", null)),
+          List.of(Fixtures.node("a", "x", null), Fixtures.node("b", "y", null)),
           List.of(new WorkflowDefinition.Edge("a", "b", "default")));
 
   /** The value. */
   private static final WorkflowDefinition DEF =
-      new WorkflowDefinition("wf", "desc", List.of(), List.of());
+      Fixtures.workflow("wf", "desc", List.of(), List.of());
 
   @BeforeEach
   void setUp() {
@@ -100,8 +98,8 @@ class WorkflowDetailsControllerTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    new WorkflowExecutionSummary("e2", "wf", TaskStatus.SUCCESS, now, null),
-                    new WorkflowExecutionSummary("e1", "wf", TaskStatus.SUCCESS, now, null))));
+                    Fixtures.summary("e2", "wf", TaskStatus.SUCCESS, now, null),
+                    Fixtures.summary("e1", "wf", TaskStatus.SUCCESS, now, null))));
 
     client
         .get()
@@ -146,14 +144,14 @@ class WorkflowDetailsControllerTest {
   @Test
   void testGraphCarriesDeclaredGroupsAndTheWorkflowRunBySubWorkflowNode() {
     final WorkflowDefinition staged =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "wf3",
             "desc",
             List.of(
                 new WorkflowDefinition.Node(
                     "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), "lint"),
                 new WorkflowDefinition.Node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
-                new WorkflowDefinition.Node("plain", "x", Map.of("workflowId", "heal"))),
+                Fixtures.node("plain", "x", Map.of("workflowId", "heal"))),
             List.of());
     when(sessionService.getSessionWorkflow("s1", "wf3")).thenReturn(Mono.just(staged));
 

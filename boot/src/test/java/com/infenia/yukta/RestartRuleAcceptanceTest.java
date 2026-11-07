@@ -10,6 +10,7 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,7 +64,7 @@ class RestartRuleAcceptanceTest {
   }
 
   private static Node shell(final String id, final String script) {
-    return new Node(
+    return Fixtures.node(
         id,
         "PROCESS_EXECUTOR",
         Map.of(
@@ -82,7 +83,7 @@ class RestartRuleAcceptanceTest {
         "RETRY".equals(outcome)
             ? Map.of("outcome", outcome, "restartFrom", "check")
             : Map.of("outcome", outcome);
-    return new Node(id, "OUTCOME_TERMINAL", config);
+    return Fixtures.node(id, "OUTCOME_TERMINAL", config);
   }
 
   /** Starts the stage; {@code applyScript} is what the repair does. */
@@ -92,11 +93,11 @@ class RestartRuleAcceptanceTest {
     final Path fixed = dir.resolve("fixed");
     final Path runs = dir.resolve("runs");
     final WorkflowDefinition definition =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             workflowId,
             "stage",
             List.of(
-                new Node("t", "CONSTANT_SOURCE", Map.of()),
+                Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
                 shell("check", "echo x >> '" + runs + "'; test -f '" + fixed + "'"),
                 outcome("ok", "SUCCESS"),
                 shell("apply", applyScript.replace("FIXED", fixed.toString())),

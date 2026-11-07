@@ -13,6 +13,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -65,15 +66,12 @@ class WorkflowVersionControllerTest {
   @Test
   void diffComparesVersionWithCurrentDefinition_orWithAnotherVersion() {
     final WorkflowDefinition older =
-        new WorkflowDefinition(
-            "w1", "d", List.of(new WorkflowDefinition.Node("a", "T", Map.of())), List.of());
+        Fixtures.workflow("w1", "d", List.of(Fixtures.node("a", "T", Map.of())), List.of());
     final WorkflowDefinition current =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w1",
             "d",
-            List.of(
-                new WorkflowDefinition.Node("a", "T", Map.of()),
-                new WorkflowDefinition.Node("b", "T", Map.of())),
+            List.of(Fixtures.node("a", "T", Map.of()), Fixtures.node("b", "T", Map.of())),
             List.of());
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(older));
     when(definitions.findRevision("s1", "w1", VERSION_B)).thenReturn(Mono.just(current));
@@ -107,11 +105,8 @@ class WorkflowVersionControllerTest {
   @Test
   void rollbackSavesTheOldVersionAgain_andPreparesIt() {
     final WorkflowDefinition old =
-        new WorkflowDefinition(
-            "w1",
-            "old",
-            List.of(new WorkflowDefinition.Node("n", "CONSTANT_SOURCE", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            "w1", "old", List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())), List.of());
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s1", "w1")).thenReturn(Mono.empty());
     when(definitions.save("s1", old)).thenReturn(Mono.empty());
@@ -133,17 +128,11 @@ class WorkflowVersionControllerTest {
   @Test
   void rollbackThatDoesNotCompileLeavesTheCurrentDefinitionInPlace() {
     final WorkflowDefinition old =
-        new WorkflowDefinition(
-            "w1",
-            "old",
-            List.of(new WorkflowDefinition.Node("n", "REMOVED_TYPE", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            "w1", "old", List.of(Fixtures.node("n", "REMOVED_TYPE", Map.of())), List.of());
     final WorkflowDefinition current =
-        new WorkflowDefinition(
-            "w1",
-            "current",
-            List.of(new WorkflowDefinition.Node("n", "CONSTANT_SOURCE", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            "w1", "current", List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())), List.of());
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
     when(definitions.save("s1", old)).thenReturn(Mono.empty());

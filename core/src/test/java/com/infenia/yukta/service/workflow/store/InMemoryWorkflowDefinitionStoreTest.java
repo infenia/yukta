@@ -5,6 +5,7 @@ package com.infenia.yukta.service.workflow.store;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.Timing;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -36,11 +37,8 @@ class InMemoryWorkflowDefinitionStoreTest {
   private InMemoryWorkflowDefinitionStore store;
 
   private static WorkflowDefinition definition(final String workflowId) {
-    return new WorkflowDefinition(
-        workflowId,
-        "desc",
-        List.of(new WorkflowDefinition.Node("n1", "trigger", Map.of())),
-        List.of());
+    return Fixtures.workflow(
+        workflowId, "desc", List.of(Fixtures.node("n1", "trigger", Map.of())), List.of());
   }
 
   @BeforeEach
@@ -136,11 +134,8 @@ class InMemoryWorkflowDefinitionStoreTest {
   }
 
   private static WorkflowDefinition version(final String description) {
-    return new WorkflowDefinition(
-        WORKFLOW_ID_1,
-        description,
-        List.of(new WorkflowDefinition.Node("n1", "trigger", Map.of())),
-        List.of());
+    return Fixtures.workflow(
+        WORKFLOW_ID_1, description, List.of(Fixtures.node("n1", "trigger", Map.of())), List.of());
   }
 
   @Test

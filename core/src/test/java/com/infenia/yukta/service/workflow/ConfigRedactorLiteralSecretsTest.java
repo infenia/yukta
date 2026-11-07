@@ -6,10 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -33,8 +33,7 @@ class ConfigRedactorLiteralSecretsTest {
     when(registry.contains("SQL_QUERY")).thenReturn(true);
     when(registry.get("SQL_QUERY")).thenReturn(plugin);
     return redactor.literalSecrets(
-        new WorkflowDefinition(
-            "w", "d", List.of(new WorkflowDefinition.Node("n1", "SQL_QUERY", config)), List.of()));
+        Fixtures.workflow("w", "d", List.of(Fixtures.node("n1", "SQL_QUERY", config)), List.of()));
   }
 
   @Test

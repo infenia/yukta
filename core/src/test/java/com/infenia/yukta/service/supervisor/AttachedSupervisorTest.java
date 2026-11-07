@@ -20,6 +20,7 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
@@ -79,7 +80,7 @@ class AttachedSupervisorTest {
       };
 
   private BoundSupervisor bound(final String id, final SupervisorScope scope, final boolean dry) {
-    return new BoundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
+    return Fixtures.boundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
   }
 
   @AfterEach
@@ -277,7 +278,7 @@ class AttachedSupervisorTest {
         };
     host.setAttachedSupervisors(attached);
     host.attach(
-        new BoundSupervisor(
+        Fixtures.boundSupervisor(
             new SupervisorAttachment("chatty", "p", new SupervisorScope.Global(), true),
             chatty,
             true));

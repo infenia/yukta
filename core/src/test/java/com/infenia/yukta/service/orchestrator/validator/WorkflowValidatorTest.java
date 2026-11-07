@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.type.TriggerPlugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -103,17 +104,14 @@ class WorkflowValidatorTest {
   }
 
   private static WorkflowDefinition.Node node(final String nodeId, final String type) {
-    return new WorkflowDefinition.Node(nodeId, type, Map.of());
+    return Fixtures.node(nodeId, type, Map.of());
   }
 
   @Test
   void definitionHoldingLiteralSecretIsRefused() {
     final WorkflowDefinition literal =
-        new WorkflowDefinition(
-            "w",
-            "d",
-            List.of(new WorkflowDefinition.Node("n1", "X", Map.of("password", "hunter2"))),
-            List.of());
+        Fixtures.workflow(
+            "w", "d", List.of(Fixtures.node("n1", "X", Map.of("password", "hunter2"))), List.of());
 
     assertRejected(literal, "n1.password");
   }
@@ -121,12 +119,10 @@ class WorkflowValidatorTest {
   @Test
   void definitionHoldingTheRedactionMaskIsRefused() {
     final WorkflowDefinition masked =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w",
             "d",
-            List.of(
-                new WorkflowDefinition.Node(
-                    "n1", "X", Map.of("headers", Map.of("Authorization", "******")))),
+            List.of(Fixtures.node("n1", "X", Map.of("headers", Map.of("Authorization", "******")))),
             List.of());
 
     StepVerifier.create(validator.validate(masked))
@@ -142,7 +138,7 @@ class WorkflowValidatorTest {
   @Test
   void testValidateAllReportsEveryProblemNotOnlyTheFirst() {
     final var def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T")),
@@ -152,7 +148,7 @@ class WorkflowValidatorTest {
     org.assertj.core.api.Assertions.assertThat(
             validator
                 .validateAll(
-                    new WorkflowDefinition(
+                    Fixtures.workflow(
                         WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()))
                 .block())
         .contains("Duplicate node id 'a'");
@@ -165,7 +161,7 @@ class WorkflowValidatorTest {
     when(registry.get(UNKNOWN_ID)).thenReturn(null);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("t", TRIGGER_ID), node("unknown", UNKNOWN_ID)),
@@ -189,7 +185,7 @@ class WorkflowValidatorTest {
 
   /** A trigger feeding a processor with no outgoing edge and no terminal anywhere. */
   private static WorkflowDefinition triggerIntoProcessorWithoutTerminal() {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         WORKFLOW_NAME,
         "d",
         List.of(node("t", TRIGGER_ID), node("p", PROCESSOR_ID)),
@@ -236,8 +232,7 @@ class WorkflowValidatorTest {
   @Test
   void testDuplicateNodeIdRejected() {
     assertRejected(
-        new WorkflowDefinition(
-            WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()),
+        Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node("a", "T"), node("a", "P")), List.of()),
         "Duplicate node id 'a'");
   }
 
@@ -245,7 +240,7 @@ class WorkflowValidatorTest {
   void testDuplicateEdgeRejected() {
     final var edge = new WorkflowDefinition.Edge("a", "b", null);
     assertRejected(
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME, "d", List.of(node("a", "T"), node("b", "P")), List.of(edge, edge)),
         "more than once");
   }
@@ -254,7 +249,7 @@ class WorkflowValidatorTest {
   void testUnknownSourcePortRejected() {
     when(registry.get("T")).thenReturn(triggerPlugin);
     assertRejected(
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T"), node("b", "P")),
@@ -266,7 +261,7 @@ class WorkflowValidatorTest {
   void testAllPortsEdgeNeedsNoDeclaredPort() {
     when(registry.get("T")).thenReturn(triggerPlugin);
     assertRejectedNotForPort(
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T"), node("b", "P")),
@@ -277,7 +272,7 @@ class WorkflowValidatorTest {
   void testErrorPortRejectedWithoutRoutePolicy() {
     when(registry.get("T")).thenReturn(triggerPlugin);
     assertRejected(
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T"), node("b", "P")),
@@ -288,7 +283,7 @@ class WorkflowValidatorTest {
   @Test
   void testPortOfUnregisteredPluginLeftToRegistryCheck() {
     final var def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T"), node("b", "P")),
@@ -302,7 +297,7 @@ class WorkflowValidatorTest {
   void testRetryBackoffLongerThanTheNodeTimeoutRejected() {
     when(registry.get("P")).thenReturn(processorPlugin);
     final var node =
-        new WorkflowDefinition.Node(
+        Fixtures.node(
             "p",
             "P",
             Map.of(
@@ -310,24 +305,23 @@ class WorkflowValidatorTest {
                 10,
                 "engine",
                 Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 10_000))));
-    assertRejected(
-        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "maxBackoffMs");
+    assertRejected(Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node), List.of()), "maxBackoffMs");
   }
 
   @Test
   void testElementTimeoutNotBelowTheNodeTimeoutRejected() {
     when(registry.get("P")).thenReturn(processorPlugin);
     final var node =
-        new WorkflowDefinition.Node(
+        Fixtures.node(
             "p", "P", Map.of("timeoutSeconds", 10, "engine", Map.of("elementTimeoutMs", 10_000)));
     assertRejected(
-        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "elementTimeoutMs");
+        Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node), List.of()), "elementTimeoutMs");
   }
 
   @Test
   void testElementTimeoutNotBelowTheDeadlineRejected() {
     final var node =
-        new WorkflowDefinition.Node(
+        Fixtures.node(
             "p",
             "P",
             Map.of(
@@ -336,7 +330,7 @@ class WorkflowValidatorTest {
                 "engine",
                 Map.of("elementTimeoutMs", 5_000, "deadlineMs", 5_000)));
     assertRejected(
-        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "engine.deadlineMs");
+        Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node), List.of()), "engine.deadlineMs");
   }
 
   @Test
@@ -344,24 +338,23 @@ class WorkflowValidatorTest {
     when(registry.get("P")).thenReturn(processorPlugin);
     when(processorPlugin.getDefaultTimeout(any())).thenReturn(Duration.ofSeconds(1));
     final var node =
-        new WorkflowDefinition.Node(
+        Fixtures.node(
             "p",
             "P",
             Map.of("engine", Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000))));
     assertRejected(
-        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of()), "node timeout (1 s)");
+        Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node), List.of()), "node timeout (1 s)");
   }
 
   @Test
   void testRetryBackoffWithUnknownPluginIsLeftToThePluginCheck() {
     final var node =
-        new WorkflowDefinition.Node(
+        Fixtures.node(
             "p",
             "P",
             Map.of("engine", Map.of("retry", Map.of("maxAttempts", 3, "maxBackoffMs", 5_000))));
     StepVerifier.create(
-            validator.validate(
-                new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node), List.of())))
+            validator.validate(Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node), List.of())))
         .expectErrorMatches(e -> !e.getMessage().contains("maxBackoffMs"))
         .verify();
   }
@@ -372,17 +365,16 @@ class WorkflowValidatorTest {
     for (int i = 0; i < 501; i++) {
       nodes.add(node("n" + i, "P"));
     }
-    assertRejected(new WorkflowDefinition(WORKFLOW_NAME, "d", nodes, List.of()), "too large");
+    assertRejected(Fixtures.workflow(WORKFLOW_NAME, "d", nodes, List.of()), "too large");
   }
 
   @Test
   void testErrorPortAllowedWhenRouted() {
     when(registry.get("P")).thenReturn(processorPlugin);
     when(processorPlugin.getCategory()).thenReturn(PluginCategory.PROCESSOR);
-    final var routed =
-        new WorkflowDefinition.Node("p", "P", Map.of("engine", Map.of("onError", "ROUTE")));
+    final var routed = Fixtures.node("p", "P", Map.of("engine", Map.of("onError", "ROUTE")));
     final var def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(routed, node("d", "D")),
@@ -410,13 +402,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "ok",
             List.of(
-                new WorkflowDefinition.Node("n1", TRIGGER_ID, Map.of()),
-                new WorkflowDefinition.Node("n2", PROCESSOR_ID, Map.of()),
-                new WorkflowDefinition.Node("n3", TERMINAL_ID, Map.of())),
+                Fixtures.node("n1", TRIGGER_ID, Map.of()),
+                Fixtures.node("n2", PROCESSOR_ID, Map.of()),
+                Fixtures.node("n3", TERMINAL_ID, Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("n1", "n2", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("n2", "n3", DEFAULT_EDGE_LABEL)));
@@ -434,12 +426,11 @@ class WorkflowValidatorTest {
     when(registry.get(GUARD_ID)).thenReturn(processorPlugin);
     StepVerifier.create(
             validator.validate(
-                new WorkflowDefinition(
+                Fixtures.workflow(
                     WORKFLOW_NAME,
                     "d",
                     List.of(
-                        new WorkflowDefinition.Node("t", "T", Map.of()),
-                        new WorkflowDefinition.Node("g", "GUARD", Map.of())),
+                        Fixtures.node("t", "T", Map.of()), Fixtures.node("g", "GUARD", Map.of())),
                     List.of(new WorkflowDefinition.Edge("t", "g", DEFAULT_EDGE_LABEL)))))
         .expectError()
         .verify();
@@ -462,10 +453,10 @@ class WorkflowValidatorTest {
     when(registry.get(HYBRID_ID)).thenReturn(hybrid);
     StepVerifier.create(
             validator.validate(
-                new WorkflowDefinition(
+                Fixtures.workflow(
                     WORKFLOW_NAME,
                     "d",
-                    List.of(new WorkflowDefinition.Node("h1", "HYBRID", Map.of())),
+                    List.of(Fixtures.node("h1", "HYBRID", Map.of())),
                     List.of())))
         .expectError()
         .verify();
@@ -475,13 +466,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
     StepVerifier.create(
             validator.validate(
-                new WorkflowDefinition(
+                Fixtures.workflow(
                     WORKFLOW_NAME,
                     "d",
                     List.of(
-                        new WorkflowDefinition.Node("t", "T", Map.of()),
-                        new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                        new WorkflowDefinition.Node("p1", "P", Map.of())),
+                        Fixtures.node("t", "T", Map.of()),
+                        Fixtures.node("term1", "TERM", Map.of()),
+                        Fixtures.node("p1", "P", Map.of())),
                     List.of(
                         new WorkflowDefinition.Edge("t", "term1", DEFAULT_EDGE_LABEL),
                         new WorkflowDefinition.Edge("term1", "p1", DEFAULT_EDGE_LABEL)))))
@@ -491,13 +482,13 @@ class WorkflowValidatorTest {
     // Sub-case 4: Orphan — fails at validateEntryPoints ("o" has no incoming, not a trigger)
     StepVerifier.create(
             validator.validate(
-                new WorkflowDefinition(
+                Fixtures.workflow(
                     WORKFLOW_NAME,
                     "d",
                     List.of(
-                        new WorkflowDefinition.Node("t", "T", Map.of()),
-                        new WorkflowDefinition.Node("term", "TERM", Map.of()),
-                        new WorkflowDefinition.Node("o", "TERM", Map.of())),
+                        Fixtures.node("t", "T", Map.of()),
+                        Fixtures.node("term", "TERM", Map.of()),
+                        Fixtures.node("o", "TERM", Map.of())),
                     List.of(new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL)))))
         .expectError()
         .verify();
@@ -523,18 +514,16 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node(
-                    "m1", "MAPPER", Map.of("mode", "SCRIPT", "mapping", "payload")),
-                new WorkflowDefinition.Node(
-                    "m2", "MAPPER", Map.of("mode", "SCRIPT", "mapping", "if(1)for(;;);")),
-                new WorkflowDefinition.Node("m4", "MAPPER", Map.of("mode", "PROJECTION")),
-                new WorkflowDefinition.Node("f1", "FILTER", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("m1", "MAPPER", Map.of("mode", "SCRIPT", "mapping", "payload")),
+                Fixtures.node("m2", "MAPPER", Map.of("mode", "SCRIPT", "mapping", "if(1)for(;;);")),
+                Fixtures.node("m4", "MAPPER", Map.of("mode", "PROJECTION")),
+                Fixtures.node("f1", "FILTER", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "m1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("m1", "m2", DEFAULT_EDGE_LABEL),
@@ -553,13 +542,13 @@ class WorkflowValidatorTest {
     when(registry.get(UNKNOWN_ID)).thenReturn(null);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "UNKNOWN", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p", "UNKNOWN", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
@@ -587,13 +576,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
@@ -608,12 +597,12 @@ class WorkflowValidatorTest {
     when(registry.get(UNKNOWN_TYPE_ID)).thenReturn(null);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("unknown", "UNKNOWN_TYPE", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("unknown", "UNKNOWN_TYPE", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "unknown", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -634,12 +623,10 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("term", "TERM", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def)).verifyComplete();
@@ -663,13 +650,13 @@ class WorkflowValidatorTest {
     when(registry.get(CUSTOM_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("c", "CUSTOM", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("c", "CUSTOM", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "c", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("c", "term", DEFAULT_EDGE_LABEL)));
@@ -688,13 +675,13 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL),
@@ -717,15 +704,15 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("term2", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "term1", DEFAULT_EDGE_LABEL)));
@@ -753,14 +740,14 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("t2", "p", DEFAULT_EDGE_LABEL),
@@ -778,12 +765,10 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+            List.of(Fixtures.node("p", "P", Map.of()), Fixtures.node("term", "TERM", Map.of())),
             List.of(new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -800,12 +785,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -824,13 +807,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
@@ -851,13 +834,13 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("term", "TERM", Map.of()),
+                Fixtures.node("p", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("term", "p", DEFAULT_EDGE_LABEL)));
@@ -876,12 +859,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -898,12 +879,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -929,15 +908,15 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("p3", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("p3", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL),
@@ -965,15 +944,15 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("p3", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("p3", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL),
@@ -993,12 +972,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "p", DEFAULT_EDGE_LABEL)));
@@ -1015,11 +992,8 @@ class WorkflowValidatorTest {
     when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
-            WORKFLOW_NAME,
-            "d",
-            List.of(new WorkflowDefinition.Node("t", "T", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            WORKFLOW_NAME, "d", List.of(Fixtures.node("t", "T", Map.of())), List.of());
 
     StepVerifier.create(validator.validate(def))
         .expectError(IllegalArgumentException.class)
@@ -1033,13 +1007,13 @@ class WorkflowValidatorTest {
     when(registry.get(UNKNOWN_ID)).thenReturn(null);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("unknown", "UNKNOWN", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("unknown", "UNKNOWN", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "unknown", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("unknown", "term", DEFAULT_EDGE_LABEL)));
@@ -1056,12 +1030,11 @@ class WorkflowValidatorTest {
     when(registry.get(UNKNOWN_ID)).thenReturn(null);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("unknown", "UNKNOWN", Map.of())),
+                Fixtures.node("t", "T", Map.of()), Fixtures.node("unknown", "UNKNOWN", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "unknown", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1076,11 +1049,8 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
-            WORKFLOW_NAME,
-            "d",
-            List.of(new WorkflowDefinition.Node("term", "TERM", Map.of())),
-            List.of());
+        Fixtures.workflow(
+            WORKFLOW_NAME, "d", List.of(Fixtures.node("term", "TERM", Map.of())), List.of());
 
     StepVerifier.create(validator.validate(def))
         .expectError(IllegalArgumentException.class)
@@ -1096,14 +1066,14 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("p3", "P", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("p3", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL),
@@ -1125,14 +1095,14 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "t2", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("t2", "p", DEFAULT_EDGE_LABEL),
@@ -1161,16 +1131,16 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("p3", "P", Map.of()),
-                new WorkflowDefinition.Node("p4", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("p3", "P", Map.of()),
+                Fixtures.node("p4", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL),
@@ -1192,13 +1162,13 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("term", "TERM", Map.of()),
+                Fixtures.node("p", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("term", "p", DEFAULT_EDGE_LABEL)));
@@ -1217,12 +1187,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1248,16 +1216,16 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("term2", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("t2", "p2", DEFAULT_EDGE_LABEL),
@@ -1285,16 +1253,16 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("term2", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("t2", "p2", DEFAULT_EDGE_LABEL),
@@ -1315,17 +1283,17 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERM", Map.of()),
-                new WorkflowDefinition.Node("orphan", "P", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("term2", "TERM", Map.of()),
+                Fixtures.node("orphan", "P", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("t2", "p2", DEFAULT_EDGE_LABEL),
@@ -1350,12 +1318,10 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("term", "TERM", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def)).verifyComplete();
@@ -1379,13 +1345,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
@@ -1411,13 +1377,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p", "term", DEFAULT_EDGE_LABEL)));
@@ -1443,16 +1409,16 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term2", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t1", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "term1", DEFAULT_EDGE_LABEL),
@@ -1473,14 +1439,14 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "term", DEFAULT_EDGE_LABEL)));
@@ -1506,15 +1472,15 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t_main", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERM", Map.of()),
-                new WorkflowDefinition.Node("t_hidden", "T", Map.of()),
-                new WorkflowDefinition.Node("term_unreachable", "TERM", Map.of())),
+                Fixtures.node("t_main", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("term1", "TERM", Map.of()),
+                Fixtures.node("t_hidden", "T", Map.of()),
+                Fixtures.node("term_unreachable", "TERM", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t_main", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "term1", DEFAULT_EDGE_LABEL),
@@ -1541,15 +1507,15 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ALT_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("term1", "TERMINAL", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of()),
-                new WorkflowDefinition.Node("term2", "TERMINAL", Map.of())),
+                Fixtures.node("t", "T", Map.of()),
+                Fixtures.node("p1", "P", Map.of()),
+                Fixtures.node("term1", "TERMINAL", Map.of()),
+                Fixtures.node("p2", "P", Map.of()),
+                Fixtures.node("term2", "TERMINAL", Map.of())),
             List.of(
                 new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL),
                 new WorkflowDefinition.Edge("p1", "term1", DEFAULT_EDGE_LABEL),
@@ -1570,12 +1536,10 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "missing-trigger",
-            List.of(
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+            List.of(Fixtures.node("p1", "P", Map.of()), Fixtures.node("term", "TERM", Map.of())),
             List.of(new WorkflowDefinition.Edge("p1", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1595,12 +1559,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "missing-terminal",
-            List.of(
-                new WorkflowDefinition.Node("t", "T", Map.of()),
-                new WorkflowDefinition.Node("p1", "P", Map.of())),
+            List.of(Fixtures.node("t", "T", Map.of()), Fixtures.node("p1", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1618,12 +1580,10 @@ class WorkflowValidatorTest {
     when(registry.get(PROCESSOR_ID)).thenReturn(processorPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "only-processors",
-            List.of(
-                new WorkflowDefinition.Node("p1", "P", Map.of()),
-                new WorkflowDefinition.Node("p2", "P", Map.of())),
+            List.of(Fixtures.node("p1", "P", Map.of()), Fixtures.node("p2", "P", Map.of())),
             List.of(new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1645,13 +1605,13 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node("t1", "T", Map.of()),
-                new WorkflowDefinition.Node("t2", "T", Map.of()),
-                new WorkflowDefinition.Node("term", "TERM", Map.of())),
+                Fixtures.node("t1", "T", Map.of()),
+                Fixtures.node("t2", "T", Map.of()),
+                Fixtures.node("term", "TERM", Map.of())),
             List.of(new WorkflowDefinition.Edge("t2", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1666,10 +1626,10 @@ class WorkflowValidatorTest {
   @Test
   void testEdgeFromUnknownNodeIsRejected() {
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(new WorkflowDefinition.Node("n1", TRIGGER_ID, Map.of())),
+            List.of(Fixtures.node("n1", TRIGGER_ID, Map.of())),
             List.of(new WorkflowDefinition.Edge("ghost", "n1", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1680,10 +1640,10 @@ class WorkflowValidatorTest {
   @Test
   void testEdgeToUnknownNodeIsRejectedWithMessage() {
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
-            List.of(new WorkflowDefinition.Node("n1", TRIGGER_ID, Map.of())),
+            List.of(Fixtures.node("n1", TRIGGER_ID, Map.of())),
             List.of(new WorkflowDefinition.Edge("n1", "ghost", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
@@ -1696,10 +1656,10 @@ class WorkflowValidatorTest {
   }
 
   private WorkflowDefinition singleNodeWithEngine(final Map<String, Object> engine) {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         WORKFLOW_NAME,
         "d",
-        List.of(new WorkflowDefinition.Node("n1", PROCESSOR_ID, Map.of("engine", engine))),
+        List.of(Fixtures.node("n1", PROCESSOR_ID, Map.of("engine", engine))),
         List.of());
   }
 
@@ -1719,11 +1679,11 @@ class WorkflowValidatorTest {
     when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node(
+                Fixtures.node(
                     "n1", TRIGGER_ID, Map.of("engine", Map.of("retry", Map.of("maxAttempts", 2))))),
             List.of());
 
@@ -1737,11 +1697,11 @@ class WorkflowValidatorTest {
     when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
     when(triggerPlugin.getCategory()).thenReturn(PluginCategory.TRIGGER);
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(
-                new WorkflowDefinition.Node(
+                Fixtures.node(
                     "n1", TRIGGER_ID, Map.of("engine", Map.of("concurrencyGroup", "gradle")))),
             List.of());
 
@@ -1784,8 +1744,8 @@ class WorkflowValidatorTest {
   }
 
   private WorkflowDefinition singleProcessor(final Map<String, Object> config) {
-    return new WorkflowDefinition(
-        WORKFLOW_NAME, "d", List.of(new WorkflowDefinition.Node("p", "P", config)), List.of());
+    return Fixtures.workflow(
+        WORKFLOW_NAME, "d", List.of(Fixtures.node("p", "P", config)), List.of());
   }
 
   private void assertNotRejectedFor(final WorkflowDefinition def, final String text) {
@@ -1810,7 +1770,7 @@ class WorkflowValidatorTest {
       edges.add(new WorkflowDefinition.Edge("a", "b", "p" + i));
     }
     assertRejected(
-        new WorkflowDefinition(WORKFLOW_NAME, "d", List.of(node("a", "T"), node("b", "P")), edges),
+        Fixtures.workflow(WORKFLOW_NAME, "d", List.of(node("a", "T"), node("b", "P")), edges),
         "too large");
   }
 
@@ -1819,7 +1779,7 @@ class WorkflowValidatorTest {
     when(registry.get("T")).thenReturn(triggerPlugin);
     when(triggerPlugin.getOutputPorts(any())).thenThrow(new IllegalStateException("bad config"));
     assertRejectedNotForPort(
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("a", "T"), node("b", "P")),
@@ -1905,7 +1865,7 @@ class WorkflowValidatorTest {
     when(registry.get(TERMINAL_ID)).thenReturn(terminalPlugin);
 
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             WORKFLOW_NAME,
             "d",
             List.of(node("t", TRIGGER_ID), node("p", PROCESSOR_ID), node("term", TERMINAL_ID)),

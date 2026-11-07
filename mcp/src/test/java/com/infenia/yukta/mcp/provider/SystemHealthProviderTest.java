@@ -19,6 +19,7 @@ import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -50,7 +51,7 @@ class SystemHealthProviderTest {
   private WorkflowExecutionSummary execution(final String id, final TaskStatus status) {
     final Instant start = Instant.now().minus(Duration.ofMinutes(1));
     final Instant end = status == TaskStatus.RUNNING ? null : Instant.now();
-    return new WorkflowExecutionSummary(id, "wf-1", status, start, end);
+    return Fixtures.summary(id, "wf-1", status, start, end);
   }
 
   @Test
@@ -61,10 +62,8 @@ class SystemHealthProviderTest {
     when(registry.listPlugins()).thenReturn(List.of(plugin));
 
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
-    final var wf1 =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
-    final var wf2 =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-2", "d", List.of(), List.of());
+    final var wf1 = Fixtures.workflow("wf-1", "d", List.of(), List.of());
+    final var wf2 = Fixtures.workflow("wf-2", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1",
@@ -155,7 +154,7 @@ class SystemHealthProviderTest {
         IntStream.range(0, 12)
             .mapToObj(
                 i ->
-                    new WorkflowExecutionSummary(
+                    Fixtures.summary(
                         "s1-e" + i,
                         "wf-1",
                         TaskStatus.SUCCESS,
@@ -166,7 +165,7 @@ class SystemHealthProviderTest {
         IntStream.range(0, 12)
             .mapToObj(
                 i ->
-                    new WorkflowExecutionSummary(
+                    Fixtures.summary(
                         "s2-e" + i,
                         "wf-2",
                         TaskStatus.SUCCESS,
@@ -257,8 +256,7 @@ class SystemHealthProviderTest {
   void testOnlyNonTerminalStatusesCountAsActive() {
     when(registry.listPlugins()).thenReturn(List.of());
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
-    final var wf =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var wf = Fixtures.workflow("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
@@ -285,8 +283,7 @@ class SystemHealthProviderTest {
   void testNullStatusAndNullStartDoNotBreakTheStatus() {
     when(registry.listPlugins()).thenReturn(List.of());
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1"));
-    final var wf =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("wf-1", "d", List.of(), List.of());
+    final var wf = Fixtures.workflow("wf-1", "d", List.of(), List.of());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "s1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of("wf-1", wf));
@@ -295,9 +292,8 @@ class SystemHealthProviderTest {
         .thenReturn(
             Mono.just(
                 List.of(
-                    new WorkflowExecutionSummary("e1", "wf-1", null, null, null),
-                    new WorkflowExecutionSummary(
-                        "e2", "wf-1", TaskStatus.SUCCESS, null, Instant.now()))));
+                    Fixtures.summary("e1", "wf-1", null, null, null),
+                    Fixtures.summary("e2", "wf-1", TaskStatus.SUCCESS, null, Instant.now()))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
         .assertNext(

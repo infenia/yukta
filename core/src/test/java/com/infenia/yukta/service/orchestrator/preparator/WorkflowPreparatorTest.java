@@ -22,6 +22,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
@@ -69,8 +70,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_singleNode_noEdges_returnsPreparedWorkflow() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf1", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf1", "desc", List.of(node), List.of());
     final WorkflowNode workflowNode = new WorkflowNode("n1", "plugin-type", Map.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
@@ -102,8 +103,8 @@ class WorkflowPreparatorTest {
     final com.infenia.yukta.plugin.type.ProcessorPlugin processor =
         org.mockito.Mockito.mock(com.infenia.yukta.plugin.type.ProcessorPlugin.class);
     final Map<String, Object> placed = Map.of("engine", Map.of("placement", Map.of("pool", "gpu")));
-    final Node node = new Node("n1", "HTTP_REQUEST", placed);
-    final WorkflowDefinition def = new WorkflowDefinition("wf9", "d", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "HTTP_REQUEST", placed);
+    final WorkflowDefinition def = Fixtures.workflow("wf9", "d", List.of(node), List.of());
     final org.springframework.beans.factory.ObjectProvider<
             com.infenia.yukta.service.worker.RemoteNodeExecutor>
         provider = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
@@ -137,10 +138,10 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_subscribedTwice_doesNotDuplicateEdges() {
-    final Node n1 = new Node("n1", "type-a", Map.of());
-    final Node n2 = new Node("n2", "type-b", Map.of());
+    final Node n1 = Fixtures.node("n1", "type-a", Map.of());
+    final Node n2 = Fixtures.node("n2", "type-b", Map.of());
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "wf3", "twice", List.of(n1, n2), List.of(new Edge("n1", "n2", "default")));
     when(registry.get(any())).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
@@ -159,11 +160,11 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_twoNodes_oneEdge_buildsAdjacencyAndParentsCorrectly() {
-    final Node n1 = new Node("n1", "type-a", Map.of());
-    final Node n2 = new Node("n2", "type-b", Map.of());
+    final Node n1 = Fixtures.node("n1", "type-a", Map.of());
+    final Node n2 = Fixtures.node("n2", "type-b", Map.of());
     final Edge edge = new Edge("n1", "n2", "default");
     final WorkflowDefinition def =
-        new WorkflowDefinition("wf2", "two-node flow", List.of(n1, n2), List.of(edge));
+        Fixtures.workflow("wf2", "two-node flow", List.of(n1, n2), List.of(edge));
 
     final WorkflowNode wn1 = new WorkflowNode("n1", "type-a", Map.of());
     final WorkflowNode wn2 = new WorkflowNode("n2", "type-b", Map.of());
@@ -196,8 +197,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_pluginNotFoundForNode_failsWithError() {
-    final Node node = new Node("n1", "missing-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf3", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "missing-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf3", "desc", List.of(node), List.of());
 
     when(registry.get("missing-type")).thenReturn(null);
     when(validator.validate(def)).thenReturn(Mono.empty());
@@ -214,8 +215,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_validationFails_propagatesError() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf4", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf4", "desc", List.of(node), List.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def))
@@ -232,8 +233,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_pluginInitializeFails_errorPropagatedAndSharedPluginNotShutDown() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf5", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf5", "desc", List.of(node), List.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
@@ -249,10 +250,9 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_oneOfTwoPluginsNotFound_failsWithError() {
-    final Node n1 = new Node("n1", "type-a", Map.of());
-    final Node n2 = new Node("n2", "missing-type", Map.of());
-    final WorkflowDefinition def =
-        new WorkflowDefinition("wf8", "desc", List.of(n1, n2), List.of());
+    final Node n1 = Fixtures.node("n1", "type-a", Map.of());
+    final Node n2 = Fixtures.node("n2", "missing-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf8", "desc", List.of(n1, n2), List.of());
 
     when(registry.get("type-a")).thenReturn(plugin);
     when(registry.get("missing-type")).thenReturn(null);
@@ -271,8 +271,8 @@ class WorkflowPreparatorTest {
   @Test
   void prepareWorkflow_nodeConfigPassedToInitialize() {
     final Map<String, Object> config = Map.of("key", "value");
-    final Node node = new Node("n1", "plugin-type", config);
-    final WorkflowDefinition def = new WorkflowDefinition("wf9", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", config);
+    final WorkflowDefinition def = Fixtures.workflow("wf9", "desc", List.of(node), List.of());
     final WorkflowNode workflowNode = new WorkflowNode("n1", "plugin-type", config);
 
     when(registry.get("plugin-type")).thenReturn(plugin);
@@ -292,8 +292,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_topologicalSortThrows_errorPropagatedAndSharedPluginNotShutDown() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf10", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf10", "desc", List.of(node), List.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
     when(validator.validate(def)).thenReturn(Mono.empty());
@@ -312,8 +312,8 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_preparedWorkflowContainsCompilerTemplate() {
-    final Node node = new Node("n1", "plugin-type", Map.of());
-    final WorkflowDefinition def = new WorkflowDefinition("wf11", "desc", List.of(node), List.of());
+    final Node node = Fixtures.node("n1", "plugin-type", Map.of());
+    final WorkflowDefinition def = Fixtures.workflow("wf11", "desc", List.of(node), List.of());
     final WorkflowNode wn = new WorkflowNode("n1", "plugin-type", Map.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
@@ -334,10 +334,11 @@ class WorkflowPreparatorTest {
     final Map<String, Object> cfgA = Map.of("mode", "a");
     final Map<String, Object> cfgB = Map.of("mode", "b");
     final WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "wf-same",
             "desc",
-            List.of(new Node("n1", "plugin-type", cfgA), new Node("n2", "plugin-type", cfgB)),
+            List.of(
+                Fixtures.node("n1", "plugin-type", cfgA), Fixtures.node("n2", "plugin-type", cfgB)),
             List.of());
 
     when(registry.get("plugin-type")).thenReturn(plugin);
@@ -357,13 +358,13 @@ class WorkflowPreparatorTest {
 
   @Test
   void prepareWorkflow_multipleEdges_allEdgesMappedCorrectly() {
-    final Node n1 = new Node("n1", "type-a", Map.of());
-    final Node n2 = new Node("n2", "type-b", Map.of());
-    final Node n3 = new Node("n3", "type-c", Map.of());
+    final Node n1 = Fixtures.node("n1", "type-a", Map.of());
+    final Node n2 = Fixtures.node("n2", "type-b", Map.of());
+    final Node n3 = Fixtures.node("n3", "type-c", Map.of());
     final Edge e1 = new Edge("n1", "n2", "port1");
     final Edge e2 = new Edge("n1", "n3", "port2");
     final WorkflowDefinition def =
-        new WorkflowDefinition("wf12", "multi-edge", List.of(n1, n2, n3), List.of(e1, e2));
+        Fixtures.workflow("wf12", "multi-edge", List.of(n1, n2, n3), List.of(e1, e2));
 
     final WorkflowNode wn1 = new WorkflowNode("n1", "type-a", Map.of());
     final WorkflowNode wn2 = new WorkflowNode("n2", "type-b", Map.of());

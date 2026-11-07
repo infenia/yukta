@@ -5,8 +5,8 @@ package com.infenia.yukta.plus.testkit;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -30,8 +30,11 @@ public abstract class WorkflowDefinitionStoreContract {
   protected abstract WorkflowDefinitionStore create();
 
   private static WorkflowDefinition definition(final String workflowId, final String description) {
-    return new WorkflowDefinition(
-        workflowId, description, List.of(new Node("n", "CONSTANT_SOURCE", Map.of())), List.of());
+    return Fixtures.workflow(
+        workflowId,
+        description,
+        List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())),
+        List.of());
   }
 
   @Test

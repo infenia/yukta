@@ -20,6 +20,7 @@ dependencies {
     testImplementation(libs.flyway.postgresql)
     testImplementation(libs.postgresql.jdbc)
     testImplementation(testFixtures(project(":plus")))
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.testcontainers.postgresql)
     testImplementation(libs.testcontainers.junit)
 

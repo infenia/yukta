@@ -10,9 +10,9 @@ import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -37,7 +37,7 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus);
     when(controlBus.getProgress(SESSION, EXECUTION))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 EXECUTION, SESSION, "wf-1", TaskStatus.RUNNING, List.of(), Instant.now(), null));
   }
 

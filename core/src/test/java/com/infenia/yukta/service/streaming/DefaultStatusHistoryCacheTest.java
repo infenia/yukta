@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Instant;
 import java.util.List;
@@ -305,7 +306,7 @@ class DefaultStatusHistoryCacheTest {
 
   private WorkflowProgress createWorkflowProgress(
       final String executionId, final TaskStatus status) {
-    return new WorkflowProgress(
+    return Fixtures.workflowProgress(
         executionId, "session-1", "workflow-1", status, List.of(), Instant.now(), null);
   }
 

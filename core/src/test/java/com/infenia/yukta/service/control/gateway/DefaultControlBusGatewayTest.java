@@ -49,6 +49,7 @@ import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.List;
@@ -186,7 +187,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String sessionId = "session-1";
     final WorkflowDefinition definition =
-        new WorkflowDefinition("workflow-1", "description", List.of(), List.of());
+        Fixtures.workflow("workflow-1", "description", List.of(), List.of());
     when(orchestrator.prepareWorkflow(definition))
         .thenReturn(Mono.just(mock(PreparedWorkflow.class)));
     when(workflowDefinitionStore.find(sessionId, "workflow-1")).thenReturn(Mono.just(definition));
@@ -202,10 +203,8 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void compileAndCacheWorkflow_whenTheStoredDefinitionMovedOn_dropsTheCachedEntry() {
-    final WorkflowDefinition older =
-        new WorkflowDefinition("workflow-1", "older", List.of(), List.of());
-    final WorkflowDefinition newer =
-        new WorkflowDefinition("workflow-1", "newer", List.of(), List.of());
+    final WorkflowDefinition older = Fixtures.workflow("workflow-1", "older", List.of(), List.of());
+    final WorkflowDefinition newer = Fixtures.workflow("workflow-1", "newer", List.of(), List.of());
     when(orchestrator.prepareWorkflow(older)).thenReturn(Mono.just(mock(PreparedWorkflow.class)));
     when(workflowDefinitionStore.find("session-1", "workflow-1")).thenReturn(Mono.just(newer));
 
@@ -217,7 +216,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void compileAndCacheWorkflow_whenTheDefinitionWasRemoved_dropsTheCachedEntry() {
     final WorkflowDefinition definition =
-        new WorkflowDefinition("workflow-1", "gone", List.of(), List.of());
+        Fixtures.workflow("workflow-1", "gone", List.of(), List.of());
     when(orchestrator.prepareWorkflow(definition))
         .thenReturn(Mono.just(mock(PreparedWorkflow.class)));
     when(workflowDefinitionStore.find("session-1", "workflow-1")).thenReturn(Mono.empty());
@@ -670,7 +669,7 @@ class DefaultControlBusGatewayTest {
     when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 executionId, "sess", "wf", TaskStatus.RUNNING, List.of(), null, null));
     when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
 
@@ -687,7 +686,7 @@ class DefaultControlBusGatewayTest {
     when(executionControlStore.findByExecutionId(executionId)).thenReturn(Optional.empty());
     when(taskTracker.getProgressByExecutionId(executionId))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 executionId, "sess", "wf", TaskStatus.SUCCESS, List.of(), null, null));
 
     StepVerifier.create(gateway.stopExecution(executionId, "stop", StopMode.DRAIN))
@@ -1180,7 +1179,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-14";
     final WorkflowProgress progress =
-        new WorkflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
+        Fixtures.workflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
@@ -1711,7 +1710,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String executionId = "exec-watch";
     final WorkflowProgress progress =
-        new WorkflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
+        Fixtures.workflowProgress("exec", "sess", "wf", TaskStatus.RUNNING, List.of(), null, null);
     when(taskTracker.getStatusStream(executionId, true)).thenReturn(Flux.just(progress));
 
     // When
@@ -1794,7 +1793,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String sessionId = "sess-compile";
     final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-compile", "desc", List.of(), List.of());
+        Fixtures.workflow("wf-compile", "desc", List.of(), List.of());
     when(orchestrator.prepareWorkflow(definition))
         .thenReturn(Mono.just(mock(PreparedWorkflow.class)));
     when(workflowDefinitionStore.find(sessionId, "wf-compile")).thenReturn(Mono.just(definition));
@@ -1857,7 +1856,7 @@ class DefaultControlBusGatewayTest {
     // Given
     final String sessionId = "sess-compile-error";
     final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-error", "desc", List.of(), List.of());
+        Fixtures.workflow("wf-error", "desc", List.of(), List.of());
     final RuntimeException testError = new RuntimeException("Compile failed");
     when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.error(testError));
 
@@ -1945,9 +1944,8 @@ class DefaultControlBusGatewayTest {
   void startWorkflow_definitionReplacedWhilePreparing_isNotCached() {
     final String sessionId = "sess-stale";
     final String workflowId = "wf-stale";
-    final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
-    final WorkflowDefinition replaced =
-        new WorkflowDefinition(workflowId, "new", List.of(), List.of());
+    final WorkflowDefinition old = Fixtures.workflow(workflowId, "old", List.of(), List.of());
+    final WorkflowDefinition replaced = Fixtures.workflow(workflowId, "new", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     // loaded as "old"; by the time preparation is done the stored definition is "new"
@@ -1973,14 +1971,14 @@ class DefaultControlBusGatewayTest {
   void startWorkflow_pinnedVersion_runsItAndSkipsCache() {
     final String sessionId = "sess-pin";
     final String workflowId = "wf-pin";
-    final WorkflowDefinition old = new WorkflowDefinition(workflowId, "old", List.of(), List.of());
+    final WorkflowDefinition old = Fixtures.workflow(workflowId, "old", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.findRevision(sessionId, workflowId, "0001-a"))
         .thenReturn(Mono.just(old));
     when(orchestrator.prepareWorkflow(old)).thenReturn(Mono.just(preparedWorkflow));
     when(workflowDefinitionStore.find(sessionId, workflowId))
-        .thenReturn(Mono.just(new WorkflowDefinition(workflowId, "current", List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow(workflowId, "current", List.of(), List.of())));
     when(orchestrator.execute(
             eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
         .thenReturn(Mono.empty());
@@ -2000,7 +1998,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-nopin";
     final String workflowId = "wf-nopin";
     final WorkflowDefinition current =
-        new WorkflowDefinition(workflowId, "current", List.of(), List.of());
+        Fixtures.workflow(workflowId, "current", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(current));
     when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
@@ -2027,7 +2025,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-start";
     final String workflowId = "wf-start";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "test workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2069,7 +2067,7 @@ class DefaultControlBusGatewayTest {
     final String workflowId = "wf-payload";
     final Map<String, Object> payload = Map.of("message", "hello");
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "test workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2092,7 +2090,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void cancelRunningExecutions_cancelsRunsThatAreStillGoing() {
     final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-live", "test workflow", List.of(), List.of());
+        Fixtures.workflow("wf-live", "test workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     final java.util.concurrent.atomic.AtomicBoolean cancelled =
         new java.util.concurrent.atomic.AtomicBoolean();
@@ -2152,7 +2150,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-cached";
     final String workflowId = "wf-cached";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "cached workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "cached workflow", List.of(), List.of());
     final PreparedWorkflow cachedPreparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2194,7 +2192,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-prepare";
     final String workflowId = "wf-prepare";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "workflow to prepare", List.of(), List.of());
+        Fixtures.workflow(workflowId, "workflow to prepare", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2228,7 +2226,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-prepare-fail";
     final String workflowId = "wf-prepare-fail";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "workflow", List.of(), List.of());
     final RuntimeException testError = new RuntimeException("Prepare failed");
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2249,7 +2247,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-exec-fail";
     final String workflowId = "wf-exec-fail";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     final RuntimeException testError = new RuntimeException("Execute failed");
 
@@ -2290,7 +2288,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-unique";
     final String workflowId = "wf-unique";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2320,7 +2318,7 @@ class DefaultControlBusGatewayTest {
     final String sessionId = "sess-params";
     final String workflowId = "wf-params";
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
 
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
@@ -2366,9 +2364,9 @@ class DefaultControlBusGatewayTest {
     final String workflowId1 = "wf-1";
     final String workflowId2 = "wf-2";
     final WorkflowDefinition definition1 =
-        new WorkflowDefinition(workflowId1, "workflow 1", List.of(), List.of());
+        Fixtures.workflow(workflowId1, "workflow 1", List.of(), List.of());
     final WorkflowDefinition definition2 =
-        new WorkflowDefinition(workflowId2, "workflow 2", List.of(), List.of());
+        Fixtures.workflow(workflowId2, "workflow 2", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow1 = mock(PreparedWorkflow.class);
     final PreparedWorkflow preparedWorkflow2 = mock(PreparedWorkflow.class);
 
@@ -2430,7 +2428,7 @@ class DefaultControlBusGatewayTest {
 
   private void stubStart(final String sessionId, final String workflowId) {
     final WorkflowDefinition definition =
-        new WorkflowDefinition(workflowId, "test workflow", List.of(), List.of());
+        Fixtures.workflow(workflowId, "test workflow", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
@@ -2457,8 +2455,7 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void startWorkflow_twoStartsRacingForTheLastSlot_theLoserIsRefusedAndNeverRuns() {
-    final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-race", "d", List.of(), List.of());
+    final WorkflowDefinition definition = Fixtures.workflow("wf-race", "d", List.of(), List.of());
     final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
     when(workflowDefinitionStore.find("s", "wf-race")).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(eq("s"), eq("wf-race"), any(WorkflowDefinition.class)))
@@ -2495,8 +2492,7 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void startWorkflow_whenTheServerIsAtItsLimit_isRefusedBeforeAnExecutionIsCreated() {
-    final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-full", "d", List.of(), List.of());
+    final WorkflowDefinition definition = Fixtures.workflow("wf-full", "d", List.of(), List.of());
     when(workflowDefinitionStore.find("s", "wf-full")).thenReturn(Mono.just(definition));
     final var scheduler =
         new ExecutionScheduler(
@@ -2524,8 +2520,7 @@ class DefaultControlBusGatewayTest {
 
   @Test
   void startWorkflow_concurrentStartsOfAnUnpreparedWorkflow_prepareItOnce() {
-    final WorkflowDefinition definition =
-        new WorkflowDefinition("wf-shared", "d", List.of(), List.of());
+    final WorkflowDefinition definition = Fixtures.workflow("wf-shared", "d", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     final java.util.concurrent.atomic.AtomicInteger prepares =
         new java.util.concurrent.atomic.AtomicInteger();
@@ -2557,7 +2552,7 @@ class DefaultControlBusGatewayTest {
   // --- Breakpoint, retry, limits, priority ---
 
   private WorkflowProgress progressWith(final String nodeId, final TaskStatus status) {
-    return new WorkflowProgress(
+    return Fixtures.workflowProgress(
         "e1",
         "s",
         "w",

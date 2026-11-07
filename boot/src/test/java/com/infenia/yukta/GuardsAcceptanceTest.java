@@ -5,13 +5,12 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -64,12 +63,12 @@ class GuardsAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 id,
                 "guarded",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node(
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node(
                         "bad",
                         "PROCESS_EXECUTOR",
                         Map.of(
@@ -77,11 +76,11 @@ class GuardsAcceptanceTest {
                             List.of("sh", "-c", failing ? "exit 3" : "sleep 60"),
                             "outputFormat",
                             "RAW")),
-                    new Node(
+                    Fixtures.node(
                         "slow",
                         "PROCESS_EXECUTOR",
                         Map.of("command", List.of("sleep", "60"), "outputFormat", "RAW")),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(
                     new Edge("t", "bad", null),
                     new Edge("t", "slow", null),

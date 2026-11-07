@@ -21,6 +21,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +46,7 @@ class SubWorkflowRunnerTest {
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final WorkflowDefinition definition =
-      new WorkflowDefinition("child", "d", List.of(), List.of());
+      Fixtures.workflow("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
       new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
   private final SubWorkflowRunner runner =
@@ -93,7 +94,7 @@ class SubWorkflowRunnerTest {
         .verifyComplete();
     verify(cache).put(eq("s"), eq("child"), eq(prepared), any());
 
-    final WorkflowDefinition newer = new WorkflowDefinition("child", "newer", List.of(), List.of());
+    final WorkflowDefinition newer = Fixtures.workflow("child", "newer", List.of(), List.of());
     when(definitions.find("s", "child")).thenReturn(Mono.just(definition), Mono.just(newer));
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .expectNextCount(1)

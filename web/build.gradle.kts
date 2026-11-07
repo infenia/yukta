@@ -19,6 +19,7 @@ dependencies {
     annotationProcessor(libs.lombok.mapstruct.binding)
 
     testImplementation(libs.spring.boot.starter.webflux.test)
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.spring.boot.starter.validation.test)
     testImplementation("io.micrometer:micrometer-core")
 }

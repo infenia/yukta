@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.ControlReviewerTest.Reviewer;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -38,7 +39,7 @@ class ControlReviewerDryRunTest {
         new Reviewer("try-it", 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final ControlReviewer reviewer = new ControlReviewer(providerOf());
     final AttachedSupervisors attached = new AttachedSupervisors();
-    attached.put(new BoundSupervisor(binding, refuser, true));
+    attached.put(Fixtures.boundSupervisor(binding, refuser, true));
     reviewer.setAttachedSupervisors(attached);
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();

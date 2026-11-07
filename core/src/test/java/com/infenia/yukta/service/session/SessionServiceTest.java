@@ -22,6 +22,7 @@ import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
@@ -108,8 +109,7 @@ class SessionServiceTest {
 
   @Test
   void applyConfig_invalidWorkflow_savesNothing() {
-    final WorkflowDefinition bad =
-        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+    final WorkflowDefinition bad = Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(SESSION_ID_1, "s", DESC, "i", Map.of(), PATH, Map.of("w1", bad));
     when(preparator.prepareWorkflow(bad)).thenReturn(Mono.error(new IllegalStateException("bad")));
@@ -124,7 +124,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = SESSION_ID_1;
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+        Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId, "test-session", DESC, "initiator-1", Map.of(), PATH, Map.of("w1", workflow));
@@ -191,8 +191,8 @@ class SessionServiceTest {
   void applyConfig_workflowDroppedFromConfig_removesStaleDefinitionOnly() {
     // Given: the session previously had workflows "w1" and "w2" persisted...
     final String sessionId = "sess-stale-cleanup";
-    final WorkflowDefinition workflowA = new WorkflowDefinition("w1", DESC, List.of(), List.of());
-    final WorkflowDefinition workflowB = new WorkflowDefinition("w2", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowA = Fixtures.workflow("w1", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowB = Fixtures.workflow("w2", DESC, List.of(), List.of());
     when(workflowDefinitionStore.findAll(sessionId))
         .thenReturn(Mono.just(Map.of("w1", workflowA, "w2", workflowB)));
     when(workflowDefinitionStore.remove(eq(sessionId), any())).thenReturn(Mono.empty());
@@ -216,8 +216,8 @@ class SessionServiceTest {
   void applyConfig_staleWorkflowRemovalFails_failsAfterTheRestOfTheApplyHasRun() {
     // Given: removing the stale workflow "w2" fails...
     final String sessionId = "sess-stale-cleanup-error";
-    final WorkflowDefinition workflowA = new WorkflowDefinition("w1", DESC, List.of(), List.of());
-    final WorkflowDefinition workflowB = new WorkflowDefinition("w2", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowA = Fixtures.workflow("w1", DESC, List.of(), List.of());
+    final WorkflowDefinition workflowB = Fixtures.workflow("w2", DESC, List.of(), List.of());
     when(workflowDefinitionStore.findAll(sessionId))
         .thenReturn(Mono.just(Map.of("w1", workflowA, "w2", workflowB)));
     when(workflowDefinitionStore.remove(sessionId, "w2"))
@@ -253,7 +253,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = SESSION_ID_1;
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+        Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID, sessionId,
@@ -281,7 +281,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-wf";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+        Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
 
     when(workflowDefinitionStore.find(sessionId, "w1")).thenReturn(Mono.just(workflow));
 
@@ -309,9 +309,9 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-multi";
     final WorkflowDefinition workflow1 =
-        new WorkflowDefinition("workflow-1", "desc1", List.of(), List.of());
+        Fixtures.workflow("workflow-1", "desc1", List.of(), List.of());
     final WorkflowDefinition workflow2 =
-        new WorkflowDefinition("workflow-2", DESC2, List.of(), List.of());
+        Fixtures.workflow("workflow-2", DESC2, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId,
@@ -344,7 +344,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-error";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition(TEST_WORKFLOW, DESC, List.of(), List.of());
+        Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId, "error-session", DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
@@ -452,7 +452,7 @@ class SessionServiceTest {
     // Given
     final String sessionId = "sess-single";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition("single-workflow", DESC, List.of(), List.of());
+        Fixtures.workflow("single-workflow", DESC, List.of(), List.of());
     final SessionConfigData data =
         new SessionConfigData(
             sessionId, "single-workflow", DESC, INITIATOR, Map.of(), PATH, Map.of("w1", workflow));
@@ -480,9 +480,8 @@ class SessionServiceTest {
   void testGetSessionConfig_withMultipleWorkflows_returnsAllWorkflows() {
     // Given
     final String sessionId = "sess-multi-config";
-    final WorkflowDefinition workflow1 =
-        new WorkflowDefinition("w1", "desc1", List.of(), List.of());
-    final WorkflowDefinition workflow2 = new WorkflowDefinition("w2", DESC2, List.of(), List.of());
+    final WorkflowDefinition workflow1 = Fixtures.workflow("w1", "desc1", List.of(), List.of());
+    final WorkflowDefinition workflow2 = Fixtures.workflow("w2", DESC2, List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID,
@@ -557,7 +556,7 @@ class SessionServiceTest {
     // Given: all fields populated
     final String sessionId = "sess-complete";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition("wf", "description", List.of(), List.of());
+        Fixtures.workflow("wf", "description", List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID,
@@ -592,7 +591,7 @@ class SessionServiceTest {
     // Given: a valid config that passes the filter
     final String sessionId = "sess-filter-test";
     final WorkflowDefinition workflow =
-        new WorkflowDefinition("wf", "description", List.of(), List.of());
+        Fixtures.workflow("wf", "description", List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID, sessionId,
@@ -617,9 +616,9 @@ class SessionServiceTest {
     // Given: config with multiple workflows and all metadata
     final String sessionId = "sess-metadata";
     final WorkflowDefinition workflow1 =
-        new WorkflowDefinition("wf1", "description1", List.of(), List.of());
+        Fixtures.workflow("wf1", "description1", List.of(), List.of());
     final WorkflowDefinition workflow2 =
-        new WorkflowDefinition("wf2", "description2", List.of(), List.of());
+        Fixtures.workflow("wf2", "description2", List.of(), List.of());
     final Map<String, Object> configMap =
         Map.of(
             CONFIG_SESSION_ID,
@@ -779,8 +778,8 @@ class SessionServiceTest {
   void testGetSessionWorkflows_delegatesToStore() {
     // Given
     final String sessionId = "sess-workflows";
-    final WorkflowDefinition workflow1 = new WorkflowDefinition(WF1, "desc1", List.of(), List.of());
-    final WorkflowDefinition workflow2 = new WorkflowDefinition(WF2, DESC2, List.of(), List.of());
+    final WorkflowDefinition workflow1 = Fixtures.workflow(WF1, "desc1", List.of(), List.of());
+    final WorkflowDefinition workflow2 = Fixtures.workflow(WF2, DESC2, List.of(), List.of());
     final Map<String, WorkflowDefinition> workflows = Map.of(WF1, workflow1, WF2, workflow2);
 
     when(workflowDefinitionStore.findAll(sessionId)).thenReturn(Mono.just(workflows));
@@ -826,10 +825,8 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_groupsAndTakesFirst() {
     // Given: history with multiple entries, most recent first
     final String sessionId = "sess-status";
-    final WorkflowExecutionSummary status1 =
-        new WorkflowExecutionSummary(EXEC1, WF1, RUNNING, null, null);
-    final WorkflowExecutionSummary status2 =
-        new WorkflowExecutionSummary(EXEC2, WF1, SUCCESS, null, null);
+    final WorkflowExecutionSummary status1 = Fixtures.summary(EXEC1, WF1, RUNNING, null, null);
+    final WorkflowExecutionSummary status2 = Fixtures.summary(EXEC2, WF1, SUCCESS, null, null);
     final List<WorkflowExecutionSummary> history = List.of(status1, status2);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
@@ -879,10 +876,8 @@ class SessionServiceTest {
   void testGetLatestExecutionStatusByWorkflow_multipleWorkflows() {
     // Given: history with different workflows
     final String sessionId = "sess-multi-wf";
-    final WorkflowExecutionSummary wf1Status =
-        new WorkflowExecutionSummary(EXEC1, WF1, SUCCESS, null, null);
-    final WorkflowExecutionSummary wf2Status =
-        new WorkflowExecutionSummary(EXEC2, WF2, FAILURE, null, null);
+    final WorkflowExecutionSummary wf1Status = Fixtures.summary(EXEC1, WF1, SUCCESS, null, null);
+    final WorkflowExecutionSummary wf2Status = Fixtures.summary(EXEC2, WF2, FAILURE, null, null);
     final List<WorkflowExecutionSummary> history = List.of(wf1Status, wf2Status);
 
     when(controlBus.getHistory(sessionId)).thenReturn(Mono.just(history));
@@ -901,13 +896,13 @@ class SessionServiceTest {
 
   private static WorkflowExecutionSummary run(
       final String runId, final String workflow, final TaskStatus status) {
-    return new WorkflowExecutionSummary(runId, workflow, status, null, null);
+    return Fixtures.summary(runId, workflow, status, null, null);
   }
 
   @Test
   void deleteWorkflow_removesItsDefinitionAndCompiledCopyAndRecordsIt() {
     when(workflowDefinitionStore.find("s", "w"))
-        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("w", DESC, List.of(), List.of())));
     when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", SUCCESS))));
     when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());
     when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());
@@ -933,7 +928,7 @@ class SessionServiceTest {
   @Test
   void deleteWorkflow_isRefusedWhileItsRunsAreActive_butOtherWorkflowsRunsDoNotCount() {
     when(workflowDefinitionStore.find(any(), any()))
-        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("w", DESC, List.of(), List.of())));
     when(controlBus.recordAdminAction(any(), any(), eq(false), any())).thenReturn(Mono.empty());
     when(controlBus.getHistory("s"))
         .thenReturn(
@@ -963,7 +958,7 @@ class SessionServiceTest {
   @Test
   void deleteWorkflow_withForceCancelsTheRunsWaitsForThemAndThenDeletes() {
     when(workflowDefinitionStore.find(any(), any()))
-        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("w", DESC, List.of(), List.of())));
     when(controlBus.getHistory("s"))
         .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
         .thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))))
@@ -1046,7 +1041,7 @@ class SessionServiceTest {
   @Test
   void deleteWorkflow_withForceGivesUpWhenTheRunsDoNotEnd() {
     when(workflowDefinitionStore.find(any(), any()))
-        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("w", DESC, List.of(), List.of())));
     when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of(run("e1", "w", RUNNING))));
     when(controlBus.stopWorkflow("s", "w", "Deleted", StopMode.CANCEL))
         .thenReturn(Mono.just(List.of("e1")));
@@ -1125,7 +1120,7 @@ class SessionServiceTest {
     sessionService.setDefinitionSupervisors(declared);
     when(declared.reconcile("s")).thenReturn(Mono.empty());
     when(workflowDefinitionStore.find("s", "w"))
-        .thenReturn(Mono.just(new WorkflowDefinition("w", DESC, List.of(), List.of())));
+        .thenReturn(Mono.just(Fixtures.workflow("w", DESC, List.of(), List.of())));
     when(controlBus.getHistory("s")).thenReturn(Mono.just(List.of()));
     when(workflowDefinitionStore.remove("s", "w")).thenReturn(Mono.empty());
     when(controlBus.recordAdminAction(any(), any(), eq(true), any())).thenReturn(Mono.empty());

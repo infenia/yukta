@@ -18,6 +18,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Instant;
 import java.util.List;
@@ -48,7 +49,8 @@ class ExecutionControllerTest {
   private WebTestClient client;
 
   private static WorkflowProgress progress(final String session, final TaskStatus status) {
-    return new WorkflowProgress("e1", session, "wf", status, List.of(), Instant.now(), null, null);
+    return Fixtures.workflowProgress(
+        "e1", session, "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach
@@ -67,9 +69,8 @@ class ExecutionControllerTest {
   void testStopWithTree_stopsTheRunsBelowToo_andTreeListsThem() {
     final List<WorkflowExecutionSummary> tree =
         List.of(
-            new WorkflowExecutionSummary(
-                "e1", "wf", TaskStatus.RUNNING, Instant.now(), null, null, "e1", null),
-            new WorkflowExecutionSummary(
+            Fixtures.summary("e1", "wf", TaskStatus.RUNNING, Instant.now(), null, null, "e1", null),
+            Fixtures.summary(
                 "c1", "child", TaskStatus.RUNNING, Instant.now(), null, "e1", "e1", null));
     when(tracker.getTree("e1")).thenReturn(tree);
     when(controlBus.stopExecution(any(), any(), any()))

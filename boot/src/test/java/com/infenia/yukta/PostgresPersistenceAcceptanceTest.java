@@ -6,13 +6,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -80,12 +79,12 @@ class PostgresPersistenceAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 "wf",
                 "postgres acceptance",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "end", null))))
         .block();
 

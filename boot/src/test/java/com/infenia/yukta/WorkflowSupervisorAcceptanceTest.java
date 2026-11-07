@@ -7,9 +7,7 @@ import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.session.SessionConfigData;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
@@ -21,6 +19,7 @@ import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -66,13 +65,13 @@ class WorkflowSupervisorAcceptanceTest {
     definitions
         .save(
             session,
-            new WorkflowDefinition(
+            Fixtures.workflow(
                 workflowId,
                 "asks",
                 List.of(
-                    new Node("t", "CONSTANT_SOURCE", Map.of()),
-                    new Node("q", "ASK_INPUT", Map.of("prompt", "Deploy?", "risk", risk)),
-                    new Node("end", "CONSOLE_TERMINAL", Map.of())),
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node("q", "ASK_INPUT", Map.of("prompt", "Deploy?", "risk", risk)),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "q", null), new Edge("q", "end", null))))
         .block(WAIT);
     return Objects.requireNonNull(

@@ -36,6 +36,7 @@ import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.result.ExecutionResultService;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.List;
@@ -789,9 +790,9 @@ class WorkflowOrchestratorTest {
   // --- helpers ---
 
   private WorkflowDefinition buildMinimalDefinition(final String workflowId) {
-    final var node = new WorkflowDefinition.Node("node-a", "trigger-type", Map.of());
+    final var node = Fixtures.node("node-a", "trigger-type", Map.of());
     final var edge = new WorkflowDefinition.Edge("node-a", "node-a", "default");
-    return new WorkflowDefinition(workflowId, "Test workflow", List.of(node), List.of(edge));
+    return Fixtures.workflow(workflowId, "Test workflow", List.of(node), List.of(edge));
   }
 
   @Test
