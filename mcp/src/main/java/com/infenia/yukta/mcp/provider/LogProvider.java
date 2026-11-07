@@ -209,11 +209,11 @@ public class LogProvider {
           final AtomicInteger stored = new AtomicInteger();
           final Deque<Line> kept = new ArrayDeque<>();
           return logStore
-              .readExecution(executionId)
-              .doOnNext(_ -> stored.incrementAndGet())
-              .index()
-              .skip(after)
-              .map(t -> new Line(t.getT1().intValue(), sanitizer.clean(t.getT2().format())))
+              .readIndexed(executionId)
+              // the end of the log, counting lines the store dropped: where a follower resumes
+              .doOnNext(line -> stored.set((int) line.sequence() + 1))
+              .filter(line -> line.sequence() >= after)
+              .map(line -> new Line((int) line.sequence(), sanitizer.clean(line.entry().format())))
               .filter(line -> RegexPatternValidator.matches(line.text(), pattern))
               .doOnNext(
                   line -> {

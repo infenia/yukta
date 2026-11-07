@@ -3,9 +3,12 @@
 package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.logging.api.IndexedLog;
 import com.infenia.yukta.logging.api.LogStream;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
@@ -32,7 +35,7 @@ class LogProviderTest {
 
   @BeforeEach
   void setUp() {
-    logStore = mock(PluginLogStore.class);
+    logStore = mock(PluginLogStore.class, CALLS_REAL_METHODS);
     controlBus = mock(ControlBusGateway.class);
     provider = new LogProvider(logStore, controlBus);
     when(controlBus.getProgress(SESSION, EXECUTION))
@@ -189,6 +192,27 @@ class LogProviderTest {
               assertThat(logs.lines()).hasSize(2);
               assertThat(logs.lines().get(0)).contains("two");
               assertThat(logs.nextCursor()).isEqualTo(3);
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void testFollowerKeepsItsPlaceWhenTheStoreDroppedTheOldestLines() {
+    // the store dropped lines 0-4: the kept ones are numbered by their place in the whole log
+    doReturn(
+            Flux.just(
+                new IndexedLog(5, entry("five")),
+                new IndexedLog(6, entry("six")),
+                new IndexedLog(7, entry("seven"))))
+        .when(logStore)
+        .readIndexed(EXECUTION);
+
+    StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 6))
+        .assertNext(
+            logs -> {
+              assertThat(logs.lines()).hasSize(2);
+              assertThat(logs.lines().get(0)).contains("six");
+              assertThat(logs.nextCursor()).isEqualTo(8);
             })
         .verifyComplete();
   }
