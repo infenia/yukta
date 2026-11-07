@@ -56,25 +56,21 @@ function ControlButton({
   onClick: () => void;
 }) {
   return (
-    <Tip label={title ?? label}>
-      {/* A disabled button gets no pointer events, so the span carries the hover. */}
-      <span className="inline-flex">
-        <button
-          type="button"
-          className={`${SEG} ${tone}`}
-          aria-label={label}
-          aria-description={title}
-          disabled={disabled}
-          onClick={onClick}
+    <Tip label={label} title={title} disabled={disabled}>
+      <button
+        type="button"
+        className={`${SEG} ${tone}`}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
         >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
-          >
-            {icon}
-          </span>
-        </button>
-      </span>
+          {icon}
+        </span>
+      </button>
     </Tip>
   );
 }

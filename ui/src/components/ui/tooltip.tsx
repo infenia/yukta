@@ -3,7 +3,7 @@
 
 'use client';
 
-import type { ReactElement, ReactNode } from 'react';
+import { cloneElement, type ReactElement, type ReactNode } from 'react';
 import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 import { cn } from '@/lib/utils';
 
@@ -24,16 +24,33 @@ function Tip({
   children,
   side = 'top',
   className,
+  title,
+  ...gate
 }: {
   label: ReactNode;
   children: ReactElement<Record<string, unknown>>;
   side?: TooltipPrimitive.Positioner.Props['side'];
   className?: string;
+  /** Set by RequirePermission ("Needs OPERATOR"): replaces the label. */
+  title?: string;
+  /** Also from RequirePermission (`disabled`, `aria-disabled`, `onClick`): passed on to the child. */
+  [gateProp: string]: unknown;
 }) {
-  if (!label) return children;
+  const text = title ?? label;
+  const child = cloneElement(
+    children,
+    title ? { ...gate, 'aria-description': title } : gate
+  );
+  if (!text) return child;
+  // A disabled button gets no pointer events, so the hover goes on a wrapper.
+  const trigger = gate.disabled ? (
+    <span className="inline-flex">{child}</span>
+  ) : (
+    child
+  );
   return (
     <TooltipPrimitive.Root>
-      <TooltipPrimitive.Trigger render={children} />
+      <TooltipPrimitive.Trigger render={trigger} />
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Positioner
           side={side}
@@ -47,7 +64,7 @@ function Tip({
               className
             )}
           >
-            {label}
+            {text}
           </TooltipPrimitive.Popup>
         </TooltipPrimitive.Positioner>
       </TooltipPrimitive.Portal>
