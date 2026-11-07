@@ -2,15 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.leader;
 
-import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.gateway.DefaultControlBusGateway;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 /**
  * Stops the live runs when this server loses the leader lease. The new leader aborts and may resume
@@ -36,19 +34,24 @@ public class LeaderLoss implements SmartInitializingSingleton {
     election.onLoss(this::stopAll);
   }
 
+  // One failed kill must not spare the other runs.
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   /* default */ void stopAll() {
-    // The subscriptions are cancelled once the kills are done, so a kill still gets to record it.
-    Flux.fromIterable(registry.findAll())
-        .flatMap(
-            control -> {
-              log.atWarn()
-                  .addKeyValue("executionId", control.executionId())
-                  .log("Leader lease lost, stopping the run");
-              return gateway
-                  .stopExecution(control.executionId(), "leader lease lost", StopMode.KILL)
-                  .onErrorResume(_ -> Mono.empty());
-            })
-        .doFinally(_ -> gateway.cancelRunningExecutions())
-        .subscribe();
+    // No supervisor review and no command queue: nothing may keep a run going once the lease is
+    // gone, also a restarted or resumed run that the starter does not track.
+    for (final ExecutionControl control : registry.findAll()) {
+      log.atWarn()
+          .addKeyValue("executionId", control.executionId())
+          .log("Leader lease lost, stopping the run");
+      try {
+        gateway.killLocally(control.executionId(), "leader lease lost");
+      } catch (RuntimeException e) {
+        log.atError()
+            .setCause(e)
+            .addKeyValue("executionId", control.executionId())
+            .log("Kill failed");
+      }
+    }
+    gateway.cancelRunningExecutions();
   }
 }
