@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -24,6 +25,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.regex.Pattern;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +49,7 @@ import reactor.core.scheduler.Schedulers;
  * <p>A scope is {@code global}, {@code session:<id>} or {@code workflow:<id>}; an unknown scope
  * answers with nothing.
  */
+@Slf4j
 @Component
 // All state is guarded by this one lock, so plain maps and method-level synchronization are right.
 @SuppressWarnings({
@@ -56,6 +59,7 @@ import reactor.core.scheduler.Schedulers;
   "PMD.AvoidSynchronizedAtMethodLevel",
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.GodClass",
+  "PMD.CyclomaticComplexity",
   "PMD.CouplingBetweenObjects"
 })
 public class RunAnalytics {
@@ -117,6 +121,15 @@ public class RunAnalytics {
         }
       };
 
+  /**
+   * Runs the feed ended before the seed from the log ran, so the seed does not count a run twice
+   * that ended between the subscription and the read of the log. Emptied once seeded.
+   */
+  private final Set<String> countedLive = new HashSet<>();
+
+  /** Whether the seed has run (nothing to seed from counts as done). */
+  private boolean seeded;
+
   /** Control commands, newest last. */
   private final List<Annotation> controlLog = new ArrayList<>();
 
@@ -140,6 +153,7 @@ public class RunAnalytics {
     this.feed = feed;
     this.clock = clock;
     this.logStore = store;
+    this.seeded = store == null;
   }
 
   /** Starts following the feed. */
@@ -160,7 +174,17 @@ public class RunAnalytics {
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void seedFromLog() {
     if (logStore != null) {
-      Schedulers.boundedElastic().schedule(() -> seed(logStore.readAll()));
+      Schedulers.boundedElastic().schedule(this::seedSafely);
+    }
+  }
+
+  // A failed read must say so: the scheduler would drop the error without a word.
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
+  /* default */ void seedSafely() {
+    try {
+      seed(logStore.readAll());
+    } catch (RuntimeException e) {
+      log.atWarn().setCause(e).log("Could not seed the run analytics from the log");
     }
   }
 
@@ -362,10 +386,14 @@ public class RunAnalytics {
         }
       }
     }
+    seeded = true;
+    countedLive.clear();
   }
 
   private void seedRun(final ExecutionLogEvent e, final Instant start, final Instant from) {
-    if (e.timestamp().isBefore(from) || e.status() == null) {
+    if (e.timestamp().isBefore(from)
+        || e.status() == null
+        || countedLive.contains(e.executionId())) {
       return;
     }
     final RunState run = new RunState(e.sessionId(), e.workflowId());
@@ -488,6 +516,9 @@ public class RunAnalytics {
       }
     } else if (TaskStatus.isTerminalName(e.status())) {
       live.remove(e.executionId());
+      if (!seeded) {
+        countedLive.add(e.executionId());
+      }
       final double ms =
           run.startedAt == null ? -1 : Duration.between(run.startedAt, e.timestamp()).toMillis();
       buckets(run, e.timestamp()).forEach(b -> b.addRun(e.executionId(), e.status(), ms));
@@ -497,14 +528,17 @@ public class RunAnalytics {
   /** The buckets of the minute for the server, the run's session and its workflow. */
   private List<Bucket> buckets(final RunState run, final Instant at) {
     final long minute = at.toEpochMilli() / MINUTE;
-    final List<Bucket> out = new ArrayList<>(3);
-    out.add(bucket(GLOBAL, minute));
-    out.add(bucket(scopeKey("session:", run.sessionId), minute));
-    out.add(bucket(scopeKey("workflow:", run.workflowId), minute));
     final long oldest = minute - RETENTION.toMinutes();
     for (final NavigableMap<Long, Bucket> series : scopes.values()) {
       series.headMap(oldest, false).clear();
     }
+    // before the keys are chosen: a scope with nothing left frees its place among the tracked
+    // sessions and workflows
+    scopes.values().removeIf(NavigableMap::isEmpty);
+    final List<Bucket> out = new ArrayList<>(3);
+    out.add(bucket(GLOBAL, minute));
+    out.add(bucket(scopeKey("session:", run.sessionId), minute));
+    out.add(bucket(scopeKey("workflow:", run.workflowId), minute));
     return out;
   }
 
@@ -728,6 +762,8 @@ public class RunAnalytics {
     final long from = clock.millis() - range.toMillis();
     return controlLog.stream()
         .filter(a -> a.time() >= from)
+        // seeded commands are added after live ones: keep the documented order
+        .sorted(Comparator.comparingLong(Annotation::time))
         .filter(
             a ->
                 GLOBAL.equals(scope)
