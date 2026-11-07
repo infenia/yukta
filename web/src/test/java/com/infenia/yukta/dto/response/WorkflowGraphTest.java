@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.core.PluginCategory;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
@@ -62,6 +63,29 @@ class WorkflowGraphTest {
     assertThat(graph.nodes()).isEmpty();
     assertThat(graph.edges()).isEmpty();
     assertThat(graph.topologicalOrder()).isEmpty();
+  }
+
+  @Test
+  void constructor_withNullGroupColors_convertsToEmptyMap() {
+    // Given-When
+    final WorkflowGraph graph =
+        new WorkflowGraph(WORKFLOW_ID, DESCRIPTION, List.of(), List.of(), List.of(), null);
+
+    // Then
+    assertThat(graph.groupColors()).isEmpty();
+  }
+
+  @Test
+  void constructor_withGroupColors_keepsMapUnmodifiable() {
+    // Given-When
+    final WorkflowGraph graph =
+        new WorkflowGraph(
+            WORKFLOW_ID, DESCRIPTION, List.of(), List.of(), List.of(), Map.of("ingest", "teal"));
+
+    // Then
+    assertThat(graph.groupColors()).containsExactlyEntriesOf(Map.of("ingest", "teal"));
+    assertThatThrownBy(() -> graph.groupColors().put("sink", "sky"))
+        .isInstanceOf(UnsupportedOperationException.class);
   }
 
   @Test

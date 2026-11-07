@@ -95,6 +95,13 @@
   --cat-processor: oklch(0.58 0.21 264);
   --cat-terminal: oklch(0.57 0.05 262);
 
+  /* Node/group palette: 35deg+ from the status hues (red 27, amber 85, green 150), chroma <= 0.13 */
+  --pal-teal: oklch(0.58 0.1 190);
+  --pal-sky: oklch(0.6 0.12 230);
+  --pal-violet: oklch(0.56 0.13 295);
+  --pal-magenta: oklch(0.58 0.13 335);
+  --pal-stone: oklch(0.55 0.02 70);
+
   /* Elevation, as in the docs theme (docs/style.css): soft neutral shadows, never coloured glows */
   --elevation-card:
     0 1px 2px rgb(17 22 31 / 0.05), 0 1px 3px rgb(17 22 31 / 0.04);
@@ -152,6 +159,12 @@
   --cat-trigger: oklch(0.75 0.16 50);
   --cat-processor: oklch(0.72 0.15 262);
   --cat-terminal: oklch(0.7 0.05 262);
+
+  --pal-teal: oklch(0.76 0.1 190);
+  --pal-sky: oklch(0.77 0.1 230);
+  --pal-violet: oklch(0.74 0.11 295);
+  --pal-magenta: oklch(0.75 0.11 335);
+  --pal-stone: oklch(0.72 0.02 70);
 
   --elevation-card: 0 1px 2px rgb(0 0 0 / 0.35);
   --elevation-raised:

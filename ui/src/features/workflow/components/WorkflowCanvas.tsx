@@ -11,7 +11,8 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { categoryAccent } from '../lib/categoryAccent';
-import type { WorkflowFlowNode } from '../lib/layout';
+import { paletteColor } from '../lib/paletteColor';
+import type { StageData, WorkflowFlowNode } from '../lib/layout';
 import '@xyflow/react/dist/style.css';
 import { WorkflowNodeCard } from './nodes/WorkflowNodeCard';
 import { StageFrame, StageNodeCard } from './nodes/StageNodes';
@@ -147,8 +148,10 @@ export function WorkflowCanvas({
           nodeStrokeWidth={0}
           nodeColor={(node) =>
             node.type === 'workflowNode'
-              ? categoryAccent((node as WorkflowFlowNode).data.node.category)
-              : 'var(--color-outline-variant)'
+              ? (paletteColor((node as WorkflowFlowNode).data.node.color) ??
+                categoryAccent((node as WorkflowFlowNode).data.node.category))
+              : (paletteColor((node.data as StageData).color) ??
+                'var(--color-outline-variant)')
           }
         />
       </ReactFlow>

@@ -144,7 +144,8 @@ public class WorkflowDetailsController {
                       enriched.uiDesign(),
                       enriched.outputPorts(),
                       node.group(),
-                      subWorkflowId(node));
+                      subWorkflowId(node),
+                      node.color());
                 })
             .toList();
     return new WorkflowGraph(
@@ -152,6 +153,7 @@ public class WorkflowDetailsController {
         definition.description(),
         nodes,
         workflowMapper.toGraphEdges(definition.edges()),
-        workflowGraphService.computeTopologicalOrder(definition));
+        workflowGraphService.computeTopologicalOrder(definition),
+        definition.groupColors());
   }
 }

@@ -32,6 +32,8 @@ export interface StageData extends Record<string, unknown> {
   count: number;
   status: NodeUiStatus;
   onToggle?: (stage: string) => void;
+  /** The group's palette color, if it has one. */
+  color?: string | null;
 }
 
 /** A collapsed stage, drawn in place of its nodes. */
@@ -178,6 +180,7 @@ export function layoutGraph(
       count: members.length,
       status: stageStatus.get(stage) as NodeUiStatus,
       onToggle: stageView?.onToggle,
+      color: graph.groupColors?.[stage],
     };
     if (!isOpen(stage)) {
       const { x, y } = dagreGraph.node(`stage:${stage}`);

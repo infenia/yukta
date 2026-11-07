@@ -38,11 +38,17 @@ class WorkflowDetailsControllerTest {
   /** The client. */
   private WebTestClient client;
 
+  /** The description used by the workflows. */
+  private static final String DESC = "desc";
+
+  /** The stage name used by the grouped nodes. */
+  private static final String LINT = "lint";
+
   /** A workflow with two nodes and an edge. */
   private static final WorkflowDefinition WITH_NODE =
       new WorkflowDefinition(
           "wf2",
-          "desc",
+          DESC,
           List.of(
               new WorkflowDefinition.Node("a", "x", null),
               new WorkflowDefinition.Node("b", "y", null)),
@@ -50,7 +56,7 @@ class WorkflowDetailsControllerTest {
 
   /** The value. */
   private static final WorkflowDefinition DEF =
-      new WorkflowDefinition("wf", "desc", List.of(), List.of());
+      new WorkflowDefinition("wf", DESC, List.of(), List.of());
 
   @BeforeEach
   void setUp() {
@@ -148,10 +154,10 @@ class WorkflowDetailsControllerTest {
     final WorkflowDefinition staged =
         new WorkflowDefinition(
             "wf3",
-            "desc",
+            DESC,
             List.of(
                 new WorkflowDefinition.Node(
-                    "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), "lint"),
+                    "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), LINT),
                 new WorkflowDefinition.Node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
                 new WorkflowDefinition.Node("plain", "x", Map.of("workflowId", "heal"))),
             List.of());
@@ -165,7 +171,7 @@ class WorkflowDetailsControllerTest {
         .isOk()
         .expectBody()
         .jsonPath("$.data.nodes[0].group")
-        .isEqualTo("lint")
+        .isEqualTo(LINT)
         .jsonPath("$.data.nodes[0].subWorkflowId")
         .isEqualTo("heal")
         .jsonPath("$.data.nodes[1].group")
@@ -174,5 +180,34 @@ class WorkflowDetailsControllerTest {
         .isEmpty()
         .jsonPath("$.data.nodes[2].subWorkflowId")
         .isEmpty();
+  }
+
+  @Test
+  void testGraphCarriesNodeAndGroupColors() {
+    final WorkflowDefinition colored =
+        new WorkflowDefinition(
+            "wf4",
+            DESC,
+            List.of(
+                new WorkflowDefinition.Node("a", "x", Map.of(), LINT, "violet"),
+                new WorkflowDefinition.Node("b", "x", Map.of())),
+            List.of(),
+            List.of(),
+            Map.of(LINT, "teal"));
+    when(sessionService.getSessionWorkflow("s1", "wf4")).thenReturn(Mono.just(colored));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/workflows/wf4/graph")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.nodes[0].color")
+        .isEqualTo("violet")
+        .jsonPath("$.data.nodes[1].color")
+        .isEmpty()
+        .jsonPath("$.data.groupColors.lint")
+        .isEqualTo("teal");
   }
 }

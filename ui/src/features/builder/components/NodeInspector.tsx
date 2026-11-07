@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import {
+  PALETTE,
+  paletteColor,
+  type PaletteColor,
+} from '@/features/workflow/lib/paletteColor';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { usePlugin } from '@/features/plugins/hooks/usePlugins';
 import { useState } from 'react';
@@ -48,6 +53,46 @@ function EdgeRow({
   );
 }
 
+/** Pick a palette color, or none. */
+function ColorSwatches({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value?: string | null;
+  onChange: (color: PaletteColor | null) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-label-sm text-on-surface font-semibold">
+        {label}
+      </span>
+      <div role="radiogroup" aria-label={label} className="flex gap-2">
+        {[null, ...PALETTE].map((color) => (
+          <button
+            key={color ?? 'none'}
+            type="button"
+            role="radio"
+            aria-checked={(value ?? null) === color}
+            aria-label={color ?? 'none'}
+            title={color ?? 'none'}
+            onClick={() => onChange(color)}
+            className="border-outline-variant focus-visible:ring-primary flex size-6 items-center justify-center rounded-full border focus-visible:ring-2 aria-checked:ring-2 aria-checked:ring-offset-2"
+            style={{ backgroundColor: paletteColor(color) }}
+          >
+            {color === null && (
+              <span aria-hidden="true" className="text-on-surface-variant">
+                ∅
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Edit one node, in tabs: its plugin's config form (or a JSON editor), its edges, the engine
  * policy, and the whole config as JSON.
@@ -57,6 +102,9 @@ export function NodeInspector({
   onChange,
   onRemove,
   onGroupChange,
+  groupColor,
+  onColorChange,
+  onGroupColorChange,
   edges = [],
   onRemoveEdge,
   onAddEdge,
@@ -66,6 +114,11 @@ export function NodeInspector({
   onRemove: () => void;
   /** A blank stage removes the declared group. */
   onGroupChange: (group: string | null) => void;
+  /** The palette color of this node's stage. */
+  groupColor?: string | null;
+  /** Null removes the color. */
+  onColorChange?: (color: PaletteColor | null) => void;
+  onGroupColorChange?: (color: PaletteColor | null) => void;
   /** The workflow's edges; Connections lists the ones that touch this node. */
   edges?: DraftEdge[];
   onRemoveEdge?: (edge: DraftEdge) => void;
@@ -146,6 +199,20 @@ export function NodeInspector({
               Groups nodes on the canvas. Blank uses the node-ID prefix.
             </span>
           </div>
+          {onColorChange && (
+            <ColorSwatches
+              label="Node color"
+              value={node.color}
+              onChange={onColorChange}
+            />
+          )}
+          {onGroupColorChange && (
+            <ColorSwatches
+              label="Stage color"
+              value={groupColor}
+              onChange={onGroupColorChange}
+            />
+          )}
           {plugin.isPending ? (
             <StateMessage tone="loading" title="Loading…" compact />
           ) : schema.length > 0 ? (
