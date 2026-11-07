@@ -91,7 +91,7 @@ describe('SessionListPage last run', () => {
       'Name',
       'Last run',
       'Workflows',
-      'Initiator',
+      'Creator',
       'Tags',
       'Working directory',
     ]);

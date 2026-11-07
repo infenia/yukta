@@ -51,7 +51,7 @@ test.describe('Session List Page - Mocked API', () => {
     test('should display table headers', async ({ page }) => {
       const expectedHeaders = [
         'Name',
-        'Initiator',
+        'Creator',
         'Tags',
         'Working Directory',
       ];

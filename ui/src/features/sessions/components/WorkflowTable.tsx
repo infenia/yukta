@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Link, useNavigate } from 'react-router';
+import { useNavigate } from 'react-router';
 import {
   Table,
   TableBody,
@@ -37,6 +37,11 @@ export function WorkflowTable({
       workflow.workflowId.toLowerCase().includes(needle) ||
       workflow.description.toLowerCase().includes(needle)
   );
+
+  const open = (workflowId: string) =>
+    void navigate(
+      `/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}`
+    );
 
   return (
     <section className="flex flex-col gap-3 px-4 py-6 sm:px-6">
@@ -90,14 +95,20 @@ export function WorkflowTable({
                 <TableRow
                   key={workflow.workflowId}
                   data-testid={`workflow-row-${workflow.workflowId}`}
+                  tabIndex={0}
+                  onClick={() => open(workflow.workflowId)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      open(workflow.workflowId);
+                    }
+                  }}
+                  className="cursor-pointer focus-visible:-outline-offset-2"
                 >
                   <TableCell className="max-w-xl px-4 whitespace-normal">
-                    <Link
-                      to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}`}
-                      className="text-code-sm text-primary font-semibold break-all"
-                    >
+                    <div className="text-code-sm text-primary font-semibold break-all">
                       {workflow.workflowId}
-                    </Link>
+                    </div>
                     {workflow.description && (
                       <p className="text-body-sm text-muted-foreground mt-0.5 line-clamp-2">
                         {workflow.description}
@@ -110,10 +121,15 @@ export function WorkflowTable({
                   <TableCell className="px-4">
                     <StatusPill status={workflow.status} />
                   </TableCell>
-                  <TableCell className="px-4">
+                  {/* Stops the row's click: the run dialog lives inside this cell. */}
+                  <TableCell
+                    className="px-4"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center justify-end gap-1">
                       <RunButton
-                        size="sm"
+                        iconOnly
                         label={`Run ${workflow.workflowId}`}
                         sessionId={sessionId}
                         workflowId={workflow.workflowId}

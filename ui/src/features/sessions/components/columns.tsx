@@ -64,7 +64,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
   },
   {
     accessorKey: 'initiator',
-    header: 'Initiator',
+    header: 'Creator',
   },
   {
     accessorKey: 'tags',

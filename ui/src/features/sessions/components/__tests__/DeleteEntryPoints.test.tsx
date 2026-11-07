@@ -77,7 +77,10 @@ describe('where deleting starts', () => {
         '/sessions/sess-1'
       )
     );
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Session actions' })
+    );
+    await user.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     expect(
       screen.getByRole('dialog', { name: 'Delete session sess-1' })
     ).toBeInTheDocument();
@@ -110,9 +113,13 @@ describe('where deleting starts', () => {
         '/sessions/sess-1'
       )
     );
-    const button = await screen.findByRole('button', { name: 'Delete' });
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute('title', 'Needs ADMIN');
+    const user = userEvent.setup();
+    await user.click(
+      await screen.findByRole('button', { name: 'Session actions' })
+    );
+    const item = await screen.findByRole('menuitem', { name: 'Delete' });
+    expect(item).toHaveAttribute('aria-disabled', 'true');
+    expect(item).toHaveAttribute('title', 'Needs ADMIN');
     setMe(null);
   });
 });

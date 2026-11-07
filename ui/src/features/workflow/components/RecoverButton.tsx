@@ -7,7 +7,7 @@ import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import { buttonVariants } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { ICON_TONE } from '../lib/iconTone';
+import { ICON_TONE } from '@/components/ui/iconTone';
 import {
   controlErrorMessage,
   useExecutionControl,

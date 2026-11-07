@@ -13,7 +13,6 @@ import { WorkflowTable } from './WorkflowTable';
 import { RecentRuns } from './RecentRuns';
 import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
 import type { SupervisorRef } from '@/features/supervisors/types';
-import { EffectiveSupervision } from '@/features/supervisors/components/EffectiveSupervision';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -21,7 +20,9 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Button } from '@/components/ui/button';
+import { iconButton } from '@/components/ui/iconTone';
+import { IconButton } from '@/components/common/IconButton';
 import { getSessionDraft } from '@/features/builder/api';
 import {
   CopyAsMenu,
@@ -113,8 +114,9 @@ function SessionCopyAs({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className={buttonVariants({ variant: 'outline' })}
+          className={iconButton('primary')}
           aria-label="Copy as"
+          title="Copy as…"
         >
           <span
             aria-hidden="true"
@@ -122,7 +124,6 @@ function SessionCopyAs({
           >
             content_copy
           </span>
-          Copy as…
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <CopyAsMenu choices={choices} onCopy={copy} />
@@ -195,10 +196,12 @@ export function SessionDetailsPage() {
           }}
           actions={
             <div className="flex items-center gap-2">
-              <Button type="button" onClick={() => setCreating(true)}>
-                <span className="material-symbols-outlined text-base">add</span>
-                New workflow
-              </Button>
+              <IconButton
+                icon="add"
+                label="New workflow"
+                tone="success"
+                onClick={() => setCreating(true)}
+              />
               <SessionCopyAs
                 sessionId={session.sessionId}
                 workflowIds={workflows.map((w) => w.workflowId)}
@@ -213,7 +216,6 @@ export function SessionDetailsPage() {
           filter={workflowFilter}
           onFilterChange={setWorkflowFilter}
         />
-        <EffectiveSupervision sessionId={session.sessionId} />
         <RecentRuns sessionId={session.sessionId} />
       </div>
       {creating && (

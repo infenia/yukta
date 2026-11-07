@@ -3,7 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
-import { ICON_TONE, iconButton } from '../lib/iconTone';
+import { ICON_TONE, iconButton } from '@/components/ui/iconTone';
 import { useState } from 'react';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
