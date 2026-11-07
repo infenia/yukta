@@ -47,6 +47,17 @@ class FeatureGateEnvironmentPostProcessorTest {
   }
 
   @Test
+  void valueIsMatchedLikeConditionalOnProperty_ignoringCaseAndBlanks() {
+    assertThatThrownBy(
+            () ->
+                FeatureGateEnvironmentPostProcessor.check(
+                    new MockEnvironment().withProperty("yukta.ha.mode", " Postgres "),
+                    name -> false))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("yukta.ha.mode=postgres");
+  }
+
+  @Test
   void noGatedSettings_orTheModuleIsPresent_orPostgresDirectories_areFine() {
     assertThatCode(
             () -> FeatureGateEnvironmentPostProcessor.check(new MockEnvironment(), name -> false))
