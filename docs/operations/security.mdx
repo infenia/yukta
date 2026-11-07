@@ -29,14 +29,14 @@ To listen on another address, set both of these:
 | Setting | Value |
 |---|---|
 | `YUKTA_SERVER_ADDRESS` (`server.address`) | The address to bind, for example `0.0.0.0` |
-| `yukta.api-key` (`YUKTA_API_KEY`) or `yukta.api-keys` | At least one key |
+| `yukta.api-keys` | At least one key |
 
-The server refuses to start on a non-loopback address with no key. The container image binds `0.0.0.0`, so it needs `-e YUKTA_API_KEY=<key>` even when you publish the port on loopback only.
+The server refuses to start on a non-loopback address with no key. The container image binds `0.0.0.0`, so it needs `-e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<key> -e YUKTA_API_KEYS_0_ROLE=ADMIN` even when you publish the port on loopback only.
 
 Yukta serves plain HTTP. Put a reverse proxy that terminates TLS in front of it when clients are not on the same host, because keys travel in request headers. See [Deployment](/operations/deployment).
 
 <Warning>
-  The start-up check needs a key for both surfaces: setting only `yukta.mcp.api-key` (which protects `/mcp` alone) does not allow a non-loopback bind. Set `yukta.api-key` or `yukta.api-keys`; that one setting covers REST and MCP.
+  Set `yukta.api-keys`; one setting covers REST and MCP.
 </Warning>
 
 ## API keys
@@ -61,13 +61,9 @@ The same keys guard REST (`/api/**`), the MCP endpoint (`/mcp`) and the manageme
 
 These refusals carry no JSON body. Handle them by status code.
 
-### One key
+### Keys
 
-`yukta.api-key` defines a single key with the `ADMIN` role.
-
-### Named keys
-
-For several people or agents, define a list. Each entry has a name, a key, a role and optional sessions and an optional expiry.
+Keys are a list, one entry per person or agent; one `ADMIN` entry is the simplest setup. In a container, the same list is set with `YUKTA_API_KEYS_0_NAME`, `YUKTA_API_KEYS_0_KEY` and `YUKTA_API_KEYS_0_ROLE`. Each entry has a name, a key, a role and optional sessions and an optional expiry.
 
 ```properties
 yukta.api-keys[0].name=ci
@@ -160,8 +156,6 @@ Control commands (pause, stop, skip, answer or escalate an input request, restar
 | Sender | Actor |
 |---|---|
 | A named key | `key:<name>` |
-| The key set with `yukta.api-key`, when named keys are also defined | `key:default` |
-| The key set with `yukta.mcp.api-key`, when named keys are also defined | `key:mcp` |
 | A supervisor | The supervisor's id |
 | A webhook receiver answering with a one-time token | `token:<tier>` |
 | The single key, with no named keys defined | No actor recorded |

@@ -36,7 +36,7 @@ Yukta runs workflows (graphs of steps) inside a Java server. People and programs
 | plugin-api + plugins | The node types a workflow is made of |
 | boot | Wires everything into one Spring Boot app and sets the bind address and settings |
 
-The mcp module is a parallel front door for AI agents. It calls core directly and has its own key (yukta.mcp.api-key); it does not go through web. Web knows nothing about plugins: it only calls core services.
+The mcp module is a parallel front door for AI agents. It calls core directly and has its own filter but the same keys; it does not go through web. Web knows nothing about plugins: it only calls core services.
 
 ### The vocabulary in eight cards
 
@@ -65,7 +65,7 @@ A client starts a workflow and web answers. Click a step to see what happens, wh
 
 </Step>
 <Step title="API key check">
-**What happens.** If a key is set (yukta.api-key or yukta.api-keys) and the path is under /api or /actuator (except /actuator/health), the filter requires a key as 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key'. It compares SHA-256 digests in constant time, then checks the key's role and sessions: a miss ends the request with 401 and 'WWW-Authenticate: Bearer', a role or session that does not allow the request gives 403, and a path with encoded separators, parameters or dot segments gives 400.
+**What happens.** If a key is set (`yukta.api-keys`) and the path is under /api or /actuator (except /actuator/health), the filter requires a key as 'Authorization: Bearer &lt;key&gt;' or 'X-API-Key'. It compares SHA-256 digests in constant time, then checks the key's role and sessions: a miss ends the request with 401 and 'WWW-Authenticate: Bearer', a role or session that does not allow the request gives 403, and a path with encoded separators, parameters or dot segments gives 400.
 
 **Why it works this way.** It runs first, so a caller without the key costs almost nothing and never reaches validation or core. Constant-time comparison means response time does not reveal how many leading characters were right.
 
@@ -157,7 +157,7 @@ for long jobs the client opens a stream and receives events with ids and a heart
 Runs on every request before any controller: checks the API key, gives the request an id and writes one access-log line when it ends.
 
 - Order matters. The request-id filter runs first, then the access-log filter, then the host and key filters. The key filter still rejects an unauthenticated caller before any controller work, but the 400, 401, 403 and 429 it answers carry a request id and are logged at WARN with the source address. They are not counted in a metric.
-- The key check applies when yukta.api-key or yukta.api-keys is set, to /api and to the actuator except /actuator/health. The path is decoded first; encoded separators, ';' and dot segments are refused with 400. The key comes from 'Authorization: Bearer &lt;key&gt;' or X-API-Key and is compared as a SHA-256 digest with MessageDigest.isEqual. A named key has a role (VIEWER reads; OPERATOR also POST/DELETE under /api/executions/ and /api/workflow/; ADMIN everything, including the actuator) and optionally a list of sessions; a miss gives 401 and an empty body, a role or session that does not allow the request gives 403. Without any key, HostOriginFilter answers 403 to a Host that is not loopback (or in yukta.allowed-hosts) and to a non-GET whose Origin is not the Host.
+- The key check applies when `yukta.api-keys` is set, to /api and to the actuator except /actuator/health. The path is decoded first; encoded separators, ';' and dot segments are refused with 400. The key comes from 'Authorization: Bearer &lt;key&gt;' or X-API-Key and is compared as a SHA-256 digest with MessageDigest.isEqual. A named key has a role (VIEWER reads; OPERATOR also POST/DELETE under /api/executions/ and /api/workflow/; ADMIN everything, including the actuator) and optionally a list of sessions; a miss gives 401 and an empty body, a role or session that does not allow the request gives 403. Without any key, HostOriginFilter answers 403 to a Host that is not loopback (or in yukta.allowed-hosts) and to a non-GET whose Origin is not the Host.
 - The request id: a client's X-Request-ID is kept only if it matches [A-Za-z0-9-]\{1,64\}; otherwise a UUID is generated. X-Correlation-ID follows the same rule and falls back to the request id. Both are returned on the response. The id goes into the Reactor context and the logging MDC, so every log line of that request shows [requestId] even when work hops threads. The strict pattern exists because the value is written to logs and headers: a newline in it could forge a log line.
 - The access log writes 'POST /api/workflow/start -&gt; 202 in 14ms' at INFO when the exchange ends. For a stream that is when the connection closes. The line has method, path, status and duration, with no query string and no caller identity (the actor of a control command goes to the execution log instead).
 - Why filters and not controller code: a filter covers every route, including endpoints added later, so a forgotten check cannot leave a hole.
@@ -167,7 +167,7 @@ Runs on every request before any controller: checks the API key, gives the reque
 - **Ceiling.** Keys are configuration: an optional `expires` per key, but no runtime revoke, and a change needs a restart. Roles are matched by path prefix. No rate limiting. Rejections (400, 401, 403) leave no log line.
 - **On failure.** Missing or wrong key: 401 with an empty body. If the key is empty the filter lets everything through.
 
-**Settings:** `yukta.api-key (empty = API open)`, `Authorization: Bearer <key> or X-API-Key`, `X-Request-ID, X-Correlation-ID`
+**Settings:** `yukta.api-keys (empty = API open)`, `Authorization: Bearer <key> or X-API-Key`, `X-Request-ID, X-Correlation-ID`
 
 ### Binding & mapping
 
@@ -294,8 +294,8 @@ Pushes run status, execution logs and a global event feed to clients as Server-S
 The few settings that decide who can reach the server and how strict it is, plus the generated API documentation.
 
 - Bind address: server.address defaults to 127.0.0.1 (loopback), so a fresh install is not reachable from the network. Setting YUKTA_SERVER_ADDRESS to another address now makes ExposureGuard (boot) refuse to start unless a key is configured; the Docker image sets 0.0.0.0, so a container without a key does not start.
-- The API key is the one security setting in web: yukta.api-key. Empty (the default) leaves the API open. The README says to set it whenever the address is opened.
-- Surfaces the key does not cover: the web UI's static files and /actuator/health (the filter also guards the Swagger UI and the OpenAPI document, which the prod profile switches off). The MCP endpoint (/mcp) has its own filter that accepts the same keys plus yukta.mcp.api-key. The actuator (health, info, metrics) is guarded except /actuator/health.
+- The API key is the one security setting in web: yukta.api-keys. Empty (the default) leaves the API open. The README says to set it whenever the address is opened.
+- Surfaces the key does not cover: the web UI's static files and /actuator/health (the filter also guards the Swagger UI and the OpenAPI document, which the prod profile switches off). The MCP endpoint (/mcp) has its own filter that accepts the same keys. The actuator (health, info, metrics) is guarded except /actuator/health.
 - OpenAPI is generated by springdoc from the controller annotations: UI at /swagger-ui.html, JSON at /v3/api-docs. The UI has a generated types file (api.generated.ts) for these endpoints.
 - Web has no settings class of its own. It also relies on boot for the log pattern that prints the request id and for virtual threads being enabled.
 
@@ -304,7 +304,7 @@ The few settings that decide who can reach the server and how strict it is, plus
 - **Ceiling.** Settings are changed by restarting; there is no live reload of the key.
 - **On failure.** If the address is opened without a key, the whole API (including workflows that run code) is open to the network.
 
-**Settings:** `server.address / YUKTA_SERVER_ADDRESS (127.0.0.1)`, `yukta.api-key`, `yukta.mcp.api-key (mcp)`, `/swagger-ui.html, /v3/api-docs`, `management.endpoints.web.exposure.include=health,info,metrics`
+**Settings:** `server.address / YUKTA_SERVER_ADDRESS (127.0.0.1)`, `yukta.api-keys`, `/swagger-ui.html, /v3/api-docs`, `management.endpoints.web.exposure.include=health,info,metrics`
 
 ### Catalogue & control bus
 
@@ -445,7 +445,7 @@ What an API key does and does not protect once the server is reachable from the 
 
 <Steps>
 <Step title="Open the door deliberately">
-An operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and a key. Loopback is the default so that exposure is a decision, not an accident, and boot now refuses to start on another address without a key. Caution: the guard also counts yukta.mcp.api-key as a key, so a server with only the MCP key set starts and leaves /api open (boot guide, guardMcpKeyOnly).
+An operator sets YUKTA_SERVER_ADDRESS=0.0.0.0 and a key. Loopback is the default so that exposure is a decision, not an accident, and boot now refuses to start on another address without a key.
 </Step>
 <Step title="A call without the key">
 The filter answers 401 with 'WWW-Authenticate: Bearer' and an empty body. The request-id and access-log filters run before it, so the rejected call has a request id and a WARN access-log line with the source address (as does a 400, 403 or 429 from the same filter).
@@ -492,7 +492,7 @@ Capabilities grouped by what a client wants to do. Each card says what it does, 
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| API key guard | Optional shared secret for /api/\*\*. | Filter compares the presented key (Bearer or X-API-Key) with the configured one in constant time. | Wrong or missing key is always a 401 with WWW-Authenticate. | One key for all callers; off when yukta.api-key is empty. |
+| API key guard | Optional shared secret for /api/\*\*. | Filter compares the presented key (Bearer or X-API-Key) with the configured one in constant time. | Wrong or missing key is always a 401 with WWW-Authenticate. | One key for all callers; off when yukta.api-keys is empty. |
 | Request tracing | A request id on every accepted request. | Accepts a safe X-Request-ID or generates a UUID; puts it in headers, Reactor context and the logging MDC. | Client ids are limited to 1 to 64 letters, digits and hyphens. | |
 | Access log | One line per request. | Logs method, path, status and duration when the exchange ends. | Written even if the stream is cancelled (it runs on completion of any kind). | No query string, no caller identity, no line for 401s. |
 | Strict JSON | Typos in field names are errors. | Jackson is configured to fail on unknown properties. | A misspelled field never silently disappears. | Applies to JSON bodies only; query parameters are not checked this way. |
@@ -545,12 +545,12 @@ Web keeps no state, so the interesting questions are about what it enforces at t
 
 ### Which surfaces the API key protects
 
-The key filter checks paths under /api and /actuator (except /actuator/health) when yukta.api-key or yukta.api-keys is set.
+The key filter checks paths under /api and /actuator (except /actuator/health) when `yukta.api-keys` is set.
 
-| Surface | Protected by yukta.api-key? | Notes |
+| Surface | Protected by yukta.api-keys? | Notes |
 |---|---|---|
 | /api/\*\* (all operations) | \*\*Partly.\*\* Only if a key is set | Off by default on loopback. Named keys with roles VIEWER, OPERATOR and ADMIN, optional session limits. |
-| MCP endpoint /mcp | \*\*Partly.\*\* Its own filter | Same keys plus yukta.mcp.api-key; each tools/call is checked against the key's role (McpToolAccess). |
+| MCP endpoint /mcp | \*\*Partly.\*\* Its own filter | Same keys; each tools/call is checked against the key's role (McpToolAccess). |
 | Swagger UI and /v3/api-docs | \*\*Partly.\*\* Only if a key is set | Behind the key (any valid key may GET) and off in the prod profile. |
 | Actuator (info, metrics) | \*\*Yes.\*\* Yes, ADMIN only | /actuator/health stays open for probes; health details only 'when-authorized'. |
 | Network reachability | \*\*Yes.\*\* Loopback by default; guarded | server.address is 127.0.0.1 unless YUKTA_SERVER_ADDRESS is set; a non-loopback address needs a key or the server does not start (but see guardMcpKeyOnly in the boot guide). |
@@ -573,7 +573,7 @@ The key filter checks paths under /api and /actuator (except /actuator/health) w
 | Setting | Value | Where |
 |---|---|---|
 | server.address | 127.0.0.1 (Docker image: 0.0.0.0, needs a key) | boot application.yaml, Dockerfile |
-| yukta.api-key | empty (API open) | web ApiKeyFilter |
+| yukta.api-keys | empty (API open) | web ApiKeyFilter |
 | Page size | default 500, maximum 1000; a limit below 1 means 500 | Pagination |
 | Heartbeat comment | every 15 s | SseStreams |
 | Live log buffer | 1024 lines per running log stream | LogManagementController |
@@ -742,7 +742,7 @@ What a new endpoint should do to fit in.
 <Accordion title="Optional shared API key with a loopback default">
 **Context.** Yukta started as a local developer tool; remote access must be possible but must not happen by accident.
 
-**Decision.** server.address defaults to 127.0.0.1. One optional key, yukta.api-key, guards /api/\*\*; it is checked in a filter with a constant-time comparison.
+**Decision.** server.address defaults to 127.0.0.1. One optional key, yukta.api-keys, guards /api/\*\*; it is checked in a filter with a constant-time comparison.
 
 **Consequences.** Very easy to set up and a safe default on a laptop. Open on loopback; for anything else the server now requires a key (named keys give roles and session limits).
 

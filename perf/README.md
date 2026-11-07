@@ -125,7 +125,7 @@ k6 run perf/k6/soak.js                                  # 20 starts/s for 1h
 k6 run -e DURATION=8h -e RATE=10 perf/k6/soak.js
 ```
 
-Env: `BASE_URL` (default `http://localhost:9858`), `API_KEY` (if `yukta.api-key` is set),
+Env: `BASE_URL` (default `http://localhost:9858`), `API_KEY` (if `yukta.api-keys` is set),
 `RATE`, `RAMP`, `HOLD` (load), `RATE`, `DURATION` (perf, soak).
 
 ## Reading the soak

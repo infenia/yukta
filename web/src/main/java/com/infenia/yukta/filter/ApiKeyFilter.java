@@ -47,9 +47,8 @@ import reactor.core.scheduler.Schedulers;
  * <p>The path is matched after percent-decoding; a path written with parameters, encoded separators
  * or dot segments is refused with 400, so no spelling of a path skips the check.
  *
- * <p>{@code yukta.api-key} is a single key that may do everything. {@code yukta.api-keys} lists
- * named keys with a role (see {@link ApiRole}) and optionally the sessions the key is limited to; a
- * key is plain text or {@code sha256:<hex>}:
+ * <p>{@code yukta.api-keys} lists named keys with a role (see {@link ApiRole}) and optionally the
+ * sessions the key is limited to; a key is plain text or {@code sha256:<hex>}:
  *
  * <pre>
  * yukta.api-keys[0].name=alice
@@ -118,7 +117,7 @@ public class ApiKeyFilter implements WebFilter {
   /**
    * Create the filter from the configuration.
    *
-   * @param environment holds {@code yukta.api-key} and {@code yukta.api-keys}
+   * @param environment holds {@code yukta.api-keys}
    */
   public ApiKeyFilter(final Environment environment) {
     this(ApiKeyAuthenticator.read(environment), null);
@@ -155,17 +154,6 @@ public class ApiKeyFilter implements WebFilter {
     this(authenticator, controlBus, null);
   }
 
-  /**
-   * Create the filter with one key that may do everything.
-   *
-   * @param apiKey the required key, or empty to leave the API open
-   */
-  public ApiKeyFilter(final String apiKey) {
-    this.authenticator = ApiKeyAuthenticator.single(apiKey);
-    this.controlBus = null;
-    this.executionLog = null;
-  }
-
   @Override
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
@@ -173,7 +161,7 @@ public class ApiKeyFilter implements WebFilter {
       // no key to check, so the actuator (loggers, thread dumps) is closed rather than open
       return isUnder(raw, "/actuator") && !isUnder(raw, HEALTH)
           ? reject(
-              exchange, HttpStatus.FORBIDDEN, "The actuator needs yukta.api-key to be configured")
+              exchange, HttpStatus.FORBIDDEN, "The actuator needs yukta.api-keys to be configured")
           : chain.filter(exchange);
     }
     if (RequestPaths.ambiguous(raw)) {
@@ -223,14 +211,13 @@ public class ApiKeyFilter implements WebFilter {
     }
     // the resolved key goes into the context once, for /api/me and anything that asks who is
     // calling
-    final Mono<Void> next =
-        chain.filter(exchange).contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match));
-    return authenticator.named()
-        ? next.contextWrite(
+    return chain
+        .filter(exchange)
+        .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match))
+        .contextWrite(
             ctx ->
                 ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
-                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY))
-        : next;
+                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
   }
 
   /** Who is calling, by network address. */

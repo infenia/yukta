@@ -39,7 +39,7 @@ url="http://127.0.0.1:$port"
 
 # The instrumented binary writes default.iprof into its working directory when it exits.
 log "starting it on port $port and training with the examples"
-(cd "$work" && SERVER_PORT="$port" YUKTA_API_KEY="$key" exec "$bin") >"$work/server.log" 2>&1 &
+(cd "$work" && SERVER_PORT="$port" YUKTA_API_KEYS_0_NAME=admin YUKTA_API_KEYS_0_KEY="$key" YUKTA_API_KEYS_0_ROLE=ADMIN exec "$bin") >"$work/server.log" 2>&1 &
 pid=$!
 up=""
 for _ in $(seq 1 60); do

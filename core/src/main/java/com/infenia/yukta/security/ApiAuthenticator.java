@@ -30,14 +30,6 @@ public interface ApiAuthenticator {
   boolean isOpen(Scope scope);
 
   /**
-   * Whether control commands are recorded under the caller's name ({@code key:<name>}) instead of
-   * no actor.
-   *
-   * @return true if the name of the match is the audit actor
-   */
-  boolean named();
-
-  /**
    * Identify the caller of a request.
    *
    * @param scope the surface

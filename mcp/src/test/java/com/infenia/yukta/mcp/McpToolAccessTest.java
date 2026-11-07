@@ -22,7 +22,7 @@ class McpToolAccessTest {
             .withProperty("yukta.api-keys[0].role", role)
             // null: every session, written out as a non-admin key must
             .withProperty("yukta.api-keys[0].sessions", sessions == null ? "*" : sessions);
-    return ApiKeys.read(env, null).find("k");
+    return ApiKeys.read(env).find("k");
   }
 
   @Test

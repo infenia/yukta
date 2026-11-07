@@ -46,11 +46,4 @@ class ApiKeyFilterActorKindTest {
 
     assertThat(kind.get()).isEqualTo(ControlActor.Kind.KEY);
   }
-
-  @Test
-  void theSingleKeyNamesNoActorAndNoKind() {
-    run(new MockEnvironment().withProperty("yukta.api-key", "secret"), "secret");
-
-    assertThat(kind.get()).isNull();
-  }
 }

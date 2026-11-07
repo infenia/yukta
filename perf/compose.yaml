@@ -14,7 +14,9 @@ services:
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError -Dyukta.rate-limit-per-minute=0}
       SPRING_PROFILES_ACTIVE: prod
       YUKTA_SERVER_ADDRESS: 0.0.0.0
-      YUKTA_API_KEY: ${API_KEY:?set by run.sh}
+      YUKTA_API_KEYS_0_NAME: admin
+      YUKTA_API_KEYS_0_KEY: ${API_KEY:?set by run.sh}
+      YUKTA_API_KEYS_0_ROLE: ADMIN
     volumes:
       - ${JAR:?set by run.sh}:/app/yukta.jar:ro   # the jar, or the native binary (BINARY=)
     ports:

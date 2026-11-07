@@ -55,7 +55,7 @@ yukta restart
 yukta stop             # drain, then SIGTERM, then SIGKILL after 30 s
 ```
 
-Anything else on the `start` line goes to the server: `yukta start --spring.profiles.active=dev`. `stop` first asks the server to refuse new runs (`POST /api/admin/drain`, using `YUKTA_API_KEY` when set), so running executions can finish within the [graceful shutdown](/operations/deployment#graceful-shutdown) window.
+Anything else on the `start` line goes to the server: `yukta start --spring.profiles.active=dev`. `stop` first asks the server to refuse new runs (`POST /api/admin/drain`, using `YUKTA_API_KEYS_0_KEY` when set), so running executions can finish within the [graceful shutdown](/operations/deployment#graceful-shutdown) window.
 
 State lives in `$YUKTA_HOME`, else `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta`:
 

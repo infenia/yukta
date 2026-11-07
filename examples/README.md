@@ -22,7 +22,7 @@ its session again each time.
 | Variable | Default | Purpose |
 |---|---|---|
 | `YUKTA_URL` | `http://localhost:9858` | Server base URL |
-| `YUKTA_API_KEY` | unset | Sent as `X-API-Key` when the server sets `yukta.api-key` |
+| `YUKTA_API_KEY` | unset | Sent as `X-API-Key` when the server sets `yukta.api-keys` |
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | Ollama defaults | Used by example 09 only |
 
 ## Examples

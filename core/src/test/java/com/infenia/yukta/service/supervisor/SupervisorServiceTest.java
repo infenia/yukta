@@ -564,7 +564,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void restoreSkipsStoredBindingWhoseIdBreaksRule() {
+  void restoreFailsAStoredBindingWhoseIdBreaksRule() {
     StepVerifier.create(store.saveSupervisor(profile("p"))).verifyComplete();
     StepVerifier.create(
             store.saveAttachment(binding("key:admin", "p", new SupervisorScope.Global(), true)))

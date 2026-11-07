@@ -17,12 +17,20 @@ import reactor.core.publisher.Mono;
 
 class McpEndpointFilterTest {
 
+  private static org.springframework.mock.env.MockEnvironment adminKey(final String key) {
+    final var env = new org.springframework.mock.env.MockEnvironment();
+    return key.isEmpty()
+        ? env
+        : env.withProperty("yukta.api-keys[0].key", key)
+            .withProperty("yukta.api-keys[0].role", "ADMIN");
+  }
+
   private final AtomicReference<String> seenPath = new AtomicReference<>();
 
   private MockServerWebExchange run(
       final String key, final MockServerHttpRequest.BaseBuilder<?> rq) {
     final MockServerWebExchange exchange = MockServerWebExchange.from(rq);
-    new McpEndpointFilter(key)
+    new McpEndpointFilter(adminKey(key))
         .filter(
             exchange,
             (ServerWebExchange e) -> {
@@ -100,7 +108,9 @@ class McpEndpointFilterTest {
   @Test
   void testRestKeyOpensMcpToo() {
     final var env =
-        new org.springframework.mock.env.MockEnvironment().withProperty("yukta.api-key", "rest");
+        new org.springframework.mock.env.MockEnvironment()
+            .withProperty("yukta.api-keys[0].key", "rest")
+            .withProperty("yukta.api-keys[0].role", "ADMIN");
     final var exchange = MockServerWebExchange.from(MockServerHttpRequest.post("/mcp"));
     new McpEndpointFilter(env).filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
@@ -153,7 +163,9 @@ class McpEndpointFilterTest {
         MockServerWebExchange.from(
             MockServerHttpRequest.method(HttpMethod.POST, URI.create("/mcp;x=1"))
                 .header("X-API-Key", "secret"));
-    new McpEndpointFilter("secret").filter(exchange, (ServerWebExchange e) -> Mono.empty()).block();
+    new McpEndpointFilter(adminKey("secret"))
+        .filter(exchange, (ServerWebExchange e) -> Mono.empty())
+        .block();
 
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
   }
@@ -280,7 +292,8 @@ class McpEndpointFilterTest {
   void testCallerOverTheRateLimitGetsTooManyRequests() {
     final var env =
         new org.springframework.mock.env.MockEnvironment()
-            .withProperty("yukta.api-key", "k")
+            .withProperty("yukta.api-keys[0].key", "k")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
             .withProperty("yukta.mcp.rate-limit-per-minute", "2");
     final McpEndpointFilter filter = new McpEndpointFilter(env);
     HttpStatus last = null;
@@ -298,7 +311,8 @@ class McpEndpointFilterTest {
   void testCostlyCallsHaveLowerLimitAndRefusalsAreCounted() {
     final var env =
         new org.springframework.mock.env.MockEnvironment()
-            .withProperty("yukta.api-key", "k")
+            .withProperty("yukta.api-keys[0].key", "k")
+            .withProperty("yukta.api-keys[0].role", "ADMIN")
             .withProperty("yukta.mcp.heavy-rate-limit-per-minute", "2");
     final McpEndpointFilter filter = new McpEndpointFilter(env);
     final var registry = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
@@ -345,7 +359,7 @@ class McpEndpointFilterTest {
 
   @Test
   void testFilterBuiltFromAnAuthenticatorAloneUsesTheDefaultLimit() {
-    final McpEndpointFilter filter = new McpEndpointFilter(ApiKeyAuthenticator.single("k"));
+    final McpEndpointFilter filter = new McpEndpointFilter(ApiKeyAuthenticator.read(adminKey("k")));
     final var exchange =
         MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k"));
 

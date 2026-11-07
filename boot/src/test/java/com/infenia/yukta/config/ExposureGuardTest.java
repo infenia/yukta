@@ -59,22 +59,10 @@ class ExposureGuardTest {
                 new ExposureGuard(
                         new MockEnvironment()
                             .withProperty(ADDRESS, ALL_INTERFACES)
-                            .withProperty("yukta.api-key", "k"))
+                            .withProperty("yukta.api-keys[0].key", "k")
+                            .withProperty("yukta.api-keys[0].role", "ADMIN"))
                     .check())
         .doesNotThrowAnyException();
-  }
-
-  @Test
-  void testMcpKeyAloneDoesNotOpenTheRestApi() {
-    assertThatThrownBy(
-            () ->
-                new ExposureGuard(
-                        new MockEnvironment()
-                            .withProperty(ADDRESS, ALL_INTERFACES)
-                            .withProperty("yukta.mcp.api-key", "k"))
-                    .check())
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("the REST API has none");
   }
 
   @Test
@@ -84,11 +72,6 @@ class ExposureGuardTest {
           @Override
           public boolean isOpen(final Scope scope) {
             return scope == Scope.MCP;
-          }
-
-          @Override
-          public boolean named() {
-            return false;
           }
 
           @Override

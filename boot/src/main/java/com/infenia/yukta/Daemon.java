@@ -223,7 +223,7 @@ import java.util.Set;
         HttpRequest.newBuilder(URI.create(baseUrl() + "/api/admin/drain"))
             .timeout(Duration.ofSeconds(5))
             .POST(HttpRequest.BodyPublishers.noBody());
-    final String key = env.get("YUKTA_API_KEY");
+    final String key = env.get("YUKTA_API_KEYS_0_KEY");
     if (key != null && !key.isBlank()) {
       b.header("Authorization", "Bearer " + key);
     }

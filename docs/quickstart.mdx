@@ -34,7 +34,7 @@ You need a terminal and `curl`.
       <Tab title="Docker" icon="docker">
         ```bash
         docker run --rm -p 127.0.0.1:9858:9858 \
-          -e YUKTA_API_KEY=change-me \
+          -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN \
           ghcr.io/infenia/yukta:0.1.0-alpha.3
         ```
 
