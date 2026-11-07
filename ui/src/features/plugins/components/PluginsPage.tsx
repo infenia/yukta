@@ -9,15 +9,6 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableFrame,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import { pluginLabel } from '@/features/workflow/lib/pluginIcons';
@@ -82,7 +73,7 @@ function PluginDetail({ type }: { type: string }) {
   const tab = chosen ?? tabs[0].key;
 
   return (
-    <article className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <article className="mx-auto flex max-w-5xl min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-5">
         <header>
           <h2 className="text-headline-lg text-on-surface">
@@ -106,6 +97,9 @@ function PluginDetail({ type }: { type: string }) {
             {plugin.description}
           </p>
         )}
+        <section aria-label="On the canvas">
+          <PluginCanvasPreview plugin={plugin} />
+        </section>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -158,37 +152,39 @@ function PluginDetail({ type }: { type: string }) {
           <p className="text-body-md text-on-surface-variant">{ports}</p>
         )}
         {tab === 'config' && (
-          <TableFrame>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Field</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Default</TableHead>
-                  <TableHead>What it does</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {schema.map((field) => (
-                  <TableRow key={field.name} className="align-top">
-                    <TableCell className="text-code-sm">
-                      {field.name}
-                      {field.required && <span className="text-error"> *</span>}
-                    </TableCell>
-                    <TableCell className="text-body-sm text-on-surface-variant">
-                      {field.type}
-                    </TableCell>
-                    <TableCell className="text-code-sm text-on-surface-variant">
+          <ul className="flex flex-col gap-2">
+            {schema.map((field) => (
+              <li
+                key={field.name}
+                className="border-border bg-card shadow-card rounded-xl border p-3"
+              >
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <code className="text-code-sm text-on-surface font-semibold">
+                    {field.name}
+                  </code>
+                  <span className="text-body-sm text-on-surface-variant">
+                    {field.type}
+                  </span>
+                  {field.required && (
+                    <span className="text-label-sm text-error">
+                      <span aria-hidden="true">*</span> required
+                    </span>
+                  )}
+                  <span className="text-body-sm text-muted-foreground ml-auto">
+                    default{' '}
+                    <code className="text-code-sm">
                       {defaultText(field.defaultValue)}
-                    </TableCell>
-                    <TableCell className="text-body-sm text-on-surface-variant whitespace-normal">
-                      {field.description}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableFrame>
+                    </code>
+                  </span>
+                </div>
+                {field.description && (
+                  <p className="text-body-sm text-on-surface-variant mt-1">
+                    {field.description}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
         )}
         {tab === 'example' && (
           <>
@@ -215,14 +211,14 @@ function PluginDetail({ type }: { type: string }) {
               No workflow uses {plugin.type} yet.
             </p>
           ) : (
-            <ul className="flex flex-col gap-1">
+            <ul className="flex flex-wrap gap-2">
               {usage.data.map((use) => (
                 <li
                   key={`${use.sessionId}/${use.workflowId}`}
-                  className="flex items-baseline justify-between gap-3"
+                  className="border-border bg-card inline-flex items-center gap-2 rounded-full border px-3 py-1"
                 >
                   <Link
-                    className="text-body-md text-primary"
+                    className="text-body-sm text-primary"
                     to={`/sessions/${encodeURIComponent(use.sessionId)}/workflow/${encodeURIComponent(use.workflowId)}`}
                   >
                     {use.sessionId} / {use.workflowId}
@@ -235,10 +231,6 @@ function PluginDetail({ type }: { type: string }) {
             </ul>
           ))}
       </div>
-      <section className="min-w-0 xl:sticky xl:top-18 xl:self-start">
-        <h3 className="text-label-md text-on-surface mb-1.5">On the canvas</h3>
-        <PluginCanvasPreview plugin={plugin} />
-      </section>
     </article>
   );
 }
@@ -275,7 +267,19 @@ export function PluginsPage() {
       <div className="flex flex-col gap-6 md:flex-row">
         <nav
           aria-label="Plugins"
-          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-72 md:self-start md:overflow-y-auto"
+          onKeyDown={(e) => {
+            if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+            const items = [
+              ...e.currentTarget.querySelectorAll<HTMLButtonElement>(
+                'button[aria-current]'
+              ),
+            ];
+            const at = items.indexOf(e.target as HTMLButtonElement);
+            if (at < 0) return;
+            e.preventDefault();
+            items[at + (e.key === 'ArrowDown' ? 1 : -1)]?.focus();
+          }}
+          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-70 md:self-start md:overflow-y-auto"
         >
           <Input
             type="search"

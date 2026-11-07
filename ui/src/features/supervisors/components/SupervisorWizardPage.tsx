@@ -19,9 +19,18 @@ import {
   useSupervisorType,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
+import { SupervisorSummary } from './SupervisorSummary';
 import type { SupervisorDraft, SupervisorView } from '../types';
 
 const STEPS = ['Type', 'Settings', 'Permissions', 'Review'] as const;
+
+/** One sentence per step, so a first-time user knows what is being asked. */
+const STEP_HELP = [
+  'Pick the behavior you want. You can attach it to a scope once it is saved.',
+  'Name it and set how it decides. Where it watches comes after saving.',
+  'Say what it may do. Starting in dry run is safest: it records what it would do and sends nothing.',
+  'This is what you are about to create. Save, then attach it to a scope.',
+] as const;
 
 /** Settings of the wizard's own, kept apart from the type's: the common ones. */
 function Wizard({
@@ -109,6 +118,9 @@ function Wizard({
           </ol>
         }
       />
+      <p className="text-body-md text-on-surface-variant max-w-prose">
+        {STEP_HELP[step]}
+      </p>
       {step === 0 && (
         <label className="text-label-md flex max-w-md flex-col gap-1">
           Supervisor type
@@ -124,6 +136,11 @@ function Wizard({
               </option>
             ))}
           </NativeSelect>
+          {details && (
+            <span className="text-body-sm text-on-surface-variant font-normal whitespace-pre-line">
+              {details.description}
+            </span>
+          )}
         </label>
       )}
       {step === 1 && (
@@ -182,7 +199,7 @@ function Wizard({
               checked={dryRun}
               onChange={(event) => setDryRun(event.target.checked)}
             />
-            Dry run: only record what it would do
+            Dry run (recommended to start): only record what it would do
           </label>
           {details && (
             <ConfigForm
@@ -194,9 +211,21 @@ function Wizard({
         </div>
       )}
       {step === 3 && (
-        <pre className="border-border bg-muted text-code-sm overflow-auto rounded-lg border p-3">
-          {JSON.stringify(draft, null, 2)}
-        </pre>
+        <div className="flex flex-col gap-3">
+          <SupervisorSummary
+            supervisor={{ settings, dryRun }}
+            attachments={[]}
+            typeDefaults={details?.defaultAllowedCommands ?? null}
+          />
+          <details>
+            <summary className="text-label-md text-primary cursor-pointer">
+              Advanced: what will be saved
+            </summary>
+            <pre className="border-border bg-muted text-code-sm mt-2 overflow-auto rounded-lg border p-3">
+              {JSON.stringify(draft, null, 2)}
+            </pre>
+          </details>
+        </div>
       )}
       {errors.length > 0 && (
         <Callout kind="danger">
@@ -266,7 +295,7 @@ export function SupervisorWizardPage() {
           type: params.get('type') ?? '',
           description: '',
           settings: {},
-          dryRun: false,
+          dryRun: true,
         }}
       />
     );
@@ -293,7 +322,7 @@ export function NewSupervisorWizard({
         type: '',
         description: '',
         settings: {},
-        dryRun: false,
+        dryRun: true,
       }}
     />
   );

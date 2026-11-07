@@ -82,17 +82,28 @@ class SchemaSubsetTest {
           "u":{"type":"unknown-type"}}}
         """;
 
+    // a name the subset does not know (a typo) accepts nothing
     assertThat(
             SchemaSubset.violations(
                 schema,
                 Map.of(
                     "o", Map.of(), "a", List.of(), "s", "x", "n", 1.5, "i", 2, "b", true, "u",
                     "any")))
-        .isEmpty();
+        .containsExactly("$.u: expected unknown-type");
     assertThat(
             SchemaSubset.violations(
                 schema, Map.of("o", "x", "a", "x", "s", 1, "n", "x", "i", 1.5, "b", "x")))
         .hasSize(6);
+  }
+
+  @Test
+  void listOfTypesAcceptsAnyOfThem() {
+    final String schema = "{\"properties\":{\"n\":{\"type\":[\"integer\",\"null\",5]}}}";
+
+    assertThat(SchemaSubset.violations(schema, Map.of("n", 3))).isEmpty();
+    assertThat(SchemaSubset.violations(schema, Collections.singletonMap("n", null))).isEmpty();
+    assertThat(SchemaSubset.violations(schema, Map.of("n", "x")))
+        .containsExactly("$.n: expected [\"integer\",\"null\",5]");
   }
 
   @Test

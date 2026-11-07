@@ -123,8 +123,7 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
                             .map(InputRequest::id)
                             .toList();
                     for (int i = 0; i < finished.size() - memoryMax; i++) {
-                      requests.remove(finished.get(i));
-                      responses.remove(finished.get(i));
+                      forget(finished.get(i));
                     }
                   }
                   return true;
@@ -209,7 +208,22 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   @Override
   public Mono<Void> saveDelivery(final InputDelivery delivery) {
-    return Mono.fromRunnable(() -> deliveries.put(delivery.id(), delivery));
+    // a delivery of a request that is gone (the worker saw it end) is not kept
+    return Mono.fromRunnable(
+        () -> {
+          if (requests.containsKey(delivery.requestId())) {
+            deliveries.put(delivery.id(), delivery);
+          } else {
+            deliveries.remove(delivery.id());
+          }
+        });
+  }
+
+  /** Drops a request with its response and its deliveries: all are bounded by {@code memoryMax}. */
+  private void forget(final String requestId) {
+    requests.remove(requestId);
+    responses.remove(requestId);
+    deliveries.values().removeIf(delivery -> delivery.requestId().equals(requestId));
   }
 
   @Override
@@ -223,10 +237,7 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
                           .filter(r -> r.state().isTerminal() && r.updatedAt().isBefore(cutoff))
                           .map(InputRequest::id)
                           .toList();
-                  for (final String id : old) {
-                    requests.remove(id);
-                    responses.remove(id);
-                  }
+                  old.forEach(this::forget);
                   return (long) old.size();
                 }));
   }

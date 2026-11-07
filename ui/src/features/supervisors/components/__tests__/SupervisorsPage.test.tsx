@@ -111,7 +111,7 @@ function Where() {
   return <output aria-label="location">{search}</output>;
 }
 
-const renderPage = (url = '/supervisors') =>
+const renderPage = (url = '/supervisors?tab=catalog') =>
   render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter initialEntries={[url]}>
@@ -122,6 +122,16 @@ const renderPage = (url = '/supervisors') =>
   );
 
 describe('SupervisorsPage', () => {
+  it('opens on the coverage tab with the explanation, and the empty state points to the library', async () => {
+    renderPage('/supervisors');
+    expect(
+      screen.getByRole('region', { name: 'How supervision works' })
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing is supervised yet')
+    ).toBeInTheDocument();
+  });
+
   it('lists the types by category and shows the first one', async () => {
     renderPage();
 
@@ -162,16 +172,16 @@ describe('SupervisorsPage', () => {
 
   it('keeps the tab in the URL', async () => {
     const user = userEvent.setup();
-    renderPage();
+    renderPage('/supervisors?tab=catalog');
     await screen.findByText('About failure-guard');
 
-    await user.click(screen.getByRole('tab', { name: 'decisions' }));
+    await user.click(screen.getByRole('tab', { name: 'Activity' }));
 
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'tab=decisions'
     );
     expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'catalog' }));
+    await user.click(screen.getByRole('tab', { name: 'Coverage' }));
     expect(screen.getByLabelText('location')).not.toHaveTextContent('tab=');
   });
 

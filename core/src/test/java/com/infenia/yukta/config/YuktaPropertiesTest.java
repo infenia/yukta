@@ -7,6 +7,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -32,6 +34,27 @@ class YuktaPropertiesTest {
     final YuktaProperties properties = bound.get();
     assertThat(properties.execution().queueCapacity()).isEqualTo(100);
     assertThat(properties.cache().ttl()).isEqualTo(Duration.ofMinutes(10));
+  }
+
+  @ParameterizedTest
+  @ValueSource(
+      strings = {
+        "yukta.execution.queue-timeout",
+        "yukta.execution.shutdown-timeout",
+        "yukta.supervisor.review-timeout",
+        "yukta.stop.drain-timeout",
+        "yukta.start.idempotency-ttl",
+        "yukta.results.retention",
+        "yukta.workers.lease",
+        "yukta.cache.ttl"
+      })
+  void negativeDurationStopsStartupInsteadOfSwitchingLimitOff(final String key) {
+    final AtomicReference<Throwable> failure = new AtomicReference<>();
+    runner
+        .withPropertyValues(key + "=-5m")
+        .run(context -> failure.set(context.getStartupFailure()));
+
+    assertThat(failure.get()).isNotNull();
   }
 
   @Test

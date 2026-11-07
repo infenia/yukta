@@ -46,7 +46,7 @@ import tools.jackson.databind.ObjectMapper;
 @Component
 @ConditionalOnExpression(
     "!'${yukta.execution-log.dir:}'.isEmpty()"
-        + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
+        + " && !'postgres'.equalsIgnoreCase('${yukta.session.store-type:in-memory}'.trim())")
 @SuppressWarnings({"PMD.AvoidCatchingGenericException", "PMD.TooManyMethods"})
 public class JsonlExecutionLogStore implements ExecutionLogStore {
 

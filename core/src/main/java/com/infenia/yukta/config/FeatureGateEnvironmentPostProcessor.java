@@ -88,9 +88,13 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
       final String actual = environment.getProperty(key);
       final boolean used;
       if (value != null) {
-        used = value.equals(actual);
+        // like @ConditionalOnProperty: case does not matter, and neither do stray blanks
+        used = value.equalsIgnoreCase(StringUtils.trimWhitespace(actual));
       } else if (StringUtils.hasText(actual)) {
-        used = !key.endsWith(".dir") || !POSTGRES_TYPE.equals(environment.getProperty(storeType()));
+        used =
+            !key.endsWith(".dir")
+                || !POSTGRES_TYPE.equalsIgnoreCase(
+                    StringUtils.trimWhitespace(environment.getProperty(storeType())));
       } else {
         used = false;
       }
