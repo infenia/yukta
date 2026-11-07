@@ -9,12 +9,14 @@ import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ExecutionResultServiceTest {
 
   private static ExecutionResultService service(final int retained) {
@@ -42,6 +44,28 @@ class ExecutionResultServiceTest {
     for (int i = 0; i < 30; i++) {
       assertThat(results.has("e" + i)).isTrue();
     }
+  }
+
+  @Test
+  void liveRunKeepsItsChannelPastTheRetentionAndFinishedRunExpiresAfterIt() {
+    final AtomicLong nanos = new AtomicLong();
+    final ExecutionResultService results =
+        new ExecutionResultService(100, Duration.ofMinutes(5), 10, nanos::get);
+    final List<ResultEvent> followed = new CopyOnWriteArrayList<>();
+    results.stream("e1").subscribe(followed::add);
+
+    nanos.addAndGet(Duration.ofHours(2).toNanos());
+    results.publish("e1", "t", "late result");
+    results.complete("e1", "SUCCESS");
+
+    // the follower that subscribed at the start gets the result and the end
+    assertThat(followed).extracting(ResultEvent::kind).contains(Kind.RESULT, Kind.EXECUTION_END);
+    assertThat(results.read("e1", 0).complete()).isTrue();
+
+    nanos.addAndGet(Duration.ofMinutes(4).toNanos());
+    assertThat(results.has("e1")).isTrue(); // a read renews it
+    nanos.addAndGet(Duration.ofMinutes(6).toNanos());
+    assertThat(results.has("e1")).isFalse();
   }
 
   @Test
@@ -88,7 +112,7 @@ class ExecutionResultServiceTest {
   @Test
   void replayKeepsTheNewestEventsAndFlagsTruncationButLiveSawEverything() {
     final ExecutionResultService results = service(2);
-    final List<ResultEvent> live = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final List<ResultEvent> live = new CopyOnWriteArrayList<>();
     results.stream("e1").subscribe(live::add);
 
     for (int i = 0; i < 5; i++) {

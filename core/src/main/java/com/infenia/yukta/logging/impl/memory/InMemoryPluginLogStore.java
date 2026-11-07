@@ -58,7 +58,8 @@ public class InMemoryPluginLogStore implements PluginLogStore {
   /**
    * Constructs an in-memory store with Caffeine cache.
    *
-   * <p>Cache is configured with expireAfterWrite based on effective retention period.
+   * <p>Cache is configured with expireAfterWrite based on effective retention period; every line
+   * written renews it.
    *
    * @param config the log store configuration
    */
@@ -105,6 +106,8 @@ public class InMemoryPluginLogStore implements PluginLogStore {
                   drop(lines);
                 }
               }
+              // a write, so retention counts from the latest line and a long run keeps its lines
+              cache.put(executionId, lines);
               log.atTrace()
                   .log(
                       "Log written for execution {}: [{}] {}",
