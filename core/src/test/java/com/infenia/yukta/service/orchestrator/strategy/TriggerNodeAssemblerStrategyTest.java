@@ -158,7 +158,7 @@ class TriggerNodeAssemblerStrategyTest {
 
     final Flux<Message<?>> broadcastFlux = Flux.just(msg);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(broadcastFlux);
 
     final NodeAssembler assembler =
@@ -168,7 +168,8 @@ class TriggerNodeAssemblerStrategyTest {
 
     verify(trigger).start(any());
     verify(streamTopologyDecorator)
-        .applyLoggingAndBroadcasting(anyString(), anyString(), any(), any(int.class), any(), any());
+        .applyLoggingAndBroadcasting(
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any());
     assertThat(context.streams()[0]).isSameAs(broadcastFlux);
   }
 
@@ -183,7 +184,7 @@ class TriggerNodeAssemblerStrategyTest {
     final AssemblyContext context = buildContext(NODE_ID, null);
 
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     final NodeAssembler assembler =
@@ -209,7 +210,7 @@ class TriggerNodeAssemblerStrategyTest {
 
     final Flux<Message<?>> broadcastFlux = Flux.just(msg);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(broadcastFlux);
 
     final NodeAssembler assembler =
@@ -233,7 +234,7 @@ class TriggerNodeAssemblerStrategyTest {
     final AssemblyContext context = buildContext(NODE_ID, safeStopSink);
 
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -255,7 +256,7 @@ class TriggerNodeAssemblerStrategyTest {
     final AssemblyContext context = buildContext(NODE_ID, null);
 
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =
@@ -281,7 +282,7 @@ class TriggerNodeAssemblerStrategyTest {
 
     final Flux<Message<?>> broadcastFlux = Flux.just(msg);
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(broadcastFlux);
 
     final NodeAssembler assembler =
@@ -304,7 +305,7 @@ class TriggerNodeAssemblerStrategyTest {
 
     // Return a real Flux so we can test takeUntilOther behavior end-to-end
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenAnswer(inv -> inv.getArgument(2));
 
     final NodeAssembler assembler =
@@ -333,7 +334,7 @@ class TriggerNodeAssemblerStrategyTest {
     final AssemblyContext context = buildContext(NODE_ID, null);
 
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
-            anyString(), anyString(), any(), any(int.class), any(), any()))
+            anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
         .thenReturn(Flux.just(msg));
 
     final NodeAssembler assembler =

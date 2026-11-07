@@ -87,7 +87,9 @@ public class ReplayNodeAssembler {
         bufferSize,
         context.disposables(),
         context.connectors(),
-        () -> false,
+        // The original run already logged (or deliberately withheld) this output: never echo it
+        // again.
+        () -> true,
         NodePolicy.Checkpoint.NONE);
   }
 

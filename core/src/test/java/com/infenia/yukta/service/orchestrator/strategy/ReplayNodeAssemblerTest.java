@@ -97,7 +97,7 @@ class ReplayNodeAssemblerTest {
   }
 
   @Test
-  void replay_isNotMarkedAsLoggedLiveSoTheOrchestratorLogsIt() {
+  void replay_isMarkedAsLoggedSoARestartNeverEchoesItAgain() {
     final ArgumentCaptor<BooleanSupplier> loggedLive =
         ArgumentCaptor.forClass(BooleanSupplier.class);
 
@@ -113,7 +113,7 @@ class ReplayNodeAssemblerTest {
             any(),
             loggedLive.capture(),
             eq(NodePolicy.Checkpoint.NONE));
-    assertThat(loggedLive.getValue().getAsBoolean()).isFalse();
+    assertThat(loggedLive.getValue().getAsBoolean()).isTrue();
   }
 
   @Test
