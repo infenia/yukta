@@ -45,7 +45,12 @@ describe('ExecutionResultBlock', () => {
     });
 
     expect(screen.getByText('plain answer')).toBeInTheDocument();
-    expect(screen.getByText(/"total": 3/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === 'PRE' && /"total": 3/.test(el.textContent ?? '')
+      )
+    ).toBeInTheDocument();
     expect(screen.getByTestId('result-streaming')).toBeInTheDocument();
   });
 

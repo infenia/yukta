@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TaskSequenceList } from '../TaskSequenceList';
 import {
@@ -35,13 +35,19 @@ describe('TaskSequenceList', () => {
     );
 
     const completed = screen.getByTestId('task-item-data-ingress');
-    expect(completed).toHaveTextContent('Succeeded');
+    expect(within(completed).getByTestId('task-status')).toHaveAttribute(
+      'title',
+      'Succeeded'
+    );
     expect(completed).toHaveTextContent('module: ingress-v1');
     expect(completed).toHaveTextContent('Start: 14:22:01');
     expect(completed).toHaveTextContent('End: 14:22:10');
 
     const running = screen.getByTestId('task-item-vectorize-batch');
-    expect(running).toHaveTextContent('Running');
+    expect(within(running).getByTestId('task-status')).toHaveAttribute(
+      'title',
+      'Running'
+    );
     expect(running).toHaveTextContent('Dur:');
   });
 
@@ -51,7 +57,10 @@ describe('TaskSequenceList', () => {
     );
 
     const pending = screen.getByTestId('task-item-sink-storage');
-    expect(pending).toHaveTextContent('Waiting');
+    expect(within(pending).getByTestId('task-status')).toHaveAttribute(
+      'title',
+      'Waiting'
+    );
     expect(pending.className).toContain('opacity-60');
     expect(pending).not.toHaveTextContent('Start:');
   });
@@ -61,7 +70,12 @@ describe('TaskSequenceList', () => {
 
     const items = screen.getAllByTestId(/task-item-/);
     expect(items).toHaveLength(4);
-    items.forEach((item) => expect(item).toHaveTextContent('Waiting'));
+    items.forEach((item) =>
+      expect(within(item).getByTestId('task-status')).toHaveAttribute(
+        'title',
+        'Waiting'
+      )
+    );
     expect(screen.getByTestId('task-item-data-ingress')).toHaveTextContent(
       'module: ingress-v1'
     );
@@ -124,7 +138,10 @@ describe('TaskSequenceList', () => {
     render(<TaskSequenceList graph={createMockGraph()} tasksByNode={tasks} />);
 
     const failed = screen.getByTestId('task-item-vectorize-batch');
-    expect(failed).toHaveTextContent('Failed');
+    expect(within(failed).getByTestId('task-status')).toHaveAttribute(
+      'title',
+      'Failed'
+    );
     expect(failed.querySelector('.text-destructive')).not.toBeNull();
   });
 

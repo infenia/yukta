@@ -68,4 +68,20 @@ describe('CodeBlock', () => {
 
     expect(await screen.findByText('Copy failed')).toBeInTheDocument();
   });
+
+  it('colors JSON tokens and leaves other text plain', () => {
+    const json = '{"a": "x", "n": 1, "b": true, "z": null}';
+    const { container, rerender } = render(<CodeBlock code={json} />);
+    const cls = (t: string) =>
+      screen.getByText(t, { selector: 'span' }).className;
+    expect(cls('"a"')).toContain('text-primary');
+    expect(cls('"x"')).toContain('text-success');
+    expect(cls('1')).toContain('text-attention');
+    expect(cls('true')).toContain('text-muted-foreground');
+    expect(cls('null')).toContain('text-muted-foreground');
+    expect(container.querySelector('pre')).toHaveTextContent(json);
+
+    rerender(<CodeBlock code="run 1 true" />);
+    expect(container.querySelector('pre span')).toBeNull();
+  });
 });

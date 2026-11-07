@@ -35,11 +35,14 @@ export function StatusPill({
   status,
   scope = 'run',
   testId = 'status-chip',
+  iconOnly = false,
   className,
 }: {
   status: string | null | undefined;
   scope?: 'run' | 'node';
   testId?: string;
+  /** Show just the colored icon; the label stays in the title and aria-label. */
+  iconOnly?: boolean;
   className?: string;
 }) {
   const { label, tone, icon, dashed } = toStatusDisplay(status, scope);
@@ -48,9 +51,11 @@ export function StatusPill({
     <span
       data-testid={testId}
       data-status={raw}
-      title={raw}
+      title={iconOnly ? label : raw}
+      aria-label={iconOnly ? label : undefined}
       className={cn(
-        'text-label-sm inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border pr-2.5 pl-2 whitespace-nowrap',
+        'text-label-sm inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border whitespace-nowrap',
+        iconOnly ? 'w-[22px] justify-center' : 'pr-2.5 pl-2',
         TONE_CLASSES[tone].pill,
         dashed && 'border-dashed bg-transparent',
         className
@@ -69,7 +74,7 @@ export function StatusPill({
           )}
         />
       )}
-      {label}
+      {!iconOnly && label}
     </span>
   );
 }

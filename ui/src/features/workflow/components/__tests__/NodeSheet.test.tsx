@@ -68,7 +68,11 @@ describe('NodeSheet', () => {
     open();
     expect(screen.getByText('hello')).toBeInTheDocument();
     expect(screen.queryByText('not mine')).not.toBeInTheDocument();
-    expect(await screen.findByText(/"a": 1/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        (_, el) => el?.tagName === 'PRE' && /"a": 1/.test(el.textContent ?? '')
+      )
+    ).toBeInTheDocument();
   });
 
   it('offers the actions of its status and reports the one chosen', async () => {
@@ -98,7 +102,12 @@ describe('NodeSheet', () => {
 
   it('shows what a terminal received, and only a terminal has the section', () => {
     open({ node: node('sink', 'TERMINAL') });
-    expect(screen.getByText(/"ok": true/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        (_, el) =>
+          el?.tagName === 'PRE' && /"ok": true/.test(el.textContent ?? '')
+      )
+    ).toBeInTheDocument();
     expect(screen.queryByText(/"no": 1/)).not.toBeInTheDocument();
   });
 
