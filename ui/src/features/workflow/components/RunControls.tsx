@@ -318,13 +318,17 @@ export function RunControls({
         <RequirePermission perm="controlRuns">
           <button
             type="button"
-            className={BUTTON}
+            className={buttonVariants({ variant: 'outline', size: 'icon' })}
+            aria-label="Priority…"
+            title="Change priority"
             onClick={() => setPrioritizing(true)}
           >
-            <span className="material-symbols-outlined text-base">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-attention text-base"
+            >
               low_priority
             </span>
-            Priority…
           </button>
         </RequirePermission>
       )}
@@ -353,6 +357,7 @@ export function RunControls({
           workflowId={workflowId}
           executionId={executionId as string}
           onRecovered={onStarted}
+          iconOnly
         />
       )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />
