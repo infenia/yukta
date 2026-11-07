@@ -67,7 +67,8 @@ async function mockSupervisorsApi(page: Page) {
                 scope: 'workflow:session-1/build',
                 enabled: true,
                 source: 'DEFINITION',
-                origin: { sessionId: 'session-1', workflowId: 'build' },
+                originSessionId: 'session-1',
+                originWorkflowId: 'build',
               },
             ]
           : []
@@ -124,8 +125,10 @@ async function mockSupervisorsApi(page: Page) {
 test.describe('Supervisors end to end', () => {
   test('creates a supervisor, declares it in a new workflow and sees its decisions', async ({
     page,
+    mockWorkflowApi,
   }) => {
     const state = await mockSupervisorsApi(page);
+    await mockWorkflowApi(page);
 
     await page.goto('/supervisors/new');
     await page.getByLabel('Supervisor type').selectOption('failure-guard');
@@ -141,7 +144,9 @@ test.describe('Supervisors end to end', () => {
     await page.goto('/sessions/session-1/workflow/build/edit');
     await page.getByText(/Supervisors \(0\)/).click();
     await page.getByRole('button', { name: 'Add supervisor' }).click();
-    await expect(page.getByLabel('Supervisor 1')).toHaveValue('fresh');
+    await expect(page.getByLabel('Supervisor 1', { exact: true })).toHaveValue(
+      'fresh'
+    );
     await page.getByRole('button', { name: 'Save version' }).click();
     await expect
       .poll(() => state.savedSession?.workflows.build.supervisors)
@@ -153,7 +158,7 @@ test.describe('Supervisors end to end', () => {
     await expect(effective).toContainText('Definition');
 
     await page.goto('/supervisors');
-    await page.getByRole('tab', { name: /Decisions/ }).click();
+    await page.getByRole('tab', { name: /decisions/i }).click();
     await expect(page.getByText('PauseWorkflowCommand')).toBeVisible();
   });
 });
