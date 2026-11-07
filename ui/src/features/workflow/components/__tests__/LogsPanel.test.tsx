@@ -192,7 +192,7 @@ describe('LogsPanel', () => {
     );
   });
 
-  it('shows the STREAMING pill only while streaming', () => {
+  it('shows the streaming icon only while streaming', () => {
     const { rerender } = render(<LogsPanel entries={entries} isStreaming />);
     expect(screen.getByTestId('streaming-pill')).toBeInTheDocument();
 

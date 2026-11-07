@@ -355,16 +355,16 @@ export function LogsPanel({
           </div>
         )}
         {isStreaming && (
-          <span
-            className="border-primary/40 bg-primary/10 text-label-sm text-primary inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 tracking-wider"
-            data-testid="streaming-pill"
-          >
+          <Tip label="Streaming">
             <span
-              aria-hidden
-              className="live-dot bg-attention size-1.5 rounded-full"
-            />
-            STREAMING
-          </span>
+              role="img"
+              aria-label="Streaming"
+              className="text-attention material-symbols-outlined animate-pulse text-base"
+              data-testid="streaming-pill"
+            >
+              sensors
+            </span>
+          </Tip>
         )}
         {dropped > 0 && (
           <span
