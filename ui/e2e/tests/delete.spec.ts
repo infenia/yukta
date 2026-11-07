@@ -19,7 +19,8 @@ test.describe('Deleting', () => {
     });
     await page.goto('/sessions/session');
 
-    await page.getByRole('button', { name: 'Delete', exact: true }).click();
+    await page.getByRole('button', { name: 'Session actions' }).click();
+    await page.getByRole('menuitem', { name: 'Delete', exact: true }).click();
     const dialog = page.getByRole('dialog', {
       name: 'Delete session session',
     });

@@ -112,7 +112,7 @@ export function SessionsFilterBar({
         onChange={(tags) => onFiltersChange({ ...filters, tags })}
       />
       <MultiFilter
-        label="Initiator"
+        label="Creator"
         icon="person"
         options={distinct(data.map((session) => session.initiator))}
         selected={filters.initiators}

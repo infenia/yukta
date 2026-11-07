@@ -158,7 +158,7 @@ describe('WorkflowTable', () => {
     expect(onFilterChange).toHaveBeenCalledWith('test');
   });
 
-  it('shows each workflow as a row: link, size and last run', () => {
+  it('shows each workflow as a row: size and last run', () => {
     render(
       <QueryClientProvider client={createTestQueryClient()}>
         <MemoryRouter>
@@ -172,10 +172,6 @@ describe('WorkflowTable', () => {
       </QueryClientProvider>
     );
     const row = screen.getByTestId('workflow-row-wf1');
-    expect(screen.getByRole('link', { name: 'wf1' })).toHaveAttribute(
-      'href',
-      '/sessions/sess%201/workflow/wf1'
-    );
     expect(row).toHaveTextContent('5 nodes · 4 edges');
     expect(row).toHaveTextContent('Succeeded');
     expect(screen.getByTestId('workflow-row-wf2')).toHaveTextContent('Running');

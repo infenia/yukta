@@ -96,7 +96,7 @@ describe('SessionListPage Tag and Initiator filters', () => {
     expect(tags).toEqual(['env=dev', 'env=prod', 'team=a']);
     await user.keyboard('{Escape}');
 
-    await user.click(screen.getByRole('button', { name: /initiator filter/i }));
+    await user.click(screen.getByRole('button', { name: /creator filter/i }));
     const who = (await screen.findAllByRole('menuitemcheckbox')).map(
       (item) => item.textContent
     );
@@ -121,9 +121,9 @@ describe('SessionListPage Tag and Initiator filters', () => {
     ).toHaveTextContent('Tag: 2 selected');
     expect(window.location.search).toBe('?tag=env%3Dprod&tag=team%3Da');
 
-    await pick(user, /initiator filter/i, 'bob');
+    await pick(user, /creator filter/i, 'bob');
     await waitFor(() => expect(shown()).toEqual([]));
-    await pick(user, /initiator filter/i, 'alice');
+    await pick(user, /creator filter/i, 'alice');
     await waitFor(() => expect(shown()).toEqual(['Alpha']));
     expect(window.location.search).toContain('initiator=bob&initiator=alice');
   });
@@ -170,9 +170,9 @@ describe('SessionListPage Tag and Initiator filters', () => {
     renderWithProviders(<SessionListPage />);
     await screen.findByText('Alpha');
 
-    await pick(user, /initiator filter/i, 'bob');
+    await pick(user, /creator filter/i, 'bob');
     await waitFor(() => expect(shown()).toEqual(['Bravo']));
-    await pick(user, /initiator filter/i, 'bob');
+    await pick(user, /creator filter/i, 'bob');
     await waitFor(() => expect(shown()).toEqual(['Alpha', 'Bravo', 'Charlie']));
     expect(window.location.search).toBe('');
   });
@@ -186,8 +186,8 @@ describe('SessionListPage Tag and Initiator filters', () => {
       screen.getByRole('button', { name: /tag filter/i })
     ).toHaveTextContent('Tag: env=prod');
     expect(
-      screen.getByRole('button', { name: /initiator filter/i })
-    ).toHaveTextContent('Initiator: bob');
+      screen.getByRole('button', { name: /creator filter/i })
+    ).toHaveTextContent('Creator: bob');
   });
 
   it('clears the search and both filters with Reset', async () => {
