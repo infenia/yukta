@@ -3,9 +3,10 @@
 
 import { describe, it, expect, vi } from 'vitest';
 
-vi.mock('@/features/overview/OverviewPage', () => ({
-  OverviewPage: () => 'the overview',
+vi.mock('@/features/sessions/components/SessionListPage', () => ({
+  SessionListPage: () => 'the sessions list',
 }));
+
 import router, { AppRouter } from '../router';
 
 describe('router', () => {
@@ -181,7 +182,7 @@ describe('router', () => {
 });
 
 describe('home route', () => {
-  it('shows the Overview, and sends old session-list queries to /sessions', async () => {
+  it('sends / to /sessions, keeping the query', async () => {
     const { HomeRoute } = await import('../router');
     const { MemoryRouter, Routes, Route } = await import('react-router');
     const { render, screen } = await import('@testing-library/react');
@@ -207,7 +208,7 @@ describe('home route', () => {
     expect(screen.getByText('sessions list')).toBeInTheDocument();
     first.unmount();
     at('/');
-    expect(screen.getByText('the overview')).toBeInTheDocument();
+    expect(screen.getByText('sessions list')).toBeInTheDocument();
   });
 });
 
@@ -224,6 +225,6 @@ describe('AppRouter', () => {
         createElement(AppRouter)
       )
     );
-    expect(await screen.findByText('the overview')).toBeInTheDocument();
+    expect(await screen.findByText('the sessions list')).toBeInTheDocument();
   });
 });

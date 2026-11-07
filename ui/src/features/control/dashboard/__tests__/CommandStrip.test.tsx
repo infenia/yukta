@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { useHeatmap } from '@/features/metrics/hooks';
-import { getOpenInputs } from '@/features/overview/api';
+import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { CommandStrip } from '../CommandStrip';
 
 vi.mock('@/features/metrics/hooks', () => ({
@@ -15,7 +15,7 @@ vi.mock('@/features/metrics/hooks', () => ({
 }));
 vi.mock('../../api/workers', () => ({ useWorkers: () => ({ data: [] }) }));
 vi.mock('../../api/scheduler', () => ({ getLimits: vi.fn(async () => ({})) }));
-vi.mock('@/features/overview/api', () => ({ getOpenInputs: vi.fn() }));
+vi.mock('@/features/workflow/api/inputs', () => ({ getOpenInputs: vi.fn() }));
 
 const heatmap = vi.mocked(useHeatmap);
 const approvals = vi.mocked(getOpenInputs);
@@ -56,7 +56,7 @@ describe('CommandStrip approvals tile', () => {
     approvals.mockResolvedValue(Array.from({ length: 50 }, (_, i) => wait(i)));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(
-      await screen.findByRole('link', { name: /Approvals waiting: 50\+\./ })
+      await screen.findByRole('group', { name: /Approvals waiting: 50\+\./ })
     ).toBeInTheDocument();
   });
 
@@ -64,7 +64,7 @@ describe('CommandStrip approvals tile', () => {
     approvals.mockRejectedValue(new Error('down'));
     renderWithProviders(<CommandStrip scope="global" live={false} />);
     expect(
-      await screen.findByRole('link', { name: /Approvals waiting: –\./ })
+      await screen.findByRole('group', { name: /Approvals waiting: –\./ })
     ).toBeInTheDocument();
   });
 });

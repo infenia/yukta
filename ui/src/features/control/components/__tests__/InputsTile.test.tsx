@@ -24,18 +24,17 @@ beforeAll(() => server.listen());
 afterAll(() => server.close());
 
 describe('InputsTile', () => {
-  it('counts the inputs that wait and links to the list', async () => {
+  it('counts the inputs that wait', async () => {
     items = [
       { createdAt: new Date(Date.now() - 600_000).toISOString() },
       { createdAt: new Date(Date.now() - 60_000).toISOString() },
     ];
     renderWithProviders(<InputsTile />);
-    const link = screen.getByRole('link', { name: 'Inputs' });
+    const tile = screen.getByLabelText('Inputs');
     expect(
       await screen.findByText(/oldest 10 minutes ago/)
     ).toBeInTheDocument();
-    expect(link).toHaveTextContent('2');
-    expect(link).toHaveAttribute('href', '/#ov-needs-attention-panel');
+    expect(tile).toHaveTextContent('2');
   });
 
   it('says when none wait', async () => {
