@@ -26,6 +26,9 @@ public record MetricsProperties(
     @DefaultValue("500") int maxSeries,
     List<String> allowList) {
 
+  /** The fewest series that make a sample. */
+  private static final int MIN_SERIES = 1;
+
   /** Meter name prefixes sampled when {@code yukta.metrics.allow-list} is not set. */
   private static final List<String> DEFAULT_ALLOW_LIST =
       List.of(
@@ -38,8 +41,25 @@ public record MetricsProperties(
           "process.cpu.usage",
           "system.cpu.usage");
 
+  private static void requirePositive(final String name, final Duration value) {
+    if (value == null || value.isZero() || value.isNegative()) {
+      throw new IllegalArgumentException("yukta.metrics." + name + " must be positive");
+    }
+  }
+
   /** Falls back to the default allow-list when none is configured. */
   public MetricsProperties {
+    requirePositive("interval", interval);
+    if (fineRetention.compareTo(interval) < 0) {
+      throw new IllegalArgumentException(
+          "yukta.metrics.fine-retention must not be shorter than the interval");
+    }
+    if (coarseRetention.compareTo(Duration.ofMinutes(1)) < 0) {
+      throw new IllegalArgumentException("yukta.metrics.coarse-retention must be at least 1m");
+    }
+    if (maxSeries < MIN_SERIES) {
+      throw new IllegalArgumentException("yukta.metrics.max-series must be at least " + MIN_SERIES);
+    }
     allowList =
         allowList == null || allowList.isEmpty() ? DEFAULT_ALLOW_LIST : List.copyOf(allowList);
   }
