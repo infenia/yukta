@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -89,7 +90,7 @@ describe('WorkersPanel', () => {
     workers = [worker({ pluginTypes: ['A', 'B', 'C', 'D', 'E'] })];
     renderWithProviders(<WorkersPanel />);
     const more = await screen.findByText('+2');
-    expect(more).toHaveAttribute('title', 'D, E');
+    await expectTooltip(more, 'D, E');
     expect(screen.queryByText('D')).not.toBeInTheDocument();
   });
 

@@ -50,6 +50,7 @@ import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
 import { EffectiveSupervision } from '@/features/supervisors/components/EffectiveSupervision';
+import { Tip } from '@/components/ui/tooltip';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
 
@@ -233,55 +234,60 @@ export function WorkflowDetailsPage() {
                 Parent run
               </Link>
             )}
-            <Link
-              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
-              aria-label="Edit"
-              title="Edit workflow"
-              className={iconButton('primary')}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
+            <Tip label="Edit workflow">
+              <Link
+                to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
+                aria-label="Edit"
+                className={iconButton('primary')}
               >
-                edit
-              </span>
-            </Link>
-            <button
-              type="button"
-              onClick={() => setPanelOpen((value) => !value)}
-              aria-pressed={panelOpen}
-              aria-label="Workflow progress"
-              title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
-              className={cn(
-                iconButton(panelOpen ? 'primary' : 'neutral'),
-                'transition-standard active:scale-95'
-              )}
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  edit
+                </span>
+              </Link>
+            </Tip>
+            <Tip
+              label={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
             >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
+              <button
+                type="button"
+                onClick={() => setPanelOpen((value) => !value)}
+                aria-pressed={panelOpen}
+                aria-label="Workflow progress"
+                className={cn(
+                  iconButton(panelOpen ? 'primary' : 'neutral'),
+                  'transition-standard active:scale-95'
+                )}
               >
-                {panelOpen ? 'right_panel_close' : 'right_panel_open'}
-              </span>
-            </button>
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  {panelOpen ? 'right_panel_close' : 'right_panel_open'}
+                </span>
+              </button>
+            </Tip>
             <DropdownMenu>
               <DropdownMenuTrigger
                 render={(state) => (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label="Workflow actions"
-                    title="Workflow actions"
-                    className={ICON_TONE.neutral}
-                    {...state}
-                  >
-                    <span
-                      className="material-symbols-outlined"
-                      aria-hidden="true"
+                  <Tip label="Workflow actions">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Workflow actions"
+                      className={ICON_TONE.neutral}
+                      {...state}
                     >
-                      more_vert
-                    </span>
-                  </Button>
+                      <span
+                        className="material-symbols-outlined"
+                        aria-hidden="true"
+                      >
+                        more_vert
+                      </span>
+                    </Button>
+                  </Tip>
                 )}
               />
               <DropdownMenuContent align="end" className="w-max">

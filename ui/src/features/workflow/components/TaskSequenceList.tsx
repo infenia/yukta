@@ -14,6 +14,7 @@ import type {
   TaskProgress,
   WorkflowGraph,
 } from '../types/workflow';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Filter chips and summary-bar segments, in the order a run moves through them. */
 const STATUS_ORDER: NodeUiStatus[] = [
@@ -87,14 +88,15 @@ function TaskSequenceItem({
       <div className="flex items-center gap-2">
         <span className="text-label-md text-on-surface">{task.nodeId}</span>
         {breakpoint && (
-          <span
-            className="material-symbols-outlined text-error text-base"
-            title={`${breakpoint.field} = ${breakpoint.equals}`}
-            aria-label={`Breakpoint: ${breakpoint.field} = ${breakpoint.equals}`}
-            role="img"
-          >
-            radio_button_checked
-          </span>
+          <Tip label={`${breakpoint.field} = ${breakpoint.equals}`}>
+            <span
+              className="material-symbols-outlined text-error text-base"
+              aria-label={`Breakpoint: ${breakpoint.field} = ${breakpoint.equals}`}
+              role="img"
+            >
+              radio_button_checked
+            </span>
+          </Tip>
         )}
         <StatusPill
           status={task.status}

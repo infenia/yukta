@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { scopeLabel } from '../lib/scope';
 import { useAttachments } from '../hooks/useSupervisorTypes';
 import type { AttachmentView } from '../types';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Where an attachment comes from, as seen from this session or workflow. */
 function badge(a: AttachmentView, sessionId: string, workflowId?: string) {
@@ -46,26 +47,27 @@ export function EffectiveSupervision({
       <h2 className="text-overline">Supervision</h2>
       <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
         {data.map((a) => (
-          <li
-            key={a.id}
-            title={scopeLabel(a.scope)}
-            className={`flex items-center gap-1.5 ${a.enabled ? '' : 'opacity-60'}`}
-          >
-            <Link
-              to={`/supervisors/${encodeURIComponent(a.supervisorId)}`}
-              className="text-body-md text-primary font-medium hover:underline"
+          <Tip label={scopeLabel(a.scope)}>
+            <li
+              key={a.id}
+              className={`flex items-center gap-1.5 ${a.enabled ? '' : 'opacity-60'}`}
             >
-              {a.supervisorId}
-            </Link>
-            <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
-              {badge(a, sessionId, workflowId)}
-            </span>
-            {!a.enabled && (
-              <span className="text-label-sm text-on-surface-variant">
-                disabled
+              <Link
+                to={`/supervisors/${encodeURIComponent(a.supervisorId)}`}
+                className="text-body-md text-primary font-medium hover:underline"
+              >
+                {a.supervisorId}
+              </Link>
+              <span className="bg-muted text-label-sm rounded-full px-2 py-0.5">
+                {badge(a, sessionId, workflowId)}
               </span>
-            )}
-          </li>
+              {!a.enabled && (
+                <span className="text-label-sm text-on-surface-variant">
+                  disabled
+                </span>
+              )}
+            </li>
+          </Tip>
         ))}
       </ul>
     </section>

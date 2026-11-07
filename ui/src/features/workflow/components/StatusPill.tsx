@@ -3,6 +3,7 @@
 
 import { toStatusDisplay, type StatusTone } from '../lib/statusMapper';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 
 const TONE_CLASSES: Record<StatusTone, { pill: string; dot: string }> = {
   muted: {
@@ -55,33 +56,34 @@ export function StatusPill({
   const { label, tone, icon, dashed } = toStatusDisplay(status, scope);
   const raw = status ?? 'NOT_RUN';
   return (
-    <span
-      data-testid={testId}
-      data-status={raw}
-      title={iconOnly ? label : raw}
-      aria-label={iconOnly ? label : undefined}
-      className={cn(
-        'text-label-sm inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border whitespace-nowrap',
-        iconOnly ? 'w-[22px] justify-center' : 'pr-2.5 pl-2',
-        TONE_CLASSES[tone].pill,
-        dashed && 'border-dashed bg-transparent',
-        className
-      )}
-    >
-      {icon ? (
-        <span aria-hidden className="material-symbols-outlined text-[15px]!">
-          {iconOnly ? (BARE_ICON[icon] ?? icon) : icon}
-        </span>
-      ) : (
-        <span
-          aria-hidden
-          className={cn(
-            'live-dot size-[7px] shrink-0 rounded-full',
-            TONE_CLASSES[tone].dot
-          )}
-        />
-      )}
-      {!iconOnly && label}
-    </span>
+    <Tip label={iconOnly ? label : raw}>
+      <span
+        data-testid={testId}
+        data-status={raw}
+        aria-label={iconOnly ? label : undefined}
+        className={cn(
+          'text-label-sm inline-flex h-[22px] shrink-0 items-center gap-1.5 rounded-full border whitespace-nowrap',
+          iconOnly ? 'w-[22px] justify-center' : 'pr-2.5 pl-2',
+          TONE_CLASSES[tone].pill,
+          dashed && 'border-dashed bg-transparent',
+          className
+        )}
+      >
+        {icon ? (
+          <span aria-hidden className="material-symbols-outlined text-[15px]!">
+            {iconOnly ? (BARE_ICON[icon] ?? icon) : icon}
+          </span>
+        ) : (
+          <span
+            aria-hidden
+            className={cn(
+              'live-dot size-[7px] shrink-0 rounded-full',
+              TONE_CLASSES[tone].dot
+            )}
+          />
+        )}
+        {!iconOnly && label}
+      </span>
+    </Tip>
   );
 }

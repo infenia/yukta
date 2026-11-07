@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { TONE, type Tone } from './tones';
+import { Tip } from '@/components/ui/tooltip';
 
 export interface HeatCell {
   label: string;
@@ -32,23 +33,24 @@ export function HeatStrip({
         const failing = !!c.failureRatio && c.failureRatio > 0.05;
         const base = failing ? 'var(--destructive)' : 'var(--chart-1)';
         return (
-          <span
-            key={i}
-            title={c.label}
-            data-failing={failing || undefined}
-            className="aspect-square rounded-[2px] bg-muted"
-            style={{
-              backgroundColor:
-                c.volume > 0
-                  ? `color-mix(in oklab, ${base} ${Math.round(15 + c.volume * 85)}%, transparent)`
-                  : undefined,
-              // a hatch on top, so a failing minute does not rest on red alone
-              backgroundImage:
-                c.volume > 0 && failing
-                  ? 'repeating-linear-gradient(45deg, transparent 0 2px, color-mix(in oklab, var(--foreground) 45%, transparent) 2px 3px)'
-                  : undefined,
-            }}
-          />
+          <Tip label={c.label}>
+            <span
+              key={i}
+              data-failing={failing || undefined}
+              className="bg-muted aspect-square rounded-[2px]"
+              style={{
+                backgroundColor:
+                  c.volume > 0
+                    ? `color-mix(in oklab, ${base} ${Math.round(15 + c.volume * 85)}%, transparent)`
+                    : undefined,
+                // a hatch on top, so a failing minute does not rest on red alone
+                backgroundImage:
+                  c.volume > 0 && failing
+                    ? 'repeating-linear-gradient(45deg, transparent 0 2px, color-mix(in oklab, var(--foreground) 45%, transparent) 2px 3px)'
+                    : undefined,
+              }}
+            />
+          </Tip>
         );
       })}
     </div>
@@ -81,18 +83,19 @@ export function StatusMatrix({
   return (
     <ul className="flex flex-wrap gap-2">
       {items.map(({ id, label, state }) => (
-        <li
-          key={id}
-          title={`${label}: ${state}`}
-          className={`${TONE[MATRIX_TONE[state]]} flex items-center gap-1.5 text-label-sm text-on-surface`}
-        >
-          <span
-            aria-hidden="true"
-            className={`size-2.5 ${MATRIX_SHAPE[state]} ${state === 'ok' ? 'motion-safe:animate-pulse' : ''}`}
-          />
-          {label}
-          <span className="sr-only">{state}</span>
-        </li>
+        <Tip label={`${label}: ${state}`}>
+          <li
+            key={id}
+            className={`${TONE[MATRIX_TONE[state]]} text-label-sm text-on-surface flex items-center gap-1.5`}
+          >
+            <span
+              aria-hidden="true"
+              className={`size-2.5 ${MATRIX_SHAPE[state]} ${state === 'ok' ? 'motion-safe:animate-pulse' : ''}`}
+            />
+            {label}
+            <span className="sr-only">{state}</span>
+          </li>
+        </Tip>
       ))}
     </ul>
   );
@@ -126,15 +129,16 @@ export function ChartAnnotations({
         items
           .filter((a) => a.at >= from && a.at <= to)
           .map((a) => (
-            <button
-              key={`${a.at}-${a.label}`}
-              type="button"
-              title={a.label}
-              aria-label={a.label}
-              onClick={() => onSelect?.(a)}
-              style={{ left: `${((a.at - from) / span) * 100}%` }}
-              className={`${TONE[a.kind ?? 'attention']} pointer-events-auto absolute inset-y-0 w-2 -translate-x-1/2 cursor-pointer after:absolute after:inset-y-0 after:left-1/2 after:w-px after:bg-current`}
-            />
+            <Tip label={a.label}>
+              <button
+                key={`${a.at}-${a.label}`}
+                type="button"
+                aria-label={a.label}
+                onClick={() => onSelect?.(a)}
+                style={{ left: `${((a.at - from) / span) * 100}%` }}
+                className={`${TONE[a.kind ?? 'attention']} pointer-events-auto absolute inset-y-0 w-2 -translate-x-1/2 cursor-pointer after:absolute after:inset-y-0 after:left-1/2 after:w-px after:bg-current`}
+              />
+            </Tip>
           ))}
     </div>
   );

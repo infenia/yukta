@@ -12,6 +12,7 @@ import {
   controlErrorMessage,
   useExecutionControl,
 } from '../hooks/useExecutionControl';
+import { Tip } from '@/components/ui/tooltip';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 
@@ -38,28 +39,29 @@ export function RecoverButton({
   return (
     <>
       <RequirePermission perm="controlRuns">
-        <button
-          type="button"
-          className={cn(
-            buttonVariants({
-              variant: 'outline',
-              size: iconOnly ? 'icon' : size,
-            }),
-            iconOnly && ICON_TONE.primary
-          )}
-          aria-label={iconOnly ? 'Recover' : undefined}
-          title={iconOnly ? 'Recover this run' : undefined}
-          disabled={recover.isPending}
-          onClick={() => setConfirming(true)}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-primary text-base"
+        <Tip label={iconOnly ? 'Recover this run' : undefined}>
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({
+                variant: 'outline',
+                size: iconOnly ? 'icon' : size,
+              }),
+              iconOnly && ICON_TONE.primary
+            )}
+            aria-label={iconOnly ? 'Recover' : undefined}
+            disabled={recover.isPending}
+            onClick={() => setConfirming(true)}
           >
-            history
-          </span>
-          {!iconOnly && 'Recover'}
-        </button>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-primary text-base"
+            >
+              history
+            </span>
+            {!iconOnly && 'Recover'}
+          </button>
+        </Tip>
       </RequirePermission>
       <InlineError
         message={recover.error ? controlErrorMessage(recover.error) : null}

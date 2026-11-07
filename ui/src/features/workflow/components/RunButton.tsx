@@ -13,6 +13,7 @@ import {
   useExecutionControl,
 } from '../hooks/useExecutionControl';
 import { parsePayload } from './RunButton.helpers';
+import { Tip } from '@/components/ui/tooltip';
 
 const BUTTON = buttonVariants({ variant: 'outline' });
 
@@ -105,24 +106,27 @@ export function RunButton({
   return (
     <>
       <RequirePermission perm="startRuns">
-        <button
-          type="button"
-          aria-label={label}
-          title={iconOnly ? label : undefined}
-          className={className ?? buttonVariants({ variant: 'outline', size })}
-          onClick={() => {
-            runKey.current = newIdempotencyKey();
-            setOpen(true);
-          }}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
+        <Tip label={iconOnly ? label : undefined}>
+          <button
+            type="button"
+            aria-label={label}
+            className={
+              className ?? buttonVariants({ variant: 'outline', size })
+            }
+            onClick={() => {
+              runKey.current = newIdempotencyKey();
+              setOpen(true);
+            }}
           >
-            play_arrow
-          </span>
-          {!iconOnly && 'Run'}
-        </button>
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
+              play_arrow
+            </span>
+            {!iconOnly && 'Run'}
+          </button>
+        </Tip>
       </RequirePermission>
       {open && (
         <RunDialog

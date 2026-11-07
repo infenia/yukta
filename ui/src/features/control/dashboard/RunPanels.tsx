@@ -22,6 +22,7 @@ import { inScope } from './scopes';
 import { PanelState } from './PanelState';
 import { useNow } from './useNow';
 import { formatMs } from './format';
+import { Tip } from '@/components/ui/tooltip';
 
 const MINUTE = 60_000;
 
@@ -193,24 +194,26 @@ export function LiveRunsPanel({
                 />
                 <div className="flex flex-wrap gap-2">
                   {RUN_ACTIONS.map(([action, text]) => (
-                    <Button
-                      key={action}
-                      size="sm"
-                      variant="outline"
-                      disabled={
-                        !mayControl ||
-                        (act.isPending && act.variables?.id === run.executionId)
-                      }
-                      title={needs}
-                      onClick={() =>
-                        action === 'stop'
-                          ? setStopping(run)
-                          : act.mutate({ id: run.executionId, action })
-                      }
-                      aria-label={`${action} ${run.workflowId} run ${run.executionId}`}
-                    >
-                      {text}
-                    </Button>
+                    <Tip label={needs}>
+                      <Button
+                        key={action}
+                        size="sm"
+                        variant="outline"
+                        disabled={
+                          !mayControl ||
+                          (act.isPending &&
+                            act.variables?.id === run.executionId)
+                        }
+                        onClick={() =>
+                          action === 'stop'
+                            ? setStopping(run)
+                            : act.mutate({ id: run.executionId, action })
+                        }
+                        aria-label={`${action} ${run.workflowId} run ${run.executionId}`}
+                      >
+                        {text}
+                      </Button>
+                    </Tip>
                   ))}
                 </div>
               </li>

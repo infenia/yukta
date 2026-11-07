@@ -19,6 +19,7 @@ import { useCopyCommand } from '../hooks/useCopyCommand';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import { RunButton } from './RunButton';
+import { Tip } from '@/components/ui/tooltip';
 
 import { RecoverButton } from './RecoverButton';
 import {
@@ -55,18 +56,22 @@ function ControlButton({
   onClick: () => void;
 }) {
   return (
-    <button
-      type="button"
-      className={`${SEG} ${tone}`}
-      aria-label={label}
-      title={title ?? label}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      <span aria-hidden="true" className="material-symbols-outlined text-base">
-        {icon}
-      </span>
-    </button>
+    <Tip label={title ?? label}>
+      <button
+        type="button"
+        className={`${SEG} ${tone}`}
+        aria-label={label}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          {icon}
+        </span>
+      </button>
+    </Tip>
   );
 }
 
@@ -320,20 +325,21 @@ export function RunControls({
       </div>
       {canPrioritize && (
         <RequirePermission perm="controlRuns">
-          <button
-            type="button"
-            className={iconButton('attention')}
-            aria-label="Priority…"
-            title="Change priority"
-            onClick={() => setPrioritizing(true)}
-          >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
+          <Tip label="Change priority">
+            <button
+              type="button"
+              className={iconButton('attention')}
+              aria-label="Priority…"
+              onClick={() => setPrioritizing(true)}
             >
-              low_priority
-            </span>
-          </button>
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                low_priority
+              </span>
+            </button>
+          </Tip>
         </RequirePermission>
       )}
       <DropdownMenu>

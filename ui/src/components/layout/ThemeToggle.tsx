@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useTheme, type Theme } from '@/lib/theme';
+import { Tip } from '@/components/ui/tooltip';
 
 export default function ThemeToggle() {
   const { theme, setTheme } = useTheme();
@@ -21,14 +22,15 @@ export default function ThemeToggle() {
         : 'brightness_auto';
 
   return (
-    <button
-      type="button"
-      onClick={toggleTheme}
-      className="rounded-lg p-2 text-muted-foreground transition-standard hover:bg-muted hover:text-foreground"
-      aria-label="Toggle theme"
-      title={`Current: ${theme}`}
-    >
-      <span className="material-symbols-outlined scale-80">{iconName}</span>
-    </button>
+    <Tip label={`Current: ${theme}`}>
+      <button
+        type="button"
+        onClick={toggleTheme}
+        className="text-muted-foreground transition-standard hover:bg-muted hover:text-foreground rounded-lg p-2"
+        aria-label="Toggle theme"
+      >
+        <span className="material-symbols-outlined scale-80">{iconName}</span>
+      </button>
+    </Tip>
   );
 }

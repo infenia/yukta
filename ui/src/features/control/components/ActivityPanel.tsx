@@ -16,6 +16,7 @@ import {
   matches,
   type ActivityFilters,
 } from '../lib/activity';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Rows drawn; the rest of the buffer is still searched and counted. */
 const VISIBLE_ROWS = 200;
@@ -152,13 +153,14 @@ export function ActivityPanel() {
               <span className={SEVERITY_CLASS[e.severity]}>{e.severity}</span>
               <span>{e.type}</span>
               {e.event.executionId && (
-                <Link
-                  className="text-primary"
-                  to={`/runs?text=${encodeURIComponent(e.event.executionId)}`}
-                  title="Find this run"
-                >
-                  {e.event.executionId.slice(0, 8)}
-                </Link>
+                <Tip label="Find this run">
+                  <Link
+                    className="text-primary"
+                    to={`/runs?text=${encodeURIComponent(e.event.executionId)}`}
+                  >
+                    {e.event.executionId.slice(0, 8)}
+                  </Link>
+                </Tip>
               )}
               <span className="text-on-surface min-w-0 wrap-break-word">
                 {describe(e)}

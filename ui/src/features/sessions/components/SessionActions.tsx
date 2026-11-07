@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { Tip } from '@/components/ui/tooltip';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -34,30 +35,31 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
           edit
         </span>
       </Link>
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        aria-label="Export JSON"
-        title={EXPORT_HINT}
-        onClick={() => {
-          setExportError(null);
-          exportSessionConfig(sessionId).catch((error: unknown) =>
-            setExportError(
-              error instanceof Error
-                ? `Export failed: ${error.message}`
-                : 'Export failed'
-            )
-          );
-        }}
-      >
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-base"
+      <Tip label={EXPORT_HINT}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          aria-label="Export JSON"
+          onClick={() => {
+            setExportError(null);
+            exportSessionConfig(sessionId).catch((error: unknown) =>
+              setExportError(
+                error instanceof Error
+                  ? `Export failed: ${error.message}`
+                  : 'Export failed'
+              )
+            );
+          }}
         >
-          download
-        </span>
-      </Button>
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            download
+          </span>
+        </Button>
+      </Tip>
       <RequirePermission perm="deleteSessions">
         <Button
           type="button"

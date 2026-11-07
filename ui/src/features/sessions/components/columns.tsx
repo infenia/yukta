@@ -9,6 +9,7 @@ import {
   formatRelative,
 } from '@/features/workflow/lib/timeFormat';
 import type { SessionListItem } from '../types/session';
+import { Tip } from '@/components/ui/tooltip';
 
 /** A session row, with its newest run when the list found one. */
 export type SessionRow = SessionListItem;
@@ -88,24 +89,25 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
     accessorKey: 'projectPath',
     header: 'Working directory',
     cell: ({ row }) => (
-      <button
-        type="button"
-        title="Copy working directory"
-        aria-label={`Copy working directory ${row.original.projectPath}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          void navigator.clipboard?.writeText(row.original.projectPath);
-        }}
-        className="text-code-sm text-on-surface hover:bg-muted inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left"
-      >
-        <span className="truncate">{row.getValue('projectPath')}</span>
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-muted-foreground text-sm"
+      <Tip label="Copy working directory">
+        <button
+          type="button"
+          aria-label={`Copy working directory ${row.original.projectPath}`}
+          onClick={(e) => {
+            e.stopPropagation();
+            void navigator.clipboard?.writeText(row.original.projectPath);
+          }}
+          className="text-code-sm text-on-surface hover:bg-muted inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left"
         >
-          content_copy
-        </span>
-      </button>
+          <span className="truncate">{row.getValue('projectPath')}</span>
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-muted-foreground text-sm"
+          >
+            content_copy
+          </span>
+        </button>
+      </Tip>
     ),
   },
 ];

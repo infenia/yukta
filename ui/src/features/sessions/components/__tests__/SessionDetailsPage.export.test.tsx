@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import {
   describe,
   it,
@@ -69,7 +70,7 @@ describe('SessionDetailsPage export', () => {
     const user = userEvent.setup();
     renderPage();
     const item = await screen.findByRole('button', { name: /export json/i });
-    expect(item).toHaveAttribute('title', 'Secret values are not exported.');
+    await expectTooltip(item, 'Secret values are not exported.');
     await user.click(item);
     expect(exportSessionConfig).toHaveBeenCalledWith('sess-123');
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();

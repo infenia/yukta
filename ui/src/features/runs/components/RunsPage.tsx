@@ -47,6 +47,7 @@ import {
   type Range,
   type RunFilters,
 } from '../lib/filters';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Runs fetched first, and added by each "Load more". */
 const PAGE = 100;
@@ -279,17 +280,18 @@ function Runs() {
                       data-label="Run"
                       className={cn(STACKED_CELL, 'text-code-sm py-3')}
                     >
-                      <Link
-                        className="text-primary"
-                        title={run.executionId}
-                        to={runPath(
-                          run.sessionId,
-                          run.workflowId,
-                          run.executionId
-                        )}
-                      >
-                        {run.executionId.slice(0, 8)}
-                      </Link>
+                      <Tip label={run.executionId}>
+                        <Link
+                          className="text-primary"
+                          to={runPath(
+                            run.sessionId,
+                            run.workflowId,
+                            run.executionId
+                          )}
+                        >
+                          {run.executionId.slice(0, 8)}
+                        </Link>
+                      </Tip>
                       <button
                         type="button"
                         aria-label={`Copy run id ${run.executionId}`}

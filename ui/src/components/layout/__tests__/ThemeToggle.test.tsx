@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -34,10 +35,10 @@ describe('ThemeToggle', () => {
       expect(icon).toBeInTheDocument();
     });
 
-    it('should show light theme in title', () => {
+    it('should show light theme in title', async () => {
       render(<ThemeToggle />);
       const button = screen.getByLabelText('Toggle theme');
-      expect(button).toHaveAttribute('title', 'Current: light');
+      await expectTooltip(button, 'Current: light');
     });
 
     it('should cycle to dark theme on click', async () => {
@@ -63,10 +64,10 @@ describe('ThemeToggle', () => {
       expect(icon).toBeInTheDocument();
     });
 
-    it('should show dark theme in title', () => {
+    it('should show dark theme in title', async () => {
       render(<ThemeToggle />);
       const button = screen.getByLabelText('Toggle theme');
-      expect(button).toHaveAttribute('title', 'Current: dark');
+      await expectTooltip(button, 'Current: dark');
     });
 
     it('should cycle to system theme on click', async () => {
@@ -92,10 +93,10 @@ describe('ThemeToggle', () => {
       expect(icon).toBeInTheDocument();
     });
 
-    it('should show system theme in title', () => {
+    it('should show system theme in title', async () => {
       render(<ThemeToggle />);
       const button = screen.getByLabelText('Toggle theme');
-      expect(button).toHaveAttribute('title', 'Current: system');
+      await expectTooltip(button, 'Current: system');
     });
 
     it('should cycle to light theme on click', async () => {
@@ -192,13 +193,6 @@ describe('ThemeToggle', () => {
       render(<ThemeToggle />);
       const button = screen.getByLabelText('Toggle theme');
       expect(button).toHaveAttribute('aria-label', 'Toggle theme');
-    });
-
-    it('should have title attribute with current theme', () => {
-      render(<ThemeToggle />);
-      const button = screen.getByLabelText('Toggle theme');
-      expect(button).toHaveAttribute('title');
-      expect(button.getAttribute('title')).toContain('Current:');
     });
 
     it('should be keyboard accessible', () => {
