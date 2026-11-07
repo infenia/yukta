@@ -229,7 +229,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` `TakeoverRecovery` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
-| `logging.api` | Plugin logging API and log store | `PluginLogger` `PluginLoggerFactory` `PluginLogStore` | EXT-02, OBS-02 |
+| `logging.api` | Plugin log store and node output paging | `PluginLogStore` `NodeOutputPager` | EXT-02, OBS-02 |
 | `model.* · event · validation · util · config` | Records, tracker events, identifier validators, helpers, Spring config | `NodePolicy` `TaskStatus` `SinkEmit` `VariableResolver` `SessionConfigProperties` | various |
 
 ## Feature catalog
@@ -1001,14 +1001,14 @@ Triggers produce messages, processors transform them, terminals consume them. Co
 
 **Status:** stable
 
-A small functional API through which plugins write structured log lines tied to their execution.
+A small interface through which plugins write log lines tied to their execution.
 
 **Behaviour**
 
-- `PluginLoggerFactory` is a `@FunctionalInterface` with one method, `create(LoggerContext)`. `LoggerContext` is a record of execution id, session id, plugin id and plugin name; default methods for 3- and 4-argument creation keep older callers working.
-- `DefaultPluginLoggerFactory` extracts the values and builds a `DefaultPluginLogger`. Lines flow to [live logs](#obs-02-live-logs).
+- The engine puts a `PluginLogSink` in the Reactor context of every node (`WorkflowContext`); a plugin calls it with the stream, the line and the level.
+- Lines go to the tracker and from there to the log store. See [live logs](#obs-02-live-logs).
 
-**Source:** `PluginLogger` `PluginLoggerFactory` `PluginLogStore`
+**Source:** `PluginLogSink` `PluginLogStore`
 
 ### EXT-03: LLM and MCP budgets
 

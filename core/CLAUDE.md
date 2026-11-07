@@ -38,11 +38,8 @@ Use **Java records** for data models (preferred) or **Lombok** (`@RequiredArgsCo
 - Custom validators in `com.infenia.yukta.validation`.
 - Use Jakarta Bean Validation.
 
-### Logging API Design
-- **PluginLoggerFactory**: Uses `@FunctionalInterface` with a single abstract method `create(LoggerContext)`.
-  - `LoggerContext` is a record encapsulating execution context (executionId, sessionId, pluginId, pluginName).
-  - Convenience default methods provided for 3 and 4-parameter creation to maintain backward compatibility.
-  - Implementation: `DefaultPluginLoggerFactory` extracts values from LoggerContext and passes to `DefaultPluginLogger`.
+### Plugin logging
+- A plugin writes live log lines through the `PluginLogSink` that the engine puts in the Reactor context (`WorkflowContext`); the lines go to `TaskTrackerService.appendLog` and from there to `PluginLogStore` (`InMemoryPluginLogStore`, fed by `LogStoreSubscriber`). `web` and `mcp` read the store through `PluginLogStore` and `NodeOutputPager`.
 
 ## Reference rules (load on demand)
 The detailed reference that used to live here is in path-scoped rules: each loads when you read, write or edit a matching file (a rule's

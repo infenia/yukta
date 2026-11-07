@@ -3,14 +3,23 @@
 package com.infenia.yukta.logging.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.core.LogLevel;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 /** Test suite for {@link PluginLogEntry}. */
 @NoArgsConstructor
+@SuppressWarnings({"unchecked", "PMD.TooManyMethods"})
 class PluginLogEntryTest {
 
   /** Execution ID constant for test fixtures. */
@@ -167,5 +176,68 @@ class PluginLogEntryTest {
 
     assertThat(entry1).isEqualTo(entry2);
     assertThat(entry1.hashCode()).isEqualTo(entry2.hashCode());
+  }
+
+  private static PluginLogEntry withMetadata(final Map<String, Object> metadata) {
+    return new PluginLogEntry(
+        EXEC_ID,
+        SESSION_ID,
+        PLUGIN_ID,
+        PLUGIN_NAME,
+        LogStream.CUSTOM,
+        "message",
+        LogLevel.INFO,
+        Instant.EPOCH,
+        "audit",
+        metadata);
+  }
+
+  @Test
+  void metadataIsFrozenDeeply() {
+    final List<Object> inner = new ArrayList<>(List.of("a"));
+    final Map<String, Object> nested = new HashMap<>(Map.of("k", "v"));
+    final Set<Object> tags = new HashSet<>(Set.of("t"));
+    final Map<String, Object> metadata = new HashMap<>();
+    metadata.put("list", inner);
+    metadata.put("map", nested);
+    metadata.put("set", tags);
+    metadata.put("plain", 1);
+
+    final PluginLogEntry entry = withMetadata(metadata);
+    inner.add("later");
+    nested.put("later", "x");
+    tags.add("later");
+
+    assertThat(entry.metadata().get("list")).isEqualTo(List.of("a"));
+    assertThat(entry.metadata().get("map")).isEqualTo(Map.of("k", "v"));
+    assertThat(entry.metadata().get("set")).isEqualTo(Set.of("t"));
+    assertThat(entry.metadata()).containsEntry("plain", 1);
+    assertThatThrownBy(() -> ((List<Object>) entry.metadata().get("list")).add("x"))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void formatShowsTheCustomStreamNameAndTheMetadata() {
+    final PluginLogEntry entry = withMetadata(new LinkedHashMap<>(Map.of("user", "ann")));
+
+    assertThat(entry.format()).contains("audit: message").endsWith("{user=ann}");
+  }
+
+  @Test
+  void formatFallsBackToTheStreamNameWhenACustomStreamHasNone() {
+    final PluginLogEntry entry =
+        new PluginLogEntry(
+            EXEC_ID,
+            SESSION_ID,
+            PLUGIN_ID,
+            PLUGIN_NAME,
+            LogStream.CUSTOM,
+            "message",
+            LogLevel.INFO,
+            Instant.EPOCH,
+            null,
+            null);
+
+    assertThat(entry.format()).contains("CUSTOM: message");
   }
 }
