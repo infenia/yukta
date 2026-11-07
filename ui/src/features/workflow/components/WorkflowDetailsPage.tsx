@@ -3,7 +3,6 @@
 
 import { DeleteWorkflowDialog } from '@/features/sessions/components/DeleteDialogs';
 import { RequirePermission } from '@/components/common/RequirePermission';
-import { buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenuItem,
   DropdownMenuSeparator,
@@ -202,18 +201,20 @@ export function WorkflowDetailsPage() {
         description={graph.description}
         leading={
           parent.data && (
-            <Link
-              to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
-              className={buttonVariants({ variant: 'outline', size: 'sm' })}
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
+            <Tip label="Parent run">
+              <Link
+                to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(parent.data.workflowId)}?exec=${encodeURIComponent(parent.data.executionId)}`}
+                aria-label="Parent run"
+                className={iconButton('primary')}
               >
-                chevron_left
-              </span>
-              Parent run
-            </Link>
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  subdirectory_arrow_left
+                </span>
+              </Link>
+            </Tip>
           )
         }
         meta={
