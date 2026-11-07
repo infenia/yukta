@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
 
 /** Turns node selectors (a node id, or {@code <prefix>.*}) into a rule condition. */
 @UtilityClass
@@ -40,6 +41,24 @@ public class Selectors {
       return "nodeId matches " + literal("^" + Pattern.quote(prefix) + ".*");
     }
     return "nodeId == " + literal(text);
+  }
+
+  /**
+   * Whether a node id is taken by one of the selectors.
+   *
+   * @param selectors node ids or {@code <prefix>.*}; null or empty takes every node
+   * @param nodeId the node id
+   * @return true if it is taken
+   */
+  public static boolean selects(final @Nullable List<String> selectors, final String nodeId) {
+    return selectors == null
+        || selectors.isEmpty()
+        || selectors.stream()
+            .anyMatch(
+                selector ->
+                    selector.endsWith(PREFIX_SUFFIX)
+                        ? nodeId.startsWith(selector.substring(0, selector.length() - 1))
+                        : selector.equals(nodeId));
   }
 
   /** A SpEL string literal: single quotes are doubled. */

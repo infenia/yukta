@@ -24,7 +24,7 @@ import reactor.test.StepVerifier;
 
 /** What the service tells the catalog about a type, and how it checks a draft. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class SupervisorServiceCatalogTest {
 
   /** A url value the test factory refuses. */
@@ -177,5 +177,25 @@ class SupervisorServiceCatalogTest {
                     .containsExactly(
                         new SettingsValidationException.Issue("settings", "no such session")))
         .verifyComplete();
+  }
+
+  @Test
+  void supervisorThatWantsItsAttachmentIdIsToldBeforeItStarts() {
+    final ExecutionSupervisor aware =
+        mock(
+            ExecutionSupervisor.class,
+            org.mockito.Mockito.withSettings()
+                .extraInterfaces(com.infenia.yukta.plugin.control.AttachmentAware.class));
+    final SupervisorService service = service(factory("t", () -> aware));
+    service.saveSupervisor(new Supervisor("s1", "t", Map.of(), false)).block();
+
+    service
+        .attach(
+            new com.infenia.yukta.plugin.control.SupervisorAttachment(
+                "att-1", "s1", new com.infenia.yukta.plugin.control.SupervisorScope.Global(), true))
+        .block();
+
+    org.mockito.Mockito.verify((com.infenia.yukta.plugin.control.AttachmentAware) aware)
+        .bindTo("att-1");
   }
 }

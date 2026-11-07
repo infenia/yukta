@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -658,6 +659,9 @@ public class SupervisorService {
     final ExecutionSupervisor made = create(profile);
     if (made instanceof WorkflowSupervisor workflow) {
       workflow.bindTo(binding.id());
+    }
+    if (made instanceof AttachmentAware aware) {
+      aware.bindTo(binding.id());
     }
     host.attach(
         new BoundSupervisor(

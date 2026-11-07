@@ -168,7 +168,7 @@ export function NodeSheet({
         <Section title="Status">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
             <StatusPill status={task?.status} scope="node" />
-            <span className="num text-body-sm text-on-surface-variant">
+            <span className="text-body-sm num text-on-surface-variant">
               {formatClockTime(task?.startTime)} to{' '}
               {formatClockTime(task?.endTime)}
               {' · '}
@@ -205,7 +205,7 @@ export function NodeSheet({
 
         <Section title="Logs">
           {lines.length > 0 ? (
-            <pre className="bg-terminal text-terminal-foreground text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
+            <pre className="text-terminal-foreground bg-terminal text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
               {lines.map((l) => l.message).join('\n')}
             </pre>
           ) : (

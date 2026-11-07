@@ -6,6 +6,7 @@ import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.SupervisorResultMapper;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.session.InternalSessions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

@@ -45,4 +45,14 @@ class SettingsTest {
     assertThatThrownBy(() -> Selectors.condition(List.of(" "))).hasMessageContaining("nodes");
     assertThatThrownBy(() -> Selectors.condition(List.of("a,b"))).hasMessageContaining("nodes");
   }
+
+  @Test
+  void selectorsTakeNodesByIdOrPrefix() {
+    assertThat(Selectors.selects(null, "x")).isTrue();
+    assertThat(Selectors.selects(List.of(), "x")).isTrue();
+    assertThat(Selectors.selects(List.of("a", "b.*"), "a")).isTrue();
+    assertThat(Selectors.selects(List.of("a", "b.*"), "b.c")).isTrue();
+    assertThat(Selectors.selects(List.of("a", "b.*"), "bc")).isFalse();
+    assertThat(Selectors.selects(List.of("a", "b.*"), "ab")).isFalse();
+  }
 }

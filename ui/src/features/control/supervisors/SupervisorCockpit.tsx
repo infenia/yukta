@@ -2,13 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Link } from 'react-router';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Panel } from '@/components/dashboard/Tile';
 import { StateMessage } from '@/components/common/StateMessage';
 import { InlineError } from '@/components/common/InlineError';
-import type { SupervisorProfile } from '../api/supervisors';
 import { AttachDialog } from './AttachDialog';
-import { ProfileDialog } from './ProfileDialog';
 import { SupervisorCard } from './SupervisorCard';
 import {
   useBindings,
@@ -78,11 +77,7 @@ function DecisionFeed() {
 }
 
 /** The profiles, each with edit and delete (a profile a binding uses cannot be deleted). */
-function ProfileList({
-  onEdit,
-}: {
-  onEdit: (profile: SupervisorProfile) => void;
-}) {
+function ProfileList() {
   const profiles = useProfiles();
   const remove = useDeleteProfile();
   return (
@@ -109,14 +104,13 @@ function ProfileList({
                 <span className="text-on-surface-variant">{p.type}</span>
               </span>
               <span className="flex gap-1">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onEdit(p)}
+                <Link
+                  to={`/supervisors/${encodeURIComponent(p.id)}/edit`}
+                  className={buttonVariants({ variant: 'outline', size: 'sm' })}
                   aria-label={`Edit profile ${p.id}`}
                 >
                   Edit
-                </Button>
+                </Link>
                 <Button
                   size="sm"
                   variant="outline"
@@ -144,9 +138,6 @@ export function SupervisorCockpit() {
   const running = useRunningSupervisors();
   const bindings = useBindings();
   const profiles = useProfiles();
-  const [editing, setEditing] = useState<SupervisorProfile | 'new' | null>(
-    null
-  );
   const [attaching, setAttaching] = useState(false);
 
   const attached = bindings.data ?? [];
@@ -165,9 +156,12 @@ export function SupervisorCockpit() {
           Supervisors
         </h2>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setEditing('new')}>
-            New profile
-          </Button>
+          <Link
+            to="/supervisors/new"
+            className={buttonVariants({ variant: 'outline' })}
+          >
+            New supervisor
+          </Link>
           <Button onClick={() => setAttaching(true)}>Attach supervisor</Button>
         </div>
       </div>
@@ -206,15 +200,9 @@ export function SupervisorCockpit() {
         </div>
       )}
       <div className="grid gap-3 lg:grid-cols-2">
-        <ProfileList onEdit={setEditing} />
+        <ProfileList />
         <DecisionFeed />
       </div>
-      {editing && (
-        <ProfileDialog
-          profile={editing === 'new' ? undefined : editing}
-          onClose={() => setEditing(null)}
-        />
-      )}
       {attaching && <AttachDialog onClose={() => setAttaching(false)} />}
     </section>
   );

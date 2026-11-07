@@ -121,6 +121,21 @@ Acts after nodes have failed a number of times within a time window, counted per
 
 It may send only the command of its action, and nothing else.
 
+### `stall-watchdog`
+
+Acts on a node that has run too long or has written no log line for a while. It follows the events it sees and checks on a timer.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `maxRunningSeconds` | – | Longest a node may run. At least one of the two limits is required |
+| `maxSilenceSeconds` | – | Longest a running node may go without a log line |
+| `nodes` | all | Only these nodes: node ids or `<prefix>.*` |
+| `action` | `PAUSE_NODE` | `PAUSE_NODE`, `STOP_NODE`, `PAUSE_WORKFLOW` or `STOP_WORKFLOW` |
+| `once` | `true` | Act once per run of a node; `false` acts at every check while it stalls |
+| `checkEverySeconds` | `10` | How often it looks |
+
+After a gap in the events (`EventsMissed`) it forgets what it follows and does not act on what it can no longer see. It follows at most 10,000 nodes at once.
+
 ### `approval-gate`
 
 Holds the chosen commands until a person approves them. It reviews commands and sends none.
@@ -135,6 +150,25 @@ Holds the chosen commands until a person approves them. It reviews commands and 
 | `reason` | – | Shown to whoever approves |
 
 A command sent by a person is never held, so a person can always stop a run; the gate holds what other supervisors send.
+
+### `webhook`
+
+Hands decisions to a web service. It posts `{"kind": "event", "supervisorId", "attachmentId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked in what it sends.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `url` | required | The endpoint (http or https) |
+| `headers` | – | Headers to send; a value may be `${env.NAME}` |
+| `secretHeaders` | – | Headers with secrets; shown as `***` in every read |
+| `events` | `InputRequested`, `NodeStatusChanged` | The event types to post |
+| `timeoutMs` | `3000` | How long to wait for a reply, at most `10000` |
+| `review` | `false` | Also post the commands to review |
+| `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
+| `maxConcurrent` | `4` | Most calls at once |
+
+A reply of `{"commands": [...]}` is read through the same allow-list as [workflow supervisors](#workflow-supervisors), at most 10 commands, and the supervisor sends **only** the commands `allowedCommands` names (it may send none until it names some). A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. A timeout, an error status or a reply that cannot be read is no opinion for an event.
+
+It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`). A private, loopback or link-local address is refused unless the list names the host, and redirects are not followed.
 
 ## Answer input requests
 
