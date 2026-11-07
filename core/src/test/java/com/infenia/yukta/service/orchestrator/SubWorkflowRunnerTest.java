@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -78,6 +80,23 @@ class SubWorkflowRunnerTest {
         .containsEntry("k", "v")
         .containsEntry(SubWorkflowGateway.DEPTH_KEY, 2)
         .containsEntry(SubWorkflowGateway.PARENT_KEY, "parent");
+  }
+
+  @Test
+  void stoppedChild_isReportedAsStopped_notAsSuccess() {
+    when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
+    when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
+        .thenReturn(
+            Mono.deferContextual(
+                ctx -> {
+                  ctx.<AtomicReference<TaskStatus>>get(WorkflowOrchestrator.END_STATUS_KEY)
+                      .set(TaskStatus.STOPPED);
+                  return Mono.empty();
+                }));
+
+    StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
+        .assertNext(result -> assertThat(result.status()).isEqualTo("STOPPED"))
+        .verifyComplete();
   }
 
   @Test
