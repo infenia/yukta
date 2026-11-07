@@ -510,7 +510,13 @@ class InputBrokerRoutesTest {
     assertThat(raced).isTrue();
     assertThat(loser.tier()).isEqualTo("above");
     assertThat(current(request).tier()).isEqualTo("above");
-    assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance)).hasSize(1);
+    // the feed delivers to its subscribers on another thread
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
+                    .hasSize(1));
   }
 
   @Test
