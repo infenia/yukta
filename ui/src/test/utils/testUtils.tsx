@@ -3,7 +3,9 @@
 
 import React from 'react';
 import type { ReactElement } from 'react';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { expect } from 'vitest';
 import type { RenderOptions } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router';
@@ -41,3 +43,12 @@ export const createTestWrapper =
   (queryClient = createTestQueryClient()) =>
   ({ children }: { children: React.ReactNode }) =>
     React.createElement(QueryClientProvider, { client: queryClient }, children);
+
+/** Hover `element` and wait for the styled tooltip (replaces asserting a native `title`). */
+export async function expectTooltip(element: HTMLElement, text: string) {
+  await userEvent.hover(element);
+  expect(await screen.findByText(text)).toHaveAttribute(
+    'data-slot',
+    'tooltip-content'
+  );
+}

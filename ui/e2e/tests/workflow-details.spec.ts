@@ -700,11 +700,11 @@ test.describe('Workflow Details Page', () => {
 
       const toggle = page.getByRole('button', { name: 'Toggle theme' });
       for (let i = 0; i < 3; i += 1) {
-        const title = await toggle.getAttribute('title');
+        const title = await toggle.getAttribute('aria-description');
         if (title === 'Current: dark') break;
         await toggle.click();
       }
-      await expect(toggle).toHaveAttribute('title', 'Current: dark');
+      await expect(toggle).toHaveAttribute('aria-description', 'Current: dark');
       await page.evaluate(() => document.fonts.ready);
 
       await expect(page).toHaveScreenshot(

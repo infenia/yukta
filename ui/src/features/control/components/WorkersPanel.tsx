@@ -14,6 +14,7 @@ import {
 import { useEdition } from '@/features/edition/hooks/useEdition';
 import { useWorkers } from '../api/workers';
 import { relativeTime } from './WorkersPanel.helpers';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Plugin types shown per worker before the rest collapse into "+n". */
 const VISIBLE_TYPES = 3;
@@ -32,12 +33,11 @@ function Chips({ values }: { values: string[] }) {
         </span>
       ))}
       {hidden > 0 && (
-        <span
-          className="text-code-sm text-on-surface-variant px-1"
-          title={values.slice(VISIBLE_TYPES).join(', ')}
-        >
-          +{hidden}
-        </span>
+        <Tip label={values.slice(VISIBLE_TYPES).join(', ')}>
+          <span className="text-code-sm text-on-surface-variant px-1">
+            +{hidden}
+          </span>
+        </Tip>
       )}
     </span>
   );

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import { describe, it, expect, vi } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -29,14 +30,14 @@ describe('TaskSequenceList', () => {
     expect(items[3]).toHaveAttribute('data-testid', 'task-item-sink-storage');
   });
 
-  it('shows status labels, module and timing per task', () => {
+  it('shows status labels, module and timing per task', async () => {
     render(
       <TaskSequenceList graph={createMockGraph()} tasksByNode={tasksByNode()} />
     );
 
     const completed = screen.getByTestId('task-item-data-ingress');
-    expect(within(completed).getByTestId('task-status')).toHaveAttribute(
-      'title',
+    await expectTooltip(
+      within(completed).getByTestId('task-status'),
       'Succeeded'
     );
     expect(completed).toHaveTextContent('module: ingress-v1');
@@ -44,38 +45,29 @@ describe('TaskSequenceList', () => {
     expect(completed).toHaveTextContent('End: 14:22:10');
 
     const running = screen.getByTestId('task-item-vectorize-batch');
-    expect(within(running).getByTestId('task-status')).toHaveAttribute(
-      'title',
-      'Running'
-    );
+    await expectTooltip(within(running).getByTestId('task-status'), 'Running');
     expect(running).toHaveTextContent('Dur:');
   });
 
-  it('dims pending tasks and omits timing when not started', () => {
+  it('dims pending tasks and omits timing when not started', async () => {
     render(
       <TaskSequenceList graph={createMockGraph()} tasksByNode={tasksByNode()} />
     );
 
     const pending = screen.getByTestId('task-item-sink-storage');
-    expect(within(pending).getByTestId('task-status')).toHaveAttribute(
-      'title',
-      'Waiting'
-    );
+    await expectTooltip(within(pending).getByTestId('task-status'), 'Waiting');
     expect(pending.className).toContain('opacity-60');
     expect(pending).not.toHaveTextContent('Start:');
   });
 
-  it('falls back to all-pending entries for a never-run workflow', () => {
+  it('falls back to all-pending entries for a never-run workflow', async () => {
     render(<TaskSequenceList graph={createMockGraph()} tasksByNode={{}} />);
 
     const items = screen.getAllByTestId(/task-item-/);
     expect(items).toHaveLength(4);
-    items.forEach((item) =>
-      expect(within(item).getByTestId('task-status')).toHaveAttribute(
-        'title',
-        'Waiting'
-      )
-    );
+    for (const item of items) {
+      await expectTooltip(within(item).getByTestId('task-status'), 'Waiting');
+    }
     expect(screen.getByTestId('task-item-data-ingress')).toHaveTextContent(
       'module: ingress-v1'
     );
@@ -129,7 +121,7 @@ describe('TaskSequenceList', () => {
     }
   });
 
-  it('marks failed tasks with the Failed label and destructive styling', () => {
+  it('marks failed tasks with the Failed label and destructive styling', async () => {
     const tasks = tasksByNode();
     tasks['vectorize-batch'] = {
       ...tasks['vectorize-batch'],
@@ -138,10 +130,7 @@ describe('TaskSequenceList', () => {
     render(<TaskSequenceList graph={createMockGraph()} tasksByNode={tasks} />);
 
     const failed = screen.getByTestId('task-item-vectorize-batch');
-    expect(within(failed).getByTestId('task-status')).toHaveAttribute(
-      'title',
-      'Failed'
-    );
+    await expectTooltip(within(failed).getByTestId('task-status'), 'Failed');
     expect(failed.querySelector('.text-destructive')).not.toBeNull();
   });
 

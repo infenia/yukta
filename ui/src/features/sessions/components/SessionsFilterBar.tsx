@@ -10,6 +10,7 @@ import {
 import type { SessionListItem } from '../types/session';
 import { lastRunLabel } from './SessionsFilterBar.helpers';
 import type { SessionFilters } from './SessionsFilterBar.helpers';
+import { Tip } from '@/components/ui/tooltip';
 
 const distinct = (values: string[]) => [...new Set(values)].sort();
 
@@ -137,15 +138,16 @@ export function SessionsFilterBar({
       <span className="text-body-sm text-on-surface-variant ml-auto hidden sm:inline">
         Filters are kept in the URL
       </span>
-      <button
-        type="button"
-        onClick={onReset}
-        aria-label="Reset filters"
-        title="Reset filters"
-        className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-full transition-colors"
-      >
-        <span className="material-symbols-outlined text-lg">restart_alt</span>
-      </button>
+      <Tip label="Reset filters">
+        <button
+          type="button"
+          onClick={onReset}
+          aria-label="Reset filters"
+          className="text-on-surface-variant hover:bg-muted hover:text-on-surface flex size-8 items-center justify-center rounded-full transition-colors"
+        >
+          <span className="material-symbols-outlined text-lg">restart_alt</span>
+        </button>
+      </Tip>
     </div>
   );
 }

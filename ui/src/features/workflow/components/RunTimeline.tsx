@@ -7,6 +7,7 @@ import { BAR_COLOR, buildTimeline } from '../lib/timeline';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import type { TaskProgress } from '../types/workflow';
+import { Tip } from '@/components/ui/tooltip';
 
 /** How often a running node's bar grows between status updates. */
 const TICK_MS = 1000;
@@ -117,13 +118,14 @@ export function RunTimeline({
           <tbody>
             {rows.map((row) => (
               <tr key={row.nodeId} className="border-border border-t">
-                <th
-                  scope="row"
-                  className="text-body-sm text-on-surface truncate py-1.5 pr-2 text-left font-normal"
-                  title={`${row.nodeId} (${row.module})`}
-                >
-                  {row.nodeId}
-                </th>
+                <Tip label={`${row.nodeId} (${row.module})`}>
+                  <th
+                    scope="row"
+                    className="text-body-sm text-on-surface truncate py-1.5 pr-2 text-left font-normal"
+                  >
+                    {row.nodeId}
+                  </th>
+                </Tip>
                 <td className="py-1.5 pr-2">
                   <StatusPill status={row.status} scope="node" />
                 </td>

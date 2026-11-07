@@ -1,17 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { StatusPill } from '../StatusPill';
 
 describe('StatusPill', () => {
-  it('shows the design-system label and keeps the raw value for agents', () => {
+  it('shows the design-system label and keeps the raw value for agents', async () => {
     render(<StatusPill status="SUCCESS" />);
     const pill = screen.getByTestId('status-chip');
     expect(pill).toHaveTextContent('Succeeded');
     expect(pill).toHaveAttribute('data-status', 'SUCCESS');
-    expect(pill).toHaveAttribute('title', 'SUCCESS');
+    await expectTooltip(pill, 'SUCCESS');
     expect(pill).toHaveClass('text-success');
   });
 

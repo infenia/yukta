@@ -21,6 +21,7 @@ import {
   useSupervisors,
 } from '../hooks/useSupervisorTypes';
 import type { SupervisorCategory, SupervisorTypeSummary } from '../types';
+import { Tip } from '@/components/ui/tooltip';
 
 const CATEGORIES: { key: SupervisorCategory; label: string }[] = [
   { key: 'GUARD', label: 'Guards' },
@@ -100,10 +101,9 @@ function TypeDetail({ type }: { type: string }) {
                 <TableCell className="text-code-sm">
                   {field.name}
                   {field.required && (
-                    <span className="text-destructive" title="Required">
-                      {' '}
-                      *
-                    </span>
+                    <Tip label="Required">
+                      <span className="text-destructive"> *</span>
+                    </Tip>
                   )}
                 </TableCell>
                 <TableCell className="text-code-sm text-on-surface-variant">

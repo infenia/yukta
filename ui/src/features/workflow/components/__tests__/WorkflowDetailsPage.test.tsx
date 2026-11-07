@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { expectTooltip } from '@/test/utils/testUtils';
 import {
   describe,
   it,
@@ -502,7 +503,7 @@ describe('WorkflowDetailsPage', () => {
     await screen.findByTestId('progress-panel');
     const toggle = screen.getByRole('button', { name: 'Workflow progress' });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
-    expect(toggle).toHaveAttribute('title', 'Hide progress panel');
+    await expectTooltip(toggle, 'Hide progress panel');
     expect(toggle).toHaveTextContent('right_panel_close');
 
     await user.click(
@@ -510,7 +511,7 @@ describe('WorkflowDetailsPage', () => {
     );
     expect(screen.queryByTestId('progress-panel')).toBeNull();
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
-    expect(toggle).toHaveAttribute('title', 'Show progress panel');
+    await expectTooltip(toggle, 'Show progress panel');
     expect(toggle).toHaveTextContent('right_panel_open');
 
     await user.click(toggle);

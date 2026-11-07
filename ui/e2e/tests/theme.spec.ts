@@ -15,21 +15,21 @@ test.describe('Theme Switching', () => {
 
   test('should start with system theme', async ({ page }) => {
     await expect(themeToggle(page)).toBeVisible();
-    await expect(themeToggle(page)).toHaveAttribute('title', /Current: system/);
+    await expect(themeToggle(page)).toHaveAttribute('aria-description', /Current: system/);
   });
 
   test('should switch between light and dark mode', async ({ page }) => {
     const toggle = themeToggle(page);
     const html = page.locator('html');
 
-    await expect(toggle).toHaveAttribute('title', 'Current: system');
+    await expect(toggle).toHaveAttribute('aria-description', 'Current: system');
 
     await toggle.click();
-    await expect(toggle).toHaveAttribute('title', 'Current: light');
+    await expect(toggle).toHaveAttribute('aria-description', 'Current: light');
     await expect(html).not.toHaveClass(/dark/);
 
     await toggle.click();
-    await expect(toggle).toHaveAttribute('title', 'Current: dark');
+    await expect(toggle).toHaveAttribute('aria-description', 'Current: dark');
     await expect(html).toHaveClass(/dark/);
   });
 
@@ -37,12 +37,12 @@ test.describe('Theme Switching', () => {
     const toggle = themeToggle(page);
 
     await toggle.click();
-    await expect(toggle).toHaveAttribute('title', 'Current: light');
+    await expect(toggle).toHaveAttribute('aria-description', 'Current: light');
 
     await page.reload();
     await waitForLoadingComplete(page);
 
-    await expect(themeToggle(page)).toHaveAttribute('title', 'Current: light');
+    await expect(themeToggle(page)).toHaveAttribute('aria-description', 'Current: light');
   });
 
   test('should have proper color contrast in both modes', async ({ page }) => {
@@ -52,11 +52,11 @@ test.describe('Theme Switching', () => {
     // Force light mode explicitly; 'system' can resolve to either depending
     // on the host's OS preference.
     for (let i = 0; i < 3; i += 1) {
-      const title = await themeToggle(page).getAttribute('title');
+      const title = await themeToggle(page).getAttribute('aria-description');
       if (title === 'Current: light') break;
       await themeToggle(page).click();
     }
-    await expect(themeToggle(page)).toHaveAttribute('title', 'Current: light');
+    await expect(themeToggle(page)).toHaveAttribute('aria-description', 'Current: light');
     await expect(page.locator('html')).not.toHaveClass(/dark/);
 
     const cell = table.locator('td').first();

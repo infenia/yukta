@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { TooltipProvider } from '@/components/ui/tooltip';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -27,7 +28,9 @@ if (rootElement) {
   ReactDOM.createRoot(rootElement).render(
     <React.StrictMode>
       <QueryClientProvider client={queryClient}>
-        <AppRouter />
+        <TooltipProvider>
+          <AppRouter />
+        </TooltipProvider>
       </QueryClientProvider>
     </React.StrictMode>
   );

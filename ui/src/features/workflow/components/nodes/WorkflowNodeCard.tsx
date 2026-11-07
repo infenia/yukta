@@ -17,6 +17,7 @@ import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
 import type { NodeUiStatus, TaskProgress } from '../../types/workflow';
+import { Tip } from '@/components/ui/tooltip';
 
 const STATUS_ICONS: Partial<Record<NodeUiStatus, string>> = {
   running: 'sync',
@@ -241,22 +242,23 @@ export function WorkflowNodeCard({
           <span className="text-body-sm text-on-surface-variant">{detail}</span>
         )}
         {subWorkflowHref && (
-          <Link
-            to={subWorkflowHref}
-            aria-label={`Open sub-workflow ${node.subWorkflowId}`}
-            title={`Open ${node.subWorkflowId}`}
-            // the canvas opens the node's sheet on a node click, which would undo this navigation
-            onClick={(event) => event.stopPropagation()}
-            className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
-          >
-            Open
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
+          <Tip label={`Open ${node.subWorkflowId}`}>
+            <Link
+              to={subWorkflowHref}
+              aria-label={`Open sub-workflow ${node.subWorkflowId}`}
+              // the canvas opens the node's sheet on a node click, which would undo this navigation
+              onClick={(event) => event.stopPropagation()}
+              className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
             >
-              chevron_right
-            </span>
-          </Link>
+              Open
+              <span
+                aria-hidden="true"
+                className="material-symbols-outlined text-base"
+              >
+                chevron_right
+              </span>
+            </Link>
+          </Tip>
         )}
       </div>
       {percent !== null && (

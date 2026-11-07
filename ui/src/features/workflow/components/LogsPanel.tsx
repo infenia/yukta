@@ -20,6 +20,7 @@ import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import { runEvents } from '../lib/runEvents';
 import type { LogEntry, WorkflowProgress } from '../types/workflow';
+import { Tip } from '@/components/ui/tooltip';
 
 /** Fixed row height (leading-5) so only the visible window of the buffered lines is in the DOM. */
 const ROW_HEIGHT = 20;
@@ -424,52 +425,54 @@ export function LogsPanel({
                   className="text-body-sm h-7 w-full pl-8"
                 />
               </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={autoScroll}
-                aria-label="Toggle auto-scroll"
-                title="Keep the newest line in view"
-                onClick={() => setAutoScroll((value) => !value)}
-                className={cn(
-                  'text-label-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 transition-colors',
-                  autoScroll
-                    ? 'border-primary/30 bg-primary/10 text-primary'
-                    : 'text-on-surface-variant hover:bg-muted border-transparent'
-                )}
-              >
-                <span
-                  aria-hidden
+              <Tip label="Keep the newest line in view">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoScroll}
+                  aria-label="Toggle auto-scroll"
+                  onClick={() => setAutoScroll((value) => !value)}
                   className={cn(
-                    'size-1.5 rounded-full',
-                    autoScroll ? 'bg-primary' : 'bg-outline'
+                    'text-label-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 transition-colors',
+                    autoScroll
+                      ? 'border-primary/30 bg-primary/10 text-primary'
+                      : 'text-on-surface-variant hover:bg-muted border-transparent'
                   )}
-                />
-                Follow
-              </button>
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      'size-1.5 rounded-full',
+                      autoScroll ? 'bg-primary' : 'bg-outline'
+                    )}
+                  />
+                  Follow
+                </button>
+              </Tip>
               {/* The result shows inside the button: a status beside it would shift the toolbar */}
-              <button
-                type="button"
-                onClick={copyLogs}
-                aria-label="Copy logs"
-                title="Copy the visible lines"
-                className={cn(
-                  'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
-                  copyStatus === 'copied' && 'bg-success/10 text-success',
-                  copyStatus === 'failed' &&
-                    'bg-destructive/10 text-destructive',
-                  !copyStatus &&
-                    'text-on-surface-variant hover:bg-muted hover:text-on-surface'
-                )}
-              >
-                <span className="material-symbols-outlined text-base">
-                  {copyStatus === 'copied'
-                    ? 'check'
-                    : copyStatus === 'failed'
-                      ? 'error'
-                      : 'content_copy'}
-                </span>
-              </button>
+              <Tip label="Copy the visible lines">
+                <button
+                  type="button"
+                  onClick={copyLogs}
+                  aria-label="Copy logs"
+                  className={cn(
+                    'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                    copyStatus === 'copied' && 'bg-success/10 text-success',
+                    copyStatus === 'failed' &&
+                      'bg-destructive/10 text-destructive',
+                    !copyStatus &&
+                      'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+                  )}
+                >
+                  <span className="material-symbols-outlined text-base">
+                    {copyStatus === 'copied'
+                      ? 'check'
+                      : copyStatus === 'failed'
+                        ? 'error'
+                        : 'content_copy'}
+                  </span>
+                </button>
+              </Tip>
               {copyStatus && (
                 <span role="status" className="sr-only">
                   {copyStatus === 'copied' ? 'Copied' : 'Copy failed'}

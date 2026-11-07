@@ -19,6 +19,7 @@ import {
 } from '../api/versions';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Modal } from '@/components/common/Modal';
+import { Tip } from '@/components/ui/tooltip';
 
 interface Props {
   sessionId: string;
@@ -123,22 +124,25 @@ export function WorkflowVersionsPanel({
               {compared === version.id ? 'Hide changes' : 'Changes since'}
             </Button>
             <RequirePermission perm="editSessions">
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={
-                  liveRun ||
-                  (goBack.isPending && goBack.variables === version.id)
-                }
-                title={
+              <Tip
+                label={
                   liveRun
                     ? 'A run of this workflow is still going. Stop it first'
                     : undefined
                 }
-                onClick={() => setConfirming(version.id)}
               >
-                Roll back
-              </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={
+                    liveRun ||
+                    (goBack.isPending && goBack.variables === version.id)
+                  }
+                  onClick={() => setConfirming(version.id)}
+                >
+                  Roll back
+                </Button>
+              </Tip>
             </RequirePermission>
           </div>
           <div className="flex items-center gap-2">

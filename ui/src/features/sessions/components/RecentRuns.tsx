@@ -19,6 +19,7 @@ import {
 } from '@/features/workflow/lib/timeFormat';
 import { searchExecutions } from '@/features/runs/api/searchExecutions';
 import { parseFilters } from '@/features/runs/lib/filters';
+import { Tip } from '@/components/ui/tooltip';
 
 const RECENT = 5;
 
@@ -68,13 +69,14 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
                     <StatusPill status={run.status} />
                   </TableCell>
                   <TableCell className="px-4">
-                    <Link
-                      to={`/sessions/${session}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
-                      title={run.executionId}
-                      className="text-code-sm text-primary"
-                    >
-                      {run.executionId.slice(0, 8)}
-                    </Link>
+                    <Tip label={run.executionId}>
+                      <Link
+                        to={`/sessions/${session}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`}
+                        className="text-code-sm text-primary"
+                      >
+                        {run.executionId.slice(0, 8)}
+                      </Link>
+                    </Tip>
                   </TableCell>
                   <TableCell className="text-code-sm px-4">
                     {run.workflowId}
