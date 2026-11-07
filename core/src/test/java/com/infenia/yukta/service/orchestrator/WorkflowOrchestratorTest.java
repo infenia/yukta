@@ -201,6 +201,28 @@ class WorkflowOrchestratorTest {
   }
 
   @Test
+  void execute_runsOnWhenTheArchiveCannotBeWritten() {
+    final String sessionId = "sess-1";
+    final String workflowId = "wf-1";
+    final String executionId = "exec-archive-fails";
+    final Map<String, Object> payload = Map.of("key", "val");
+    final PreparedWorkflow prepared = buildPreparedWorkflow(List.of("node-a"));
+    final Sinks.One<Void> safeStop = Sinks.one();
+    setupExecutionControl(sessionId, workflowId, executionId, prepared, payload, safeStop);
+    when(tracker.startWorkflow(eq(executionId), eq(sessionId), eq(workflowId), anyList()))
+        .thenReturn(Mono.empty());
+    when(prepared.template().instantiate(eq(executionId), eq(payload))).thenReturn(Mono.empty());
+    org.mockito.Mockito.doThrow(new IllegalStateException("log disk full"))
+        .when(executionLog)
+        .append(any());
+
+    StepVerifier.create(orchestrator.execute(sessionId, workflowId, executionId, prepared, payload))
+        .verifyComplete();
+
+    verify(tracker).finishWorkflow(eq(executionId), any());
+  }
+
+  @Test
   @SuppressWarnings("unchecked")
   void execute_cancelsTheOpenInputRequestsWhenTheRunEnds() {
     final InputBroker broker = org.mockito.Mockito.mock(InputBroker.class);
