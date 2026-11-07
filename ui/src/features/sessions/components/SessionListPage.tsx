@@ -5,6 +5,8 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { buttonVariants } from '@/components/ui/button';
+import { iconButton } from '@/components/ui/iconTone';
+import { Tip } from '@/components/ui/tooltip';
 import {
   useLegacyTable,
   getCoreRowModel,
@@ -161,22 +163,20 @@ export function SessionListPage() {
           actions={
             isEmpty ? undefined : (
               <div className="flex gap-2">
-                <Link
-                  to="/sessions/import"
-                  aria-label="Import session"
-                  title="Import session"
-                  className={buttonVariants({
-                    variant: 'outline',
-                    size: 'icon',
-                  })}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined text-base"
+                <Tip label="Import session">
+                  <Link
+                    to="/sessions/import"
+                    aria-label="Import session"
+                    className={iconButton('primary')}
                   >
-                    upload
-                  </span>
-                </Link>
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined text-base"
+                    >
+                      upload
+                    </span>
+                  </Link>
+                </Tip>
                 {newSession}
               </div>
             )

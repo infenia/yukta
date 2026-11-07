@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -49,6 +49,7 @@ const server = setupServer(
 );
 
 beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 function Where() {
@@ -76,11 +77,43 @@ describe('SessionListPage last run', () => {
     renderList();
     await screen.findAllByTestId('status-chip');
     const pill = within(rowOf('dogfood')).getByTestId('status-chip');
-    expect(pill).toHaveTextContent('Running');
+    // the pill is icon-only: the status word lives in the label, not the text
+    expect(pill).toHaveAttribute('aria-label', 'Running');
+    expect(pill).not.toHaveTextContent('Running');
     expect(rowOf('dogfood')).toHaveTextContent('check ·');
-    expect(within(rowOf('idle')).getByText('Not run')).toBeInTheDocument();
+    expect(within(rowOf('idle')).getByLabelText('Not run')).toBeInTheDocument();
     // a queued run has not started yet
     expect(rowOf('waiting')).toHaveTextContent('check · --');
+  });
+
+  it('shows the session name once: the ID appears only when it is not the name slug', async () => {
+    server.use(
+      http.get('/api/sessions/summaries', () =>
+        ok([
+          createMockSession({
+            sessionId: 'build-pipeline',
+            name: 'Build Pipeline',
+          }),
+          createMockSession({ sessionId: 'ci-7', name: 'Build Pipeline' }),
+        ])
+      )
+    );
+    renderList();
+    const names = await screen.findAllByText('Build Pipeline', {
+      selector: '.text-label-md',
+    });
+    const [same, differs] = names.map(
+      (name) => name.closest('tr') as HTMLElement
+    );
+    expect(within(same).queryByText('build-pipeline')).not.toBeInTheDocument();
+    expect(within(differs).getByText('ci-7')).toBeInTheDocument();
+  });
+
+  it('gives the Import session button the shared bordered icon-button style', async () => {
+    renderList();
+    const link = await screen.findByRole('link', { name: 'Import session' });
+    // iconButton('primary'): border from the outline variant, tinted hover from the tone
+    expect(link).toHaveClass('border-border', 'hover:bg-primary/10');
   });
 
   it('labels each cell for the stacked phone layout', async () => {
