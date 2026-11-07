@@ -56,6 +56,43 @@ class ExecutionRecoveryTest {
   }
 
   @Test
+  void runWithStatusThisVersionDoesNotKnow_isSkippedAndTheOthersAreRestored() {
+    finishedRun("odd", "RENAMED_IN_A_NEWER_VERSION");
+    finishedRun("fine", "SUCCESS");
+
+    ExecutionRecoveryFixture.create(store, tracker, 100).recover();
+
+    assertThat(tracker.getProgress("s1", "fine").status()).isEqualTo(TaskStatus.SUCCESS);
+    assertThat(store.readAll()).anyMatch(event -> "odd".equals(event.executionId()));
+  }
+
+  @Test
+  void limitsEventThatCannotBeRead_leavesTheConfiguredLimitsAlone() {
+    final ExecutionScheduler scheduler =
+        ExecutionSchedulerFixture.create(
+            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    store.append(
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.LIMITS_CHANGED,
+            ExecutionLogEvent.SCHEDULER,
+            null,
+            null,
+            null,
+            null,
+            Map.of(ExecutionLogEvent.MAX_CONCURRENT, "many"),
+            null,
+            null,
+            java.time.Instant.now(),
+            null));
+    final ExecutionRecovery recovery = ExecutionRecoveryFixture.create(store, tracker, 100);
+    recovery.setExecutionScheduler(scheduler);
+
+    recovery.recover();
+
+    assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
+  }
+
+  @Test
   void finishedRuns_areRestoredWithTheirNodeStatuses() {
     finishedRun("done", "FAILURE");
 
