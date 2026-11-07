@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 /** Keys of the control bus: one node of one run of one workflow. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ControlKeyTest {
 
   @Test

@@ -47,12 +47,7 @@ import tools.jackson.databind.ObjectMapper;
 @Slf4j
 @Validated
 @RequiredArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.ExcessiveImports",
-  "PMD.CompareObjectsWithEquals",
-  "PMD.CouplingBetweenObjects"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CompareObjectsWithEquals"})
 public class FileSessionConfigStore implements SessionConfigStore {
 
   /** The session configuration properties. */

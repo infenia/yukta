@@ -30,7 +30,7 @@ import reactor.test.StepVerifier;
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ControlBusService")
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.ControlBusService - ")
 class ControlBusServiceTest {
 
@@ -88,7 +88,7 @@ class ControlBusServiceTest {
   }
 
   @Test
-  void emit_somethingThatIsNotACommand_isRefusedEvenWithAnExecutor() {
+  void emit_nonCommand_isRefusedEvenWithExecutor() {
     controlBusService.setCommandExecutor(
         command -> Mono.error(new IllegalStateException("not for this")));
     final Message<?> signal =

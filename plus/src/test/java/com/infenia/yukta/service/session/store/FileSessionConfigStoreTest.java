@@ -29,11 +29,7 @@ import tools.jackson.databind.ObjectMapper;
 /** Unit tests for {@link FileSessionConfigStore}. */
 @MockitoSettings(strictness = Strictness.LENIENT)
 @NoArgsConstructor
-@SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.AvoidInstantiatingObjectsInLoops"
-})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class FileSessionConfigStoreTest {
 
   /** The sessions directory name. */
@@ -342,7 +338,7 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  void aNewStoreReadsWhatAnotherWrote() {
+  void reopenedStoreReadsWhatTheFirstWrote() {
     configStore.applySessionConfig(data("s1", "first")).block();
     final FileSessionConfigStore reopened =
         new FileSessionConfigStore(props, new ObjectMapper(), workflowDefinitionStore);
@@ -360,7 +356,7 @@ class FileSessionConfigStoreTest {
   }
 
   @Test
-  void setInitiator_fillsAFileThatHasNoInitiatorAtAll() throws IOException {
+  void setInitiator_fillsFileWithoutAnyInitiator() throws IOException {
     final Path sessions = tempDir.resolve(SESSIONS_DIR);
     Files.createDirectories(sessions);
     Files.writeString(sessions.resolve("bare" + JSON_EXT), "{}");

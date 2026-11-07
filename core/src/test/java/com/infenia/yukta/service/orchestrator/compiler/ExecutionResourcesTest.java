@@ -20,7 +20,6 @@ import reactor.core.scheduler.Schedulers;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyStaticImports")
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.orchestrator.compiler.ExecutionResources - ")
 class ExecutionResourcesTest {
 

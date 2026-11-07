@@ -33,12 +33,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.ExcessiveImports",
-  "PMD.TooManyMethods",
-  "PMD.TooManyStaticImports"
-})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods", "PMD.TooManyStaticImports"})
 @NoArgsConstructor
 class DirectiveDispatcherTest {
 

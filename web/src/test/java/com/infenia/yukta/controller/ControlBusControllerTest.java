@@ -23,7 +23,7 @@ import reactor.core.publisher.Mono;
 
 /** Tests for ControlBusController. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals"})
+@SuppressWarnings("PMD.TooManyStaticImports")
 class ControlBusControllerTest {
 
   /** First test node identifier. */
