@@ -4,12 +4,19 @@ package com.infenia.yukta.service.supervisor.composite;
 
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.ConfigField.Type;
+import com.infenia.yukta.plugin.core.UiDesign;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
@@ -42,7 +49,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
-  public ExecutionSupervisor create(final SupervisorProfile profile) {
+  public ExecutionSupervisor create(final Supervisor profile) {
     final CompositeSettings settings = CompositeSettings.read(profile);
     final SupervisorResolver resolver = resolvers.getObject();
     checkTree(resolver, profile, new LinkedHashSet<>());
@@ -65,7 +72,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
 
   /** Looks for a cycle and for nesting that is too deep, before anything is built. */
   private static void checkTree(
-      final SupervisorResolver resolver, final SupervisorProfile node, final Set<String> path) {
+      final SupervisorResolver resolver, final Supervisor node, final Set<String> path) {
     if (!path.add(node.id())) {
       throw new IllegalArgumentException("Composite profiles form a cycle at '" + node.id() + "'");
     }
@@ -74,7 +81,7 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
           "Composites nest at most " + CompositeSettings.MAX_DEPTH + " deep");
     }
     for (final String childId : CompositeSettings.read(node).children()) {
-      final SupervisorProfile child =
+      final Supervisor child =
           resolver
               .profile(childId)
               .orElseThrow(() -> new IllegalArgumentException("Unknown child profile: " + childId));
@@ -83,5 +90,47 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
       }
     }
     path.remove(node.id());
+  }
+
+  @Override
+  public SupervisorDescriptor describe() {
+    return new SupervisorDescriptor(
+        "Composite",
+        "Runs other supervisors as one: one id, one scope and one set of metrics.",
+        "Use it to chain control planes, take the first match, or combine supervisors by quorum.",
+        SupervisorCategory.COMPOSITION,
+        Optional.of(new UiDesign("amber", "account_tree", "Composite", 140, 80)),
+        Map.of("mode", "PARALLEL", "children", List.of("rules", "model")));
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(
+        ConfigField.choice(
+            "mode",
+            true,
+            null,
+            "How the children are combined",
+            "CHAIN",
+            "FIRST_MATCH",
+            "PARALLEL",
+            "QUORUM"),
+        ConfigField.required(
+            "children", Type.LIST, "The ids of the child supervisors, in order; at most 10"),
+        ConfigField.choice(
+            "review",
+            false,
+            "ALL",
+            "How the reviews of the children add up",
+            "ALL",
+            "ANY",
+            "MAJORITY"),
+        ConfigField.optional(
+            "quorum", Type.NUMBER, null, "For QUORUM: how many must agree; default a majority"),
+        ConfigField.optional(
+            "window",
+            Type.NUMBER,
+            500,
+            "For QUORUM: milliseconds in which equal commands are collected"));
   }
 }

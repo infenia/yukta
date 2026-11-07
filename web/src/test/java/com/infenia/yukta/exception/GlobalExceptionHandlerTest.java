@@ -203,6 +203,27 @@ class GlobalExceptionHandlerTest {
   }
 
   @Test
+  void settingsValidationGivesOneFieldErrorPerIssue() {
+    final var exception =
+        new com.infenia.yukta.service.supervisor.SettingsValidationException(
+            List.of(
+                new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                    "settings.bogus", "is not a setting of this type"),
+                new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                    "settings.url", "is required")));
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse("/api/supervisors", "/"));
+
+    final ResponseEntity<ApiResponse<Object>> resp =
+        handler.handleSettingsValidation(exception, request);
+
+    assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(resp.getBody().errors())
+        .extracting(ApiResponse.FieldError::field)
+        .containsExactly("settings.bogus", "settings.url");
+  }
+
+  @Test
   void testHandleIllegalArgument() {
     final IllegalArgumentException exception = new IllegalArgumentException("invalid arg");
     final ServerHttpRequest request = mock(ServerHttpRequest.class);

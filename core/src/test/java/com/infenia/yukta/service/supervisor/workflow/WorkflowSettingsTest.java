@@ -5,7 +5,7 @@ package com.infenia.yukta.service.supervisor.workflow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -24,7 +24,7 @@ class WorkflowSettingsTest {
   }
 
   private static WorkflowSettings read(final Map<String, Object> m) {
-    return WorkflowSettings.read(new SupervisorProfile("p", "workflow", m, false), 4);
+    return WorkflowSettings.read(new Supervisor("p", "workflow", m, false), 4);
   }
 
   @Test

@@ -102,6 +102,18 @@ public final class HostAllowList {
   }
 
   /**
+   * Whether the URL's host is named in the list, as an entry or under a wildcard; an empty list
+   * names no host.
+   *
+   * @param url the URL about to be called
+   * @return true if its host is listed
+   */
+  public boolean names(final String url) {
+    final String host = hostOf(url);
+    return host != null && (hosts.contains(host) || suffixes.stream().anyMatch(host::endsWith));
+  }
+
+  /**
    * Why a URL may not be called.
    *
    * @param url the URL about to be called

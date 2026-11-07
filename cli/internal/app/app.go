@@ -16,6 +16,7 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/scheduler"
 	"com.infenia.yukta/go-cli/internal/commands/session"
+	"com.infenia.yukta/go-cli/internal/commands/supervisors"
 	"com.infenia.yukta/go-cli/internal/commands/whoami"
 	"com.infenia.yukta/go-cli/internal/commands/workflow"
 )
@@ -52,8 +53,7 @@ func run() (int, error) {
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
 	rootCmd.AddCommand(inputs.InputsCmd(c))
-	rootCmd.AddCommand(commands.DataCmd("supervisors", "List supervisors", 0,
-		func([]string) (any, error) { return c.GetSupervisors() }))
+	rootCmd.AddCommand(supervisors.SupervisorsCmd(c))
 	rootCmd.AddCommand(commands.DataCmd("workers", "List workers", 0,
 		func([]string) (any, error) { return c.GetWorkers() }))
 

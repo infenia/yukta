@@ -21,7 +21,7 @@ class SupervisorFactoryTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final SupervisorProfile profile) {
+        public ExecutionSupervisor create(final Supervisor profile) {
           created.incrementAndGet();
           if (profile.settings().containsKey("bad")) {
             throw new IllegalArgumentException("bad settings");
@@ -32,11 +32,10 @@ class SupervisorFactoryTest {
 
   @Test
   void validate_byDefaultMakesSupervisor_andSurfacesItsRefusal() {
-    factory.validate(new SupervisorProfile("p", "t", Map.of(), false));
+    factory.validate(new Supervisor("p", "t", Map.of(), false));
     org.assertj.core.api.Assertions.assertThat(created).hasValue(1);
 
-    assertThatThrownBy(
-            () -> factory.validate(new SupervisorProfile("p", "t", Map.of("bad", 1), false)))
+    assertThatThrownBy(() -> factory.validate(new Supervisor("p", "t", Map.of("bad", 1), false)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("bad settings");
   }

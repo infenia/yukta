@@ -8,8 +8,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
@@ -48,8 +48,8 @@ class WorkflowServiceTest {
     return service;
   }
 
-  private static SupervisorProfile profile() {
-    return new SupervisorProfile(
+  private static Supervisor profile() {
+    return new Supervisor(
         "wfp",
         "workflow",
         Map.of("sessionId", "sys", "workflowId", "wf", "events", List.of("InputRequested")),
@@ -60,7 +60,7 @@ class WorkflowServiceTest {
   void profileFailingChecksIsNotSaved() {
     when(checks.check(any())).thenReturn(Mono.error(new IllegalArgumentException("not internal")));
 
-    StepVerifier.create(service().saveProfile(profile()))
+    StepVerifier.create(service().saveSupervisor(profile()))
         .expectErrorMessage("not internal")
         .verify();
   }
@@ -69,10 +69,10 @@ class WorkflowServiceTest {
   void theBindingIdBecomesTheSupervisorsActor() {
     when(checks.check(any())).thenReturn(Mono.empty());
     final SupervisorService service = service();
-    service.saveProfile(profile()).block();
+    service.saveSupervisor(profile()).block();
 
     service
-        .attach(new SupervisorBinding("bind-1", "wfp", new SupervisorScope.Global(), true))
+        .attach(new SupervisorAttachment("bind-1", "wfp", new SupervisorScope.Global(), true))
         .block();
 
     final ArgumentCaptor<BoundSupervisor> bound = ArgumentCaptor.forClass(BoundSupervisor.class);

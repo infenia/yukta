@@ -23,6 +23,7 @@ public interface SessionMapper {
    * @param configRequest the web request DTO
    * @return the core domain model
    */
+  @Mapping(target = "supervisors", expression = "java(configRequest.supervisors())")
   SessionConfigData configRequestToSessionConfigData(ConfigRequest configRequest);
 
   /**
@@ -31,6 +32,7 @@ public interface SessionMapper {
    * @param request the workflow definition request
    * @return the domain model
    */
+  @Mapping(target = "supervisors", expression = "java(request.supervisors())")
   WorkflowDefinition workflowDefinitionRequestToWorkflowDefinition(
       WorkflowDefinitionRequest request);
 

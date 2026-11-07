@@ -27,14 +27,14 @@ export function Modal({
   }, [onClose]);
 
   return createPortal(
-    <div className="animate-in fade-in-0 bg-overlay/50 fixed inset-0 z-60 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-60 flex animate-in items-center justify-center bg-overlay/50 p-4 backdrop-blur-sm fade-in-0">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`animate-in zoom-in-95 fade-in-0 border-border bg-card shadow-raised max-h-[90vh] w-full overflow-auto rounded-2xl border p-6 duration-150 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
+        className={`max-h-[90vh] w-full animate-in overflow-auto rounded-2xl border border-border bg-card p-6 shadow-raised duration-150 fade-in-0 zoom-in-95 ${wide ? 'max-w-3xl' : 'max-w-lg'}`}
       >
-        <h2 className="text-headline-md text-on-surface mb-4">{title}</h2>
+        <h2 className="mb-4 text-headline-md text-on-surface">{title}</h2>
         {children}
       </div>
     </div>,

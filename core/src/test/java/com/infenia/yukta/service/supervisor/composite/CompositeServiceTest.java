@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.composite;
 
-import static org.mockito.ArgumentMatchers.any;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,10 +10,13 @@ import static org.mockito.Mockito.verify;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.BoundSupervisor;
@@ -23,6 +26,7 @@ import com.infenia.yukta.service.supervisor.SupervisorService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -40,7 +44,7 @@ class CompositeServiceTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final SupervisorProfile profile) {
+        public ExecutionSupervisor create(final Supervisor profile) {
           return new ExecutionSupervisor() {
             @Override
             public String id() {
@@ -54,6 +58,24 @@ class CompositeServiceTest {
           };
         }
       };
+
+  @Test
+  void describesItselfAndDeclaresItsSettings() {
+    final CompositeSupervisorFactory factory =
+        new CompositeSupervisorFactory(
+            new StaticListableBeanFactory().getBeanProvider(SupervisorResolver.class));
+
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(factory.type()).isEqualTo("composite");
+    assertThat(described.displayName()).isEqualTo("Composite");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.COMPOSITION);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsEntry("mode", "PARALLEL");
+    assertThat(factory.getConfigSchema())
+        .extracting(ConfigField::name)
+        .containsExactly("mode", "children", "review", "quorum", "window");
+  }
 
   private SupervisorService service() {
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
@@ -75,52 +97,59 @@ class CompositeServiceTest {
     return service;
   }
 
-  private static SupervisorProfile composite(final String child) {
-    return new SupervisorProfile(
+  private static Supervisor composite(final String child) {
+    return new Supervisor(
         "comp", "composite", Map.of("mode", "PARALLEL", "children", List.of(child)), false);
   }
 
   @Test
   void compositeNeedsSavedChildrenAndRestartsOnChange() {
     final SupervisorService service = service();
-    StepVerifier.create(service.saveProfile(composite("kid")))
+    StepVerifier.create(service.saveSupervisor(composite("kid")))
         .expectErrorMessage("Unknown child profile: kid")
         .verify();
-    StepVerifier.create(service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)))
+    StepVerifier.create(service.saveSupervisor(new Supervisor("kid", "leaf", Map.of(), false)))
         .expectNextCount(1)
         .verifyComplete();
-    StepVerifier.create(service.saveProfile(composite("kid"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(composite("kid")))
+        .expectNextCount(1)
+        .verifyComplete();
     StepVerifier.create(
-            service.attach(new SupervisorBinding("b", "comp", new SupervisorScope.Global(), true)))
+            service.attach(
+                new SupervisorAttachment("b", "comp", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
 
     StepVerifier.create(
-            service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of("v", 2), false)))
+            service.saveSupervisor(new Supervisor("kid", "leaf", Map.of("v", 2), false)))
         .expectNextCount(1)
         .verifyComplete();
 
-    verify(host, times(2)).attach(any(BoundSupervisor.class));
+    verify(host, times(2)).attach(ArgumentMatchers.any(BoundSupervisor.class));
   }
 
   @Test
   void unrelatedBindingsStayWhenChildChanges() {
     final SupervisorService service = service();
-    service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)).block();
-    service.saveProfile(new SupervisorProfile("other", "leaf", Map.of(), false)).block();
-    service.attach(new SupervisorBinding("b", "other", new SupervisorScope.Global(), true)).block();
+    service.saveSupervisor(new Supervisor("kid", "leaf", Map.of(), false)).block();
+    service.saveSupervisor(new Supervisor("other", "leaf", Map.of(), false)).block();
+    service
+        .attach(new SupervisorAttachment("b", "other", new SupervisorScope.Global(), true))
+        .block();
 
-    service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of("v", 2), false)).block();
+    service.saveSupervisor(new Supervisor("kid", "leaf", Map.of("v", 2), false)).block();
 
-    verify(host, times(1)).attach(any(BoundSupervisor.class));
+    verify(host, times(1)).attach(ArgumentMatchers.any(BoundSupervisor.class));
   }
 
   @Test
   void childOfCompositeCannotBeDeleted() {
     final SupervisorService service = service();
-    service.saveProfile(new SupervisorProfile("kid", "leaf", Map.of(), false)).block();
-    service.saveProfile(composite("kid")).block();
+    service.saveSupervisor(new Supervisor("kid", "leaf", Map.of(), false)).block();
+    service.saveSupervisor(composite("kid")).block();
 
-    StepVerifier.create(service.deleteProfile("kid")).expectError(ConflictException.class).verify();
+    StepVerifier.create(service.deleteSupervisor("kid"))
+        .expectError(ConflictException.class)
+        .verify();
   }
 }

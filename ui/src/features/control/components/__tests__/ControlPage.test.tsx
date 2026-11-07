@@ -43,11 +43,11 @@ let commandQuery = '';
 let commandReply: unknown = { payload: { done: true } };
 
 const server = setupServer(
+  http.get('/api/supervisors/status', () => ok([])),
   http.get('/api/supervisors', () => ok([])),
-  http.get('/api/supervisors/profiles', () => ok([])),
-  http.get('/api/supervisors/bindings', () => ok([])),
+  http.get('/api/supervisors/attachments', () => ok([])),
   http.get('/api/supervisors/decisions', () => ok([])),
-  http.get('/api/supervisors/types', () => ok([])),
+  http.get('/api/supervisor-types', () => ok([])),
   http.get('/api/sessions/summaries', () => ok([])),
   http.get('/api/metrics/snapshot', () => ok({ time: 0, values: {} })),
   http.get('/api/metrics/series', () => ok({ range: '1h', series: {} })),

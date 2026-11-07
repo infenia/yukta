@@ -63,7 +63,8 @@ public class ConfigRedactor {
                     new WorkflowDefinition.Node(
                         node.nodeId(), node.type(), redactNode(node), node.group()))
             .toList(),
-        workflow.edges());
+        workflow.edges(),
+        workflow.supervisors());
   }
 
   /**
@@ -82,7 +83,8 @@ public class ConfigRedactor {
         session.initiator(),
         session.tags(),
         session.projectPath(),
-        workflows);
+        workflows,
+        session.supervisors());
   }
 
   /**

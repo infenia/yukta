@@ -68,7 +68,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("9");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("11");
   }
 
   @Test
@@ -106,8 +106,8 @@ class MigrationUpgradeTest extends PostgresTestSupport {
     flyway.validate();
 
     assertThat(result.success).isTrue();
-    assertThat(result.migrationsExecuted).isEqualTo(8);
-    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("9");
+    assertThat(result.migrationsExecuted).isEqualTo(10);
+    assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("11");
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
       statement.execute(SET_PATH + SCHEMA);
@@ -133,8 +133,9 @@ class MigrationUpgradeTest extends PostgresTestSupport {
             "leader_lease",
             "kv_entry",
             "session_history",
-            "supervisor_binding",
-            "supervisor_profile",
+            "supervisor_attachment",
+            "supervisor",
+            "session_supervisor",
             "supervisor_id_migration"
           }) {
         assertThat(scalar(statement, "SELECT count(*) FROM " + table)).isEqualTo("0");

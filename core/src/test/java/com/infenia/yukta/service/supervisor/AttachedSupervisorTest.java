@@ -16,7 +16,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -79,7 +79,7 @@ class AttachedSupervisorTest {
       };
 
   private BoundSupervisor bound(final String id, final SupervisorScope scope, final boolean dry) {
-    return new BoundSupervisor(new SupervisorBinding(id, "p", scope, true), observer, dry);
+    return new BoundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
   }
 
   @AfterEach
@@ -278,7 +278,7 @@ class AttachedSupervisorTest {
     host.setAttachedSupervisors(attached);
     host.attach(
         new BoundSupervisor(
-            new SupervisorBinding("chatty", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("chatty", "p", new SupervisorScope.Global(), true),
             chatty,
             true));
 

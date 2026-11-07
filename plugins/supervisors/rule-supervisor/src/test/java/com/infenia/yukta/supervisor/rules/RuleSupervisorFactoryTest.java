@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -31,8 +33,7 @@ class RuleSupervisorFactoryTest {
                     "then", Map.of("command", "PauseWorkflow"))));
 
     final ExecutionSupervisor supervisor =
-        factory.create(
-            new SupervisorProfile("p", RuleSupervisorFactory.PROFILE_TYPE, settings, false));
+        factory.create(new Supervisor("p", RuleSupervisorFactory.PROFILE_TYPE, settings, false));
 
     assertThat(factory.type()).isEqualTo("rule-supervisor");
     assertThat(supervisor).isInstanceOf(RuleSupervisor.class);
@@ -50,7 +51,7 @@ class RuleSupervisorFactoryTest {
     final RuleSupervisor allowed =
         (RuleSupervisor)
             factory.create(
-                new SupervisorProfile(
+                new Supervisor(
                     "p",
                     RuleSupervisorFactory.PROFILE_TYPE,
                     Map.of("rules", rules, "canAnswer", true, "maxRisk", "MEDIUM"),
@@ -58,7 +59,7 @@ class RuleSupervisorFactoryTest {
     final RuleSupervisor notAllowed =
         (RuleSupervisor)
             factory.create(
-                new SupervisorProfile(
+                new Supervisor(
                     "p",
                     RuleSupervisorFactory.PROFILE_TYPE,
                     Map.of("rules", rules, "allowedCommands", List.of("EscalateInputCommand")),
@@ -69,12 +70,22 @@ class RuleSupervisorFactoryTest {
   }
 
   @Test
+  void describesItselfAndDeclaresTheRuleSettings() {
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(described.displayName()).isEqualTo("Rule supervisor");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.RULES);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsKey("rules");
+    assertThat(factory.getConfigSchema()).isEqualTo(RuleSupervisor.SCHEMA);
+  }
+
+  @Test
   void invalidRuleOrMisspelledFieldIsRefused() {
-    final SupervisorProfile misspelled =
-        new SupervisorProfile(
-            "p", RuleSupervisorFactory.PROFILE_TYPE, Map.of("rulez", List.of()), false);
-    final SupervisorProfile noId =
-        new SupervisorProfile(
+    final Supervisor misspelled =
+        new Supervisor("p", RuleSupervisorFactory.PROFILE_TYPE, Map.of("rulez", List.of()), false);
+    final Supervisor noId =
+        new Supervisor(
             "p",
             RuleSupervisorFactory.PROFILE_TYPE,
             Map.of("rules", List.of(Map.of("when", Map.of("status", "FAILURE")))),

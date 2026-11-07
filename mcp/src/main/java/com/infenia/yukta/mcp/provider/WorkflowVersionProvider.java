@@ -8,6 +8,7 @@ import com.infenia.yukta.mcp.dto.WorkflowVersions;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import com.infenia.yukta.service.workflow.store.SaveAndPrepare;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDiff;
@@ -25,6 +26,9 @@ public class WorkflowVersionProvider {
 
   /** Prepares the workflow again after a rollback. */
   private final ControlBusGateway controlBus;
+
+  /** Attaches the supervisors the restored version declares and detaches the others. */
+  private final DefinitionSupervisors declared;
 
   /**
    * List the saved versions of a workflow.
@@ -97,6 +101,7 @@ public class WorkflowVersionProvider {
                         sessionId,
                         definition,
                         saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))
+                    .then(Mono.defer(() -> declared.reconcile(sessionId)))
                     .thenReturn(new WorkflowRollback(workflowId, version)));
   }
 

@@ -9,9 +9,9 @@ import static org.mockito.Mockito.verify;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -22,12 +22,17 @@ import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** What a profile lets its supervisor do is read when the profile is saved and when it starts. */
 @NoArgsConstructor
 class SupervisorServiceCapabilitiesTest {
+
+  /** The supervisor type of the test factories. */
+  private static final String TYPE = "test";
 
   private final SupervisorStore store = new InMemorySupervisorStore();
 
@@ -37,7 +42,7 @@ class SupervisorServiceCapabilitiesTest {
       new SupervisorFactory() {
         @Override
         public String type() {
-          return "test";
+          return TYPE;
         }
 
         @Override
@@ -46,7 +51,7 @@ class SupervisorServiceCapabilitiesTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final SupervisorProfile profile) {
+        public ExecutionSupervisor create(final Supervisor profile) {
           return new ExecutionSupervisor() {
             @Override
             @SuppressWarnings("PMD.ShortMethodName")
@@ -66,11 +71,12 @@ class SupervisorServiceCapabilitiesTest {
       new SupervisorService(store, List.of(factory), host, new InMemoryExecutionLogStore());
 
   private BoundSupervisor attachedWith(final Map<String, Object> settings) {
-    StepVerifier.create(service.saveProfile(new SupervisorProfile("p", "test", settings, false)))
+    StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, settings, false)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
-            service.attach(new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true)))
+            service.attach(
+                new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
     final ArgumentCaptor<BoundSupervisor> captor = ArgumentCaptor.forClass(BoundSupervisor.class);
@@ -106,17 +112,18 @@ class SupervisorServiceCapabilitiesTest {
   @Test
   void anUnknownCommandNameIsRefusedAtSaveAndNothingIsStored() {
     StepVerifier.create(
-            service.saveProfile(
-                new SupervisorProfile(
-                    "p", "test", Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
+            service.saveSupervisor(
+                new Supervisor(
+                    "p", TYPE, Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
-                    .isInstanceOf(IllegalArgumentException.class)
+                    .isInstanceOf(SettingsValidationException.class)
+                    .hasMessageContaining("settings.allowedCommands")
                     .hasMessageContaining("NoSuchCommand"))
         .verify();
 
-    StepVerifier.create(store.profiles()).verifyComplete();
+    StepVerifier.create(store.supervisors()).verifyComplete();
   }
 
   @Test
@@ -124,12 +131,68 @@ class SupervisorServiceCapabilitiesTest {
     final AttachedSupervisors attached = new AttachedSupervisors();
     final BoundSupervisor bound =
         new BoundSupervisor(
-            new SupervisorBinding("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
             mock(ExecutionSupervisor.class),
             false);
     attached.put(bound);
 
     assertThat(attached.find("guard")).isEqualTo(Optional.of(bound));
     assertThat(attached.find("other")).isEmpty();
+  }
+
+  /** The test factory with a schema of one field, so other keys are refused. */
+  private SupervisorFactory declaring() {
+    return new SupervisorFactory() {
+      @Override
+      public String type() {
+        return TYPE;
+      }
+
+      @Override
+      public List<com.infenia.yukta.plugin.core.ConfigField> getConfigSchema() {
+        return List.of(
+            com.infenia.yukta.plugin.core.ConfigField.optional(
+                "known", com.infenia.yukta.plugin.core.ConfigField.Type.STRING, null, "a key"));
+      }
+
+      @Override
+      public ExecutionSupervisor create(final Supervisor profile) {
+        return factory.create(profile);
+      }
+    };
+  }
+
+  @Test
+  void settingThatIsNotInTheSchemaIsRefusedWithItsField() {
+    final SupervisorService declared =
+        new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            declared.saveSupervisor(new Supervisor("p", TYPE, Map.of("bogus", 1), false)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(((SettingsValidationException) error).getIssues())
+                    .extracting(SettingsValidationException.Issue::field)
+                    .containsExactly("settings.bogus"))
+        .verify();
+
+    StepVerifier.create(store.supervisors()).verifyComplete();
+  }
+
+  @Test
+  void storedProfileThatNoLongerFitsItsSchemaIsSkippedOnRestore() {
+    final Supervisor bad = new Supervisor("bad", TYPE, Map.of("bogus", 1), false);
+    final SupervisorService declared =
+        new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            store
+                .saveSupervisor(bad)
+                .then(
+                    store.saveAttachment(
+                        new SupervisorAttachment("b1", "bad", new SupervisorScope.Global(), true))))
+        .verifyComplete();
+
+    declared.restore();
+
+    verify(host, Mockito.after(500).never()).attach(ArgumentMatchers.any());
   }
 }

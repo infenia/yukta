@@ -35,14 +35,14 @@ expect 'mcp/src/A.java' "$affected" '":boot :mcp"'
 expect 'core/src/A.java' "$affected" \
   '":boot :core :mcp :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus :plus:persistence-postgres :plus:workers :web"'
 expect 'core/src/A.java' "$shards" '"platform infra plugins postgres-acceptance workers-acceptance plus-acceptance"'
-expect 'messaging/src/A.java' '.affected | length' '30'
+expect 'messaging/src/A.java' '.affected | length' '32'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
 expect 'plugins/processors/llm-call/src/A.java' "$affected" \
   '":boot :plugins:control-planes:model-control-plane :plugins:control-planes:rules-first-control-plane :plugins:processors:decision :plugins:processors:llm-call"'
 expect 'plugins/supervisors/rule-supervisor/src/A.java' "$affected" \
-  '":boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:rule-supervisor"'
+  '":boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:guards :plugins:supervisors:rule-supervisor"'
 expect 'plugins/processors/internal/internal-core/src/A.java' "$affected" \
   '":boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js"'
 expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform plugins"'
@@ -88,7 +88,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",33,true]'
+want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",35,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.

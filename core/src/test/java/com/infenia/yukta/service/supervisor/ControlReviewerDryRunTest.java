@@ -6,7 +6,7 @@ import static com.infenia.yukta.service.supervisor.ControlReviewerTest.REQUEST;
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 
 import com.infenia.yukta.plugin.control.Decision;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.ControlReviewerTest.Reviewer;
 import java.time.Duration;
@@ -31,7 +31,7 @@ class ControlReviewerDryRunTest {
 
   @Test
   void review_dryRunSupervisor_isRecordedNotEnforced() {
-    final var binding = new SupervisorBinding("try-it", "p", new SupervisorScope.Global(), true);
+    final var binding = new SupervisorAttachment("try-it", "p", new SupervisorScope.Global(), true);
     final Reviewer refuser =
         new Reviewer("try-it", 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final ControlReviewer reviewer = new ControlReviewer(providerOf());

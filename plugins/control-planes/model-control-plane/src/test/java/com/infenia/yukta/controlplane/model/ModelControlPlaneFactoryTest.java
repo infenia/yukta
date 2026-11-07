@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import com.infenia.yukta.plugin.decision.ModelSpec;
 import java.time.Duration;
@@ -30,8 +33,8 @@ class ModelControlPlaneFactoryTest {
     return new ModelControlPlaneFactory(beans.getBeanProvider(DecisionModel.class));
   }
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", ModelControlPlaneFactory.PROFILE_TYPE, settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", ModelControlPlaneFactory.PROFILE_TYPE, settings, false);
   }
 
   @Test
@@ -144,6 +147,25 @@ class ModelControlPlaneFactoryTest {
         .singleElement()
         .isInstanceOf(
             com.infenia.yukta.plugin.control.ExecutionControlCommand.EscalateInputCommand.class);
+  }
+
+  @Test
+  void describesItselfAndDeclaresItsSettings() {
+    final ModelControlPlaneFactory factory = factoryWith(null);
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(described.displayName()).isEqualTo("Model control plane");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.MODEL);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsEntry(NAME, "tev1:0.8b");
+    assertThat(factory.getConfigSchema())
+        .filteredOn(ConfigField::required)
+        .extracting(ConfigField::name)
+        .containsExactly(NAME);
+    assertThat(factory.getConfigSchema())
+        .filteredOn(field -> field.type() == ConfigField.Type.SECRET)
+        .extracting(ConfigField::name)
+        .containsExactly("api-key");
   }
 
   @Test

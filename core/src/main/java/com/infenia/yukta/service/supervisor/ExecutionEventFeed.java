@@ -38,6 +38,15 @@ public class ExecutionEventFeed {
   }
 
   /**
+   * Readers subscribed right now: a best-effort feed drops events published before one is.
+   *
+   * @return the number of subscribers
+   */
+  public int subscriberCount() {
+    return sink.currentSubscriberCount();
+  }
+
+  /**
    * Events published from now on. Each subscriber gets its own buffer (overflow drops the latest
    * and is counted in {@code yukta.tracker.dropped}) and its own thread, so none can slow down the
    * publisher.

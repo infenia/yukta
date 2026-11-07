@@ -22,7 +22,11 @@ func TestAdminCalls(t *testing.T) {
 		want string
 		call func() (any, error)
 	}{
-		{"GET /api/supervisors", c.GetSupervisors},
+		{"GET /api/supervisors/status", c.GetSupervisors},
+		{"GET /api/supervisors", c.ListSupervisors},
+		{"GET /api/supervisors/s%2F1", func() (any, error) { return c.GetSupervisor("s/1") }},
+		{"GET /api/supervisor-types", c.GetSupervisorTypes},
+		{"GET /api/supervisor-types/rule-supervisor", func() (any, error) { return c.GetSupervisorType("rule-supervisor") }},
 		{"GET /api/workers", c.GetWorkers},
 		{"GET /api/sessions/s/config", func() (any, error) { return c.GetSessionConfig("s") }},
 		{"GET /api/control/audit", func() (any, error) { return c.GetControlAudit(0, "") }},

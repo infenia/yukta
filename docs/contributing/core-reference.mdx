@@ -636,11 +636,14 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 - `GET /api/supervisors` reports kind (`CONTROL_PLANE` \| `SUPERVISOR`), order, dry-run flag, command counts and scope (`scope`, `scopeSessionId`, `scopeWorkflowId`, `scopeNodes`).
 - **Scopes** (`SupervisorScope`: `Global`, `Session`, `Workflow`, `Section`): a scope filters the events a supervisor sees (`matches(session, workflow, event.nodeId())`), the commands it reviews (`ControlRequest.nodeId`) and the commands it may send. A `Section` (`workflow:[<s>/]<w>//<selector>,...`; a selector is a node id or `<prefix>.*`, 1 to 50) matches only items that name one of its nodes, never a workflow-wide event or command. `covers` and `strictlyCovers` order scopes (global, session, workflow, section); strict cover has no cycles.
 - **Scope enforcement:** `SupervisorHost` resolves a command's target with `DirectiveDispatcher.target` (session and workflow of the live or archived run; the command's node, or the node of the input request for an answer or escalation) and sends it only when the supervisor's scope matches; otherwise `outcome=out-of-scope`, before the rate limit and also in dry-run. A command that belongs to no run is in scope for `Global` only.
+- **Catalog and attachments:** a `SupervisorFactory` describes its type (`SupervisorDescriptor`: name, description, category) and its settings (`getConfigSchema()`), which `SupervisorSettingsValidator` checks when a supervisor is saved. A configured `Supervisor` is attached to a scope as a `SupervisorAttachment` with a `SupervisorSource`: `MANUAL`, `DEFINITION` or `SYSTEM`. REST: `/api/supervisor-types`, `/api/supervisors`, `/api/supervisors/attachments`, `/api/supervisors/decisions`; MCP: `SupervisorProvider`.
+- **Declared in definitions:** a session or workflow lists `supervisors`; `DefinitionSupervisors` attaches them on save (source `DEFINITION`), detaches those no longer declared and leaves `MANUAL` attachments alone. A supervisor a definition uses cannot be deleted.
+- Generic types: `failure-guard`, `stall-watchdog`, `approval-gate`, `webhook` (`plugins/supervisors/guards`, `.../webhook`).
 - Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL).
 
-**Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file` · `yukta.supervisor.reserved-slots` · `yukta.supervisor.max-depth`
+**Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file` · `yukta.supervisor.reserved-slots` · `yukta.supervisor.max-depth` · `yukta.supervisor.max-attachments`
 
-**Source:** `SupervisorHost` `ExecutionEventFeed` `SupervisorInfo` `ExecutionSupervisor` `SupervisorScope` `CommandTarget`
+**Source:** `SupervisorHost` `ExecutionEventFeed` `SupervisorInfo` `ExecutionSupervisor` `SupervisorScope` `CommandTarget` `SupervisorService` `DefinitionSupervisors` `SupervisorFactory`
 
 **Limits:** Event delivery is best effort. Commands are rate limited but a supervisor can still react to the state changes it causes.
 
@@ -1046,6 +1049,7 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.version` (start payload key) | current | [DEF-01](#def-01-definition-store-and-versions) | Run a saved version of the workflow |
 | `yukta.stop.drain-timeout` | 30s | [CTL-03](#ctl-03-stop-modes) | Deadline for `DRAIN` stop |
 | `yukta.supervisor.max-commands-per-second` | 20 | [CTL-07](#ctl-07-supervisors) | Rate limit per supervisor |
+| `yukta.supervisor.max-attachments` | 200 | [CTL-07](#ctl-07-supervisors) | Most supervisor attachments at once |
 | `yukta.supervisor.reserved-slots` | 4 | [CTL-07](#ctl-07-supervisors) | Slots of their own for workflow supervisor runs |
 | `yukta.supervisor.max-depth` | 2 | [CTL-07](#ctl-07-supervisors) | Deepest nesting of supervisor workflows |
 | `yukta.supervisor.dry-run` | false | [CTL-07](#ctl-07-supervisors) | Record supervisor commands without applying |

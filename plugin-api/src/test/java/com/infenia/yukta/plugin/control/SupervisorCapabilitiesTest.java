@@ -14,8 +14,8 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisorCapabilitiesTest {
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", "rules", settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", "rules", settings, false);
   }
 
   @Test

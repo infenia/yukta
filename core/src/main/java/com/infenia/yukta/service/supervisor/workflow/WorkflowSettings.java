@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.workflow;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -85,7 +85,7 @@ public record WorkflowSettings(
    * @return the settings
    * @throws IllegalArgumentException if a setting is missing or out of range
    */
-  public static WorkflowSettings read(final SupervisorProfile profile, final int reservedSlots) {
+  public static WorkflowSettings read(final Supervisor profile, final int reservedSlots) {
     final Map<String, Object> m = profile.settings();
     final int concurrent = number(m.get("maxConcurrent"), "maxConcurrent", DEFAULT_CONCURRENT);
     if (concurrent < 1 || concurrent > reservedSlots) {

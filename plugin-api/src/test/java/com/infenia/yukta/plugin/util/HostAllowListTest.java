@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 
 /** Which hosts an outbound call may reach. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidUsingHardCodedIP"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidUsingHardCodedIP", "PMD.TooManyMethods"})
 class HostAllowListTest {
 
   /** The setting named in the messages. */
@@ -146,5 +146,16 @@ class HostAllowListTest {
     assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("fd00:ec2::254"))).isTrue();
     assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("::ffff:a9fe:a9fe"))).isTrue();
     assertThat(HostAllowList.isMetadataAddress(InetAddress.getByName("93.184.216.34"))).isFalse();
+  }
+
+  @Test
+  void namesTellsWhetherTheHostIsListedAsEntryOrWildcard() {
+    final HostAllowList list = HostAllowList.from(List.of("api.example.com", "*.corp.test"));
+
+    assertThat(list.names("https://API.example.com/x")).isTrue();
+    assertThat(list.names("https://a.corp.test/x")).isTrue();
+    assertThat(list.names("https://other.example.com/x")).isFalse();
+    assertThat(list.names("not a url")).isFalse();
+    assertThat(HostAllowList.from(null).names("https://api.example.com")).isFalse();
   }
 }

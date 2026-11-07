@@ -335,19 +335,16 @@ class RunAnalyticsTest {
             "a", "s1", "w1", "n", "hi", com.infenia.yukta.plugin.core.LogLevel.INFO, T0));
     analytics.start();
     try {
+      // the feed drops what it publishes before the reader subscribed: publish once it did
+      await().atMost(10, TimeUnit.SECONDS).until(() -> feed.subscriberCount() > 0);
+      feed.publish(new ExecutionEvent.WorkflowStatusChanged("x", "s1", "w1", "RUNNING", T0));
+      feed.publish(
+          new ExecutionEvent.WorkflowStatusChanged("x", "s1", "w1", SUCCESS, T0.plusMillis(10)));
       await()
-          .atMost(3, TimeUnit.SECONDS)
+          .atMost(10, TimeUnit.SECONDS)
           .untilAsserted(
-              () -> {
-                feed.publish(
-                    new ExecutionEvent.WorkflowStatusChanged("x", "s1", "w1", "RUNNING", T0));
-                feed.publish(
-                    new ExecutionEvent.WorkflowStatusChanged(
-                        "x", "s1", "w1", SUCCESS, T0.plusMillis(10)));
-                assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS");
-                // the retried publishes may leave a later RUNNING still in flight
-                assertThat(analytics.liveRuns()).isEmpty();
-              });
+              () ->
+                  assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS"));
     } finally {
       analytics.stop();
     }

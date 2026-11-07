@@ -15,7 +15,7 @@ import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 
 /**
- * What a supervisor made from a {@link SupervisorProfile} is allowed to do, read from the profile's
+ * What a supervisor made from a {@link Supervisor} is allowed to do, read from the profile's
  * settings. The engine enforces it; a supervisor does not decide it.
  *
  * @param allowedCommands the command types it may send, by simple name (for example {@code
@@ -37,11 +37,23 @@ public record SupervisorCapabilities(
   /** Setting: the highest risk of a request the supervisor may answer. */
   public static final String MAX_RISK = "maxRisk";
 
+  /** Setting: whether the supervisor sees the events of internal sessions its scope names. */
+  public static final String OBSERVE_INTERNAL = "observeInternal";
+
   /** The names of the command types, which an {@code allowedCommands} setting must come from. */
   private static final Set<String> KNOWN_COMMANDS =
       Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
           .map(Class::getSimpleName)
           .collect(Collectors.toUnmodifiableSet());
+
+  /**
+   * The names of the command types a supervisor may be allowed to send.
+   *
+   * @return the names, sorted
+   */
+  public static List<String> commandNames() {
+    return KNOWN_COMMANDS.stream().sorted().toList();
+  }
 
   /**
    * Keeps an immutable copy of the command names.
@@ -64,7 +76,7 @@ public record SupervisorCapabilities(
    * @throws IllegalArgumentException if a setting has the wrong type, names an unknown command or
    *     an unknown risk
    */
-  public static SupervisorCapabilities from(final SupervisorProfile profile) {
+  public static SupervisorCapabilities from(final Supervisor profile) {
     return from(profile, null);
   }
 
@@ -79,7 +91,7 @@ public record SupervisorCapabilities(
    *     an unknown risk
    */
   public static SupervisorCapabilities from(
-      final SupervisorProfile profile, final @Nullable Set<String> defaultAllowed) {
+      final Supervisor profile, final @Nullable Set<String> defaultAllowed) {
     final Map<String, Object> settings = profile.settings();
     return new SupervisorCapabilities(
         commands(settings.get(ALLOWED_COMMANDS), defaultAllowed),

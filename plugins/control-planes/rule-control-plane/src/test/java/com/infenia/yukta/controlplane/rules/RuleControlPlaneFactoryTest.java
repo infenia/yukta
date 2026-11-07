@@ -5,7 +5,10 @@ package com.infenia.yukta.controlplane.rules;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
+import com.infenia.yukta.supervisor.rules.RuleSupervisor;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -15,17 +18,19 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 class RuleControlPlaneFactoryTest {
 
+  private static final String RULES = "rules";
+
   private final RuleControlPlaneFactory factory = new RuleControlPlaneFactory();
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", RuleControlPlaneFactory.PROFILE_TYPE, settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", RuleControlPlaneFactory.PROFILE_TYPE, settings, false);
   }
 
   @Test
   void makesRuleControlPlaneFromTheRulesInTheSettings() {
     final Map<String, Object> settings =
         Map.of(
-            "rules",
+            RULES,
             List.of(
                 Map.of(
                     "id", "pause",
@@ -44,7 +49,7 @@ class RuleControlPlaneFactoryTest {
             true,
             "maxRisk",
             "LOW",
-            "rules",
+            RULES,
             List.of(
                 Map.of(
                     "id", "approve",
@@ -96,13 +101,24 @@ class RuleControlPlaneFactoryTest {
   }
 
   @Test
+  void describesItselfAndDeclaresTheRuleSettings() {
+    final SupervisorDescriptor described = factory.describe();
+
+    assertThat(described.displayName()).isEqualTo("Rule control plane");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.RULES);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsKey(RULES);
+    assertThat(factory.getConfigSchema()).isEqualTo(RuleSupervisor.SCHEMA);
+  }
+
+  @Test
   void invalidRulesAreRefused() {
     assertThatThrownBy(() -> factory.create(profile(Map.of("rulez", List.of()))))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(
             () ->
                 factory.create(
-                    profile(Map.of("rules", List.of(Map.of("when", Map.of("status", "FAILURE")))))))
+                    profile(Map.of(RULES, List.of(Map.of("when", Map.of("status", "FAILURE")))))))
         .isInstanceOf(IllegalArgumentException.class);
   }
 }

@@ -9,8 +9,8 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
-import com.infenia.yukta.plugin.control.SupervisorBinding;
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputState;
@@ -94,8 +94,8 @@ class InputSupervisorAcceptanceTest {
     final String session = "inputs-" + UUID.randomUUID();
     final String profileId = "approve-" + UUID.randomUUID().toString().substring(0, 8);
     supervisors
-        .saveProfile(
-            new SupervisorProfile(
+        .saveSupervisor(
+            new Supervisor(
                 profileId,
                 RuleSupervisorFactory.PROFILE_TYPE,
                 Map.of(
@@ -118,7 +118,8 @@ class InputSupervisorAcceptanceTest {
         .block(WAIT);
     supervisors
         .attach(
-            new SupervisorBinding(profileId, profileId, new SupervisorScope.Session(session), true))
+            new SupervisorAttachment(
+                profileId, profileId, new SupervisorScope.Session(session), true))
         .block(WAIT);
     try {
       final String low = ask(session, "LOW");

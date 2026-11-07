@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.service.worker.WorkerRegistry;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -140,7 +141,9 @@ class RemoteNodeTest {
         .verifyComplete();
   }
 
+  // the worker's failure can reach the call after the verifier already cancelled the stream
   @Test
+  @ExpectedErrorLog(sometimes = "dropped error: .*CancellationException")
   void workerFailure_comesBackAndBadInputKeepsItsMeaning() {
     StepVerifier.create(run("BOOM", Flux.empty()))
         .verifyErrorSatisfies(

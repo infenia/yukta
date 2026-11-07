@@ -6,7 +6,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.plugin.control.SupervisorProfile;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorCategory;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.decision.DecisionModel;
 import java.util.List;
 import java.util.Map;
@@ -39,8 +42,8 @@ class RulesFirstControlPlaneFactoryTest {
     return new RulesFirstControlPlaneFactory(beans.getBeanProvider(DecisionModel.class));
   }
 
-  private static SupervisorProfile profile(final Map<String, Object> settings) {
-    return new SupervisorProfile("p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false);
+  private static Supervisor profile(final Map<String, Object> settings) {
+    return new Supervisor("p", RulesFirstControlPlaneFactory.PROFILE_TYPE, settings, false);
   }
 
   @Test
@@ -50,6 +53,22 @@ class RulesFirstControlPlaneFactoryTest {
     assertThat(factory.type()).isEqualTo("rules-first-control-plane");
     assertThat(factory.create(profile(Map.of(RULES_KEY, RULES, MODEL_KEY, MODEL))))
         .isInstanceOf(RulesFirstControlPlane.class);
+  }
+
+  @Test
+  void describesItselfAndDeclaresTheRulesAndModelSettings() {
+    final SupervisorDescriptor described = factoryWith(null).describe();
+
+    assertThat(described.displayName()).isEqualTo("Rules-first control plane");
+    assertThat(described.category()).isEqualTo(SupervisorCategory.MODEL);
+    assertThat(described.uiDesign()).isPresent();
+    assertThat(described.exampleSettings()).containsKeys(RULES_KEY, MODEL_KEY);
+    assertThat(factoryWith(null).getConfigSchema())
+        .extracting(ConfigField::name)
+        .containsExactly(RULES_KEY, MODEL_KEY);
+    assertThat(factoryWith(null).getConfigSchema())
+        .extracting(ConfigField::type)
+        .containsExactly(ConfigField.Type.LIST, ConfigField.Type.MAP);
   }
 
   @Test
