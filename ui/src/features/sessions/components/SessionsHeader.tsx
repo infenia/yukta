@@ -14,7 +14,7 @@ export function SessionsHeader({ actions }: SessionsHeaderProps) {
       <PageHeader
         actions={actions}
         title="Sessions"
-        description="A session holds a project's workflows and their runs."
+        description="A session holds workflows and their runs."
       />
     </div>
   );

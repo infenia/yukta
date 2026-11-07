@@ -156,6 +156,19 @@ describe('diffWorkflow', () => {
 });
 
 describe('SessionImportPage', () => {
+  it('validates the JSON in the page as it is pasted', async () => {
+    const user = userEvent.setup();
+    page();
+    await user.click(screen.getByLabelText('Or paste the JSON'));
+    await user.paste('{nope');
+    expect(screen.getByRole('status')).toHaveTextContent('Invalid JSON');
+    await user.clear(screen.getByLabelText('Or paste the JSON'));
+    await user.paste(JSON.stringify(session()));
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Valid JSON: session s1, 1 workflow(s).'
+    );
+  });
+
   it('rejects JSON that is not a session before calling the server', async () => {
     const user = userEvent.setup();
     page();

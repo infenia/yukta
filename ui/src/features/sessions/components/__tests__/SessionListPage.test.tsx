@@ -98,7 +98,7 @@ describe('SessionListPage', () => {
         ).toBeInTheDocument();
         const p = container.querySelector('p');
         expect(p?.textContent).not.toMatch(/\d+ sessions/);
-        expect(p?.textContent).toContain("a project's workflows");
+        expect(p?.textContent).toContain('holds workflows');
       });
     });
 

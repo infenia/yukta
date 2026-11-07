@@ -23,7 +23,9 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
       )}
       <Link
         to={`/sessions/${encodeURIComponent(sessionId)}/edit`}
-        className={buttonVariants({ variant: 'outline' })}
+        aria-label="Edit"
+        title="Edit session"
+        className={buttonVariants({ variant: 'outline', size: 'icon' })}
       >
         <span
           aria-hidden="true"
@@ -31,11 +33,12 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
         >
           edit
         </span>
-        Edit
       </Link>
       <Button
         type="button"
         variant="outline"
+        size="icon"
+        aria-label="Export JSON"
         title={EXPORT_HINT}
         onClick={() => {
           setExportError(null);
@@ -54,12 +57,14 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
         >
           download
         </span>
-        Export JSON
       </Button>
       <RequirePermission perm="deleteSessions">
         <Button
           type="button"
           variant="outline"
+          size="icon"
+          aria-label="Delete"
+          title="Delete session"
           onClick={() => setDeleting(true)}
         >
           <span
@@ -68,7 +73,6 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
           >
             delete
           </span>
-          Delete
         </Button>
       </RequirePermission>
       {deleting && (

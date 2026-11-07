@@ -13,9 +13,7 @@ describe('SessionsHeader', () => {
     expect(
       screen.getByRole('heading', { name: /Sessions/ })
     ).toBeInTheDocument();
-    expect(p?.textContent).toBe(
-      "A session holds a project's workflows and their runs."
-    );
+    expect(p?.textContent).toBe('A session holds workflows and their runs.');
     expect(p?.textContent).not.toMatch(/\d+ sessions?/);
   });
 

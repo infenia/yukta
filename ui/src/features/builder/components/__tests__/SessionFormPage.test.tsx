@@ -314,10 +314,9 @@ describe('SessionFormPage, new', () => {
     await user.click(
       await screen.findByRole('button', { name: 'Start blank' })
     );
-    expect(screen.getByRole('link', { name: 'Import JSON' })).toHaveAttribute(
-      'href',
-      '/sessions/import'
-    );
+    expect(
+      screen.getByRole('link', { name: 'Import session' })
+    ).toHaveAttribute('href', '/sessions/import');
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(window.location.pathname).toBe('/sessions');
     expect(posted).toEqual([]);
