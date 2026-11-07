@@ -118,4 +118,33 @@ class RouteModelTest {
         .hasRootCauseMessage(
             "Route bad: the last tier must be of type HUMAN or the route needs on-final-timeout");
   }
+
+  @Test
+  void theResolverReadsTheRoutesOfTheSettings() {
+    final YuktaProperties properties =
+        YuktaSettings.bind(
+            Map.of(
+                "yukta.input.routes.ops.tiers[0].name", "ops",
+                "yukta.input.routes.ops.tiers[0].responders[0]", "role:OPERATOR"));
+    final RouteResolver resolver = new RouteResolver(properties, null);
+    final var base = com.infenia.yukta.service.input.InputTestSupport.spec("k");
+    final var named =
+        new com.infenia.yukta.plugin.input.InputRequestSpec(
+            base.key(),
+            base.kind(),
+            base.prompt(),
+            base.context(),
+            base.options(),
+            base.responseSchema(),
+            base.risk(),
+            base.audience(),
+            base.ttl(),
+            base.onTimeout(),
+            base.defaultDecision(),
+            "ops",
+            base.requester());
+
+    assertThat(resolver.resolve(named, "s").block().name()).isEqualTo("ops");
+    assertThat(resolver.resolve(base, "s").block()).isSameAs(RouteResolver.BUILT_IN);
+  }
 }

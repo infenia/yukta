@@ -2,11 +2,15 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.processor;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.EnableStepModeCommand;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.Map;
 import java.util.Optional;
@@ -27,6 +31,25 @@ class EnableStepModeCommandProcessorTest {
   @Mock private ExecutionControl executionControl;
 
   @InjectMocks private EnableStepModeCommandProcessor processor;
+
+  @Test
+  void process_nodeFound_enablesValveStepModeAndEmitsEvent() {
+    // Given
+    final String executionId = "exec-enable-step";
+    final String nodeId = "node-1";
+    final ReactiveControlValve valve = new ReactiveControlValve();
+    final EnableStepModeCommand command = new EnableStepModeCommand(executionId, nodeId);
+    when(registry.findByExecutionId(executionId)).thenReturn(Optional.of(executionControl));
+    when(executionControl.nodePauseValves()).thenReturn(Map.of(nodeId, valve));
+
+    // When
+    final var result = processor.process(command);
+
+    // Then
+    StepVerifier.create(result).verifyComplete();
+    assertThat(valve.isPaused()).isTrue();
+    verify(taskTracker).emitControlStateEvent(executionId, ControlState.STEP_MODE_ENABLED);
+  }
 
   @Test
   void process_executionNotFound_errorWithIllegalArgumentException() {

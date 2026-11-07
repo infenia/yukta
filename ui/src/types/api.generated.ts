@@ -4447,7 +4447,7 @@ export interface components {
             /** Format: date-time */
             startTime?: string | null;
             /** @enum {string} */
-            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
         };
         TemplateDetail: {
             id?: string;
@@ -4594,7 +4594,7 @@ export interface components {
              * @description The execution status
              * @enum {string}
              */
-            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             /** @description The workflow identifier */
             workflowId?: string;
         };
@@ -4655,7 +4655,7 @@ export interface components {
             /** Format: date-time */
             startTime?: string;
             /** @enum {string} */
-            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "ERROR" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
+            status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
             workflowId?: string;
         };
