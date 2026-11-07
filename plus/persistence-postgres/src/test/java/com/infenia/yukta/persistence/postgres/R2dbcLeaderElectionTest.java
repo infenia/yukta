@@ -15,7 +15,12 @@ import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
 @SuppressWarnings("PMD.AvoidDuplicateLiterals")
-@ExpectedErrorLog("ERROR com.infenia.yukta.persistence.postgres.R2dbcLeaderElection - ")
+@ExpectedErrorLog(
+    value = "ERROR com.infenia.yukta.persistence.postgres.R2dbcLeaderElection - ",
+    // a query still in flight when a test ends is cancelled; its protocol frames are dropped
+    sometimes =
+        "dropped next:"
+            + " (ParseComplete|BindComplete|RowDescription|DataRow|CommandComplete|ReadyForQuery)")
 class R2dbcLeaderElectionTest extends PostgresTestSupport {
 
   private static final Duration LEASE = Duration.ofSeconds(2);
