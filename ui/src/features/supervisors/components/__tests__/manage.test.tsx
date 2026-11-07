@@ -499,7 +499,7 @@ describe('the wizard', () => {
     await user.paste(' ');
     await user.click(screen.getByLabelText('Advanced: JSON'));
     await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByLabelText(/Dry run/));
+    expect(screen.getByLabelText(/Dry run/)).toBeChecked();
     await user.click(screen.getByRole('button', { name: 'Next' }));
     expect(screen.getByText(preText(/"dryRun": true/))).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Back' }));
