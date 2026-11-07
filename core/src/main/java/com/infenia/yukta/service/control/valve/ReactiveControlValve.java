@@ -155,13 +155,4 @@ public final class ReactiveControlValve {
     changed();
     return true;
   }
-
-  /**
-   * Whether the valve is in step mode.
-   *
-   * @return true while stepping
-   */
-  public boolean isStepMode() {
-    return mode.get() == Mode.STEPPING;
-  }
 }

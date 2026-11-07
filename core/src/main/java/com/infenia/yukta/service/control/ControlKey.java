@@ -67,18 +67,6 @@ public class ControlKey {
   }
 
   /**
-   * Whether a key is for a node of a workflow, whatever the run.
-   *
-   * @param key the key
-   * @param workflowId the workflow
-   * @param nodeId the node
-   * @return true if both match
-   */
-  public static boolean isFor(final String key, final String workflowId, final String nodeId) {
-    return isIn(key, workflowId) && nodeId(key).equals(nodeId);
-  }
-
-  /**
    * Whether a key is for a node of a workflow.
    *
    * @param key the key

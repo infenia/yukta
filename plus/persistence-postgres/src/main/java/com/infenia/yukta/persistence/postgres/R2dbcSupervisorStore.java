@@ -230,14 +230,6 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .then();
   }
 
-  @Override
-  public Flux<String> sessionsWithRefs() {
-    return client
-        .sql("SELECT session_id FROM session_supervisor ORDER BY session_id")
-        .map(row -> row.get("session_id", String.class))
-        .all();
-  }
-
   /** A text parameter that may be null, which R2DBC wants typed. */
   private static Object nullable(final String value) {
     return value == null ? io.r2dbc.spi.Parameters.in(String.class) : value;

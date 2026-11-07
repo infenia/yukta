@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
-import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.control.NodeHeartbeat;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -39,7 +38,7 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidCatchingGenericException"})
+@SuppressWarnings({"PMD.AvoidCatchingGenericException"})
 public class ControlBusService {
 
   /** Metadata key of a control message that names the run it comes from. */
@@ -67,6 +66,12 @@ public class ControlBusService {
   /** Default size of the control sink buffer. */
   private static final int DEFAULT_BUFFER_SIZE = 256;
 
+  /** Default number of signals handled per batch. */
+  private static final int DEFAULT_BATCH_SIZE = 100;
+
+  /** Default longest wait, in milliseconds, to fill a batch. */
+  private static final int DEFAULT_BATCH_TIMEOUT_MS = 50;
+
   /** Sink for emitting control messages. */
   private Sinks.Many<Message<?>> controlSink =
       Sinks.many().multicast().onBackpressureBuffer(DEFAULT_BUFFER_SIZE, false);
@@ -84,19 +89,16 @@ public class ControlBusService {
   /**
    * Constructor for ControlBusService.
    *
-   * @param properties the {@code yukta.control-bus} settings: batch size, timeout and buffer
    * @param handlers the list of signal handlers for dispatching messages
    * @param activePluginRegistry the registry of plugin instances actively servicing nodes
    */
   @Autowired
   public ControlBusService(
-      final YuktaProperties properties,
-      final List<ControlSignalHandler> handlers,
-      final ActivePluginRegistry activePluginRegistry) {
+      final List<ControlSignalHandler> handlers, final ActivePluginRegistry activePluginRegistry) {
     this(
-        properties.controlBus().batchSize(),
-        (int) properties.controlBus().batchTimeout().toMillis(),
-        properties.controlBus().bufferSize(),
+        DEFAULT_BATCH_SIZE,
+        DEFAULT_BATCH_TIMEOUT_MS,
+        DEFAULT_BUFFER_SIZE,
         handlers,
         activePluginRegistry);
   }
@@ -334,59 +336,6 @@ public class ControlBusService {
    */
   public List<String> getActiveNodes() {
     return activeKeys().stream().map(ControlKey::nodeId).distinct().toList();
-  }
-
-  /**
-   * Register a plugin to receive control signals for a specific workflow node.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @param plugin the plugin instance
-   */
-  public void registerPlugin(
-      @NotBlank final String workflowId, @NotBlank final String nodeId, final Plugin plugin) {
-    activePluginRegistry.register(workflowId, nodeId, plugin);
-  }
-
-  /**
-   * Register a plugin as servicing a node of a run.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionId the run
-   * @param nodeId the node identifier
-   * @param plugin the plugin instance
-   */
-  public void registerPlugin(
-      @NotBlank final String workflowId,
-      @NotBlank final String executionId,
-      @NotBlank final String nodeId,
-      final Plugin plugin) {
-    activePluginRegistry.register(workflowId, executionId, nodeId, plugin);
-  }
-
-  /**
-   * Unregister a plugin from the control bus and clean up all state.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   */
-  public void unregisterPlugin(@NotBlank final String workflowId, @NotBlank final String nodeId) {
-    activePluginRegistry.unregister(workflowId, nodeId);
-  }
-
-  /**
-   * Release a node of a run registered with {@link #registerPlugin(String, String, String,
-   * Plugin)}.
-   *
-   * @param workflowId the workflow identifier
-   * @param executionId the run
-   * @param nodeId the node identifier
-   */
-  public void unregisterPlugin(
-      @NotBlank final String workflowId,
-      @NotBlank final String executionId,
-      @NotBlank final String nodeId) {
-    activePluginRegistry.unregister(workflowId, executionId, nodeId);
   }
 
   /**

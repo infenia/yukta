@@ -257,7 +257,7 @@ class DagPropertyAcceptanceTest {
       final Dag dag = generate(base + attempt, sizeFor(attempt, tries()), true, false);
       final String session = "dag-" + UUID.randomUUID();
       final String workflowId = define(dag, session);
-      final String executionId = gateway.startWorkflow(session, workflowId).block();
+      final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
       final WorkflowProgress progress = awaitTerminal(executionId);
 
@@ -295,7 +295,7 @@ class DagPropertyAcceptanceTest {
       final Dag dag = generate(base + attempt, sizeFor(attempt, total), false, true);
       final String session = "dag-" + UUID.randomUUID();
       final String workflowId = define(dag, session);
-      final String executionId = gateway.startWorkflow(session, workflowId).block();
+      final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
       final String slowNode = dag.slow().iterator().next();
       await()
           .atMost(WAIT)
@@ -349,7 +349,7 @@ class DagPropertyAcceptanceTest {
       assertThatThrownBy(
               () -> {
                 final String workflowId = define(dag, session);
-                gateway.startWorkflow(session, workflowId).block();
+                gateway.startWorkflow(session, workflowId, Map.of(), null).block();
               })
           .as("a workflow with %s", dag)
           .isInstanceOf(IllegalArgumentException.class);

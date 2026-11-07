@@ -89,14 +89,4 @@ class CommandSequencerTest {
     StepVerifier.create(Mono.fromFuture(last)).verifyComplete();
     assertThat(log).containsExactly("c");
   }
-
-  @Test
-  void bookkeepingDisappearsOnceTheLastJobIsDone() {
-    StepVerifier.create(sequencer.sequence("e1", Mono.empty())).verifyComplete();
-    StepVerifier.create(sequencer.sequence("e2", Mono.error(new IllegalStateException())))
-        .expectError()
-        .verify();
-
-    assertThat(sequencer.pendingKeys()).isZero();
-  }
 }

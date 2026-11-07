@@ -124,9 +124,10 @@ class SubWorkflowAcceptanceTest {
     define(
         session, "bad-parent", new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "bad-child")));
 
-    final WorkflowProgress good = awaitTerminal(gateway.startWorkflow(session, "parent").block());
+    final WorkflowProgress good =
+        awaitTerminal(gateway.startWorkflow(session, "parent", Map.of(), null).block());
     final WorkflowProgress bad =
-        awaitTerminal(gateway.startWorkflow(session, "bad-parent").block());
+        awaitTerminal(gateway.startWorkflow(session, "bad-parent", Map.of(), null).block());
 
     assertThat(good.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(bad.status()).isEqualTo(TaskStatus.FAILURE);
@@ -183,9 +184,10 @@ class SubWorkflowAcceptanceTest {
     defineRoutingParent(session, "failing");
 
     final WorkflowProgress escalated =
-        awaitTerminal(gateway.startWorkflow(session, "parent-of-escalating").block());
+        awaitTerminal(
+            gateway.startWorkflow(session, "parent-of-escalating", Map.of(), null).block());
     final WorkflowProgress failed =
-        awaitTerminal(gateway.startWorkflow(session, "parent-of-failing").block());
+        awaitTerminal(gateway.startWorkflow(session, "parent-of-failing", Map.of(), null).block());
 
     assertThat(escalated.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(statusOf(escalated, "on-escalate")).isEqualTo(TaskStatus.SUCCESS);
@@ -252,7 +254,7 @@ class SubWorkflowAcceptanceTest {
         .block();
     final WorkflowProgress parent =
         awaitTerminal(
-            gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent")).block());
+            gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent"), null).block());
     assertThat(parent.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(executionLog.readAll())
         .filteredOn(
@@ -277,7 +279,7 @@ class SubWorkflowAcceptanceTest {
         "waiting-parent",
         new Node("sub", "SUB_WORKFLOW", Map.of("workflowId", "slow-child", "timeoutSeconds", 60)));
 
-    final String parent = gateway.startWorkflow(session, "waiting-parent").block();
+    final String parent = gateway.startWorkflow(session, "waiting-parent", Map.of(), null).block();
     await().atMost(WAIT).until(() -> tracker.getTree(parent).size() == 2);
     final String child = tracker.getTree(parent).get(1).executionId();
 

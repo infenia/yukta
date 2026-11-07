@@ -181,9 +181,7 @@ public interface TaskTrackerService {
    * @param executionId the execution
    * @param initiator the name, or null when it is not known
    */
-  default void setInitiator(final String executionId, final String initiator) {
-    // a tracker that keeps no history has nothing to record
-  }
+  void setInitiator(String executionId, String initiator);
 
   /**
    * Emit a task status event for asynchronous processing.

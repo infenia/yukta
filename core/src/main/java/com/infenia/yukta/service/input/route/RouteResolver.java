@@ -106,16 +106,6 @@ public class RouteResolver {
         .defaultIfEmpty(fallback());
   }
 
-  /**
-   * Whether a route of this name is configured.
-   *
-   * @param name the route name
-   * @return true if {@code yukta.input.routes} holds it
-   */
-  public boolean knows(final String name) {
-    return routes.containsKey(name);
-  }
-
   private InputRoute fallback() {
     return routes.getOrDefault(DEFAULT_ROUTE, BUILT_IN);
   }

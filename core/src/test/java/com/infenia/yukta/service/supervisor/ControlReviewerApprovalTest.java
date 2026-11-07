@@ -15,7 +15,9 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -232,7 +234,9 @@ class ControlReviewerApprovalTest {
     final SupervisorHost host = mock(SupervisorHost.class);
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
     beans.addBean("host", host);
-    reviewer.setDryRun(beans.getBeanProvider(SupervisorHost.class), true);
+    reviewer.setDryRun(
+        beans.getBeanProvider(SupervisorHost.class),
+        YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
     StepVerifier.create(reviewer.verdict(PAUSE, Set.of()))
         .expectNext(ReviewVerdict.ALLOWED)
         .verifyComplete();

@@ -123,7 +123,7 @@ final class WorkflowState {
     }
     return switch (runStatus) {
       case SUCCESS -> TaskStatus.SKIPPED;
-      case FAILURE, ERROR, TIMED_OUT -> TaskStatus.UPSTREAM_FAILED;
+      case FAILURE, TIMED_OUT -> TaskStatus.UPSTREAM_FAILED;
       default -> TaskStatus.CANCELLED;
     };
   }

@@ -19,7 +19,6 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCom
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.ConflictException;
@@ -67,7 +66,6 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.GodClass",
-  "PMD.ExcessivePublicCount"
 })
 public class DefaultControlBusGateway implements ControlBusGateway, RestartCompletionSink {
 
@@ -197,33 +195,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
-  public void registerPlugin(final String workflowId, final String nodeId, final Plugin plugin) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .addKeyValue("pluginType", plugin.getClass().getSimpleName())
-        .log("Registering plugin");
-    controlBusService.registerPlugin(workflowId, nodeId, plugin);
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Plugin registered successfully");
-  }
-
-  @Override
-  public void unregisterPlugin(final String workflowId, final String nodeId) {
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Unregistering plugin");
-    controlBusService.unregisterPlugin(workflowId, nodeId);
-    log.atDebug()
-        .addKeyValue("workflowId", workflowId)
-        .addKeyValue("nodeId", nodeId)
-        .log("Plugin unregistered successfully");
-  }
-
-  @Override
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Message<?>> sendCommand(
       final String sessionId,
@@ -339,12 +310,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   // --- Execution Control ---
-
-  @Override
-  public Mono<String> startWorkflow(
-      final String sessionId, final String workflowId, final Map<String, Object> payload) {
-    return starter.start(sessionId, workflowId, payload);
-  }
 
   @Override
   public Mono<String> startWorkflow(

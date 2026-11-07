@@ -9,8 +9,10 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.supervisor.ControlReviewerTest.Reviewer;
+import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.ObjectProvider;
@@ -48,7 +50,8 @@ class ControlReviewerDryRunTest {
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final SupervisorHost host = Mockito.mock(SupervisorHost.class);
     final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
-    reviewer.setDryRun(hostProvider(host), true);
+    reviewer.setDryRun(
+        hostProvider(host), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
 
@@ -60,7 +63,8 @@ class ControlReviewerDryRunTest {
     final Reviewer refuser =
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
-    reviewer.setDryRun(hostProvider(null), true);
+    reviewer.setDryRun(
+        hostProvider(null), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
   }
@@ -71,7 +75,8 @@ class ControlReviewerDryRunTest {
         new Reviewer(REFUSER, 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final SupervisorHost host = Mockito.mock(SupervisorHost.class);
     final ControlReviewer reviewer = new ControlReviewer(providerOf(refuser));
-    reviewer.setDryRun(hostProvider(host), false);
+    reviewer.setDryRun(
+        hostProvider(host), YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "false")));
 
     StepVerifier.create(reviewer.review(REQUEST))
         .expectErrorMessage("refuser: no")

@@ -3,6 +3,7 @@
 package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -88,22 +89,22 @@ class WorkflowExecutionProviderTest {
   @Test
   void testStartWorkflow() {
     WorkflowExecution execution = new WorkflowExecution("exec-1", Mono.empty());
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any()))
         .thenReturn(Mono.just(execution));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
         .expectNext(new WorkflowStartResult("exec-1", false))
         .verifyComplete();
 
-    verify(workflowService).validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap());
+    verify(workflowService).validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any());
   }
 
   @Test
   void testAnAgentStartRecordsWhoStartedIt() {
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-1", Mono.empty())));
 
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-key"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-key"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
@@ -123,7 +124,7 @@ class WorkflowExecutionProviderTest {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
     verify(workflowService, org.mockito.Mockito.atLeast(1))
         .validateAndStartWorkflow(
-            eq("sess-1"), org.mockito.ArgumentMatchers.anyString(), payloads.capture());
+            eq("sess-1"), org.mockito.ArgumentMatchers.anyString(), payloads.capture(), any());
     assertThat(payloads.getAllValues())
         .extracting(payload -> payload.get(ExecutionLogEvent.INITIATOR_KEY))
         .contains("mcp", "mcp · claude");
@@ -142,9 +143,9 @@ class WorkflowExecutionProviderTest {
 
   @Test
   void testKeylessRepeatReturnsTheFirstExecution() {
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-1", Mono.empty())));
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-2"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-2"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1"))
@@ -161,7 +162,7 @@ class WorkflowExecutionProviderTest {
 
   @Test
   void testKeylessRepeatIsMarkedReusedButKeyedStartIsNot() {
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-1", Mono.empty())));
     when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), eq("fresh")))
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
@@ -183,7 +184,7 @@ class WorkflowExecutionProviderTest {
 
   @Test
   void testStartWorkflowWithBlankKeyStartsWithoutOne() {
-    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("sess-1"), eq("wf-1"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("exec-2", Mono.empty())));
 
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", "  "))

@@ -217,7 +217,7 @@ class SubWorkflowRunnerTest {
 
   @Test
   void childTakesNoSlotOfItsOwn_soSingleSlotParentCannotStarveIt() {
-    scheduler.acquire("s", "parent"); // the parent holds the only slot
+    scheduler.acquire("s", "parent", 0, null); // the parent holds the only slot
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenAnswer(

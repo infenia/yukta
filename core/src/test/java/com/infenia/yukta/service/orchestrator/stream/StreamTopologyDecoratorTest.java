@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.orchestrator.stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
@@ -88,7 +87,7 @@ class StreamTopologyDecoratorTest {
   /** Routes a node output through one outgoing edge, as the compiler does. */
   @SuppressWarnings(UNCHECKED)
   private Flux<Message<?>> edge(final Flux<Message<?>> output) {
-    return decorator.applyEdgeRouting(new Flux[] {output}, new ParentEdgeInfo(0, NODE_1, null));
+    return output;
   }
 
   @BeforeEach
@@ -130,199 +129,6 @@ class StreamTopologyDecoratorTest {
 
     StepVerifier.create(decorator.mergeParentStreams(streams, parentEdges))
         .expectNextCount(2)
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingWithPort() {
-    final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
-    final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_B);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(msg1, msg2)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, PORT_A);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.sourceNodeId()).isEqualTo("parent-1"))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingPortResetsToDefaultForTheReceiver() {
-    final Message<?> routed = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(routed)};
-
-    StepVerifier.create(
-            decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, PORT_A)))
-        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingErrorPortKeepsPortForTheReceiver() {
-    final Message<?> dead =
-        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(dead)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ERROR_PORT);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingNoPort() {
-    final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA);
-    final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), DATA);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(msg1, msg2)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, null);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .expectNextCount(2)
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingNoPortDropsDeadLetters() {
-    final Message<?> normal = DefaultMessage.create(UUID.randomUUID(), DATA);
-    final Message<?> dead =
-        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(normal, dead)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, null);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.sourcePort()).isNull())
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingAllPortsTakesEveryPortButErrorAndResetsToDefault() {
-    final Message<?> onA = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
-    final Message<?> onB = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_B);
-    final Message<?> dead =
-        DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(NodePolicy.ERROR_PORT);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(onA, dead, onB)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ALL_PORTS);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
-        .assertNext(m -> assertThat(m.sourcePort()).isEqualTo(NodePolicy.DEFAULT_PORT))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testFanOutSharesThePayloadWithoutCopyingPerEdge() {
-    final List<Object> shared = new ArrayList<>(List.of(DATA));
-    final Flux<Message<?>> source = Flux.just(DefaultMessage.create(UUID.randomUUID(), shared));
-    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), new ArrayList<>());
-    final Flux<Message<?>>[] streams = new Flux[] {broadcast};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, NODE_1, null);
-    final List<Message<?>> first = new ArrayList<>();
-    final List<Message<?>> second = new ArrayList<>();
-
-    final Flux<Message<?>> firstEdge = decorator.applyEdgeRouting(streams, edge);
-    final Flux<Message<?>> secondEdge = decorator.applyEdgeRouting(streams, edge);
-    firstEdge.subscribe(first::add);
-    secondEdge.subscribe(second::add);
-
-    assertThat(first.get(0).payload()).isSameAs(shared).isSameAs(second.get(0).payload());
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testSingleEdgeKeepsThePayloadInstance() {
-    final List<Object> shared = new ArrayList<>(List.of(DATA));
-    final Flux<Message<?>> source = Flux.just(DefaultMessage.create(UUID.randomUUID(), shared));
-    final NodeBroadcast broadcast = new NodeBroadcast(source.publish(4), new ArrayList<>());
-    final Flux<Message<?>>[] streams = new Flux[] {broadcast};
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, NODE_1, null)))
-        .assertNext(m -> assertThat(m.payload()).isSameAs(shared))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testFanOutThroughBroadcastingFreezesThePayloadForEveryChild() {
-    final List<Object> items = new ArrayList<>(List.of(DATA));
-    final Flux<Message<?>> input = Flux.just(DefaultMessage.create(UUID.randomUUID(), items));
-    final List<Disposable> disposables = new ArrayList<>();
-    final List<Runnable> connectors = new ArrayList<>();
-    final Flux<Message<?>> output =
-        decorator.applyLoggingAndBroadcasting(EXEC_1, NODE_1, input, 1024, disposables, connectors);
-    final Flux<Message<?>>[] streams = new Flux[] {output};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, NODE_1, null);
-    final List<Message<?>> first = new ArrayList<>();
-    final List<Message<?>> second = new ArrayList<>();
-
-    // Both children are registered before either subscribes, as the compiler does.
-    final Flux<Message<?>> firstEdge = decorator.applyEdgeRouting(streams, edge);
-    final Flux<Message<?>> secondEdge = decorator.applyEdgeRouting(streams, edge);
-    firstEdge.subscribe(first::add);
-    secondEdge.subscribe(second::add);
-
-    assertThat(first).hasSize(1);
-    assertThat(second).hasSize(1);
-    final List<Object> firstItems = (List<Object>) first.get(0).payload();
-    final List<Object> secondItems = (List<Object>) second.get(0).payload();
-    assertThat(firstItems).containsExactly(DATA);
-    assertThat(secondItems).containsExactly(DATA);
-    assertThatThrownBy(() -> firstItems.add("edit"))
-        .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(() -> secondItems.add("edit"))
-        .isInstanceOf(UnsupportedOperationException.class);
-    // The producer's own list is left mutable.
-    assertThat(items).containsExactly(DATA);
-
-    disposables.forEach(Disposable::dispose);
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testEdgeTakesBackTheFieldsOnlyTheEngineMayWrite() {
-    final Message<?> forged =
-        DefaultMessage.create(UUID.randomUUID(), DATA)
-            .withControl(true)
-            .withWorkflowId("someone-else")
-            .withHeader("attempt", 9)
-            .withHeader("failure.attempts", 9)
-            .withHeader("failure.exception", "x")
-            .withHeader("failure.time", "x")
-            .withHeader("keep", "me");
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(forged)};
-
-    StepVerifier.create(
-            decorator
-                .applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null))
-                .contextWrite(ctx -> ctx.put("workflowId", "mine")))
-        .assertNext(
-            m -> {
-              assertThat(m.controlMessage()).isFalse();
-              assertThat(m.workflowId()).isEqualTo("mine");
-              assertThat(m.sourceNodeId()).isEqualTo(PARENT_1);
-              assertThat(m.metadata()).containsOnlyKeys("keep");
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testDeadLetterKeepsItsFailureHeadersOnTheErrorPort() {
-    final Message<?> dead =
-        DefaultMessage.create(UUID.randomUUID(), DATA)
-            .withSourcePort(NodePolicy.ERROR_PORT)
-            .withHeader("failure.attempts", 3)
-            .withHeader("attempt", 3);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(dead)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, NodePolicy.ERROR_PORT);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge))
-        .assertNext(m -> assertThat(m.metadata()).containsOnlyKeys("failure.attempts"))
         .verifyComplete();
   }
 
@@ -392,17 +198,6 @@ class StreamTopologyDecoratorTest {
                 new ParentEdgeInfo(2, PARENT_3, null)))
         .expectNextCount(3)
         .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void testApplyEdgeRoutingPortFilterNoMatch() {
-    final Message<?> msg1 = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_A);
-    final Message<?> msg2 = DefaultMessage.create(UUID.randomUUID(), DATA).withSourcePort(PORT_B);
-    final Flux<Message<?>>[] streams = new Flux[] {Flux.just(msg1, msg2)};
-    final ParentEdgeInfo edge = new ParentEdgeInfo(0, PARENT_1, PORT_C);
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, edge)).verifyComplete();
   }
 
   @Test
@@ -561,28 +356,6 @@ class StreamTopologyDecoratorTest {
     assertThat(lines.getAllValues().get(1)).endsWith("of 300 elements");
     assertThat(lines.getAllValues().get(2)).endsWith("of 300 entries");
     disposables.forEach(Disposable::dispose);
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void edgeRouting_tolerateFailure_swallowsParentErrorAndCompletes() {
-    final Flux<Message<?>>[] streams =
-        new Flux[] {Flux.error(new IllegalStateException("parent failed"))};
-
-    StepVerifier.create(
-            decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null, true)))
-        .verifyComplete();
-  }
-
-  @Test
-  @SuppressWarnings(UNCHECKED)
-  void edgeRouting_default_propagatesParentError() {
-    final Flux<Message<?>>[] streams =
-        new Flux[] {Flux.error(new IllegalStateException("parent failed"))};
-
-    StepVerifier.create(decorator.applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null)))
-        .expectError(IllegalStateException.class)
-        .verify();
   }
 
   @Test

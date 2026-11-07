@@ -77,11 +77,4 @@ public interface SupervisorStore {
    * @return completes when kept
    */
   Mono<Void> saveSessionRefs(String sessionId, List<SupervisorRef> refs);
-
-  /**
-   * The ids of the sessions that declare supervisors for themselves as a whole.
-   *
-   * @return the session ids
-   */
-  Flux<String> sessionsWithRefs();
 }

@@ -115,7 +115,7 @@ class GuardsAcceptanceTest {
     attach(id, "failure-guard", "{\"failures\":1,\"nodes\":[\"bad\"]}", session);
     final String workflowId = workflow(session, true);
 
-    final String executionId = gateway.startWorkflow(session, workflowId).block();
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
     // the guard sees the failure and sends its command, whether or not the run is still alive
     await()
@@ -144,7 +144,7 @@ class GuardsAcceptanceTest {
         session);
     final String workflowId = workflow(session, false);
 
-    final String executionId = gateway.startWorkflow(session, workflowId).block();
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
     // the rule supervisor's stop is parked for approval instead of being applied
     await()
@@ -168,7 +168,7 @@ class GuardsAcceptanceTest {
         session);
     final String workflowId = workflow(session, false);
 
-    final String executionId = gateway.startWorkflow(session, workflowId).block();
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
     await()
         .atMost(WAIT)

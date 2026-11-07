@@ -12,7 +12,6 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.boot.validation.autoconfigure.ValidationAutoConfiguration;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.mock.env.MockEnvironment;
 
 class YuktaPropertiesTest {
 
@@ -32,7 +31,6 @@ class YuktaPropertiesTest {
 
     final YuktaProperties properties = bound.get();
     assertThat(properties.execution().queueCapacity()).isEqualTo(100);
-    assertThat(properties.controlBus().batchTimeout()).isEqualTo(Duration.ofMillis(50));
     assertThat(properties.cache().ttl()).isEqualTo(Duration.ofMinutes(10));
   }
 
@@ -44,19 +42,5 @@ class YuktaPropertiesTest {
         .run(context -> failure.set(context.getStartupFailure()));
 
     assertThat(failure.get()).hasStackTraceContaining("execution.maxConcurrent");
-  }
-
-  @Test
-  void theOldNamesStillWork() {
-    final MockEnvironment environment =
-        new MockEnvironment()
-            .withProperty("control.bus.batch.timeout.ms", "75")
-            .withProperty("workflow.cache.ttl.ms", "1000")
-            .withProperty("control.bus.batch.size", "7");
-    new LegacyPropertyAliases().postProcessEnvironment(environment, null);
-
-    assertThat(environment.getProperty("yukta.control-bus.batch-timeout")).isEqualTo("75ms");
-    assertThat(environment.getProperty("yukta.cache.ttl")).isEqualTo("1000ms");
-    assertThat(environment.getProperty("yukta.control-bus.batch-size")).isEqualTo("7");
   }
 }

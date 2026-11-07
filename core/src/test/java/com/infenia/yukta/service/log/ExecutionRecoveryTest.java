@@ -260,9 +260,9 @@ class ExecutionRecoveryTest {
 
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(2);
     for (int i = 0; i < 4; i++) {
-      assertThat(scheduler.acquire("s", "w" + i).refused()).isFalse();
+      assertThat(scheduler.acquire("s", "w" + i, 0, null).refused()).isFalse();
     }
-    assertThat(scheduler.acquire("s", "w9").refused()).isTrue();
+    assertThat(scheduler.acquire("s", "w9", 0, null).refused()).isTrue();
   }
 
   @Test

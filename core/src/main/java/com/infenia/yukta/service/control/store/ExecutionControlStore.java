@@ -35,17 +35,6 @@ public interface ExecutionControlStore {
   Optional<ExecutionControl> findByExecutionId(String executionId);
 
   /**
-   * Finds the active execution for a workflow and session.
-   *
-   * <p>If multiple executions are active for the same workflow, the first found is returned.
-   *
-   * @param sessionId the session ID
-   * @param workflowId the workflow ID
-   * @return an Optional containing the active handle, or empty if not found
-   */
-  Optional<ExecutionControl> findActiveByWorkflow(String sessionId, String workflowId);
-
-  /**
    * Finds all active executions for a workflow and session.
    *
    * @param sessionId the session ID

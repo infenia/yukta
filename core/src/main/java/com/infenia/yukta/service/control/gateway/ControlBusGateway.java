@@ -8,7 +8,6 @@ import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.StopMode;
-import com.infenia.yukta.plugin.core.Plugin;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -44,23 +43,6 @@ public interface ControlBusGateway {
    * @return a Mono that completes when the signal has been emitted
    */
   <T> Mono<Void> emit(Message<T> signal);
-
-  /**
-   * Register a plugin to receive control signals for a specific workflow node.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @param plugin the plugin instance
-   */
-  void registerPlugin(String workflowId, String nodeId, Plugin plugin);
-
-  /**
-   * Unregister a plugin from the control bus.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   */
-  void unregisterPlugin(String workflowId, String nodeId);
 
   /**
    * Send a command to a specific node in a workflow and wait for response.
@@ -268,24 +250,6 @@ public interface ControlBusGateway {
   Mono<Void> stepNode(String executionId, String nodeId);
 
   /**
-   * Safely stop all active workflow executions for a session and workflow.
-   *
-   * <p>Emits a safe-stop signal for each active execution that drains inflight work before
-   * terminating. The trigger plugin's stream is also severed, preventing any new input from
-   * starting new executions.
-   *
-   * @param sessionId the session that owns the workflow
-   * @param workflowId the workflow to stop
-   * @param reason human-readable explanation for logging
-   * @return a Mono containing a list of stopped execution IDs, or an error if no active executions
-   *     exist
-   */
-  default Mono<List<String>> stopWorkflow(
-      final String sessionId, final String workflowId, final String reason) {
-    return stopWorkflow(sessionId, workflowId, reason, StopMode.DRAIN);
-  }
-
-  /**
    * Stops every active execution of a workflow in the given way.
    *
    * @param sessionId the session identifier
@@ -298,19 +262,6 @@ public interface ControlBusGateway {
       String sessionId, String workflowId, String reason, StopMode mode);
 
   /**
-   * Safely stop a specific workflow execution by execution ID.
-   *
-   * <p>Emits a safe-stop signal that drains inflight work before terminating.
-   *
-   * @param executionId the execution to stop
-   * @param reason human-readable explanation for logging
-   * @return a Mono containing the stopped execution ID, or an error if execution not found
-   */
-  default Mono<String> stopExecution(final String executionId, final String reason) {
-    return stopExecution(executionId, reason, StopMode.DRAIN);
-  }
-
-  /**
    * Stop a specific workflow execution in the given way.
    *
    * @param executionId the execution to stop
@@ -320,27 +271,6 @@ public interface ControlBusGateway {
    * @return a Mono containing the stopped execution ID, or an error if execution not found
    */
   Mono<String> stopExecution(String executionId, String reason, StopMode mode);
-
-  /**
-   * Start a new workflow execution for a session with an empty trigger payload.
-   *
-   * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
-   * @return a Mono containing the execution ID
-   */
-  default Mono<String> startWorkflow(final String sessionId, final String workflowId) {
-    return startWorkflow(sessionId, workflowId, Map.of());
-  }
-
-  /**
-   * Start a new workflow execution for a session.
-   *
-   * @param sessionId the session identifier
-   * @param workflowId the workflow identifier
-   * @param payload the trigger payload, read by the workflow's trigger node
-   * @return a Mono containing the execution ID
-   */
-  Mono<String> startWorkflow(String sessionId, String workflowId, Map<String, Object> payload);
 
   /**
    * Start a new workflow execution, safely retryable with an idempotency key.

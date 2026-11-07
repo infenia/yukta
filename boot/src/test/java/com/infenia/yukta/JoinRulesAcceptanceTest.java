@@ -85,7 +85,7 @@ class JoinRulesAcceptanceTest {
     final String session = "join-" + UUID.randomUUID();
     defineFanOut(session);
 
-    final String executionId = gateway.startWorkflow(session, "fan-out").block();
+    final String executionId = gateway.startWorkflow(session, "fan-out", Map.of(), null).block();
     await()
         .atMost(WAIT)
         .until(

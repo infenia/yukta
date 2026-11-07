@@ -74,9 +74,4 @@ public class InMemorySupervisorStore implements SupervisorStore {
           }
         });
   }
-
-  @Override
-  public Flux<String> sessionsWithRefs() {
-    return Flux.defer(() -> Flux.fromIterable(refsBySession.keySet()));
-  }
 }

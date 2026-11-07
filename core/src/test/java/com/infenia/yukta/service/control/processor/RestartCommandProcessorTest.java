@@ -91,7 +91,7 @@ class RestartCommandProcessorTest {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
     scheduler =
         new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
-    scheduler.acquire("s1", "w1");
+    scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
 

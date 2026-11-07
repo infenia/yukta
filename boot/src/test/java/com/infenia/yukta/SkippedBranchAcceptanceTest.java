@@ -76,7 +76,7 @@ class SkippedBranchAcceptanceTest {
                     new Edge("repair", "fixed", "success"))))
         .block();
 
-    final String executionId = gateway.startWorkflow(session, workflowId).block();
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
     await()
         .atMost(WAIT)

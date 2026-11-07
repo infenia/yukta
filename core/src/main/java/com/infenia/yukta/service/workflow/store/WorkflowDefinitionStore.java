@@ -60,9 +60,7 @@ public interface WorkflowDefinitionStore {
    * @param workflowId the workflow identifier
    * @return the versions, newest first
    */
-  default Flux<DefinitionRevision> revisions(String sessionId, String workflowId) {
-    return Flux.empty();
-  }
+  Flux<DefinitionRevision> revisions(String sessionId, String workflowId);
 
   /**
    * Find one saved version of a workflow.
@@ -72,10 +70,7 @@ public interface WorkflowDefinitionStore {
    * @param revisionId the version, as listed by {@link #revisions}
    * @return Mono containing the definition, or empty if there is no such version
    */
-  default Mono<WorkflowDefinition> findRevision(
-      String sessionId, String workflowId, String revisionId) {
-    return Mono.empty();
-  }
+  Mono<WorkflowDefinition> findRevision(String sessionId, String workflowId, String revisionId);
 
   /**
    * Write or clear the note of a saved version.
@@ -87,7 +82,5 @@ public interface WorkflowDefinitionStore {
    * @return Mono that completes when saved, or fails with NotFoundException for an unknown version
    */
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
-  default Mono<Void> saveNote(String sessionId, String workflowId, String revisionId, String note) {
-    return Mono.error(new UnsupportedOperationException("This store keeps no version notes"));
-  }
+  Mono<Void> saveNote(String sessionId, String workflowId, String revisionId, String note);
 }

@@ -96,11 +96,8 @@ public class WorkflowController {
               final Map<String, Object> clean =
                   ExecutionLogEvent.withInitiator(request.payload(), initiator(request, context));
               final Map<String, Object> payload = options == null ? clean : options.into(clean);
-              return idempotencyKey == null
-                  ? workflowService.validateAndStartWorkflow(
-                      request.sessionId(), request.workflowId(), payload)
-                  : workflowService.validateAndStartWorkflow(
-                      request.sessionId(), request.workflowId(), payload, idempotencyKey);
+              return workflowService.validateAndStartWorkflow(
+                  request.sessionId(), request.workflowId(), payload, idempotencyKey);
             })
         .map(
             execution ->

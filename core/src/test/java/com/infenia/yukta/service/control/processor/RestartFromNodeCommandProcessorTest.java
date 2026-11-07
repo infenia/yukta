@@ -146,7 +146,7 @@ class RestartFromNodeCommandProcessorTest {
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
     scheduler = new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
-    scheduler.acquire("s1", "w1");
+    scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartFromNodeCommandProcessor(
             registry, archive, orchestrator, checkpoints, scheduler, completionSink);

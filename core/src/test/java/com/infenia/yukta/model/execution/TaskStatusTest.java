@@ -32,15 +32,6 @@ class TaskStatusTest {
   }
 
   @Test
-  void isTerminal_errorStatus_returnsTrue() {
-    // When
-    final boolean actualResult = TaskStatus.ERROR.isTerminal();
-
-    // Then
-    assertThat(actualResult).isTrue();
-  }
-
-  @Test
   void isTerminal_stoppedStatus_returnsTrue() {
     assertThat(TaskStatus.STOPPED.isTerminal()).isTrue();
   }
@@ -82,15 +73,6 @@ class TaskStatusTest {
   }
 
   @Test
-  void valueOf_errorStatusString_returnsErrorConstant() {
-    // When
-    final TaskStatus actualStatus = TaskStatus.valueOf("ERROR");
-
-    // Then
-    assertThat(actualStatus).isEqualTo(TaskStatus.ERROR);
-  }
-
-  @Test
   void valueOf_pendingStatusString_returnsPendingConstant() {
     // When
     final TaskStatus actualStatus = TaskStatus.valueOf("PENDING");
@@ -128,7 +110,6 @@ class TaskStatusTest {
             TaskStatus.RUNNING,
             TaskStatus.SUCCESS,
             TaskStatus.FAILURE,
-            TaskStatus.ERROR,
             TaskStatus.STOPPED,
             TaskStatus.CANCELLED,
             TaskStatus.TIMED_OUT,
@@ -143,7 +124,7 @@ class TaskStatusTest {
     final TaskStatus[] actualValues = TaskStatus.values();
 
     // Then
-    assertThat(actualValues).hasSize(12);
+    assertThat(actualValues).hasSize(11);
   }
 
   @Test

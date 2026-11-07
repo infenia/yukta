@@ -150,7 +150,6 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
     StepVerifier.create(store.saveSessionRefs("A", refs)).verifyComplete();
     StepVerifier.create(store.saveSessionRefs("B", refs)).verifyComplete();
     StepVerifier.create(store.sessionRefs("A")).expectNext(refs).verifyComplete();
-    StepVerifier.create(store.sessionsWithRefs()).expectNext("A", "B").verifyComplete();
 
     StepVerifier.create(store.saveSessionRefs("A", List.of(refs.getFirst()))).verifyComplete();
     StepVerifier.create(store.sessionRefs("A"))
@@ -158,6 +157,5 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
         .verifyComplete();
     StepVerifier.create(store.saveSessionRefs("A", List.of())).verifyComplete();
     StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
-    StepVerifier.create(store.sessionsWithRefs()).expectNext("B").verifyComplete();
   }
 }

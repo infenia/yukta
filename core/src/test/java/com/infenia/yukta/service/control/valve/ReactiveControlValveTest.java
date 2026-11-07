@@ -114,27 +114,6 @@ class ReactiveControlValveTest {
   }
 
   @Test
-  void testEnableStepMode() {
-    assertThat(valve.isStepMode()).isFalse();
-
-    valve.enableStepMode();
-
-    assertThat(valve.isStepMode()).isTrue();
-    assertThat(valve.isPaused()).isTrue();
-  }
-
-  @Test
-  void testDisableStepMode() {
-    valve.enableStepMode();
-    assertThat(valve.isStepMode()).isTrue();
-
-    valve.disableStepMode();
-
-    assertThat(valve.isStepMode()).isFalse();
-    assertThat(valve.isPaused()).isFalse();
-  }
-
-  @Test
   void testStepWithoutStepMode() {
     assertThat(valve.step()).isFalse();
   }

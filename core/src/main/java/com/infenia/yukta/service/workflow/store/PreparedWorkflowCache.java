@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
 /**
  * In-memory cache of compiled {@link PreparedWorkflow} instances, keyed by sessionId + workflowId.
  *
- * <p>Entries expire after {@code workflow.cache.ttl.ms} milliseconds of inactivity. Caffeine
+ * <p>Entries expire after {@code yukta.cache.ttl} milliseconds of inactivity. Caffeine
  * automatically evicts expired entries. Access resets the TTL.
  */
 @Slf4j
@@ -245,20 +245,17 @@ public class PreparedWorkflowCache {
         .log("Invalidated all compiled workflows for session");
   }
 
-  /**
-   * Trigger pending maintenance tasks in Caffeine. With Caffeine's automatic eviction, this is
-   * minimal but kept for backward compatibility with tests that call it.
-   */
-  public void evictExpired() {
+  /** Trigger pending maintenance tasks in Caffeine, for tests that need eviction to run now. */
+  /* default */ void evictExpired() {
     cache.cleanUp();
   }
 
   /**
-   * Get cache statistics for observability.
+   * Cache statistics, for tests.
    *
    * @return the cache statistics
    */
-  public CacheStats getStats() {
+  /* default */ CacheStats getStats() {
     return cache.stats();
   }
 

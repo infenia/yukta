@@ -69,7 +69,8 @@ class InputSupervisorAcceptanceTest {
                     new Node("end", "CONSOLE_TERMINAL", Map.of())),
                 List.of(new Edge("t", "q", null), new Edge("q", "end", null))))
         .block(WAIT);
-    return Objects.requireNonNull(gateway.startWorkflow(session, workflowId).block(WAIT));
+    return Objects.requireNonNull(
+        gateway.startWorkflow(session, workflowId, Map.of(), null).block(WAIT));
   }
 
   private InputRequest openRequest(final String executionId) {

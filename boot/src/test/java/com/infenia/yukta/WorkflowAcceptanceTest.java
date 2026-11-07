@@ -82,7 +82,7 @@ class WorkflowAcceptanceTest {
 
   private String start(final String key) {
     final String[] parts = key.split("/");
-    return gateway.startWorkflow(parts[0], parts[1]).block();
+    return gateway.startWorkflow(parts[0], parts[1], Map.of(), null).block();
   }
 
   private WorkflowProgress awaitTerminal(final String executionId) {

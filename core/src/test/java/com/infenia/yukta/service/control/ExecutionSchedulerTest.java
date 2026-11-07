@@ -44,7 +44,7 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler fromSettings =
         new ExecutionScheduler(YuktaSettings.bind(Map.of("yukta.execution.max-concurrent", "1")));
 
-    granted(fromSettings.acquire("s1", "w1"));
+    granted(fromSettings.acquire("s1", "w1", 0, null));
 
     assertThat(fromSettings.running()).isEqualTo(1);
   }
@@ -52,8 +52,8 @@ class ExecutionSchedulerTest {
   @Test
   void givingBackAnAdmissionFreesItsSlotOnceAndLeavesTheQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
-    final Admission first = scheduler.acquire("s1", "w1");
-    final Admission waiting = scheduler.acquire("s1", "w1");
+    final Admission first = scheduler.acquire("s1", "w1", 0, null);
+    final Admission waiting = scheduler.acquire("s1", "w1", 0, null);
 
     first.giveBack();
     first.giveBack();
@@ -82,7 +82,7 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(0, 0, 100, OnLimit.QUEUE);
 
     for (int i = 0; i < 50; i++) {
-      assertThat(scheduler.acquire("s", "w").immediate()).isTrue();
+      assertThat(scheduler.acquire("s", "w", 0, null).immediate()).isTrue();
     }
     assertThat(scheduler.running()).isEqualTo(50);
   }
@@ -90,9 +90,9 @@ class ExecutionSchedulerTest {
   @Test
   void globalLimit_queuesTheOverflow_andAdmitsInOrderAsSlotsFree() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w1"));
-    final Admission second = scheduler.acquire("s", "w2");
-    final Admission third = scheduler.acquire("s", "w3");
+    final Permit first = granted(scheduler.acquire("s", "w1", 0, null));
+    final Admission second = scheduler.acquire("s", "w2", 0, null);
+    final Admission third = scheduler.acquire("s", "w3", 0, null);
 
     assertThat(second.immediate()).isFalse();
     assertThat(scheduler.running()).isEqualTo(1);
@@ -112,9 +112,9 @@ class ExecutionSchedulerTest {
   @Test
   void perWorkflowLimit_letsOtherWorkflowsOvertakeBlockedOne() {
     final ExecutionScheduler scheduler = scheduler(0, 1, 10, OnLimit.QUEUE);
-    final Permit firstOfA = granted(scheduler.acquire("s", "a"));
-    final Admission secondOfA = scheduler.acquire("s", "a");
-    final Admission firstOfB = scheduler.acquire("s", "b");
+    final Permit firstOfA = granted(scheduler.acquire("s", "a", 0, null));
+    final Admission secondOfA = scheduler.acquire("s", "a", 0, null);
+    final Admission firstOfB = scheduler.acquire("s", "b", 0, null);
 
     assertThat(secondOfA.immediate()).isFalse();
     assertThat(firstOfB.immediate()).isTrue();
@@ -125,12 +125,12 @@ class ExecutionSchedulerTest {
   @Test
   void rejectPolicy_refusesWhatDoesNotFit() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.REJECT);
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
 
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .isInstanceOf(ExecutionRejectedException.class)
         .hasMessage("Execution limit reached");
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectError(ExecutionRejectedException.class)
         .verify();
   }
@@ -138,12 +138,12 @@ class ExecutionSchedulerTest {
   @Test
   void queueFull_refusesFurtherStarts() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 1, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w"));
-    scheduler.acquire("s", "w");
+    granted(scheduler.acquire("s", "w", 0, null));
+    scheduler.acquire("s", "w", 0, null);
 
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .hasMessage("Execution limit reached and the queue is full");
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectError(ExecutionRejectedException.class)
         .verify();
   }
@@ -153,15 +153,15 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(1, 0, 1, OnLimit.QUEUE);
 
     scheduler.assertCanAccept("s", "w");
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
     scheduler.assertCanAccept("s", "w");
   }
 
   @Test
   void limits_reportsTheLimitsInForceAndTheSlotsInUse() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit running = granted(scheduler.acquire("s", "w"));
-    scheduler.acquire("s", "w");
+    final Permit running = granted(scheduler.acquire("s", "w", 0, null));
+    scheduler.acquire("s", "w", 0, null);
 
     assertThat(scheduler.limits()).isEqualTo(new SchedulerLimits(1, 0, 1, 1, 10));
 
@@ -216,9 +216,9 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(100));
-    final Permit first = granted(scheduler.acquire("s", "w"));
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
 
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectError(QueueTimeoutException.class)
         .verify(Duration.ofSeconds(2));
 
@@ -232,8 +232,8 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofSeconds(5));
-    final Permit first = granted(scheduler.acquire("s", "w"));
-    final var waiting = scheduler.acquire("s", "w").permit().toFuture();
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
+    final var waiting = scheduler.acquire("s", "w", 0, null).permit().toFuture();
 
     first.release();
 
@@ -243,8 +243,8 @@ class ExecutionSchedulerTest {
   @Test
   void waitingStartThatIsCancelled_leavesTheQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w"));
-    final var waiting = scheduler.acquire("s", "w").permit().subscribe();
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
+    final var waiting = scheduler.acquire("s", "w", 0, null).permit().subscribe();
 
     waiting.dispose();
 
@@ -256,7 +256,7 @@ class ExecutionSchedulerTest {
   @Test
   void slotGrantedJustBeforeTheCancel_isGivenBack() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w"));
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
     final BaseSubscriber<Permit> waiting =
         new BaseSubscriber<>() {
           @Override
@@ -264,7 +264,7 @@ class ExecutionSchedulerTest {
             // no demand yet: the grant is held back until the subscriber asks for it
           }
         };
-    scheduler.acquire("s", "w").permit().subscribe(waiting);
+    scheduler.acquire("s", "w", 0, null).permit().subscribe(waiting);
 
     // the slot is granted to the waiter, then the waiter goes away before taking it
     first.release();
@@ -277,8 +277,8 @@ class ExecutionSchedulerTest {
   @Test
   void releasingTwice_onlyFreesOneSlot() {
     final ExecutionScheduler scheduler = scheduler(2, 0, 10, OnLimit.QUEUE);
-    final Permit one = granted(scheduler.acquire("s", "w"));
-    granted(scheduler.acquire("s", "w"));
+    final Permit one = granted(scheduler.acquire("s", "w", 0, null));
+    granted(scheduler.acquire("s", "w", 0, null));
 
     one.release();
     one.release();
@@ -291,8 +291,8 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
     scheduler.start();
     assertThat(scheduler.isRunning()).isTrue();
-    final Permit running = granted(scheduler.acquire("s", "w"));
-    final var queued = scheduler.acquire("s", "w").permit().materialize().toFuture();
+    final Permit running = granted(scheduler.acquire("s", "w", 0, null));
+    final var queued = scheduler.acquire("s", "w", 0, null).permit().materialize().toFuture();
     final AtomicBoolean stopped = new AtomicBoolean();
 
     scheduler.stop(() -> stopped.set(true));
@@ -302,7 +302,7 @@ class ExecutionSchedulerTest {
     assertThat(queued).isDone();
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .hasMessage("The server is shutting down");
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectErrorMessage("The server is shutting down")
         .verify();
 
@@ -313,7 +313,7 @@ class ExecutionSchedulerTest {
   @Test
   void shutdown_givesUpAfterTheTimeout() throws InterruptedException {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
     final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
 
     scheduler.stop(done::countDown);
@@ -342,7 +342,7 @@ class ExecutionSchedulerTest {
     scheduler.start();
 
     assertThat(scheduler.isRunning()).isTrue();
-    assertThat(granted(scheduler.acquire("s", "w"))).isNotNull();
+    assertThat(granted(scheduler.acquire("s", "w", 0, null))).isNotNull();
   }
 
   @Test
@@ -350,7 +350,7 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     scheduler.stop();
     scheduler.start();
-    final Permit running = granted(scheduler.acquire("s", "w"));
+    final Permit running = granted(scheduler.acquire("s", "w", 0, null));
     final AtomicBoolean stopped = new AtomicBoolean();
 
     scheduler.stop(() -> stopped.set(true));
@@ -363,8 +363,8 @@ class ExecutionSchedulerTest {
   @Test
   void shutdown_waitsUntilTheLastRunningExecutionIsDone() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
-    final Permit one = granted(scheduler.acquire("s", "w"));
-    final Permit two = granted(scheduler.acquire("s", "w"));
+    final Permit one = granted(scheduler.acquire("s", "w", 0, null));
+    final Permit two = granted(scheduler.acquire("s", "w", 0, null));
     final AtomicBoolean stopped = new AtomicBoolean();
     scheduler.stop(() -> stopped.set(true));
 
@@ -378,7 +378,7 @@ class ExecutionSchedulerTest {
   @Test
   void waiterCancelledAfterShutdownRefusedIt_hasNothingToGiveBack() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
     final BaseSubscriber<Permit> waiting =
         new BaseSubscriber<>() {
           @Override
@@ -386,7 +386,7 @@ class ExecutionSchedulerTest {
             // no demand: the refusal is held back
           }
         };
-    scheduler.acquire("s", "w").permit().subscribe(waiting);
+    scheduler.acquire("s", "w", 0, null).permit().subscribe(waiting);
 
     scheduler.stop(() -> {});
     waiting.cancel();
@@ -398,11 +398,11 @@ class ExecutionSchedulerTest {
   @Test
   void refusedWaiterThatIsCancelledLater_hasNothingToGiveBack() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
     final AtomicReference<Subscription> subscription = new AtomicReference<>();
     final AtomicReference<Throwable> refusal = new AtomicReference<>();
     scheduler
-        .acquire("s", "w")
+        .acquire("s", "w", 0, null)
         .permit()
         .subscribe(
             // a core subscriber keeps the upstream subscription, so cancelling after the refusal
@@ -441,13 +441,13 @@ class ExecutionSchedulerTest {
   @Test
   void giveBack_releasesTheSlotOfAnAdmissionNobodyTookUp() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Admission immediate = scheduler.acquire("s", "w");
+    final Admission immediate = scheduler.acquire("s", "w", 0, null);
     assertThat(scheduler.running()).isEqualTo(1);
     immediate.giveBack();
     assertThat(scheduler.running()).isZero();
 
-    final Permit first = granted(scheduler.acquire("s", "w"));
-    final Admission waiting = scheduler.acquire("s", "w");
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
+    final Admission waiting = scheduler.acquire("s", "w", 0, null);
     first.release();
     assertThat(scheduler.running()).isEqualTo(1);
     // granted while nobody listened: giving it back frees the slot again
@@ -458,9 +458,9 @@ class ExecutionSchedulerTest {
   @Test
   void higherPriorityWaitingStartIsAdmittedFirst() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w0"));
-    final Admission low = scheduler.acquire("s", "w1", 0);
-    final Admission high = scheduler.acquire("s", "w2", 5);
+    final Permit first = granted(scheduler.acquire("s", "w0", 0, null));
+    final Admission low = scheduler.acquire("s", "w1", 0, null);
+    final Admission high = scheduler.acquire("s", "w2", 5, null);
     final AtomicBoolean lowGranted = new AtomicBoolean();
     final AtomicBoolean highGranted = new AtomicBoolean();
     low.permit().subscribe(_ -> lowGranted.set(true));
@@ -475,9 +475,9 @@ class ExecutionSchedulerTest {
   @Test
   void raisingTheLimitAtRunTimeAdmitsWaitingStarts() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w0"));
+    granted(scheduler.acquire("s", "w0", 0, null));
     final AtomicBoolean granted = new AtomicBoolean();
-    scheduler.acquire("s", "w1").permit().subscribe(_ -> granted.set(true));
+    scheduler.acquire("s", "w1", 0, null).permit().subscribe(_ -> granted.set(true));
     assertThat(granted).isFalse();
 
     scheduler.setLimits(2, 0);
@@ -497,9 +497,12 @@ class ExecutionSchedulerTest {
   @Test
   void grantSubscriberStartingAnotherRun_doesNotBreakQueue() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    granted(scheduler.acquire("s", "w0"));
-    scheduler.acquire("s", "w1").permit().subscribe(_ -> scheduler.acquire("s", "w2"));
-    scheduler.acquire("s", "w3");
+    granted(scheduler.acquire("s", "w0", 0, null));
+    scheduler
+        .acquire("s", "w1", 0, null)
+        .permit()
+        .subscribe(_ -> scheduler.acquire("s", "w2", 0, null));
+    scheduler.acquire("s", "w3", 0, null);
 
     scheduler.setLimits(3, 0);
 
@@ -510,7 +513,7 @@ class ExecutionSchedulerTest {
   @Test
   void setPriority_movesWaitingStartAheadOfLowerPriorityOnes() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w"));
+    final Permit first = granted(scheduler.acquire("s", "w", 0, null));
     final var order = new java.util.ArrayList<String>();
     scheduler.acquire("s", "w", 0, "low").permit().subscribe(p -> order.add("low"));
     scheduler.acquire("s", "w", 0, LATE).permit().subscribe(p -> order.add(LATE));
@@ -551,10 +554,10 @@ class ExecutionSchedulerTest {
   @Test
   void perSessionLimit_holdsBackOneSession_whileOthersStillRun() {
     final ExecutionScheduler scheduler = governed(0, 1, 0, 10);
-    granted(scheduler.acquire("a", "w1"));
+    granted(scheduler.acquire("a", "w1", 0, null));
 
-    final Admission second = scheduler.acquire("a", "w2");
-    final Admission other = scheduler.acquire("b", "w1");
+    final Admission second = scheduler.acquire("a", "w2", 0, null);
+    final Admission other = scheduler.acquire("b", "w1", 0, null);
 
     assertThat(second.immediate()).isFalse();
     assertThat(other.immediate()).isTrue();
@@ -564,11 +567,11 @@ class ExecutionSchedulerTest {
   @Test
   void freedSlot_goesToSessionWithFewestRunning_beforeOldestWaiter() {
     final ExecutionScheduler scheduler = governed(2, 0, 0, 10);
-    final Permit firstOfA = granted(scheduler.acquire("a", "w"));
-    granted(scheduler.acquire("a", "w"));
+    final Permit firstOfA = granted(scheduler.acquire("a", "w", 0, null));
+    granted(scheduler.acquire("a", "w", 0, null));
     final var order = new java.util.ArrayList<String>();
-    scheduler.acquire("a", "w").permit().subscribe(p -> order.add("a"));
-    scheduler.acquire("b", "w").permit().subscribe(p -> order.add("b"));
+    scheduler.acquire("a", "w", 0, null).permit().subscribe(p -> order.add("a"));
+    scheduler.acquire("b", "w", 0, null).permit().subscribe(p -> order.add("b"));
 
     firstOfA.release();
 
@@ -578,10 +581,10 @@ class ExecutionSchedulerTest {
   @Test
   void priority_stillBeatsFairness() {
     final ExecutionScheduler scheduler = governed(1, 0, 0, 10);
-    final Permit first = granted(scheduler.acquire("a", "w"));
+    final Permit first = granted(scheduler.acquire("a", "w", 0, null));
     final var order = new java.util.ArrayList<String>();
-    scheduler.acquire("b", "w", 0).permit().subscribe(p -> order.add("b-low"));
-    scheduler.acquire("a", "w", 5).permit().subscribe(p -> order.add("a-high"));
+    scheduler.acquire("b", "w", 0, null).permit().subscribe(p -> order.add("b-low"));
+    scheduler.acquire("a", "w", 5, null).permit().subscribe(p -> order.add("a-high"));
 
     first.release();
 
@@ -591,13 +594,13 @@ class ExecutionSchedulerTest {
   @Test
   void workflowQueueCapacity_refusesOnlyThatWorkflow_andCountsTheReason() {
     final ExecutionScheduler scheduler = governed(1, 0, 1, 10);
-    granted(scheduler.acquire("s", "w"));
-    scheduler.acquire("s", "w");
+    granted(scheduler.acquire("s", "w", 0, null));
+    scheduler.acquire("s", "w", 0, null);
 
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .isInstanceOf(ExecutionRejectedException.class)
         .hasMessageContaining("queue of this workflow is full");
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectError(ExecutionRejectedException.class)
         .verify();
     scheduler.assertCanAccept("s", "other");
@@ -609,13 +612,13 @@ class ExecutionSchedulerTest {
   @Test
   void rejections_areCountedByReason() {
     final ExecutionScheduler reject = scheduler(1, 0, 10, OnLimit.REJECT);
-    granted(reject.acquire("s", "w"));
-    reject.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    granted(reject.acquire("s", "w", 0, null));
+    reject.acquire("s", "w", 0, null).permit().subscribe(p -> {}, e -> {});
     final ExecutionScheduler full = scheduler(1, 0, 0, OnLimit.QUEUE);
-    granted(full.acquire("s", "w"));
-    full.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    granted(full.acquire("s", "w", 0, null));
+    full.acquire("s", "w", 0, null).permit().subscribe(p -> {}, e -> {});
     full.stop();
-    full.acquire("s", "w").permit().subscribe(p -> {}, e -> {});
+    full.acquire("s", "w", 0, null).permit().subscribe(p -> {}, e -> {});
 
     assertThat(reject.rejected(ExecutionScheduler.RejectReason.LIMIT)).isEqualTo(1);
     assertThat(full.rejected(ExecutionScheduler.RejectReason.QUEUE_FULL)).isEqualTo(1);
@@ -627,9 +630,9 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler =
         new ExecutionScheduler(
             1, 0, 10, OnLimit.QUEUE, Duration.ofMillis(300), Duration.ofMillis(50));
-    granted(scheduler.acquire("s", "w"));
+    granted(scheduler.acquire("s", "w", 0, null));
 
-    StepVerifier.create(scheduler.acquire("s", "w").permit())
+    StepVerifier.create(scheduler.acquire("s", "w", 0, null).permit())
         .expectError(QueueTimeoutException.class)
         .verify(Duration.ofSeconds(2));
 
@@ -639,10 +642,10 @@ class ExecutionSchedulerTest {
   @Test
   void waitingStartsOfLowerPriorityDoNotOvertakeTheBestOne() {
     final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.QUEUE);
-    final Permit first = granted(scheduler.acquire("s", "w0"));
+    final Permit first = granted(scheduler.acquire("s", "w0", 0, null));
     final var order = new java.util.ArrayList<String>();
-    scheduler.acquire("s", "w1", 5).permit().subscribe(_ -> order.add("high"));
-    scheduler.acquire("s", "w2", 1).permit().subscribe(_ -> order.add("low"));
+    scheduler.acquire("s", "w1", 5, null).permit().subscribe(_ -> order.add("high"));
+    scheduler.acquire("s", "w2", 1, null).permit().subscribe(_ -> order.add("low"));
 
     first.release();
 
@@ -662,7 +665,7 @@ class ExecutionSchedulerTest {
 
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .isInstanceOf(com.infenia.yukta.service.leader.NotLeaderException.class);
-    assertThatThrownBy(() -> scheduler.acquire("s", "w"))
+    assertThatThrownBy(() -> scheduler.acquire("s", "w", 0, null))
         .isInstanceOf(com.infenia.yukta.service.leader.NotLeaderException.class);
     assertThat(scheduler.running()).isZero();
   }
@@ -670,7 +673,7 @@ class ExecutionSchedulerTest {
   @Test
   void draining_refusesNewStarts_keepsRunningOnes_andCanBeUndone() {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
-    final Permit running = granted(scheduler.acquire("s", "w"));
+    final Permit running = granted(scheduler.acquire("s", "w", 0, null));
 
     scheduler.setDraining(true);
 
@@ -679,13 +682,13 @@ class ExecutionSchedulerTest {
     assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
         .isInstanceOf(ExecutionRejectedException.class)
         .hasMessageContaining("draining");
-    assertThat(scheduler.acquire("s", "w").refused()).isTrue();
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isTrue();
     assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.DRAINING)).isEqualTo(2);
     // a child run of a running parent still gets through
     assertThat(scheduler.borrowed().refused()).isFalse();
 
     running.release();
     scheduler.setDraining(false);
-    assertThat(scheduler.acquire("s", "w").refused()).isFalse();
+    assertThat(scheduler.acquire("s", "w", 0, null).refused()).isFalse();
   }
 }

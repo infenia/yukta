@@ -52,18 +52,6 @@ public class ActivePluginRegistry {
   private record Registration(Plugin plugin, AtomicInteger refCount) {}
 
   /**
-   * Register a plugin instance as servicing a workflow node, outside any run.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   * @param plugin the plugin instance
-   */
-  public void register(
-      @NotBlank final String workflowId, @NotBlank final String nodeId, final Plugin plugin) {
-    register(workflowId, null, nodeId, plugin);
-  }
-
-  /**
    * Register a plugin instance as servicing a node of a run.
    *
    * <p>If the key is already registered (the same node registered again within the run), increments
@@ -111,16 +99,6 @@ public class ActivePluginRegistry {
     return Optional.ofNullable(
             activePlugins.get(ControlKey.forNode(workflowId, executionId, nodeId)))
         .map(Registration::plugin);
-  }
-
-  /**
-   * Release one outstanding registration made outside any run.
-   *
-   * @param workflowId the workflow identifier
-   * @param nodeId the node identifier
-   */
-  public void unregister(@NotBlank final String workflowId, @NotBlank final String nodeId) {
-    unregister(workflowId, null, nodeId);
   }
 
   /**

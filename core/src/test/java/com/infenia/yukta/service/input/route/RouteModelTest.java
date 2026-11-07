@@ -118,22 +118,4 @@ class RouteModelTest {
         .hasRootCauseMessage(
             "Route bad: the last tier must be of type HUMAN or the route needs on-final-timeout");
   }
-
-  @Test
-  void theResolverReadsTheRoutesOfTheSettingsAndKnowsTheirNames() {
-    final YuktaProperties properties =
-        YuktaSettings.bind(
-            Map.of(
-                "yukta.input.routes.ops.tiers[0].name", "ops",
-                "yukta.input.routes.ops.tiers[0].responders[0]", "role:OPERATOR"));
-    @SuppressWarnings("unchecked")
-    final org.springframework.beans.factory.ObjectProvider<
-            com.infenia.yukta.service.session.store.SessionConfigStore>
-        sessions = org.mockito.Mockito.mock(org.springframework.beans.factory.ObjectProvider.class);
-
-    final RouteResolver resolver = new RouteResolver(properties, sessions);
-
-    assertThat(resolver.knows("ops")).isTrue();
-    assertThat(resolver.knows("other")).isFalse();
-  }
 }

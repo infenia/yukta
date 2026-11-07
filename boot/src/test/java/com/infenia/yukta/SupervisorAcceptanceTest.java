@@ -89,7 +89,7 @@ class SupervisorAcceptanceTest {
                 List.of(new Edge("t", "p", null), new Edge("p", "end", null))))
         .block();
 
-    final String executionId = gateway.startWorkflow(session, workflowId).block();
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
     // the rule pauses the run once the node is running
     await()

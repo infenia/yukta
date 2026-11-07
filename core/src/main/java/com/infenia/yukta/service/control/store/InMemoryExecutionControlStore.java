@@ -64,12 +64,6 @@ public final class InMemoryExecutionControlStore implements ExecutionControlStor
   }
 
   @Override
-  public Optional<ExecutionControl> findActiveByWorkflow(
-      final String sessionId, final String workflowId) {
-    return findAllActiveByWorkflow(sessionId, workflowId).stream().findFirst();
-  }
-
-  @Override
   public java.util.List<ExecutionControl> findAllActiveByWorkflow(
       final String sessionId, final String workflowId) {
     final var runs = byWorkflow.get(new WorkflowKey(sessionId, workflowId));

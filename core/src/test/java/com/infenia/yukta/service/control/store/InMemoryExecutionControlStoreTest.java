@@ -72,36 +72,6 @@ class InMemoryExecutionControlStoreTest {
   }
 
   @Test
-  void testFindActiveByWorkflow() {
-    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
-    store.save(control);
-
-    final var found = store.findActiveByWorkflow("session-1", "workflow-1");
-    assertThat(found).isPresent().contains(control);
-  }
-
-  @Test
-  void testFindActiveByWorkflowNotFound() {
-    final var found = store.findActiveByWorkflow("session-1", "workflow-1");
-    assertThat(found).isEmpty();
-  }
-
-  @Test
-  void testFindActiveByWorkflowMultipleSessions() {
-    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
-    final ExecutionControl control2 = createControl("session-2", "workflow-1", "exec-2");
-
-    store.save(control1);
-    store.save(control2);
-
-    final var found1 = store.findActiveByWorkflow("session-1", "workflow-1");
-    final var found2 = store.findActiveByWorkflow("session-2", "workflow-1");
-
-    assertThat(found1).isPresent().contains(control1);
-    assertThat(found2).isPresent().contains(control2);
-  }
-
-  @Test
   void testMultipleExecutions() {
     final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
     final ExecutionControl control2 = createControl("session-1", "workflow-1", "exec-2");
@@ -123,36 +93,6 @@ class InMemoryExecutionControlStoreTest {
 
     final var found = store.findByExecutionId("exec-1");
     assertThat(found).isPresent().contains(control2);
-  }
-
-  @Test
-  void testFindActiveByWorkflowSameSessionDifferentWorkflow() {
-    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
-    store.save(control);
-
-    // Now query for same session but different workflow
-    final var found = store.findActiveByWorkflow("session-1", "workflow-2");
-    assertThat(found).isEmpty();
-  }
-
-  @Test
-  void testFindActiveByWorkflowDifferentSessionSameWorkflow() {
-    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
-    store.save(control);
-
-    // Now query for different session but same workflow
-    final var found = store.findActiveByWorkflow("session-2", "workflow-1");
-    assertThat(found).isEmpty();
-  }
-
-  @Test
-  void testFindActiveByWorkflowDifferentSessionDifferentWorkflow() {
-    final ExecutionControl control = createControl("session-1", "workflow-1", "exec-1");
-    store.save(control);
-
-    // Now query for different session and different workflow
-    final var found = store.findActiveByWorkflow("session-2", "workflow-2");
-    assertThat(found).isEmpty();
   }
 
   @Test
@@ -264,19 +204,5 @@ class InMemoryExecutionControlStoreTest {
 
     assertThat(snapshot).containsExactly(control);
     assertThat(store.findAll()).isEmpty();
-  }
-
-  @Test
-  void testWorkflowIndexFollowsSaveAndRemove() {
-    store.save(createControl("s", "w", "e1"));
-    store.save(createControl("s", "w", "e2"));
-    store.save(createControl("s", "other", "e3"));
-    assertThat(store.findAllActiveByWorkflow("s", "w")).hasSize(2);
-
-    store.remove("e1");
-    store.remove("e2");
-    assertThat(store.findAllActiveByWorkflow("s", "w")).isEmpty();
-    assertThat(store.findActiveByWorkflow("s", "w")).isEmpty();
-    assertThat(store.findActiveByWorkflow("s", "other")).isPresent();
   }
 }

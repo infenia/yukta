@@ -83,7 +83,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartReturns202WithExecutionId() {
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     client
@@ -102,7 +102,7 @@ class WorkflowControllerTest {
   @Test
   void testStartRecordsTheInitiatorTheRequestNames() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     client
@@ -124,7 +124,7 @@ class WorkflowControllerTest {
   @Test
   void testStartWithoutNameRecordsNothingWhenNoKeyIsInUse() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     client
@@ -177,7 +177,7 @@ class WorkflowControllerTest {
 
   @Test
   void testEmptyOptionsNeedNoRoleAndNoKeyMeansAdmin() {
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     clientWithKey("op")
@@ -201,7 +201,7 @@ class WorkflowControllerTest {
   @Test
   void testAdminStartOptionsReplaceForgedPayloadKeys() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     clientWithKey("root", ApiRole.ADMIN)
@@ -221,7 +221,7 @@ class WorkflowControllerTest {
   @Test
   void testStartWithoutNameRecordsTheKeyOfTheCaller() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     clientWithKey("ci-bot")
@@ -239,7 +239,7 @@ class WorkflowControllerTest {
   @Test
   void testBlankInitiatorIsNotRecordedAndFallsBackToTheCallerKey() {
     final var payloads = org.mockito.ArgumentCaptor.forClass(Map.class);
-    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture()))
+    when(workflowService.validateAndStartWorkflow(eq("s1"), eq("wf"), payloads.capture(), any()))
         .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
 
     clientWithKey("ci-bot")
@@ -275,7 +275,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartOfUnknownWorkflowIs404() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap()))
+    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new NotFoundException("Workflow not found for session: s1")));
 
     client
@@ -290,7 +290,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartRejectedByLimitIs429() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap()))
+    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new ExecutionRejectedException("limit reached")));
 
     client
@@ -305,7 +305,7 @@ class WorkflowControllerTest {
 
   @Test
   void testStartFailureIsNot404AndDoesNotLeakMessage() {
-    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap()))
+    when(workflowService.validateAndStartWorkflow(any(), any(), anyMap(), any()))
         .thenReturn(Mono.error(new RuntimeException("jdbc:secret@10.0.0.5")));
 
     client
