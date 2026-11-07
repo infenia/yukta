@@ -97,7 +97,7 @@ class ReplayNodeAssemblerTest {
   }
 
   @Test
-  void replay_isMarkedAsLoggedSoARestartNeverEchoesItAgain() {
+  void replay_isMarkedAsLoggedSoRestartsNeverEchoItAgain() {
     final ArgumentCaptor<BooleanSupplier> loggedLive =
         ArgumentCaptor.forClass(BooleanSupplier.class);
 
