@@ -82,6 +82,33 @@ class CompositeServiceTest {
         .containsExactly("mode", "children", "review", "quorum", "window");
   }
 
+  /** A type that validates but cannot start when its settings say {@code boom}. */
+  private final SupervisorFactory flaky =
+      new SupervisorFactory() {
+        @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of(ConfigField.optional("boom", ConfigField.Type.BOOLEAN, null, "test"));
+        }
+
+        @Override
+        public String type() {
+          return "flaky";
+        }
+
+        @Override
+        public void validate(final Supervisor profile) {
+          // accepts anything: the failure shows only when a binding starts again
+        }
+
+        @Override
+        public ExecutionSupervisor create(final Supervisor profile) {
+          if (Boolean.TRUE.equals(profile.settings().get("boom"))) {
+            throw new IllegalArgumentException("cannot start");
+          }
+          return leaf.create(profile);
+        }
+      };
+
   private SupervisorService service() {
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
     final SupervisorResolver resolver =
@@ -95,7 +122,7 @@ class CompositeServiceTest {
     final SupervisorService service =
         new SupervisorService(
             new InMemorySupervisorStore(),
-            List.of(leaf, composite),
+            List.of(leaf, composite, flaky),
             host,
             new InMemoryExecutionLogStore());
     service.setResolver(resolver);
@@ -131,6 +158,74 @@ class CompositeServiceTest {
         .verifyComplete();
 
     verify(host, times(2)).attach(ArgumentMatchers.any(BoundSupervisor.class));
+  }
+
+  @Test
+  void reSavingChildAsCompositeListingItsParentIsRefusedAsCycle() {
+    final SupervisorService service = service();
+    service.saveSupervisor(new Supervisor("b", "leaf", Map.of(), false)).block();
+    service
+        .saveSupervisor(
+            new Supervisor(
+                "a", "composite", Map.of("mode", "PARALLEL", "children", List.of("b")), false))
+        .block();
+
+    StepVerifier.create(
+            service.saveSupervisor(
+                new Supervisor(
+                    "b", "composite", Map.of("mode", "PARALLEL", "children", List.of("a")), false)))
+        .expectErrorMessage("Composite profiles form a cycle at 'b'")
+        .verify();
+
+    // nothing was stored, and the resolver is back on the stored tree
+    StepVerifier.create(service.supervisors().filter(p -> "b".equals(p.id())))
+        .assertNext(stored -> assertThat(stored.type()).isEqualTo("leaf"))
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(new Supervisor("b", "leaf", Map.of("v", 2), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void reSavingLeafAsDeepCompositeIsRefusedForCompositesAboveIt() {
+    final SupervisorService service = service();
+    service.saveSupervisor(new Supervisor("y", "leaf", Map.of(), false)).block();
+    service
+        .saveSupervisor(
+            new Supervisor(
+                "x", "composite", Map.of("mode", "PARALLEL", "children", List.of("y")), false))
+        .block();
+    service.saveSupervisor(new Supervisor("c", "leaf", Map.of(), false)).block();
+    service
+        .saveSupervisor(
+            new Supervisor(
+                "q", "composite", Map.of("mode", "PARALLEL", "children", List.of("c")), false))
+        .block();
+    service
+        .saveSupervisor(
+            new Supervisor(
+                "p", "composite", Map.of("mode", "PARALLEL", "children", List.of("q")), false))
+        .block();
+
+    // p -> q -> c -> x -> y would nest four deep, though c itself is only two deep
+    StepVerifier.create(
+            service.saveSupervisor(
+                new Supervisor(
+                    "c", "composite", Map.of("mode", "PARALLEL", "children", List.of("x")), false)))
+        .expectErrorMessage("Composites nest at most 3 deep")
+        .verify();
+  }
+
+  @Test
+  void oneBindingThatCannotStartDoesNotFailTheSave() {
+    final SupervisorService service = service();
+    service.saveSupervisor(new Supervisor("f", "flaky", Map.of(), false)).block();
+    service.attach(new SupervisorAttachment("b", "f", new SupervisorScope.Global(), true)).block();
+
+    StepVerifier.create(
+            service.saveSupervisor(new Supervisor("f", "flaky", Map.of("boom", true), false)))
+        .expectNextCount(1)
+        .verifyComplete();
   }
 
   @Test

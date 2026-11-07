@@ -285,16 +285,49 @@ public class SupervisorService {
         .then(
             Mono.defer(
                 () -> workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(profile)))
-        .then(Mono.fromRunnable(() -> validate(profile)))
+        .then(Mono.fromRunnable(() -> validateAsSaved(profile)))
+        // the check left the unsaved profile in the resolver: put the stored ones back
+        .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(profile)))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
                 .attachments()
                 .filter(binding -> binding.enabled() && usesProfile(binding, profile.id()))
-                .concatMap(binding -> restart(binding, profile))
+                // one binding that no longer starts must not leave the later ones on old settings
+                .concatMap(
+                    binding ->
+                        Mono.defer(() -> restart(binding, profile))
+                            .onErrorResume(
+                                error -> {
+                                  log.atWarn()
+                                      .setCause(error)
+                                      .addKeyValue("bindingId", binding.id())
+                                      .log(
+                                          "Could not restart a supervisor with the saved settings");
+                                  return Mono.empty();
+                                }))
                 .then())
         .thenReturn(profile);
+  }
+
+  /**
+   * Validates a profile together with the composites above it, as the tree will be once it is
+   * saved: a child re-saved as a composite can close a cycle or nest too deep for a composite that
+   * lists it, and only the tree with the new profile in it shows that.
+   */
+  private void validateAsSaved(final Supervisor profile) {
+    if (resolver != null) {
+      resolver.tentatively(profile);
+    }
+    validate(profile);
+    if (resolver != null) {
+      for (final String compositeId : resolver.compositesUsing(profile.id())) {
+        resolver
+            .profile(compositeId)
+            .ifPresent(composite -> factory(composite).validate(composite));
+      }
+    }
   }
 
   /** Whether the binding's profile is this one or a composite that lists it. */
@@ -484,13 +517,18 @@ public class SupervisorService {
    * @return completes when stopped; errors with {@link NotFoundException}
    */
   public Mono<Void> detach(final String bindingId) {
-    return Mono.fromSupplier(() -> host.detach(bindingId))
-        .then(store.deleteAttachment(bindingId))
+    // The store goes first: if it fails, the binding is still listed and still supervising,
+    // not listed with nothing running.
+    return store
+        .deleteAttachment(bindingId)
         .flatMap(
             existed ->
-                existed
-                    ? audited(true, "DetachSupervisor(" + bindingId + ")")
-                    : Mono.error(new NotFoundException("Binding not found: " + bindingId)));
+                Mono.fromRunnable(() -> host.detach(bindingId))
+                    .then(
+                        existed
+                            ? audited(true, "DetachSupervisor(" + bindingId + ")")
+                            : Mono.error(
+                                new NotFoundException("Binding not found: " + bindingId))));
   }
 
   /**

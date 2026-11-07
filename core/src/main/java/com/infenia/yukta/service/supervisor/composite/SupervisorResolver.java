@@ -51,6 +51,16 @@ public class SupervisorResolver {
   }
 
   /**
+   * Puts a profile in this copy before it is stored, so a check sees the tree as it would be after
+   * the save. {@link #refresh} puts the stored profiles back.
+   *
+   * @param profile the profile about to be saved
+   */
+  public void tentatively(final Supervisor profile) {
+    profiles.put(profile.id(), profile);
+  }
+
+  /**
    * Looks a profile up.
    *
    * @param id the profile id
