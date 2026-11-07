@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { preText } from '@/test/preText';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
 import { ExecutionResultBlock } from '../ExecutionResultBlock';
@@ -45,7 +46,7 @@ describe('ExecutionResultBlock', () => {
     });
 
     expect(screen.getByText('plain answer')).toBeInTheDocument();
-    expect(screen.getByText(/"total": 3/)).toBeInTheDocument();
+    expect(screen.getByText(preText(/"total": 3/))).toBeInTheDocument();
     expect(screen.getByTestId('result-streaming')).toBeInTheDocument();
   });
 

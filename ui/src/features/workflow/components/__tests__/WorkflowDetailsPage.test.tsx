@@ -235,7 +235,13 @@ describe('WorkflowDetailsPage', () => {
       const sheet = await screen.findByRole('dialog', {
         name: 'vectorize-batch',
       });
-      expect(await within(sheet).findByText(/"apiKey": "\*{6}"/)).toBeVisible();
+      expect(
+        await within(sheet).findByText(
+          (_, el) =>
+            el?.tagName === 'PRE' &&
+            /"apiKey": "\*{6}"/.test(el.textContent ?? '')
+        )
+      ).toBeVisible();
       expect(
         within(sheet).getByText('No log lines from this node.')
       ).toBeVisible();
