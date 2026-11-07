@@ -91,6 +91,38 @@ class InMemoryPluginLogStoreTest {
   }
 
   @Test
+  void testIndexedReadKeepsCountingPastTheLinesTheStoreDropped() {
+    final String executionId = "exec-indexed";
+    Flux.range(0, 10_050)
+        .concatMap(
+            i ->
+                store.write(
+                    new PluginLogEntry(
+                        executionId,
+                        SESSION_ID,
+                        PROCESSOR_ID,
+                        PROCESSOR_NAME,
+                        LogStream.STDOUT,
+                        "line " + i,
+                        LogLevel.INFO,
+                        Instant.now(),
+                        null,
+                        null)))
+        .blockLast();
+
+    StepVerifier.create(store.readIndexed(executionId).collectList())
+        .assertNext(
+            lines -> {
+              assertThat(lines).hasSize(10_000);
+              assertThat(lines.getFirst().sequence()).isEqualTo(50);
+              assertThat(lines.getFirst().entry().message()).isEqualTo("line 50");
+              assertThat(lines.getLast().sequence()).isEqualTo(10_049);
+            })
+        .verifyComplete();
+    StepVerifier.create(store.readIndexed("unknown")).verifyComplete();
+  }
+
+  @Test
   void testGlobalCharCapDropsTheOldestLinesOfTheExecutionBeingWritten() {
     final InMemoryPluginLogStore small =
         new InMemoryPluginLogStore(new PluginLogStoreConfig(), 100);

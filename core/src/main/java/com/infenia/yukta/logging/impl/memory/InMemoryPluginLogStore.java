@@ -4,6 +4,7 @@ package com.infenia.yukta.logging.impl.memory;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.infenia.yukta.logging.api.IndexedLog;
 import com.infenia.yukta.logging.api.PluginLogEntry;
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.logging.api.PluginLogStoreConfig;
@@ -53,6 +54,9 @@ public class InMemoryPluginLogStore implements PluginLogStore {
 
     /** Characters of message text held. */
     private long chars;
+
+    /** Lines dropped from the head so far: the position of the first kept line. */
+    private long dropped;
   }
 
   /**
@@ -118,7 +122,24 @@ public class InMemoryPluginLogStore implements PluginLogStore {
   private void drop(final Lines lines) {
     final int size = lines.entries.removeFirst().message().length();
     lines.chars -= size;
+    lines.dropped++;
     held.addAndGet(-size);
+  }
+
+  @Override
+  public Flux<IndexedLog> readIndexed(final String executionId) {
+    final Lines lines = cache.getIfPresent(executionId);
+    final List<IndexedLog> copy = new ArrayList<>();
+    if (lines != null) {
+      synchronized (lines) {
+        long at = lines.dropped;
+        for (final PluginLogEntry entry : lines.entries) {
+          copy.add(new IndexedLog(at, entry));
+          at++;
+        }
+      }
+    }
+    return Flux.fromIterable(copy).subscribeOn(Schedulers.boundedElastic());
   }
 
   @Override

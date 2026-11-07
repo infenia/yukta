@@ -37,6 +37,17 @@ public interface PluginLogStore {
   Flux<PluginLogEntry> readExecution(String executionId);
 
   /**
+   * Read the kept log entries of an execution with their position in the run's whole log. A store
+   * that drops old lines counts them, so the first kept line does not restart at 0.
+   *
+   * @param executionId the execution identifier
+   * @return Flux of the kept entries in order, each with its position
+   */
+  default Flux<IndexedLog> readIndexed(final String executionId) {
+    return readExecution(executionId).index().map(t -> new IndexedLog(t.getT1(), t.getT2()));
+  }
+
+  /**
    * Clean up (delete) all logs for a completed execution.
    *
    * <p>Called after execution completes and retention period elapses. Implementations may trigger
