@@ -11,6 +11,8 @@ import com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.util.EgressPolicy;
+import com.infenia.yukta.plugin.util.HostAllowList;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsValidator;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory;
@@ -18,6 +20,8 @@ import com.infenia.yukta.supervisor.guards.ApprovalGateFactory;
 import com.infenia.yukta.supervisor.guards.FailureGuardFactory;
 import com.infenia.yukta.supervisor.guards.StallWatchdogFactory;
 import com.infenia.yukta.supervisor.rules.RuleSupervisorFactory;
+import com.infenia.yukta.supervisor.webhook.Egress;
+import com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -43,6 +47,8 @@ class SupervisorCatalogTest {
         new FailureGuardFactory(),
         new ApprovalGateFactory(),
         new StallWatchdogFactory(),
+        new WebhookSupervisorFactory(
+            new Egress(EgressPolicy.OPEN, HostAllowList.from(null)), name -> null),
         new RuleControlPlaneFactory(),
         new ModelControlPlaneFactory(null),
         new RulesFirstControlPlaneFactory(null),

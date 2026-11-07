@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { SupervisorRef } from '@/features/supervisors/types';
 import type { SessionDraft, TemplateDetail } from '../types';
 
 /** A session needs a workflow, so a new one starts with a trigger wired to a console terminal. */
@@ -36,11 +37,13 @@ export function slugify(name: string): string {
 export function newSession(
   fields: Omit<SessionDraft, 'workflows' | 'tags'>,
   tags: Record<string, string>,
-  template?: TemplateDetail
+  template?: TemplateDetail,
+  supervisors: SupervisorRef[] = []
 ): SessionDraft {
   return {
     ...fields,
     tags,
+    ...(supervisors.length > 0 ? { supervisors } : {}),
     workflows: template
       ? template.session.workflows
       : starterSession(fields).workflows,

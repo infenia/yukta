@@ -44,17 +44,6 @@ vi.mock('../SupervisorCard', () => ({
     binding?: { id: string };
   }) => <div>card-{binding?.id ?? running?.id}</div>,
 }));
-vi.mock('../ProfileDialog', () => ({
-  ProfileDialog: ({
-    profile,
-    onClose,
-  }: {
-    profile?: { id: string };
-    onClose: () => void;
-  }) => (
-    <button onClick={onClose}>profile-dialog-{profile?.id ?? 'new'}</button>
-  ),
-}));
 vi.mock('../AttachDialog', () => ({
   AttachDialog: ({ onClose }: { onClose: () => void }) => (
     <button onClick={onClose}>attach-dialog</button>
@@ -108,23 +97,20 @@ describe('SupervisorCockpit', () => {
     expect(screen.getByText('card-boot')).toBeInTheDocument();
   });
 
-  it('edits and deletes profiles', () => {
+  it('deletes profiles and links to the wizard to edit one', () => {
     renderWithProviders(<SupervisorCockpit />);
-    fireEvent.click(screen.getByRole('button', { name: 'Edit profile p1' }));
-    fireEvent.click(screen.getByRole('button', { name: 'profile-dialog-p1' }));
     expect(
-      screen.queryByRole('button', { name: 'profile-dialog-p1' })
-    ).toBeNull();
+      screen.getByRole('link', { name: 'Edit profile p1' })
+    ).toHaveAttribute('href', '/supervisors/p1/edit');
     fireEvent.click(screen.getByRole('button', { name: 'Delete profile p1' }));
     expect(state.remove.mutate).toHaveBeenCalledWith('p1');
   });
 
-  it('creates a profile and attaches one from the header', () => {
+  it('links to the wizard for a new supervisor and attaches one from the header', () => {
     renderWithProviders(<SupervisorCockpit />);
-    fireEvent.click(screen.getByRole('button', { name: 'New profile' }));
     expect(
-      screen.getByRole('button', { name: 'profile-dialog-new' })
-    ).toBeInTheDocument();
+      screen.getByRole('link', { name: 'New supervisor' })
+    ).toHaveAttribute('href', '/supervisors/new');
     fireEvent.click(screen.getByRole('button', { name: 'Attach supervisor' }));
     fireEvent.click(screen.getByRole('button', { name: 'attach-dialog' }));
     expect(screen.queryByRole('button', { name: 'attach-dialog' })).toBeNull();

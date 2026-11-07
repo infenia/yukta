@@ -151,6 +151,25 @@ Holds the chosen commands until a person approves them. It reviews commands and 
 
 A command sent by a person is never held, so a person can always stop a run; the gate holds what other supervisors send.
 
+### `webhook`
+
+Hands decisions to a web service. It posts `{"kind": "event", "supervisorId", "attachmentId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked in what it sends.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `url` | required | The endpoint (http or https) |
+| `headers` | – | Headers to send; a value may be `${env.NAME}` |
+| `secretHeaders` | – | Headers with secrets; shown as `***` in every read |
+| `events` | `InputRequested`, `NodeStatusChanged` | The event types to post |
+| `timeoutMs` | `3000` | How long to wait for a reply, at most `10000` |
+| `review` | `false` | Also post the commands to review |
+| `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
+| `maxConcurrent` | `4` | Most calls at once |
+
+A reply of `{"commands": [...]}` is read through the same allow-list as [workflow supervisors](#workflow-supervisors), at most 10 commands, and the supervisor sends **only** the commands `allowedCommands` names (it may send none until it names some). A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. A timeout, an error status or a reply that cannot be read is no opinion for an event.
+
+It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`). A private, loopback or link-local address is refused unless the list names the host, and redirects are not followed.
+
 ## Answer input requests
 
 An [input request](/building/input-requests) is a question a running step or AI agent asks. Supervisors receive it as an `InputRequested` event (and `InputEscalated` when it is handed up) and may answer it or escalate it with advice. The server decides on every answer whether it counts; the supervisor is never trusted to behave.

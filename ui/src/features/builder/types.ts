@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import type { SupervisorRef } from '@/features/supervisors/types';
+
 export interface DraftNode {
   nodeId: string;
   type: string;
@@ -20,6 +22,8 @@ export interface DraftWorkflow {
   description: string;
   nodes: DraftNode[];
   edges: DraftEdge[];
+  /** Supervisors the workflow declares; attached when it is saved. */
+  supervisors?: SupervisorRef[];
 }
 
 export interface SessionDraft {
@@ -30,11 +34,15 @@ export interface SessionDraft {
   tags: Record<string, string>;
   projectPath: string;
   workflows: Record<string, DraftWorkflow>;
+  /** Supervisors the whole session declares; attached when it is saved. */
+  supervisors?: SupervisorRef[];
 }
 
 export interface ValidationResult {
   valid: boolean;
   message: string | null;
+  /** Every problem found, the first of them being \`message\`. */
+  problems?: string[];
   outputPorts: Record<string, string[]>;
   /** What would run but probably not as meant; `field` is a config field or an output port. */
   warnings?: { nodeId: string; field: string; message: string }[];
