@@ -286,9 +286,11 @@ class MetricsSamplerTest {
   void configuredAllowListWinsAndNullMeansDefault() {
     final Duration d = Duration.ofSeconds(5);
 
-    assertThat(new MetricsProperties(true, d, d, d, 10, List.of("x.")).allowList())
+    assertThat(
+            new MetricsProperties(true, d, d, Duration.ofMinutes(5), 10, List.of("x.")).allowList())
         .containsExactly("x.");
-    assertThat(new MetricsProperties(true, d, d, d, 10, null).allowList()).contains("yukta.");
+    assertThat(new MetricsProperties(true, d, d, Duration.ofMinutes(5), 10, null).allowList())
+        .contains("yukta.");
   }
 
   @Test

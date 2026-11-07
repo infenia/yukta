@@ -171,6 +171,8 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
             session.remove(workflowId);
           }
           history.remove(sessionId + "\0" + workflowId);
+          // the notes of its versions go with them
+          notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0" + workflowId + "\0"));
         });
   }
 
@@ -180,6 +182,7 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
         () -> {
           store.remove(sessionId);
           history.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+          notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
         });
   }
 }
