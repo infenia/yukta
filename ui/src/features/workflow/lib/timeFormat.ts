@@ -20,6 +20,19 @@ export function formatClockTime(iso: string | null | undefined): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+const DATE_TIME = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+});
+
+/** Format an ISO timestamp as a local date and clock time, or the placeholder when absent. */
+export function formatDateTime(iso: string | null | undefined): string {
+  const date = iso ? new Date(iso) : null;
+  return date && !Number.isNaN(date.getTime())
+    ? DATE_TIME.format(date)
+    : TIME_PLACEHOLDER;
+}
+
 /** Format the duration between two ISO timestamps as e.g. "1m 12s". */
 export function formatDuration(
   startIso: string | null | undefined,

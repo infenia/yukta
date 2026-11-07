@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RunHistoryDropdown } from '../RunHistoryDropdown';
 import { createMockExecution } from '@/test/factories/workflowFactory';
@@ -13,7 +13,7 @@ const executions = [
 ];
 
 describe('RunHistoryDropdown', () => {
-  it('shows the empty state when there are no runs', () => {
+  it('is disabled and reads "Not Yet Run" when there are no runs', () => {
     render(
       <RunHistoryDropdown
         executions={[]}
@@ -21,12 +21,12 @@ describe('RunHistoryDropdown', () => {
         onSelect={vi.fn()}
       />
     );
-    expect(screen.getByTestId('run-history-empty')).toHaveTextContent(
-      'No runs yet'
-    );
+    const trigger = screen.getByRole('button', { name: /run history/i });
+    expect(trigger).toBeDisabled();
+    expect(trigger).toHaveTextContent('Not Yet Run');
   });
 
-  it('renders the selected execution id in the trigger', () => {
+  it('shows the full run id and no "started" text in the trigger', () => {
     render(
       <RunHistoryDropdown
         executions={executions}
@@ -34,25 +34,42 @@ describe('RunHistoryDropdown', () => {
         onSelect={vi.fn()}
       />
     );
-    // the first 8 characters, as in the Runs list, and when it started
-    expect(
-      screen.getByRole('button', { name: /run history/i })
-    ).toHaveTextContent(/Run\s*exec-091.*· started /);
+    const trigger = screen.getByRole('button', { name: /run history/i });
+    expect(trigger).toHaveTextContent('exec-091-qp-55');
+    expect(trigger).not.toHaveTextContent(/started/i);
   });
 
-  it('shows each run status as a colored pill in the list', async () => {
-    const user = userEvent.setup();
+  it('shows the run status as an icon only, labelled for assistive tech', () => {
     render(
       <RunHistoryDropdown
         executions={[createMockExecution({ status: 'SUCCESS' })]}
-        selectedExecutionId={null}
+        selectedExecutionId={createMockExecution().executionId}
+        onSelect={vi.fn()}
+      />
+    );
+    const status = within(
+      screen.getByRole('button', { name: /run history/i })
+    ).getByTestId('run-status');
+    expect(status).toHaveAttribute('aria-label', 'Succeeded');
+    expect(status).not.toHaveTextContent('Succeeded');
+  });
+
+  it('lists the runs in the same order, with the same id as the trigger', async () => {
+    const user = userEvent.setup();
+    render(
+      <RunHistoryDropdown
+        executions={executions}
+        selectedExecutionId="exec-old-1"
         onSelect={vi.fn()}
       />
     );
     await user.click(screen.getByRole('button', { name: /run history/i }));
-    const pill = await screen.findByTestId('status-chip');
-    expect(pill).toHaveTextContent('Succeeded');
-    expect(pill.className).toContain('text-success');
+    const rows = within(await screen.findByRole('menu')).getAllByRole(
+      'menuitem'
+    );
+    expect(rows[0]).toHaveTextContent(executions[0].executionId);
+    expect(rows[1]).toHaveTextContent('exec-old-1');
+    expect(rows[1]).toHaveAttribute('aria-current', 'true');
   });
 
   it('renders a dash before a selection exists', () => {

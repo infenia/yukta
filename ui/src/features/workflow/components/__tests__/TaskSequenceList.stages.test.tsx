@@ -36,10 +36,12 @@ describe('TaskSequenceList stages', () => {
     const test = screen.getByTestId('task-stage-test');
     expect(ids(lint)).toEqual(['lint', 'lint.fail', 'lint.fix']);
     expect(ids(test)).toEqual(['unit', 'e2e']);
-    expect(within(lint).getByTestId('stage-status')).toHaveTextContent(
+    expect(within(lint).getByTestId('stage-status')).toHaveAttribute(
+      'aria-label',
       'Failed'
     );
-    expect(within(test).getByTestId('stage-status')).toHaveTextContent(
+    expect(within(test).getByTestId('stage-status')).toHaveAttribute(
+      'aria-label',
       'Succeeded'
     );
     expect(lint.querySelector('details')).toHaveAttribute('open');

@@ -36,7 +36,10 @@ test.describe('Workflow Details Page', () => {
     await expect(
       page.getByRole('heading', { name: 'wf-982-xk-11' })
     ).toBeVisible();
-    await expect(page.getByTestId('status-chip')).toHaveText('Running');
+    await expect(page.getByTestId('run-status')).toHaveAttribute(
+      'aria-label',
+      'Running'
+    );
 
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
@@ -668,8 +671,10 @@ test.describe('Workflow Details Page', () => {
     await page.goto(WORKFLOW_URL);
 
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
-    await expect(page.getByTestId('status-chip')).toHaveCount(0);
-    await expect(page.getByTestId('run-history-empty')).toBeVisible();
+    await expect(page.getByTestId('run-status')).toHaveCount(0);
+    await expect(page.getByTestId('run-history-empty')).toHaveText(
+      'Not Yet Run'
+    );
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
       'Waiting'
     );

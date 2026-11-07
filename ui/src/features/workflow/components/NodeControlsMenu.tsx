@@ -130,10 +130,11 @@ export function NodeControlsMenu({
             </span>
           </DropdownMenuTrigger>
         </RequirePermission>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-max">
           {items.map((item) => (
             <DropdownMenuItem
               key={item.command}
+              className="whitespace-nowrap"
               onClick={() => onCommand(nodeId, item.command)}
             >
               {item.label}

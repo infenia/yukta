@@ -167,7 +167,7 @@ export function NodeSheet({
 
         <Section title="Status">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <StatusPill status={task?.status} scope="node" />
+            <StatusPill status={task?.status} scope="node" iconOnly />
             <span className="text-body-sm num text-on-surface-variant">
               {formatClockTime(task?.startTime)} to{' '}
               {formatClockTime(task?.endTime)}

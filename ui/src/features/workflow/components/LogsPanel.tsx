@@ -436,7 +436,7 @@ export function LogsPanel({
                     'text-label-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 transition-colors',
                     autoScroll
                       ? 'border-primary/30 bg-primary/10 text-primary'
-                      : 'text-on-surface-variant hover:bg-muted border-transparent'
+                      : 'text-on-surface-variant hover:bg-muted border-border'
                   )}
                 >
                   <span
