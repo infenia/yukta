@@ -11,7 +11,7 @@ export function SupervisorSummary({
   attachments,
   typeDefaults,
 }: {
-  supervisor: SupervisorView;
+  supervisor: Pick<SupervisorView, 'settings' | 'dryRun'>;
   attachments: AttachmentView[];
   typeDefaults: string[] | null;
 }) {
@@ -20,7 +20,7 @@ export function SupervisorSummary({
     [
       'Watches',
       attachments.length === 0
-        ? 'Nothing yet: attach it to a scope to start.'
+        ? 'Nowhere yet: attach it to a scope to start.'
         : attachments
             .map((a) => scopeLabel(a.scope) + (a.enabled ? '' : ' (paused)'))
             .join('; '),
