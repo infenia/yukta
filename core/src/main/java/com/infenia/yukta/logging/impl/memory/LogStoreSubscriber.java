@@ -67,12 +67,13 @@ public class LogStoreSubscriber {
   protected Flux<Void> buildLogPipeline() {
     return taskTracker
         .getLogFlux()
-        .flatMap(
+        // in order: lines of one run must be stored as written (flatMap ran the writes at once,
+        // each on a worker of its own). The writes are short; the hot feed is moved off its thread.
+        .publishOn(Schedulers.boundedElastic())
+        .concatMap(
             entry ->
                 store
                     .write(entry)
-                    // the hot feed must not run the write on the publishing thread
-                    .subscribeOn(Schedulers.boundedElastic())
                     .onErrorResume(
                         error -> {
                           log.atWarn()
