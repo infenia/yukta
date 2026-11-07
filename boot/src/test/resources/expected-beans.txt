@@ -209,6 +209,7 @@ com.infenia.yukta.service.streaming.DefaultStatusHistoryCache
 com.infenia.yukta.service.supervisor.AttachedSupervisors
 com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.ControlReviewer
+com.infenia.yukta.service.supervisor.DefinitionSupervisors
 com.infenia.yukta.service.supervisor.ExecutionEventFeed
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.SupervisorHost
@@ -227,4 +228,8 @@ com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore
 com.infenia.yukta.service.workflow.store.PreparedWorkflowCache
 com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
+com.infenia.yukta.supervisor.guards.ApprovalGateFactory
+com.infenia.yukta.supervisor.guards.FailureGuardFactory
+com.infenia.yukta.supervisor.guards.StallWatchdogFactory
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory
+com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory

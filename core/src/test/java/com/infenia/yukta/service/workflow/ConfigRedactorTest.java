@@ -162,4 +162,26 @@ class ConfigRedactorTest {
     assertThat(ConfigRedactor.placeholders(workflow("X", Map.of("tokens", List.of("ok", MASK)))))
         .containsExactly("n1.tokens.1");
   }
+
+  @Test
+  void redactingKeepsTheDeclaredSupervisorsOfWorkflowAndSession() {
+    final com.infenia.yukta.model.supervisor.SupervisorRef ref =
+        new com.infenia.yukta.model.supervisor.SupervisorRef("guard", List.of("a.*"), null);
+    final WorkflowDefinition declared =
+        new WorkflowDefinition(
+            "w",
+            "d",
+            List.of(new WorkflowDefinition.Node("n", "T", Map.of())),
+            List.of(),
+            List.of(ref));
+
+    assertThat(redactor.redact(declared).supervisors()).containsExactly(ref);
+    assertThat(
+            redactor
+                .redact(
+                    new SessionConfigResponse(
+                        "s", "n", "d", "i", Map.of(), ".", Map.of("w", declared), List.of(ref)))
+                .supervisors())
+        .containsExactly(ref);
+  }
 }

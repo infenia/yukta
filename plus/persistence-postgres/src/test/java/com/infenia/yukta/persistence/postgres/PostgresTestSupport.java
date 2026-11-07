@@ -118,6 +118,7 @@ abstract class PostgresTestSupport {
           "kv_entry",
           "supervisor_attachment",
           "supervisor",
+          "session_supervisor",
           "session_history"
         }) {
       db.sql("DELETE FROM " + table).fetch().rowsUpdated().block();

@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.supervisor.rules.RuleSet.Deny;
 import com.infenia.yukta.supervisor.rules.RuleSet.RequireApproval;
+import java.time.Duration;
 import java.util.Locale;
 import java.util.Map;
 
@@ -55,7 +56,9 @@ public final class ApprovalRule {
           "Rule '" + ruleId + "': risk must be LOW, MEDIUM or HIGH, not '" + named + "'", e);
     }
     try {
-      return new ApprovalNeed(risk, gate.route(), null);
+      final Integer seconds = gate.ttl();
+      return new ApprovalNeed(
+          risk, gate.route(), seconds == null ? null : Duration.ofSeconds(seconds));
     } catch (final IllegalArgumentException e) {
       throw new IllegalArgumentException("Rule '" + ruleId + "': " + e.getMessage(), e);
     }

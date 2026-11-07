@@ -6,11 +6,14 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.session.SessionSnapshot;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
+import com.infenia.yukta.service.supervisor.SettingsValidationException;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -18,6 +21,7 @@ import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.Valid;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -35,6 +39,7 @@ import reactor.core.publisher.Mono;
 @Service
 @Validated
 @RequiredArgsConstructor
+@SuppressWarnings("PMD.ExcessiveImports")
 public class SessionService {
 
   /** The session configuration store for persisting session settings. */
@@ -55,6 +60,9 @@ public class SessionService {
   /** Stale workflows removed at the same time. */
   private static final int REMOVAL_CONCURRENCY = 4;
 
+  /** Keeps the supervisors that definitions declare attached; absent where there are none. */
+  @Nullable private DefinitionSupervisors definitionSupervisors;
+
   /** Detaches the supervisors of a deleted session; absent where there are none. */
   @Nullable private SupervisorService supervisors;
 
@@ -72,6 +80,46 @@ public class SessionService {
       justification = "Spring injects the shared lookup, which is meant to be held")
   public void setInternalSessions(final InternalSessions internal) {
     this.internalSessions = internal;
+  }
+
+  /**
+   * Lets the supervisors that sessions and workflows declare be checked, attached and detached.
+   *
+   * @param declared the reconciler
+   */
+  @Autowired(required = false)
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP2",
+      justification = "Spring injects the shared service, which is meant to be held")
+  public void setDefinitionSupervisors(final DefinitionSupervisors declared) {
+    this.definitionSupervisors = declared;
+  }
+
+  /** Refuses a session that declares a supervisor that is missing, the server's own or misused. */
+  private Mono<Void> checkDeclared(final SessionConfigData data) {
+    final DefinitionSupervisors declared = definitionSupervisors;
+    return declared == null
+        ? Mono.empty()
+        : declared
+            .check(data)
+            .flatMap(
+                issues ->
+                    issues.isEmpty()
+                        ? Mono.<Void>empty()
+                        : Mono.error(
+                            new SettingsValidationException("Invalid supervisors", issues)));
+  }
+
+  /** Attaches what the session declares, and detaches what it no longer does. */
+  private Mono<Void> reconcileDeclared(final SessionConfigData data) {
+    final DefinitionSupervisors declared = definitionSupervisors;
+    return declared == null ? Mono.empty() : declared.apply(data);
+  }
+
+  /** Brings the attachments of a session in step with its stored definitions. */
+  private Mono<Void> reconcileDeclared(final String sessionId) {
+    final DefinitionSupervisors declared = definitionSupervisors;
+    return declared == null ? Mono.empty() : declared.reconcile(sessionId);
   }
 
   /**
@@ -167,6 +215,7 @@ public class SessionService {
     final Mono<Void> validateAll =
         Flux.fromIterable(data.workflows().values()).concatMap(preparator::prepareWorkflow).then();
     return validateAll
+        .then(Mono.defer(() -> checkDeclared(data)))
         .then(Mono.defer(() -> configService.applySessionConfig(data)))
         .doOnSubscribe(
             _ -> log.atDebug().log("Applying configuration for session: {}", data.sessionId()))
@@ -175,6 +224,7 @@ public class SessionService {
         // would otherwise differ from the declared config while the caller is told it worked.
         .then(staleWorkflowCleanup.onErrorResume(err -> applyRest.then(Mono.error(err))))
         .then(applyRest)
+        .then(Mono.defer(() -> reconcileDeclared(data)))
         .doOnSuccess(
             _ ->
                 log.atDebug().log(
@@ -217,6 +267,7 @@ public class SessionService {
         .then(Mono.defer(() -> ActiveRuns.clear(controlBus, sessionId, workflowId, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
+        .then(Mono.defer(() -> reconcileDeclared(sessionId)))
         .then(Mono.defer(() -> audited(command, sessionId + "/" + workflowId)))
         .onErrorResume(error -> auditedFailure(error, command, sessionId + "/" + workflowId))
         .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, workflowId));
@@ -249,6 +300,12 @@ public class SessionService {
         .then(
             Mono.defer(
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
+        .then(
+            Mono.defer(
+                () ->
+                    definitionSupervisors == null
+                        ? Mono.empty()
+                        : definitionSupervisors.forget(sessionId)))
         .doOnSuccess(
             _ -> {
               preparedWorkflowCache.invalidateAll(sessionId);
@@ -317,7 +374,7 @@ public class SessionService {
     return configService
         .getAllConfigs(sessionId)
         .doOnSubscribe(_ -> log.atDebug().log("Fetching configuration for session: {}", sessionId))
-        .map(this::mapToSessionConfigResponse)
+        .flatMap(this::mapToSessionConfigResponse)
         .doOnNext(
             config ->
                 log.atDebug().log(
@@ -332,15 +389,22 @@ public class SessionService {
                     .log("Failed to retrieve configuration for session: {}"));
   }
 
-  private SessionConfigResponse mapToSessionConfigResponse(final SessionSnapshot config) {
-    return new SessionConfigResponse(
-        config.sessionId(),
-        config.name(),
-        config.description(),
-        config.initiator(),
-        config.tags(),
-        config.projectPath(),
-        config.workflows());
+  private Mono<SessionConfigResponse> mapToSessionConfigResponse(final SessionSnapshot config) {
+    final DefinitionSupervisors declared = definitionSupervisors;
+    return (declared == null
+            ? Mono.just(List.<SupervisorRef>of())
+            : declared.sessionRefs(config.sessionId()))
+        .map(
+            refs ->
+                new SessionConfigResponse(
+                    config.sessionId(),
+                    config.name(),
+                    config.description(),
+                    config.initiator(),
+                    config.tags(),
+                    config.projectPath(),
+                    config.workflows(),
+                    refs));
   }
 
   /**

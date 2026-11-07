@@ -14,6 +14,7 @@ import java.time.Clock;
 import org.junit.jupiter.api.Test;
 
 /** The {@code requireApproval} rule action. */
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class RuleSupervisorApprovalTest {
 
   private static final ExecutionControlCommand STOP =
@@ -120,5 +121,24 @@ class RuleSupervisorApprovalTest {
   @Test
   void theFourPartRuleHasNoGate() {
     assertThat(new RuleSet.Rule("r", null, null, null).requireApproval()).isNull();
+  }
+
+  @Test
+  void ttlIsKeptAndMustBePositive() {
+    final Decision gated =
+        review(
+            supervisor(
+                "{\"rules\":[{\"id\":\"gate\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                    + "\"ttl\":90}}]}"),
+            STOP,
+            "wf");
+
+    assertThat(gated.approval().ttl()).isEqualTo(java.time.Duration.ofSeconds(90));
+    assertThatThrownBy(
+            () ->
+                supervisor(
+                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                        + "\"ttl\":0}}]}"))
+        .hasMessageContaining("Rule 'r'");
   }
 }

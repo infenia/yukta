@@ -26,8 +26,19 @@ public class SettingsValidationException extends IllegalArgumentException {
    * @param issues the problems
    */
   public SettingsValidationException(final List<Issue> issues) {
+    this("Invalid settings", issues);
+  }
+
+  /**
+   * Creates the exception with a lead for the message.
+   *
+   * @param what what was invalid, such as {@code Invalid supervisors}
+   * @param issues the problems
+   */
+  public SettingsValidationException(final String what, final List<Issue> issues) {
     super(
-        "Invalid settings: "
+        what
+            + ": "
             + String.join("; ", issues.stream().map(i -> i.field() + " " + i.message()).toList()));
     this.issues = List.copyOf(issues);
   }

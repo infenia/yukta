@@ -99,4 +99,75 @@ class SupervisorApiAcceptanceTest {
     assertThat(call("GET", "/api/supervisors/bindings", null).statusCode()).isEqualTo(404);
     assertThat(call("GET", "/api/supervisors/types", null).statusCode()).isEqualTo(404);
   }
+
+  private static String session(final String id, final String sessionRefs, final String flowRefs) {
+    return "{\"sessionId\":\""
+        + id
+        + "\",\"name\":\"n\",\"description\":\"d\",\"initiator\":\"t\","
+        + "\"projectPath\":\"/tmp\",\"supervisors\":"
+        + sessionRefs
+        + ",\"workflows\":{\"flow\":{\"workflowId\":\"flow\",\"description\":\"d\","
+        + "\"nodes\":[{\"nodeId\":\"build.a\",\"type\":\"API_TRIGGER\",\"config\":{}},"
+        + "{\"nodeId\":\"end\",\"type\":\"CONSOLE_TERMINAL\",\"config\":{}}],"
+        + "\"edges\":[{\"source\":\"build.a\",\"target\":\"end\"}],\"supervisors\":"
+        + flowRefs
+        + "}}}";
+  }
+
+  @Test
+  void supervisorsDeclaredInSessionAreAttachedFollowTheDefinitionAndBlockDeletion()
+      throws Exception {
+    final String tag = UUID.randomUUID().toString().substring(0, 8);
+    final String supervisor = "decl-" + tag;
+    final String sessionId = "decl-session-" + tag;
+    assertThat(
+            call(
+                    "POST",
+                    "/api/supervisors",
+                    "{\"id\":\""
+                        + supervisor
+                        + "\",\"type\":\"rule-supervisor\","
+                        + "\"settings\":{\"rules\":[]}}")
+                .statusCode())
+        .isEqualTo(201);
+
+    final String declared =
+        session(
+            sessionId,
+            "[{\"supervisor\":\"" + supervisor + "\"}]",
+            "[{\"supervisor\":\"" + supervisor + "\",\"nodes\":[\"build.*\"]}]");
+    assertThat(call("POST", "/api/sessions", declared).statusCode()).isEqualTo(200);
+
+    final String listed =
+        call(
+                "GET",
+                "/api/supervisors/attachments?session=" + sessionId + "&source=DEFINITION",
+                null)
+            .body();
+    assertThat(listed)
+        .contains("session:" + sessionId, "workflow:" + sessionId + "/flow//build.*", "def-");
+    assertThat(call("GET", "/api/sessions/" + sessionId + "/config", null).body())
+        .contains("\"supervisors\":[{\"supervisor\":\"" + supervisor + "\"");
+    final HttpResponse<String> blocked = call("DELETE", "/api/supervisors/" + supervisor, null);
+    assertThat(blocked.statusCode()).isEqualTo(409);
+    assertThat(blocked.body()).contains("session " + sessionId, "workflow " + sessionId + "/flow");
+    final java.util.regex.Matcher found =
+        java.util.regex.Pattern.compile("\"id\":\"(def-[0-9a-f]{16})\"").matcher(listed);
+    assertThat(found.find()).isTrue();
+    final String attachmentId = found.group(1);
+    assertThat(call("DELETE", "/api/supervisors/attachments/" + attachmentId, null).statusCode())
+        .isEqualTo(409);
+
+    final HttpResponse<String> unknown =
+        call("POST", "/api/sessions", session(sessionId, "[{\"supervisor\":\"nope\"}]", "[]"));
+    assertThat(unknown.statusCode()).isEqualTo(400);
+    assertThat(unknown.body()).contains("supervisors[0].supervisor");
+
+    assertThat(call("POST", "/api/sessions", session(sessionId, "[]", "[]")).statusCode())
+        .isEqualTo(200);
+    assertThat(call("GET", "/api/supervisors/attachments?session=" + sessionId, null).body())
+        .doesNotContain("def-");
+    assertThat(call("DELETE", "/api/sessions/" + sessionId, null).statusCode()).isEqualTo(204);
+    assertThat(call("DELETE", "/api/supervisors/" + supervisor, null).statusCode()).isEqualTo(200);
+  }
 }

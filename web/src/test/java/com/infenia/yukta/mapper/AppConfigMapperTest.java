@@ -9,6 +9,7 @@ import com.infenia.yukta.dto.request.WorkflowDefinitionRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.EdgeRequest;
 import com.infenia.yukta.dto.request.WorkflowDefinitionRequest.NodeRequest;
 import com.infenia.yukta.model.session.SessionConfigData;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
@@ -22,7 +23,11 @@ import org.mapstruct.factory.Mappers;
 
 /** Tests for AppConfigMapper. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidAccessibilityAlteration", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidAccessibilityAlteration",
+  "PMD.TooManyMethods",
+  "PMD.AvoidDuplicateLiterals"
+})
 class AppConfigMapperTest {
 
   /** Application Configuration Mapper. */
@@ -661,5 +666,41 @@ class AppConfigMapperTest {
         description,
         List.of(new NodeRequest(nodeId, PROCESSOR_PLUGIN, Map.of())),
         List.of());
+  }
+
+  @Test
+  void declaredSupervisorsOfSessionAndWorkflowSurviveTheMapping() {
+    final SupervisorRef whole = new SupervisorRef("guard", null, null);
+    final SupervisorRef section = new SupervisorRef("watch", List.of("build.*"), false);
+    final ConfigRequest request =
+        new ConfigRequest(
+            "session-123",
+            "Test Session",
+            "d",
+            "i",
+            Map.of(),
+            "/home/user/project",
+            Map.of(
+                WORKFLOW_1,
+                new WorkflowDefinitionRequest(
+                    WORKFLOW_1,
+                    "Test Workflow",
+                    List.of(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of())),
+                    List.of(),
+                    List.of(section))),
+            List.of(whole));
+
+    final SessionConfigData data = mapper.toData(request);
+
+    assertThat(data.supervisors()).containsExactly(whole);
+    assertThat(data.workflows().get(WORKFLOW_1).supervisors()).containsExactly(section);
+  }
+
+  @Test
+  void requestsWithoutDeclarationsDeclareNone() {
+    assertThat(new ConfigRequest("s", "n", "d", "i", Map.of(), ".", Map.of(), null).supervisors())
+        .isEmpty();
+    assertThat(new WorkflowDefinitionRequest("w", "d", List.of(), List.of(), null).supervisors())
+        .isEmpty();
   }
 }

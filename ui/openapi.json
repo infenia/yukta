@@ -2481,6 +2481,15 @@
             "pattern" : "^(?!.*\\.\\.)[^/\\\\]*$",
             "type" : "string"
           },
+          "supervisors" : {
+            "description" : "Supervisors declared for the whole session; attached when it is saved",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "maxItems" : 20,
+            "minItems" : 0,
+            "type" : "array"
+          },
           "tags" : {
             "additionalProperties" : {
               "type" : "string"
@@ -3414,6 +3423,12 @@
           "sessionId" : {
             "type" : "string"
           },
+          "supervisors" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "type" : "array"
+          },
           "tags" : {
             "additionalProperties" : {
               "type" : "string"
@@ -3657,6 +3672,29 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "SupervisorRef" : {
+        "description" : "A supervisor declared in a session or workflow definition",
+        "properties" : {
+          "enabled" : {
+            "description" : "Whether it runs; true when missing",
+            "type" : [ "boolean", "null" ]
+          },
+          "nodes" : {
+            "description" : "Node ids or <prefix>.* selectors; the supervisor then watches only those nodes. Workflow definitions only; missing means the whole workflow",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : [ "array", "null" ]
+          },
+          "supervisor" : {
+            "description" : "The id of a configured supervisor",
+            "minLength" : 1,
+            "type" : "string"
+          }
+        },
+        "required" : [ "supervisor" ],
         "type" : "object"
       },
       "SupervisorTypeDetails" : {
@@ -4069,6 +4107,15 @@
             "minItems" : 1,
             "type" : "array"
           },
+          "supervisors" : {
+            "description" : "Supervisors declared for this workflow; attached when it is saved",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "maxItems" : 20,
+            "minItems" : 0,
+            "type" : "array"
+          },
           "workflowId" : {
             "description" : "Unique workflow identifier",
             "minLength" : 1,
@@ -4103,6 +4150,15 @@
             "minItems" : 1,
             "type" : "array"
           },
+          "supervisors" : {
+            "description" : "Supervisors declared for this workflow; attached when it is saved",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "maxItems" : 20,
+            "minItems" : 0,
+            "type" : "array"
+          },
           "workflowId" : {
             "description" : "Unique workflow identifier",
             "minLength" : 1,
@@ -4126,6 +4182,12 @@
             },
             "type" : "array"
           },
+          "addedSupervisors" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "changedNodes" : {
             "items" : {
               "type" : "string"
@@ -4142,6 +4204,12 @@
             "type" : "array"
           },
           "removedNodes" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "removedSupervisors" : {
             "items" : {
               "type" : "string"
             },

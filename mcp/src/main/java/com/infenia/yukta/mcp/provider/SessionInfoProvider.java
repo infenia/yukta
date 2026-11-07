@@ -131,8 +131,9 @@ public class SessionInfoProvider {
         """
         A session configuration is a JSON object with 'sessionId', 'name', 'description', \
         'initiator', 'projectPath' (an existing directory) and a 'workflows' object that maps a \
-        workflow id to its definition. Unknown properties are rejected, so use exactly the \
-        field names of the example.\
+        workflow id to its definition. Optionally 'supervisors' lists the supervisors to attach \
+        to the whole session, each as {"supervisor": "<id>", "enabled": true}. Unknown \
+        properties are rejected, so use exactly the field names of the example.\
         """;
 
     final String exampleSessionConfig =
@@ -177,7 +178,12 @@ public class SessionInfoProvider {
         and a 'target' node id and, optionally, a 'sourcePort' (for example 'success', 'failure' \
         or 'error'; without one it uses the default port, and '*' takes every port but \
         'error'). Cycles are not allowed. Execution \
-        flows from trigger nodes through processors to terminal nodes.\
+        flows from trigger nodes through processors to terminal nodes. A workflow may also \
+        declare 'supervisors': a list of {"supervisor": "<id of a configured supervisor>", \
+        "nodes": ["build.*", "deploy"], "enabled": true}. They are attached when the session is \
+        saved and detached when removed from the definition. Without 'nodes' the supervisor \
+        watches the whole workflow; with 'nodes' (node ids or '<prefix>.*') only those nodes. \
+        Create the supervisor first with save_supervisor; see list_supervisor_types.\
         """;
 
     final List<PluginReference> availablePlugins =
