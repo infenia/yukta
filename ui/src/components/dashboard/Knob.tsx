@@ -90,7 +90,7 @@ export function Knob({
           onCommit?.(value);
         }
       }}
-      className={`focus-visible:ring-primary/40 relative size-20 touch-none rounded-full outline-none focus-visible:ring-2 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-ns-resize'}`}
+      className={`relative size-20 touch-none rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-ns-resize'}`}
     >
       <svg viewBox="0 0 40 40" aria-hidden="true" className="size-full">
         <circle

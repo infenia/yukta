@@ -65,7 +65,7 @@ export function KioskView({ onExit }: { onExit: () => void }) {
       data-testid="kiosk"
       onMouseEnter={() => setHeld(true)}
       onMouseLeave={() => setHeld(false)}
-      className="bg-background fixed inset-0 z-50 flex flex-col gap-4 overflow-auto p-3 text-base sm:p-6 sm:text-[1.25rem]"
+      className="bg-background fixed inset-0 z-50 flex flex-col gap-4 overflow-auto p-3 text-base sm:p-6 sm:text-xl"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-4">
         <div className="min-w-0 flex-1 basis-full sm:basis-0">

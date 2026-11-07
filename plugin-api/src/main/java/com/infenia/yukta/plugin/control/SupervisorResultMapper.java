@@ -1,9 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor.workflow;
+package com.infenia.yukta.plugin.control;
 
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.StopMode;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

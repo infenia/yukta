@@ -77,10 +77,6 @@ const json = (method: string, body: unknown): RequestInit => ({
 });
 
 export const getSupervisors = () => fetchApi<Supervisor[]>(`${BASE}/status`);
-export const getTypes = async () =>
-  (await fetchApi<{ type: string }[]>('/api/supervisor-types')).map(
-    (t) => t.type
-  );
 /** The configured supervisors, the ones the server configures itself left out. */
 export const getProfiles = async () =>
   (await fetchApi<(SupervisorProfile & { system?: boolean })[]>(BASE)).filter(
@@ -101,8 +97,6 @@ export const getBindings = async () =>
 export const getDecisions = (limit = 30) =>
   fetchApi<Decision[]>(`${BASE}/decisions?limit=${limit}`);
 
-export const createProfile = (profile: SupervisorProfile) =>
-  fetchApi<SupervisorProfile>(BASE, json('POST', profile));
 export const replaceProfile = (profile: SupervisorProfile) =>
   fetchApi<SupervisorProfile>(
     `${BASE}${api`/${profile.id}`}`,
@@ -143,28 +137,6 @@ export function scopeLabel(scope: string): string {
 }
 
 /**
- * Whether a binding's scope covers a session, and a workflow of it when given: a global scope
- * covers everything, `workflow:<id>` any session's workflow of that id. A section counts for the
- * workflow it is part of.
- */
-export function scopeApplies(
-  scope: string,
-  sessionId: string,
-  workflowId?: string
-): boolean {
-  if (scope === 'global') return true;
-  const [kind, rest] = [
-    scope.split(':')[0],
-    scope.slice(scope.indexOf(':') + 1),
-  ];
-  if (kind === 'session') return rest === sessionId;
-  if (kind !== 'workflow' || workflowId === undefined) return false;
-  const ids = rest.split(SECTION)[0];
-  const [s, w] = ids.includes('/') ? ids.split('/') : [undefined, ids];
-  return w === workflowId && (s === undefined || s === sessionId);
-}
-
-/**
  * The node selectors typed as text: separated by commas or spaces, blanks dropped. A selector is a
  * node id or `<prefix>.*`.
  */
@@ -196,20 +168,4 @@ export function buildScope(
   return selectors.length === 0
     ? null
     : `${workflow}${SECTION}${selectors.join(',')}`;
-}
-
-/** Why `text` is not a settings object, or the object. */
-export function parseSettings(
-  text: string
-): { settings: Record<string, unknown> } | { error: string } {
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return { error: 'The settings are not valid JSON.' };
-  }
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { error: 'The settings must be a JSON object.' };
-  }
-  return { settings: value as Record<string, unknown> };
 }

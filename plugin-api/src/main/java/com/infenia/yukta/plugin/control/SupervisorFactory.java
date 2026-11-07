@@ -63,6 +63,18 @@ public interface SupervisorFactory {
   }
 
   /**
+   * The command types one supervisor may send when its settings do not say. The default is the
+   * type's {@link #defaultAllowedCommands()}; override it for a type whose settings decide, such as
+   * an action.
+   *
+   * @param supervisor the supervisor
+   * @return the command names, or {@code null} for no restriction
+   */
+  default @Nullable Set<String> defaultAllowedCommands(final Supervisor supervisor) {
+    return defaultAllowedCommands();
+  }
+
+  /**
    * What the catalog shows about this type. The default is a bare entry named after the type;
    * override it to give the type a description, a category and an example.
    *
