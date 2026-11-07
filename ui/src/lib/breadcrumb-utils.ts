@@ -40,7 +40,7 @@ export function parseBreadcrumbsFromPath(pathname: string): BreadcrumbItem[] {
     // Root path
     return [
       {
-        label: 'Overview',
+        label: 'Sessions',
         href: undefined, // Root is current
         isCurrent: true,
       },

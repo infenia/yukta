@@ -423,7 +423,7 @@ test.describe('Control page', () => {
     );
     await page.goto('/control');
 
-    const approvals = page.getByRole('link', {
+    const approvals = page.getByRole('group', {
       name: /Approvals waiting: 2\./,
     });
     await expect(approvals).toBeVisible();
@@ -433,9 +433,6 @@ test.describe('Control page', () => {
     await expect(openai).toContainText('60');
     await expect(openai).toContainText('3.60');
     await expect(ai).toContainText('Refused heavy calls / min');
-
-    // answered on the overview page
-    await expect(approvals).toHaveAttribute('href', '/');
   });
 
   test('resumes a live run from the dashboard', async ({ page }) => {

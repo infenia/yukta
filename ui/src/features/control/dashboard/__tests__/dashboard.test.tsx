@@ -469,7 +469,7 @@ describe('the Mission Control dashboard', () => {
       await screen.findByRole('option', { name: 'Session Alpha' })
     ).toBeInTheDocument();
   });
-  it('counts the approvals waiting in the chosen scope and links to where they are answered', async () => {
+  it('counts the approvals waiting in the chosen scope', async () => {
     const wait = (sessionId: string, workflowId: string, nodeId: string) => ({
       sessionId,
       workflowId,
@@ -482,10 +482,10 @@ describe('the Mission Control dashboard', () => {
     window.history.pushState({}, '', '/?scope=session:s1');
     renderWithProviders(<DashboardView />);
 
-    const tile = await screen.findByRole('link', {
+    const tile = await screen.findByRole('group', {
       name: /Approvals waiting: 1\./,
     });
-    expect(tile).toHaveAttribute('href', '/');
+    expect(tile).toBeInTheDocument();
   });
 
   it('lists sessions and workflows in the scope filter and keeps the choice in the URL', async () => {

@@ -37,7 +37,6 @@ describe('AppHeader', () => {
   });
 
   it.each([
-    ['/', 'Overview'],
     ['/sessions/s1', 'Sessions'],
     ['/sessions/s1/workflow/w1/edit', 'Sessions'],
     ['/plugins', 'Plugins'],
@@ -71,15 +70,15 @@ describe('AppHeader', () => {
   });
 
   it('should show the active route as an accent pill', () => {
-    renderWithRouter(
-      <>
+    render(
+      <MemoryRouter initialEntries={['/sessions']}>
         <AppHeader />
         <Sidebar />
-      </>
+      </MemoryRouter>
     );
-    const active = screen.getByRole('link', { name: /Overview/ });
+    const active = screen.getByRole('link', { name: /Sessions/ });
     expect(active).toHaveAttribute('aria-current', 'page');
-    expect(active).toHaveClass('rounded-lg', 'bg-accent', 'font-semibold');
+    expect(active).toHaveClass('rounded-lg', 'bg-accent');
     const inactive = screen.getByRole('link', { name: /Plugins/ });
     expect(inactive).not.toHaveAttribute('aria-current');
     expect(inactive).toHaveClass('text-muted-foreground', 'hover:bg-muted');
@@ -97,12 +96,9 @@ describe('AppHeader', () => {
     expect(themeToggle).toBeInTheDocument();
   });
 
-  it('keeps only Overview in the header', () => {
+  it('has no nav in the header', () => {
     renderWithRouter(<AppHeader />);
-    const nav = screen.getByRole('navigation', { name: 'Home' });
-    expect(
-      Array.from(nav.querySelectorAll('a')).map((a) => a.pathname)
-    ).toEqual(['/']);
+    expect(screen.queryByRole('navigation', { name: 'Home' })).toBeNull();
   });
 
   it('links Sessions, Runs, Plugins, Supervisors and Control from the sidebar', () => {
@@ -122,12 +118,6 @@ describe('AppHeader', () => {
     ]);
   });
 
-  it('should render BreadcrumbNav', () => {
-    const { container } = renderWithRouter(<AppHeader />);
-    const nav = container.querySelector('nav');
-    expect(nav).toBeInTheDocument();
-  });
-
   it('should have correct layout structure', () => {
     const { container } = renderWithRouter(<AppHeader />);
     const header = container.querySelector('header');
@@ -135,11 +125,10 @@ describe('AppHeader', () => {
     expect(children?.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('puts the sections beside the logo, then search, then the theme toggle', () => {
+  it('puts the logo first, then search, then the theme toggle', () => {
     renderWithRouter(<AppHeader />);
     const order = [
       screen.getByRole('link', { name: /Yukta/ }),
-      screen.getByRole('navigation', { name: 'Home' }),
       screen.getByRole('button', { name: 'Search and jump to (⌘K)' }),
       screen.getByRole('button', { name: 'Toggle theme' }),
     ];
@@ -194,13 +183,7 @@ describe('AppHeader', () => {
         <Sidebar />
       </>
     );
-    for (const label of [
-      'Overview',
-      'Sessions',
-      'Runs',
-      'Plugins',
-      'Control',
-    ]) {
+    for (const label of ['Sessions', 'Runs', 'Plugins', 'Control']) {
       expect(
         screen.getByRole('link', { name: new RegExp(label) })
       ).toHaveTextContent(label);
@@ -210,7 +193,6 @@ describe('AppHeader', () => {
 
 describe('MobileNav', () => {
   it.each([
-    ['/', 'Overview'],
     ['/sessions', 'Sessions'],
     ['/runs', 'Runs'],
     ['/plugins/x', 'Plugins'],
@@ -236,6 +218,6 @@ describe('MobileNav', () => {
     );
     const nav = screen.getByRole('navigation', { name: 'Primary' });
     expect(nav).toHaveClass('fixed', 'bottom-0', 'sm:hidden');
-    expect(screen.getAllByRole('link')).toHaveLength(6);
+    expect(screen.getAllByRole('link')).toHaveLength(5);
   });
 });
