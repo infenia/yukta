@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.message.channel.NodeMessageChannel;
 import com.infenia.yukta.message.channel.NodeMessageChannelProvider;
 import com.infenia.yukta.model.workflow.NodeAssembler;
+import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.plugin.core.Plugin;
@@ -15,6 +16,7 @@ import com.infenia.yukta.service.control.store.ActivePluginRegistry;
 import com.infenia.yukta.service.orchestrator.stream.NodeActivity;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.workflow.EchoOutput;
 import java.time.Duration;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -123,7 +125,9 @@ public class TriggerNodeAssemblerStrategy implements NodeAssemblerStrategy {
               built,
               bufferSize,
               context.disposables(),
-              context.connectors());
+              context.connectors(),
+              EchoOutput.loggedLive(plugin, node.config(), activity::hasLoggedLive),
+              NodePolicy.checkpoint(node.config()));
 
       log.atDebug()
           .addKeyValue("nodeId", node.nodeId())
