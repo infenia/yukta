@@ -107,3 +107,17 @@ func TestSendCommand_emptySessionID(t *testing.T) {
 		t.Fatalf("expected sessionID error, got %v", err)
 	}
 }
+
+func TestSendCommand_sendsExecutionID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.URL.RawQuery; got != "executionId=e1&sessionId=s1" {
+			t.Errorf("unexpected query %q", got)
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": map[string]interface{}{}})
+	}))
+	defer server.Close()
+
+	if _, err := NewClient(server.URL).SendCommand("s1", "wf", "e1", "n", []byte(`{"a":1}`)); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

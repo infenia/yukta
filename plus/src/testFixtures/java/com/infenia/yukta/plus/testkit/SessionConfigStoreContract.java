@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * return a store that starts empty from {@link #create()}.
  */
 public abstract class SessionConfigStoreContract {
+  private static final String FIRST = "first";
 
   /** Creates the contract. */
   protected SessionConfigStoreContract() {
@@ -48,9 +49,9 @@ public abstract class SessionConfigStoreContract {
   void appliedConfigurationCanBeReadBack() {
     final SessionConfigStore store = create();
 
-    store.applySessionConfig(session("s1", "first")).block();
+    store.applySessionConfig(session("s1", FIRST)).block();
 
-    assertThat(store.getDescription("s1").block()).isEqualTo("first");
+    assertThat(store.getDescription("s1").block()).isEqualTo(FIRST);
     assertThat(store.getInitiator("s1").block()).isEqualTo("initiator");
     assertThat(store.getProjectPath("s1").block()).isEqualTo("/tmp");
     assertThat(store.getTags("s1").block()).containsEntry("team", "a");
@@ -73,11 +74,11 @@ public abstract class SessionConfigStoreContract {
   @Test
   void sessionsDoNotShareValues() {
     final SessionConfigStore store = create();
-    store.applySessionConfig(session("s1", "first")).block();
+    store.applySessionConfig(session("s1", FIRST)).block();
     store.applySessionConfig(session("s2", "second")).block();
 
     assertThat(store.getDescription("s2").block()).isEqualTo("second");
-    assertThat(store.getDescription("s1").block()).isEqualTo("first");
+    assertThat(store.getDescription("s1").block()).isEqualTo(FIRST);
     assertThat(store.getSessionIds().collectList().block()).contains("s1", "s2");
     assertThat(store.getAllConfigs("s2").block()).isNotNull();
   }

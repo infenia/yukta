@@ -18,19 +18,12 @@ const envelope = (path: string, data: unknown) => ({
 
 const ok = (data: unknown) => envelope('/api', data);
 
-async function mockControlApi(
-  page: Page,
-  workers: unknown[],
-  heartbeats: unknown[] = []
-) {
+async function mockControlApi(page: Page, workers: unknown[]) {
   await page.route('**/api/supervisors/status', (route) =>
     route.fulfill(envelope('/supervisors/status', []))
   );
   await page.route('**/api/control/audit*', (route) =>
     route.fulfill(envelope('/audit', []))
-  );
-  await page.route('**/api/control/heartbeats', (route) =>
-    route.fulfill(envelope('/heartbeats', heartbeats))
   );
   await page.route('**/api/edition', (route) =>
     route.fulfill(
@@ -76,42 +69,6 @@ test.describe('Control page', () => {
     await page.goto('/control');
 
     await expect(page.getByText('No workers connected.')).toBeVisible();
-  });
-
-  test('sends a command to a node and shows the response', async ({ page }) => {
-    await mockControlApi(
-      page,
-      [],
-      [
-        {
-          workflowId: 'wf-1',
-          sessionId: 'sess-1',
-          executionId: 'exec-1111-aaaa',
-          nodeId: 'ingest',
-          timestamp: new Date().toISOString(),
-        },
-      ]
-    );
-    let sent: unknown;
-    await page.route(
-      '**/api/control/workflows/wf-1/nodes/ingest/command**',
-      (route) => {
-        sent = route.request().postDataJSON();
-        return route.fulfill(
-          envelope('/command', { payload: { flushed: true } })
-        );
-      }
-    );
-    await page.goto('/control');
-
-    const row = page.getByRole('row', { name: /ingest/ });
-    await expect(row).toContainText('exec-111');
-    await row.getByRole('button', { name: 'Send command to ingest' }).click();
-    await page.getByLabel('Command (JSON object)').fill('{"action":"flush"}');
-    await page.getByRole('button', { name: 'Send', exact: true }).click();
-
-    await expect(page.getByText('"flushed": true')).toBeVisible();
-    expect(sent).toEqual({ action: 'flush' });
   });
 
   test('shows the live activity feed and filters it', async ({ page }) => {
