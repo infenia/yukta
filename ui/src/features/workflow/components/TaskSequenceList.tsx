@@ -161,6 +161,7 @@ function StageSection({
             status={RAW_STATUS[status]}
             scope="node"
             testId="stage-status"
+            iconOnly
             className="ml-auto"
           />
         </summary>

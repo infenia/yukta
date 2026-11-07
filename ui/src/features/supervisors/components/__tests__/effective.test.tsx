@@ -69,16 +69,27 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-const renderCard = (workflowId?: string) =>
+const renderCard = (workflowId?: string, compact = false) =>
   render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter>
-        <EffectiveSupervision sessionId="s1" workflowId={workflowId} />
+        <EffectiveSupervision
+          sessionId="s1"
+          workflowId={workflowId}
+          compact={compact}
+        />
       </MemoryRouter>
     </QueryClientProvider>
   );
 
 describe('EffectiveSupervision', () => {
+  it('drops the strip padding when compact, for use inside a header', async () => {
+    renderCard('w1', true);
+
+    const region = await screen.findByRole('region', { name: 'Supervisors' });
+    expect(region).not.toHaveClass('px-4');
+  });
+
   it('shows what applies to a workflow, each with where it comes from, read-only', async () => {
     renderCard('w1');
 

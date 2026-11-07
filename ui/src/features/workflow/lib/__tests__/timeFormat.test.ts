@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   TIME_PLACEHOLDER,
   formatClockTime,
+  formatDateTime,
   formatDuration,
   formatLogTimestamp,
   formatRelative,
@@ -90,5 +91,22 @@ describe('formatRelative', () => {
   it('has a placeholder for a missing or broken time', () => {
     expect(formatRelative(null)).toBe('--');
     expect(formatRelative('not a date')).toBe('--');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('shows a local date and clock time', () => {
+    const iso = new Date(2026, 10, 7, 14, 22, 1).toISOString();
+    expect(formatDateTime(iso)).toBe(
+      new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'short',
+        timeStyle: 'medium',
+      }).format(new Date(iso))
+    );
+  });
+
+  it('has a placeholder for a missing or broken time', () => {
+    expect(formatDateTime(null)).toBe(TIME_PLACEHOLDER);
+    expect(formatDateTime('not a date')).toBe(TIME_PLACEHOLDER);
   });
 });

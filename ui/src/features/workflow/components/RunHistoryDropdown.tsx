@@ -7,11 +7,32 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { buttonVariants } from '@/components/ui/button';
 import { StatusPill } from './StatusPill';
-import { formatClockTime } from '../lib/timeFormat';
+import { formatDateTime } from '../lib/timeFormat';
 import type { ExecutionSummary } from '../types/workflow';
 
-/** The run picker: which run the page shows ("Run <id> · started <time>"). */
+/** One run, the same in the closed trigger and the open list: status icon, full id, date and time. */
+function RunRow({ execution }: { execution: ExecutionSummary }) {
+  return (
+    <span className="flex items-center gap-2">
+      <StatusPill
+        status={execution.status}
+        iconOnly
+        testId="run-status"
+        className="shrink-0"
+      />
+      <span className="text-code-sm font-mono whitespace-nowrap">
+        {execution.executionId}
+      </span>
+      <span className="text-body-sm text-on-surface-variant whitespace-nowrap tabular-nums">
+        {formatDateTime(execution.startTime)}
+      </span>
+    </span>
+  );
+}
+
+/** The run picker. With no runs yet it is disabled and reads "Not Yet Run". */
 export function RunHistoryDropdown({
   executions,
   selectedExecutionId,
@@ -21,14 +42,19 @@ export function RunHistoryDropdown({
   selectedExecutionId: string | null;
   onSelect: (executionId: string) => void;
 }) {
+  const triggerClass = buttonVariants({ variant: 'outline', size: 'sm' });
+
   if (executions.length === 0) {
     return (
-      <span
-        className="text-body-sm text-on-surface-variant"
+      <button
+        type="button"
+        disabled
+        aria-label="Run history"
+        className={triggerClass}
         data-testid="run-history-empty"
       >
-        No runs yet
-      </span>
+        Not Yet Run
+      </button>
     );
   }
 
@@ -37,22 +63,11 @@ export function RunHistoryDropdown({
   );
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        className="border-border bg-card text-label-md text-on-surface hover:bg-muted flex h-8 items-center gap-2 rounded-full border px-3"
-        aria-label="Run history"
-      >
-        <span className="material-symbols-outlined text-base">history</span>
-        Run
-        <span className="font-mono">
-          {selectedExecutionId?.slice(0, 8) ?? '—'}
-        </span>
-        {selected && (
-          <>
-            <StatusPill status={selected.status} />
-            <span className="text-on-surface-variant font-normal">
-              · started {formatClockTime(selected.startTime)}
-            </span>
-          </>
+      <DropdownMenuTrigger className={triggerClass} aria-label="Run history">
+        {selected ? (
+          <RunRow execution={selected} />
+        ) : (
+          <span className="text-body-sm">—</span>
         )}
         <span className="material-symbols-outlined text-base">expand_more</span>
       </DropdownMenuTrigger>
@@ -60,20 +75,12 @@ export function RunHistoryDropdown({
         {executions.map((execution) => (
           <DropdownMenuItem
             key={execution.executionId}
+            aria-current={
+              execution.executionId === selectedExecutionId ? 'true' : undefined
+            }
             onClick={() => onSelect(execution.executionId)}
           >
-            <span className="flex w-full items-center gap-3">
-              <span className="material-symbols-outlined text-sm">
-                {execution.executionId === selectedExecutionId
-                  ? 'check'
-                  : 'schedule'}
-              </span>
-              <span className="text-code-sm">{execution.executionId}</span>
-              <span className="text-body-sm text-on-surface-variant ml-auto">
-                {formatClockTime(execution.startTime)}
-              </span>
-              <StatusPill status={execution.status} />
-            </span>
+            <RunRow execution={execution} />
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
