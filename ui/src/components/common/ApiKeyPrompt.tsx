@@ -33,7 +33,7 @@ export default function ApiKeyPrompt() {
       role="alertdialog"
       aria-label="API key required"
       onSubmit={submit}
-      className="border-border bg-card shadow-raised fixed top-24 left-1/2 z-50 flex w-96 max-w-[90vw] -translate-x-1/2 flex-col gap-3 rounded-2xl border p-4"
+      className="fixed top-24 left-1/2 z-50 flex w-96 max-w-[90vw] -translate-x-1/2 flex-col gap-3 rounded-2xl border border-border bg-card p-4 shadow-raised"
     >
       <Callout kind="info" compact>
         This server requires an API key. The key stays in this browser tab only.

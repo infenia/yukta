@@ -127,10 +127,10 @@ export function RunTimeline({
                 <td className="py-1.5 pr-2">
                   <StatusPill status={row.status} scope="node" />
                 </td>
-                <td className="num text-body-sm text-on-surface-variant py-1.5 pr-2">
+                <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
                   {formatClockTime(new Date(row.startMs).toISOString())}
                 </td>
-                <td className="num text-body-sm text-on-surface-variant py-1.5 pr-2">
+                <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
                   {formatDuration(
                     new Date(row.startMs).toISOString(),
                     new Date(row.endMs).toISOString()

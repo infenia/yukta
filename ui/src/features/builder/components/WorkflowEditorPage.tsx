@@ -7,7 +7,7 @@ import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router';
+import { useLocation, useNavigate, useParams } from 'react-router';
 import { LeaveGuard } from './LeaveGuard';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
@@ -26,6 +26,9 @@ import { JsonValidityContext } from './ConfigForm.helpers';
 import { NodeInspector } from './NodeInspector';
 import { StateMessage } from '@/components/common/StateMessage';
 import { Callout } from '@/components/common/Callout';
+import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
+import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
+import type { SupervisorRef } from '@/features/supervisors/types';
 import { NativeSelect } from '@/components/ui/native-select';
 import { toPreviewGraph } from './WorkflowEditorPage.helpers';
 import { readDraft, writeDraft } from './workflowDraft';
@@ -67,6 +70,7 @@ function Editor({
   const [ports, setPorts] = useState<Record<string, string[]>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [saveProblems, setSaveProblems] = useState<string[]>([]);
   // JSON fields whose text does not parse: what they show is not what would be saved.
   const [invalidJson, setInvalidJson] = useState<ReadonlySet<string>>(
     new Set()
@@ -141,6 +145,11 @@ function Editor({
 
   // Unsaved: the draft differs from what was loaded (saving leaves the page)
   const dirty = JSON.stringify(workflow) !== JSON.stringify(initial);
+  // problems with the declared supervisors, from Validate or from a refused save
+  const supervisorErrors = [
+    ...(result?.problems ?? []).filter((p) => p.startsWith('supervisors[')),
+    ...saveProblems,
+  ];
   // Bumped by Discard, so the inspector's fields drop the text they hold
   const [revision, setRevision] = useState(0);
   const discard = () => {
@@ -244,6 +253,7 @@ function Editor({
   };
 
   const save = async () => {
+    setSaveProblems([]);
     const outcome = await check();
     if (!outcome?.valid) return;
     setBusy(true);
@@ -259,6 +269,7 @@ function Editor({
         `/sessions/${encodeURIComponent(session.sessionId)}/workflow/${encodeURIComponent(workflow.workflowId)}`
       );
     } catch (e) {
+      setSaveProblems(supervisorProblems(e));
       setError(errorText(e));
       setBusy(false);
     }
@@ -324,6 +335,19 @@ function Editor({
         </div>
       </div>
       <div className="px-4 py-2 sm:px-6">
+        <details open={supervisorErrors.length > 0} className="mb-2">
+          <summary className="text-label-md cursor-pointer">
+            Supervisors ({workflow.supervisors?.length ?? 0})
+          </summary>
+          <div className="pt-2">
+            <SupervisorPicker
+              value={workflow.supervisors ?? []}
+              onChange={(next) => update({ supervisors: next })}
+              nodeIds={workflow.nodes.map((n) => n.nodeId)}
+              errors={supervisorErrors}
+            />
+          </div>
+        </details>
         {showRestored && (
           <Callout kind="info" compact>
             Restored your unsaved edits from this browser tab. Discard goes back
@@ -676,6 +700,7 @@ function Editor({
 
 /** Form-based workflow editor with a live canvas preview; saves the whole session. */
 export function WorkflowEditorPage() {
+  const location = useLocation();
   const { sessionId = '', workflowId = '' } = useParams<{
     sessionId: string;
     workflowId: string;
@@ -706,11 +731,15 @@ export function WorkflowEditorPage() {
       </div>
     );
   }
+  // a new workflow starts with the supervisors the "New workflow" dialog picked
+  const declared = (location.state as { supervisors?: SupervisorRef[] } | null)
+    ?.supervisors;
   const initial = session.data.workflows[workflowId] ?? {
     workflowId,
     description: '',
     nodes: [],
     edges: [],
+    ...(declared ? { supervisors: declared } : {}),
   };
   // Keyed by route so moving to another workflow starts a fresh draft instead of keeping the old one.
   return (

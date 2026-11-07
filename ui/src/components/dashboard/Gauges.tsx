@@ -51,7 +51,7 @@ export function ArcGauge(props: MeterProps & { valueText?: string }) {
           className="transition-[stroke-dasharray] duration-300 motion-reduce:transition-none"
         />
       </svg>
-      <span className="text-headline-md num text-on-surface absolute inset-x-0 bottom-0 text-center">
+      <span className="absolute inset-x-0 bottom-0 text-center text-headline-md num text-on-surface">
         {valueText ?? value}
       </span>
     </div>
@@ -90,7 +90,7 @@ export function RingProgress(props: MeterProps) {
           className="transition-[stroke-dasharray] duration-300 motion-reduce:transition-none"
         />
       </svg>
-      <span className="text-label-md num text-on-surface absolute inset-0 flex items-center justify-center">
+      <span className="absolute inset-0 flex items-center justify-center text-label-md num text-on-surface">
         {Math.round(pct)}%
       </span>
     </div>
@@ -103,7 +103,7 @@ export function MeterBar(props: MeterProps) {
   return (
     <div
       {...meterAria(props)}
-      className="bg-muted h-2 w-full overflow-hidden rounded-full"
+      className="h-2 w-full overflow-hidden rounded-full bg-muted"
     >
       <div
         className={`${TONE[tone]} h-full rounded-full bg-current transition-[width] duration-300 motion-reduce:transition-none`}

@@ -89,6 +89,10 @@ const server = setupServer(
   http.get('/api/supervisor-types/:type', ({ params }) =>
     HttpResponse.json(envelope(details(String(params.type))))
   ),
+  http.get('/api/supervisors/decisions', () => HttpResponse.json(envelope([]))),
+  http.get('/api/supervisors/attachments', () =>
+    HttpResponse.json(envelope([]))
+  ),
   http.get('/api/supervisors', () =>
     HttpResponse.json(
       envelope([
@@ -156,7 +160,7 @@ describe('SupervisorsPage', () => {
     expect(await screen.findByText('About composite')).toBeInTheDocument();
   });
 
-  it('keeps the tab in the URL and says the others come next', async () => {
+  it('keeps the tab in the URL', async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByText('About failure-guard');
@@ -166,14 +170,14 @@ describe('SupervisorsPage', () => {
     expect(screen.getByLabelText('location')).toHaveTextContent(
       'tab=decisions'
     );
-    expect(screen.getByText(/comes next/)).toBeInTheDocument();
+    expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'catalog' }));
     expect(screen.getByLabelText('location')).not.toHaveTextContent('tab=');
   });
 
   it('opens on the tab the URL names and ignores an unknown one', async () => {
     renderPage('/supervisors?tab=attachments');
-    expect(await screen.findByText(/comes next/)).toBeInTheDocument();
+    expect(await screen.findByText('No attachments.')).toBeInTheDocument();
   });
 
   it('says so when a type cannot be loaded or there are none', async () => {

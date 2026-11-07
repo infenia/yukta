@@ -3,8 +3,10 @@
 
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { StateMessage } from '@/components/common/StateMessage';
 import { CatalogTab } from './CatalogTab';
+import { AttachmentsTab } from './AttachmentsTab';
+import { DecisionsTable } from './DecisionsTable';
+import { SupervisorsTab } from './SupervisorsTab';
 
 export const TABS = [
   'catalog',
@@ -59,14 +61,10 @@ export function SupervisorsPage() {
         role="tabpanel"
         aria-labelledby={`supervisors-tab-${tab}`}
       >
-        {tab === 'catalog' ? (
-          <CatalogTab />
-        ) : (
-          <StateMessage title="Managing supervisors comes next">
-            Configured supervisors, their attachments and their decisions are
-            added to this page in the following step.
-          </StateMessage>
-        )}
+        {tab === 'catalog' && <CatalogTab />}
+        {tab === 'supervisors' && <SupervisorsTab />}
+        {tab === 'attachments' && <AttachmentsTab />}
+        {tab === 'decisions' && <DecisionsTable />}
       </div>
     </div>
   );
