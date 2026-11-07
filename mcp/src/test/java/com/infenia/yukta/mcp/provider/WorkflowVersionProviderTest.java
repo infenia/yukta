@@ -14,6 +14,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.supervisor.DefinitionSupervisors;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -38,12 +39,10 @@ class WorkflowVersionProviderTest {
   }
 
   private static WorkflowDefinition definition(final String... nodeIds) {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         "w1",
         "d",
-        java.util.Arrays.stream(nodeIds)
-            .map(id -> new WorkflowDefinition.Node(id, "T", Map.of()))
-            .toList(),
+        java.util.Arrays.stream(nodeIds).map(id -> Fixtures.node(id, "T", Map.of())).toList(),
         List.of());
   }
 

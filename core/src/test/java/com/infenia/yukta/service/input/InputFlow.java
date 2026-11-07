@@ -24,8 +24,8 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.AttachedSupervisors;
-import com.infenia.yukta.service.supervisor.BoundSupervisor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +65,7 @@ public final class InputFlow {
 
   /** The broker. */
   public final InputBroker broker =
-      new InputBroker(
+      InputBrokerFixture.create(
           store,
           feed,
           log,
@@ -150,7 +150,7 @@ public final class InputFlow {
     when(attached.find(id))
         .thenReturn(
             Optional.of(
-                new BoundSupervisor(
+                Fixtures.boundSupervisor(
                     new SupervisorAttachment(id, "p", new SupervisorScope.Global(), true),
                     mock(ExecutionSupervisor.class),
                     false,

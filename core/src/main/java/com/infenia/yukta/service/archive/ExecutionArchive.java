@@ -23,9 +23,6 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings("PMD.AvoidSynchronizedStatement")
 public class ExecutionArchive {
 
-  /** Default number of executions kept. */
-  private static final int DEFAULT_RETAINED = 10;
-
   /** Archived executions by id. */
   private final Map<String, ArchivedExecution> byId = new ConcurrentHashMap<>();
 
@@ -52,11 +49,6 @@ public class ExecutionArchive {
    */
   public ExecutionArchive(final int retained) {
     this.retained = Math.max(1, retained);
-  }
-
-  /** Creates an archive with the default size. */
-  public ExecutionArchive() {
-    this(DEFAULT_RETAINED);
   }
 
   /**

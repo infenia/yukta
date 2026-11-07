@@ -5,6 +5,7 @@ package com.infenia.yukta.model.session;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +68,7 @@ final class SessionConfigResponseTest {
     final var response =
         new SessionConfigResponse(
             TEST_ID, TEST_NAME, TEST_DESC, TEST_INIT, Map.of(), TEST_PATH, workflows);
-    workflows.put("w1", new WorkflowDefinition("w1", "description", List.of(), List.of()));
+    workflows.put("w1", Fixtures.workflow("w1", "description", List.of(), List.of()));
     assertThat(response.workflows()).isEmpty();
   }
 }

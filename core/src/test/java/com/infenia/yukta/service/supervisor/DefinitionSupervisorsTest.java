@@ -9,7 +9,6 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
@@ -22,6 +21,7 @@ import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
 import com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
@@ -91,13 +91,13 @@ class DefinitionSupervisorsTest {
   }
 
   private static WorkflowDefinition workflow(final String id, final SupervisorRef... refs) {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         id,
         "d",
         List.of(
-            new Node("build.compile", "T", Map.of()),
-            new Node("build.test", "T", Map.of()),
-            new Node("deploy", "T", Map.of())),
+            Fixtures.node("build.compile", "T", Map.of()),
+            Fixtures.node("build.test", "T", Map.of()),
+            Fixtures.node("deploy", "T", Map.of())),
         List.of(),
         List.of(refs));
   }

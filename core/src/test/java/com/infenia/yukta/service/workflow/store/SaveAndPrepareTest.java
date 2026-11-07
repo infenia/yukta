@@ -5,6 +5,7 @@ package com.infenia.yukta.service.workflow.store;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -31,11 +32,8 @@ class SaveAndPrepareTest {
   private InMemoryWorkflowDefinitionStore store;
 
   private static WorkflowDefinition definition(final String description) {
-    return new WorkflowDefinition(
-        WORKFLOW,
-        description,
-        List.of(new WorkflowDefinition.Node("n1", "trigger", Map.of())),
-        List.of());
+    return Fixtures.workflow(
+        WORKFLOW, description, List.of(Fixtures.node("n1", "trigger", Map.of())), List.of());
   }
 
   @BeforeEach

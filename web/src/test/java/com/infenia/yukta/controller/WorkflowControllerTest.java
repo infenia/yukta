@@ -23,6 +23,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.time.Instant;
@@ -358,7 +359,7 @@ class WorkflowControllerTest {
   }
 
   private static WorkflowExecutionSummary run(final String id) {
-    return new WorkflowExecutionSummary(id, "wf", TaskStatus.SUCCESS, Instant.now(), null);
+    return Fixtures.summary(id, "wf", TaskStatus.SUCCESS, Instant.now(), null);
   }
 
   @Test
@@ -394,14 +395,13 @@ class WorkflowControllerTest {
   void testHistoryCanBeNarrowedByWorkflowStatusTextAndTime() {
     final Instant t = LocalDateTime.of(2026, 1, 2, 12, 0).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary old =
-        new WorkflowExecutionSummary(
-            "alpha-1", "wf", TaskStatus.SUCCESS, t.minus(Duration.ofDays(5)), null);
+        Fixtures.summary("alpha-1", "wf", TaskStatus.SUCCESS, t.minus(Duration.ofDays(5)), null);
     final WorkflowExecutionSummary failed =
-        new WorkflowExecutionSummary("beta-2", "wf", TaskStatus.FAILURE, t, null);
+        Fixtures.summary("beta-2", "wf", TaskStatus.FAILURE, t, null);
     final WorkflowExecutionSummary other =
-        new WorkflowExecutionSummary("beta-3", "other", TaskStatus.SUCCESS, t, null);
+        Fixtures.summary("beta-3", "other", TaskStatus.SUCCESS, t, null);
     final WorkflowExecutionSummary unstarted =
-        new WorkflowExecutionSummary("gamma-4", "wf", TaskStatus.QUEUED, null, null);
+        Fixtures.summary("gamma-4", "wf", TaskStatus.QUEUED, null, null);
     when(sessionService.getSessionConfig("s1")).thenReturn(Mono.just(config()));
     when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of(old, failed, other, unstarted)));
 

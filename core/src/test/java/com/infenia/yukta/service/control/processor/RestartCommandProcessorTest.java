@@ -15,9 +15,11 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
@@ -43,10 +45,10 @@ class RestartCommandProcessorTest {
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private ExecutionScheduler scheduler =
-      new ExecutionScheduler(
+      ExecutionSchedulerFixture.create(
           0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
-  private final ExecutionArchive archive = new ExecutionArchive();
+  private final ExecutionArchive archive = ExecutionArchiveFixture.create();
 
   private RestartCommandProcessor processor;
 
@@ -90,7 +92,8 @@ class RestartCommandProcessorTest {
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
     scheduler =
-        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+        ExecutionSchedulerFixture.create(
+            1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
@@ -106,7 +109,8 @@ class RestartCommandProcessorTest {
   @Test
   void twoRestartsForTheLastSlot_onlyOneProceeds() {
     scheduler =
-        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+        ExecutionSchedulerFixture.create(
+            1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());

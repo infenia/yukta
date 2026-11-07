@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.workflow.store.DefinitionRevision;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
@@ -20,10 +21,10 @@ class R2dbcWorkflowDefinitionStoreTest extends PostgresTestSupport {
   private R2dbcWorkflowDefinitionStore store;
 
   private static WorkflowDefinition definition(final String workflowId, final String description) {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         workflowId,
         description,
-        List.of(new WorkflowDefinition.Node("n1", "CONSTANT_SOURCE", Map.of("k", "v"))),
+        List.of(Fixtures.node("n1", "CONSTANT_SOURCE", Map.of("k", "v"))),
         List.of());
   }
 

@@ -20,6 +20,7 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
 import java.util.List;
@@ -52,7 +53,7 @@ class AttachedSupervisorTest {
   private final AttachedSupervisors attached = new AttachedSupervisors();
 
   private final SupervisorHost host =
-      new SupervisorHost(
+      SupervisorHostFixture.create(
           providerOf(), feed, dispatcher, new InMemoryExecutionLogStore(), meters, false, 10, 1000);
 
   private final List<String> seen = new CopyOnWriteArrayList<>();
@@ -79,7 +80,7 @@ class AttachedSupervisorTest {
       };
 
   private BoundSupervisor bound(final String id, final SupervisorScope scope, final boolean dry) {
-    return new BoundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
+    return Fixtures.boundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
   }
 
   @AfterEach
@@ -171,7 +172,7 @@ class AttachedSupervisorTest {
   @Test
   void theServerWideDryRunAppliesToAttachedSupervisorsToo() {
     final SupervisorHost recordingHost =
-        new SupervisorHost(
+        SupervisorHostFixture.create(
             providerOf(),
             feed,
             dispatcher,
@@ -200,7 +201,7 @@ class AttachedSupervisorTest {
 
   @Test
   void theReviewerAsksAttachedSupervisorsWhoseScopeCoversTheRun() {
-    final ControlReviewer reviewer = new ControlReviewer(providerOf());
+    final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf());
     reviewer.setAttachedSupervisors(attached);
     attached.put(bound("b1", new SupervisorScope.Session("A"), false));
     attached.put(bound("b2", new SupervisorScope.Session("B"), false));
@@ -277,7 +278,7 @@ class AttachedSupervisorTest {
         };
     host.setAttachedSupervisors(attached);
     host.attach(
-        new BoundSupervisor(
+        Fixtures.boundSupervisor(
             new SupervisorAttachment("chatty", "p", new SupervisorScope.Global(), true),
             chatty,
             true));

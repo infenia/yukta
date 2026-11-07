@@ -165,39 +165,6 @@ public class SupervisorHost {
   }
 
   /**
-   * Creates the host with explicit limits.
-   *
-   * @param supervisors the supervisors to host
-   * @param feed the event feed
-   * @param dispatcher applies the commands
-   * @param executionLog the execution log
-   * @param meters registry for the command counter
-   * @param dryRun only record commands instead of applying them
-   * @param maxCommandsPerSecond most commands one supervisor may issue per second
-   * @param bufferSize events a supervisor may have waiting before events are dropped for it
-   */
-  public SupervisorHost(
-      final ObjectProvider<ExecutionSupervisor> supervisors,
-      final ExecutionEventFeed feed,
-      final DirectiveDispatcher dispatcher,
-      final ExecutionLogStore executionLog,
-      final MeterRegistry meters,
-      final boolean dryRun,
-      final int maxCommandsPerSecond,
-      final int bufferSize) {
-    this(
-        supervisors,
-        feed,
-        dispatcher,
-        executionLog,
-        meters,
-        dryRun,
-        maxCommandsPerSecond,
-        bufferSize,
-        CommandArbiter.disabled());
-  }
-
-  /**
    * Creates the host with an arbiter for the commands of its supervisors.
    *
    * @param supervisors the supervisors to host

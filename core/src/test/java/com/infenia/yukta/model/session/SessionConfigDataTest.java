@@ -5,6 +5,7 @@ package com.infenia.yukta.model.session;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import com.infenia.yukta.testing.Fixtures;
 import jakarta.validation.Validator;
 import java.util.List;
 import java.util.Map;
@@ -65,8 +66,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(sessionId, "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
@@ -81,8 +81,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(sessionId, "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
@@ -94,8 +93,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("../session", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "sessionId");
@@ -108,8 +106,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", name, "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "name");
@@ -124,8 +121,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", name, "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "name");
@@ -137,8 +133,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var tooLongName = "a".repeat(257);
     final var data =
         new SessionConfigData(
@@ -153,8 +148,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(
             "session-1", "test", description, "initiator", null, "/path", workflows);
@@ -170,8 +164,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(
             "session-1", "test", description, "initiator", null, "/path", workflows);
@@ -184,8 +177,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var tooLongDescription = "a".repeat(257);
     final var data =
         new SessionConfigData(
@@ -200,8 +192,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", "test", "desc", initiator, null, "/path", workflows);
     final var result = validator.validateProperty(data, "initiator");
@@ -216,8 +207,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", "test", "desc", initiator, null, "/path", workflows);
     final var result = validator.validateProperty(data, "initiator");
@@ -230,8 +220,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(
             "session-1", "test", "desc", "initiator", null, projectPath, workflows);
@@ -247,8 +236,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData(
             "session-1", "test", "desc", "initiator", null, projectPath, workflows);
@@ -261,8 +249,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var tooLongPath = "/path" + "/a".repeat(512);
     final var data =
         new SessionConfigData(
@@ -276,11 +263,9 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null),
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null),
             "wf2",
-            new WorkflowDefinition(
-                "wf2", "desc", List.of(new WorkflowDefinition.Node("n2", "t2", null)), null));
+            Fixtures.workflow("wf2", "desc", List.of(Fixtures.node("n2", "t2", null)), null));
     final var data =
         new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     final var result = validator.validateProperty(data, "workflows");
@@ -310,8 +295,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);
     assertThat(data.tags()).isEmpty();
@@ -323,8 +307,7 @@ class SessionConfigDataTest {
     final var workflows =
         Map.of(
             "wf1",
-            new WorkflowDefinition(
-                "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null));
+            Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null));
     final var data =
         new SessionConfigData("session-1", "test", "desc", "initiator", tags, "/path", workflows);
     assertThat(data.tags()).isEqualTo(tags);
@@ -333,9 +316,7 @@ class SessionConfigDataTest {
 
   @Test
   void workflowsMapShouldBeImmutable() {
-    final var wf =
-        new WorkflowDefinition(
-            "wf1", "desc", List.of(new WorkflowDefinition.Node("n1", "t1", null)), null);
+    final var wf = Fixtures.workflow("wf1", "desc", List.of(Fixtures.node("n1", "t1", null)), null);
     final var workflows = Map.of("wf1", wf);
     final var data =
         new SessionConfigData("session-1", "test", "desc", "initiator", null, "/path", workflows);

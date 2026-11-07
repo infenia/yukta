@@ -17,7 +17,7 @@ import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.supervisor.AttachedSupervisors;
-import com.infenia.yukta.service.supervisor.BoundSupervisor;
+import com.infenia.yukta.testing.Fixtures;
 import java.util.Optional;
 import java.util.Set;
 import lombok.NoArgsConstructor;
@@ -41,7 +41,7 @@ class ActorResolverTest {
     when(attached.find(id))
         .thenReturn(
             Optional.of(
-                new BoundSupervisor(
+                Fixtures.boundSupervisor(
                     new SupervisorAttachment(id, "p", new SupervisorScope.Session("s1"), true),
                     mock(ExecutionSupervisor.class),
                     false,

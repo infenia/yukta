@@ -20,7 +20,7 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.security.ApiRole;
-import com.infenia.yukta.service.archive.ExecutionArchive;
+import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
@@ -40,7 +40,7 @@ import com.infenia.yukta.service.input.InputFlow;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
-import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ControlReviewerFixture;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.util.List;
 import java.util.Map;
@@ -101,9 +101,9 @@ class DirectiveDispatcherInputTest {
             mock(EscalateInputCommandProcessor.class)),
         registry,
         mock(ControlBusService.class),
-        new ExecutionArchive(),
+        ExecutionArchiveFixture.create(),
         flow.log,
-        new ControlReviewer(providerOf(reviewer)),
+        ControlReviewerFixture.create(providerOf(reviewer)),
         new ExecutionEventFeed());
   }
 

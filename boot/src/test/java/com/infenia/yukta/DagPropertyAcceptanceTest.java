@@ -9,13 +9,13 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -91,7 +91,7 @@ class DagPropertyAcceptanceTest {
   }
 
   private static Node process(final String id, final List<String> command) {
-    return new Node(id, "PROCESS_EXECUTOR", Map.of("command", command, "outputFormat", "RAW"));
+    return Fixtures.node(id, "PROCESS_EXECUTOR", Map.of("command", command, "outputFormat", "RAW"));
   }
 
   /**
@@ -106,7 +106,7 @@ class DagPropertyAcceptanceTest {
     final Set<String> failing = new HashSet<>();
     final Set<String> slow = new HashSet<>();
     final Set<String> withChildren = new HashSet<>();
-    nodes.add(new Node("t", "CONSTANT_SOURCE", Map.of()));
+    nodes.add(Fixtures.node("t", "CONSTANT_SOURCE", Map.of()));
     final int slowIndex = random.nextInt(size);
     for (int i = 0; i < size; i++) {
       final String id = "n" + i;
@@ -129,14 +129,14 @@ class DagPropertyAcceptanceTest {
     }
     final boolean oneTerminal = random.nextBoolean();
     if (oneTerminal) {
-      nodes.add(new Node("end", "CONSOLE_TERMINAL", Map.of()));
+      nodes.add(Fixtures.node("end", "CONSOLE_TERMINAL", Map.of()));
     }
     for (int i = 0; i < size; i++) {
       final String id = "n" + i;
       if (!withChildren.contains(id)) {
         final String terminal = oneTerminal ? "end" : "end" + i;
         if (!oneTerminal) {
-          nodes.add(new Node(terminal, "CONSOLE_TERMINAL", Map.of()));
+          nodes.add(Fixtures.node(terminal, "CONSOLE_TERMINAL", Map.of()));
         }
         edges.add(new Edge(id, terminal, null));
       }
@@ -218,9 +218,7 @@ class DagPropertyAcceptanceTest {
   private String define(final Dag dag, final String session) {
     final String workflowId = "wf-" + UUID.randomUUID();
     definitions
-        .save(
-            session,
-            new WorkflowDefinition(workflowId, "dag-" + dag.seed(), dag.nodes(), dag.edges()))
+        .save(session, Fixtures.workflow(workflowId, "dag-" + dag.seed(), dag.nodes(), dag.edges()))
         .block();
     return workflowId;
   }

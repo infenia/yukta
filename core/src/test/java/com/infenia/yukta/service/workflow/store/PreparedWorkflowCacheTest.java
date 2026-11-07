@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -48,7 +49,7 @@ class PreparedWorkflowCacheTest {
   void setUp() {
     // TTL of 200ms for fast eviction testing; init() is intentionally not called — eviction is
     // triggered manually via evictExpired()
-    cache = new PreparedWorkflowCache(200L);
+    cache = PreparedWorkflowCacheFixture.create(200L);
   }
 
   @Test
@@ -249,9 +250,9 @@ class PreparedWorkflowCacheTest {
   @Test
   void get_withDefinition_onlyReturnsAnEntryBuiltFromThatDefinition() {
     final com.infenia.yukta.model.workflow.WorkflowDefinition built =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "d", List.of(), List.of());
+        Fixtures.workflow("w", "d", List.of(), List.of());
     final com.infenia.yukta.model.workflow.WorkflowDefinition newer =
-        new com.infenia.yukta.model.workflow.WorkflowDefinition("w", "newer", List.of(), List.of());
+        Fixtures.workflow("w", "newer", List.of(), List.of());
     final PreparedWorkflow prepared = mockPrepared();
     cache.put(SESSION_1, WORKFLOW_1, prepared, built);
 

@@ -4,12 +4,12 @@ package com.infenia.yukta.plugins;
 
 import static org.assertj.core.api.Assumptions.assumeThat;
 
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +38,7 @@ final class PluginWorkflows {
   }
 
   static Node node(final String id, final String type, final Map<String, Object> config) {
-    return new Node(id, type, config);
+    return Fixtures.node(id, type, config);
   }
 
   /** Saves {@code API_TRIGGER -> nodes (in a chain) -> CONSOLE_TERMINAL}, returns its key. */
@@ -69,9 +69,7 @@ final class PluginWorkflows {
 
   Key saveIn(final String session, final List<Node> nodes, final List<Edge> edges) {
     final String workflowId = "wf-" + UUID.randomUUID();
-    definitions
-        .save(session, new WorkflowDefinition(workflowId, "plugin it", nodes, edges))
-        .block(WAIT);
+    definitions.save(session, Fixtures.workflow(workflowId, "plugin it", nodes, edges)).block(WAIT);
     return new Key(session, workflowId);
   }
 

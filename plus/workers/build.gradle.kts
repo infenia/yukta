@@ -13,6 +13,7 @@ dependencies {
     implementation(libs.spring.boot.starter.rsocket)
     implementation(libs.spring.boot.starter.actuator)
 
+    testImplementation(testFixtures(project(":core")))
     testImplementation(libs.spring.boot.starter.rsocket.test)
     testImplementation(libs.awaitility)
 }

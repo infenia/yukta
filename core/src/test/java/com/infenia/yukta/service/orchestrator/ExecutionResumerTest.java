@@ -21,6 +21,7 @@ import com.infenia.yukta.model.workflow.WorkflowTemplate;
 import com.infenia.yukta.service.archive.DefinitionVersion;
 import com.infenia.yukta.service.control.ExecutionRejectedException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
@@ -55,7 +56,8 @@ class ExecutionResumerTest {
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final ExecutionScheduler scheduler =
-      new ExecutionScheduler(0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+      ExecutionSchedulerFixture.create(
+          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = chain();
   private final ExecutionResumer resumer =
       new ExecutionResumer(log, checkpoints, definitions, orchestrator, scheduler);
@@ -139,7 +141,8 @@ class ExecutionResumerTest {
     failing.append(started);
     failing.append(ExecutionLogEvent.aborted(started));
     final ExecutionScheduler limited =
-        new ExecutionScheduler(1, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(
+            1, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
 
     StepVerifier.create(
             new ExecutionResumer(failing, checkpoints, definitions, orchestrator, limited)
@@ -357,7 +360,7 @@ class ExecutionResumerTest {
   void resumeWhenTheSlotsAreFull_isRefusedBeforeAnythingIsLogged() {
     abortedRun(DefinitionVersion.of(prepared), "a");
     final ExecutionScheduler full =
-        new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
     full.acquire("s", "w", 0, null);
     final ExecutionResumer limited =
         new ExecutionResumer(log, checkpoints, definitions, orchestrator, full);

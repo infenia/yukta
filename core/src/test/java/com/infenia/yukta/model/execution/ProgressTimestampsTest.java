@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -50,7 +51,7 @@ class ProgressTimestampsTest {
   @Test
   void workflowProgressTimesAreUtc() {
     final WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e", "s", "w", TaskStatus.SUCCESS, List.of(), START, START.plus(Duration.ofSeconds(5)));
 
     final JsonNode node = json(progress);
@@ -63,7 +64,7 @@ class ProgressTimestampsTest {
   @Test
   void missingEndTimeStaysNull() {
     final WorkflowProgress progress =
-        new WorkflowProgress("e", "s", "w", TaskStatus.RUNNING, List.of(), START, null);
+        Fixtures.workflowProgress("e", "s", "w", TaskStatus.RUNNING, List.of(), START, null);
 
     assertThat(json(progress).get("endTime").isNull()).isTrue();
   }
@@ -82,8 +83,7 @@ class ProgressTimestampsTest {
   @Test
   void executionSummaryTimesAreUtc() {
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "e", "w", TaskStatus.SUCCESS, START, START.plus(Duration.ofMinutes(1)));
+        Fixtures.summary("e", "w", TaskStatus.SUCCESS, START, START.plus(Duration.ofMinutes(1)));
 
     final JsonNode node = json(summary);
 

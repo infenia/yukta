@@ -205,37 +205,6 @@ public class InputBroker {
   }
 
   /**
-   * Creates the broker with explicit limits and clock.
-   *
-   * @param store where requests are kept
-   * @param feed receives the events
-   * @param executionLog records what happened to requests
-   * @param meters registry for the metrics
-   * @param redactor removes secrets from prompt and context
-   * @param limits the limits
-   * @param clock the time
-   */
-  public InputBroker(
-      final InputRequestStore store,
-      final ExecutionEventFeed feed,
-      final ExecutionLogStore executionLog,
-      final MeterRegistry meters,
-      final InputRedactor redactor,
-      final YuktaProperties.Input limits,
-      final Clock clock) {
-    this(
-        store,
-        feed,
-        executionLog,
-        meters,
-        redactor,
-        limits,
-        clock,
-        new RouteResolver(Map.of(), null),
-        null);
-  }
-
-  /**
    * Creates the broker with explicit limits, clock, routes and supervisors.
    *
    * @param store where requests are kept

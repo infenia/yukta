@@ -24,6 +24,7 @@ import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -56,12 +57,11 @@ class WorkflowExecutionProviderTest {
   @Test
   void testGetWorkflowDetails() {
     WorkflowDefinition def =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w1",
             "d",
             List.of(
-                new WorkflowDefinition.Node(
-                    "n1", "HTTP_REQUEST", Map.of("url", "http://x", "apiKey", "k-123"))),
+                Fixtures.node("n1", "HTTP_REQUEST", Map.of("url", "http://x", "apiKey", "k-123"))),
             List.of());
     when(sessionService.getSessionWorkflow("s1", "w1")).thenReturn(Mono.just(def));
 
@@ -193,7 +193,7 @@ class WorkflowExecutionProviderTest {
   @Test
   void testGetWorkflowStatusReturnsProgressSnapshot() {
     WorkflowProgress progress =
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e1", "sess-1", "w1", TaskStatus.RUNNING, List.of(), Instant.now(), null);
     when(controlBus.getProgress("sess-1", "e1")).thenReturn(progress);
 
@@ -229,7 +229,7 @@ class WorkflowExecutionProviderTest {
   @Test
   void testGetWorkflowHistory() {
     WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary("e1", "w1", TaskStatus.SUCCESS, Instant.now(), Instant.now());
+        Fixtures.summary("e1", "w1", TaskStatus.SUCCESS, Instant.now(), Instant.now());
     final var config =
         new com.infenia.yukta.model.session.SessionConfigResponse(
             "sess-1", "Test Session", "desc", "initiator", Map.of(), "/path", Map.of());

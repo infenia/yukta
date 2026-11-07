@@ -140,6 +140,18 @@ class InMemoryExecutionControlStoreTest {
   }
 
   @Test
+  void testRemoveKeepsSiblingRunsOfTheWorkflow() {
+    final ExecutionControl control1 = createControl("session-1", "workflow-1", "exec-1");
+    final ExecutionControl control2 = createControl("session-1", "workflow-1", "exec-2");
+    store.save(control1);
+    store.save(control2);
+
+    store.remove("exec-1");
+
+    assertThat(store.findAllActiveByWorkflow("session-1", "workflow-1")).containsExactly(control2);
+  }
+
+  @Test
   void testFindAllActiveByWorkflowEmpty() {
     final var found = store.findAllActiveByWorkflow("session-1", "workflow-1");
     assertThat(found).isEmpty();

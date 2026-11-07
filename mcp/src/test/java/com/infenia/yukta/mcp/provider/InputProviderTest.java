@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.PendingInputs;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
 import com.infenia.yukta.plugin.input.InputKind;
@@ -30,6 +29,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputAnsweredException;
 import com.infenia.yukta.service.input.InputRequestQueries;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -118,7 +118,7 @@ class InputProviderTest {
   void setUp() {
     when(controlBus.getProgress("s1", "e1"))
         .thenReturn(
-            new WorkflowProgress(
+            Fixtures.workflowProgress(
                 "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null));
     when(controlBus.answerInput(
             anyString(), anyString(), any(), anyString(), any(), any(), any(), any()))

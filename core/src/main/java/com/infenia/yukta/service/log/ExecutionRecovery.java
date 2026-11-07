@@ -8,7 +8,6 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.store.InMemoryNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -80,11 +79,6 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     this.tracker = tracker;
     this.retainedRuns = Math.max(1, retainedRuns);
     this.checkpoints = checkpoints;
-  }
-
-  /* default */ ExecutionRecovery(
-      final ExecutionLogStore store, final TaskTrackerService tracker, final int retainedRuns) {
-    this(store, tracker, retainedRuns, new InMemoryNodeCheckpointStore());
   }
 
   /**

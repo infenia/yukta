@@ -141,53 +141,6 @@ public record NodePolicy(
   /** Default upper bound for the retry delay. */
   private static final long DEFAULT_MAX_BACKOFF_MS = 10_000;
 
-  /**
-   * Creates a policy without a deadline.
-   *
-   * @param retry the retry policy, or null for none
-   * @param onError what to do with a message that still fails
-   * @param trigger how a failing parent affects this node
-   * @param elementTimeout longest time for one message, or null for none
-   */
-  public NodePolicy(
-      @Nullable final Retry retry,
-      final OnError onError,
-      final JoinRule trigger,
-      @Nullable final Duration elementTimeout) {
-    this(retry, onError, trigger, elementTimeout, null, null, null, null);
-  }
-
-  /**
-   * Creates a policy that never reports a stall.
-   *
-   * @param retry the retry policy, or null for none
-   * @param onError what to do with a message that still fails
-   * @param trigger how a failing parent affects this node
-   * @param elementTimeout longest time for one message, or null for none
-   * @param deadline longest time the node may run, or null for none
-   * @param failureBudget how many failures the node tolerates, or null for no limit
-   */
-  public NodePolicy(
-      @Nullable final Retry retry,
-      final OnError onError,
-      final JoinRule trigger,
-      @Nullable final Duration elementTimeout,
-      @Nullable final Duration deadline,
-      @Nullable final FailureBudget failureBudget) {
-    this(retry, onError, trigger, elementTimeout, deadline, null, null, failureBudget);
-  }
-
-  /**
-   * Creates a policy without an element timeout.
-   *
-   * @param retry the retry policy, or null for none
-   * @param onError what to do with a message that still fails
-   * @param trigger how a failing parent affects this node
-   */
-  public NodePolicy(@Nullable final Retry retry, final OnError onError, final JoinRule trigger) {
-    this(retry, onError, trigger, null);
-  }
-
   /** What to do with a message the plugin could not process. */
   public enum OnError {
     FAIL,

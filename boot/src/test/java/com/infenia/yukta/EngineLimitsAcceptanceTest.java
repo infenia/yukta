@@ -8,7 +8,6 @@ import static org.awaitility.Awaitility.await;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Node;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
@@ -16,6 +15,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +41,7 @@ class EngineLimitsAcceptanceTest {
   @Autowired private ExecutionEventFeed feed;
 
   private static Node sleeper(final String name, final Map<String, Object> engine) {
-    return new Node(
+    return Fixtures.node(
         name,
         "PROCESS_EXECUTOR",
         Map.of("command", List.of("sleep", "1"), "outputFormat", "RAW", "engine", engine));
@@ -49,16 +49,16 @@ class EngineLimitsAcceptanceTest {
 
   private void define(final String session, final List<Node> steps) {
     final List<Node> nodes = new java.util.ArrayList<>();
-    nodes.add(new Node("t", "CONSTANT_SOURCE", Map.of()));
+    nodes.add(Fixtures.node("t", "CONSTANT_SOURCE", Map.of()));
     nodes.addAll(steps);
-    nodes.add(new Node("end", "CONSOLE_TERMINAL", Map.of()));
+    nodes.add(Fixtures.node("end", "CONSOLE_TERMINAL", Map.of()));
     final List<Edge> edges = new java.util.ArrayList<>();
     for (final Node step : steps) {
       edges.add(new Edge("t", step.nodeId(), null));
       edges.add(new Edge(step.nodeId(), "end", null));
     }
     definitions
-        .save(session, new WorkflowDefinition("wf", "engine limits acceptance", nodes, edges))
+        .save(session, Fixtures.workflow("wf", "engine limits acceptance", nodes, edges))
         .block();
   }
 

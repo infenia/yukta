@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -167,9 +168,9 @@ class PluginControllerTest {
   private static WorkflowDefinition workflow(final String id, final String... types) {
     final List<WorkflowDefinition.Node> nodes = new ArrayList<>();
     for (int i = 0; i < types.length; i++) {
-      nodes.add(new WorkflowDefinition.Node("n" + i, types[i], Map.of()));
+      nodes.add(Fixtures.node("n" + i, types[i], Map.of()));
     }
-    return new WorkflowDefinition(id, "d", nodes, List.of());
+    return Fixtures.workflow(id, "d", nodes, List.of());
   }
 
   private static SessionConfigResponse session(final String id, final WorkflowDefinition... wfs) {

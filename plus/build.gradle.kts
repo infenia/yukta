@@ -14,8 +14,11 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.validation)
 
+    testImplementation(testFixtures(project(":core")))
+
     // The contract tests an extension module runs against its stores and election (testFixtures)
     testFixturesApi(project(":core"))
+    testFixturesApi(testFixtures(project(":core")))
     testFixturesApi(libs.spring.boot.starter.test)
     testFixturesApi(libs.reactor.test)
 }

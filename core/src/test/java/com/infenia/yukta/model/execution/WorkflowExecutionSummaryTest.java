@@ -4,6 +4,7 @@ package com.infenia.yukta.model.execution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -20,8 +21,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.executionId()).isEqualTo("exec-1");
     assertThat(summary.workflowId()).isEqualTo("workflow-1");
@@ -34,7 +34,7 @@ class WorkflowExecutionSummaryTest {
   void recordInstantiation_withNullEndTime_storesNullCorrectly() {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary("exec-1", "workflow-1", TaskStatus.RUNNING, startTime, null);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.RUNNING, startTime, null);
 
     assertThat(summary.executionId()).isEqualTo("exec-1");
     assertThat(summary.workflowId()).isEqualTo("workflow-1");
@@ -49,12 +49,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary1).isEqualTo(summary2);
   }
@@ -65,12 +63,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-2", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-2", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary1).isNotEqualTo(summary2);
   }
@@ -81,12 +77,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-2", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-2", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary1).isNotEqualTo(summary2);
   }
@@ -97,12 +91,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.FAILURE, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.FAILURE, startTime, endTime);
 
     assertThat(summary1).isNotEqualTo(summary2);
   }
@@ -114,12 +106,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime1, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime1, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime2, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime2, endTime);
 
     assertThat(summary1).isNotEqualTo(summary2);
   }
@@ -131,12 +121,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime2 = LocalDateTime.of(2026, 6, 25, 10, 6, 0).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime1);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime1);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime2);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime2);
 
     assertThat(summary1).isNotEqualTo(summary2);
   }
@@ -147,12 +135,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary1.hashCode()).isEqualTo(summary2.hashCode());
   }
@@ -163,12 +149,10 @@ class WorkflowExecutionSummaryTest {
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
 
     final WorkflowExecutionSummary summary1 =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final WorkflowExecutionSummary summary2 =
-        new WorkflowExecutionSummary(
-            "exec-2", "workflow-2", TaskStatus.FAILURE, startTime, endTime);
+        Fixtures.summary("exec-2", "workflow-2", TaskStatus.FAILURE, startTime, endTime);
 
     assertThat(summary1.hashCode()).isNotEqualTo(summary2.hashCode());
   }
@@ -178,8 +162,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     final String str = summary.toString();
     assertThat(str).contains("exec-1");
@@ -191,7 +174,7 @@ class WorkflowExecutionSummaryTest {
   void recordToString_withNullEndTime_containsNullValue() {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary("exec-1", "workflow-1", TaskStatus.RUNNING, startTime, null);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.RUNNING, startTime, null);
 
     final String str = summary.toString();
     assertThat(str).contains("exec-1");
@@ -204,8 +187,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-123", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-123", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.executionId()).isEqualTo("exec-123");
   }
@@ -215,7 +197,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary("exec-1", "wf-456", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "wf-456", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.workflowId()).isEqualTo("wf-456");
   }
@@ -225,8 +207,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.status()).isEqualTo(TaskStatus.SUCCESS);
   }
@@ -236,8 +217,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.startTime()).isSameAs(startTime);
   }
@@ -247,8 +227,7 @@ class WorkflowExecutionSummaryTest {
     final Instant startTime = LocalDateTime.of(2026, 6, 25, 10, 0, 0).toInstant(ZoneOffset.UTC);
     final Instant endTime = LocalDateTime.of(2026, 6, 25, 10, 5, 30).toInstant(ZoneOffset.UTC);
     final WorkflowExecutionSummary summary =
-        new WorkflowExecutionSummary(
-            "exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
+        Fixtures.summary("exec-1", "workflow-1", TaskStatus.SUCCESS, startTime, endTime);
 
     assertThat(summary.endTime()).isSameAs(endTime);
   }

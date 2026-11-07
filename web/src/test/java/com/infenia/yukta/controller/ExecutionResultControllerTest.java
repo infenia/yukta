@@ -12,6 +12,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.result.ExecutionResultService;
 import com.infenia.yukta.service.result.ExecutionResults;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -32,7 +33,8 @@ class ExecutionResultControllerTest {
   private WebTestClient client;
 
   private static WorkflowProgress progress(final TaskStatus status) {
-    return new WorkflowProgress("e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
+    return Fixtures.workflowProgress(
+        "e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach

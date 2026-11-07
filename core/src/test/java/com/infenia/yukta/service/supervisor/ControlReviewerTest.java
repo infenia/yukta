@@ -128,7 +128,7 @@ class ControlReviewerTest {
   @Test
   void dryRunFromSettingsLetsRefusedRunThrough() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())));
     reviewer.setDryRun(
         new StaticListableBeanFactory().getBeanProvider(SupervisorHost.class),
@@ -143,7 +143,7 @@ class ControlReviewerTest {
   void review_onlyAsksSupervisorsWhoseScopeCoversTheRun() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(
                 new Scoped(SESSION_A, new SupervisorScope.Session("A"), asked),
                 new Scoped("sessionB", new SupervisorScope.Session("B"), asked),
@@ -163,7 +163,7 @@ class ControlReviewerTest {
   void review_limitsCommandIsReviewedByGlobalSupervisorsOnly() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(
                 new Scoped(SESSION_A, new SupervisorScope.Session("A"), asked),
                 new Scoped("global", new SupervisorScope.Global(), asked)));
@@ -182,7 +182,7 @@ class ControlReviewerTest {
   void review_firstDenialWins_laterSupervisorsNotAsked() {
     final List<String> asked = new ArrayList<>();
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(
                 new Reviewer("late", 5, _ -> Mono.just(Decision.ALLOW), asked),
                 new Reviewer("strict", 1, _ -> Mono.just(Decision.deny("nope")), asked),
@@ -201,7 +201,7 @@ class ControlReviewerTest {
   @Test
   void review_supervisorThatFails_countsAsDenial() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(
                 new Reviewer(
                     "broken",
@@ -216,10 +216,11 @@ class ControlReviewerTest {
 
   @Test
   void review_allAllow_completes() {
-    StepVerifier.create(new ControlReviewer(providerOf()).review(REQUEST)).verifyComplete();
+    StepVerifier.create(ControlReviewerFixture.create(providerOf()).review(REQUEST))
+        .verifyComplete();
 
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(new Reviewer("ok", 0, _ -> Mono.just(Decision.ALLOW), new ArrayList<>())));
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();
@@ -265,7 +266,7 @@ class ControlReviewerTest {
   @Test
   void review_failingSupervisor_refusesStopToo() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.create(
             providerOf(
                 new Reviewer(
                     "broken",

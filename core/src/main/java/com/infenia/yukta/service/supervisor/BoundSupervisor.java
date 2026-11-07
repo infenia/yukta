@@ -10,7 +10,6 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
-import com.infenia.yukta.plugin.input.InputRisk;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -31,36 +30,6 @@ public record BoundSupervisor(
     SupervisorCapabilities capabilities,
     boolean observeInternal)
     implements ExecutionSupervisor {
-
-  /**
-   * A supervisor that does not watch internal sessions.
-   *
-   * @param binding the binding that attached it
-   * @param delegate the supervisor the factory made
-   * @param dryRun whether its commands are only recorded
-   * @param capabilities which commands it may send and whether it may answer input requests
-   */
-  public BoundSupervisor(
-      final SupervisorAttachment binding,
-      final ExecutionSupervisor delegate,
-      final boolean dryRun,
-      final SupervisorCapabilities capabilities) {
-    this(binding, delegate, dryRun, capabilities, false);
-  }
-
-  /**
-   * A supervisor that may send every command and may not answer input requests.
-   *
-   * @param binding the binding that attached it
-   * @param delegate the supervisor the factory made
-   * @param dryRun whether its commands are only recorded
-   */
-  public BoundSupervisor(
-      final SupervisorAttachment binding,
-      final ExecutionSupervisor delegate,
-      final boolean dryRun) {
-    this(binding, delegate, dryRun, new SupervisorCapabilities(null, false, InputRisk.LOW));
-  }
 
   @Override
   @SuppressWarnings("PMD.ShortMethodName")

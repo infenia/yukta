@@ -16,6 +16,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
+import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +55,8 @@ class LogManagementControllerTest {
   }
 
   private static WorkflowProgress progress(final TaskStatus status) {
-    return new WorkflowProgress("e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
+    return Fixtures.workflowProgress(
+        "e1", "s1", "wf", status, List.of(), Instant.now(), null, null);
   }
 
   @BeforeEach
@@ -157,7 +159,7 @@ class LogManagementControllerTest {
     status.tryEmitNext(progress(TaskStatus.RUNNING));
     status.tryEmitNext(progress(TaskStatus.SUCCESS));
     status.tryEmitNext(
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(), Instant.now(), Instant.now(), null));
 
     final String body = String.join("\n", collected.join());
@@ -188,7 +190,7 @@ class LogManagementControllerTest {
             .toFuture();
     afterSubscribe.accept(live);
     status.tryEmitNext(
-        new WorkflowProgress(
+        Fixtures.workflowProgress(
             "e1", "s1", "wf", TaskStatus.SUCCESS, List.of(), Instant.now(), Instant.now(), null));
     return String.join("\n", collected.join());
   }
