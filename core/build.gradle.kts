@@ -14,16 +14,12 @@ dependencies {
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.webclient)
     implementation(libs.spring.boot.starter.validation)
-    implementation(libs.spring.boot.starter.actuator)
-    implementation(libs.jackson.dataformat.yaml)
-    implementation(libs.mapstruct)
+    implementation(libs.micrometer.core)
     implementation(libs.caffeine)
 
     implementation(libs.springdoc.openapi)
 
     annotationProcessor(libs.spring.boot.configuration.processor)
-    annotationProcessor(libs.mapstruct.processor)
-    annotationProcessor(libs.lombok.mapstruct.binding)
 
     testImplementation(libs.spring.boot.starter.webflux.test)
     testImplementation(libs.spring.boot.starter.webclient.test)
