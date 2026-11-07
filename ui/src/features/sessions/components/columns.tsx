@@ -8,6 +8,7 @@ import {
   formatClockTime,
   formatRelative,
 } from '@/features/workflow/lib/timeFormat';
+import { slugify } from '@/features/builder/components/SessionFormPage.helpers';
 import type { SessionListItem } from '../types/session';
 import { Tip } from '@/components/ui/tooltip';
 
@@ -21,9 +22,12 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
     cell: ({ row }) => (
       <div className="min-w-56">
         <div className="text-label-md text-primary">{row.getValue('name')}</div>
-        <div className="text-code-sm text-on-surface-variant">
-          {row.original.sessionId}
-        </div>
+        {/* IDs are slugs of the name, so an ID that matches it adds nothing */}
+        {row.original.sessionId !== slugify(row.original.name) && (
+          <div className="text-code-sm text-on-surface-variant">
+            {row.original.sessionId}
+          </div>
+        )}
         {row.original.description && (
           <div className="text-body-sm text-on-surface-variant mt-0.5 max-w-md truncate">
             {row.original.description}
@@ -39,7 +43,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
       const run = row.original.lastRun;
       return run ? (
         <div className="flex items-center gap-2 whitespace-nowrap">
-          <StatusPill status={run.status} />
+          <StatusPill status={run.status} iconOnly />
           <span className="text-body-sm text-muted-foreground">
             {run.workflowId} ·{' '}
             <time
@@ -51,7 +55,7 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
           </span>
         </div>
       ) : (
-        <StatusPill status={null} />
+        <StatusPill status={null} iconOnly />
       );
     },
   },

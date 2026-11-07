@@ -66,7 +66,7 @@ describe('SessionListPage', () => {
       await waitFor(() => {
         mockSessions.forEach((session) => {
           const row = screen.getByText(session.name).closest('tr');
-          expect(row).toHaveTextContent(session.sessionId);
+          // the ID is the slug of the name here, so it is not shown twice
           expect(row).toHaveTextContent(session.description);
           expect(row).toHaveTextContent(session.initiator);
           expect(row).toHaveTextContent(session.workflowCount.toString());
@@ -139,9 +139,10 @@ describe('SessionListPage', () => {
       renderWithProviders(<SessionListPage />);
 
       await waitFor(() => {
-        expect(screen.getByText('session-1')).toBeInTheDocument();
+        expect(screen.getByText(mockSessions[0].name)).toBeInTheDocument();
       });
 
+      // the ID is the slug of the name, so it is not shown; filtering still matches it
       const searchInput = screen.getByPlaceholderText(/filter by name/i);
       await user.type(searchInput, 'session-2');
 
