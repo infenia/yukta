@@ -10,7 +10,7 @@ import {
   afterAll,
   afterEach,
 } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route, Routes } from 'react-router';
 import { setupServer } from 'msw/node';
@@ -179,5 +179,40 @@ describe('WorkflowEditorPage stages', () => {
     const nodes = saved[0].workflows.wf.nodes;
     expect(nodes.find((n) => n.nodeId === 'alone')?.group).toBe('lint');
     expect(nodes.find((n) => n.nodeId === 'unit')).not.toHaveProperty('group');
+  });
+
+  it('sets and clears node and stage colors, keeping other stages’ colors', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await user.click(await screen.findByRole('button', { name: /^unit/ }));
+    const stageColors = () =>
+      screen.getByRole('radiogroup', { name: 'Stage color' });
+    const nodeColors = () =>
+      screen.getByRole('radiogroup', { name: 'Node color' });
+
+    // unit is in stage test: its stage color is set, then cleared again
+    await user.click(within(stageColors()).getByRole('radio', { name: 'sky' }));
+    await user.click(within(nodeColors()).getByRole('radio', { name: 'violet' }));
+    await user.click(within(nodeColors()).getByRole('radio', { name: 'none' }));
+
+    // alone is in stage alone: it keeps stage test’s color when its own is set and cleared
+    await user.click(await screen.findByRole('button', { name: /^alone/ }));
+    await user.click(
+      within(stageColors()).getByRole('radio', { name: 'magenta' })
+    );
+    await user.click(within(nodeColors()).getByRole('radio', { name: 'teal' }));
+    await user.click(within(stageColors()).getByRole('radio', { name: 'none' }));
+
+    // the last stage color cleared leaves no groupColors in the saved JSON
+    await user.click(await screen.findByRole('button', { name: /^unit/ }));
+    await user.click(within(stageColors()).getByRole('radio', { name: 'none' }));
+
+    await user.click(screen.getByRole('button', { name: 'Save version' }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    const draft = saved[0].workflows.wf;
+    const nodes = draft.nodes;
+    expect(nodes.find((n) => n.nodeId === 'unit')).not.toHaveProperty('color');
+    expect(nodes.find((n) => n.nodeId === 'alone')?.color).toBe('teal');
+    expect(draft.groupColors).toBeUndefined();
   });
 });

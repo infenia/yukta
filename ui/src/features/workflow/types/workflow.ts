@@ -22,6 +22,8 @@ export interface WorkflowGraphNode {
   group?: string | null;
   /** For a SUB_WORKFLOW node, the workflow it runs. */
   subWorkflowId?: string | null;
+  /** The palette color the node declares, for display. */
+  color?: string | null;
 }
 
 export interface WorkflowGraphEdge {
@@ -36,6 +38,8 @@ export interface WorkflowGraph {
   nodes: WorkflowGraphNode[];
   edges: WorkflowGraphEdge[];
   topologicalOrder: string[];
+  /** The palette color of each group that has one, by group name. */
+  groupColors?: Record<string, string>;
 }
 
 export interface ExecutionSummary {

@@ -4089,6 +4089,8 @@ export interface components {
         };
         /** @description A single node in the workflow DAG */
         Node: {
+            /** @description Palette color of the node, for display only: teal, sky, violet, magenta, stone */
+            color?: string | null;
             /** @description Plugin configuration */
             config?: {
                 [key: string]: unknown;
@@ -4533,6 +4535,10 @@ export interface components {
             description: string;
             /** @description Edges connecting the nodes */
             edges: components["schemas"]["Edge"][];
+            /** @description Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone. Groups without an entry keep the default look */
+            groupColors?: {
+                [key: string]: string;
+            } | null;
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["Node"][];
             /** @description Supervisors declared for this workflow; attached when it is saved */
@@ -4604,6 +4610,10 @@ export interface components {
             description?: string;
             /** @description The DAG edges */
             edges?: components["schemas"]["WorkflowGraphEdge"][];
+            /** @description Palette color of each group that has one, by group name */
+            groupColors?: {
+                [key: string]: string;
+            };
             /** @description The enriched DAG nodes */
             nodes?: components["schemas"]["WorkflowGraphNode"][];
             /** @description Node identifiers in topological execution order */
@@ -4627,6 +4637,8 @@ export interface components {
              * @enum {string|null}
              */
             category?: "TRIGGER" | "PROCESSOR" | "TERMINAL" | null;
+            /** @description The palette color the node declares, null when it declares none */
+            color?: string | null;
             /** @description The plugin description, null if the plugin type is unknown */
             description?: string | null;
             /** @description The stage the node declares it belongs to, null when it declares none */

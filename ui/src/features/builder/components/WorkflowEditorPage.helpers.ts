@@ -23,8 +23,10 @@ export function toPreviewGraph(
       uiDesign: null,
       outputPorts: ports[node.nodeId] ?? ['default'],
       group: node.group,
+      color: node.color,
     })),
     edges: workflow.edges,
     topologicalOrder: [],
+    groupColors: workflow.groupColors,
   };
 }

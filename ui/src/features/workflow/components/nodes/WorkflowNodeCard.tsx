@@ -14,6 +14,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
+import { paletteColor, paletteTint } from '../../lib/paletteColor';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
 import type { WorkflowFlowNode } from '../../lib/layout';
 import type { NodeUiStatus, TaskProgress } from '../../types/workflow';
@@ -107,6 +108,7 @@ export function WorkflowNodeCard({
   const detail = progressDetail(status, task);
   const percent = progressPercent(status, task);
   const accent = categoryAccent(node.category);
+  const color = paletteColor(node.color);
   const outputPorts = isTerminal
     ? []
     : node.outputPorts.length > 0
@@ -127,7 +129,16 @@ export function WorkflowNodeCard({
       data-testid={`workflow-node-${node.nodeId}`}
       data-status={status}
       data-selected={selected ? 'true' : undefined}
-      style={{ '--node-accent': accent } as React.CSSProperties}
+      data-color={color ? node.color : undefined}
+      style={
+        {
+          '--node-accent': accent,
+          // a soft wash fading out under the header, on top of the card's own background
+          backgroundImage: color
+            ? `linear-gradient(to bottom, ${paletteTint(node.color)}, transparent 64px)`
+            : undefined,
+        } as React.CSSProperties
+      }
       className={cn(
         'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
         STATUS_CARD_CLASSES[status]
@@ -166,6 +177,15 @@ export function WorkflowNodeCard({
           </span>
         ))}
 
+      {color && (
+        // a marker only: borders and the status dot keep meaning status and category
+        <span
+          aria-hidden="true"
+          data-testid="node-color-stripe"
+          className="absolute inset-y-3 left-0 w-1 rounded-r-full"
+          style={{ backgroundColor: color }}
+        />
+      )}
       <div className="flex items-center gap-2.5 px-3 pt-2.5">
         <span
           className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--node-accent)"

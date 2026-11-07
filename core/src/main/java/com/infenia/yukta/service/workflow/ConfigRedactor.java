@@ -61,10 +61,11 @@ public class ConfigRedactor {
             .map(
                 node ->
                     new WorkflowDefinition.Node(
-                        node.nodeId(), node.type(), redactNode(node), node.group()))
+                        node.nodeId(), node.type(), redactNode(node), node.group(), node.color()))
             .toList(),
         workflow.edges(),
-        workflow.supervisors());
+        workflow.supervisors(),
+        workflow.groupColors());
   }
 
   /**

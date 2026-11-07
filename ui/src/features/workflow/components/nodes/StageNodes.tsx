@@ -5,6 +5,7 @@ import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
 import { toNodeStatusLabel } from '../../lib/statusMapper';
 import type { StageFlowNode, StageFrameNode } from '../../lib/layout';
+import { paletteColor, paletteTint } from '../../lib/paletteColor';
 import type { NodeUiStatus } from '../../types/workflow';
 
 const DOT: Record<NodeUiStatus, string> = {
@@ -17,6 +18,19 @@ const DOT: Record<NodeUiStatus, string> = {
 };
 
 const HANDLE = 'size-2.5! border-2! border-outline! bg-surface!';
+
+/** The group's color dot, beside its name; nothing without a color. */
+function StageDot({ color }: { color?: string | null }) {
+  const solid = paletteColor(color);
+  return solid ? (
+    <span
+      aria-hidden="true"
+      data-testid="stage-color-dot"
+      className="size-2 shrink-0 rounded-full"
+      style={{ backgroundColor: solid }}
+    />
+  ) : null;
+}
 
 function StageStatus({ status }: { status: NodeUiStatus }) {
   return (
@@ -37,13 +51,14 @@ function StageStatus({ status }: { status: NodeUiStatus }) {
 
 /** A closed stage: its name, node count and aggregate status, drawn in place of its nodes. */
 export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
-  const { stage, count, status, onToggle } = data;
+  const { stage, count, status, onToggle, color } = data;
   return (
     <div
       role="group"
       aria-label={`Stage ${stage}: ${toNodeStatusLabel(status)}, ${count} nodes`}
       data-testid={`stage-${stage}`}
       data-status={status}
+      style={{ backgroundColor: paletteTint(color, 16) }}
       className={cn(
         'bg-surface-container relative flex size-full flex-col rounded-xl border border-dashed px-3 py-2.5',
         status === 'failed' ? 'border-error' : 'border-outline'
@@ -58,6 +73,7 @@ export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
         >
           stacks
         </span>
+        <StageDot color={color} />
         <p className="text-label-md text-on-surface min-w-0 flex-1 truncate">
           {stage}
         </p>
@@ -82,17 +98,20 @@ export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
 
 /** The frame behind an open stage's nodes, with its name, status and a way to close it. */
 export function StageFrame({ data }: NodeProps<StageFrameNode>) {
-  const { stage, count, status, onToggle } = data;
+  const { stage, count, status, onToggle, color } = data;
   return (
     <div
       data-testid={`stage-frame-${stage}`}
       data-status={status}
+      style={{ backgroundColor: paletteTint(color, 10) }}
       className={cn(
-        'bg-muted/40 size-full rounded-2xl border border-dashed',
+        'size-full rounded-2xl border border-dashed',
+        !color && 'bg-muted/40',
         status === 'failed' ? 'border-error' : 'border-outline-variant'
       )}
     >
       <div className="flex items-center gap-2 px-3 py-2">
+        <StageDot color={color} />
         <p className="text-label-md text-on-surface truncate">{stage}</p>
         <span className="text-body-sm text-muted-foreground tabular-nums">
           {count} nodes

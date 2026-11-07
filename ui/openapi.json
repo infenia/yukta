@@ -3127,6 +3127,11 @@
       "Node" : {
         "description" : "A single node in the workflow DAG",
         "properties" : {
+          "color" : {
+            "description" : "Palette color of the node, for display only: teal, sky, violet, magenta, stone",
+            "pattern" : "teal|sky|violet|magenta|stone",
+            "type" : [ "string", "null" ]
+          },
           "config" : {
             "additionalProperties" : { },
             "description" : "Plugin configuration",
@@ -4098,6 +4103,13 @@
             "minItems" : 0,
             "type" : "array"
           },
+          "groupColors" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone. Groups without an entry keep the default look",
+            "type" : [ "object", "null" ]
+          },
           "nodes" : {
             "description" : "Nodes in the workflow",
             "items" : {
@@ -4282,6 +4294,13 @@
             },
             "type" : "array"
           },
+          "groupColors" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Palette color of each group that has one, by group name",
+            "type" : "object"
+          },
           "nodes" : {
             "description" : "The enriched DAG nodes",
             "items" : {
@@ -4327,6 +4346,10 @@
           "category" : {
             "description" : "The plugin category, null if the plugin type is unknown",
             "enum" : [ "TRIGGER", "PROCESSOR", "TERMINAL" ],
+            "type" : [ "string", "null" ]
+          },
+          "color" : {
+            "description" : "The palette color the node declares, null when it declares none",
             "type" : [ "string", "null" ]
           },
           "description" : {
