@@ -668,9 +668,7 @@ test.describe('Workflow Details Page', () => {
     await page.goto(WORKFLOW_URL);
 
     await expect(page.getByTestId('workflow-details-page')).toBeVisible();
-    const status = page.getByTestId('status-chip');
-    await expect(status).toContainText('Not run');
-    await expect(status).toHaveAttribute('data-status', 'NOT_RUN');
+    await expect(page.getByTestId('status-chip')).toHaveCount(0);
     await expect(page.getByTestId('run-history-empty')).toBeVisible();
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
       'Waiting'

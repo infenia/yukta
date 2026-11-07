@@ -43,12 +43,15 @@ function ControlButton({
   label,
   tone,
   disabled,
+  title,
   onClick,
 }: {
   icon: string;
   label: string;
   tone: string;
   disabled?: boolean;
+  /** Set by RequirePermission ("Needs OPERATOR"); defaults to the label. */
+  title?: string;
   onClick: () => void;
 }) {
   return (
@@ -56,7 +59,7 @@ function ControlButton({
       type="button"
       className={`${SEG} ${tone}`}
       aria-label={label}
-      title={label}
+      title={title ?? label}
       disabled={disabled}
       onClick={onClick}
     >
