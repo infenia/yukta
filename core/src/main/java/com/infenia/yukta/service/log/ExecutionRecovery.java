@@ -29,7 +29,11 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.UseConcurrentHashMap", "PMD.AvoidInstantiatingObjectsInLoops"})
+@SuppressWarnings({
+  "PMD.UseConcurrentHashMap",
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.AvoidCatchingGenericException"
+})
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
   /** The execution log. */
@@ -161,7 +165,16 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
         abortedIds.add(started.executionId());
       }
       kept.addAll(run);
-      restore(started, end(run));
+      try {
+        restore(started, end(run));
+      } catch (RuntimeException e) {
+        // one run that does not parse (a status from another version) must not stop the others,
+        // nor the startup: its events stay in the log
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue("executionId", run.getFirst().executionId())
+            .log("Could not restore a run into the history; skipping it");
+      }
     }
     store.replaceAll(kept);
     log.atInfo()
@@ -202,12 +215,20 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     }
     for (final ExecutionLogEvent event : schedulerEvents.reversed()) {
       if (event.type() == ExecutionLogEvent.Type.LIMITS_CHANGED) {
-        target.setLimits(
-            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_CONCURRENT)),
-            Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_PER_WORKFLOW)));
-        log.atInfo()
-            .addKeyValue("limits", event.nodeStatuses())
-            .log("Restored the limits changed at run time");
+        try {
+          target.setLimits(
+              Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_CONCURRENT)),
+              Integer.parseInt(event.nodeStatuses().get(ExecutionLogEvent.MAX_PER_WORKFLOW)));
+          log.atInfo()
+              .addKeyValue("limits", event.nodeStatuses())
+              .log("Restored the limits changed at run time");
+        } catch (RuntimeException e) {
+          // a log written by another version or repaired by hand must not stop the server
+          log.atWarn()
+              .setCause(e)
+              .addKeyValue("limits", event.nodeStatuses())
+              .log("Could not read the limits changed at run time; the configured ones stay");
+        }
         return;
       }
     }
