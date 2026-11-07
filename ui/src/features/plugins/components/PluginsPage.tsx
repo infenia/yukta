@@ -82,7 +82,7 @@ function PluginDetail({ type }: { type: string }) {
   const tab = chosen ?? tabs[0].key;
 
   return (
-    <article className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+    <article className="mx-auto flex max-w-5xl min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-5">
         <header>
           <h2 className="text-headline-lg text-on-surface">
@@ -106,6 +106,9 @@ function PluginDetail({ type }: { type: string }) {
             {plugin.description}
           </p>
         )}
+        <section aria-label="On the canvas">
+          <PluginCanvasPreview plugin={plugin} />
+        </section>
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -235,10 +238,6 @@ function PluginDetail({ type }: { type: string }) {
             </ul>
           ))}
       </div>
-      <section className="min-w-0 xl:sticky xl:top-18 xl:self-start">
-        <h3 className="text-label-md text-on-surface mb-1.5">On the canvas</h3>
-        <PluginCanvasPreview plugin={plugin} />
-      </section>
     </article>
   );
 }
@@ -275,7 +274,7 @@ export function PluginsPage() {
       <div className="flex flex-col gap-6 md:flex-row">
         <nav
           aria-label="Plugins"
-          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-72 md:self-start md:overflow-y-auto"
+          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-70 md:self-start md:overflow-y-auto"
         >
           <Input
             type="search"

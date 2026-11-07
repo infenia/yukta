@@ -158,7 +158,7 @@ test.describe('Supervisors end to end', () => {
     await expect(effective).toContainText('Definition');
 
     await page.goto('/supervisors');
-    await page.getByRole('tab', { name: /decisions/i }).click();
+    await page.getByRole('tab', { name: 'Activity' }).click();
     await expect(page.getByText('PauseWorkflowCommand')).toBeVisible();
   });
 });

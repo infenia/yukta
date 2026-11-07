@@ -11,10 +11,12 @@ import {
   useAttachments,
   useDeleteSupervisor,
   useSupervisor,
+  useSupervisorType,
 } from '../hooks/useSupervisorTypes';
 import { AttachDialog } from './AttachDialog';
 import { AttachmentsTable } from './AttachmentsTable';
 import { DecisionsTable } from './DecisionsTable';
+import { SupervisorSummary } from './SupervisorSummary';
 
 type Tab = 'overview' | 'attachments' | 'decisions';
 const TABS: Tab[] = ['overview', 'attachments', 'decisions'];
@@ -24,6 +26,7 @@ export function SupervisorDetailPage() {
   const { supervisorId } = useParams();
   const { data: supervisor, isPending, error } = useSupervisor(supervisorId);
   const attachments = useAttachments({ supervisor: supervisorId });
+  const typeInfo = useSupervisorType(supervisor?.type ?? null);
   const remove = useDeleteSupervisor();
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('overview');
@@ -94,13 +97,27 @@ export function SupervisorDetailPage() {
         ))}
       </div>
       {tab === 'overview' && (
-        <CodeBlock
-          code={JSON.stringify(
-            { dryRun: supervisor.dryRun, settings: supervisor.settings },
-            null,
-            2
-          )}
-        />
+        <div className="flex flex-col gap-3">
+          <SupervisorSummary
+            supervisor={supervisor}
+            attachments={attachments.data ?? []}
+            typeDefaults={typeInfo.data?.defaultAllowedCommands ?? null}
+          />
+          <details>
+            <summary className="text-label-md text-primary cursor-pointer">
+              Advanced: raw settings
+            </summary>
+            <div className="mt-2">
+              <CodeBlock
+                code={JSON.stringify(
+                  { dryRun: supervisor.dryRun, settings: supervisor.settings },
+                  null,
+                  2
+                )}
+              />
+            </div>
+          </details>
+        </div>
       )}
       {tab === 'attachments' && (
         <AttachmentsTable attachments={attachments.data ?? []} />
