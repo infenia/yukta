@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator;
 
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
@@ -9,6 +10,7 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.QueueTimeoutException;
 import com.infenia.yukta.service.orchestrator.compiler.ExecutionTimeoutException;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.HashMap;
@@ -41,6 +43,9 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
 
   /** Lends a child the slot its parent holds. */
   private final ExecutionScheduler scheduler;
+
+  /** Tells how a child ended. */
+  private final TaskTrackerService tracker;
 
   @Override
   public Mono<Result> run(
@@ -77,12 +82,14 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
                           .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
               // Registering and archiving the child do file work, so not on the caller's thread.
               .subscribeOn(Schedulers.boundedElastic())
-              .then(Mono.fromSupplier(() -> result(executionId, collector)));
+              .then(
+                  Mono.fromSupplier(() -> result(executionId, collector, endStatus(executionId))));
         });
   }
 
   /** What the child produced, and the outcome terminal it reached, if any. */
-  private static Result result(final String executionId, final ResultCollector collector) {
+  private static Result result(
+      final String executionId, final ResultCollector collector, final String status) {
     final Map<String, Object> ended =
         collector.getCompletions().stream()
             .map(ResultCollector.Completion::metadata)
@@ -94,9 +101,15 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
     return new Result(
         executionId,
         collector.getResults().stream().<Object>map(message -> message.payload()).toList(),
-        "SUCCESS",
+        status,
         outcome == null ? null : outcome.toString(),
         reason == null ? null : reason.toString());
+  }
+
+  /** How the child ended: a run that was stopped or drained completes without an error. */
+  private String endStatus(final String executionId) {
+    final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+    return progress == null ? "SUCCESS" : progress.status().name();
   }
 
   private static String failureStatus(final Throwable error) {
