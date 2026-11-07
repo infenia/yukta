@@ -12,7 +12,10 @@ import { buildScope } from '@/features/control/api/supervisors';
 import { getSessionWorkflows } from '@/features/sessions/api/getSessionWorkflows';
 import { useSessionSummaries } from '@/features/sessions/hooks/useSessionSummaries';
 import { getWorkflowNodeIds } from '../api/supervisors';
-import { useAttachSupervisor } from '../hooks/useSupervisorTypes';
+import {
+  useAttachSupervisor,
+  useSupervisors,
+} from '../hooks/useSupervisorTypes';
 
 type Kind = 'global' | 'session' | 'workflow' | 'section';
 
@@ -38,17 +41,26 @@ export function groupNodes(ids: string[]): [string, string[]][] {
 
 /** Attaches a supervisor to a scope: everything, a session, a workflow of it, or some of its nodes. */
 export function AttachDialog({
-  supervisorId,
+  supervisorId: given,
+  preset,
   onClose,
 }: {
-  supervisorId: string;
+  /** The supervisor to attach; without it the dialog asks which. */
+  supervisorId?: string;
+  /** Where to attach when the page that opens the dialog knows. */
+  preset?: { sessionId: string; workflowId?: string };
   onClose: () => void;
 }) {
   const sessions = useSessionSummaries().data ?? [];
+  const configured = (useSupervisors().data ?? []).filter((s) => !s.system);
   const attach = useAttachSupervisor();
-  const [kind, setKind] = useState<Kind>('session');
-  const [sessionId, setSessionId] = useState('');
-  const [workflowId, setWorkflowId] = useState('');
+  const [chosen, setChosen] = useState('');
+  const supervisorId = given ?? (chosen || configured[0]?.id || '');
+  const [kind, setKind] = useState<Kind>(
+    preset?.workflowId ? 'workflow' : preset ? 'session' : 'session'
+  );
+  const [sessionId, setSessionId] = useState(preset?.sessionId ?? '');
+  const [workflowId, setWorkflowId] = useState(preset?.workflowId ?? '');
   const [picked, setPicked] = useState<string[]>([]);
   const [enabled, setEnabled] = useState(true);
   const workflows = useQuery({
@@ -72,8 +84,27 @@ export function AttachDialog({
     );
 
   return (
-    <Modal title={`Attach ${supervisorId}`} onClose={onClose}>
+    <Modal title={`Attach ${supervisorId || 'a supervisor'}`} onClose={onClose}>
       <div className="flex flex-col gap-4">
+        {given === undefined && (
+          <label className="text-label-md flex flex-col gap-1">
+            Supervisor
+            <NativeSelect
+              aria-label="Choose supervisor"
+              value={supervisorId}
+              onChange={(event) => setChosen(event.target.value)}
+            >
+              {configured.length === 0 && (
+                <option value="">Create a supervisor first</option>
+              )}
+              {configured.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.id}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+        )}
         <div
           role="radiogroup"
           aria-label="Where"
@@ -181,7 +212,7 @@ export function AttachDialog({
           </Button>
           <Button
             type="button"
-            disabled={scope === null || attach.isPending}
+            disabled={scope === null || supervisorId === '' || attach.isPending}
             onClick={() =>
               attach.mutate(
                 { supervisorId, scope: scope as string, enabled },

@@ -27,12 +27,15 @@ const STEPS = ['Type', 'Settings', 'Permissions', 'Review'] as const;
 function Wizard({
   initial,
   existing,
+  onSaved,
 }: {
   initial: Pick<SupervisorDraft, 'type' | 'settings' | 'dryRun'> & {
     id: string;
     description: string;
   };
   existing: boolean;
+  /** Called with the id instead of going to the supervisor's page (the drawer). */
+  onSaved?: (id: string) => void;
 }) {
   const navigate = useNavigate();
   const [step, setStep] = useState(initial.type ? 1 : 0);
@@ -76,7 +79,10 @@ function Wizard({
     }
   };
   const save = () => {
-    const done = () => navigate(`/supervisors/${encodeURIComponent(id)}`);
+    const done = () =>
+      onSaved
+        ? onSaved(id)
+        : navigate(`/supervisors/${encodeURIComponent(id)}`);
     if (existing) replace.mutate({ ...draft, id }, { onSuccess: done });
     else create.mutate(draft, { onSuccess: done });
   };
@@ -270,4 +276,25 @@ export function SupervisorWizardPage() {
     return <StateMessage tone="error" title="Failed to load the supervisor." />;
   }
   return <Wizard existing initial={startFrom(data)} />;
+}
+
+/** The wizard for a new supervisor, to be shown in a drawer: it reports the id instead of navigating. */
+export function NewSupervisorWizard({
+  onSaved,
+}: {
+  onSaved: (id: string) => void;
+}) {
+  return (
+    <Wizard
+      existing={false}
+      onSaved={onSaved}
+      initial={{
+        id: '',
+        type: '',
+        description: '',
+        settings: {},
+        dryRun: false,
+      }}
+    />
+  );
 }

@@ -137,28 +137,6 @@ export function scopeLabel(scope: string): string {
 }
 
 /**
- * Whether a binding's scope covers a session, and a workflow of it when given: a global scope
- * covers everything, `workflow:<id>` any session's workflow of that id. A section counts for the
- * workflow it is part of.
- */
-export function scopeApplies(
-  scope: string,
-  sessionId: string,
-  workflowId?: string
-): boolean {
-  if (scope === 'global') return true;
-  const [kind, rest] = [
-    scope.split(':')[0],
-    scope.slice(scope.indexOf(':') + 1),
-  ];
-  if (kind === 'session') return rest === sessionId;
-  if (kind !== 'workflow' || workflowId === undefined) return false;
-  const ids = rest.split(SECTION)[0];
-  const [s, w] = ids.includes('/') ? ids.split('/') : [undefined, ids];
-  return w === workflowId && (s === undefined || s === sessionId);
-}
-
-/**
  * The node selectors typed as text: separated by commas or spaces, blanks dropped. A selector is a
  * node id or `<prefix>.*`.
  */

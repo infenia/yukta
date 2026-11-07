@@ -8,7 +8,7 @@ import { ApiError } from '@/lib/apiClient';
 import { AttachDialog } from '../AttachDialog';
 
 const state = vi.hoisted(() => ({
-  profiles: [] as { id: string; type: string }[],
+  profiles: [] as { id: string; type: string }[] | undefined,
   error: null as unknown,
   mutate: vi.fn(),
 }));
@@ -75,7 +75,7 @@ describe('AttachDialog', () => {
   it('builds a workflow scope from the workflow id, with or without a session', () => {
     renderWithProviders(
       <AttachDialog
-        preset={{ kind: 'workflow', workflowId: 'w1' }}
+        preset={{ kind: 'workflow', workflowId: 'w1', nodes: 'a' }}
         onClose={vi.fn()}
       />
     );
@@ -84,6 +84,12 @@ describe('AttachDialog', () => {
       expect.objectContaining({ scope: 'workflow:w1' }),
       expect.any(Object)
     );
+  });
+
+  it('asks for a profile while the profiles load', () => {
+    state.profiles = undefined;
+    renderWithProviders(<AttachDialog onClose={vi.fn()} />);
+    expect(screen.getByText('Create a profile first.')).toBeInTheDocument();
   });
 
   it('explains a forbidden attach and shows other failures', () => {

@@ -453,7 +453,7 @@ export function LogsPanel({
                 onClick={copyLogs}
                 aria-label="Copy logs"
                 title="Copy the visible lines"
-                className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+                className="text-on-surface-variant hover:bg-muted hover:text-on-surface focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-on-surface flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
               >
                 <span className="material-symbols-outlined text-base">
                   content_copy
@@ -471,7 +471,7 @@ export function LogsPanel({
               <DropdownMenu>
                 <DropdownMenuTrigger
                   aria-label="More log options"
-                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface data-popup-open:bg-muted data-popup-open:text-on-surface focus-visible:ring-ring flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
+                  className="text-on-surface-variant hover:bg-muted hover:text-on-surface focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-on-surface flex size-6 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <span className="material-symbols-outlined text-base">
                     more_horiz
