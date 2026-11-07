@@ -83,7 +83,7 @@ start, control or change anything (a `VIEWER` key, plus a deny list in `examples
 
 ## Pickup (scheduled issue hand-over)
 `yk pickup session` opens an interactive session that receives issues (several may be open; the schedule hands each idle one an issue); `yk pickup on|off|now|status` drives the schedule. To hand out only chosen issues: `yk pickup now --issue 12,34` (one round) or the file `$DEV_HOME/pickup-issues` (numbers, one per line; `//` comments; the schedule reads it every round); `yk pickup list` shows what the next round would take and the filter in force. An event
-`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/dogfood/README.md` ("Pickup session").
+`<channel source="yukta-pickup" ..>` means: use the `pickup` skill. Details in `examples/dogfood/README.md` ("Pickup").
 
 ## Don'ts
 - Don't run `./gradlew`/`gradle`, `go` or `pnpm`/`npm`/`npx` directly, or start the Yukta dev server yourself (`./gradlew bootRun`

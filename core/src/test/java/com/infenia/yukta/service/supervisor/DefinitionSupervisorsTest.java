@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -55,6 +56,11 @@ class DefinitionSupervisorsTest {
 
   private final SupervisorFactory factory =
       new SupervisorFactory() {
+        @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of();
+        }
+
         @Override
         public String type() {
           return "t";

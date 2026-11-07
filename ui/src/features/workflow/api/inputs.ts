@@ -103,3 +103,7 @@ export const escalateInput = (
   requestId: string,
   body: EscalateBody
 ) => post(executionId, requestId, 'escalate', body);
+
+/** The newest `limit` input requests that wait for an answer, across all sessions the key may see. */
+export const getOpenInputs = (limit = 50) =>
+  fetchApi<InputRequest[]>(`/api/inputs?limit=${limit}`);

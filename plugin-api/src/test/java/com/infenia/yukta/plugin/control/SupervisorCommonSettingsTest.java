@@ -37,6 +37,11 @@ class SupervisorCommonSettingsTest {
     final SupervisorFactory factory =
         new SupervisorFactory() {
           @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
           public String type() {
             return "plain";
           }

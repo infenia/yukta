@@ -36,7 +36,7 @@ export function ControlEventsProvider({ children }: { children: ReactNode }) {
         event.type === 'ControlOutcome' ||
         event.type === 'WorkflowStatusChanged'
       ) {
-        void queryClient.invalidateQueries({ queryKey: ['overview'] });
+        void queryClient.invalidateQueries({ queryKey: ['inputs'] });
         void queryClient.invalidateQueries({ queryKey: ['runs'] });
         // slots are taken and freed as runs start and end; limits change by a control command
         void queryClient.invalidateQueries({

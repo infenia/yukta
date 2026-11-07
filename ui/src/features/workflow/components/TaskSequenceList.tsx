@@ -100,6 +100,7 @@ function TaskSequenceItem({
           status={task.status}
           scope="node"
           testId="task-status"
+          iconOnly
           className="ml-auto"
         />
         {onNodeCommand && (

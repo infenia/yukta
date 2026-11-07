@@ -47,6 +47,8 @@ class EventsControllerTest {
   /** A reader is done when nothing arrives for this long; load only makes the test slower. */
   private static final Duration IDLE = Duration.ofSeconds(1);
 
+  private static final Duration FIRST_EVENT_DEADLINE = Duration.ofSeconds(30);
+
   @BeforeEach
   void everyRunIsItsOwnRoot() {
     when(tracker.lineage(anyString()))
@@ -248,7 +250,11 @@ class EventsControllerTest {
             .stream(null, false, type, null)
                 .mapNotNull(ServerSentEvent::data)
                 .map(EventsController.Envelope::type)
-                .timeout(IDLE, Flux.empty())
+                // A stalled runner must not end the wait before the first event (#1904).
+                .timeout(
+                    Flux.interval(FIRST_EVENT_DEADLINE),
+                    _ -> Flux.interval(IDLE),
+                    Flux.<String>empty())
                 .collectList()
                 .toFuture();
     final Instant now = Instant.now();

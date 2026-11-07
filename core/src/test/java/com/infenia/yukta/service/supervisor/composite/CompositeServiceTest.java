@@ -39,6 +39,11 @@ class CompositeServiceTest {
   private final SupervisorFactory leaf =
       new SupervisorFactory() {
         @Override
+        public List<ConfigField> getConfigSchema() {
+          return List.of(ConfigField.optional("v", ConfigField.Type.NUMBER, null, "test"));
+        }
+
+        @Override
         public String type() {
           return "leaf";
         }

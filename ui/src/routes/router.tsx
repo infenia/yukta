@@ -9,16 +9,11 @@ import {
 } from 'react-router';
 import App from '@/App';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
-import { OverviewPage } from '@/features/overview/OverviewPage';
 
-/** The session list moved from / to /sessions; its query (?q=x) is kept. */
+/** / is the session list; its query (?q=x) is kept. */
 export function HomeRoute() {
   const { search } = useLocation();
-  return search ? (
-    <Navigate to={{ pathname: '/sessions', search }} replace />
-  ) : (
-    <OverviewPage />
-  );
+  return <Navigate to={{ pathname: '/sessions', search }} replace />;
 }
 
 /** /history became /runs; the query (?session=x) is kept. */

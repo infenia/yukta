@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
 import { KpiTile } from '@/components/dashboard/KpiTile';
 import { RingProgress } from '@/components/dashboard/Gauges';
 import {
@@ -12,7 +11,7 @@ import {
 } from '@/features/metrics/hooks';
 import { GLOBAL, type Scope } from '@/features/metrics/api';
 import { inScope } from './scopes';
-import { getOpenInputs } from '@/features/overview/api';
+import { getOpenInputs } from '@/features/workflow/api/inputs';
 import { useWorkers } from '../api/workers';
 import { getLimits } from '../api/scheduler';
 import {
@@ -123,15 +122,15 @@ export function CommandStrip({ scope, live }: { scope: Scope; live: boolean }) {
         deltaTone={slowerIsWorse(p95Change)}
         series={p95Trend.map((p) => p.v)}
       />
-      <Link
-        to="/"
-        className="focus-visible:ring-ring flex min-w-0 rounded-xl no-underline focus-visible:ring-2"
-        aria-label={`Approvals waiting: ${waitingText}. Open the overview to answer them`}
+      <div
+        role="group"
+        className="flex min-w-0"
+        aria-label={`Approvals waiting: ${waitingText}.`}
       >
         <div className="flex-1 [&>div]:h-full">
           <KpiTile label="Approvals waiting" value={waitingText} />
         </div>
-      </Link>
+      </div>
       <KpiTile
         label={scoped('Running / waiting')}
         value={limits ? `${limits.running} / ${limits.queued}` : '–'}

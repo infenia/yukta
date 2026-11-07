@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { preText } from '@/test/preText';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -68,7 +69,7 @@ describe('NodeSheet', () => {
     open();
     expect(screen.getByText('hello')).toBeInTheDocument();
     expect(screen.queryByText('not mine')).not.toBeInTheDocument();
-    expect(await screen.findByText(/"a": 1/)).toBeInTheDocument();
+    expect(await screen.findByText(preText(/"a": 1/))).toBeInTheDocument();
   });
 
   it('offers the actions of its status and reports the one chosen', async () => {
@@ -98,7 +99,7 @@ describe('NodeSheet', () => {
 
   it('shows what a terminal received, and only a terminal has the section', () => {
     open({ node: node('sink', 'TERMINAL') });
-    expect(screen.getByText(/"ok": true/)).toBeInTheDocument();
+    expect(screen.getByText(preText(/"ok": true/))).toBeInTheDocument();
     expect(screen.queryByText(/"no": 1/)).not.toBeInTheDocument();
   });
 

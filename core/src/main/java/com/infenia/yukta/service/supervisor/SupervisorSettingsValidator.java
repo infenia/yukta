@@ -9,15 +9,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import lombok.experimental.UtilityClass;
 
 /**
  * Checks supervisor settings against a type's {@link ConfigField} schema and the common schema.
- * Messages never repeat a value, because it may be a secret. A type whose schema is empty has not
- * declared its settings, so only the common ones are checked and other keys pass.
+ * Messages never repeat a value, because it may be a secret. Keys match exactly.
  */
 @UtilityClass
 public class SupervisorSettingsValidator {
@@ -38,13 +36,12 @@ public class SupervisorSettingsValidator {
     schema.addAll(SupervisorCommonSettings.SCHEMA);
     final List<Issue> issues = new ArrayList<>();
     final Set<String> known = new HashSet<>();
-    schema.forEach(field -> known.add(normal(field.name())));
-    // a type that declares no schema (an older third-party factory) keeps its own settings free
+    schema.forEach(field -> known.add(field.name()));
     settings.keySet().stream()
-        .filter(key -> !typeSchema.isEmpty() && !known.contains(normal(key)))
+        .filter(key -> !known.contains(key))
         .forEach(key -> issues.add(new Issue(PREFIX + key, "is not a setting of this type")));
     for (final ConfigField field : schema) {
-      final Object value = find(settings, field.name());
+      final Object value = settings.get(field.name());
       if (value == null) {
         if (field.required()) {
           issues.add(new Issue(PREFIX + field.name(), "is required"));
@@ -59,25 +56,6 @@ public class SupervisorSettingsValidator {
     if (!issues.isEmpty()) {
       throw new SettingsValidationException(issues);
     }
-  }
-
-  /** The value under a key, whether written as {@code max-risk}, {@code maxRisk} or the like. */
-  private static Object find(final Map<String, Object> settings, final String name) {
-    final Object exact = settings.get(name);
-    if (exact != null) {
-      return exact;
-    }
-    return settings.entrySet().stream()
-        .filter(entry -> normal(entry.getKey()).equals(normal(name)))
-        .map(Map.Entry::getValue)
-        .filter(java.util.Objects::nonNull)
-        .findFirst()
-        .orElse(null);
-  }
-
-  /** Spring-style relaxed names: case, dashes and underscores do not matter. */
-  private static String normal(final String key) {
-    return key.replace("-", "").replace("_", "").toLowerCase(Locale.ROOT);
   }
 
   private static String problem(final ConfigField field, final Object value) {
