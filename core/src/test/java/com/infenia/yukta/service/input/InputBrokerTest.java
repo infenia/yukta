@@ -295,7 +295,15 @@ class InputBrokerTest {
     final InputRequestStore failing = Mockito.spy(store);
     final InputBroker flaky =
         new InputBroker(
-            failing, feed, log, meters, new InputRedactor(List.of("note")), limits(), clock);
+            failing,
+            feed,
+            log,
+            meters,
+            new InputRedactor(List.of("note")),
+            limits(),
+            clock,
+            new com.infenia.yukta.service.input.route.RouteResolver(Map.of(), null),
+            null);
     final Disposable asker = flaky.ask(who("e1", "n1"), spec("k1")).subscribe(r -> {}, e -> {});
     Mockito.doReturn(Mono.error(new IllegalStateException("store down")))
         .when(failing)
