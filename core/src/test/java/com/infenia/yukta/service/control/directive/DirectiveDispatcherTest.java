@@ -16,7 +16,6 @@ import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -38,7 +37,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class DirectiveDispatcherTest {
 
-  private ExecutionControlStore registry;
+  private InMemoryExecutionControlStore registry;
   private ControlBusService controlBusService;
   private CommandHandler processor;
   private ExecutionArchive archive;
