@@ -28,6 +28,7 @@ export default function ThemeToggle() {
         onClick={toggleTheme}
         className="text-muted-foreground transition-standard hover:bg-muted hover:text-foreground rounded-lg p-2"
         aria-label="Toggle theme"
+        aria-description={`Current: ${theme}`}
       >
         <span className="material-symbols-outlined scale-80">{iconName}</span>
       </button>

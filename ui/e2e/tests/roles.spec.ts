@@ -49,7 +49,7 @@ test.describe('A VIEWER key', () => {
     );
     const pause = page.getByRole('button', { name: 'Pause' });
     await expect(pause).toBeDisabled();
-    await expect(pause).toHaveAttribute('title', 'Needs OPERATOR');
+    await expect(pause).toHaveAttribute('aria-description', 'Needs OPERATOR');
     await expect(
       page.getByRole('button', { name: 'Run workflow' })
     ).toBeDisabled();

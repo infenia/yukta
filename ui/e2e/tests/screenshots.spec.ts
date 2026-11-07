@@ -53,11 +53,11 @@ test.describe('Visual Regression - Screenshots', () => {
       await waitForLoadingComplete(page);
       const toggle = page.getByRole('button', { name: 'Toggle theme' });
       for (let i = 0; i < 3; i += 1) {
-        const title = await toggle.getAttribute('title');
+        const title = await toggle.getAttribute('aria-description');
         if (title === 'Current: dark') break;
         await toggle.click();
       }
-      await expect(toggle).toHaveAttribute('title', 'Current: dark');
+      await expect(toggle).toHaveAttribute('aria-description', 'Current: dark');
       await expect(page.locator('html')).toHaveClass(/dark/);
       // Extra wait for theme CSS to settle
       await page.waitForTimeout(500);
