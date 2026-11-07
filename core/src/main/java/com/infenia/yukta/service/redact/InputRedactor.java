@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.redact;
 
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,7 +72,9 @@ public class InputRedactor {
         spec.kind(),
         redactor.redactText(spec.prompt()),
         redactor.redactMap(spec.context()),
-        spec.options(),
+        spec.options().stream()
+            .map(option -> new InputOption(option.id(), redactor.redactText(option.label())))
+            .toList(),
         spec.responseSchema(),
         spec.risk(),
         spec.audience(),
