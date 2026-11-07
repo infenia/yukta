@@ -3,6 +3,7 @@
 
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { buttonVariants } from '@/components/ui/button';
+import { ICON_TONE, iconButton } from '../lib/iconTone';
 import { useState } from 'react';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
@@ -34,7 +35,40 @@ import {
 const BUTTON = buttonVariants({ variant: 'outline' });
 /** A button inside the segmented run controls. */
 const SEG =
-  'text-label-md text-on-surface hover:bg-muted flex h-7 items-center gap-1 rounded-full px-2.5 font-medium disabled:pointer-events-none disabled:opacity-45';
+  'text-label-md flex h-7 min-w-7 items-center justify-center rounded-full px-1.5 font-medium disabled:pointer-events-none disabled:opacity-45';
+
+/** An icon-only segment of the run controls: the label is the tooltip and the accessible name. */
+function ControlButton({
+  icon,
+  label,
+  tone,
+  disabled,
+  title,
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  tone: string;
+  disabled?: boolean;
+  /** Set by RequirePermission ("Needs OPERATOR"); defaults to the label. */
+  title?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`${SEG} ${tone}`}
+      aria-label={label}
+      title={title ?? label}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <span aria-hidden="true" className="material-symbols-outlined text-base">
+        {icon}
+      </span>
+    </button>
+  );
+}
 
 /** Priorities the scheduler accepts from the UI. */
 export const MIN_PRIORITY = -100;
@@ -199,47 +233,42 @@ export function RunControls({
           sessionId={sessionId}
           workflowId={workflowId}
           onStarted={onStarted}
-          className={SEG}
+          className={`${SEG} ${ICON_TONE.success}`}
+          iconOnly
         />
         <RequirePermission perm="controlRuns">
           {category === 'paused' ? (
-            <button
-              type="button"
-              className={`${SEG} text-primary`}
+            <ControlButton
+              icon="play_circle"
+              label="Resume"
+              tone={ICON_TONE.primary}
               onClick={() => act('resume')}
-            >
-              <span className="material-symbols-outlined text-base">
-                play_circle
-              </span>
-              Resume
-            </button>
+            />
           ) : (
-            <button
-              type="button"
-              className={SEG}
+            <ControlButton
+              icon="pause"
+              label="Pause"
+              tone={ICON_TONE.attention}
               disabled={category !== 'running'}
               onClick={() => act('pause')}
-            >
-              <span className="material-symbols-outlined text-base">pause</span>
-              Pause
-            </button>
+            />
           )}
         </RequirePermission>
         <DropdownMenu>
           <RequirePermission perm="controlRuns">
             <DropdownMenuTrigger
-              className={`${SEG} text-destructive`}
+              className={`${SEG} ${ICON_TONE.destructive}`}
               disabled={!live}
               aria-label="Stop options"
+              title="Stop"
             >
               <span className="material-symbols-outlined text-base">stop</span>
-              Stop
               <span className="material-symbols-outlined text-base">
                 arrow_drop_down
               </span>
             </DropdownMenuTrigger>
           </RequirePermission>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className="w-max">
             <DropdownMenuItem
               onClick={() =>
                 setConfirm({ label: 'Stop this run', scope: 'run' })
@@ -280,41 +309,44 @@ export function RunControls({
           </DropdownMenuContent>
         </DropdownMenu>
         <RequirePermission perm="controlRuns">
-          <button
-            type="button"
-            className={SEG}
+          <ControlButton
+            icon="restart_alt"
+            label="Restart"
+            tone={ICON_TONE.primary}
             disabled={!canRestart}
             onClick={() => act('restart')}
-          >
-            <span className="material-symbols-outlined text-base">
-              restart_alt
-            </span>
-            Restart
-          </button>
+          />
         </RequirePermission>
       </div>
       {canPrioritize && (
         <RequirePermission perm="controlRuns">
           <button
             type="button"
-            className={BUTTON}
+            className={iconButton('attention')}
+            aria-label="Priority…"
+            title="Change priority"
             onClick={() => setPrioritizing(true)}
           >
-            <span className="material-symbols-outlined text-base">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-base"
+            >
               low_priority
             </span>
-            Priority…
           </button>
         </RequirePermission>
       )}
       <DropdownMenu>
-        <DropdownMenuTrigger className={BUTTON} aria-label="Copy as">
+        <DropdownMenuTrigger
+          className={iconButton('primary')}
+          aria-label="Copy as"
+          title="Copy as…"
+        >
           <span className="material-symbols-outlined text-base">
             content_copy
           </span>
-          Copy as…
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
+        <DropdownMenuContent align="end" className="w-max">
           <CopyAsMenu choices={choices} onCopy={copy} />
         </DropdownMenuContent>
       </DropdownMenu>
@@ -329,6 +361,7 @@ export function RunControls({
           workflowId={workflowId}
           executionId={executionId as string}
           onRecovered={onStarted}
+          iconOnly
         />
       )}
       <InlineError message={failure ? controlErrorMessage(failure) : null} />

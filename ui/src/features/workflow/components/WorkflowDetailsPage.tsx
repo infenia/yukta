@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
+import { ICON_TONE, iconButton } from '../lib/iconTone';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -200,22 +201,21 @@ export function WorkflowDetailsPage() {
       <WorkflowTitleBar
         workflowId={workflowId}
         description={graph.description}
-        status={executionStatus}
         runGroup={
-          <>
-            <RunHistoryDropdown
-              executions={executions}
-              selectedExecutionId={selectedExecutionId}
-              onSelect={selectExecution}
-            />
-            <RunControls
-              sessionId={sessionId}
-              workflowId={workflowId}
-              executionId={selectedExecutionId}
-              status={executionStatus}
-              onStarted={selectExecution}
-            />
-          </>
+          <RunHistoryDropdown
+            executions={executions}
+            selectedExecutionId={selectedExecutionId}
+            onSelect={selectExecution}
+          />
+        }
+        controls={
+          <RunControls
+            sessionId={sessionId}
+            workflowId={workflowId}
+            executionId={selectedExecutionId}
+            status={executionStatus}
+            onStarted={selectExecution}
+          />
         }
         actions={
           <>
@@ -237,7 +237,7 @@ export function WorkflowDetailsPage() {
               to={`/sessions/${encodeURIComponent(sessionId)}/workflow/${encodeURIComponent(workflowId)}/edit`}
               aria-label="Edit"
               title="Edit workflow"
-              className={buttonVariants({ variant: 'outline', size: 'icon' })}
+              className={iconButton('primary')}
             >
               <span
                 aria-hidden="true"
@@ -252,7 +252,10 @@ export function WorkflowDetailsPage() {
               aria-pressed={panelOpen}
               aria-label="Workflow progress"
               title={panelOpen ? 'Hide progress panel' : 'Show progress panel'}
-              className={`${buttonVariants({ variant: 'outline', size: 'icon' })} transition-standard active:scale-95`}
+              className={cn(
+                iconButton(panelOpen ? 'primary' : 'neutral'),
+                'transition-standard active:scale-95'
+              )}
             >
               <span
                 aria-hidden="true"
@@ -268,6 +271,8 @@ export function WorkflowDetailsPage() {
                     variant="ghost"
                     size="icon"
                     aria-label="Workflow actions"
+                    title="Workflow actions"
+                    className={ICON_TONE.neutral}
                     {...state}
                   >
                     <span
@@ -279,7 +284,7 @@ export function WorkflowDetailsPage() {
                   </Button>
                 )}
               />
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="w-max">
                 <DropdownMenuItem
                   onClick={() => setVersionsOpen((value) => !value)}
                 >

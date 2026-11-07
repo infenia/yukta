@@ -3,24 +3,24 @@
 
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav';
 import type { ReactNode } from 'react';
-import { StatusPill } from './StatusPill';
 
 /**
- * Title row: the workflow ID as the title with the run's status beside it, the run group and
- * actions right-aligned together, and the description underneath.
+ * Title row: the workflow ID with the run picker beside it (left), the run controls and
+ * actions right-aligned, and the description underneath.
  */
 export function WorkflowTitleBar({
   workflowId,
   description,
-  status,
   runGroup,
+  controls,
   actions,
 }: {
   workflowId: string;
   description?: string;
-  status: string | null;
-  /** Run selector and run controls, kept together right-aligned beside the actions. */
+  /** Run selector, left-aligned right after the title. */
   runGroup?: ReactNode;
+  /** Run, pause, stop and restart, right-aligned before the actions. */
+  controls?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -36,13 +36,9 @@ export function WorkflowTitleBar({
         <h1 className="text-headline-lg text-on-surface font-mono tracking-tight break-all">
           {workflowId}
         </h1>
-        <StatusPill status={status} />
+        {runGroup}
         <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          {runGroup && (
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {runGroup}
-            </div>
-          )}
+          {controls}
           {actions}
         </div>
       </div>

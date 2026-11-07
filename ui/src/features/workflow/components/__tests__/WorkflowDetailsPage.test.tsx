@@ -555,7 +555,6 @@ describe('WorkflowDetailsPage', () => {
     renderPage();
     await screen.findByTestId('workflow-details-page');
 
-    expect(screen.getByTestId('status-chip')).toHaveTextContent('Not run');
     expect(screen.getByTestId('run-history-empty')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Follow running nodes' })

@@ -6,6 +6,8 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { ICON_TONE } from '../lib/iconTone';
 import {
   controlErrorMessage,
   useExecutionControl,
@@ -20,12 +22,15 @@ export function RecoverButton({
   executionId,
   onRecovered,
   size,
+  iconOnly = false,
 }: {
   sessionId: string;
   workflowId: string;
   executionId: string;
   onRecovered: (executionId: string) => void;
   size?: 'sm';
+  /** Icon only: "Recover" moves to the tooltip and accessible name. */
+  iconOnly?: boolean;
 }) {
   const { recover } = useExecutionControl(sessionId, workflowId);
   const [confirming, setConfirming] = useState(false);
@@ -35,12 +40,25 @@ export function RecoverButton({
       <RequirePermission perm="controlRuns">
         <button
           type="button"
-          className={buttonVariants({ variant: 'outline', size })}
+          className={cn(
+            buttonVariants({
+              variant: 'outline',
+              size: iconOnly ? 'icon' : size,
+            }),
+            iconOnly && ICON_TONE.primary
+          )}
+          aria-label={iconOnly ? 'Recover' : undefined}
+          title={iconOnly ? 'Recover this run' : undefined}
           disabled={recover.isPending}
           onClick={() => setConfirming(true)}
         >
-          <span className="material-symbols-outlined text-base">history</span>
-          Recover
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-primary text-base"
+          >
+            history
+          </span>
+          {!iconOnly && 'Recover'}
         </button>
       </RequirePermission>
       <InlineError
