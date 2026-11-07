@@ -119,7 +119,7 @@ export function WorkflowTable({
                     {workflow.nodeCount} nodes · {workflow.edgeCount} edges
                   </TableCell>
                   <TableCell className="px-4">
-                    <StatusPill status={workflow.status} />
+                    <StatusPill status={workflow.status} iconOnly />
                   </TableCell>
                   {/* Stops the row's click: the run dialog lives inside this cell. */}
                   <TableCell

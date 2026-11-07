@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useQuery } from '@tanstack/react-query';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import {
   Table,
   TableBody,
@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { StatusPill } from '@/features/workflow/components/StatusPill';
 import {
-  formatClockTime,
+  formatDateTime,
   formatDuration,
 } from '@/features/workflow/lib/timeFormat';
 import { searchExecutions } from '@/features/runs/api/searchExecutions';
@@ -33,7 +33,12 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
         RECENT
       ),
   });
+  const navigate = useNavigate();
   const session = encodeURIComponent(sessionId);
+  const open = (run: { workflowId: string; executionId: string }) =>
+    void navigate(
+      `/sessions/${session}/workflow/${encodeURIComponent(run.workflowId)}?exec=${encodeURIComponent(run.executionId)}`
+    );
 
   return (
     <section className="flex flex-col gap-3 px-4 pb-8 sm:px-6">
@@ -64,9 +69,25 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
             </TableHeader>
             <TableBody>
               {runs.map((run) => (
-                <TableRow key={run.executionId}>
+                <TableRow
+                  key={run.executionId}
+                  data-testid={`run-row-${run.executionId}`}
+                  tabIndex={0}
+                  onClick={(e) => {
+                    // The run ID link navigates itself; don't push the same URL twice.
+                    if ((e.target as HTMLElement).closest('a')) return;
+                    open(run);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      open(run);
+                    }
+                  }}
+                  className="cursor-pointer focus-visible:-outline-offset-2"
+                >
                   <TableCell className="px-4">
-                    <StatusPill status={run.status} />
+                    <StatusPill status={run.status} iconOnly />
                   </TableCell>
                   <TableCell className="px-4">
                     <Tip label={run.executionId}>
@@ -82,7 +103,7 @@ export function RecentRuns({ sessionId }: { sessionId: string }) {
                     {run.workflowId}
                   </TableCell>
                   <TableCell className="text-code-sm px-4 tabular-nums">
-                    {formatClockTime(run.startTime)}
+                    {formatDateTime(run.startTime)}
                   </TableCell>
                   <TableCell className="text-code-sm px-4 tabular-nums">
                     {formatDuration(run.startTime, run.endTime)}
