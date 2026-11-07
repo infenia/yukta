@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  * @param outputPorts the config-aware output port names for this node
  * @param group the stage the node declares it belongs to, or null
  * @param subWorkflowId the workflow a SUB_WORKFLOW node runs, or null
+ * @param color the palette color the node declares, or null
  */
 @Schema(description = "A workflow DAG node enriched with plugin metadata for UI rendering")
 public record WorkflowGraphNode(
@@ -46,7 +47,35 @@ public record WorkflowGraphNode(
             description =
                 "For a SUB_WORKFLOW node, the workflow it runs (its workflowId config), else null",
             nullable = true)
-        @Nullable String subWorkflowId) {
+        @Nullable String subWorkflowId,
+    @Schema(
+            description = "The palette color the node declares, null when it declares none",
+            nullable = true)
+        @Nullable String color) {
+
+  /**
+   * A node without a color.
+   *
+   * @param nodeId the unique node identifier within the workflow
+   * @param type the plugin type backing this node
+   * @param category the plugin category, or null
+   * @param description the plugin description, or null
+   * @param uiDesign the UI design metadata, or null
+   * @param outputPorts the config-aware output port names for this node
+   * @param group the declared stage, or null
+   * @param subWorkflowId the workflow a SUB_WORKFLOW node runs, or null
+   */
+  public WorkflowGraphNode(
+      final String nodeId,
+      final String type,
+      final PluginCategory category,
+      final String description,
+      final UiDesign uiDesign,
+      final List<String> outputPorts,
+      final @Nullable String group,
+      final @Nullable String subWorkflowId) {
+    this(nodeId, type, category, description, uiDesign, outputPorts, group, subWorkflowId, null);
+  }
 
   /** Compact constructor to ensure immutability. */
   public WorkflowGraphNode {

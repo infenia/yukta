@@ -4,17 +4,14 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.LeaderTimer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
-import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -35,26 +32,14 @@ public class InputRetention implements SmartLifecycle {
   /** Where the requests are kept. */
   private final InputRequestStore store;
 
-  /** Tells whether this server is the leader. */
-  private final LeaderElection leader;
-
   /** How long a finished request is kept. */
   private final Duration retention;
 
-  /** Time between two purges. */
-  private final Duration interval;
-
-  /** Runs the timer. */
-  private final Scheduler scheduler;
+  /** Runs {@code job} on the leader at a fixed interval. */
+  private final LeaderTimer timer;
 
   /** The time of a purge. */
   private final Clock clock;
-
-  /** Makes a second start wait for the first, so only one timer runs. */
-  private final ReentrantLock lock = new ReentrantLock();
-
-  /** The running timer, or {@code null} when stopped. */
-  private final AtomicReference<Disposable> timer = new AtomicReference<>();
 
   /**
    * Creates the job.
@@ -96,10 +81,8 @@ public class InputRetention implements SmartLifecycle {
       final Scheduler scheduler,
       final Clock clock) {
     this.store = store;
-    this.leader = leader;
     this.retention = retention;
-    this.interval = interval;
-    this.scheduler = scheduler;
+    this.timer = new LeaderTimer(leader, interval, scheduler, this::purge);
     this.clock = clock;
   }
 
@@ -126,30 +109,16 @@ public class InputRetention implements SmartLifecycle {
 
   @Override
   public void start() {
-    lock.lock();
-    try {
-      if (timer.get() == null) {
-        timer.set(
-            Flux.interval(interval, scheduler)
-                .filter(_ -> leader.isLeader())
-                .concatMap(_ -> purge())
-                .subscribe());
-      }
-    } finally {
-      lock.unlock();
-    }
+    timer.start();
   }
 
   @Override
   public void stop() {
-    final Disposable running = timer.getAndSet(null);
-    if (running != null) {
-      running.dispose();
-    }
+    timer.stop();
   }
 
   @Override
   public boolean isRunning() {
-    return timer.get() != null;
+    return timer.isRunning();
   }
 }

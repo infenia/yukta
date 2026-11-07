@@ -91,7 +91,7 @@ class DefinitionSupervisorsTest {
   }
 
   private static WorkflowDefinition workflow(final String id, final SupervisorRef... refs) {
-    return new WorkflowDefinition(
+    return Fixtures.workflow(
         id,
         "d",
         List.of(

@@ -38,17 +38,22 @@ class WorkflowDetailsControllerTest {
   /** The client. */
   private WebTestClient client;
 
+  /** The description used by the workflows. */
+  private static final String DESC = "desc";
+
+  /** The stage name used by the grouped nodes. */
+  private static final String LINT = "lint";
+
   /** A workflow with two nodes and an edge. */
   private static final WorkflowDefinition WITH_NODE =
       Fixtures.workflow(
           "wf2",
-          "desc",
+          DESC,
           List.of(Fixtures.node("a", "x", null), Fixtures.node("b", "y", null)),
           List.of(new WorkflowDefinition.Edge("a", "b", "default")));
 
   /** The value. */
-  private static final WorkflowDefinition DEF =
-      Fixtures.workflow("wf", "desc", List.of(), List.of());
+  private static final WorkflowDefinition DEF = Fixtures.workflow("wf", DESC, List.of(), List.of());
 
   @BeforeEach
   void setUp() {
@@ -146,11 +151,10 @@ class WorkflowDetailsControllerTest {
     final WorkflowDefinition staged =
         Fixtures.workflow(
             "wf3",
-            "desc",
+            DESC,
             List.of(
-                new WorkflowDefinition.Node(
-                    "lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), "lint"),
-                new WorkflowDefinition.Node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
+                Fixtures.node("lint.heal", "SUB_WORKFLOW", Map.of("workflowId", "heal"), LINT),
+                Fixtures.node("odd", "SUB_WORKFLOW", Map.of("workflowId", 3), null),
                 Fixtures.node("plain", "x", Map.of("workflowId", "heal"))),
             List.of());
     when(sessionService.getSessionWorkflow("s1", "wf3")).thenReturn(Mono.just(staged));
@@ -163,7 +167,7 @@ class WorkflowDetailsControllerTest {
         .isOk()
         .expectBody()
         .jsonPath("$.data.nodes[0].group")
-        .isEqualTo("lint")
+        .isEqualTo(LINT)
         .jsonPath("$.data.nodes[0].subWorkflowId")
         .isEqualTo("heal")
         .jsonPath("$.data.nodes[1].group")
@@ -172,5 +176,34 @@ class WorkflowDetailsControllerTest {
         .isEmpty()
         .jsonPath("$.data.nodes[2].subWorkflowId")
         .isEmpty();
+  }
+
+  @Test
+  void testGraphCarriesNodeAndGroupColors() {
+    final WorkflowDefinition colored =
+        new WorkflowDefinition(
+            "wf4",
+            DESC,
+            List.of(
+                new WorkflowDefinition.Node("a", "x", Map.of(), LINT, "violet"),
+                Fixtures.node("b", "x", Map.of())),
+            List.of(),
+            List.of(),
+            Map.of(LINT, "teal"));
+    when(sessionService.getSessionWorkflow("s1", "wf4")).thenReturn(Mono.just(colored));
+
+    client
+        .get()
+        .uri("/api/sessions/s1/workflows/wf4/graph")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data.nodes[0].color")
+        .isEqualTo("violet")
+        .jsonPath("$.data.nodes[1].color")
+        .isEmpty()
+        .jsonPath("$.data.groupColors.lint")
+        .isEqualTo("teal");
   }
 }

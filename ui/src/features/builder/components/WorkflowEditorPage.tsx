@@ -664,6 +664,31 @@ function Editor({
                     ),
                   })
                 }
+                groupColor={workflow.groupColors?.[stageOf(node)]}
+                onColorChange={(color) =>
+                  update({
+                    // a null color is left out of the saved JSON
+                    nodes: workflow.nodes.map((n) =>
+                      n.nodeId === node.nodeId
+                        ? { ...n, color: color ?? undefined }
+                        : n
+                    ),
+                  })
+                }
+                onGroupColorChange={(color) => {
+                  const stage = stageOf(node);
+                  const next = {
+                    ...Object.fromEntries(
+                      Object.entries(workflow.groupColors ?? {}).filter(
+                        ([name]) => name !== stage
+                      )
+                    ),
+                    ...(color ? { [stage]: color } : {}),
+                  };
+                  update({
+                    groupColors: Object.keys(next).length ? next : undefined,
+                  });
+                }}
                 edges={workflow.edges}
                 onRemoveEdge={(gone) =>
                   update({

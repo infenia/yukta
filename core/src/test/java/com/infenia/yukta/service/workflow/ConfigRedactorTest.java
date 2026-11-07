@@ -53,8 +53,7 @@ class ConfigRedactorTest {
   @Test
   void redactingKeepsTheNodeGroup() {
     final WorkflowDefinition grouped =
-        Fixtures.workflow(
-            "w", "d", List.of(new WorkflowDefinition.Node("n1", "X", Map.of(), "lint")), List.of());
+        Fixtures.workflow("w", "d", List.of(Fixtures.node("n1", "X", Map.of(), "lint")), List.of());
     assertThat(redactor.redact(grouped).nodes().getFirst().group()).isEqualTo("lint");
   }
 
@@ -168,7 +167,7 @@ class ConfigRedactorTest {
     final com.infenia.yukta.model.supervisor.SupervisorRef ref =
         new com.infenia.yukta.model.supervisor.SupervisorRef("guard", List.of("a.*"), null);
     final WorkflowDefinition declared =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w", "d", List.of(Fixtures.node("n", "T", Map.of())), List.of(), List.of(ref));
 
     assertThat(redactor.redact(declared).supervisors()).containsExactly(ref);

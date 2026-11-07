@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Tip } from '@/components/ui/tooltip';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { Tip } from '@/components/ui/tooltip';
+import { iconButton } from '@/components/ui/iconTone';
+import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { IconButton } from '@/components/common/IconButton';
+import { OverflowMenu } from '@/components/common/OverflowMenu';
 import { RequirePermission } from '@/components/common/RequirePermission';
 import { DeleteSessionDialog } from './DeleteDialogs';
 import { EXPORT_HINT, exportSessionConfig } from '../lib/exportSession';
 
-/** Edit, Export JSON and Delete of a session, as buttons on the session's own page. */
+/** Edit and Export JSON as icon buttons; Delete sits in the ⋯ menu. */
 export function SessionActions({ sessionId }: { sessionId: string }) {
   const [deleting, setDeleting] = useState(false);
   // why the last export failed, or null
@@ -22,61 +25,46 @@ export function SessionActions({ sessionId }: { sessionId: string }) {
           {exportError}
         </span>
       )}
-      <Link
-        to={`/sessions/${encodeURIComponent(sessionId)}/edit`}
-        aria-label="Edit"
-        title="Edit session"
-        className={buttonVariants({ variant: 'outline', size: 'icon' })}
-      >
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-base"
-        >
-          edit
-        </span>
-      </Link>
-      <Tip label={EXPORT_HINT}>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Export JSON"
-          onClick={() => {
-            setExportError(null);
-            exportSessionConfig(sessionId).catch((error: unknown) =>
-              setExportError(
-                error instanceof Error
-                  ? `Export failed: ${error.message}`
-                  : 'Export failed'
-              )
-            );
-          }}
+      <Tip label="Edit session">
+        <Link
+          to={`/sessions/${encodeURIComponent(sessionId)}/edit`}
+          aria-label="Edit"
+          className={iconButton('primary')}
         >
           <span
             aria-hidden="true"
             className="material-symbols-outlined text-base"
           >
-            download
+            edit
           </span>
-        </Button>
+        </Link>
       </Tip>
-      <RequirePermission perm="deleteSessions">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          aria-label="Delete"
-          title="Delete session"
-          onClick={() => setDeleting(true)}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
+      <IconButton
+        icon="download"
+        label="Export JSON"
+        tip={EXPORT_HINT}
+        tone="primary"
+        onClick={() => {
+          setExportError(null);
+          exportSessionConfig(sessionId).catch((error: unknown) =>
+            setExportError(
+              error instanceof Error
+                ? `Export failed: ${error.message}`
+                : 'Export failed'
+            )
+          );
+        }}
+      />
+      <OverflowMenu label="Session actions">
+        <RequirePermission perm="deleteSessions">
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => setDeleting(true)}
           >
-            delete
-          </span>
-        </Button>
-      </RequirePermission>
+            Delete
+          </DropdownMenuItem>
+        </RequirePermission>
+      </OverflowMenu>
       {deleting && (
         <DeleteSessionDialog
           sessionId={sessionId}

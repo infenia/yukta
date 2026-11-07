@@ -11,6 +11,7 @@ import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.input.route.Tier;
 import com.infenia.yukta.service.input.token.AnswerTokens;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.LeaderTimer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
@@ -18,14 +19,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
-import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
@@ -40,7 +38,6 @@ import reactor.core.scheduler.Schedulers;
  */
 @Slf4j
 @Component
-@SuppressWarnings("PMD.CouplingBetweenObjects")
 public class InputDeliveryWorker implements SmartLifecycle {
 
   /** Most tries of one delivery. */
@@ -76,26 +73,14 @@ public class InputDeliveryWorker implements SmartLifecycle {
   /** Delivers, by type. */
   private final ObjectProvider<InputResponder> responders;
 
-  /** Only the leader delivers. */
-  private final LeaderElection leader;
-
   /** Registry for the metrics. */
   private final MeterRegistry meters;
 
   /** The time. */
   private final Clock clock;
 
-  /** How often due deliveries are looked for. */
-  private final Duration interval;
-
-  /** Runs the timer. */
-  private final Scheduler scheduler;
-
-  /** The running timer. */
-  private final AtomicReference<Disposable> timer = new AtomicReference<>();
-
-  /** Guards start and stop. */
-  private final ReentrantLock lock = new ReentrantLock();
+  /** Runs {@code job} on the leader at a fixed interval. */
+  private final LeaderTimer timer;
 
   /**
    * Creates the worker.
@@ -164,11 +149,9 @@ public class InputDeliveryWorker implements SmartLifecycle {
     this.tokens = tokens;
     this.broker = broker;
     this.responders = responders;
-    this.leader = leader;
     this.meters = meters;
     this.clock = clock;
-    this.interval = interval;
-    this.scheduler = scheduler;
+    this.timer = new LeaderTimer(leader, interval, scheduler, this::deliverDue);
   }
 
   /**
@@ -286,30 +269,16 @@ public class InputDeliveryWorker implements SmartLifecycle {
 
   @Override
   public void start() {
-    lock.lock();
-    try {
-      if (timer.get() == null) {
-        timer.set(
-            Flux.interval(interval, scheduler)
-                .filter(_ -> leader.isLeader())
-                .concatMap(_ -> deliverDue())
-                .subscribe());
-      }
-    } finally {
-      lock.unlock();
-    }
+    timer.start();
   }
 
   @Override
   public void stop() {
-    final Disposable running = timer.getAndSet(null);
-    if (running != null) {
-      running.dispose();
-    }
+    timer.stop();
   }
 
   @Override
   public boolean isRunning() {
-    return timer.get() != null;
+    return timer.isRunning();
   }
 }

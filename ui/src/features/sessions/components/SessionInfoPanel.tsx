@@ -85,7 +85,7 @@ export function SessionInfoPanel({
         </div>
 
         <div className="space-y-1">
-          <h3 className={label}>Initiator</h3>
+          <h3 className={label}>Creator</h3>
           <div className="flex items-center gap-2">
             <div className="bg-accent text-label-sm text-accent-foreground flex size-6 items-center justify-center rounded-full">
               {initials}

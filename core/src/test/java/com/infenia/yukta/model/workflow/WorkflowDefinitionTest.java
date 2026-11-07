@@ -247,4 +247,38 @@ class WorkflowDefinitionTest {
     final var result = validator.validateProperty(edge, "target");
     assertThat(result).isNotEmpty();
   }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"teal", "sky", "violet", "magenta", "stone"})
+  void paletteColorsAreAccepted(final String color) {
+    final var node = new WorkflowDefinition.Node("n", "t", Map.of(), "g", color);
+    final var definition =
+        new WorkflowDefinition("w", "d", List.of(node), List.of(), List.of(), Map.of("g", color));
+    assertThat(validator.validate(definition)).isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"red", "#ff0000", "Teal", ""})
+  void colorsOutsideThePaletteAreRejected(final String color) {
+    assertThat(
+            validator.validateProperty(
+                new WorkflowDefinition.Node("n", "t", null, null, color), "color"))
+        .hasSize(1);
+    final var definition =
+        new WorkflowDefinition("w", "d", List.of(), List.of(), List.of(), Map.of("g", color));
+    assertThat(validator.validateProperty(definition, "groupColors")).hasSize(1);
+  }
+
+  @Test
+  void groupColorsDefaultToEmptyWhenNull() {
+    final var definition = new WorkflowDefinition("w", "d", List.of(), List.of(), List.of(), null);
+    assertThat(definition.groupColors()).isEmpty();
+  }
+
+  @Test
+  void colorIsOptional() {
+    final var node = Fixtures.node("n", "t", Map.of());
+    assertThat(node.color()).isNull();
+    assertThat(validator.validateProperty(node, "color")).isEmpty();
+  }
 }

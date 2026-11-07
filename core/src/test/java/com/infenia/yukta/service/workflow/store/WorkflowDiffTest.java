@@ -82,7 +82,7 @@ class WorkflowDiffTest {
   void declaredSupervisors_areComparedByIdNodesAndEnabled() {
     final List<Node> nodes = List.of(Fixtures.node("a", "T", Map.of()));
     final WorkflowDefinition older =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w",
             "d",
             nodes,
@@ -91,7 +91,7 @@ class WorkflowDiffTest {
                 new SupervisorRef("keep", null, null),
                 new SupervisorRef("gone", List.of("b", "a"), null)));
     final WorkflowDefinition newer =
-        new WorkflowDefinition(
+        Fixtures.workflow(
             "w",
             "d",
             nodes,

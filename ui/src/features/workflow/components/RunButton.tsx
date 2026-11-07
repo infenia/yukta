@@ -6,6 +6,7 @@ import { RequirePermission } from '@/components/common/RequirePermission';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import { buttonVariants } from '@/components/ui/button';
+import { iconButton } from '@/components/ui/iconTone';
 import { textareaFieldClassName } from '@/components/ui/native-select';
 import { newIdempotencyKey } from '@/lib/utils';
 import {
@@ -111,7 +112,10 @@ export function RunButton({
             type="button"
             aria-label={label}
             className={
-              className ?? buttonVariants({ variant: 'outline', size })
+              className ??
+              (iconOnly
+                ? iconButton('success')
+                : buttonVariants({ variant: 'outline', size }))
             }
             onClick={() => {
               runKey.current = newIdempotencyKey();

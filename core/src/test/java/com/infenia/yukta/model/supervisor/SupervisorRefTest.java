@@ -6,7 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
-import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
@@ -34,8 +33,7 @@ class SupervisorRefTest {
   @Test
   void definitionsWithoutDeclarationsHaveNone() {
     assertThat(Fixtures.workflow("w", "d", List.of(), List.of()).supervisors()).isEmpty();
-    assertThat(new WorkflowDefinition("w", "d", List.of(), List.of(), null).supervisors())
-        .isEmpty();
+    assertThat(Fixtures.workflow("w", "d", List.of(), List.of(), null).supervisors()).isEmpty();
     assertThat(new SessionConfigData("s", "n", "d", "i", Map.of(), ".", Map.of()).supervisors())
         .isEmpty();
     assertThat(

@@ -88,13 +88,13 @@ describe('SessionDetailsPage', () => {
     expect(screen.getByRole('button', { name: /New workflow/ })).toBeDefined();
     // the facts: one workflow of 5 nodes
     expect(screen.getByText('1 · 5 nodes in all')).toBeDefined();
-    // Edit, Export JSON and Delete are visible buttons, not a menu
+    // Edit and Export JSON are icon buttons; Delete waits in the ⋯ menu
     expect(screen.getByRole('link', { name: 'Edit' })).toBeDefined();
     expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDefined();
-    expect(screen.getByRole('button', { name: 'Delete' })).toBeDefined();
     expect(
-      screen.queryByRole('button', { name: 'Session actions' })
-    ).toBeNull();
+      screen.getByRole('button', { name: 'Session actions' })
+    ).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
   });
 
   it('shows loading state initially', async () => {

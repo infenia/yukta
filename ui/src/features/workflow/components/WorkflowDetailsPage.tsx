@@ -3,17 +3,15 @@
 
 import { DeleteWorkflowDialog } from '@/features/sessions/components/DeleteDialogs';
 import { RequirePermission } from '@/components/common/RequirePermission';
-import { Button, buttonVariants } from '@/components/ui/button';
+import { buttonVariants } from '@/components/ui/button';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { ICON_TONE, iconButton } from '../lib/iconTone';
+import { iconButton } from '@/components/ui/iconTone';
+import { OverflowMenu } from '@/components/common/OverflowMenu';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { InlineError } from '@/components/common/InlineError';
 import {
@@ -269,55 +267,33 @@ export function WorkflowDetailsPage() {
                 </span>
               </button>
             </Tip>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={(state) => (
-                  <Tip label="Workflow actions">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Workflow actions"
-                      className={ICON_TONE.neutral}
-                      {...state}
-                    >
-                      <span
-                        className="material-symbols-outlined"
-                        aria-hidden="true"
-                      >
-                        more_vert
-                      </span>
-                    </Button>
-                  </Tip>
-                )}
-              />
-              <DropdownMenuContent align="end" className="w-max">
+            <OverflowMenu label="Workflow actions">
+              <DropdownMenuItem
+                onClick={() => setVersionsOpen((value) => !value)}
+              >
+                {versionsOpen ? 'Hide versions' : 'Versions'}
+              </DropdownMenuItem>
+              {selectedExecutionId && (
                 <DropdownMenuItem
-                  onClick={() => setVersionsOpen((value) => !value)}
+                  onClick={() =>
+                    void navigate(
+                      `/control?tab=audit&execution=${encodeURIComponent(selectedExecutionId)}`
+                    )
+                  }
                 >
-                  {versionsOpen ? 'Hide versions' : 'Versions'}
+                  Control commands of this run
                 </DropdownMenuItem>
-                {selectedExecutionId && (
-                  <DropdownMenuItem
-                    onClick={() =>
-                      void navigate(
-                        `/control?tab=audit&execution=${encodeURIComponent(selectedExecutionId)}`
-                      )
-                    }
-                  >
-                    Control commands of this run
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuSeparator />
-                <RequirePermission perm="deleteSessions">
-                  <DropdownMenuItem
-                    variant="destructive"
-                    onClick={() => setDeleting(true)}
-                  >
-                    Delete
-                  </DropdownMenuItem>
-                </RequirePermission>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              )}
+              <DropdownMenuSeparator />
+              <RequirePermission perm="deleteSessions">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onClick={() => setDeleting(true)}
+                >
+                  Delete
+                </DropdownMenuItem>
+              </RequirePermission>
+            </OverflowMenu>
           </>
         }
       />

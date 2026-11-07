@@ -22,12 +22,12 @@ describe('columns', () => {
     expect((nameColumn as any).header).toBe('Name');
   });
 
-  it('should have initiator column', () => {
+  it('should have creator column', () => {
     const initiatorColumn = columns.find(
       (col) => (col as any).accessorKey === 'initiator'
     );
     expect(initiatorColumn).toBeDefined();
-    expect((initiatorColumn as any).header).toBe('Initiator');
+    expect((initiatorColumn as any).header).toBe('Creator');
   });
 
   it('should have tags column', () => {

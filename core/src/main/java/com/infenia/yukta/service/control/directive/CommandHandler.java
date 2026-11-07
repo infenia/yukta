@@ -4,18 +4,14 @@ package com.infenia.yukta.service.control.directive;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
-import com.infenia.yukta.service.control.processor.DisableStepModeCommandProcessor;
-import com.infenia.yukta.service.control.processor.EnableStepModeCommandProcessor;
 import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
-import com.infenia.yukta.service.control.processor.PauseNodeCommandProcessor;
+import com.infenia.yukta.service.control.processor.NodeValveCommands;
 import com.infenia.yukta.service.control.processor.PauseWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartCommandProcessor;
 import com.infenia.yukta.service.control.processor.RestartFromNodeCommandProcessor;
-import com.infenia.yukta.service.control.processor.ResumeNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.ResumeWorkflowCommandProcessor;
 import com.infenia.yukta.service.control.processor.SetBreakpointCommandProcessor;
 import com.infenia.yukta.service.control.processor.SkipNodeCommandProcessor;
-import com.infenia.yukta.service.control.processor.StepNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopNodeCommandProcessor;
 import com.infenia.yukta.service.control.processor.StopWorkflowCommandProcessor;
 import lombok.RequiredArgsConstructor;
@@ -36,13 +32,9 @@ public class CommandHandler {
   private final StopWorkflowCommandProcessor stopWorkflow;
   private final RestartCommandProcessor restart;
   private final RestartFromNodeCommandProcessor restartFromNode;
-  private final PauseNodeCommandProcessor pauseNode;
-  private final ResumeNodeCommandProcessor resumeNode;
+  private final NodeValveCommands nodeValves;
   private final StopNodeCommandProcessor stopNode;
   private final SkipNodeCommandProcessor skipNode;
-  private final EnableStepModeCommandProcessor enableStepMode;
-  private final DisableStepModeCommandProcessor disableStepMode;
-  private final StepNodeCommandProcessor stepNode;
   private final SetBreakpointCommandProcessor setBreakpoint;
   private final AnswerInputCommandProcessor answerInput;
   private final EscalateInputCommandProcessor escalateInput;
@@ -60,13 +52,13 @@ public class CommandHandler {
       case ExecutionControlCommand.StopWorkflowCommand c -> stopWorkflow.process(c);
       case ExecutionControlCommand.RestartCommand c -> restart.process(c);
       case ExecutionControlCommand.RestartFromNodeCommand c -> restartFromNode.process(c);
-      case ExecutionControlCommand.PauseNodeCommand c -> pauseNode.process(c);
-      case ExecutionControlCommand.ResumeNodeCommand c -> resumeNode.process(c);
+      case ExecutionControlCommand.PauseNodeCommand c -> nodeValves.process(c);
+      case ExecutionControlCommand.ResumeNodeCommand c -> nodeValves.process(c);
       case ExecutionControlCommand.StopNodeCommand c -> stopNode.process(c);
       case ExecutionControlCommand.SkipNodeCommand c -> skipNode.process(c);
-      case ExecutionControlCommand.EnableStepModeCommand c -> enableStepMode.process(c);
-      case ExecutionControlCommand.DisableStepModeCommand c -> disableStepMode.process(c);
-      case ExecutionControlCommand.StepNodeCommand c -> stepNode.process(c);
+      case ExecutionControlCommand.EnableStepModeCommand c -> nodeValves.process(c);
+      case ExecutionControlCommand.DisableStepModeCommand c -> nodeValves.process(c);
+      case ExecutionControlCommand.StepNodeCommand c -> nodeValves.process(c);
       case ExecutionControlCommand.SetBreakpointCommand c -> setBreakpoint.process(c);
       // Reviewed by supervisors like any command, but nothing runs for them here. Each one has its
       // own arm: a combined arm compiles to a chain of type tests that has a branch no command can

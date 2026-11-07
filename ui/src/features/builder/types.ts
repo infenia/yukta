@@ -9,6 +9,8 @@ export interface DraftNode {
   config: Record<string, unknown>;
   /** The stage the node belongs to, for display; absent means its node-ID prefix. */
   group?: string | null;
+  /** The palette color of the node, for display; absent means the default look. */
+  color?: string | null;
 }
 
 export interface DraftEdge {
@@ -24,6 +26,8 @@ export interface DraftWorkflow {
   edges: DraftEdge[];
   /** Supervisors the workflow declares; attached when it is saved. */
   supervisors?: SupervisorRef[];
+  /** The palette color of a group, by group name. */
+  groupColors?: Record<string, string>;
 }
 
 export interface SessionDraft {

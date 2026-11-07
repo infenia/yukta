@@ -6,6 +6,7 @@ import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -182,18 +183,37 @@ public final class Fixtures {
         binding, delegate, dryRun, new SupervisorCapabilities(null, false, InputRisk.LOW));
   }
 
-  /** A workflow that declares no supervisors. */
+  /** A workflow that declares no supervisors and no group colors. */
   public static WorkflowDefinition workflow(
       final String workflowId,
       final String description,
       final List<WorkflowDefinition.Node> nodes,
       final List<WorkflowDefinition.Edge> edges) {
-    return new WorkflowDefinition(workflowId, description, nodes, edges, List.of());
+    return workflow(workflowId, description, nodes, edges, List.of());
   }
 
-  /** A node in no declared group. */
+  /** A workflow without group colors. */
+  public static WorkflowDefinition workflow(
+      final String workflowId,
+      final String description,
+      final List<WorkflowDefinition.Node> nodes,
+      final List<WorkflowDefinition.Edge> edges,
+      final List<SupervisorRef> supervisors) {
+    return new WorkflowDefinition(workflowId, description, nodes, edges, supervisors, Map.of());
+  }
+
+  /** A node in no declared group and with no color. */
   public static WorkflowDefinition.Node node(
       final String nodeId, final String type, final Map<String, Object> config) {
-    return new WorkflowDefinition.Node(nodeId, type, config, null);
+    return node(nodeId, type, config, null);
+  }
+
+  /** A node without a color. */
+  public static WorkflowDefinition.Node node(
+      final String nodeId,
+      final String type,
+      final Map<String, Object> config,
+      final String group) {
+    return new WorkflowDefinition.Node(nodeId, type, config, group, null);
   }
 }
