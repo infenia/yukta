@@ -16,6 +16,7 @@ class ModuleCoverageTest {
 
   /**
    * Modules with nothing to check: the checker itself, the app, the other languages, the helper.
+   * The plus* modules may only be used by boot (licensing), so they are not analysed.
    */
   private static final List<String> SKIPPED =
       List.of("architecture", "boot", "cli", "ui", "test-support");
@@ -29,7 +30,7 @@ class ModuleCoverageTest {
             .matcher(settings)
             .results()
             .map(m -> m.group(1))
-            .filter(m -> !SKIPPED.contains(m))
+            .filter(m -> !SKIPPED.contains(m) && !m.startsWith("plus"))
             .toList();
     assertThat(modules).isNotEmpty();
     assertThat(modules).allSatisfy(m -> assertThat(build).contains("project(\":" + m + "\")"));

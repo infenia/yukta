@@ -24,7 +24,6 @@ class ModuleLayeringRules {
 
   private static final String WEB = "Web";
   private static final String MCP = "Mcp";
-  private static final String PLUS = "Plus";
 
   @ArchTest
   /* default */ static final ArchRule MODULES_FOLLOW_THE_LAYERING =
@@ -42,18 +41,14 @@ class ModuleLayeringRules {
           .definedBy(Modules.inModule("/web/"))
           .layer(MCP)
           .definedBy(Modules.inModule("/mcp/"))
-          .layer(PLUS)
-          .definedBy(Modules.inModule("/plus/"))
           .whereLayer("Plugins")
           .mayNotBeAccessedByAnyLayer()
           .whereLayer(WEB)
           .mayNotBeAccessedByAnyLayer()
           .whereLayer(MCP)
           .mayNotBeAccessedByAnyLayer()
-          .whereLayer(PLUS)
-          .mayNotBeAccessedByAnyLayer()
           .whereLayer("Core")
-          .mayOnlyBeAccessedByLayers(WEB, MCP, PLUS)
+          .mayOnlyBeAccessedByLayers(WEB, MCP)
           .whereLayer("PluginApi")
-          .mayOnlyBeAccessedByLayers("Core", "Plugins", WEB, MCP, PLUS);
+          .mayOnlyBeAccessedByLayers("Core", "Plugins", WEB, MCP);
 }

@@ -34,8 +34,5 @@ dependencies {
     testImplementation(project(":plugins:control-planes:rule-control-plane"))
     testImplementation(project(":plugins:control-planes:model-control-plane"))
     testImplementation(project(":plugins:control-planes:rules-first-control-plane"))
-    testImplementation(project(":plus"))
-    testImplementation(project(":plus:persistence-postgres"))
-    testImplementation(project(":plus:workers"))
     testImplementation(libs.archunit.junit5)
 }
