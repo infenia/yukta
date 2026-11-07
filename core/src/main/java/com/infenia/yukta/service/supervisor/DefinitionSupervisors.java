@@ -207,6 +207,22 @@ public class DefinitionSupervisors implements DefinitionUsage {
             });
   }
 
+  /**
+   * Refuses a workflow whose declared supervisors do not check out, as a save does. A rollback
+   * restores an old revision, which may name a supervisor deleted since or a node that is gone.
+   *
+   * @param workflow the definition about to be saved
+   * @return completes when it checks out; errors with {@link SettingsValidationException}
+   */
+  public Mono<Void> require(final WorkflowDefinition workflow) {
+    return check(workflow)
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.error(new SettingsValidationException(issues)));
+  }
+
   private void checkRefs(
       final List<SupervisorRef> refs,
       final String prefix,
