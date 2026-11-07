@@ -18,6 +18,7 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -216,6 +217,117 @@ class RunAnalyticsTest {
     assertThat(analytics.snapshot("session:other")).containsEntry("runs.finished", 6.0);
     assertThat(analytics.snapshot("workflow:other")).containsEntry("runs.finished", 6.0);
     assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsEntry("runs.finished", 56.0);
+  }
+
+  @Test
+  void sessionThatAgedOutFreesItsPlaceForNewSessions() {
+    final AtomicReference<Instant> now = new AtomicReference<>(T0);
+    final Clock moving =
+        new Clock() {
+          @Override
+          public ZoneOffset getZone() {
+            return ZoneOffset.UTC;
+          }
+
+          @Override
+          public Clock withZone(final java.time.ZoneId zone) {
+            return this;
+          }
+
+          @Override
+          public Instant instant() {
+            return now.get();
+          }
+        };
+    final RunAnalytics aging = RunAnalyticsFixture.create(new ExecutionEventFeed(), moving);
+    for (int i = 0; i < 55; i++) {
+      aging.accept(
+          new ExecutionEvent.WorkflowStatusChanged("r" + i, "s" + i, "w" + i, SUCCESS, T0));
+    }
+    final Instant later = T0.plus(Duration.ofHours(30));
+    now.set(later);
+
+    aging.accept(new ExecutionEvent.WorkflowStatusChanged("fresh", "sNew", "wNew", SUCCESS, later));
+
+    // the old sessions aged out, so the new one is tracked by name, not folded into "other"
+    assertThat(aging.snapshot("session:sNew")).containsEntry("runs.finished", 1.0);
+    assertThat(aging.snapshot("workflow:wNew")).containsEntry("runs.finished", 1.0);
+  }
+
+  @Test
+  void runTheFeedEndedIsNotCountedAgainBySeed() {
+    // with a log to seed from, as in production
+    final RunAnalytics analytics =
+        new RunAnalytics(
+            feed, Clock.fixed(T0.plusSeconds(600), ZoneOffset.UTC), mock(ExecutionLogStore.class));
+    final Instant start = T0;
+    analytics.accept(new ExecutionEvent.WorkflowStatusChanged("dup", "s1", "w1", "RUNNING", start));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "dup", "s1", "w1", SUCCESS, start.plusMillis(1000)));
+    final var finished =
+        new ExecutionLogEvent(
+            ExecutionLogEvent.Type.RUN_FINISHED,
+            "dup",
+            "s1",
+            "w1",
+            null,
+            SUCCESS,
+            Map.of(),
+            null,
+            null,
+            T0.plusSeconds(1),
+            null);
+
+    analytics.seed(List.of(finished));
+
+    assertThat(analytics.snapshot("session:s1")).containsEntry("runs.finished", 1.0);
+    // once seeded, later runs are counted as usual and nothing is remembered
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "after", "s1", "w1", "RUNNING", start.plusSeconds(5)));
+    analytics.accept(
+        new ExecutionEvent.WorkflowStatusChanged(
+            "after", "s1", "w1", SUCCESS, start.plusSeconds(6)));
+    assertThat(analytics.snapshot("session:s1")).containsEntry("runs.finished", 2.0);
+  }
+
+  @Test
+  void seededCommandsAreListedOldestFirstWhateverTheirOrderInTheLog() {
+    final var later = control(T0.plusSeconds(20), "StopCommand");
+    final var earlier = control(T0.plusSeconds(5), "PauseWorkflowCommand");
+
+    analytics.seed(List.of(later, earlier));
+
+    assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
+        .extracting(RunAnalytics.Annotation::command)
+        .containsExactly("PauseWorkflowCommand", "StopCommand");
+  }
+
+  @Test
+  void failedReadOfTheLogIsLoggedNotLost() {
+    final ExecutionLogStore broken = mock(ExecutionLogStore.class);
+    when(broken.readAll()).thenThrow(new IllegalStateException("log unreadable"));
+    final RunAnalytics seeded = new RunAnalytics(feed, Clock.systemUTC(), broken);
+
+    seeded.seedSafely();
+
+    assertThat(seeded.snapshot(RunAnalytics.GLOBAL)).isEmpty();
+  }
+
+  private static ExecutionLogEvent control(final Instant at, final String command) {
+    return new ExecutionLogEvent(
+        ExecutionLogEvent.Type.CONTROL_APPLIED,
+        "old",
+        "s1",
+        "w1",
+        null,
+        command,
+        Map.of(),
+        null,
+        null,
+        at,
+        null);
   }
 
   @Test
