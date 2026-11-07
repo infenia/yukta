@@ -36,6 +36,8 @@ import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -286,6 +288,23 @@ class InputBrokerTest {
                         e ->
                             assertThat(((ExecutionEvent.InputCancelled) e).reason())
                                 .isEqualTo("node-cancelled")));
+  }
+
+  @Test
+  void failedBackgroundStepIsLoggedAndDoesNotBreakTheCaller() {
+    final InputRequestStore failing = Mockito.spy(store);
+    final InputBroker flaky =
+        new InputBroker(
+            failing, feed, log, meters, new InputRedactor(List.of("note")), limits(), clock);
+    final Disposable asker = flaky.ask(who("e1", "n1"), spec("k1")).subscribe(r -> {}, e -> {});
+    Mockito.doReturn(Mono.error(new IllegalStateException("store down")))
+        .when(failing)
+        .findById(ArgumentMatchers.anyString());
+
+    asker.dispose();
+
+    // the cancel could not be stored: the request is still open, and nothing threw
+    assertThat(store.listOpen(null, null).collectList().block()).hasSize(1);
   }
 
   @Test
@@ -571,20 +590,18 @@ class InputBrokerTest {
   @Test
   void lostRaceIsReadAgainAndThenApplied() {
     final InMemoryInputRequestStore real = new InMemoryInputRequestStore(100);
-    final InputRequestStore racing = org.mockito.Mockito.spy(real);
+    final InputRequestStore racing = Mockito.spy(real);
     final InputBroker racingBroker =
         new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
     racingBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     final InputRequest request =
         racingBroker.listOpen(null, null).collectList().blockOptional().orElseThrow().getFirst();
     // the first compare-and-set loses, as if another caller had moved the request meanwhile
-    org.mockito.Mockito.doReturn(Mono.just(false))
+    Mockito.doReturn(Mono.just(false))
         .doCallRealMethod()
         .when(racing)
         .compareAndSet(
-            org.mockito.ArgumentMatchers.anyString(),
-            org.mockito.ArgumentMatchers.anyLong(),
-            org.mockito.ArgumentMatchers.any());
+            ArgumentMatchers.anyString(), ArgumentMatchers.anyLong(), ArgumentMatchers.any());
 
     final InputRequest result =
         racingBroker.answer(request.id(), null, answer(request, "ann")).block();
@@ -594,11 +611,10 @@ class InputBrokerTest {
 
   @Test
   void failingExpiryIsLoggedAndTheSweepGoesOn() {
-    final InputRequestStore failing = org.mockito.Mockito.mock(InputRequestStore.class);
+    final InputRequestStore failing = Mockito.mock(InputRequestStore.class);
     final InputRequest open = inputBrokerOpenRequest();
-    org.mockito.Mockito.when(failing.dueBefore(org.mockito.ArgumentMatchers.any()))
-        .thenReturn(Flux.just(open));
-    org.mockito.Mockito.when(failing.findById(open.id()))
+    Mockito.when(failing.dueBefore(ArgumentMatchers.any())).thenReturn(Flux.just(open));
+    Mockito.when(failing.findById(open.id()))
         .thenReturn(Mono.error(new IllegalStateException("store down")));
     final InputBroker failingBroker =
         new InputBroker(failing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
@@ -639,11 +655,9 @@ class InputBrokerTest {
   void askThatLosesTheCreateRaceJoinsTheExistingRequestWithoutAnnouncingAnother() {
     inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     final InputRequest existing = onlyOpen();
-    final InputRequestStore racing = org.mockito.Mockito.spy(store);
+    final InputRequestStore racing = Mockito.spy(store);
     // another caller stored a request for the key an instant before this one
-    org.mockito.Mockito.doReturn(Mono.just(existing))
-        .when(racing)
-        .createIfAbsent(org.mockito.ArgumentMatchers.any());
+    Mockito.doReturn(Mono.just(existing)).when(racing).createIfAbsent(ArgumentMatchers.any());
     final InputBroker loser =
         new InputBroker(racing, feed, log, meters, new InputRedactor(List.of()), limits(), clock);
 

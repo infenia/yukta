@@ -51,6 +51,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.SignalType;
@@ -607,6 +608,7 @@ public class InputBroker {
             current.id(),
             null,
             InputBroker::isLive,
+            current.tier(),
             c -> {
               final InputRequest moved =
                   replace(
@@ -619,9 +621,12 @@ public class InputBroker {
                       List.of());
               return retarget(moved, TierTargets.selectors(moved, next, directory(), references));
             })
-        .filter(Change::applied)
         .flatMap(
             change -> {
+              if (!change.applied()) {
+                // another call moved or ended it first: that is the answer, not "no higher tier"
+                return Mono.just(change.request());
+              }
               escalated(change.request(), reason, by);
               return queueDeliveries(change.request())
                   .then(Mono.defer(() -> skipUnreachable(change.request(), route)));
@@ -968,21 +973,36 @@ public class InputBroker {
             _ -> {
               waiter.callers.incrementAndGet();
               // the request may have ended before this caller got here
-              store
-                  .findById(request.id())
-                  .filter(found -> found.state().isTerminal())
-                  .flatMap(this::settle)
-                  .subscribe();
+              background(
+                  store
+                      .findById(request.id())
+                      .filter(found -> found.state().isTerminal())
+                      .flatMap(this::settle),
+                  request.id(),
+                  "settle");
             })
         .doFinally(
             signal -> {
               if (waiter.callers.decrementAndGet() == 0 && signal == SignalType.CANCEL) {
-                cancel(request.id(), "node-cancelled").subscribe();
+                background(cancel(request.id(), "node-cancelled"), request.id(), "cancel");
               }
             });
   }
 
   private record Change(InputRequest request, boolean applied) {}
+
+  /** A side effect that nobody waits for failed: say so with the request, the sweeper retries. */
+  private static Disposable background(
+      final Mono<?> step, final String requestId, final String what) {
+    return step.subscribe(
+        null,
+        error ->
+            log.atWarn()
+                .setCause(error)
+                .addKeyValue(LOG_REQUEST_ID, requestId)
+                .addKeyValue("step", what)
+                .log("Could not finish an input request step"));
+  }
 
   /**
    * Moves a request to its next state with a compare-and-set. A request in a state the move does
@@ -993,11 +1013,22 @@ public class InputBroker {
       final @Nullable Long expectedVersion,
       final Predicate<InputState> from,
       final UnaryOperator<InputRequest> change) {
+    return transition(requestId, expectedVersion, from, null, change);
+  }
+
+  /** As above; with {@code tier} set, a request that is no longer in that tier is left alone. */
+  private Mono<Change> transition(
+      final String requestId,
+      final @Nullable Long expectedVersion,
+      final Predicate<InputState> from,
+      final @Nullable String tier,
+      final UnaryOperator<InputRequest> change) {
     return store
         .findById(requestId)
         .flatMap(
             current -> {
               if (!from.test(current.state())
+                  || tier != null && !tier.equals(current.tier())
                   || expectedVersion != null && current.version() != expectedVersion) {
                 return Mono.just(new Change(current, false));
               }
@@ -1009,7 +1040,7 @@ public class InputBroker {
                           swapped
                               ? Mono.just(new Change(next, true))
                               // the version moved: read again and decide on what is there now
-                              : transition(requestId, expectedVersion, from, change));
+                              : transition(requestId, expectedVersion, from, tier, change));
             });
   }
 
@@ -1184,7 +1215,7 @@ public class InputBroker {
             clock.instant(),
             request.nodeId()));
     logEnd(request, "Input answered");
-    settle(request).subscribe();
+    background(settle(request), request.id(), "settle");
     return request;
   }
 
