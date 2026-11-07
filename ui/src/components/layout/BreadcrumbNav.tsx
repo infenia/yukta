@@ -37,7 +37,7 @@ function Trail({ className }: { className?: string }) {
               {item.href ? (
                 <Link
                   to={item.href}
-                  className="text-body-sm text-on-surface-variant transition-standard hover:text-on-surface rounded-sm"
+                  className="rounded-sm text-body-sm text-on-surface-variant transition-standard hover:text-on-surface"
                 >
                   {item.label}
                 </Link>
@@ -45,7 +45,7 @@ function Trail({ className }: { className?: string }) {
                 // only the current page has no link
                 <span
                   aria-current="page"
-                  className="text-body-sm text-on-surface font-medium"
+                  className="text-body-sm font-medium text-on-surface"
                 >
                   {item.label}
                 </span>

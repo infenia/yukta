@@ -13,6 +13,9 @@ import { toCommand, type CommandFormat } from '@/lib/commandEquivalents';
 import { InlineError } from '@/components/common/InlineError';
 import { StateMessage } from '@/components/common/StateMessage';
 import { TagEditor } from '@/components/common/TagEditor';
+import { SupervisorPicker } from '@/features/supervisors/components/SupervisorPicker';
+import type { SupervisorRef } from '@/features/supervisors/types';
+import { supervisorProblems } from '@/features/supervisors/lib/supervisorProblems';
 import {
   toRows,
   toTags,
@@ -148,6 +151,9 @@ function SessionForm({
     initiator: loaded?.initiator ?? 'ui',
     projectPath: loaded?.projectPath ?? '',
   });
+  const [supervisors, setSupervisors] = useState<SupervisorRef[]>(
+    loaded?.supervisors ?? template?.session.supervisors ?? []
+  );
   const [rows, setRows] = useState<TagRow[]>(
     toRows(loaded?.tags ?? template?.session.tags ?? {})
   );
@@ -157,6 +163,7 @@ function SessionForm({
   const [seen, setSeen] = useState(loaded ? JSON.stringify(loaded) : null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [supervisorErrors, setSupervisorErrors] = useState<string[]>([]);
   // The working directory last left (on blur), looked up on the server; a failed lookup says nothing
   const [checkedPath, setCheckedPath] = useState(fields.projectPath.trim());
   const pathCheck = useQuery({
@@ -184,8 +191,16 @@ function SessionForm({
     event.preventDefault();
     setBusy(true);
     setError(null);
+    setSupervisorErrors([]);
     try {
-      const metadata = { ...fields, tags: toTags(rows) };
+      const metadata = {
+        ...fields,
+        tags: toTags(rows),
+        // sent when there are some, or when removing the last ones from a stored session
+        ...(supervisors.length > 0 || loaded?.supervisors
+          ? { supervisors }
+          : {}),
+      };
       if (loaded) {
         const current = await getSessionDraft(loaded.sessionId);
         if (JSON.stringify(current) !== seen) {
@@ -202,7 +217,9 @@ function SessionForm({
           workflows: current.workflows,
         });
       } else {
-        await saveSession(newSession(fields, metadata.tags, template));
+        await saveSession(
+          newSession(fields, metadata.tags, template, supervisors)
+        );
       }
       await queryClient.invalidateQueries({ queryKey: ['sessions'] });
       navigate(
@@ -211,6 +228,7 @@ function SessionForm({
           : `/sessions/${encodeURIComponent(fields.sessionId)}/workflow/main/edit`
       );
     } catch (e) {
+      setSupervisorErrors(supervisorProblems(e));
       setError(errorText(e));
       setBusy(false);
     }
@@ -295,6 +313,17 @@ function SessionForm({
       )}
       {field('initiator', 'Initiator', 'Who or what starts its runs')}
       <TagEditor rows={rows} onChange={setRows} />
+      <section className="flex flex-col gap-2">
+        <h2 className="text-label-md text-on-surface">Supervisors</h2>
+        <p className="text-body-sm text-on-surface-variant">
+          Attached to the whole session when it is saved.
+        </p>
+        <SupervisorPicker
+          value={supervisors}
+          onChange={setSupervisors}
+          errors={supervisorErrors}
+        />
+      </section>
       <InlineError message={error} />
       <div className="flex justify-end gap-2">
         <Button
@@ -360,7 +389,9 @@ function SessionForm({
       </nav>
       <div className="grid gap-8 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)]">
         {form}
-        <ScriptedPanel session={newSession(fields, toTags(rows), template)} />
+        <ScriptedPanel
+          session={newSession(fields, toTags(rows), template, supervisors)}
+        />
       </div>
     </div>
   );
