@@ -320,7 +320,7 @@ export function PluginsPage() {
                         className={cn(
                           'text-body-md transition-standard w-full rounded-lg px-3 py-1.5 text-left',
                           p.type === selected
-                            ? 'bg-accent text-accent-foreground border-primary border-l-2 font-semibold'
+                            ? 'bg-accent text-accent-foreground font-semibold'
                             : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                         )}
                       >

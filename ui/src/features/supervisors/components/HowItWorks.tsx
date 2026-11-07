@@ -14,7 +14,7 @@ const read = () => {
 };
 
 const FLOW = [
-  ['visibility', 'Watches', 'the events of your runs'],
+  ['search', 'Watches', 'the events of your runs'],
   ['rule', 'Decides', 'by rules, a model or a workflow'],
   ['send', 'Acts', 'pause, stop, skip, answer or escalate'],
   ['person', 'Asks you', 'when a risky step needs a person'],

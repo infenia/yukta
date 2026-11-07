@@ -21,7 +21,10 @@ export type Tab = (typeof TABS)[number];
 
 /** What each tab is called, and the one sentence that says what it shows. */
 const TAB_INFO: Record<Tab, { label: string; hint: string }> = {
-  coverage: { label: 'Coverage', hint: 'What is being watched, and by whom.' },
+  coverage: {
+    label: 'Coverage',
+    hint: 'Each row is a place a run can happen. A filled chip is attached right there; a dashed chip is inherited from a wider row above and watches here too.',
+  },
   catalog: {
     label: 'Library',
     hint: 'The kinds of supervisor you can create.',

@@ -146,11 +146,6 @@ export function CoverageTab() {
   const root = buildCoverage(data);
   return (
     <div className="flex flex-col gap-3">
-      <p className="text-body-md text-on-surface-variant max-w-prose">
-        Each row is a place a run can happen. A filled chip is attached right
-        there; a dashed chip is inherited from a wider row above and watches
-        here too.
-      </p>
       <ul className="flex flex-col gap-1.5">
         <Row node={root} inherited={[]} depth={0} />
       </ul>
