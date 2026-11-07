@@ -14,21 +14,19 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.ExecutionScheduler;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -39,7 +37,6 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
-  "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "unchecked"
 })
@@ -48,14 +45,13 @@ class SubWorkflowRunnerTest {
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);
   private final PreparedWorkflowCache cache = mock(PreparedWorkflowCache.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
-  private final TaskTrackerService tracker = mock(TaskTrackerService.class);
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final WorkflowDefinition definition =
       new WorkflowDefinition("child", "d", List.of(), List.of());
   private final ExecutionScheduler scheduler =
       new ExecutionScheduler(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
   private final SubWorkflowRunner runner =
-      new SubWorkflowRunner(definitions, cache, orchestrator, scheduler, tracker);
+      new SubWorkflowRunner(definitions, cache, orchestrator, scheduler);
 
   /** A child run whose terminal delivers one message to the collector in the context. */
   private Mono<Void> delivering(final Object payload) {
@@ -90,23 +86,13 @@ class SubWorkflowRunnerTest {
   void stoppedChild_isReportedAsStopped_notAsSuccess() {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
-        .thenReturn(Mono.empty());
-    when(tracker.getProgressByExecutionId(anyString()))
-        .thenAnswer(
-            call ->
-                new WorkflowProgress(
-                    call.getArgument(0),
-                    "s",
-                    "child",
-                    TaskStatus.STOPPED,
-                    List.of(),
-                    Instant.now(),
-                    Instant.now(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    null));
+        .thenReturn(
+            Mono.deferContextual(
+                ctx -> {
+                  ctx.<AtomicReference<TaskStatus>>get(WorkflowOrchestrator.END_STATUS_KEY)
+                      .set(TaskStatus.STOPPED);
+                  return Mono.empty();
+                }));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .assertNext(result -> assertThat(result.status()).isEqualTo("STOPPED"))
