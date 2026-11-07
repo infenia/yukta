@@ -411,14 +411,26 @@ public class SupervisorHost {
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
         .concatMap(
             command ->
-                apply(
-                    supervisorId,
-                    supervisor.order(),
-                    supervisor.scope(),
-                    command,
-                    limit,
-                    recordOnly,
-                    allowed))
+                Mono.defer(
+                        () ->
+                            apply(
+                                supervisorId,
+                                supervisor.order(),
+                                supervisor.scope(),
+                                command,
+                                limit,
+                                recordOnly,
+                                allowed))
+                    // One command that cannot be handled (a log or audit sink that throws) must
+                    // not end the supervisor: the retry above covers only its own errors.
+                    .onErrorResume(
+                        error -> {
+                          log.atError()
+                              .setCause(error)
+                              .addKeyValue(SUPERVISOR_KEY, supervisorId)
+                              .log("Could not handle a supervisor command; carrying on");
+                          return Mono.empty();
+                        }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }

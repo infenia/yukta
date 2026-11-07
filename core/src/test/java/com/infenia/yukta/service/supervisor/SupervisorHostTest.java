@@ -284,6 +284,24 @@ class SupervisorHostTest {
   }
 
   @Test
+  @com.infenia.yukta.testsupport.ExpectedErrorLog(
+      "ERROR com.infenia.yukta.service.supervisor.SupervisorHost - ")
+  void start_commandThatCannotBeHandled_doesNotEndTheSupervisor() {
+    when(dispatcher.dispatchOrdered(any()))
+        .thenThrow(new IllegalStateException("boom"))
+        .thenReturn(Mono.empty());
+    start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 10);
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(failed("e1"));
+              verify(dispatcher, org.mockito.Mockito.atLeast(2)).dispatchOrdered(any());
+            });
+  }
+
+  @Test
   void start_commandParkedForApproval_isCountedAsAwaitingApproval() {
     when(dispatcher.dispatchOrdered(any()))
         .thenReturn(Mono.error(new ControlAwaitingApprovalException("r1", "why")));
