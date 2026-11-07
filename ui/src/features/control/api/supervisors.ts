@@ -76,30 +76,45 @@ const json = (method: string, body: unknown): RequestInit => ({
   body: JSON.stringify(body),
 });
 
-export const getSupervisors = () => fetchApi<Supervisor[]>(BASE);
-export const getTypes = () => fetchApi<string[]>(`${BASE}/types`);
-export const getProfiles = () =>
-  fetchApi<SupervisorProfile[]>(`${BASE}/profiles`);
-export const getBindings = () =>
-  fetchApi<SupervisorBinding[]>(`${BASE}/bindings`);
+export const getSupervisors = () => fetchApi<Supervisor[]>(`${BASE}/status`);
+/** The configured supervisors, the ones the server configures itself left out. */
+export const getProfiles = async () =>
+  (await fetchApi<(SupervisorProfile & { system?: boolean })[]>(BASE)).filter(
+    (s) => !s.system
+  );
+/** The attachments, those of the server's own supervisors left out. */
+export const getBindings = async () =>
+  (
+    await fetchApi<
+      (Omit<SupervisorBinding, 'profileId'> & {
+        supervisorId: string;
+        source: string;
+      })[]
+    >(`${BASE}/attachments`)
+  )
+    .filter((a) => a.source !== 'SYSTEM')
+    .map(({ supervisorId, ...rest }) => ({ ...rest, profileId: supervisorId }));
 export const getDecisions = (limit = 30) =>
   fetchApi<Decision[]>(`${BASE}/decisions?limit=${limit}`);
 
-export const createProfile = (profile: SupervisorProfile) =>
-  fetchApi<SupervisorProfile>(`${BASE}/profiles`, json('POST', profile));
 export const replaceProfile = (profile: SupervisorProfile) =>
   fetchApi<SupervisorProfile>(
-    `${BASE}${api`/profiles/${profile.id}`}`,
+    `${BASE}${api`/${profile.id}`}`,
     json('PUT', profile)
   );
 export const deleteProfile = (id: string) =>
-  fetchApi<unknown>(`${BASE}${api`/profiles/${id}`}`, { method: 'DELETE' });
+  fetchApi<unknown>(`${BASE}${api`/${id}`}`, { method: 'DELETE' });
 
-export const attach = (
-  binding: Omit<SupervisorBinding, 'id'> & { id?: string }
-) => fetchApi<SupervisorBinding>(`${BASE}/bindings`, json('POST', binding));
+export const attach = ({
+  profileId,
+  ...binding
+}: Omit<SupervisorBinding, 'id'> & { id?: string }) =>
+  fetchApi<unknown>(
+    `${BASE}/attachments`,
+    json('POST', { ...binding, supervisorId: profileId })
+  );
 export const detach = (id: string) =>
-  fetchApi<unknown>(`${BASE}${api`/bindings/${id}`}`, { method: 'DELETE' });
+  fetchApi<unknown>(`${BASE}/attachments${api`/${id}`}`, { method: 'DELETE' });
 
 /** Separates the workflow from the node selectors in a section scope. */
 const SECTION = '//';
@@ -119,28 +134,6 @@ export function scopeLabel(scope: string): string {
         .slice(at + SECTION.length)
         .split(',')
         .join(', ')}`;
-}
-
-/**
- * Whether a binding's scope covers a session, and a workflow of it when given: a global scope
- * covers everything, `workflow:<id>` any session's workflow of that id. A section counts for the
- * workflow it is part of.
- */
-export function scopeApplies(
-  scope: string,
-  sessionId: string,
-  workflowId?: string
-): boolean {
-  if (scope === 'global') return true;
-  const [kind, rest] = [
-    scope.split(':')[0],
-    scope.slice(scope.indexOf(':') + 1),
-  ];
-  if (kind === 'session') return rest === sessionId;
-  if (kind !== 'workflow' || workflowId === undefined) return false;
-  const ids = rest.split(SECTION)[0];
-  const [s, w] = ids.includes('/') ? ids.split('/') : [undefined, ids];
-  return w === workflowId && (s === undefined || s === sessionId);
 }
 
 /**
@@ -175,20 +168,4 @@ export function buildScope(
   return selectors.length === 0
     ? null
     : `${workflow}${SECTION}${selectors.join(',')}`;
-}
-
-/** Why `text` is not a settings object, or the object. */
-export function parseSettings(
-  text: string
-): { settings: Record<string, unknown> } | { error: string } {
-  let value: unknown;
-  try {
-    value = JSON.parse(text);
-  } catch {
-    return { error: 'The settings are not valid JSON.' };
-  }
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return { error: 'The settings must be a JSON object.' };
-  }
-  return { settings: value as Record<string, unknown> };
 }

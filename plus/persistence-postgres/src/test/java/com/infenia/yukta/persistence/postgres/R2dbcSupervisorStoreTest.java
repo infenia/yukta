@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
+import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
@@ -138,5 +139,25 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
             new ObjectMapper());
 
     StepVerifier.create(broken.renamedIdsWarning()).verifyComplete();
+  }
+
+  @Test
+  void sessionRefsAreKeptReplacedAndForgotten() {
+    final List<SupervisorRef> refs =
+        List.of(new SupervisorRef("guard", null, false), new SupervisorRef("watch", null, null));
+
+    StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("A", refs)).verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("B", refs)).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A")).expectNext(refs).verifyComplete();
+    StepVerifier.create(store.sessionsWithRefs()).expectNext("A", "B").verifyComplete();
+
+    StepVerifier.create(store.saveSessionRefs("A", List.of(refs.getFirst()))).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A"))
+        .expectNext(List.of(refs.getFirst()))
+        .verifyComplete();
+    StepVerifier.create(store.saveSessionRefs("A", List.of())).verifyComplete();
+    StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
+    StepVerifier.create(store.sessionsWithRefs()).expectNext("B").verifyComplete();
   }
 }

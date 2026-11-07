@@ -3,7 +3,9 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
@@ -53,11 +55,19 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Service
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
   public static final String AUDIT_RUN = "supervisors";
+
+  /** The type name of composite supervisors. */
+  private static final String COMPOSITE_TYPE = "composite";
 
   /** Default for {@code yukta.supervisor.max-attachments}. */
   public static final int DEFAULT_MAX_ATTACHMENTS = 200;
@@ -95,6 +105,9 @@ public class SupervisorService {
   /** Checks workflow profiles against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
 
+  /** Tells who declares a supervisor; null where definitions declare none. */
+  @Nullable private DefinitionUsage definitionUsage;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -127,6 +140,15 @@ public class SupervisorService {
   @Autowired(required = false)
   public void setProperties(final YuktaProperties properties) {
     this.maxAttachments = properties.supervisor().maxAttachments();
+  }
+
+  /**
+   * Lets deleting a supervisor that a definition declares be refused, naming who declares it.
+   *
+   * @param usage the lookup
+   */
+  public void setDefinitionUsage(final DefinitionUsage usage) {
+    this.definitionUsage = usage;
   }
 
   /**
@@ -316,7 +338,28 @@ public class SupervisorService {
                           new ConflictException(
                               "Profile " + id + " is a child of composite " + composites));
                 }))
+        .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)));
+  }
+
+  /** Refuses with 409, naming them, when sessions or workflows declare the supervisor. */
+  private Mono<Void> declaredCheck(final String id) {
+    final DefinitionUsage usage = definitionUsage;
+    return usage == null
+        ? Mono.empty()
+        : usage
+            .declaredBy(id)
+            .flatMap(
+                users ->
+                    users.isEmpty()
+                        ? Mono.<Void>empty()
+                        : Mono.error(
+                            new ConflictException(
+                                "Supervisor "
+                                    + id
+                                    + " is declared by "
+                                    + String.join(", ", users)
+                                    + "; remove it from the definition first")));
   }
 
   private Mono<Void> deleteUnused(final String id) {
@@ -459,7 +502,10 @@ public class SupervisorService {
   public Mono<Void> removeForSession(final String sessionId) {
     return store
         .attachments()
-        .filter(binding -> sessionId.equals(binding.scope().sessionId()))
+        .filter(
+            binding ->
+                sessionId.equals(binding.scope().sessionId())
+                    || sessionId.equals(binding.originSessionId()))
         .concatMap(binding -> detach(binding.id()))
         .then();
   }
@@ -523,6 +569,72 @@ public class SupervisorService {
   }
 
   /**
+   * The kind of a type: {@code COMPOSITE}, {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found
+   * by making a supervisor from the type's example settings; a type that cannot be made that way
+   * (it needs a model, or other supervisors) is told apart by its name.
+   *
+   * @param type the supervisor type
+   * @return the kind
+   */
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
+  public String kind(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    if (factory == null) {
+      return "SUPERVISOR";
+    }
+    try {
+      final ExecutionSupervisor made =
+          factory.create(
+              new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
+      return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
+    } catch (RuntimeException e) { // PMD.AvoidCatchingGenericException: any factory may refuse
+      return kindByName(type);
+    }
+  }
+
+  /** The kind of a type whose example cannot be made: told apart by its name. */
+  private static String kindByName(final String type) {
+    return COMPOSITE_TYPE.equals(type)
+        ? "COMPOSITE"
+        : type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
+  }
+
+  /**
+   * The commands a supervisor of a type may send when its settings do not say.
+   *
+   * @param type the supervisor type
+   * @return the command names, or {@code null} for every command
+   */
+  public @Nullable Set<String> defaultAllowedCommands(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null ? null : factory.defaultAllowedCommands();
+  }
+
+  /**
+   * Checks a draft supervisor the way saving does, without keeping anything.
+   *
+   * @param supervisor the draft
+   * @return the problems, empty when it would be accepted; a problem that names no setting has the
+   *     field {@code settings}
+   */
+  public Mono<List<SettingsValidationException.Issue>> check(final Supervisor supervisor) {
+    return refreshResolver()
+        .then(
+            Mono.defer(
+                () ->
+                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
+        .then(Mono.fromRunnable(() -> validate(supervisor)))
+        .thenReturn(List.<SettingsValidationException.Issue>of())
+        .onErrorResume(SettingsValidationException.class, error -> Mono.just(error.getIssues()))
+        .onErrorResume(
+            IllegalArgumentException.class,
+            error ->
+                Mono.just(
+                    List.of(
+                        new SettingsValidationException.Issue("settings", error.getMessage()))));
+  }
+
+  /**
    * The settings a type reads, besides the common ones.
    *
    * @param type the supervisor type
@@ -535,7 +647,8 @@ public class SupervisorService {
 
   /** What the profile lets its supervisor do; an unknown command name is refused. */
   private SupervisorCapabilities capabilities(final Supervisor profile) {
-    return SupervisorCapabilities.from(profile, factory(profile).defaultAllowedCommands());
+    final SupervisorFactory factory = factory(profile);
+    return SupervisorCapabilities.from(profile, factory.defaultAllowedCommands(profile));
   }
 
   private ExecutionSupervisor create(final Supervisor profile) {
@@ -546,6 +659,9 @@ public class SupervisorService {
     final ExecutionSupervisor made = create(profile);
     if (made instanceof WorkflowSupervisor workflow) {
       workflow.bindTo(binding.id());
+    }
+    if (made instanceof AttachmentAware aware) {
+      aware.bindTo(binding.id());
     }
     host.attach(
         new BoundSupervisor(

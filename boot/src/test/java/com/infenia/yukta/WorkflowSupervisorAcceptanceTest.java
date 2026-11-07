@@ -109,7 +109,7 @@ class WorkflowSupervisorAcceptanceTest {
         .block(WAIT);
 
     final Supervisor exampleProfile =
-        JSON.readValue(Files.readString(EXAMPLE.resolve("profile.json")), Supervisor.class);
+        JSON.readValue(Files.readString(EXAMPLE.resolve("supervisor.json")), Supervisor.class);
     final Map<String, Object> settings = new HashMap<>(exampleProfile.settings());
     settings.put("sessionId", internal);
     supervisors

@@ -67,7 +67,7 @@ Every client calls the [REST API](/api/overview); the others wrap it. A dash mea
 | Scheduler limits and queue | `GET`/`POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler limits set` | Control › Scheduler |
 | Drain the server | `GET`/`POST`/`DELETE /api/admin/drain` | – | – | – |
 | Workers | `GET /api/workers` | – | `workers` | Control › Workers |
-| Supervisors | `GET /api/supervisors` | – | `supervisors` | Control › Supervisors |
+| Supervisors | `GET /api/supervisors/status`, `GET /api/supervisor-types`, `GET /api/supervisors` | `list_supervisors`, `list_supervisor_types`, `get_supervisor_type`, `save_supervisor` | `supervisors`, `supervisors types\|list\|show` | Control › Supervisors |
 | Control bus nodes and heartbeats | `GET /api/control/nodes`, `…/heartbeats`, `…/workflows/{id}/nodes` | `get_control_bus_status` | `controlbus nodes\|all-nodes\|heartbeat` | Control › Control bus |
 | Send a raw control-bus command | `POST /api/control/workflows/{id}/nodes/{node}/command` | – | `controlbus command` | Control › Control bus › Send command |
 | Who sent which command | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |

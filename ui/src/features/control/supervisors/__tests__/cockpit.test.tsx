@@ -17,13 +17,7 @@ import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
 import { installMockEventSource } from '@/test/mocks/MockEventSource';
 import { SupervisorCockpit } from '../SupervisorCockpit';
-import { ScopedSupervisors } from '../ScopedSupervisors';
-import {
-  parseSettings,
-  scopeApplies,
-  buildScope,
-  scopeLabel,
-} from '../../api/supervisors';
+import { buildScope, scopeLabel } from '../../api/supervisors';
 
 const ok = (data: unknown) =>
   HttpResponse.json({
@@ -72,49 +66,62 @@ const refuse = () =>
   HttpResponse.json({ message: 'no' }, { status: writeStatus });
 
 const server = setupServer(
-  http.get('/api/supervisors', () => ok(supervisors)),
-  http.get('/api/supervisors/types', () =>
-    ok(['rule-supervisor', 'model-control-plane'])
+  http.get('/api/supervisors/status', () => ok(supervisors)),
+  http.get('/api/supervisor-types', () =>
+    ok([{ type: 'rule-supervisor' }, { type: 'model-control-plane' }])
   ),
-  http.get('/api/supervisors/profiles', () => ok(profiles)),
-  http.get('/api/supervisors/bindings', () => ok(bindings)),
+  http.get('/api/supervisors', () => ok(profiles)),
+  http.get('/api/supervisors/attachments', () =>
+    ok(
+      bindings.map(({ profileId, ...b }) => ({
+        ...b,
+        supervisorId: profileId,
+        source: 'MANUAL',
+      }))
+    )
+  ),
   http.get('/api/supervisors/decisions', () => ok(decisions)),
   http.get('/api/sessions/summaries', () =>
     ok([{ sessionId: 's1', name: 'Alpha' }])
   ),
-  http.post('/api/supervisors/profiles', async ({ request }) => {
+  http.post('/api/supervisors', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as (typeof profiles)[number];
     writes.push(`create ${JSON.stringify(body)}`);
     profiles = [...profiles, body];
     return ok(body);
   }),
-  http.put('/api/supervisors/profiles/:id', async ({ request }) => {
+  http.put('/api/supervisors/:id', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as (typeof profiles)[number];
     writes.push(`replace ${JSON.stringify(body)}`);
     profiles = profiles.map((p) => (p.id === body.id ? body : p));
     return ok(body);
   }),
-  http.delete('/api/supervisors/profiles/:id', ({ params }) => {
+  http.delete('/api/supervisors/:id', ({ params }) => {
     writes.push(`delete profile ${String(params.id)}`);
     profiles = profiles.filter((p) => p.id !== params.id);
     return ok(null);
   }),
-  http.post('/api/supervisors/bindings', async ({ request }) => {
+  http.post('/api/supervisors/attachments', async ({ request }) => {
     if (writeStatus !== 200) return refuse();
     const body = (await request.json()) as {
       id?: string;
-      profileId: string;
+      supervisorId: string;
       scope: string;
       enabled: boolean;
     };
     writes.push(`attach ${JSON.stringify(body)}`);
-    const binding = { ...body, id: body.id ?? 'new-binding' };
+    const { supervisorId, ...rest } = body;
+    const binding = {
+      ...rest,
+      profileId: supervisorId,
+      id: body.id ?? 'new-binding',
+    };
     bindings = [...bindings.filter((b) => b.id !== binding.id), binding];
     return ok(binding);
   }),
-  http.delete('/api/supervisors/bindings/:id', ({ params }) => {
+  http.delete('/api/supervisors/attachments/:id', ({ params }) => {
     writes.push(`detach ${String(params.id)}`);
     bindings = bindings.filter((b) => b.id !== params.id);
     return ok(null);
@@ -140,7 +147,7 @@ describe('the supervisor cockpit', () => {
 
     expect(await screen.findByText('No supervisors')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'New profile' })
+      screen.getByRole('link', { name: 'New supervisor' })
     ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Attach supervisor' })
@@ -299,41 +306,7 @@ describe('the supervisor cockpit', () => {
     );
   });
 
-  it('creates a profile from validated JSON settings', async () => {
-    renderWithProviders(<SupervisorCockpit />);
-    const user = userEvent.setup();
-    await user.click(
-      await screen.findByRole('button', { name: 'New profile' })
-    );
-    const dialog = await screen.findByRole('dialog', {
-      name: 'New supervisor profile',
-    });
-    const create = within(dialog).getByRole('button', { name: 'Create' });
-    expect(create).toBeDisabled(); // no id yet
-
-    await user.type(within(dialog).getByLabelText('Profile id'), 'guard');
-    expect(create).toBeEnabled();
-    const settings = within(dialog).getByLabelText('Settings (JSON)');
-    await user.click(settings);
-    await user.paste('{ nope');
-    expect(
-      await within(dialog).findByText('The settings are not valid JSON.')
-    ).toBeInTheDocument();
-    expect(create).toBeDisabled();
-
-    await user.clear(settings);
-    await user.click(settings);
-    await user.paste('{"rules": []}');
-    await user.click(create);
-
-    await waitFor(() => expect(writes).toHaveLength(1));
-    expect(writes[0]).toContain('"id":"guard"');
-    expect(writes[0]).toContain('"type":"rule-supervisor"');
-    expect(writes[0]).toContain('"settings":{"rules":[]}');
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  });
-
-  it('edits a profile keeping its id and type, and deletes one', async () => {
+  it('links to the wizard to create a supervisor and to edit a profile, and deletes one', async () => {
     profiles = [
       {
         id: 'p',
@@ -345,21 +318,12 @@ describe('the supervisor cockpit', () => {
     renderWithProviders(<SupervisorCockpit />);
     const user = userEvent.setup();
 
-    await user.click(
-      await screen.findByRole('button', { name: 'Edit profile p' })
-    );
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Edit supervisor profile',
-    });
-    expect(within(dialog).getByLabelText('Profile id')).toBeDisabled();
-    expect(within(dialog).getByLabelText('Type')).toBeDisabled();
-    expect(within(dialog).getByLabelText('Settings (JSON)')).toHaveValue(
-      '{\n  "apiKey": "***"\n}'
-    );
-    await user.click(within(dialog).getByRole('checkbox', { name: /Dry run/ }));
-    await user.click(within(dialog).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(writes[0]).toContain('"dryRun":true'));
-
+    expect(
+      await screen.findByRole('link', { name: 'New supervisor' })
+    ).toHaveAttribute('href', '/supervisors/new');
+    expect(
+      await screen.findByRole('link', { name: 'Edit profile p' })
+    ).toHaveAttribute('href', '/supervisors/p/edit');
     await user.click(
       await screen.findByRole('button', { name: 'Delete profile p' })
     );
@@ -390,59 +354,12 @@ describe('the supervisor cockpit', () => {
     await user.click(attach);
 
     await waitFor(() => expect(writes[0]).toContain('"scope":"session:s1"'));
-    expect(writes[0]).toContain('"profileId":"p"');
+    expect(writes[0]).toContain('"supervisorId":"p"');
     expect(writes[0]).toContain('"enabled":true');
   });
 });
 
-describe('supervisors on a session or workflow page', () => {
-  it('lists the ones that apply, with the attach dialog preset to this scope', async () => {
-    profiles = [
-      { id: 'p', type: 'rule-supervisor', settings: {}, dryRun: false },
-    ];
-    bindings = [
-      { id: 'a', profileId: 'p', scope: 'global', enabled: true },
-      { id: 'b', profileId: 'p', scope: 'session:other', enabled: true },
-      { id: 'c', profileId: 'p', scope: 'workflow:s1/wf', enabled: false },
-    ];
-    renderWithProviders(<ScopedSupervisors sessionId="s1" workflowId="wf" />);
-
-    const items = await screen.findAllByRole('listitem');
-    expect(items).toHaveLength(2);
-    expect(items[1]).toHaveTextContent('(disabled)');
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: 'Attach supervisor' }));
-    const dialog = await screen.findByRole('dialog', {
-      name: 'Attach supervisor',
-    });
-    expect(within(dialog).getByLabelText('Applies to')).toHaveValue('workflow');
-    expect(within(dialog).getByLabelText('Workflow id')).toHaveValue('wf');
-  });
-
-  it('says so when none applies', async () => {
-    renderWithProviders(<ScopedSupervisors sessionId="s1" />);
-
-    expect(
-      await screen.findByText('None apply to this session.')
-    ).toBeInTheDocument();
-  });
-});
-
 describe('the scope helpers', () => {
-  it('decides which scopes cover a session or workflow', () => {
-    expect(scopeApplies('global', 's', 'w')).toBe(true);
-    expect(scopeApplies('session:s', 's')).toBe(true);
-    expect(scopeApplies('session:x', 's')).toBe(false);
-    expect(scopeApplies('workflow:w', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:s/w', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:x/w', 's', 'w')).toBe(false);
-    expect(scopeApplies('workflow:w', 's')).toBe(false);
-    expect(scopeApplies('workflow:s/w//build.*', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:w//build.*', 's', 'w')).toBe(true);
-    expect(scopeApplies('workflow:s/x//build.*', 's', 'w')).toBe(false);
-  });
-
   it('labels a section with its workflow and nodes', () => {
     expect(scopeLabel('workflow:s/w//build.*,deploy')).toBe(
       'Section s/w: build.*, deploy'
@@ -463,11 +380,5 @@ describe('the scope helpers', () => {
     expect(buildScope('section', '', 'w', 'a b')).toBe('workflow:w//a,b');
     expect(buildScope('section', 's', 'w', ' , ')).toBeNull();
     expect(buildScope('section', 's', 'w')).toBeNull();
-  });
-
-  it('reads settings only as a JSON object', () => {
-    expect(parseSettings('{"a":1}')).toEqual({ settings: { a: 1 } });
-    expect(parseSettings('[1]')).toHaveProperty('error');
-    expect(parseSettings('x')).toHaveProperty('error');
   });
 });

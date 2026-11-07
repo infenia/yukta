@@ -98,6 +98,38 @@ const router = createBrowserRouter([
         }),
       },
       {
+        path: 'supervisors/new',
+        lazy: async () => ({
+          Component: (
+            await import('@/features/supervisors/components/SupervisorWizardPage')
+          ).SupervisorWizardPage,
+        }),
+      },
+      {
+        path: 'supervisors/:supervisorId/edit',
+        lazy: async () => ({
+          Component: (
+            await import('@/features/supervisors/components/SupervisorWizardPage')
+          ).SupervisorWizardPage,
+        }),
+      },
+      {
+        path: 'supervisors/:supervisorId',
+        lazy: async () => ({
+          Component: (
+            await import('@/features/supervisors/components/SupervisorDetailPage')
+          ).SupervisorDetailPage,
+        }),
+      },
+      {
+        path: 'supervisors',
+        lazy: async () => ({
+          Component: (
+            await import('@/features/supervisors/components/SupervisorsPage')
+          ).SupervisorsPage,
+        }),
+      },
+      {
         path: 'control',
         lazy: async () => ({
           Component: (await import('@/features/control/components/ControlPage'))

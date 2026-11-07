@@ -44,7 +44,7 @@ const ok = (data: unknown) =>
 let auditCalls = 0;
 let supervisorCalls = 0;
 const server = setupServer(
-  http.get('/api/supervisors', () => {
+  http.get('/api/supervisors/status', () => {
     supervisorCalls++;
     return ok([]);
   }),
