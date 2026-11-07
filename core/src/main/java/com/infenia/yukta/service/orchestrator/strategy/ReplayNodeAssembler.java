@@ -4,10 +4,10 @@ package com.infenia.yukta.service.orchestrator.strategy;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
+import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.stream.StreamTopologyDecorator;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;

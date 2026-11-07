@@ -11,7 +11,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.model.workflow.NodeAssembler;
 import com.infenia.yukta.model.workflow.ParentEdgeInfo;
 import com.infenia.yukta.model.workflow.WorkflowEdge;
 import com.infenia.yukta.model.workflow.WorkflowNode;
@@ -20,6 +19,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.RestartPlan;
+import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
 import com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;

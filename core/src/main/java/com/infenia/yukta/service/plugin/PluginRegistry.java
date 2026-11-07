@@ -3,11 +3,13 @@
 package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.gateway.PluginLookup;
 import com.infenia.yukta.validation.PluginName;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 import org.springframework.validation.annotation.Validated;
@@ -18,9 +20,14 @@ import org.springframework.validation.annotation.Validated;
 @SuppressFBWarnings(
     value = "CT_CONSTRUCTOR_THROW",
     justification = "Fails fast at startup on duplicate plugin types")
-public class PluginRegistry {
+public class PluginRegistry implements PluginLookup {
   /** Map of plugin type to plugin instances. */
   private final Map<String, Plugin> plugins = new ConcurrentHashMap<>();
+
+  @Override
+  public Optional<Plugin> find(final String type) {
+    return type == null ? Optional.empty() : Optional.ofNullable(plugins.get(type));
+  }
 
   /**
    * Public constructor.

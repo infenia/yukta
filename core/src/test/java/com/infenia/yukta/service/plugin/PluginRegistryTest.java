@@ -24,6 +24,8 @@ class PluginRegistryTest {
   /** Test plugin type identifier. */
   private static final String TEST_TYPE = "test-type";
 
+  private static final String REGISTERED = "registered";
+
   @BeforeEach
   void setUp() {
     try (LocalValidatorFactoryBean validatorFactoryBean = new LocalValidatorFactoryBean()) {
@@ -84,12 +86,42 @@ class PluginRegistryTest {
   @Test
   void testGetWithUnregisteredType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
     final Plugin retrieved = registry.get("non-existent");
 
     assertThat(retrieved).isNull();
+  }
+
+  @Test
+  void testFindReturnsRegisteredPlugin() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn("findable");
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find("findable")).contains(mockPlugin);
+  }
+
+  @Test
+  void testFindReturnsEmptyForUnknownType() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find("non-existent")).isEmpty();
+  }
+
+  @Test
+  void testFindReturnsEmptyForNullType() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find(null)).isEmpty();
   }
 
   @Test
@@ -105,7 +137,7 @@ class PluginRegistryTest {
   @Test
   void testContainsWithUnregisteredType() {
     final Plugin mockPlugin = mock(Plugin.class);
-    when(mockPlugin.getType()).thenReturn("registered");
+    when(mockPlugin.getType()).thenReturn(REGISTERED);
 
     final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
 

@@ -9,6 +9,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.core.LogLevel;
+import com.infenia.yukta.plugin.gateway.ExecutionLog;
 import com.infenia.yukta.validation.NodeId;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
@@ -25,7 +26,7 @@ import reactor.core.publisher.Mono;
 
 /** Service interface for tracking the progress of workflows and tasks. */
 @SuppressWarnings("PMD.TooManyMethods")
-public interface TaskTrackerService {
+public interface TaskTrackerService extends ExecutionLog {
 
   /**
    * Start tracking a new workflow execution for a session.
@@ -91,6 +92,12 @@ public interface TaskTrackerService {
    * @return a Mono that completes when the log line is appended
    */
   Mono<Void> appendLog(@NotBlank String executionId, @NotBlank @Size(max = 16_384) String line);
+
+  /** Lets plugins log through {@link ExecutionLog}; same as {@link #appendLog}. */
+  @Override
+  default Mono<Void> append(final String executionId, final String line) {
+    return appendLog(executionId, line);
+  }
 
   /**
    * Get the current progress of a workflow execution.
