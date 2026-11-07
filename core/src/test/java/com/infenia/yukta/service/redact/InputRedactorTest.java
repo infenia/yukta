@@ -4,6 +4,8 @@ package com.infenia.yukta.service.redact;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.input.InputKind;
+import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.service.input.InputTestSupport;
 import java.util.List;
@@ -26,6 +28,30 @@ class InputRedactorTest {
     assertThat(clean.prompt()).doesNotContain("hunter2", "abcdefghijkl", "DB_PASS");
     assertThat(clean.prompt()).contains(SecretRedactor.REDACTED);
     assertThat(clean.key()).isEqualTo(spec.key());
+  }
+
+  @Test
+  void optionLabelsAreCleanedToo() {
+    final InputRequestSpec spec = withContext(Map.of());
+    final InputRequestSpec withOption =
+        new InputRequestSpec(
+            spec.key(),
+            InputKind.CHOICE,
+            spec.prompt(),
+            spec.context(),
+            List.of(new InputOption("a", "use token=abcd1234"), new InputOption("b", "plain")),
+            spec.responseSchema(),
+            spec.risk(),
+            spec.audience(),
+            spec.ttl(),
+            spec.onTimeout(),
+            spec.defaultDecision(),
+            spec.routeName(),
+            spec.requester());
+
+    assertThat(redactor.redact(withOption).options())
+        .extracting(InputOption::label)
+        .containsExactly("use " + SecretRedactor.REDACTED, "plain");
   }
 
   @Test

@@ -34,11 +34,24 @@ public final class SecretRedactor {
               + "|(?:(?!\\s+[\\w.-]+=)[^,;&}\\]\"'])+)",
           "\\bsk-[A-Za-z0-9_-]{16,}",
           "\\bgh[pousr]_[A-Za-z0-9]{20,}",
-          "\\bAKIA[0-9A-Z]{16}\\b");
+          "\\bAKIA[0-9A-Z]{16}\\b",
+          "\\bAIza[0-9A-Za-z_-]{35}\\b",
+          "\\bxox[abprs]-[A-Za-z0-9-]{10,}",
+          // a JWT: three base64url parts, the first two start like JSON
+          "\\beyJ[A-Za-z0-9_-]{8,}\\.eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]+",
+          "-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----",
+          // user:password@ in a URL (a database URL): only the password goes
+          "(?<=\\b[a-zA-Z][a-zA-Z0-9+.-]{1,20}://[^/\\s:@]{1,100}:)[^@\\s/]+(?=@)");
 
   /** Map keys whose value is a secret. */
   private static final String SECRET_KEY_REGEX =
       "(?i)api[_-]?key|secret|password|passwd|token|authorization";
+
+  /** Names that contain a secret word but are not secrets: counts, limits and the like. */
+  private static final Pattern BENIGN_KEY =
+      Pattern.compile(
+          "(?i)(?:max|min|total|prompt|completion|input|output|cached)[_-]?tokens?"
+              + "|tokens?[_-]?(?:count|limit|usage|used|budget)|secretary|password[_-]?policy");
 
   /** Deepest nesting walked; deeper values are replaced. */
   private static final int MAX_DEPTH = 32;
@@ -127,6 +140,8 @@ public final class SecretRedactor {
   }
 
   private Object redactEntry(final @Nullable String key, final Object item, final int depth) {
-    return key != null && secretKey.matcher(key).find() ? REDACTED : redact(item, depth);
+    return key != null && secretKey.matcher(key).find() && !BENIGN_KEY.matcher(key).find()
+        ? REDACTED
+        : redact(item, depth);
   }
 }

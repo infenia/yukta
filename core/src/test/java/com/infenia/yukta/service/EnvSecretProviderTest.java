@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.LinguisticNaming")
+@SuppressWarnings({"PMD.LinguisticNaming", "PMD.AvoidDuplicateLiterals"})
 class EnvSecretProviderTest {
 
   private static final String DB_PASSWORD = "db.password";
@@ -50,6 +50,14 @@ class EnvSecretProviderTest {
   void getSecret_keyWithDoubleUnderscore_cannotNameAnotherScope() {
     final Map<String, String> scoped = Map.of("YUKTA_SECRET_S_S1__DB_PASSWORD", "session");
     StepVerifier.create(new EnvSecretProvider(scoped::get).getSecret("s_s1__db_password"))
+        .verifyComplete();
+  }
+
+  @Test
+  void getSecret_keyThatNormalisesToDoubleUnderscore_cannotNameAnotherScope() {
+    final Map<String, String> scoped = Map.of("YUKTA_SECRET_S_S1__DB_PASSWORD", "session");
+    // the dot and the underscore each become "_": "s1._db_password" is "S1__DB_PASSWORD"
+    StepVerifier.create(new EnvSecretProvider(scoped::get).getSecret("s.s1._db_password"))
         .verifyComplete();
   }
 

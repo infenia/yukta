@@ -41,7 +41,9 @@ public class ConfigRedactor {
   /** Names that say a value is a secret. */
   private static final Pattern SECRET_NAME =
       Pattern.compile(
-          ".*(password|passwd|secret|token|api[-_]?key|authorization|credential).*",
+          ".*(password|passwd|pwd|passphrase|secret|token|api[-_]?key|private[-_]?key"
+              + "|signing[-_]?key|access[-_]?key|ssh[-_]?key|authorization|credential|cookie"
+              + "|bearer).*",
           Pattern.CASE_INSENSITIVE);
 
   /** The plugins, to find which fields of a node are secret. */
@@ -187,7 +189,13 @@ public class ConfigRedactor {
     }
   }
 
-  /* default */ static boolean isSecretName(final String key) {
+  /**
+   * Tells whether a config key names a secret (a password, token, key, cookie and the like).
+   *
+   * @param key the config key
+   * @return true if its value must not be shown or echoed
+   */
+  public static boolean isSecretName(final String key) {
     return SECRET_NAME.matcher(key).matches();
   }
 
