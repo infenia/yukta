@@ -117,6 +117,9 @@ class MetricsSamplerTest {
     }
 
     assertThat(sampler.series(List.of(GAUGE), Duration.ofMinutes(1), END).get(GAUGE)).hasSize(12);
+    // a blank name is a prefix of every key: it selects nothing
+    assertThat(sampler.series(List.of(""), Duration.ofMinutes(1), END)).isEmpty();
+    assertThat(sampler.series(List.of(" "), Duration.ofMinutes(1), END)).isEmpty();
     assertThat(sampler.series(List.of(GAUGE), Duration.ofHours(6), END).get(GAUGE))
         .hasSizeLessThanOrEqualTo(3);
     assertThat(sampler.catalog()).containsExactly(GAUGE);

@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 /** Recent history of the server's own metrics, for the Control dashboard. */
 @RestController
@@ -247,6 +248,8 @@ public class MetricsController {
     return duration == null
         ? Mono.error(
             new ResponseStatusException(HttpStatus.BAD_REQUEST, "range must be 15m, 1h, 6h or 24h"))
-        : Mono.fromSupplier(() -> ApiResponse.success(200, text, read.apply(duration)));
+        // off the event loop: a 24 h read scans every sample
+        : Mono.fromSupplier(() -> ApiResponse.success(200, text, read.apply(duration)))
+            .subscribeOn(Schedulers.boundedElastic());
   }
 }
