@@ -64,7 +64,6 @@ class EventsControllerTest {
         executionId, null, null, "PauseWorkflowCommand", "rules", true, null, Instant.now());
   }
 
-  /** The feed drops what it publishes before a reader subscribed: publish only after one did. */
   /**
    * Ends the stream once it has been idle for {@link #IDLE}. The first event gets {@link
    * #FIRST_EVENT_DEADLINE}, so a stalled runner does not end the wait with nothing (#1904).
@@ -74,6 +73,7 @@ class EventsControllerTest {
         Flux.interval(FIRST_EVENT_DEADLINE), _ -> Flux.interval(IDLE), Flux.<T>empty());
   }
 
+  /** The feed drops what it publishes before a reader subscribed: publish only after one did. */
   private static void awaitSubscribed(final ExecutionEventFeed feed) {
     Flux.interval(Duration.ofMillis(1))
         .takeUntil(tick -> feed.subscriberCount() > 0)
