@@ -10,6 +10,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.env.MockEnvironment;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.web.server.ServerWebExchange;
@@ -17,15 +18,15 @@ import reactor.core.publisher.Mono;
 
 class McpEndpointFilterTest {
 
-  private static org.springframework.mock.env.MockEnvironment adminKey(final String key) {
-    final var env = new org.springframework.mock.env.MockEnvironment();
+  private final AtomicReference<String> seenPath = new AtomicReference<>();
+
+  private static MockEnvironment adminKey(final String key) {
+    final var env = new MockEnvironment();
     return key.isEmpty()
         ? env
         : env.withProperty("yukta.api-keys[0].key", key)
             .withProperty("yukta.api-keys[0].role", "ADMIN");
   }
-
-  private final AtomicReference<String> seenPath = new AtomicReference<>();
 
   private MockServerWebExchange run(
       final String key, final MockServerHttpRequest.BaseBuilder<?> rq) {

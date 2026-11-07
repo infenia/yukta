@@ -30,19 +30,19 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class ApiKeyFilterTest {
 
-  private static org.springframework.mock.env.MockEnvironment adminKey(final String key) {
-    final var env = new org.springframework.mock.env.MockEnvironment();
-    return key.isEmpty()
-        ? env
-        : env.withProperty("yukta.api-keys[0].key", key)
-            .withProperty("yukta.api-keys[0].role", "ADMIN");
-  }
-
   /** The passed. */
   private final AtomicBoolean passed = new AtomicBoolean();
 
   /** Actor seen downstream. */
   private final AtomicReference<String> actor = new AtomicReference<>();
+
+  private static MockEnvironment adminKey(final String key) {
+    final var env = new MockEnvironment();
+    return key.isEmpty()
+        ? env
+        : env.withProperty("yukta.api-keys[0].key", key)
+            .withProperty("yukta.api-keys[0].role", "ADMIN");
+  }
 
   private MockServerWebExchange run(
       final String key, final MockServerHttpRequest.BaseBuilder<?> rq) {
