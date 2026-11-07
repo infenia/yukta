@@ -49,7 +49,8 @@ public class PlusConfiguration {
    */
   @Bean
   @ConditionalOnExpression(
-      "!'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
+      "!'${yukta.restart.dir:}'.isEmpty() &&"
+          + " !'postgres'.equalsIgnoreCase('${yukta.restart.store-type:}'.trim())")
   public NodeCheckpointStore fileNodeCheckpointStore(
       @Value("${yukta.restart.dir}") final String dir, final ObjectMapper mapper) {
     return new FileNodeCheckpointStore(dir, mapper);
@@ -64,7 +65,7 @@ public class PlusConfiguration {
   @Bean
   @ConditionalOnExpression(
       "!'${yukta.session-memory.dir:}'.isEmpty()"
-          + " && !'postgres'.equals('${yukta.session-memory.store-type:}')")
+          + " && !'postgres'.equalsIgnoreCase('${yukta.session-memory.store-type:}'.trim())")
   public SessionHistoryStore fileSessionHistoryStore(
       @Value("${yukta.session-memory.dir}") final String dir) {
     return new FileSessionHistoryStore(dir);
