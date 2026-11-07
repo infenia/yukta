@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.workflow;
 
-import com.infenia.yukta.model.session.TaskResponse;
-import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
@@ -34,16 +32,17 @@ public class WorkflowService {
   private final ControlBusGateway controlBus;
 
   /**
-   * Validate and run a workflow, safely retryable with an idempotency key.
+   * Starts a workflow, safely retryable with an idempotency key.
    *
    * @param sessionId the session identifier
    * @param workflowId the workflow identifier
    * @param payload the trigger payload
-   * @param idempotencyKey the client's key; a repeat within the window returns the first execution
-   * @return a Mono containing the WorkflowExecution
+   * @param idempotencyKey the client's key, or null; a repeat within the window returns the first
+   *     execution
+   * @return a Mono with the id of the run
    * @throws IllegalArgumentException if session or workflow not found
    */
-  public Mono<WorkflowExecution> validateAndStartWorkflow(
+  public Mono<String> start(
       @SessionId final String sessionId,
       @WorkflowId final String workflowId,
       final Map<String, Object> payload,
@@ -51,34 +50,22 @@ public class WorkflowService {
     log.atInfo()
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
         .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-        .log("Validating and triggering workflow");
-
-    final Mono<String> started =
-        controlBus.startWorkflow(sessionId, workflowId, payload, idempotencyKey);
-    return started
-        .map(
-            executionId -> {
-              log.atDebug()
-                  .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                  .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                  .log("Workflow execution initiated via control bus");
-              final Mono<TaskResponse> resultMono =
-                  Mono.just(new TaskResponse("PENDING", "Workflow execution in progress"));
-              return new WorkflowExecution(executionId, resultMono);
-            })
+        .log("Starting workflow");
+    return controlBus
+        .startWorkflow(sessionId, workflowId, payload, idempotencyKey)
         .doOnSuccess(
-            _ ->
-                log.atInfo()
+            executionId ->
+                log.atDebug()
                     .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
                     .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .log("Workflow validation and start completed"))
+                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                    .log("Workflow execution initiated via control bus"))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
                     .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
                     .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .log("Failed to validate and start workflow"));
+                    .log("Failed to start workflow"));
   }
 }

@@ -85,7 +85,7 @@ The vocabulary used throughout. Terms appear in `code` style where they match a 
 | **Node** | One step: `nodeId`, plugin `type`, `config`. Its kind is set by the plugin category: **Trigger** starts the flow (no input), **Processor** transforms messages, **Terminal** ends a branch. | `WorkflowNode`, `NodeAssembler` |
 | **Edge and port** | A one-way connection `source → target`. An optional `sourcePort` selects a named output; the only built-in port is `error`, used for dead letters. | `WorkflowEdge` |
 | **Message** | The unit of data on an edge: payload, headers and a stable `id`. A trigger may emit many per run. Retries repeat the same id and add an `attempt` header. | `MessageMapper` (plugin-api) |
-| **Run (execution)** | One live execution of a workflow with its own `executionId`, a status and a status per node. | `WorkflowExecution`, `WorkflowState` |
+| **Run (execution)** | One live execution of a workflow with its own `executionId`, a status and a status per node. | `WorkflowState`, `ExecutionControl` |
 | **Plugin** | Code that gives a node its behaviour. The engine only knows the contract. | `PluginRegistry` |
 | **Engine policy** | The reserved `engine` object in a node's config (retry, onError, timeouts, placement). The engine reads it; plugins never see it. | `NodePolicy` |
 | **Command** | An instruction to a live run (pause, stop, skip, signal ...), applied in order and audited. | `ExecutionControlCommand` |

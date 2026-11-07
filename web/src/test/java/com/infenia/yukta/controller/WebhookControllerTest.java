@@ -13,7 +13,6 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.model.workflow.WorkflowExecution;
 import com.infenia.yukta.plugin.store.SecretProvider;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
@@ -73,8 +72,7 @@ class WebhookControllerTest {
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
     when(secrets.getSecret(eq("gh"), any())).thenReturn(Mono.just("s3cret"));
-    when(workflows.validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), any()))
-        .thenReturn(Mono.just(new WorkflowExecution("e1", Mono.empty())));
+    when(workflows.start(eq("s1"), eq("wf"), anyMap(), any())).thenReturn(Mono.just("e1"));
   }
 
   @Test
@@ -95,7 +93,7 @@ class WebhookControllerTest {
         .isEqualTo("e1");
 
     verify(workflows)
-        .validateAndStartWorkflow(
+        .start(
             "s1",
             "wf",
             Map.of(
@@ -137,7 +135,7 @@ class WebhookControllerTest {
         .exchange()
         .expectStatus()
         .isUnauthorized();
-    verify(workflows, never()).validateAndStartWorkflow(any(), any(), anyMap(), any());
+    verify(workflows, never()).start(any(), any(), anyMap(), any());
   }
 
   @Test
@@ -176,7 +174,7 @@ class WebhookControllerTest {
         .exchange()
         .expectStatus()
         .isUnauthorized();
-    verify(workflows, never()).validateAndStartWorkflow(any(), any(), anyMap(), any());
+    verify(workflows, never()).start(any(), any(), anyMap(), any());
   }
 
   @Test
@@ -203,7 +201,7 @@ class WebhookControllerTest {
         .isAccepted();
 
     verify(workflows)
-        .validateAndStartWorkflow(
+        .start(
             "s1",
             "wf",
             Map.of(
@@ -239,7 +237,7 @@ class WebhookControllerTest {
         .expectStatus()
         .isAccepted();
 
-    verify(workflows).validateAndStartWorkflow(eq("s1"), eq("wf"), anyMap(), eq("d-1"));
+    verify(workflows).start(eq("s1"), eq("wf"), anyMap(), eq("d-1"));
   }
 
   @Test
@@ -255,7 +253,7 @@ class WebhookControllerTest {
         .isAccepted();
 
     verify(workflows)
-        .validateAndStartWorkflow(
+        .start(
             eq("s1"),
             eq("wf"),
             eq(Map.of("body", "", "headers", Map.of(), ExecutionLogEvent.INITIATOR_KEY, "webhook")),
@@ -269,6 +267,6 @@ class WebhookControllerTest {
 
     when(sessions.getSessionWorkflows("gone")).thenReturn(Mono.empty());
     client.post().uri("/hooks/gone/push").bodyValue(BODY).exchange().expectStatus().isNotFound();
-    verify(workflows, never()).validateAndStartWorkflow(any(), any(), anyMap(), any());
+    verify(workflows, never()).start(any(), any(), anyMap(), any());
   }
 }

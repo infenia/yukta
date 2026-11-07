@@ -3973,7 +3973,7 @@
         "properties" : {
           "description" : {
             "description" : "A human-readable description of the workflow",
-            "example" : "Quality check",
+            "example" : "Nightly report",
             "maxLength" : 256,
             "minLength" : 0,
             "type" : "string"

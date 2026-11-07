@@ -110,7 +110,7 @@ public class WebhookController {
                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid signature")))
         .flatMap(
             _ ->
-                workflowService.validateAndStartWorkflow(
+                workflowService.start(
                     sessionId,
                     hook.workflowId(),
                     ExecutionLogEvent.withInitiator(payload(hook, headers, raw), "webhook"),
@@ -118,9 +118,9 @@ public class WebhookController {
                         ? null
                         : headers.getFirst(text(hook.config(), "idempotencyHeader"))))
         .map(
-            execution ->
+            executionId ->
                 ApiResponse.success(
-                    202, "Webhook accepted", new WorkflowStartResponse(execution.executionId())));
+                    202, "Webhook accepted", new WorkflowStartResponse(executionId)));
   }
 
   private Mono<String> secret(final String sessionId, final Hook hook) {

@@ -89,7 +89,7 @@ A client starts a workflow and web answers. Click a step to see what happens, wh
 
 </Step>
 <Step title="Core starts run">
-**What happens.** The controller calls WorkflowService.validateAndStartWorkflow (with the key if given). Core finds the workflow, asks the scheduler for a slot and returns an execution id.
+**What happens.** The controller calls WorkflowService.start (with the key if given). Core finds the workflow, asks the scheduler for a slot and returns an execution id.
 
 **Why it works this way.** Web adds no rules of its own. Limits, queueing, retry of the same key and ordering are core's, so the same behaviour holds for the REST API, the UI and the MCP tools.
 

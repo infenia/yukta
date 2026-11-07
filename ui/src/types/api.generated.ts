@@ -4373,7 +4373,7 @@ export interface components {
         WorkflowDefinition: {
             /**
              * @description A human-readable description of the workflow
-             * @example Quality check
+             * @example Nightly report
              */
             description: string;
             /** @description Edges connecting the nodes */
