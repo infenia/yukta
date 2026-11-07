@@ -328,45 +328,34 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
 
   @Override
   public Mono<Void> pauseWorkflow(final String executionId) {
-    return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
-        .flatMap(
-            control ->
-                executeCommand(ControlDispatch.buildCommand(new PauseWorkflowCommand(executionId))))
-        .doOnSubscribe(
-            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Pausing workflow"))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .log("Workflow pause command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Failed to pause workflow"));
+    return workflowCommand(new PauseWorkflowCommand(executionId), "pause");
   }
 
   @Override
   public Mono<Void> resumeWorkflow(final String executionId) {
+    return workflowCommand(new ResumeWorkflowCommand(executionId), "resume");
+  }
+
+  private Mono<Void> workflowCommand(final ExecutionControlCommand command, final String verb) {
+    final String executionId = command.executionId();
     return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    ControlDispatch.buildCommand(new ResumeWorkflowCommand(executionId))))
+        .flatMap(control -> executeCommand(ControlDispatch.buildCommand(command)))
         .doOnSubscribe(
-            _ -> log.atDebug().addKeyValue("executionId", executionId).log("Resuming workflow"))
+            _ ->
+                log.atDebug()
+                    .addKeyValue("executionId", executionId)
+                    .log("Going to {} workflow", verb))
         .doOnSuccess(
             _ ->
                 log.atDebug()
                     .addKeyValue("executionId", executionId)
-                    .log("Workflow resume command executed"))
+                    .log("Workflow {} command executed", verb))
         .doOnError(
             err ->
                 log.atError()
                     .setCause(err)
                     .addKeyValue("executionId", executionId)
-                    .log("Failed to resume workflow"));
+                    .log("Failed to {} workflow", verb));
   }
 
   @Override

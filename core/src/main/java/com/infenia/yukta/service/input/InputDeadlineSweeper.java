@@ -4,16 +4,13 @@ package com.infenia.yukta.service.input;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.leader.LeaderTimer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantLock;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.stereotype.Component;
-import reactor.core.Disposable;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Scheduler;
 import reactor.core.scheduler.Schedulers;
@@ -31,20 +28,8 @@ public class InputDeadlineSweeper implements SmartLifecycle {
   /** Ends the requests. */
   private final InputBroker broker;
 
-  /** Tells whether this server runs the requests. */
-  private final LeaderElection leader;
-
-  /** Time between two looks. */
-  private final Duration interval;
-
-  /** Runs the timer. */
-  private final Scheduler scheduler;
-
-  /** The running timer, or {@code null} when stopped. */
-  private final AtomicReference<Disposable> timer = new AtomicReference<>();
-
-  /** Makes a second start wait for the first, so only one timer runs. */
-  private final ReentrantLock lock = new ReentrantLock();
+  /** Runs {@code job} on the leader at a fixed interval. */
+  private final LeaderTimer timer;
 
   /**
    * Creates the sweeper.
@@ -74,46 +59,33 @@ public class InputDeadlineSweeper implements SmartLifecycle {
       final Duration interval,
       final Scheduler scheduler) {
     this.broker = broker;
-    this.leader = leader;
-    this.interval = interval;
-    this.scheduler = scheduler;
+    this.timer = new LeaderTimer(leader, interval, scheduler, this::sweep);
+  }
+
+  /* default */ Mono<Void> sweep() {
+    // one look at a time: a slow look is not overtaken by the next tick
+    return broker
+        .sweep()
+        .onErrorResume(
+            error -> {
+              log.atWarn().setCause(error).log("Input deadline sweep failed");
+              return Mono.empty();
+            })
+        .then();
   }
 
   @Override
   public void start() {
-    lock.lock();
-    try {
-      if (timer.get() == null) {
-        timer.set(
-            Flux.interval(interval, scheduler)
-                .filter(_ -> leader.isLeader())
-                // one look at a time: a slow look is not overtaken by the next tick
-                .concatMap(
-                    _ ->
-                        broker
-                            .sweep()
-                            .onErrorResume(
-                                error -> {
-                                  log.atWarn().setCause(error).log("Input deadline sweep failed");
-                                  return Mono.empty();
-                                }))
-                .subscribe());
-      }
-    } finally {
-      lock.unlock();
-    }
+    timer.start();
   }
 
   @Override
   public void stop() {
-    final Disposable running = timer.getAndSet(null);
-    if (running != null) {
-      running.dispose();
-    }
+    timer.stop();
   }
 
   @Override
   public boolean isRunning() {
-    return timer.get() != null;
+    return timer.isRunning();
   }
 }

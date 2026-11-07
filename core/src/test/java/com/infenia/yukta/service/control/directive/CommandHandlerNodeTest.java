@@ -40,21 +40,21 @@ class CommandHandlerNodeTest {
   @Test
   void handle_pauseNodeCommand_routesToPauseNodeProcessor() {
     final PauseNodeCommand command = new PauseNodeCommand(EXECUTION_ID, NODE_ID);
-    when(fixture.pauseNode.process(any())).thenReturn(Mono.empty());
+    when(fixture.nodeValves.process(any(PauseNodeCommand.class))).thenReturn(Mono.empty());
 
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
-    verify(fixture.pauseNode).process(command);
+    verify(fixture.nodeValves).process(command);
   }
 
   @Test
   void handle_resumeNodeCommand_routesToResumeNodeProcessor() {
     final ResumeNodeCommand command = new ResumeNodeCommand(EXECUTION_ID, NODE_ID);
-    when(fixture.resumeNode.process(any())).thenReturn(Mono.empty());
+    when(fixture.nodeValves.process(any(ResumeNodeCommand.class))).thenReturn(Mono.empty());
 
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
-    verify(fixture.resumeNode).process(command);
+    verify(fixture.nodeValves).process(command);
   }
 
   @Test
@@ -80,31 +80,31 @@ class CommandHandlerNodeTest {
   @Test
   void handle_enableStepModeCommand_routesToEnableStepModeProcessor() {
     final EnableStepModeCommand command = new EnableStepModeCommand(EXECUTION_ID, NODE_ID);
-    when(fixture.enableStepMode.process(any())).thenReturn(Mono.empty());
+    when(fixture.nodeValves.process(any(EnableStepModeCommand.class))).thenReturn(Mono.empty());
 
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
-    verify(fixture.enableStepMode).process(command);
+    verify(fixture.nodeValves).process(command);
   }
 
   @Test
   void handle_disableStepModeCommand_routesToDisableStepModeProcessor() {
     final DisableStepModeCommand command = new DisableStepModeCommand(EXECUTION_ID, NODE_ID);
-    when(fixture.disableStepMode.process(any())).thenReturn(Mono.empty());
+    when(fixture.nodeValves.process(any(DisableStepModeCommand.class))).thenReturn(Mono.empty());
 
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
-    verify(fixture.disableStepMode).process(command);
+    verify(fixture.nodeValves).process(command);
   }
 
   @Test
   void handle_stepNodeCommand_routesToStepNodeProcessor() {
     final StepNodeCommand command = new StepNodeCommand(EXECUTION_ID, NODE_ID);
-    when(fixture.stepNode.process(any())).thenReturn(Mono.empty());
+    when(fixture.nodeValves.process(any(StepNodeCommand.class))).thenReturn(Mono.empty());
 
     StepVerifier.create(fixture.handler.handle(command)).verifyComplete();
 
-    verify(fixture.stepNode).process(command);
+    verify(fixture.nodeValves).process(command);
   }
 
   @Test
