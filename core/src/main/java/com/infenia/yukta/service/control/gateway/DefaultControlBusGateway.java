@@ -491,6 +491,29 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   /**
+   * Ends a live run at once, with no supervisor review and no command queue: for a server that is
+   * no longer the leader, where a refused or queued stop would leave the run executing next to the
+   * run the new leader resumes. Completing the safe-stop sink ends restarted and resumed runs too.
+   *
+   * @param executionId the run
+   * @param reason why, for the audit record
+   */
+  public void killLocally(final String executionId, final String reason) {
+    final ExecutionControl control =
+        executionControlStore.findByExecutionId(executionId).orElse(null);
+    if (control == null) {
+      return;
+    }
+    control.stopRequested().set(true);
+    executionControlStore.remove(executionId);
+    control.safeStopSink().tryEmitEmpty();
+    ControlAudit.record(
+        executionLog,
+        auditSink,
+        new AuditRecord(true, executionId, "StopWorkflowCommand", "system", reason, Instant.now()));
+  }
+
+  /**
    * Cancels the runs that are still going when the application shuts down. The scheduler has
    * already waited for them (its shutdown timeout); what is left would otherwise be abandoned
    * running.

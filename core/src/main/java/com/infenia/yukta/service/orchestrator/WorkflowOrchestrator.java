@@ -38,6 +38,7 @@ import jakarta.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -62,6 +63,12 @@ import reactor.util.context.Context;
   "PMD.UseObjectForClearerAPI"
 })
 public class WorkflowOrchestrator {
+
+  /**
+   * Reactor context key of an {@code AtomicReference<TaskStatus>} that the run sets to its final
+   * status when it ends, for a caller that waits for it.
+   */
+  public static final String END_STATUS_KEY = "endStatus";
 
   /** Log key for session ID. */
   private static final String LOG_KEY_SESSION_ID = "sessionId";
@@ -612,9 +619,15 @@ public class WorkflowOrchestrator {
             control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
         .flatMap(
             status ->
-                tracker
-                    .finishWorkflow(executionId, status)
-                    .doFinally(_ -> resultService.complete(executionId, status.name())))
+                Mono.deferContextual(
+                    ctx -> {
+                      // a caller that waits for the run (a sub-workflow) reads how it ended here
+                      ctx.<AtomicReference<TaskStatus>>getOrEmpty(END_STATUS_KEY)
+                          .ifPresent(ended -> ended.set(status));
+                      return tracker
+                          .finishWorkflow(executionId, status)
+                          .doFinally(_ -> resultService.complete(executionId, status.name()));
+                    }))
         .doOnSuccess(
             _ ->
                 log.atInfo()

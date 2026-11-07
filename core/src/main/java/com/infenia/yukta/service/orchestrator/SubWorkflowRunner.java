@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator;
 
+import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
@@ -14,7 +15,9 @@ import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -58,6 +61,7 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
           }
           final String executionId = UUID.randomUUID().toString();
           final ResultCollector collector = new ResultCollector();
+          final AtomicReference<TaskStatus> ended = new AtomicReference<>();
           final Map<String, Object> start = new HashMap<>(payload);
           start.put(DEPTH_KEY, depth);
           start.put(PARENT_KEY, parentExecutionId);
@@ -72,17 +76,23 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
                               prepared,
                               start,
                               scheduler.borrowed())
-                          .contextWrite(ctx -> ctx.put("resultCollector", collector))
+                          .contextWrite(
+                              ctx ->
+                                  ctx.put("resultCollector", collector)
+                                      .put(WorkflowOrchestrator.END_STATUS_KEY, ended))
                           // even a grandchild's failure is reported as this child's
                           .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
               // Registering and archiving the child do file work, so not on the caller's thread.
               .subscribeOn(Schedulers.boundedElastic())
-              .then(Mono.fromSupplier(() -> result(executionId, collector)));
+              .then(Mono.fromSupplier(() -> result(executionId, collector, ended.get())));
         });
   }
 
   /** What the child produced, and the outcome terminal it reached, if any. */
-  private static Result result(final String executionId, final ResultCollector collector) {
+  private static Result result(
+      final String executionId,
+      final ResultCollector collector,
+      final @Nullable TaskStatus endStatus) {
     final Map<String, Object> ended =
         collector.getCompletions().stream()
             .map(ResultCollector.Completion::metadata)
@@ -94,7 +104,8 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
     return new Result(
         executionId,
         collector.getResults().stream().<Object>map(message -> message.payload()).toList(),
-        "SUCCESS",
+        // a run that was stopped or drained completes without an error, but did not finish
+        endStatus == null ? "SUCCESS" : endStatus.name(),
         outcome == null ? null : outcome.toString(),
         reason == null ? null : reason.toString());
   }
