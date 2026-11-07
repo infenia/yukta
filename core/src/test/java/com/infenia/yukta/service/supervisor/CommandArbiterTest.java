@@ -10,6 +10,7 @@ import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.supervisor.CommandArbiter.Decision;
 import com.infenia.yukta.service.supervisor.CommandArbiter.Verdict;
 import java.time.Duration;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -199,6 +200,28 @@ class CommandArbiterTest {
     assertThat(decided(arbiter.submit("a", 1, resume("e1")))).isEqualTo(Decision.SEND);
     clock.advance(Duration.ofSeconds(120));
     assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+  }
+
+  @Test
+  void recordsOfRunsAndTargetsThatWentQuietAreForgotten() {
+    arbiter.submit("a", 1, new ExecutionControlCommand.StopWorkflowCommand("e0", null)).block();
+    assertThat(decided(arbiter.submit("a", 1, pause("e1")))).isEqualTo(Decision.SEND);
+    assertThat(decided(arbiter.submit("a", 1, resume("e1")))).isEqualTo(Decision.SEND);
+    assertThat(records("stops")).isEqualTo(1);
+    assertThat(records("flaps")).isEqualTo(1);
+
+    clock.advance(Duration.ofMinutes(10));
+    assertThat(decided(arbiter.submit("a", 1, pause("e2")))).isEqualTo(Decision.SEND);
+
+    // only the target in use is remembered: the stop of e0 and the flips on e1 aged out
+    assertThat(records("stops")).isZero();
+    assertThat(records("flaps")).isEqualTo(1);
+  }
+
+  private int records(final String field) {
+    return java.util.Objects.requireNonNull(
+            (Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(arbiter, field))
+        .size();
   }
 
   @Test
