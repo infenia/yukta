@@ -93,6 +93,36 @@ class PluginRegistryTest {
   }
 
   @Test
+  void testFindReturnsRegisteredPlugin() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn("findable");
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find("findable")).contains(mockPlugin);
+  }
+
+  @Test
+  void testFindReturnsEmptyForUnknownType() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn("registered");
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find("non-existent")).isEmpty();
+  }
+
+  @Test
+  void testFindReturnsEmptyForNullType() {
+    final Plugin mockPlugin = mock(Plugin.class);
+    when(mockPlugin.getType()).thenReturn("registered");
+
+    final PluginRegistry registry = new PluginRegistry(List.of(mockPlugin));
+
+    assertThat(registry.find(null)).isEmpty();
+  }
+
+  @Test
   void testContainsWithRegisteredType() {
     final Plugin mockPlugin = mock(Plugin.class);
     when(mockPlugin.getType()).thenReturn("registered-type");

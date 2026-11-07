@@ -9,19 +9,18 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
+import com.infenia.yukta.plugin.gateway.ExecutionLog;
+import com.infenia.yukta.plugin.gateway.PluginLookup;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
-import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import lombok.NoArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -31,17 +30,17 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @SuppressWarnings("PMD.TooManyMethods")
-@NoArgsConstructor
+@RequiredArgsConstructor
 public class LoopStreamProcessor implements ProcessorPlugin {
 
   /** Type. */
   private static final String TYPE = "LOOP_STREAM";
 
   /** Registry provider. */
-  @Autowired private ObjectProvider<PluginRegistry> registryProvider;
+  private final ObjectProvider<PluginLookup> registryProvider;
 
   /** Tracker provider. */
-  @Autowired private ObjectProvider<TaskTrackerService> trackerProvider;
+  private final ObjectProvider<ExecutionLog> trackerProvider;
 
   @Override
   public PluginDescriptor describe() {
@@ -124,13 +123,13 @@ public class LoopStreamProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String targetId = (String) config.get("targetPluginId");
-    final PluginRegistry registry = registryProvider.getIfAvailable();
+    final PluginLookup registry = registryProvider.getIfAvailable();
 
-    if (registry == null || !registry.contains(targetId)) {
+    if (registry == null || registry.find(targetId).isEmpty()) {
       return Flux.error(new IllegalArgumentException("Target plugin not found: " + targetId));
     }
 
-    final Plugin targetPlugin = registry.get(targetId);
+    final Plugin targetPlugin = registry.find(targetId).orElseThrow();
     if (!(targetPlugin instanceof ProcessorPlugin processor)) {
       return Flux.error(
           new IllegalArgumentException("Target plugin must be a ProcessorPlugin: " + targetId));
@@ -255,24 +254,24 @@ public class LoopStreamProcessor implements ProcessorPlugin {
 
   private Mono<Void> logIteration(
       final String executionId, final String nodeId, final int iteration) {
-    final TaskTrackerService tracker = trackerProvider.getIfAvailable();
+    final ExecutionLog tracker = trackerProvider.getIfAvailable();
     if (tracker == null) {
       return Mono.empty();
     }
     return tracker
-        .appendLog(executionId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
+        .append(executionId, "[Loop] Node: " + nodeId + " - Iteration " + iteration)
         .subscribeOn(Schedulers.boundedElastic());
   }
 
   private Mono<LoopState> logAndTerminate(
       final String executionId, final String nodeId, final String reason, final LoopState state) {
-    final TaskTrackerService tracker = trackerProvider.getIfAvailable();
+    final ExecutionLog tracker = trackerProvider.getIfAvailable();
     final LoopState termState = state.withTerminated(true);
     if (tracker == null) {
       return Mono.just(termState);
     }
     return tracker
-        .appendLog(executionId, "[Loop] Node: " + nodeId + " - " + reason)
+        .append(executionId, "[Loop] Node: " + nodeId + " - " + reason)
         .subscribeOn(Schedulers.boundedElastic())
         .then(Mono.just(termState));
   }

@@ -8,7 +8,6 @@ dependencies {
     api(project(":messaging"))
     implementation(project(":plugin-api"))
     testImplementation(testFixtures(project(":plugin-api")))
-    implementation(project(":core"))
     implementation(libs.spring.boot.starter.webflux)
     implementation(libs.jackson.databind)
     implementation(libs.caffeine)

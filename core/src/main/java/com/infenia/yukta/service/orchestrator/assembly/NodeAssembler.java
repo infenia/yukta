@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.model.workflow;
-
-import com.infenia.yukta.service.orchestrator.assembly.AssemblyContext;
+package com.infenia.yukta.service.orchestrator.assembly;
 
 /**
  * A functional interface for reifying a single node's reactive stream during workflow

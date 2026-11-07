@@ -7,9 +7,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.gateway.PluginLookup;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.Map;
+import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -21,17 +22,16 @@ import reactor.test.StepVerifier;
 class LoopTargetTest {
 
   /** The registry the loop asks. */
-  private final PluginRegistry registry = mock(PluginRegistry.class);
+  private final PluginLookup registry = mock(PluginLookup.class);
 
   /** Hands out the registry. */
-  private final ObjectProvider<PluginRegistry> provider = mock(ObjectProvider.class);
+  private final ObjectProvider<PluginLookup> provider = mock(ObjectProvider.class);
 
   @Test
   void processorInTheRegistryIsFound() {
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(provider.getIfAvailable()).thenReturn(registry);
-    when(registry.contains("p")).thenReturn(true);
-    when(registry.get("p")).thenReturn(processor);
+    when(registry.find("p")).thenReturn(Optional.<Plugin>of(processor));
 
     StepVerifier.create(LoopTarget.resolve(provider, Map.of("targetPluginId", "p")))
         .expectNext(processor)
@@ -48,7 +48,7 @@ class LoopTargetTest {
         .expectErrorMessage("Target plugin not found: x")
         .verify();
 
-    final ObjectProvider<PluginRegistry> none = mock(ObjectProvider.class);
+    final ObjectProvider<PluginLookup> none = mock(ObjectProvider.class);
     StepVerifier.create(LoopTarget.resolve(none, Map.of("targetPluginId", "p")))
         .expectErrorMessage("Target plugin not found: p")
         .verify();
@@ -57,8 +57,7 @@ class LoopTargetTest {
   @Test
   void pluginThatIsNotProcessorIsRefused() {
     when(provider.getIfAvailable()).thenReturn(registry);
-    when(registry.contains("t")).thenReturn(true);
-    when(registry.get("t")).thenReturn(mock(Plugin.class));
+    when(registry.find("t")).thenReturn(Optional.<Plugin>of(mock(Plugin.class)));
 
     StepVerifier.create(LoopTarget.resolve(provider, Map.of("targetPluginId", "t")))
         .expectErrorMessage("Target plugin must be a ProcessorPlugin: t")

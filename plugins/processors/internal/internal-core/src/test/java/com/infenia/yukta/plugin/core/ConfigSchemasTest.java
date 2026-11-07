@@ -75,10 +75,10 @@ class ConfigSchemasTest {
             "maxDuration",
             "delayInterval",
             "failureStrategy");
-    assertThat(names(new LoopPredicateProcessor())).isEqualTo(expected);
-    assertThat(names(new LoopStreamProcessor())).isEqualTo(expected);
-    assertThat(required(new LoopStreamProcessor())).containsExactly("targetPluginId");
-    assertThat(required(new LoopPredicateProcessor())).containsExactly("targetPluginId");
+    assertThat(names(new LoopPredicateProcessor(null, null))).isEqualTo(expected);
+    assertThat(names(new LoopStreamProcessor(null, null))).isEqualTo(expected);
+    assertThat(required(new LoopStreamProcessor(null, null))).containsExactly("targetPluginId");
+    assertThat(required(new LoopPredicateProcessor(null, null))).containsExactly("targetPluginId");
   }
 
   @Test

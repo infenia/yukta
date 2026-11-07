@@ -15,16 +15,16 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
+import com.infenia.yukta.plugin.gateway.ExecutionLog;
+import com.infenia.yukta.plugin.gateway.PluginLookup;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
-import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
-import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -67,37 +67,37 @@ class LoopPredicateProcessorTest {
   private static final String VAL = "val";
 
   /** Registry provider. */
-  @Mock private ObjectProvider<PluginRegistry> registryProvider;
+  @Mock private ObjectProvider<PluginLookup> registryProvider;
 
   /** Tracker provider. */
-  @Mock private ObjectProvider<DefaultTaskTrackerService> trackerProvider;
+  @Mock private ObjectProvider<ExecutionLog> trackerProvider;
 
   /** Registry. */
-  @Mock private PluginRegistry registry;
+  @Mock private PluginLookup registry;
 
   /** Tracker. */
-  @Mock private DefaultTaskTrackerService tracker;
+  @Mock private ExecutionLog tracker;
 
   /** Target plugin. */
   @Mock private ProcessorPlugin targetPlugin;
 
   /** Processor. */
-  @InjectMocks private LoopPredicateProcessor processor;
+  private LoopPredicateProcessor processor;
 
   @BeforeEach
   void setUp() {
+    processor = new LoopPredicateProcessor(registryProvider, trackerProvider);
     org.mockito.Mockito.lenient().when(registryProvider.getIfAvailable()).thenReturn(registry);
     org.mockito.Mockito.lenient().when(trackerProvider.getIfAvailable()).thenReturn(tracker);
     org.mockito.Mockito.lenient()
-        .when(tracker.appendLog(anyString(), anyString()))
+        .when(tracker.append(anyString(), anyString()))
         .thenReturn(Mono.empty());
   }
 
   @Test
   void testLoopStoppingViaExitCondition() {
     final String targetId = "incrementor";
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
         .thenAnswer(
@@ -130,14 +130,13 @@ class LoopPredicateProcessorTest {
         .expectNextMatches(msg -> (int) msg.payload() == 3)
         .verifyComplete();
 
-    verify(tracker, atLeastOnce()).appendLog(eq("e1"), anyString());
+    verify(tracker, atLeastOnce()).append(eq("e1"), anyString());
   }
 
   @Test
   void testLoopStoppingViaMaxIterations() {
     final String targetId = "incrementor";
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
         .thenAnswer(
@@ -169,14 +168,13 @@ class LoopPredicateProcessorTest {
         .expectNextMatches(msg -> (int) msg.payload() == 2)
         .verifyComplete();
 
-    verify(tracker).appendLog(eq("e1"), eq("[Loop] Node: n1 - Max iterations (2)"));
+    verify(tracker).append(eq("e1"), eq("[Loop] Node: n1 - Max iterations (2)"));
   }
 
   @Test
   void testEscalateFailureStrategy() {
     final String targetId = "failer";
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
         .thenReturn(Flux.error(new RuntimeException("Failure")));
@@ -200,8 +198,7 @@ class LoopPredicateProcessorTest {
 
   @Test
   void abortFromTheTargetIsNeverRetriedOrSkipped() {
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any()))
         .thenReturn(Flux.error(new RunAbortedException("budget used up")));
 
@@ -218,8 +215,7 @@ class LoopPredicateProcessorTest {
 
   @Test
   void retryRunsTheSameInputAgainUntilMaxIterations() {
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any())).thenReturn(Flux.error(new RuntimeException("fail")));
 
     StepVerifier.create(
@@ -234,8 +230,7 @@ class LoopPredicateProcessorTest {
   @Test
   void validateConfigIsPassedOnToTheTarget() {
     final Map<String, Object> targetConfig = Map.of("k", "v");
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.validateConfig(targetConfig))
         .thenReturn(Mono.error(new IllegalArgumentException("bad target config")));
 
@@ -250,8 +245,7 @@ class LoopPredicateProcessorTest {
     final Map<String, Object> targetConfig = Map.of("k", "v");
     final WorkflowContext context =
         new WorkflowContext("loop", java.util.List.of(), java.util.List.of());
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.validateInContext(context, targetConfig))
         .thenReturn(Mono.error(new IllegalStateException("bad wiring")));
 
@@ -264,7 +258,7 @@ class LoopPredicateProcessorTest {
 
   @Test
   void validateConfigRejectsAnUnknownTarget() {
-    when(registry.contains(MISSING)).thenReturn(false);
+    when(registry.find(MISSING)).thenReturn(Optional.empty());
 
     StepVerifier.create(processor.validateConfig(Map.of(TARGETPLUGINID, MISSING)))
         .expectError(IllegalArgumentException.class)
@@ -276,8 +270,7 @@ class LoopPredicateProcessorTest {
     final Map<String, Object> targetConfig = Map.of("k", "v");
     final Map<String, Object> config =
         Map.of(TARGETPLUGINID, TARGET, TARGETCONFIG, targetConfig, EXITCONDITION, "true");
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.initialize(targetConfig)).thenReturn(Mono.empty());
     when(targetPlugin.prepare(targetConfig)).thenReturn(Mono.empty());
 
@@ -302,8 +295,7 @@ class LoopPredicateProcessorTest {
 
   @Test
   void testPrepare() {
-    when(registry.contains(TARGET)).thenReturn(true);
-    when(registry.get(TARGET)).thenReturn(targetPlugin);
+    when(registry.find(TARGET)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.prepare(Map.of())).thenReturn(Mono.empty());
 
     StepVerifier.create(processor.prepare(Map.of(TARGETPLUGINID, TARGET, EXITCONDITION, "true")))
@@ -312,7 +304,7 @@ class LoopPredicateProcessorTest {
 
   @Test
   void testPluginNotFound() {
-    when(registry.contains(MISSING)).thenReturn(false);
+    when(registry.find(MISSING)).thenReturn(Optional.empty());
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
@@ -323,8 +315,8 @@ class LoopPredicateProcessorTest {
 
   @Test
   void testNotProcessor() {
-    when(registry.contains("trigger")).thenReturn(true);
-    when(registry.get("trigger")).thenReturn(org.mockito.Mockito.mock(Plugin.class));
+    when(registry.find("trigger"))
+        .thenReturn(Optional.<Plugin>of(org.mockito.Mockito.mock(Plugin.class)));
     StepVerifier.create(
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
@@ -336,8 +328,7 @@ class LoopPredicateProcessorTest {
   @Test
   void testFailureStrategies() {
     final String targetId = TARGET;
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any())).thenReturn(Flux.error(new RuntimeException("fail")));
 
     // SKIP
@@ -371,8 +362,7 @@ class LoopPredicateProcessorTest {
   @Test
   void testMaxDuration() {
     final String targetId = TARGET;
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any()))
         .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
@@ -395,8 +385,7 @@ class LoopPredicateProcessorTest {
   @Test
   void testEmptyExitCondition() {
     final String targetId = TARGET;
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any()))
         .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
@@ -411,8 +400,7 @@ class LoopPredicateProcessorTest {
   void testMissingTracker() {
     org.mockito.Mockito.lenient().when(trackerProvider.getIfAvailable()).thenReturn(null);
     final String targetId = TARGET;
-    when(registry.contains(targetId)).thenReturn(true);
-    when(registry.get(targetId)).thenReturn(targetPlugin);
+    when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
     when(targetPlugin.process(any(), any()))
         .thenReturn(Flux.just(DefaultMessage.create(UUID.randomUUID(), VAL)));
 
