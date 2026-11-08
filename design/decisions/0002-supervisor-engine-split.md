@@ -39,3 +39,11 @@ Contract details settled in S0 (recorded in the page and the plan): `notify` is 
 - **Saving a workflow definition can fail** because of supervisor overlap. The error names the supervisor and the nodes.
 - **Trust.** In-JVM engines are trusted code and may depend on `plugin-api` only (an ArchUnit rule). `http`, `callout` and `process` engines are untrusted and reach the server only through directives.
 - **One choke point** (`SupervisedControl`, S1) and an ArchUnit rule make a new bypass fail the build.
+
+## Decisions made while building S2 (2026-11-08)
+
+- **E1** No `global` target. A lenient default supervisor covers unowned work and can be switched off (`yukta.supervisor.default.enabled=false`); a legacy `Global` attachment migrates to no assignment with a WARN.
+- **E2** Bean and property supervisors stop reviewing (replaced by engines in S4).
+- **E3** Migrated supervisors get `operatorAccess = NONE`, like new ones.
+- **E4** `group:<name>` reuses `Node.group` (display stage, else the id prefix); no new `groups` map.
+- **E5** The S8a UI waits for reviewed artboards.

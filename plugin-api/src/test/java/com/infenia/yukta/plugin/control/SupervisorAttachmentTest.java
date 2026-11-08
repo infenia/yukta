@@ -27,7 +27,17 @@ class SupervisorAttachmentTest {
   @Test
   void badScopesAreRejected() {
     for (final String bad :
-        new String[] {null, "", "everything", "session:", "run:x", "workflow:/w", "workflow:a/"}) {
+        new String[] {
+          null,
+          "",
+          "everything",
+          "session:",
+          "run:",
+          "run:/w",
+          "servers",
+          "workflow:/w",
+          "workflow:a/"
+        }) {
       assertThatThrownBy(() -> SupervisorScope.parse(bad))
           .isInstanceOf(IllegalArgumentException.class);
     }

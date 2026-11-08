@@ -23,6 +23,18 @@ Status (2026-11-08): **proposal**, nothing built. The "today" statements were re
 | D13 | Bulk targets and hold ledger | **In contract v1**: command selectors (`owned.running`, `workflow:<id>`, `node:<ids>`) and `resume held`. |
 | D14 | Timed rules | The `rules` engine **may initiate** through timed rules (`every` with `read.*`), under the same limits. |
 
+## Decisions made while building S2 (2026-11-08)
+
+These settle questions the plan left open. They win over the text above where they differ.
+
+| # | Question | Decision |
+|---|---|---|
+| E1 | What does a legacy `Global` attachment become? | **Nothing owns "everything".** There is no `global` target. The lenient default supervisor (`operator-gateway`) covers whatever nobody owns, and `yukta.supervisor.default.enabled=false` turns it off for production: then each workflow must define its supervisor, and a workflow without one runs with no supervisor and cannot be controlled by operators. A legacy `Global` attachment is migrated to no assignment and a WARN names it; the administrator assigns it. |
+| E2 | Bean and property supervisors (`rule-supervisor` via `yukta.supervisor.rules.file`, control-plane beans) | **They stop reviewing.** They own nothing, so under owner-only review they review nothing. They are replaced by engines in S4. |
+| E3 | `operatorAccess` of migrated supervisors | **`NONE`**, the same as new ones. After the upgrade, a person gets `409 CONTROLLED_BY_SUPERVISOR` on a workflow that has an owner until the administrator lists commands in `operatorAccess`. |
+| E4 | Groups | **Reuse `Node.group`**, the stage a node already declares (or, without one, the part of its id before the first dot). `group:<name>` selects the nodes of that group. No second `groups` map, so versions, diff, export, import, templates and the MCP guide need no change. A node has one group, so "two groups share a node" shows up as a `group:` selector and a prefix or id selector from two supervisors that take the same node. |
+| E5 | UI | S8a waits for the S8 artboards (#2153) to be reviewed; the artboards are produced next, in parallel with the S2 backend. |
+
 ## Principles
 
 1. **Yukta is neutral.** It runs no policy of its own. An engine can be a few rules, a program, an AI agent or a person at a console.

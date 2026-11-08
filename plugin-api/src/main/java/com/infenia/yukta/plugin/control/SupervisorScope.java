@@ -29,7 +29,8 @@ public sealed interface SupervisorScope {
 
   /** Message for a scope text that cannot be read. */
   String BAD_SCOPE =
-      "Scope must be global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a"
+      "Scope must be global, server, session:<id>, workflow:<id>,"
+          + " workflow:<sessionId>/<workflowId>, run:<id> or run:<sessionId>/<workflowId>, or a"
           + " section workflow:[<sessionId>/]<workflowId>//<selector>,<selector> where a selector"
           + " is a node id or <prefix>.* (1 to 50 selectors, each at most 256 characters, no"
           + " comma)";
@@ -43,7 +44,11 @@ public sealed interface SupervisorScope {
     /** The runs of one workflow. */
     WORKFLOW,
     /** Some nodes of the runs of one workflow. */
-    SECTION
+    SECTION,
+    /** The run level of one workflow: start, pause, resume, stop, restart, priority. */
+    RUN,
+    /** The server: scheduler limits and drain. */
+    SERVER
   }
 
   /**
@@ -122,6 +127,8 @@ public sealed interface SupervisorScope {
   default String key() {
     return switch (this) {
       case Global _ -> "global";
+      case Server _ -> "server";
+      case Run run -> "run:" + ids(run.sessionId(), run.workflowId());
       case Session session -> "session:" + session.sessionId();
       case Workflow workflow -> workflowKey(workflow.sessionId(), workflow.workflowId());
       case Section section ->
@@ -132,9 +139,11 @@ public sealed interface SupervisorScope {
   }
 
   private static String workflowKey(final @Nullable String sessionId, final String workflowId) {
-    return sessionId == null
-        ? "workflow:" + workflowId
-        : "workflow:" + sessionId + "/" + workflowId;
+    return "workflow:" + ids(sessionId, workflowId);
+  }
+
+  private static String ids(final @Nullable String sessionId, final String workflowId) {
+    return sessionId == null ? workflowId : sessionId + "/" + workflowId;
   }
 
   /**
@@ -152,6 +161,11 @@ public sealed interface SupervisorScope {
     final String id = parts.length == 2 ? parts[1] : "";
     return switch (parts[0]) {
       case "global" -> new Global();
+      case "server" -> new Server();
+      case "run" -> {
+        final Workflow workflow = workflowScope(requireId(id));
+        yield new Run(Objects.requireNonNull(workflow.workflowId()), workflow.sessionId());
+      }
       case "session" -> new Session(requireId(id));
       case "workflow" -> workflowOrSection(requireId(id));
       default -> throw new IllegalArgumentException(BAD_SCOPE);
@@ -190,6 +204,83 @@ public sealed interface SupervisorScope {
       return new Workflow(id, null);
     }
     return new Workflow(requireId(id.substring(slash + 1)), requireId(id.substring(0, slash)));
+  }
+
+  /**
+   * The run level of one workflow: the commands and events that are about the run as a whole, and
+   * no node. It is the part of a {@link Workflow} that a {@link Section} never covers, so a
+   * workflow can be split between a run owner and node owners.
+   *
+   * @param workflowId the workflow
+   * @param sessionId the session that owns it; {@code null} for the workflow of that id in any
+   *     session
+   */
+  record Run(String workflowId, @Nullable String sessionId) implements SupervisorScope {
+
+    /** Rejects a missing workflow id. */
+    public Run {
+      Objects.requireNonNull(workflowId, "workflowId");
+    }
+
+    @Override
+    public Kind kind() {
+      return Kind.RUN;
+    }
+
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId, final @Nullable String runWorkflowId) {
+      return workflowId.equals(runWorkflowId)
+          && (sessionId == null || sessionId.equals(runSessionId));
+    }
+
+    /** Only the run level: an item about a node is not the run owner's. */
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId,
+        final @Nullable String runWorkflowId,
+        final @Nullable String nodeId) {
+      return nodeId == null && matches(runSessionId, runWorkflowId);
+    }
+
+    /** Covers the run level of its workflow, not its nodes. */
+    @Override
+    public boolean covers(final SupervisorScope other) {
+      return other instanceof Run run
+          && workflowId.equals(run.workflowId())
+          && (sessionId == null || sessionId.equals(run.sessionId()));
+    }
+  }
+
+  /** The server: the commands that belong to no run, such as scheduler limits and drain. */
+  record Server() implements SupervisorScope {
+
+    @Override
+    public Kind kind() {
+      return Kind.SERVER;
+    }
+
+    @Override
+    public @Nullable String sessionId() {
+      return null;
+    }
+
+    @Override
+    public @Nullable String workflowId() {
+      return null;
+    }
+
+    /** Only an item that belongs to no run. */
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId, final @Nullable String runWorkflowId) {
+      return runSessionId == null && runWorkflowId == null;
+    }
+
+    @Override
+    public boolean covers(final SupervisorScope other) {
+      return other instanceof Server;
+    }
   }
 
   /** Every run, and the commands that belong to no run. */

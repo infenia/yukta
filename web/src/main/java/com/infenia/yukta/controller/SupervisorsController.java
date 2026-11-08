@@ -576,7 +576,8 @@ public class SupervisorsController {
     return switch (scope.kind()) {
       case GLOBAL -> true;
       case SESSION -> session != null && session.equals(scopeSession);
-      case WORKFLOW, SECTION ->
+      case SERVER -> false;
+      case WORKFLOW, RUN, SECTION ->
           workflow == null
               ? scopeSession != null && scopeSession.equals(session)
               : workflow.equals(scopeWorkflow)
