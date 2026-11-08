@@ -32,11 +32,7 @@ import reactor.core.publisher.Mono;
  * Runs other supervisors as one. The children are not bound separately, so nothing is subscribed
  * twice and the composite has one id and one scope (the attachment's).
  */
-@SuppressWarnings({
-  "PMD.AvoidFieldNameMatchingMethodName",
-  "PMD.CouplingBetweenObjects",
-  "PMD.TooManyMethods"
-})
+@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.CouplingBetweenObjects"})
 public final class CompositeSupervisor implements ExecutionSupervisor {
 
   /** How long one child may take to review. */

@@ -73,7 +73,7 @@ class EngineRunnerTest {
   }
 
   @Test
-  void aRepeatedKeyIsAppliedOnceAndGetsTheFirstResult() {
+  void repeatedKeyIsAppliedOnceAndGetsTheFirstResult() {
     final SupervisorEngine engine =
         signals -> signals.flatMap(_ -> Flux.just(pause("same", "e"), pause("same", "e")));
 
@@ -84,7 +84,7 @@ class EngineRunnerTest {
   }
 
   @Test
-  void aCommandForAUnitTheSupervisorDoesNotOwnIsRefusedAndNotApplied() {
+  void commandForUnitTheSupervisorDoesNotOwnIsRefusedAndNotApplied() {
     final SupervisorEngine engine = signals -> signals.map(_ -> pause("k2", "e"));
 
     StepVerifier.create(runner(engine, false, "other-workflow").run(oneSignal())).verifyComplete();
@@ -120,7 +120,7 @@ class EngineRunnerTest {
   }
 
   @Test
-  void aCommandThatCannotBeAppliedIsReportedNotFoundAndTheRunnerCarriesOn() {
+  void commandThatCannotBeAppliedIsReportedNotFoundAndTheRunnerCarriesOn() {
     final SupervisorEngine engine =
         signals -> signals.flatMap(_ -> Flux.just(pause("a", "e"), pause("b", "e")));
     final EngineRunner failing =

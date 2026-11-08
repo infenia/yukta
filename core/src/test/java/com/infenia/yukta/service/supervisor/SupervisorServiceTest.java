@@ -299,7 +299,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aWorkflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
+  void workflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), true)))
@@ -313,7 +313,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aSessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
+  void sessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Session("s"), true)))
@@ -326,7 +326,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void overlappingPrefixesAndAnIdUnderAPrefixAreRefused() {
+  void overlappingPrefixesAndIdUnderPrefixAreRefused() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(
@@ -382,7 +382,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aDisabledAttachmentOwnsNothingAndASupervisorMayHoldSeveralOfItsOwn() {
+  void disabledAttachmentOwnsNothingAndSupervisorMayHoldSeveralOfItsOwn() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), false)))
@@ -420,7 +420,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aSupervisorMayReportToSeveralStoredParents() {
+  void supervisorMayReportToSeveralStoredParents() {
     saveSupervisors("p1", "p2");
 
     StepVerifier.create(service.saveSupervisor(withParents("child", "p1", "p2")))
@@ -429,7 +429,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aMissingParentASelfReferenceACycleAndTooManyLevelsAreRefusedAtSave() {
+  void missingParentSelfReferenceCycleAndTooManyLevelsAreRefusedAtSave() {
     saveSupervisors("a");
     StepVerifier.create(service.saveSupervisor(withParents("x", "ghost")))
         .expectError(IllegalArgumentException.class)
@@ -455,7 +455,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aParentCannotBeDeletedWhileSupervisorsReportToIt() {
+  void parentCannotBeDeletedWhileSupervisorsReportToIt() {
     saveSupervisors("boss");
     StepVerifier.create(service.saveSupervisor(withParents("worker", "boss")))
         .expectNextCount(1)
@@ -607,7 +607,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void restoreKeepsTheFirstOwnerOfAUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
+  void restoreKeepsTheFirstOwnerOfUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
     store.saveSupervisor(supervisor("a")).block();
     store.saveSupervisor(supervisor("b")).block();
     store

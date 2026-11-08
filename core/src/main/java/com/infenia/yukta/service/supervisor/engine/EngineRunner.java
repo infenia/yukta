@@ -30,24 +30,6 @@ import reactor.util.retry.Retry;
 @Slf4j
 public final class EngineRunner implements AutoCloseable {
 
-  /** Where a command lands. */
-  public record Target(
-      @Nullable String sessionId, @Nullable String workflowId, @Nullable String nodeId) {}
-
-  /**
-   * What became of one command.
-   *
-   * @param key the idempotency key
-   * @param outcome the outcome when it was applied, else {@code null}
-   * @param rejection why the gate refused it, else {@code null}
-   * @param recordOnly whether it was only recorded (dry run)
-   */
-  public record Result(
-      String key,
-      @Nullable Outcome outcome,
-      DirectiveGate.@Nullable Rejection rejection,
-      boolean recordOnly) {}
-
   /** Most keys remembered per runner. */
   private static final int REMEMBERED_KEYS = 1000;
 
@@ -71,6 +53,24 @@ public final class EngineRunner implements AutoCloseable {
               return size() > REMEMBERED_KEYS;
             }
           });
+
+  /** Where a command lands. */
+  public record Target(
+      @Nullable String sessionId, @Nullable String workflowId, @Nullable String nodeId) {}
+
+  /**
+   * What became of one command.
+   *
+   * @param key the idempotency key
+   * @param outcome the outcome when it was applied, else {@code null}
+   * @param rejection why the gate refused it, else {@code null}
+   * @param recordOnly whether it was only recorded (dry run)
+   */
+  public record Result(
+      String key,
+      @Nullable Outcome outcome,
+      DirectiveGate.@Nullable Rejection rejection,
+      boolean recordOnly) {}
 
   /**
    * Creates the runner.
@@ -148,16 +148,7 @@ public final class EngineRunner implements AutoCloseable {
 
   private Mono<Result> gated(final Directive.Command command, final Target target) {
     final DirectiveGate.Decision decision =
-        gate.check(
-            supervisorId,
-            command,
-            target.sessionId(),
-            target.workflowId(),
-            target.nodeId(),
-            capabilities,
-            scope,
-            true,
-            dryRun);
+        gate.check(supervisorId, command, target, capabilities, scope, true, dryRun);
     if (!decision.accepted()) {
       return Mono.just(
           new Result(

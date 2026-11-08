@@ -87,6 +87,14 @@ public class SupervisorService {
   /** Attaches in progress, so the limit holds when several run at once. */
   private final AtomicInteger attaching = new AtomicInteger();
 
+  /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
+  public static final String GROUPS_NOT_YET =
+      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
+          + " such as build.*";
+
+  /** Start of the messages about one supervisor. */
+  private static final String SUPERVISOR_PREFIX = "Supervisor ";
+
   /** Where supervisors and attachments are kept. */
   private final SupervisorStore store;
 
@@ -99,10 +107,10 @@ public class SupervisorService {
   /** Records attach and detach. */
   private final ExecutionLogStore executionLog;
 
-  /** Attachments the last restore started. */
   /** The stored workflow definitions, to match selectors against real nodes; none without it. */
   private @Nullable WorkflowDefinitionStore definitions;
 
+  /** Attachments the last restore started. */
   private final AtomicInteger restored = new AtomicInteger();
 
   /** Attachments the last restore could not start. */
@@ -251,9 +259,13 @@ public class SupervisorService {
             all -> {
               final List<OwnershipValidator.Claim> kept = new ArrayList<>();
               final List<SupervisorAttachment> losers = new ArrayList<>();
-              for (final SupervisorAttachment attachment : all) {
-                final var claim =
-                    new OwnershipValidator.Claim(attachment.supervisorId(), attachment.scope());
+              final List<OwnershipValidator.Claim> claims =
+                  all.stream()
+                      .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
+                      .toList();
+              for (int i = 0; i < all.size(); i++) {
+                final SupervisorAttachment attachment = all.get(i);
+                final var claim = claims.get(i);
                 final var conflicts = validator.conflicts(claim, kept);
                 if (conflicts.isEmpty()) {
                   kept.add(claim);
@@ -458,7 +470,7 @@ public class SupervisorService {
                       ? Mono.<Void>empty()
                       : Mono.error(
                           new ConflictException(
-                              "Supervisor " + id + " is a child of composite " + composites));
+                              SUPERVISOR_PREFIX + id + " is a child of composite " + composites));
                 }))
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
@@ -476,7 +488,8 @@ public class SupervisorService {
               return children.isEmpty()
                   ? Mono.<Void>empty()
                   : Mono.error(
-                      new ConflictException("Supervisor " + id + " is the parent of " + children));
+                      new ConflictException(
+                          SUPERVISOR_PREFIX + id + " is the parent of " + children));
             });
   }
 
@@ -493,7 +506,7 @@ public class SupervisorService {
                         ? Mono.<Void>empty()
                         : Mono.error(
                             new ConflictException(
-                                "Supervisor "
+                                SUPERVISOR_PREFIX
                                     + id
                                     + " is declared by "
                                     + String.join(", ", users)
@@ -508,7 +521,8 @@ public class SupervisorService {
         .flatMap(
             used ->
                 used
-                    ? Mono.error(new ConflictException("Supervisor " + id + " is still attached"))
+                    ? Mono.error(
+                        new ConflictException(SUPERVISOR_PREFIX + id + " is still attached"))
                     : store.deleteSupervisor(id))
         .flatMap(
             existed ->
@@ -535,11 +549,6 @@ public class SupervisorService {
   public void setDefinitions(final WorkflowDefinitionStore workflowDefinitions) {
     this.definitions = workflowDefinitions;
   }
-
-  /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
-  public static final String GROUPS_NOT_YET =
-      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
-          + " such as build.*";
 
   /** Whether a scope is a section with a {@code group:} selector. */
   public static boolean usesGroups(final SupervisorScope scope) {
@@ -679,8 +688,7 @@ public class SupervisorService {
                   .find(key.substring(0, slash), key.substring(slash + 1))
                   .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
             })
-        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .map(shapes -> (Map<String, WorkflowShape>) shapes);
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
   /** Puts the host back to what the store holds for a attachment when saving it failed. */

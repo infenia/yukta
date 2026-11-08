@@ -64,11 +64,12 @@ class DirectiveGateTest {
       final SupervisorCapabilities caps,
       final boolean enabled,
       final boolean dry) {
-    return gate.check("sup", command, session, "w", null, caps, OWNS, enabled, dry);
+    return gate.check(
+        "sup", command, new EngineRunner.Target(session, "w", null), caps, OWNS, enabled, dry);
   }
 
   @Test
-  void aReactionToAnEventOnAnOwnedUnitNeedsNoReason() {
+  void reactionToAnEventOnOwnedUnitNeedsNoReason() {
     final var decision =
         check(pause(Cause.event("e1"), null), "s", caps(Set.of(), 10), true, false);
     assertThat(decision.accepted()).isTrue();
@@ -76,7 +77,7 @@ class DirectiveGateTest {
   }
 
   @Test
-  void aDisabledSupervisorACommandItMayNotSendAndATargetItDoesNotOwnAreRefused() {
+  void disabledSupervisorCommandItMayNotSendAndTargetItDoesNotOwnIsRefused() {
     assertThat(
             check(pause(Cause.event("e"), null), "s", caps(Set.of(), 10), false, false).rejection())
         .isEqualTo(Rejection.DISABLED);
@@ -95,7 +96,7 @@ class DirectiveGateTest {
   }
 
   @Test
-  void aCommandWithNoTriggerNeedsAReasonAndAnEntryInTheInitiativeList() {
+  void commandWithNoTriggerNeedsReasonAndEntryInTheInitiativeList() {
     assertThat(
             check(
                     pause(Cause.initiative(), " "),

@@ -26,7 +26,7 @@ class SupervisionControllerTest {
   }
 
   @Test
-  void aNodeAsksForItsNodeCommands() {
+  void nodeAsksForItsNodeCommands() {
     when(reviewer.capability(
             org.mockito.ArgumentMatchers.eq("s"),
             org.mockito.ArgumentMatchers.eq("w"),
@@ -54,7 +54,7 @@ class SupervisionControllerTest {
   }
 
   @Test
-  void aRunFoundByItsExecutionAsksForRunCommandsOfItsWorkflow() {
+  void runFoundByItsExecutionAsksForRunCommandsOfItsWorkflow() {
     when(controlBus.getCurrentProgress("e1"))
         .thenReturn(
             com.infenia.yukta.testing.Fixtures.workflowProgress(

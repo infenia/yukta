@@ -47,7 +47,7 @@ class DelegationChainTest {
   }
 
   @Test
-  void orderedFallsThroughASilentAndASlowParentToTheFirstAnswer() {
+  void orderedFallsThroughSilentAndSlowParentToTheFirstAnswer() {
     final var ask = parents(Map.of("a", silent(), "b", Mono.never(), "c", allow(), "d", deny()));
 
     StepVerifier.create(
@@ -62,7 +62,7 @@ class DelegationChainTest {
   }
 
   @Test
-  void orderedRefusalIsFinalEvenWhenALaterParentWouldAllow() {
+  void orderedRefusalIsFinalEvenWhenLaterParentWouldAllow() {
     final var ask = parents(Map.of("a", deny(), "b", allow()));
 
     StepVerifier.create(
@@ -89,7 +89,7 @@ class DelegationChainTest {
   }
 
   @Test
-  void allWithOneSilentOrSlowParentGoesToAPerson() {
+  void allWithOneSilentOrSlowParentGoesToPerson() {
     StepVerifier.create(
             DelegationChain.resolve(
                 mode(DelegationMode.ALL),
@@ -146,7 +146,7 @@ class DelegationChainTest {
   }
 
   @Test
-  void noParentsAllSilentOrFailingParentsGoToAPersonWithTheChainRecorded() {
+  void noParentsAllSilentOrFailingParentsGoToPersonWithTheChainRecorded() {
     for (final DelegationMode m : DelegationMode.values()) {
       StepVerifier.create(DelegationChain.resolve(mode(m), List.of(), parents(Map.of())))
           .assertNext(
@@ -171,7 +171,7 @@ class DelegationChainTest {
   }
 
   @Test
-  void aDelegationNeedsAPositiveTimeout() {
+  void delegationNeedsPositiveTimeout() {
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () -> new Delegation(DelegationMode.ANY, Duration.ZERO))
         .isInstanceOf(IllegalArgumentException.class);

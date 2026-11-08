@@ -111,7 +111,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void aParentThatAllowsLetsTheCommandThroughWithoutAPerson() {
+  void parentThatAllowsLetsTheCommandThroughWithoutPerson() {
     final Supervisor child = shell("child", Map.of(), "boss");
     known(child, shell("boss", Map.of()));
     owner(needing(InputRisk.LOW), child);
@@ -121,7 +121,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void aParentThatRefusesEndsItAndNamesItself() {
+  void parentThatRefusesEndsItAndNamesItself() {
     final Supervisor child = shell("child", Map.of(), "boss");
     known(child, shell("boss", Map.of()));
     owner(needing(InputRisk.LOW), child);
@@ -138,7 +138,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void aParentThatIsNotRunningIsSilentSoAPersonDecidesAndTheChainIsRecorded() {
+  void parentThatIsNotRunningIsSilentSoPersonDecidesAndChainIsRecorded() {
     final Supervisor child = shell("child", Map.of(), "boss");
     known(child, shell("boss", Map.of()));
     owner(needing(InputRisk.LOW), child);
@@ -154,7 +154,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void aHighRiskNeedGoesStraightToAPersonAndNoParentIsAsked() {
+  void highRiskNeedGoesStraightToPersonAndNoParentIsAsked() {
     final Supervisor child = shell("child", Map.of(), "boss");
     known(child, shell("boss", Map.of()));
     owner(needing(InputRisk.HIGH), child);
@@ -168,7 +168,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void anOwnerWithoutParentsKeepsItsNeedForAPerson() {
+  void ownerWithoutParentsKeepsItsNeedForPerson() {
     final Supervisor child = shell("child", Map.of());
     known(child);
     owner(needing(InputRisk.LOW), child);
@@ -203,7 +203,7 @@ class ControlReviewerParentsTest {
   }
 
   @Test
-  void aSiblingThatIsNotAParentIsNeverAsked() {
+  void siblingThatIsNotParentIsNeverAsked() {
     final Supervisor child = shell("child", Map.of(), "boss");
     known(child, shell("boss", Map.of()), shell("sibling", Map.of()));
     owner(needing(InputRisk.LOW), child);

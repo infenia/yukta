@@ -59,6 +59,9 @@ public record SupervisorCapabilities(
   /** Setting: whether the supervisor sees the events of internal sessions its scope names. */
   public static final String OBSERVE_INTERNAL = "observeInternal";
 
+  /** The fewest commands without a triggering signal a minute that may be allowed. */
+  private static final int LEAST_INITIATIVE_PER_MINUTE = 1;
+
   /** The names of the command types, which an {@code allowedCommands} setting must come from. */
   private static final Set<String> KNOWN_COMMANDS =
       Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
@@ -87,7 +90,7 @@ public record SupervisorCapabilities(
     Objects.requireNonNull(maxRisk, "maxRisk");
     operatorAccess = operatorAccess == null ? Set.of() : Set.copyOf(operatorAccess);
     initiative = initiative == null ? Set.of() : Set.copyOf(initiative);
-    if (maxInitiativePerMinute < 1) {
+    if (maxInitiativePerMinute < LEAST_INITIATIVE_PER_MINUTE) {
       throw new IllegalArgumentException(MAX_INITIATIVE_PER_MINUTE + " must be at least 1");
     }
   }
