@@ -19,7 +19,6 @@ import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
@@ -75,9 +74,6 @@ public class SessionService {
    * @param internal the lookup
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared lookup, which is meant to be held")
   public void setInternalSessions(final InternalSessions internal) {
     this.internalSessions = internal;
   }
@@ -88,9 +84,6 @@ public class SessionService {
    * @param declared the reconciler
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setDefinitionSupervisors(final DefinitionSupervisors declared) {
     this.definitionSupervisors = declared;
   }
@@ -128,9 +121,6 @@ public class SessionService {
    * @param supervisorService the service that attaches supervisors
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setSupervisors(final SupervisorService supervisorService) {
     this.supervisors = supervisorService;
   }

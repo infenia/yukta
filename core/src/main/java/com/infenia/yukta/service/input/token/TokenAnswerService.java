@@ -60,7 +60,6 @@ public class TokenAnswerService {
    * @param controlBus sends the answer
    * @param meters registry for the metrics
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public TokenAnswerService(
       final InputBroker broker,
       final AnswerTokens tokens,

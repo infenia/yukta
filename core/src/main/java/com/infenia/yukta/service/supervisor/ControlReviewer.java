@@ -10,7 +10,6 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.input.InputRisk;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -77,9 +76,6 @@ public class ControlReviewer {
    * @param attachedSupervisors the set
    */
   @Autowired
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setAttachedSupervisors(final AttachedSupervisors attachedSupervisors) {
     this.attached = attachedSupervisors;
   }
@@ -168,19 +164,21 @@ public class ControlReviewer {
         });
   }
 
-  /** One supervisor's answer, within the time limit; an error is a refusal. */
+  /** One supervisor's answer, within the time limit; an error or nothing answers as a timeout. */
   private Mono<Decision> decide(
       final ExecutionSupervisor supervisor, final ControlRequest request) {
     return Mono.defer(() -> supervisor.review(request))
         .timeout(
             timeout, Mono.fromSupplier(() -> fallback(supervisor, request, "review timed out")))
+        .switchIfEmpty(
+            Mono.fromSupplier(() -> fallback(supervisor, request, "review returned nothing")))
         .onErrorResume(
             error -> {
               log.atWarn()
                   .setCause(error)
                   .addKeyValue("supervisor", supervisor.id())
                   .log("Supervisor review failed");
-              return Mono.just(Decision.deny("review failed"));
+              return Mono.just(fallback(supervisor, request, "review failed"));
             })
         .map(decision -> dryRunned(supervisor, request, decision));
   }

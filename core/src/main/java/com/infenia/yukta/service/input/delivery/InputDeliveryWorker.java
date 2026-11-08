@@ -12,7 +12,6 @@ import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.input.token.AnswerTokens;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.LeaderTimer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -131,7 +130,6 @@ public class InputDeliveryWorker implements SmartLifecycle {
    * @param interval how often due deliveries are looked for
    * @param scheduler runs the timer
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   @SuppressWarnings("PMD.ExcessiveParameterList")
   public InputDeliveryWorker(
       final InputRequestStore store,

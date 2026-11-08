@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.workflow.store;
 
+import com.github.benmanes.caffeine.cache.Ticker;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
@@ -15,5 +16,10 @@ public final class PreparedWorkflowCacheFixture {
   /** A PreparedWorkflowCache with the default for what the parameters leave out. */
   public static PreparedWorkflowCache create(final long ttlMs) {
     return new PreparedWorkflowCache(ttlMs, 1_000, new SimpleMeterRegistry());
+  }
+
+  /** A PreparedWorkflowCache whose clock the test moves. */
+  public static PreparedWorkflowCache create(final long ttlMs, final Ticker ticker) {
+    return new PreparedWorkflowCache(ttlMs, 1_000, new SimpleMeterRegistry(), ticker);
   }
 }

@@ -22,7 +22,6 @@ import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.service.supervisor.ReviewVerdict;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.time.Instant;
 import java.util.Set;
@@ -99,7 +98,6 @@ public class DirectiveDispatcher {
    * @param reviewer lets supervisors refuse a command before it runs
    * @param eventFeed receives the outcome of every command
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DirectiveDispatcher(
       final CommandHandler handler,
       final ExecutionControlStore registry,
@@ -145,9 +143,6 @@ public class DirectiveDispatcher {
    * @param parked the parked commands
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setParkedCommands(final ParkedCommands parked) {
     this.parkedCommands = parked;
   }

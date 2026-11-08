@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.Clock;
@@ -162,7 +163,10 @@ public class RunAnalytics {
     // own thread and buffer: a dashboard query holding the lock must not stall the tracker
     subscription =
         feed.events()
-            .onBackpressureBuffer(10_000, _ -> {}, BufferOverflowStrategy.DROP_LATEST)
+            .onBackpressureBuffer(
+                10_000,
+                _ -> Metrics.counter("yukta.tracker.dropped", "kind", "analytics").increment(),
+                BufferOverflowStrategy.DROP_LATEST)
             .publishOn(Schedulers.single())
             .subscribe(this::accept);
   }

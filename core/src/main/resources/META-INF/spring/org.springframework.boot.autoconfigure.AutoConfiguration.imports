@@ -1,3 +1,4 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 com.infenia.yukta.startup.DefaultsAutoConfiguration
+com.infenia.yukta.logging.impl.memory.LogStoreAutoConfiguration

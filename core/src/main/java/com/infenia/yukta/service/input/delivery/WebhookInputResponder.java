@@ -6,7 +6,6 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponder;
 import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.service.input.token.AnswerTokens;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.HexFormat;
@@ -70,7 +69,6 @@ public class WebhookInputResponder implements InputResponder {
    * @param environment the settings
    * @param json writes the body
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public WebhookInputResponder(
       final WebClient.Builder builder,
       final EgressPolicy egress,

@@ -126,7 +126,7 @@ class CompositeEdgeCasesTest {
   }
 
   @Test
-  void emptyReviewsAllowAndAllDenyingAnyDenies() {
+  void emptyReviewsDenyAndAllDenyingAnyDenies() {
     final var empty = new Plain(0, Mono.empty());
     final var deny = new Plain(0, Mono.just(Decision.deny("no")));
     for (final ReviewMode mode : ReviewMode.values()) {
@@ -137,7 +137,7 @@ class CompositeEdgeCasesTest {
               new CompositeSupervisor(
                       "c", settings, List.of("a"), List.of(empty), Clock.systemUTC())
                   .review(REQUEST))
-          .expectNext(Decision.ALLOW)
+          .assertNext(decision -> assertThat(decision.allowed()).isFalse())
           .verifyComplete();
     }
     final var any =

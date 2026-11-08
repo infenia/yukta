@@ -50,4 +50,10 @@
     <Class name="com.infenia.yukta.logging.impl.file.FileSystemPluginLogReader"/>
     <Bug pattern="NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE"/>
   </Match>
+
+  <!-- Spring injects shared beans through constructors and setters that are meant to be held;
+       the pattern is a false positive there. EI_EXPOSE_REP (returned state) stays on. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

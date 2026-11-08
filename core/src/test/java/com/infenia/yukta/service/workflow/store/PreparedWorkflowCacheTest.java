@@ -132,16 +132,18 @@ class PreparedWorkflowCacheTest {
   }
 
   @Test
-  void accessResetsLastAccessTimeAndSurvivesTtl() throws InterruptedException {
+  void accessResetsLastAccessTimeAndSurvivesTtl() {
+    final java.util.concurrent.atomic.AtomicLong nanos =
+        new java.util.concurrent.atomic.AtomicLong();
+    final PreparedWorkflowCache timed = PreparedWorkflowCacheFixture.create(200L, nanos::get);
     final PreparedWorkflow prepared = mockPrepared();
-    cache.put(SESSION_1, WORKFLOW_1, prepared);
-    // real TTL elapses
-    Thread.sleep(100L); // nosem: yukta-test-thread-sleep
-    cache.get(SESSION_1, WORKFLOW_1); // resets lastAccessTime
-    // real TTL elapses; 250ms since put but only 150ms since last access
-    Thread.sleep(150L); // nosem: yukta-test-thread-sleep
-    cache.evictExpired();
-    assertThat(cache.get(SESSION_1, WORKFLOW_1)).contains(prepared);
+    timed.put(SESSION_1, WORKFLOW_1, prepared);
+    nanos.addAndGet(Duration.ofMillis(100).toNanos());
+    timed.get(SESSION_1, WORKFLOW_1); // resets lastAccessTime
+    // 250ms since put but only 150ms since last access
+    nanos.addAndGet(Duration.ofMillis(150).toNanos());
+    timed.evictExpired();
+    assertThat(timed.get(SESSION_1, WORKFLOW_1)).contains(prepared);
   }
 
   @Test

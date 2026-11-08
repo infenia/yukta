@@ -25,7 +25,6 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -120,7 +119,6 @@ public class SupervisorService {
    * @param host runs the attached supervisors
    * @param executionLog records attach and detach
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public SupervisorService(
       final SupervisorStore store,
       final List<SupervisorFactory> factories,

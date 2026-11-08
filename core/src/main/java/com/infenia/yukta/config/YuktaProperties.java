@@ -193,7 +193,7 @@ public record YuktaProperties(
    * Input requests: what a plugin may ask, how long a request waits and how many are kept.
    *
    * @param defaultTtl how long a request lives when its spec does not say; at most {@code maxTtl}
-   * @param maxTtl the longest a request may live; a longer ttl is cut to it
+   * @param maxTtl the longest a request may live; a longer ttl is refused
    * @param maxOpenPerExecution most open requests one run may have
    * @param maxOpenPerSession most open requests one session may have
    * @param memoryMax most finished requests the in-memory store keeps, oldest evicted first

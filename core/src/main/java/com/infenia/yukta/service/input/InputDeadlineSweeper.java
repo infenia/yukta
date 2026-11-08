@@ -5,7 +5,6 @@ package com.infenia.yukta.service.input;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.LeaderTimer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +51,6 @@ public class InputDeadlineSweeper implements SmartLifecycle {
    * @param interval time between two looks
    * @param scheduler runs the timer; a virtual-time scheduler in tests
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the shared broker is held on purpose
   public InputDeadlineSweeper(
       final InputBroker broker,
       final LeaderElection leader,

@@ -68,6 +68,11 @@ public class ExecutionResultService {
             .build();
   }
 
+  /** Runs the cache's pending eviction now, for tests. */
+  /* default */ void cleanUp() {
+    channels.cleanUp();
+  }
+
   /**
    * Records a message that reached a terminal node.
    *

@@ -145,8 +145,9 @@ public class ProcessorNodeAssemblerStrategy implements NodeAssemblerStrategy {
    * element, when it arrives, so a skip applies from the next element on; an element the plugin
    * already has finishes normally. Skipped elements go straight to the output.
    *
-   * <p>Output order is not preserved across a skip or unskip: a skipped element is emitted at once,
-   * so it can overtake earlier elements the plugin is still processing.
+   * <p>Output order is not preserved across a skip or unskip: a skipped element is dispatched at
+   * once, so it can overtake earlier elements the plugin is still processing, but it still waits
+   * when the plugin branch has an element in flight and has no demand left.
    */
   private static Flux<Message<?>> bypassWhileSkipped(
       final Flux<Message<?>> input,

@@ -4,10 +4,7 @@ package com.infenia.yukta.startup;
 
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.config.YuktaProperties;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
-import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import lombok.NoArgsConstructor;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,19 +44,5 @@ public class AppConfiguration {
         MAX_QUEUED_TASKS,
         Thread.ofVirtual().name("yukta-virtual-", 0).factory(),
         VIRTUAL_THREAD_TTL_SECONDS);
-  }
-
-  /**
-   * Provide the ExecutionControlStore bean.
-   *
-   * <p>In-memory implementation suitable for single-node deployments. Override this bean to use
-   * alternative backends (Redis, database, etc.).
-   *
-   * @return the execution control store instance
-   */
-  @Bean
-  @ConditionalOnMissingBean
-  public ExecutionControlStore executionControlStore() {
-    return new InMemoryExecutionControlStore();
   }
 }

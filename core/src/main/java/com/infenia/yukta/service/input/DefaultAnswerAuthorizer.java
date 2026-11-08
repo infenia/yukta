@@ -11,7 +11,6 @@ import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.route.RouteResolver;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Locale;
@@ -99,7 +98,6 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
    * @param routes finds the route of a request, to tell whether its tier is for a person; without
    *     it an external actor on a HIGH request is accepted as the token endpoint passed it
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public DefaultAnswerAuthorizer(
       final ExecutionControlStore runs,
       final MeterRegistry meters,

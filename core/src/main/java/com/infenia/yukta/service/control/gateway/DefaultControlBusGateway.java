@@ -37,7 +37,6 @@ import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PreDestroy;
 import java.time.Instant;
 import java.util.List;
@@ -129,7 +128,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    * @param executionLog records changes that belong to no run's command queue
    */
   @SuppressWarnings("PMD.ExcessiveParameterList")
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public DefaultControlBusGateway(
       final ControlBusService controlBusService,
       final TaskTrackerService taskTracker,
@@ -643,9 +641,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    * @param controlReviewer the reviewer, if supervisors are enabled
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setReviewer(final ControlReviewer controlReviewer) {
     this.reviewer = controlReviewer;
   }

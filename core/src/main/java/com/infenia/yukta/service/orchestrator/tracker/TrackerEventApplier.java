@@ -117,7 +117,8 @@ final class TrackerEventApplier {
           .log("Received task status event for unknown execution");
       return;
     }
-    state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
+    final boolean ended =
+        state.updateTask(event.nodeId(), event.module(), event.status(), event.metadata());
     // The state has changed, so subscribers hear about it however the rest of this event goes.
     touched.add(state);
     eventFeed.publish(
@@ -136,10 +137,12 @@ final class TrackerEventApplier {
     if (task != null && (event.status().isTerminal() || task.status() == event.status())) {
       telemetry.traceNode(event, event.status().isTerminal());
     }
-    if (event.status().isTerminal()) {
+    // Only the event that moved the node to its end counts and is recorded; a late or repeated
+    // one that the state refused does not.
+    if (ended) {
       telemetry.nodeEnded(task);
     }
-    if (event.status() == TaskStatus.SUCCESS) {
+    if (ended && event.status() == TaskStatus.SUCCESS) {
       appendToLog(
           ExecutionLogEvent.nodeFinished(
               state.executionId, state.sessionId, state.workflowId, event.nodeId()),
@@ -169,7 +172,7 @@ final class TrackerEventApplier {
     final boolean terminal = event.status().isTerminal();
     if (terminal) {
       // Every node event before this one is already applied, so what is still open is final.
-      state.finalizeTasks(event.status());
+      state.finalizeTasks(event.status()).forEach(telemetry::nodeEnded);
       state.setEndTime(event.timestamp());
     }
     telemetry.runStatus(

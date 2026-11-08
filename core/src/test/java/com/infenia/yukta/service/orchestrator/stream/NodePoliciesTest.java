@@ -15,6 +15,7 @@ import com.infenia.yukta.testing.Fixtures;
 import java.time.Duration;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -455,13 +456,13 @@ class NodePoliciesTest {
   }
 
   @Test
-  void failureBudget_doesNotCountFailuresOutsideTheWindow() throws InterruptedException {
+  void failureBudget_doesNotCountFailuresOutsideTheWindow() {
+    final AtomicLong nanos = new AtomicLong();
     final FailureLedger ledger =
-        new FailureLedger(new NodePolicy.FailureBudget(1, Duration.ofMillis(50)));
+        new FailureLedger(new NodePolicy.FailureBudget(1, Duration.ofMillis(50)), nanos::get);
 
     assertThat(ledger.record()).isFalse();
-    // lets the 50ms failure-budget window lapse
-    Thread.sleep(120); // nosem: yukta-test-thread-sleep
+    nanos.addAndGet(Duration.ofMillis(120).toNanos()); // the 50ms failure-budget window lapses
     assertThat(ledger.record()).isFalse();
     assertThat(ledger.record()).isTrue();
   }

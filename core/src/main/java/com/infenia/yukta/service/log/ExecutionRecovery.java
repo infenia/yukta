@@ -8,7 +8,6 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -110,7 +109,6 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * @param scheduler the scheduler
    */
   @Autowired(required = false)
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public void setExecutionScheduler(final ExecutionScheduler scheduler) {
     this.executionScheduler = scheduler;
   }

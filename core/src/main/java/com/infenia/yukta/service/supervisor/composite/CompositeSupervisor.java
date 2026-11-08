@@ -167,7 +167,9 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
               .timeout(
                   REVIEW_TIMEOUT,
                   Mono.just(stop ? Decision.ALLOW : Decision.deny("review timed out")))
-              .onErrorReturn(Decision.deny("review failed"))
+              .switchIfEmpty(
+                  Mono.just(stop ? Decision.ALLOW : Decision.deny("review returned nothing")))
+              .onErrorReturn(stop ? Decision.ALLOW : Decision.deny("review failed"))
               .map(decision -> new Verdict(childId, decision)));
     }
     return switch (settings.review()) {

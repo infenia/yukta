@@ -4,10 +4,10 @@ package com.infenia.yukta.logging.impl.memory;
 
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.logging.api.PluginLogStoreConfig;
+import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
 /**
  * Auto-configuration for plugin log storage.
@@ -15,7 +15,7 @@ import org.springframework.context.annotation.Configuration;
  * <p>Provides default in-memory implementation. Future: file-based and database backends can be
  * added with their own auto-configurations gated by property conditions.
  */
-@Configuration
+@AutoConfiguration
 public class LogStoreAutoConfiguration {
 
   /** Default constructor. */

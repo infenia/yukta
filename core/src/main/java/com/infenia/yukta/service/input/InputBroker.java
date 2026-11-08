@@ -29,7 +29,6 @@ import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
@@ -65,8 +64,8 @@ import reactor.core.publisher.Sinks;
  * of a request is a compare-and-set on its version, so two changes at once produce one winner, and
  * the loser gets the current state back (idempotent for callers). A terminal request never changes.
  *
- * <p>This is the in-memory broker: answers and authorisation are the commands of a later phase,
- * which call {@link #answer} and {@link #escalate}; tiers and routes come after that.
+ * <p>Besides requests and answers, the broker applies routes, tiers, votes and deliveries; commands
+ * reach it through {@link #answer} and {@link #escalate}.
  */
 @Slf4j
 @Service
@@ -217,7 +216,6 @@ public class InputBroker {
    * @param routes picks the route of a request
    * @param supervisors the attached supervisors, or {@code null} for none
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public InputBroker(
       final InputRequestStore store,
       final ExecutionEventFeed feed,
@@ -247,7 +245,6 @@ public class InputBroker {
    * @param runs the live runs of this server
    */
   @Autowired(required = false)
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // the shared store is held on purpose
   public void setExecutionControlStore(final ExecutionControlStore runs) {
     this.executionControlStore = runs;
   }
@@ -497,8 +494,8 @@ public class InputBroker {
   }
 
   /**
-   * Hands a request up. In this phase it only records the advice and moves an open request to
-   * {@code ESCALATED}; tiers come with routes.
+   * Hands a request up: records the advice and moves an open request to {@code ESCALATED}, or to
+   * the next tier when the route has one.
    *
    * @param requestId the request
    * @param reason why, for the event and the log
@@ -722,12 +719,22 @@ public class InputBroker {
         () -> {
           final long started = System.nanoTime();
           return sweepDue()
+              .then(syncOpenGauge())
               .doFinally(
                   _ ->
                       meters
                           .timer("yukta.input.sweep")
                           .record(System.nanoTime() - started, TimeUnit.NANOSECONDS));
         });
+  }
+
+  /** Takes the open gauge from the store, so requests of another node or run do not skew it. */
+  private Mono<Void> syncOpenGauge() {
+    return Flux.defer(() -> store.listOpen(null, null))
+        .count()
+        .doOnNext(count -> open.set(count.intValue()))
+        .onErrorResume(_ -> Mono.empty())
+        .then();
   }
 
   private Mono<Void> sweepDue() {
