@@ -1,0 +1,304 @@
+# Supervisors: configure, understand, extend, improve
+
+This page is for people who work on supervisors. The operator guide is [Supervisors](../docs/running/supervisors.mdx); this page does not repeat it. It covers the four things that page leaves out:
+
+1. [The configuration model](#1-how-supervisors-are-configured): what you create, where it applies, and the four ways to declare it.
+2. [How it works](#2-how-it-works): the path from an event to an applied command.
+3. [Adding a new supervisor](#3-adding-a-new-supervisor): the cheapest option that fits, down to a new Java type.
+4. [What would make them easier to use](#4-what-would-make-supervisors-easier-to-use): gaps found by reading the code, with proposed fixes.
+
+The reference for each class is in `core/.claude/rules/supervisors.md`. The design behind the catalog is `design/plans/supervisor-catalog.md`.
+
+## 1. How supervisors are configured
+
+### Three separate things
+
+| Concept | What it is | Where it lives |
+|---|---|---|
+| **Supervisor type** | A catalog entry: a `SupervisorFactory` bean with a descriptor and a settings schema. | Code (`plugins/supervisors/*`, `core/.../supervisor/composite`, `.../workflow`) |
+| **Supervisor** | One configured instance: `id`, `type`, `settings`, `dryRun`, `description`. It does nothing on its own. | `SupervisorStore` |
+| **Attachment** | Binds a supervisor to a **scope**, with `enabled` and a `source`. Creating one starts the supervisor. | `SupervisorStore` |
+
+A supervisor can have many attachments, one per scope. A supervisor that is not attached is idle. A supervisor that an attachment or a definition uses cannot be deleted.
+
+### Built-in types
+
+| Type | Category | Decides with |
+|---|---|---|
+| `rule-supervisor`, `rule-control-plane` | Rules | A JSON rules file (`{"rules": [...]}`) |
+| `model-control-plane`, `rules-first-control-plane` | Model | A decision model, with rules first for the second one |
+| `failure-guard` | Guard | N failures in a window, then pause or stop |
+| `stall-watchdog` | Guard | A node that runs or stays silent too long |
+| `approval-gate` | Gate | Parks chosen commands until a person approves |
+| `webhook` | Integration | An HTTP endpoint you run |
+| `composite` | Composition | Several other supervisors (`CHAIN`, `FIRST_MATCH`, `PARALLEL`, `QUORUM`) |
+| `workflow` | Workflow | A workflow in an internal session |
+
+`GET /api/supervisor-types/{type}` returns the description, the settings schema, the default commands and an example for any of them.
+
+### Settings every supervisor takes
+
+These are the keys of `SupervisorCommonSettings`. The settings schema of the type holds the rest. A key that is in neither is refused when you save.
+
+| Key | Default | Effect |
+|---|---|---|
+| `allowedCommands` | The type's default. `null` is every command, except for `webhook`, `workflow` and the guards, which start with only what they need. | A command whose class name is not listed is dropped and counted as `forbidden`. An unknown name is refused when saving. |
+| `canAnswer` | `false` | May it answer input requests? |
+| `maxRisk` | `LOW` | The highest risk it may answer. `HIGH` is always for a person. |
+| `observeInternal` | `false` | See events of an internal session its scope names. |
+| `dryRun` (field, not a setting) | `false` | Record commands, apply none. |
+
+### Scope
+
+An attachment applies to a **scope** (`SupervisorScope`). Text form is used in the API and in storage.
+
+| Scope | Text | Sees and may steer |
+|---|---|---|
+| Global | `global` | Everything. The only scope that may send `SetLimitsCommand`. |
+| Session | `session:<id>` | Every workflow of the session |
+| Workflow | `workflow:[<session>/]<workflow>` | One workflow |
+| Section | `workflow:<session>/<workflow>//<sel>,<sel>` | The listed nodes. A selector is a node id or `<prefix>.*`. It sees no workflow-wide event and no workflow-wide command. |
+
+### Four ways to declare a supervisor
+
+| Way | Use it for | Source | Survives restart |
+|---|---|---|---|
+| **In the session or workflow definition** (`supervisors: [{supervisor, nodes?, enabled?}]`) | Supervision that belongs to the workflow. Saved with versions, exports and templates. | `DEFINITION` | Yes, reconciled on save and at start-up |
+| **Attach by hand** (UI, `POST /api/supervisors/attachments`, CLI, MCP `attach_supervisor`) | Trying something, or one-off supervision | `MANUAL` | Only with PostgreSQL |
+| **Properties** (`yukta.supervisor.rules.file`, plus a control plane bean) | Server-wide rules the operator owns | `SYSTEM` | Yes, it is configuration |
+| **A Spring bean** implementing `ExecutionSupervisor` | Code that ships with the server | `SYSTEM` | Yes |
+
+Each way has its own owner: only `MANUAL` attachments can be changed through the attachments API. The others answer 409. A definition is the truth for its `DEFINITION` attachments. Saving it attaches what it names, detaches what it dropped, and never touches `MANUAL` ones.
+
+### Server settings
+
+| Property | Default | Meaning |
+|---|---|---|
+| `yukta.supervisor.rules.file` | unset | Turns on the rule supervisor and sets its file |
+| `yukta.supervisor.dry-run` | `false` | Record, never apply, for every supervisor |
+| `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
+| `yukta.supervisor.max-attachments` | `200` | Limit on all attachments |
+| `yukta.supervisor.buffer-size` | `10000` | Per-supervisor event buffer |
+| `yukta.supervisor.review-timeout` | `5s` | Time a `review` has before it is refused (a stop is allowed) |
+| `yukta.supervisor.arbiter.window`, `.flap-limit`, `.flap-period`, `.flap-cooldown` | see [core reference](../docs/contributing/core-reference.mdx) | Conflict arbitration. Window `0` turns it off. |
+| `yukta.supervisor.reserved-slots`, `.max-depth` | `4`, `2` | Capacity and nesting of workflow supervisors |
+| `yukta.session.store-type=postgres` | in memory | Keeps supervisors and attachments across restarts |
+
+### Ids
+
+Supervisor, attachment and bean ids match `[A-Za-z0-9._-]{1,64}`. A `:` is refused so an id never looks like an actor such as `key:admin` in the audit log. A bean with a bad id stops the server from starting.
+
+## 2. How it works
+
+```text
+tracker + command outcomes
+          │
+          ▼
+ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorHost
+                                                            │  one BoundSupervisor per attachment
+                                    scope filter ◄──────────┤  (drops events of internal sessions)
+                                    256-event buffer        │
+                                                            ▼
+                                       ExecutionSupervisor.supervise(Flux<ExecutionEvent>)
+                                                            │ ExecutionControlCommand
+                                                            ▼
+                      SupervisorHost.apply: checks, in this order
+                      1. allowedCommands      → forbidden
+                      2. scope                → out-of-scope
+                      3. CommandArbiter       → coalesced / arbitrated / flapping-blocked
+                      4. rate limit           → rate-limited
+                      5. dry run              → dry-run (recorded only)
+                                                            │
+                                                            ▼
+                      DirectiveDispatcher (actor = supervisor id, kind SUPERVISOR)
+                                                            │
+                                                            ▼
+                                        ControlReviewer (every command, human or not)
+                                        review → Allowed | Denied | NeedsApproval
+```
+
+**Two jobs.** An `ExecutionSupervisor` can *watch* (`supervise`: events in, commands out) and *veto* (`review`: a command in, a decision out). A supervisor may do either or both. Only a `review` can stop a command that a person sent.
+
+**Starting.** Saving an attachment makes `SupervisorService` ask the type's factory (`SupervisorFactory.create`) for the running supervisor, wrap it in a `BoundSupervisor` with its scope and capabilities, and subscribe it once with `SupervisorHost.attach`. The supervisor's own `id()` and `scope()` are replaced by the attachment's. Attaching and detaching are written to the execution log under run id `supervisors`. At start-up, enabled attachments are restored from the store, and a stored row with a bad id is skipped with a warning.
+
+**Isolation.** A supervisor never holds up a run:
+
+- It gets events through its own buffer on `boundedElastic`. On overflow, events are dropped (`yukta.tracker.dropped{kind=supervisor}`) and the next event carries `EventsMissed`. A guard that must not miss a case should treat that as a reason to fail safe.
+- An error resubscribes it with backoff.
+- It never sees the outcome of its own commands, so it cannot loop on itself.
+- Events of an internal session reach it only when `observeInternal` is set and its scope names that session.
+
+**Review.** `ControlReviewer` asks every attached supervisor with a matching scope, in `order()`. A denial wins, and an error counts as a denial. Needs for approval merge into one (highest risk, shortest ttl). The command is parked behind an `APPROVAL` input request and re-dispatched with a one-time grant once approved. Rules for who may approve: the sender and the askers cannot (`separation`), a supervisor needs a strictly wider scope (`rank`), and `HIGH` is for a person.
+
+**Disagreement.** Pause and resume commands for one target wait in an arbiter window. The lowest `order` wins, ties go to the earlier one, and a supervisor that turns a target around too often is blocked for a cooldown.
+
+**Where results show.** `GET /api/supervisors/status` (live counts), `GET /api/supervisors/decisions` (the newest 500 outcomes, in memory), the metric `yukta.supervisor.commands{id,outcome}` and the audit lines `PauseWorkflowCommand [by <id>]`.
+
+## 3. Adding a new supervisor
+
+Take the first option that fits. The later ones need more work and more review.
+
+| # | Option | Needs a rebuild | When it fits |
+|---|---|---|---|
+| 1 | **Configure an existing type** (`failure-guard`, `stall-watchdog`, `approval-gate`, rules) | No | The behaviour is "if this happens, do that" |
+| 2 | **Combine types** with `composite` | No | Several checks, one verdict (`QUORUM`, `FIRST_MATCH`, ...) |
+| 3 | **A workflow supervisor** (`workflow` type) | No | The decision needs steps: look something up, call a model, then answer |
+| 4 | **An external program** (event stream plus REST or MCP, or the `webhook` type) | No | The logic lives in another language or service |
+| 5 | **A new Java type** (`SupervisorFactory`) | Yes | A reusable, generic type that people configure from the catalog |
+| 6 | **A bean** (`ExecutionSupervisor`) | Yes | One fixed behaviour of this server, not shown in the catalog as a type |
+
+### Options 1 to 3: no code
+
+```bash
+# see the schema and an example first
+curl -s localhost:9858/api/supervisor-types/failure-guard
+
+# check a draft without saving it
+curl -s -X POST localhost:9858/api/supervisors/validate -H 'Content-Type: application/json' \
+  -d '{"id":"fg","type":"failure-guard","settings":{"failures":3,"withinSeconds":60}}'
+
+# save it, then attach it (needs an ADMIN key)
+curl -s -X PUT  localhost:9858/api/supervisors/fg ...
+curl -s -X POST localhost:9858/api/supervisors/attachments \
+  -d '{"supervisorId":"fg","scope":"workflow:s1/release","enabled":true}'
+```
+
+Start with `"dryRun": true`, watch `GET /api/supervisors/decisions`, then turn it off. To keep it with the workflow, name it in the definition instead of attaching it: `"supervisors": [{"supervisor": "fg"}]`.
+
+### Option 4: outside the server
+
+Follow `GET /api/events/stream?type=...` (SSE) and send commands through REST or the MCP tools. A key's actor is `key:<name>` with kind `KEY`, so it counts as a person for the risk rule. For an HTTP endpoint that the server calls, use the `webhook` type: egress goes through the host allow-list, private addresses are refused unless allow-listed, replies pass the same command allow-list, and it may send nothing until `allowedCommands` names something.
+
+### Option 5: a new Java supervisor type
+
+The three existing modules under `plugins/supervisors/` are the templates. `guards` is the smallest: `FailureGuardFactory` compiles its settings into one rule of the rule engine, so it needs no new engine.
+
+**1. Write the supervisor.** Implement `ExecutionSupervisor` (`plugin-api`). `supervise` is the only method without a default. Keep it reactive and never block: a slow consumer only loses events, but it still wastes a thread. A supervisor that needs a clock (like `StallWatchdog`) uses `Flux.interval` and fails safe on `EventsMissed`.
+
+**2. Write the factory.** Implement `SupervisorFactory` as a Spring `@Component`. Core finds every such bean and lists it in the catalog.
+
+```java
+@Component
+@NoArgsConstructor
+public class MyGuardFactory implements SupervisorFactory {
+
+  public static final String TYPE = "my-guard";
+
+  @Override public String type() { return TYPE; }
+
+  @Override
+  public ExecutionSupervisor create(final Supervisor supervisor) {
+    // read supervisor.settings(); throw IllegalArgumentException on bad input,
+    // with a message that never repeats a secret
+    return new MyGuard(SupervisorCapabilities.from(supervisor, defaultAllowedCommands()));
+  }
+
+  @Override
+  public Set<String> defaultAllowedCommands() {
+    return Set.of("PauseWorkflowCommand");   // null would mean every command
+  }
+
+  @Override
+  public SupervisorDescriptor describe() {
+    return new SupervisorDescriptor("My guard", "One sentence for the catalog.",
+        "When to use it.", SupervisorCategory.GUARD,
+        Optional.of(new UiDesign("red", "shield", "My guard", 140, 80)),
+        Map.of("threshold", 5));              // example settings; must pass validation
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return List.of(ConfigField.optional("threshold", Type.NUMBER, 5, "What counts as too many"));
+  }
+}
+```
+
+Rules that bite:
+
+- **Default to the narrowest commands.** `defaultAllowedCommands()` returning `null` lets the supervisor send anything. Return exactly what it needs. If the settings pick the action, also override `defaultAllowedCommands(Supervisor)` as `FailureGuardFactory` does.
+- **The schema must list every key `create` reads.** An unlisted key is refused on save, and a stored supervisor with an unlisted key breaks on restore. Keys match exactly. Use `Type.SECRET` for credentials: it is masked as `***` and a `***` sent back keeps the stored value.
+- **Override `validate` if `create` opens anything** (a client, a connection), because saving calls it and drops the result.
+- **Do not put a type in the catalog that cannot be created from its own example.** `exampleSettings` is shown in the UI and used by tests.
+- **Reviews must be fast.** `review` has `yukta.supervisor.review-timeout` (5 s) and must not wait for a person. Return `Decision.requireApproval(...)` to ask for one.
+- **Composites and cycles.** If your type holds other supervisors, resolve them through `SupervisorResolver` so cycle, depth and delete checks apply.
+
+**3. Add the module** (only for a new module; a class in `guards` needs nothing else):
+
+- `settings.gradle.kts`: `include("plugins:supervisors:my-guard")`
+- `boot/build.gradle.kts`: `implementation(project(":plugins:supervisors:my-guard"))`
+- `plugins/supervisors/my-guard/build.gradle.kts`: `id("com.infenia.yukta.library-conventions")`, `api(project(":plugin-api"))`
+
+**4. Test it.** Follow `FailureGuardFactoryTest`: build a `Supervisor`, call `factory.create`, feed `Flux.just(events)` to `supervise` and assert the commands (`StepVerifier` for time). Add the type to the catalog test in `boot` (`SupervisorCatalogTest`) and an attach-through-the-API test like `SupervisorApiAcceptanceTest`.
+
+```bash
+yk gradle :plugins:supervisors:my-guard:test
+yk gradle :boot:test --tests com.infenia.yukta.SupervisorCatalogTest
+yk gradle spotlessApply
+yk check
+```
+
+**5. Document it.** Add a subsection to `docs/running/supervisors.mdx` (the other types have one), add the type to the table in this page, and update `core/.claude/rules/supervisors.md`. If you add a core setting or meter, update `docs/contributing/core-reference.mdx` and run `core/scripts/check-core-reference.sh`.
+
+### Option 6: a bean
+
+Implement `ExecutionSupervisor` as a `@Component`. It is a `SYSTEM` supervisor: unrestricted, global unless `scope()` says otherwise, never able to answer input requests, and not editable in the UI. Use it for server behaviour you ship, not for something users should configure.
+
+## 4. What would make supervisors easier to use
+
+These come from reading the current code (UI under `ui/src/features/supervisors`, the services, the docs), not from watching people use it. Each one names where it shows up. They are ordered by how much they would help a first-time user.
+
+### High impact
+
+| # | Gap | Where | Proposed fix |
+|---|---|---|---|
+| 1 | **The type picker shows no information.** The catalog has a description, usage hint, category, icon and example for each type, but step 1 of the wizard is a bare dropdown of names. | `SupervisorWizardPage.tsx`, step 0 | Show the type cards of the Catalog tab in step 1, grouped by category, with description and "Use when". Pre-fill the form with `exampleSettings`. |
+| 2 | **Creating is not enough to make it work.** Saving ends on the supervisor's page. Nothing says it is idle until attached, and attaching is a different dialog. | Wizard `save`, `SupervisorDetailPage.tsx` | Add a "Where should it apply?" step (reuse the `AttachDialog` scope picker, with "not yet" as an option) and an "Idle: not attached anywhere" badge on the list and the detail page. |
+| 3 | **A new supervisor goes live straight away.** `dryRun` is an unchecked box on step 3. A bad rule can pause real runs. | Wizard step 2, `Supervisor.dryRun` | Default new supervisors to dry run. Show "would have: ..." counts from `decisions` on the supervisor page with a **Go live** button when they look right. |
+| 4 | **Half-typed JSON is lost silently.** In "Advanced: JSON" an invalid text is accepted without a word, and the form keeps the last good value, so Save can send settings that differ from the text on screen. | `editJson` | Show the parse error under the textarea and disable Next until it parses. |
+| 5 | **State is lost on restart by default.** Supervisors and attachments are in memory unless PostgreSQL is used, and decisions (newest 500) are always in memory. A hand-made supervisor silently disappears after a restart. | `InMemorySupervisorStore`, docs | Show "Not saved across restarts" next to `MANUAL` items when the store is in memory. Persist the decisions, or at least the counts, in the store. |
+| 6 | **No empty state or entry point on a session or workflow.** `EffectiveSupervision` returns nothing when no supervisor applies or when the list fails to load, so a user never learns that supervision exists or where to add it. | `EffectiveSupervision.tsx` | Show "No supervisors. Add one" with the picker, and a visible error for a failed load. (Its list wraps the `<li>` in `Tip` but puts the `key` on the `<li>`, so React warns about keys. Move the `key` to `Tip`.) |
+
+### Medium impact
+
+| # | Gap | Where | Proposed fix |
+|---|---|---|---|
+| 7 | **The review step is a raw JSON dump.** | Wizard step 3 | Show a sentence ("Pauses workflow `release` after 3 failures within 60 s, on `deploy.*`") plus the list of commands it may send, in words. The descriptor could carry a `summarize(settings)` for it. |
+| 8 | **Permissions are an abstract form.** `allowedCommands` accepts class names such as `PauseWorkflowCommand`, "unset" means unlimited for some types and a narrow list for others, and nothing shows the effective result. | Wizard step 2, `SupervisorCommonSettings` | Show the effective list under the field ("Default for this type: ..."). Group the commands (pause, stop, restart, limits) with plain labels. Warn when a type that can answer is given `HIGH`. |
+| 9 | **The id has hidden rules.** It is free text and the server refuses a `:` or a space only on the validation round trip. | Wizard step 2 | Suggest an id from the type (`failure-guard-1`), validate as the user types, and say the rule in the hint. |
+| 10 | **No way to test a rule.** A rule or model supervisor can only be tried live. | Rules types | A "Replay on a past execution" button that feeds a stored execution's events through the supervisor in dry run and lists what it would have done. The execution log already holds the events. |
+| 11 | **Errors on the definition are hard to find.** A declaration that fails to attach is logged and retried at the next save, but the definition page does not say so. | `DefinitionSupervisors`, the session page | Show a per-declaration status (`running`, `failed: <reason>`) in the effective supervision card and the editor panel. |
+| 12 | **Two places configure supervision.** `yukta.supervisor.rules.file` and `yukta.supervisor.dry-run` are properties, everything else is the API, and a global dry run hides the per-supervisor flag. | Server settings | Show system supervisors read-only with the property that made them, and a banner on the Supervisors page when the global dry run is on. |
+| 13 | **Scopes are strings.** The API and CLI take `workflow:s1/release//deploy.*`. The UI has pickers, but the concept still takes a paragraph to explain. | `scope.ts`, docs | Keep the text form, but show its plain meaning everywhere (`scopeLabel` exists) and print it in the CLI's `list` output. |
+| 14 | **Words overlap.** *Supervisor*, *control plane*, *attachment*, *composite* and *workflow supervisor* are all in the UI. `SupervisorInfo.kind` shows `CONTROL_PLANE` or `SUPERVISOR`, which a user cannot choose and does not need. | Docs, status API | Say "supervisor" everywhere. Keep "kind" in the API only. |
+
+### Extension and operations
+
+| # | Gap | Proposed fix |
+|---|---|---|
+| 15 | **A new type needs Java and a rebuild** (option 5), so teams reach for `webhook` and lose the settings form and the review support that a real type has. | Let a `webhook` or `workflow` supervisor publish its own settings schema and description, so it appears in the catalog as a type. |
+| 16 | **There is no scaffold.** A new module needs edits to three build files and a test that matches the catalog. | A `yk` generator (`yk new supervisor <name>`) that writes the module, the factory, the schema, a test and the two build entries. |
+| 17 | **The schema is flat.** `ConfigField` has no nesting, so `rules` and `children` are JSON in a text field (`JsonField`). | Nested and repeatable fields in `ConfigField`, so a rule row is a form row. |
+| 18 | **Overflow is quiet.** A supervisor behind on events loses them. The notice is an `EventsMissed` event the supervisor must handle, and a person sees only a metric. | Show dropped-event counts per supervisor on its page, with a warning at the first drop (`#894` tracks the overflow itself). |
+
+### Suggested order
+
+1. Items 1, 2, 3 and 4 together: one change to the wizard, and it removes the most common first-hour mistakes.
+2. Items 5 and 6, which are about trust: what is saved, and what applies where.
+3. Items 7 to 9 and 11 as wizard and card polish.
+4. Items 10, 15 and 16 as new features, each with its own issue.
+
+Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vitest and MSW tests and, for a visible one, a Playwright snapshot (`yk tool -C ui npx --no-install vitest run`).
+
+## Source map
+
+| Area | Files |
+|---|---|
+| Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
+| Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `CommandArbiter`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
+| Composite and workflow | `core/.../service/supervisor/composite/`, `.../workflow/` |
+| Types | `plugins/supervisors/rule-supervisor`, `guards`, `webhook` |
+| REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
+| CLI | `cli/internal/commands/supervisors` |
+| UI | `ui/src/features/supervisors/` |
+| Examples | `examples/16-supervisor-profiles`, `examples/17-supervisor-workflow`, `plugins/supervisors/rule-supervisor/rules.example.json` |
+| Tests | `boot/src/test/.../Supervisor*AcceptanceTest.java`, `SupervisorCatalogTest.java` |
