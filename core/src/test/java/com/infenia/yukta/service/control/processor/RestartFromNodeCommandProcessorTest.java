@@ -4,9 +4,12 @@ package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -60,7 +63,8 @@ class RestartFromNodeCommandProcessorTest {
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
       ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30));
-  private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
+  private final RestartCompletionSink completionSink =
+      mock(RestartCompletionSink.class, CALLS_REAL_METHODS);
   private final ExecutionArchive archive = ExecutionArchiveFixture.create();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
 
@@ -102,6 +106,9 @@ class RestartFromNodeCommandProcessorTest {
 
   @BeforeEach
   void setUp() {
+    // the new run's control is registered once it is subscribed
+    when(registry.findByExecutionId(argThat((String id) -> id != null && id.startsWith("new-"))))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
     processor =
         new RestartFromNodeCommandProcessor(
             registry, archive, orchestrator, checkpoints, scheduler, completionSink);
@@ -132,7 +139,7 @@ class RestartFromNodeCommandProcessorTest {
     assertThat(outputs.getValue()).containsOnlyKeys("trigger");
     assertThat(outputs.getValue().get("trigger")).containsExactly(first, second);
     verify(registry, never()).remove(any());
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
   }
 
   @Test
@@ -142,7 +149,7 @@ class RestartFromNodeCommandProcessorTest {
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "trigger", "new-1")))
         .verifyComplete();
 
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
   }
 
   @Test
@@ -190,9 +197,7 @@ class RestartFromNodeCommandProcessorTest {
         .verifyError(IllegalArgumentException.class);
 
     verify(completionSink)
-        .completeRestartFailure(
-            eq("new-1"),
-            org.mockito.ArgumentMatchers.argThat(e -> e.getMessage().contains("not finished")));
+        .completeRestartFailure(eq("new-1"), argThat(e -> e.getMessage().contains("not finished")));
     verify(registry, never()).remove(any());
     verify(orchestrator, never())
         .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
@@ -210,7 +215,7 @@ class RestartFromNodeCommandProcessorTest {
     verify(completionSink)
         .completeRestartFailure(
             eq("new-1"),
-            org.mockito.ArgumentMatchers.argThat(
+            argThat(
                 e ->
                     e instanceof IllegalArgumentException
                         && e.getMessage().contains("'trigger'")
@@ -241,7 +246,7 @@ class RestartFromNodeCommandProcessorTest {
     StepVerifier.create(processor.process(new RestartFromNodeCommand(EXEC, "trigger", "new-1")))
         .verifyComplete();
 
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
     verify(completionSink, never()).completeRestartFailure(any(), any());
     // the failure is logged on another thread: wait, or the error lands in the next test
     ErrorGuardExtension.awaitLogged("Restarted execution from node failed", Duration.ofSeconds(2));

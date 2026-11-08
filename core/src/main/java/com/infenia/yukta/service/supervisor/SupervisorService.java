@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
+import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -443,6 +444,14 @@ public class SupervisorService {
       SupervisorIds.validate(binding.id(), "binding id");
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
+    }
+    if (binding.source() == SupervisorSource.MANUAL
+        && binding.id().startsWith(DefinitionSupervisors.ID_PREFIX)) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "Attachment ids starting with '"
+                  + DefinitionSupervisors.ID_PREFIX
+                  + "' are reserved for supervisors that definitions declare"));
     }
     if (host.isBuiltIn(binding.id())) {
       return Mono.error(
