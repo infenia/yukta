@@ -642,7 +642,8 @@ public class AppMcpTools {
                       + "session and workflow returns the first execution ID (kept for "
                       + "yukta.start.idempotency-ttl, 10 minutes by default)")
           final String idempotencyKey) {
-    return workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey);
+    return Refusals.named(
+        workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey));
   }
 
   /**
@@ -751,15 +752,16 @@ public class AppMcpTools {
                   "For STOP and STOP_ALL: DRAIN lets in-flight work finish (default), CANCEL"
                       + " cancels it, KILL stops at once")
           final StopMode mode) {
-    return workflowControlProvider.controlWorkflow(
-        sessionId,
-        action,
-        executionId,
-        workflowId,
-        fromNodeId,
-        reason,
-        Boolean.TRUE.equals(tree),
-        mode);
+    return Refusals.named(
+        workflowControlProvider.controlWorkflow(
+            sessionId,
+            action,
+            executionId,
+            workflowId,
+            fromNodeId,
+            reason,
+            Boolean.TRUE.equals(tree),
+            mode));
   }
 
   /**
@@ -877,8 +879,9 @@ public class AppMcpTools {
           final Boolean immediate,
       @McpToolParam(required = false, description = "Optional reason recorded with stop actions")
           final String reason) {
-    return workflowControlProvider.controlNode(
-        sessionId, executionId, nodeId, action, immediate, reason);
+    return Refusals.named(
+        workflowControlProvider.controlNode(
+            sessionId, executionId, nodeId, action, immediate, reason));
   }
 
   /**
@@ -925,7 +928,8 @@ public class AppMcpTools {
               required = true,
               description = "Most executions of one workflow running at once; 0 for none")
           final int maxPerWorkflow) {
-    return workflowControlProvider.setSchedulerLimits(maxConcurrent, maxPerWorkflow);
+    return Refusals.named(
+        workflowControlProvider.setSchedulerLimits(maxConcurrent, maxPerWorkflow));
   }
 
   /**
@@ -1018,8 +1022,8 @@ public class AppMcpTools {
           final String field,
       @McpToolParam(required = true, description = "The value that pauses the node")
           final String equalsValue) {
-    return workflowControlProvider.addBreakpoint(
-        sessionId, executionId, nodeId, field, equalsValue);
+    return Refusals.named(
+        workflowControlProvider.addBreakpoint(sessionId, executionId, nodeId, field, equalsValue));
   }
 
   /**
@@ -1103,7 +1107,8 @@ public class AppMcpTools {
           final String data,
       @McpToolParam(required = false, description = "Why; recorded in the execution log")
           final String rationale) {
-    return inputProvider.answer(sessionId, executionId, requestId, decision, text, data, rationale);
+    return Refusals.named(
+        inputProvider.answer(sessionId, executionId, requestId, decision, text, data, rationale));
   }
 
   /**
@@ -1136,7 +1141,8 @@ public class AppMcpTools {
       @McpToolParam(required = true, description = "Why it is handed up") final String reason,
       @McpToolParam(required = false, description = "What to suggest to whoever answers next")
           final String advice) {
-    return inputProvider.escalate(sessionId, executionId, requestId, reason, advice);
+    return Refusals.named(
+        inputProvider.escalate(sessionId, executionId, requestId, reason, advice));
   }
 
   /**
