@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -273,6 +274,156 @@ class SupervisorServiceTest {
     final SupervisorService failing = new SupervisorService(broken, List.of(factory), host, log);
 
     assertThatCode(failing::restore).doesNotThrowAnyException();
+  }
+
+  // --- ownership: one owner per unit, refused when an attachment is saved ---
+
+  private void saveSupervisors(final String... ids) {
+    for (final String id : ids) {
+      StepVerifier.create(service.saveSupervisor(supervisor(id)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+  }
+
+  private void expectConflict(final SupervisorAttachment attachment, final String... mentions) {
+    StepVerifier.create(service.attach(attachment))
+        .expectErrorSatisfies(
+            error ->
+                org.assertj.core.api.Assertions.assertThat(error)
+                    .isInstanceOf(
+                        com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException
+                            .class)
+                    .hasMessageContainingAll(mentions))
+        .verify();
+  }
+
+  @Test
+  void aWorkflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true),
+        "workflow w",
+        "owned by a");
+  }
+
+  @Test
+  void aSessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Session("s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true), "owned by a");
+    expectConflict(attachment("b2", "b", new SupervisorScope.Run("w", "s"), true), "owned by a");
+  }
+
+  @Test
+  void overlappingPrefixesAndAnIdUnderAPrefixAreRefused() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.test.*")), true),
+        "owned by a");
+    expectConflict(
+        attachment("b2", "b", new SupervisorScope.Section("w", "s", Set.of("build.x")), true),
+        "owned by a");
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "b3", "b", new SupervisorScope.Section("w", "s", Set.of("deploy.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void aGroupAndAPrefixThatTakeTheSameNodeAreRefused() {
+    final var definitions =
+        new com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore();
+    definitions
+        .save(
+            "s",
+            com.infenia.yukta.testing.Fixtures.workflow(
+                "w",
+                "d",
+                List.of(
+                    new com.infenia.yukta.model.workflow.WorkflowDefinition.Node(
+                        "build.test", "CONSTANT_SOURCE", Map.of(), "ci", null)),
+                List.of()))
+        .block();
+    service.setDefinitions(definitions);
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:ci")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true),
+        "node build.test");
+  }
+
+  @Test
+  void theRunLevelAndTheNodesCanBeSplitBetweenTwoSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Run("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void aDisabledAttachmentOwnsNothingAndASupervisorMayHoldSeveralOfItsOwn() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    // the same supervisor again, and replacing its own attachment, are not conflicts
+    StepVerifier.create(
+            service.attach(attachment("b2", "b", new SupervisorScope.Run("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void onlyOneSupervisorOwnsTheServer() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(service.attach(attachment("a1", "a", new SupervisorScope.Server(), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(attachment("b1", "b", new SupervisorScope.Server(), true), "the server");
   }
 
   @Test
@@ -526,7 +677,9 @@ class SupervisorServiceTest {
         .expectNextCount(1)
         .verifyComplete();
     doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveAttachment(any());
+    // the attachment count, the ownership check, then the rollback that cannot read
     doReturn(Flux.empty())
+        .doReturn(Flux.empty())
         .doReturn(Flux.error(new IllegalStateException("read")))
         .when(failing)
         .attachments();

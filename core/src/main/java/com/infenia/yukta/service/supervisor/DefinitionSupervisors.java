@@ -12,6 +12,8 @@ import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
+import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
@@ -23,6 +25,7 @@ import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
@@ -180,7 +183,88 @@ public class DefinitionSupervisors implements DefinitionUsage {
                               data.sessionId(),
                               issues));
               return issues;
+            })
+        .flatMap(issues -> issues.isEmpty() ? ownershipIssues(data) : Mono.just(issues));
+  }
+
+  /**
+   * Where the saved definitions would give one node, run level or the server to two supervisors:
+   * what the session declares against the attachments others made by hand (or from other sessions),
+   * and those attachments against the nodes and groups of the new definitions.
+   */
+  private Mono<List<Issue>> ownershipIssues(final SessionConfigData data) {
+    final String sessionId = data.sessionId();
+    final OwnershipValidator validator =
+        new OwnershipValidator(
+            (session, workflow) ->
+                session != null && !session.equals(sessionId)
+                    ? Optional.empty()
+                    : Optional.ofNullable(data.workflows().get(workflow)).map(WorkflowShape::from));
+    return service
+        .attachments()
+        .filter(
+            a ->
+                a.enabled()
+                    && !(a.source() == SupervisorSource.DEFINITION
+                        && sessionId.equals(a.originSessionId())))
+        .collectList()
+        .map(
+            kept -> {
+              final List<Issue> issues = new ArrayList<>();
+              final List<OwnershipValidator.Claim> claims =
+                  new ArrayList<>(
+                      kept.stream()
+                          .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
+                          .toList());
+              final Map<String, SupervisorAttachment> declared =
+                  desired(sessionId, data.supervisors(), data.workflows());
+              declared.values().stream()
+                  .filter(SupervisorAttachment::enabled)
+                  .forEach(
+                      a -> {
+                        final OwnershipValidator.Claim claim =
+                            new OwnershipValidator.Claim(a.supervisorId(), a.scope());
+                        validator
+                            .conflicts(claim, claims)
+                            .forEach(c -> issues.add(new Issue(fieldOf(a, data), c.message())));
+                        claims.add(claim);
+                      });
+              for (int i = 0; i < kept.size(); i++) {
+                final SupervisorAttachment a = kept.get(i);
+                validator
+                    .conflicts(
+                        new OwnershipValidator.Claim(a.supervisorId(), a.scope()),
+                        kept.subList(i + 1, kept.size()).stream()
+                            .map(o -> new OwnershipValidator.Claim(o.supervisorId(), o.scope()))
+                            .toList())
+                    .forEach(
+                        c ->
+                            issues.add(
+                                new Issue(
+                                    a.scope().workflowId() == null
+                                        ? "supervisors"
+                                        : "workflows." + a.scope().workflowId() + ".nodes",
+                                    c.message())));
+              }
+              return issues;
             });
+  }
+
+  /** The field of a declaration, such as {@code workflows.build.supervisors[0].supervisor}. */
+  private static String fieldOf(
+      final SupervisorAttachment attachment, final SessionConfigData data) {
+    final String workflowId = attachment.originWorkflowId();
+    final List<SupervisorRef> refs =
+        workflowId == null ? data.supervisors() : data.workflows().get(workflowId).supervisors();
+    for (int i = 0; i < refs.size(); i++) {
+      if (attachmentId(
+              attachment.originSessionId(), workflowId == null ? "" : workflowId, refs.get(i))
+          .equals(attachment.id())) {
+        return (workflowId == null ? "" : "workflows." + workflowId + ".")
+            + SUPERVISOR_FIELD.formatted(i);
+      }
+    }
+    return workflowId == null ? "supervisors" : "workflows." + workflowId + ".supervisors";
   }
 
   /**

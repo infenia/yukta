@@ -164,7 +164,8 @@ class OwnershipValidatorTest {
 
   @Test
   void theOtherSideCanBeTheGlobalOrTheServer() {
-    assertThat(check(nodes("lone"), new SupervisorScope.Global())).hasSize(1);
+    // Global owns nothing: it only observes
+    assertThat(check(nodes("lone"), new SupervisorScope.Global())).isEmpty();
     assertThat(check(new SupervisorScope.Workflow(RELEASE, "s"), new SupervisorScope.Server()))
         .isEmpty();
     assertThat(check(nodes("lone"), new SupervisorScope.Run(RELEASE, "s"))).isEmpty();
