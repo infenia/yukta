@@ -14,7 +14,6 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsValidator;
-import com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory;
 import com.infenia.yukta.supervisor.guards.ApprovalGateFactory;
 import com.infenia.yukta.supervisor.guards.FailureGuardFactory;
@@ -52,7 +51,6 @@ class SupervisorCatalogTest {
         new RuleControlPlaneFactory(),
         new ModelControlPlaneFactory(null),
         new RulesFirstControlPlaneFactory(null),
-        new CompositeSupervisorFactory(null),
         new WorkflowSupervisorFactory(null, null, null));
   }
 

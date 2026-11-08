@@ -14,7 +14,7 @@
       "nodes": [
         {
           "nodeId": "trigger",
-          "type": "API_TRIGGER",
+          "type": "SUPERVISOR_SIGNAL",
           "config": {}
         },
         {
@@ -41,7 +41,7 @@
         },
         {
           "nodeId": "answered",
-          "type": "OUTCOME_TERMINAL",
+          "type": "SUPERVISOR_DECISION",
           "config": {
             "outcome": "SUCCESS",
             "reason": "low risk"
@@ -49,7 +49,7 @@
         },
         {
           "nodeId": "hand-up",
-          "type": "OUTCOME_TERMINAL",
+          "type": "SUPERVISOR_DECISION",
           "config": {
             "outcome": "ESCALATE",
             "reason": "not low risk; a person or a supervisor above should decide"
@@ -83,12 +83,12 @@
       "nodes": [
         {
           "nodeId": "trigger",
-          "type": "API_TRIGGER",
+          "type": "SUPERVISOR_SIGNAL",
           "config": {}
         },
         {
           "nodeId": "hand-up",
-          "type": "OUTCOME_TERMINAL",
+          "type": "SUPERVISOR_DECISION",
           "config": {
             "outcome": "ESCALATE",
             "reason": "section supervisor: not mine to decide; the supervisor above should"

@@ -120,10 +120,8 @@ class SupervisorServiceCatalogTest {
 
   @Test
   void kindFallsBackToTheNameWhenTheExampleCannotBeMade() {
-    final SupervisorService service =
-        service(refusing("composite"), refusing("model-control-plane"), refusing("custom"));
+    final SupervisorService service = service(refusing("model-control-plane"), refusing("custom"));
 
-    assertThat(service.kind("composite")).isEqualTo("COMPOSITE");
     assertThat(service.kind("model-control-plane")).isEqualTo("CONTROL_PLANE");
     assertThat(service.kind("custom")).isEqualTo("SUPERVISOR");
   }

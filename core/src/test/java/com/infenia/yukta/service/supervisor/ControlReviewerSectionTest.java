@@ -49,11 +49,6 @@ class ControlReviewerSectionTest {
     }
 
     @Override
-    public int order() {
-      return order;
-    }
-
-    @Override
     public SupervisorScope scope() {
       return scope;
     }
@@ -117,8 +112,8 @@ class ControlReviewerSectionTest {
     final ControlReviewer reviewer =
         ControlReviewerFixture.create(
             providerOf(
-                new Recorder("workflow", 2, WORKFLOW, true, asked),
-                new Recorder("build", 1, BUILD, true, asked)));
+                new Recorder("build", 1, BUILD, true, asked),
+                new Recorder("workflow", 2, WORKFLOW, true, asked)));
 
     StepVerifier.create(
             reviewer.review(request(new ExecutionControlCommand.StepNodeCommand("e", "build.a"))))
@@ -132,9 +127,9 @@ class ControlReviewerSectionTest {
     final ControlReviewer reviewer =
         ControlReviewerFixture.create(
             providerOf(
-                new Recorder("wide", 2, BUILD, true, asked),
                 new Recorder(
                     "narrow", 1, SupervisorScope.parse("workflow:w//build.a"), false, asked),
+                new Recorder("wide", 2, BUILD, true, asked),
                 new Recorder("later", 3, BUILD, false, asked)));
 
     StepVerifier.create(

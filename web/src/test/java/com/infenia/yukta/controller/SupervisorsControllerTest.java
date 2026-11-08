@@ -90,11 +90,50 @@ class SupervisorsControllerTest {
   private final SupervisorsController controller = new SupervisorsController(service, host);
 
   private static SupervisorBody body(final String id, final Map<String, Object> settings) {
-    return new SupervisorBody(id, TYPE, "for tests", settings, false);
+    return new SupervisorBody(id, TYPE, "for tests", settings, false, null, null);
   }
 
   private void created(final String id) {
     StepVerifier.create(controller.create(body(id, Map.of()))).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void versionsAreListedWithSecretsHiddenAndARollbackRestoresOne() {
+    StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u1"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replace("s1", body("s1", Map.of("bearer", "***", "url", "u2"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.versions("s1"))
+        .assertNext(
+            r -> {
+              assertThat(r.data()).hasSize(2);
+              assertThat(r.data().get(0).version()).isEqualTo(2);
+              assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.rollback("s1", 1))
+        .assertNext(r -> assertThat(r.data().settings().get("url")).isEqualTo("u1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayOfAnUnknownRunIsNotFound() {
+    StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replay("s1", new SupervisorsController.ReplayBody("gone", null)))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void aSystemSupervisorCannotBeRolledBack() {
+    when(host.isBuiltIn("sys")).thenReturn(true);
+    StepVerifier.create(controller.rollback("sys", 1))
+        .expectError(ConflictException.class)
+        .verify();
   }
 
   @Test
@@ -177,7 +216,6 @@ class SupervisorsControllerTest {
             "rules",
             "SUPERVISOR",
             "RuleSupervisor",
-            0,
             false,
             20,
             3,
@@ -188,10 +226,7 @@ class SupervisorsControllerTest {
             null,
             null,
             null,
-            0,
-            0,
-            0,
-            null);
+            0);
     when(host.status()).thenReturn(List.of(info));
     when(host.isBuiltIn("rules")).thenReturn(true);
 
@@ -362,7 +397,8 @@ class SupervisorsControllerTest {
     StepVerifier.create(controller.attach(new AttachmentBody("a", null, "global", true)))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(controller.create(new SupervisorBody("x", " ", null, null, null)))
+    StepVerifier.create(
+            controller.create(new SupervisorBody("x", " ", null, null, null, null, null)))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
@@ -370,24 +406,7 @@ class SupervisorsControllerTest {
   private static SupervisorInfo system(
       final String id, final String scope, final String session, final String workflow) {
     return new SupervisorInfo(
-        id,
-        "SUPERVISOR",
-        "T",
-        0,
-        false,
-        20,
-        0,
-        0,
-        0,
-        0,
-        scope,
-        session,
-        workflow,
-        null,
-        0,
-        0,
-        0,
-        null);
+        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0);
   }
 
   @Test
@@ -472,5 +491,64 @@ class SupervisorsControllerTest {
         .containsExactlyInAnyOrder("w1b", "any");
     assertThat(ids(controller.attachments("B", null, null))).containsExactly("w1b");
     assertThat(ids(controller.attachments(null, "w2", null))).isEmpty();
+  }
+
+  @Test
+  void serverAttachmentsListedOnlyWithoutFilter() {
+    created("s1");
+    StepVerifier.create(controller.attach(new AttachmentBody("srv", "s1", "server", false)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(ids(controller.attachments(null, null, "manual"))).containsExactly("srv");
+    assertThat(ids(controller.attachments("A", null, "manual"))).isEmpty();
+    assertThat(ids(controller.attachments(null, "w1", "manual"))).isEmpty();
+  }
+
+  @Test
+  void parentsAndDelegationModesAreReadFromTheBodyAndShownInTheView() {
+    controller.create(body("boss", Map.of())).block();
+    final SupervisorBody withParents =
+        new SupervisorBody(
+            "child",
+            TYPE,
+            "reports up",
+            Map.of(),
+            false,
+            java.util.List.of("boss"),
+            Map.of(
+                "approval",
+                new SupervisorBody.DelegationBody("all", 45L),
+                "input",
+                new SupervisorBody.DelegationBody(null, null)));
+
+    StepVerifier.create(controller.create(withParents))
+        .assertNext(
+            r -> {
+              org.assertj.core.api.Assertions.assertThat(r.data().parents())
+                  .containsExactly("boss");
+              org.assertj.core.api.Assertions.assertThat(r.data().delegation())
+                  .containsEntry(
+                      "APPROVAL",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))
+                  .containsEntry(
+                      "INPUT",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView(
+                          "ORDERED", 30));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(
+            controller.create(
+                new SupervisorBody(
+                    "bad",
+                    TYPE,
+                    null,
+                    Map.of(),
+                    false,
+                    null,
+                    Map.of("nonsense", new SupervisorBody.DelegationBody("ALL", 1L)))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
   }
 }

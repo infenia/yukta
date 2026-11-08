@@ -38,6 +38,10 @@ class McpToolAccess {
           Map.entry("list_supervisors", ApiRole.VIEWER),
           Map.entry("list_supervisor_types", ApiRole.VIEWER),
           Map.entry("get_supervisor_type", ApiRole.VIEWER),
+          Map.entry("get_supervisor_contract", ApiRole.VIEWER),
+          Map.entry("get_ownership", ApiRole.VIEWER),
+          Map.entry("list_supervisor_presets", ApiRole.VIEWER),
+          Map.entry("list_supervisor_versions", ApiRole.VIEWER),
           Map.entry("get_node_output", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),
           Map.entry("get_plugin_details", ApiRole.VIEWER),
@@ -61,6 +65,8 @@ class McpToolAccess {
           "get_plugin_creation_guide",
           "list_supervisor_types",
           "get_supervisor_type",
+          "get_supervisor_contract",
+          "list_supervisor_presets",
           "whoami");
 
   /** Resources that name no session, so a session key may read them. */

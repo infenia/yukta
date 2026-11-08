@@ -1,0 +1,30 @@
+meta {
+  name: Send Directive
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{base_url}}/api/agent/v1/directives
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{agent_token}}
+}
+
+body:json {
+  {
+    "key": "bruno-1",
+    "cause": "initiative",
+    "reason": "testing the agent API",
+    "command": { "type": "PauseWorkflow", "target": "owned.running" }
+  }
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

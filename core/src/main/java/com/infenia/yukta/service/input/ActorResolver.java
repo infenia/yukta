@@ -73,7 +73,7 @@ public class ActorResolver {
    */
   public ActorInfo resolve(final ContextView context) {
     final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-    final ControlActor.Kind kind = context.getOrDefault(ControlActor.KIND_KEY, null);
+    final ControlActor.Kind kind = ControlActor.kindOf(context);
     final ApiKeys.Match match = context.getOrDefault(CallerIdentity.CONTEXT_KEY, null);
     final ActorInfo resolved;
     if (kind == ControlActor.Kind.SUPERVISOR && actor != null) {

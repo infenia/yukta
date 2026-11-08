@@ -8,7 +8,7 @@ import com.infenia.yukta.dto.response.InputRequestView;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputState;
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.input.InputRequestQueries;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -60,7 +60,7 @@ public class InputRequestsController {
   private final InputRequestQueries queries;
 
   /** Sends the answers and escalations as control commands. */
-  private final ControlBusGateway controlBus;
+  private final SupervisedControl control;
 
   /** Lists the input requests of a session. */
   @GetMapping("/sessions/{sessionId}/inputs")
@@ -158,7 +158,7 @@ public class InputRequestsController {
         requestId,
         "Answer accepted",
         () ->
-            controlBus.answerInput(
+            control.answerInput(
                 executionId,
                 requestId,
                 body.expectedVersion(),
@@ -184,7 +184,7 @@ public class InputRequestsController {
         executionId,
         requestId,
         "Escalation accepted",
-        () -> controlBus.escalateInput(executionId, requestId, body.reason(), body.advice()));
+        () -> control.escalateInput(executionId, requestId, body.reason(), body.advice()));
   }
 
   private Mono<ApiResponse<InputRequestView>> act(

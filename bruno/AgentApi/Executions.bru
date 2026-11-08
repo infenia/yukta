@@ -1,0 +1,21 @@
+meta {
+  name: Executions
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{base_url}}/api/agent/v1/executions?status=RUNNING
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{agent_token}}
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

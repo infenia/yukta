@@ -7,7 +7,7 @@ import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.route.RouteResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -46,7 +46,7 @@ public class TokenAnswerService {
   private final RouteResolver routes;
 
   /** Sends the answer. */
-  private final ControlBusGateway controlBus;
+  private final SupervisedControl control;
 
   /** Registry for the metrics. */
   private final MeterRegistry meters;
@@ -57,19 +57,19 @@ public class TokenAnswerService {
    * @param broker finds requests
    * @param tokens makes and checks tokens
    * @param routes finds the route of a request
-   * @param controlBus sends the answer
+   * @param control sends the answer
    * @param meters registry for the metrics
    */
   public TokenAnswerService(
       final InputBroker broker,
       final AnswerTokens tokens,
       final RouteResolver routes,
-      final ControlBusGateway controlBus,
+      final SupervisedControl control,
       final MeterRegistry meters) {
     this.broker = broker;
     this.tokens = tokens;
     this.routes = routes;
-    this.controlBus = controlBus;
+    this.control = control;
     this.meters = meters;
   }
 
@@ -148,7 +148,7 @@ public class TokenAnswerService {
                   || !tokens.claim(answer.requestId(), answer.tier(), answer.expires())) {
                 return refused(mayHandle ? "replay" : "refused");
               }
-              return controlBus
+              return control
                   .answerInput(
                       request.executionId(),
                       request.id(),

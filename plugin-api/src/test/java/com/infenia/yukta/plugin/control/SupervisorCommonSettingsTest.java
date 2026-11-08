@@ -15,9 +15,16 @@ import org.junit.jupiter.api.Test;
 class SupervisorCommonSettingsTest {
 
   @Test
-  void schemaNamesTheFourCommonKeys() {
+  void schemaNamesTheCommonKeys() {
     assertThat(SupervisorCommonSettings.KEYS)
-        .containsExactlyInAnyOrder("allowedCommands", "canAnswer", "maxRisk", "observeInternal");
+        .containsExactlyInAnyOrder(
+            "allowedCommands",
+            "canAnswer",
+            "maxRisk",
+            "observeInternal",
+            "operatorAccess",
+            "initiative",
+            "maxInitiativePerMinute");
   }
 
   @Test

@@ -5,6 +5,7 @@ package com.infenia.yukta.service.workflow;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
@@ -34,7 +35,7 @@ class WorkflowServiceTest {
 
   @BeforeEach
   void setUp() {
-    workflowService = new WorkflowService(controlBus);
+    workflowService = new WorkflowService(new SupervisedControl(controlBus, null, null, null));
   }
 
   @Test

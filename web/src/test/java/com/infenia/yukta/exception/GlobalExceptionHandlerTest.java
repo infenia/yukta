@@ -787,4 +787,46 @@ class GlobalExceptionHandlerTest {
 
     assertThat(resp.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
   }
+
+  @Test
+  void supervisorRefusalsCarryTheirCodeAndTheOwner() {
+    final ServerHttpRequest request = mock(ServerHttpRequest.class);
+    when(request.getPath()).thenReturn(RequestPath.parse(API_PATH, "/"));
+    final var controlled =
+        handler.handleControlled(
+            new com.infenia.yukta.service.supervisor.ControlledBySupervisorException(
+                "guard", "guard controls this."),
+            request);
+    assertThat(controlled.getStatusCode().value()).isEqualTo(409);
+    assertThat(controlled.getBody().errors())
+        .extracting(e -> e.field() + "=" + e.message())
+        .containsExactly("code=CONTROLLED_BY_SUPERVISOR", "supervisor=guard");
+
+    final var nobody =
+        handler.handleControlled(
+            new com.infenia.yukta.service.supervisor.ControlledBySupervisorException(null, "off"),
+            request);
+    assertThat(nobody.getBody().errors()).extracting(e -> e.field()).containsExactly("code");
+
+    final var conflict =
+        handler.handleOwnershipConflict(
+            new com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException(
+                java.util.List.of(
+                    new com.infenia.yukta.service.supervisor.ownership.OwnershipConflict(
+                        "a", "b", "workflow w is"))),
+            request);
+    assertThat(conflict.getStatusCode().value()).isEqualTo(409);
+    assertThat(conflict.getBody().errors())
+        .extracting(e -> e.field() + "=" + e.message())
+        .containsExactly("code=OWNERSHIP_CONFLICT", "supervisor=b");
+
+    final var rejected =
+        handler.handleControlRejected(
+            new com.infenia.yukta.service.supervisor.ControlRejectedException("guard: closed"),
+            request);
+    assertThat(rejected.getStatusCode().value()).isEqualTo(403);
+    assertThat(rejected.getBody().errors())
+        .extracting(e -> e.message())
+        .containsExactly("CONTROL_REJECTED");
+  }
 }

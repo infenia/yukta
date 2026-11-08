@@ -39,8 +39,7 @@ class SupervisorApiAcceptanceTest {
   void catalogListsEveryShippedTypeWithItsSchema() throws Exception {
     final HttpResponse<String> list = call("GET", "/api/supervisor-types", null);
     assertThat(list.statusCode()).isEqualTo(200);
-    assertThat(list.body())
-        .contains("rule-supervisor", "composite", "workflow", "model-control-plane");
+    assertThat(list.body()).contains("rule-supervisor", "workflow", "model-control-plane");
 
     final HttpResponse<String> one = call("GET", "/api/supervisor-types/rule-supervisor", null);
     assertThat(one.statusCode()).isEqualTo(200);

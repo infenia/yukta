@@ -30,6 +30,7 @@ import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputRequestQueries;
@@ -187,7 +188,8 @@ class InputRequestsControllerTest {
         .thenReturn(Mono.empty());
 
     final InputRequestsController controller =
-        new InputRequestsController(new InputRequestQueries(store), controlBus);
+        new InputRequestsController(
+            new InputRequestQueries(store), new SupervisedControl(controlBus, null, null, null));
     open =
         WebTestClient.bindToController(controller)
             .controllerAdvice(new GlobalExceptionHandler())

@@ -13,6 +13,7 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.StartOptions;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
@@ -64,6 +65,9 @@ public class WorkflowController {
 
   /** The control bus. */
   private final ControlBusGateway controlBus;
+
+  /** Applies the stop. */
+  private final SupervisedControl control;
 
   /** The session service. */
   private final SessionService sessionService;
@@ -151,7 +155,7 @@ public class WorkflowController {
                       + " once")
           @RequestParam(defaultValue = "DRAIN")
           final StopMode mode) {
-    return controlBus
+    return control
         .stopWorkflow(sessionId, workflowId, "Stopped via REST API", mode)
         .map(
             ids ->

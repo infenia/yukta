@@ -37,7 +37,7 @@ import org.springframework.stereotype.Component;
 public class WebhookSupervisorFactory implements SupervisorFactory {
 
   /** The supervisor type. */
-  public static final String TYPE = "webhook";
+  public static final String TYPE = "callout";
 
   /** Longest timeout, in milliseconds. */
   public static final int MAX_TIMEOUT_MS = 10_000;

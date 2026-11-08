@@ -119,6 +119,8 @@ public sealed interface ExecutionEvent {
    * @param reason why it was rejected, otherwise {@code null}
    * @param timestamp when it happened
    * @param nodeId the node the command acted on, or {@code null} for a command on the whole run
+   * @param channel how the command arrived ({@code OPERATOR}, {@code ENGINE} or {@code SYSTEM}), or
+   *     {@code null} when not recorded
    */
   record ControlOutcome(
       String executionId,
@@ -129,8 +131,45 @@ public sealed interface ExecutionEvent {
       boolean applied,
       @Nullable String reason,
       Instant timestamp,
-      @Nullable String nodeId)
+      @Nullable String nodeId,
+      @Nullable String channel)
       implements ExecutionEvent {
+
+    /**
+     * The outcome of a command on a node, with no channel recorded.
+     *
+     * @param executionId the execution the command addressed
+     * @param sessionId the session that owns it, or {@code null}
+     * @param workflowId the workflow it runs, or {@code null}
+     * @param command the command name
+     * @param actor who sent it, or {@code null}
+     * @param applied true if it was applied
+     * @param reason why it was rejected, otherwise {@code null}
+     * @param timestamp when it happened
+     * @param nodeId the node, or {@code null}
+     */
+    public ControlOutcome(
+        final String executionId,
+        final @Nullable String sessionId,
+        final @Nullable String workflowId,
+        final String command,
+        final @Nullable String actor,
+        final boolean applied,
+        final @Nullable String reason,
+        final Instant timestamp,
+        final @Nullable String nodeId) {
+      this(
+          executionId,
+          sessionId,
+          workflowId,
+          command,
+          actor,
+          applied,
+          reason,
+          timestamp,
+          nodeId,
+          null);
+    }
 
     /**
      * The outcome of a command on the whole run.

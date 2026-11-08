@@ -160,7 +160,6 @@ class ParkedCommandsTest {
     when(guard.scope()).thenReturn(new SupervisorScope.Global());
     when(guard.review(any())).thenAnswer(_ -> Mono.just(asker.get()));
     when(other.id()).thenReturn("other");
-    when(other.order()).thenReturn(2);
     when(other.scope()).thenReturn(new SupervisorScope.Global());
     when(other.review(any()))
         .thenReturn(

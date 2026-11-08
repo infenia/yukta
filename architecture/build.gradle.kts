@@ -34,6 +34,7 @@ dependencies {
     testImplementation(project(":plugins:supervisors:rule-supervisor"))
     testImplementation(project(":plugins:supervisors:guards"))
     testImplementation(project(":plugins:supervisors:webhook"))
+    testImplementation(project(":plugins:supervisors:process-engine"))
     testImplementation(project(":plugins:control-planes:rule-control-plane"))
     testImplementation(project(":plugins:control-planes:model-control-plane"))
     testImplementation(project(":plugins:control-planes:rules-first-control-plane"))
