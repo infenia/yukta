@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
+import com.infenia.yukta.plugin.control.SupervisorPreset;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.time.Clock;
@@ -57,5 +58,10 @@ public class RuleSupervisorFactory implements SupervisorFactory {
   @Override
   public List<ConfigField> getConfigSchema() {
     return RuleSupervisor.SCHEMA;
+  }
+
+  @Override
+  public List<SupervisorPreset> presets() {
+    return RulePresets.ALL;
   }
 }

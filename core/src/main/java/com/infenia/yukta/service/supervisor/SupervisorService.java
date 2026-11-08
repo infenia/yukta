@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
+import com.infenia.yukta.plugin.control.SupervisorPreset;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.plugin.control.engine.ReadsAware;
@@ -954,6 +955,16 @@ public class SupervisorService {
    */
   public Optional<SupervisorDescriptor> describe(final String type) {
     return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::describe);
+  }
+
+  /**
+   * The presets of a type.
+   *
+   * @param type the type
+   * @return the presets, or empty for an unknown type
+   */
+  public Optional<List<SupervisorPreset>> presets(final String type) {
+    return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::presets);
   }
 
   /**
