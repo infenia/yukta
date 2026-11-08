@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.log;
+package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;

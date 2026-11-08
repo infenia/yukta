@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
-import com.infenia.yukta.service.log.ExecutionRecovery;
+import com.infenia.yukta.service.orchestrator.ExecutionRecovery;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.util.Map;

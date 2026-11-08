@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.log.ExecutionRecovery;
+import com.infenia.yukta.service.orchestrator.ExecutionRecovery;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import java.util.List;
 import java.util.function.Consumer;
