@@ -1,0 +1,69 @@
+---
+title: "Supervisor engines"
+sidebarTitle: "Supervisor engines"
+description: "The engines that decide for a supervisor: rules, an application, an outbound call, a workflow or a program on the server. How to set each up and what limits protect the server."
+keywords: ["supervisor engine", "rules", "http", "callout", "workflow", "process", "agent API", "credential"]
+---
+
+<Info>
+  **In plain terms:** a supervisor owns some parts of a run; an **engine** decides for it. Pick the engine by who knows the answer: a rule you can write down, an application you run, a service Yukta calls, a workflow you edit in the UI, or a program on the server. Every engine returns the same thing (directives), and the supervisor checks each one before it has any effect.
+</Info>
+
+`GET /api/supervisor-engines` lists the engines of your server (the same catalog as `/api/supervisor-types`).
+
+| Engine (`type`) | Who decides | Initiates? | Use it when |
+|---|---|---|---|
+| `rule-supervisor` | JSON rules with SpEL conditions | Yes, with `every` rules | The cases are exact and repeatable |
+| `http` | An application that connects to `/api/agent/v1` | Yes | The logic lives in another service or is an AI agent |
+| `callout` | An HTTP endpoint Yukta calls for each signal | No | You want a simple integration without keeping a connection |
+| `workflow` | A Yukta workflow in an internal session | Yes, from a tick | The decision should be visible and editable as a workflow |
+| `process` | A program on the server (JSON lines on stdin and stdout) | Yes | A script or binary already decides and runs next to Yukta |
+
+## Rules
+
+A rule document has `schemaVersion: 1` and a list of rules. A rule with `when.every` (`30s`, `5m`, `2h`; at least one second) runs on a timer over the executions the supervisor owns; its `if` can read `read.RUNNING`, `read.FAILURE` and so on (the number of owned executions in that status). A timed rule acts on its own, so it needs a `reason` and the command in the supervisor's `initiative` list.
+
+* `GET /api/supervisor-types/rule-supervisor/presets` lists ready-made documents: `failure-guard`, `approval-gate`, `too-many-running`.
+* Every save is a version (the newest 20 since the server started): `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback?version=N`. Saving restarts the attachments at once, so a change swaps in whole.
+* `POST /api/supervisors/{id}/replay` with `{"executionId": "…", "settings": {…}}` shows what the supervisor would have done on a past run, in dry run. Only statuses are replayed.
+
+## Agent endpoint (`http`)
+
+1. Save a supervisor of type `http` and attach it.
+2. `POST /api/supervisors/{id}/credential?ttlHours=24&allowedAddresses=10.0.0.5` returns a token **once**. Issuing again rotates it; `DELETE` revokes it at once. The CLI does the same: `yukta supervisors credential create <id>`.
+3. The application sends `Authorization: Bearer <token>` to `/api/agent/v1`: `GET /self`, `GET /snapshot`, `GET /events?after=<cursor>` (Server-Sent Events), `GET /executions`, `GET /inputs`, `POST /directives`, `POST /reviews/{id}`, `POST /delegations/{id}`. An AI agent can use the same operations as MCP tools at `POST /api/agent/v1/mcp`.
+
+The credential works on the agent API only, and no API key of a person works there. A command may name `target`: `execution:<id>`, `workflow:<id>`, `owned.running` or `held` (the runs this supervisor paused); it is expanded to at most 200 runs, each applied and audited on its own.
+
+**Limits per credential** (system properties): `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, 100 reviews waiting at once (more count as unanswered). An address list ties the credential to those source addresses.
+
+## Outbound call (`callout`)
+
+Yukta posts each signal (secrets masked) to your URL and reads directives from the reply, through the egress policy (allow-list, no private addresses, no redirects). It only reacts: a reply may carry commands for the event it answers.
+
+## Workflow (`workflow`)
+
+A workflow in an internal session, started for each signal. Begin it with `SUPERVISOR_SIGNAL` and end each exit with `SUPERVISOR_DECISION`: `outcome: SUCCESS` with a message `{"commands": […]}` sends the commands, `ESCALATE` hands the request up, `RETRY` runs once more. A command the contract cannot read fails the run. Workflows are written by administrators, so a workflow can call any endpoint it is given a key for; this is a trusted-author boundary.
+
+## Program on the server (`process`)
+
+Settings: `command` and `args`. The executable must be in `yukta.process.allowed-commands` (or `yukta.process.allow-any` must be set while that list is empty). The program runs with an **empty environment**. Each signal arrives as one JSON line, `{"kind": "EVENT", "signal": {…}}`; every line the program prints is read as a directive:
+
+```json
+{"type":"command","key":"k1","cause":"event:e7","reason":"too many failures","command":{"type":"PauseWorkflow","executionId":"…"}}
+{"type":"verdict","answers":"<review id>","verdict":"DENY","reason":"not during a freeze"}
+{"type":"noOpinion","answers":"<review id>"}
+```
+
+A line that is not a directive is dropped. If the program exits, Yukta starts it again with a growing delay.
+
+## What protects the server
+
+* **Ownership** is checked from the command's real target, never from what the engine says.
+* **Initiative** (a command nobody prompted: a tick or the engine's own idea) needs a reason, an entry in the supervisor's `initiative` list and stays under `maxInitiativePerMinute`.
+* **`ifStatus`**: a command that says it applies only to a run in some status is dropped (`precondition-failed`) if the run is not in it.
+* A key is applied once; a supervisor never sees its own outcomes; a unit has one owner.
+
+## Write an engine
+
+An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
