@@ -49,11 +49,11 @@ class CompositeServiceTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final Supervisor profile) {
+        public ExecutionSupervisor create(final Supervisor supervisor) {
           return new ExecutionSupervisor() {
             @Override
             public String id() {
-              return profile.id();
+              return supervisor.id();
             }
 
             @Override
@@ -96,16 +96,16 @@ class CompositeServiceTest {
         }
 
         @Override
-        public void validate(final Supervisor profile) {
-          // accepts anything: the failure shows only when a binding starts again
+        public void validate(final Supervisor supervisor) {
+          // accepts anything: the failure shows only when a attachment starts again
         }
 
         @Override
-        public ExecutionSupervisor create(final Supervisor profile) {
-          if (Boolean.TRUE.equals(profile.settings().get("boom"))) {
+        public ExecutionSupervisor create(final Supervisor supervisor) {
+          if (Boolean.TRUE.equals(supervisor.settings().get("boom"))) {
             throw new IllegalArgumentException("cannot start");
           }
-          return leaf.create(profile);
+          return leaf.create(supervisor);
         }
       };
 
@@ -138,7 +138,7 @@ class CompositeServiceTest {
   void compositeNeedsSavedChildrenAndRestartsOnChange() {
     final SupervisorService service = service();
     StepVerifier.create(service.saveSupervisor(composite("kid")))
-        .expectErrorMessage("Unknown child profile: kid")
+        .expectErrorMessage("Unknown child supervisor: kid")
         .verify();
     StepVerifier.create(service.saveSupervisor(new Supervisor("kid", "leaf", Map.of(), false)))
         .expectNextCount(1)
@@ -174,7 +174,7 @@ class CompositeServiceTest {
             service.saveSupervisor(
                 new Supervisor(
                     "b", "composite", Map.of("mode", "PARALLEL", "children", List.of("a")), false)))
-        .expectErrorMessage("Composite profiles form a cycle at 'b'")
+        .expectErrorMessage("Composite supervisors form a cycle at 'b'")
         .verify();
 
     // nothing was stored, and the resolver is back on the stored tree

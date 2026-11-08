@@ -10,19 +10,19 @@ import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The supervisors attached at run time, by binding id. {@link SupervisorHost} runs them and {@link
- * ControlReviewer} asks them to review commands; this holder lets both see the same set without
- * depending on each other.
+ * The supervisors attached at run time, by attachment id. {@link SupervisorHost} runs them and
+ * {@link ControlReviewer} asks them to review commands; this holder lets both see the same set
+ * without depending on each other.
  */
 @Component
 @NoArgsConstructor
 public class AttachedSupervisors {
 
-  /** Attached supervisors by binding id. */
+  /** Attached supervisors by attachment id. */
   private final Map<String, BoundSupervisor> attached = new ConcurrentHashMap<>();
 
   /**
-   * Adds a supervisor, replacing one with the same binding id.
+   * Adds a supervisor, replacing one with the same attachment id.
    *
    * @param supervisor the supervisor
    * @return the one it replaced, or null
@@ -34,11 +34,11 @@ public class AttachedSupervisors {
   /**
    * Removes a supervisor.
    *
-   * @param bindingId the binding id
+   * @param attachmentId the attachment id
    * @return the supervisor, or null if none was attached
    */
-  /* default */ BoundSupervisor remove(final String bindingId) {
-    return attached.remove(bindingId);
+  /* default */ BoundSupervisor remove(final String attachmentId) {
+    return attached.remove(attachmentId);
   }
 
   /**
@@ -51,12 +51,12 @@ public class AttachedSupervisors {
   }
 
   /**
-   * The supervisor attached under a binding id.
+   * The supervisor attached under a attachment id.
    *
-   * @param bindingId the binding id
+   * @param attachmentId the attachment id
    * @return the supervisor, or empty if none is attached under it
    */
-  public Optional<BoundSupervisor> find(final String bindingId) {
-    return Optional.ofNullable(attached.get(bindingId));
+  public Optional<BoundSupervisor> find(final String attachmentId) {
+    return Optional.ofNullable(attached.get(attachmentId));
   }
 }

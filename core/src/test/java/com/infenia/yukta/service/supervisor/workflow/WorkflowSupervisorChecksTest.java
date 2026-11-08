@@ -25,7 +25,7 @@ class WorkflowSupervisorChecksTest {
   private final WorkflowSupervisorChecks checks =
       new WorkflowSupervisorChecks(internal, definitions);
 
-  private static Supervisor profile() {
+  private static Supervisor supervisor() {
     return new Supervisor("p", "workflow", Map.of("sessionId", "sys", "workflowId", "wf"), false);
   }
 
@@ -38,18 +38,18 @@ class WorkflowSupervisorChecksTest {
   @Test
   void theSessionMustBeInternalAndTheWorkflowMustExist() {
     when(internal.checkInternal("sys")).thenReturn(Mono.just(false));
-    StepVerifier.create(checks.check(profile()))
+    StepVerifier.create(checks.check(supervisor()))
         .expectErrorMessage("Session 'sys' is not internal (tag yukta.internal=true)")
         .verify();
 
     when(internal.checkInternal("sys")).thenReturn(Mono.just(true));
     when(definitions.find("sys", "wf")).thenReturn(Mono.empty());
-    StepVerifier.create(checks.check(profile()))
+    StepVerifier.create(checks.check(supervisor()))
         .expectErrorMessage("Workflow 'wf' not found in session 'sys'")
         .verify();
 
     when(definitions.find("sys", "wf"))
         .thenReturn(Mono.just(Fixtures.workflow("wf", "d", List.of(), List.of())));
-    StepVerifier.create(checks.check(profile())).verifyComplete();
+    StepVerifier.create(checks.check(supervisor())).verifyComplete();
   }
 }

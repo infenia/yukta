@@ -25,17 +25,17 @@ import org.springframework.stereotype.Component;
  * an internal session), {@code workflowId} (must exist), {@code events} (event type names such as
  * {@code InputRequested}), {@code maxConcurrent} (default 2, at most the reserved slots), {@code
  * timeout} in seconds (default 60), next to {@code allowedCommands}, {@code canAnswer} and {@code
- * maxRisk}. A workflow supervisor may send no command until its profile names some.
+ * maxRisk}. A workflow supervisor may send no command until its supervisor names some.
  *
- * <p>That the session is internal and the workflow exists is checked when the profile is saved
+ * <p>That the session is internal and the workflow exists is checked when the supervisor is saved
  * ({@link WorkflowSupervisorChecks}) and again before each run.
  */
 @Component
 @RequiredArgsConstructor
 public class WorkflowSupervisorFactory implements SupervisorFactory {
 
-  /** The supervisor type in a profile. */
-  public static final String PROFILE_TYPE = "workflow";
+  /** The supervisor type in a supervisor. */
+  public static final String TYPE_NAME = "workflow";
 
   private final SupervisorWorkflowRunner runner;
 
@@ -45,16 +45,16 @@ public class WorkflowSupervisorFactory implements SupervisorFactory {
 
   @Override
   public String type() {
-    return PROFILE_TYPE;
+    return TYPE_NAME;
   }
 
   @Override
-  public ExecutionSupervisor create(final Supervisor profile) {
-    final WorkflowSettings settings = WorkflowSettings.read(profile, runner.reservedSlots());
+  public ExecutionSupervisor create(final Supervisor supervisor) {
+    final WorkflowSettings settings = WorkflowSettings.read(supervisor, runner.reservedSlots());
     final SupervisorCapabilities capabilities =
-        SupervisorCapabilities.from(profile, defaultAllowedCommands());
+        SupervisorCapabilities.from(supervisor, defaultAllowedCommands());
     return new WorkflowSupervisor(
-        profile.id(), settings, runner, internal, redactor, capabilities.allowedCommands());
+        supervisor.id(), settings, runner, internal, redactor, capabilities.allowedCommands());
   }
 
   @Override

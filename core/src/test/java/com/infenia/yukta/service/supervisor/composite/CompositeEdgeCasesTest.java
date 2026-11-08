@@ -5,6 +5,7 @@ package com.infenia.yukta.service.supervisor.composite;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ControlRequest;
@@ -15,6 +16,7 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.input.InputRisk;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -229,11 +231,11 @@ class CompositeEdgeCasesTest {
     final SupervisorFactory plane =
         factory(
             "plane",
-            profile ->
+            supervisor ->
                 new ControlPlanePlugin() {
                   @Override
                   public String id() {
-                    return profile.id();
+                    return supervisor.id();
                   }
 
                   @Override
@@ -241,7 +243,7 @@ class CompositeEdgeCasesTest {
                     return Mono.empty();
                   }
                 });
-    final SupervisorFactory plain = factory("plain", profile -> new Plain(0, Mono.empty()));
+    final SupervisorFactory plain = factory("plain", supervisor -> new Plain(0, Mono.empty()));
     final SupervisorResolver resolver;
     final CompositeSupervisorFactory composite;
 
@@ -271,13 +273,13 @@ class CompositeEdgeCasesTest {
       }
 
       @Override
-      public ExecutionSupervisor create(final Supervisor profile) {
-        return make.apply(profile);
+      public ExecutionSupervisor create(final Supervisor supervisor) {
+        return make.apply(supervisor);
       }
     };
   }
 
-  private static Supervisor profile(
+  private static Supervisor supervisor(
       final String id, final String type, final String mode, final String... children) {
     return new Supervisor(
         id, type, Map.of("mode", mode, "children", new ArrayList<>(List.of(children))), false);
@@ -287,8 +289,8 @@ class CompositeEdgeCasesTest {
   void resolverMakesChildrenAndFindsNestedParents() {
     final Kinds kinds = new Kinds();
     final var leaf = new Supervisor("leaf", "plane", Map.of(), false);
-    final var mid = profile("mid", "composite", "CHAIN", "leaf");
-    final var top = profile("top", "composite", "PARALLEL", "mid");
+    final var mid = supervisor("mid", "composite", "CHAIN", "leaf");
+    final var top = supervisor("top", "composite", "PARALLEL", "mid");
     final var odd = new Supervisor("odd", "composite", Map.of("children", "x"), false);
     kinds.resolver.refresh(List.of(leaf, mid, top, odd));
 
@@ -308,21 +310,21 @@ class CompositeEdgeCasesTest {
             new Supervisor("p1", "plane", Map.of(), false),
             new Supervisor("s1", "plain", Map.of(), false)));
 
-    final var chain = profile("c", "composite", "CHAIN", "p1");
+    final var chain = supervisor("c", "composite", "CHAIN", "p1");
     assertThat(((CompositeSupervisor) kinds.composite.create(chain)).childIds())
         .containsExactly("p1");
     assertThat(kinds.composite.type()).isEqualTo("composite");
-    kinds.composite.validate(profile("c", "composite", "PARALLEL", "s1"));
-    assertThatThrownBy(() -> kinds.composite.create(profile("c", "composite", "CHAIN", "s1")))
+    kinds.composite.validate(supervisor("c", "composite", "PARALLEL", "s1"));
+    assertThatThrownBy(() -> kinds.composite.create(supervisor("c", "composite", "CHAIN", "s1")))
         .hasMessageContaining("needs control planes");
   }
 
   @Test
   void treeCheckWalksNestedCompositesWithoutFalseAlarms() {
     final Kinds kinds = new Kinds();
-    final var inner = profile("inner", "composite", "PARALLEL", "p1");
+    final var inner = supervisor("inner", "composite", "PARALLEL", "p1");
     kinds.resolver.refresh(List.of(new Supervisor("p1", "plane", Map.of(), false), inner));
-    assertThat(kinds.composite.create(profile("outer", "composite", "PARALLEL", "inner")))
+    assertThat(kinds.composite.create(supervisor("outer", "composite", "PARALLEL", "inner")))
         .isNotNull();
   }
 
@@ -445,12 +447,69 @@ class CompositeEdgeCasesTest {
     all.add(new Supervisor("leaf", "plane", Map.of(), false));
     String below = "leaf";
     for (int i = 0; i < 6; i++) {
-      all.add(profile("c" + i, "composite", "PARALLEL", below));
+      all.add(supervisor("c" + i, "composite", "PARALLEL", below));
       below = "c" + i;
     }
     all.add(new Supervisor("odd", "composite", Map.of("children", List.of(1)), false));
     kinds.resolver.refresh(all);
     assertThat(kinds.resolver.compositesUsing("leaf")).contains("c0", "c1", "c2");
     assertThat(kinds.resolver.compositesUsing("c5")).isEmpty();
+  }
+
+  private static Decision reviewed(final ReviewMode mode, final Decision... children) {
+    final var settings =
+        new CompositeSettings(CompositeMode.PARALLEL, List.of("a"), mode, 0, Duration.ofSeconds(1));
+    final List<ExecutionSupervisor> plain = new ArrayList<>();
+    final List<String> ids = new ArrayList<>();
+    for (final Decision child : children) {
+      plain.add(new Plain(0, Mono.just(child)));
+      ids.add("c" + ids.size());
+    }
+    return new CompositeSupervisor("c", settings, ids, plain, Clock.systemUTC())
+        .review(REQUEST)
+        .block();
+  }
+
+  private static Decision need(final InputRisk risk, final String route, final Duration ttl) {
+    return Decision.requireApproval("why", new ApprovalNeed(risk, route, ttl));
+  }
+
+  @Test
+  void approvalNeedsSurviveInEveryReviewMode() {
+    final Decision deny = Decision.deny("no");
+    final Decision ask = need(InputRisk.MEDIUM, null, null);
+    // ALL: a refusal wins over a need; needs alone merge; nothing is allow
+    assertThat(reviewed(ReviewMode.ALL, ask, deny).approval()).isNull();
+    assertThat(reviewed(ReviewMode.ALL, ask, deny).allowed()).isFalse();
+    assertThat(reviewed(ReviewMode.ALL, Decision.ALLOW, ask).requiresApproval()).isTrue();
+    assertThat(reviewed(ReviewMode.ALL, Decision.ALLOW, Decision.ALLOW)).isEqualTo(Decision.ALLOW);
+    // ANY: one allow is enough; else a need is kept; else the first refusal
+    assertThat(reviewed(ReviewMode.ANY, deny, Decision.ALLOW)).isEqualTo(Decision.ALLOW);
+    assertThat(reviewed(ReviewMode.ANY, deny, ask).requiresApproval()).isTrue();
+    assertThat(reviewed(ReviewMode.ANY, deny, deny).requiresApproval()).isFalse();
+    // MAJORITY: an allow majority; a majority once the needs are approved; else a refusal
+    assertThat(reviewed(ReviewMode.MAJORITY, Decision.ALLOW, Decision.ALLOW, deny))
+        .isEqualTo(Decision.ALLOW);
+    assertThat(reviewed(ReviewMode.MAJORITY, Decision.ALLOW, ask, deny).requiresApproval())
+        .isTrue();
+    final Decision refused = reviewed(ReviewMode.MAJORITY, Decision.ALLOW, deny, deny);
+    assertThat(refused.requiresApproval()).isFalse();
+    assertThat(refused.allowed()).isFalse();
+  }
+
+  @Test
+  void mergedApprovalKeepsHighestRiskFirstRouteAndShortestTtl() {
+    final Decision merged =
+        reviewed(
+            ReviewMode.ALL,
+            need(InputRisk.MEDIUM, null, null),
+            need(InputRisk.HIGH, "r1", Duration.ofSeconds(10)),
+            need(InputRisk.LOW, "r2", Duration.ofSeconds(5)),
+            need(InputRisk.LOW, null, Duration.ofSeconds(20)),
+            need(InputRisk.LOW, null, null));
+
+    assertThat(merged.approval())
+        .isEqualTo(new ApprovalNeed(InputRisk.HIGH, "r1", Duration.ofSeconds(5)));
+    assertThat(merged.reason()).contains("c0: why").contains("c4: why");
   }
 }

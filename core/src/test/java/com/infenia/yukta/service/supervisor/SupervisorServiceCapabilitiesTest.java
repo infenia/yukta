@@ -29,7 +29,9 @@ import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
-/** What a profile lets its supervisor do is read when the profile is saved and when it starts. */
+/**
+ * What a supervisor lets its supervisor do is read when the supervisor is saved and when it starts.
+ */
 @NoArgsConstructor
 class SupervisorServiceCapabilitiesTest {
 
@@ -58,7 +60,7 @@ class SupervisorServiceCapabilitiesTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final Supervisor profile) {
+        public ExecutionSupervisor create(final Supervisor supervisor) {
           return new ExecutionSupervisor() {
             @Override
             @SuppressWarnings("PMD.ShortMethodName")
@@ -161,8 +163,8 @@ class SupervisorServiceCapabilitiesTest {
       }
 
       @Override
-      public ExecutionSupervisor create(final Supervisor profile) {
-        return factory.create(profile);
+      public ExecutionSupervisor create(final Supervisor supervisor) {
+        return factory.create(supervisor);
       }
     };
   }
