@@ -105,6 +105,12 @@ public class SupervisorHost implements DryRunRecorder {
   /** Key of the supervisor in log entries. */
   private static final String SUPERVISOR_KEY = "supervisor";
 
+  private static final String RESUME_WORKFLOW =
+      ExecutionControlCommand.ResumeWorkflowCommand.class.getSimpleName();
+
+  private static final String STOP_WORKFLOW =
+      ExecutionControlCommand.StopWorkflowCommand.class.getSimpleName();
+
   /** The supervisors to run. */
   private final ObjectProvider<ExecutionSupervisor> supervisors;
 
@@ -240,12 +246,37 @@ public class SupervisorHost implements DryRunRecorder {
   /** Starts every supervisor. */
   @PostConstruct
   public void start() {
+    subscriptions.add(releaseHoldsWhenRunsMove());
     supervisors.stream()
         .forEach(
             supervisor -> {
               checkBeanId(supervisor);
               subscriptions.add(launch(supervisor, dryRun));
             });
+  }
+
+  /**
+   * Keeps the hold ledger honest: a run that anyone resumed or stopped, or that ended, is held by
+   * no supervisor any more, so {@code resume held} never undoes a later pause by someone else.
+   */
+  private Disposable releaseHoldsWhenRunsMove() {
+    return feed.events()
+        .filter(SupervisorHost::releasesHolds)
+        .subscribe(
+            event -> holds.releaseEverywhere(event.executionId()),
+            error -> log.atWarn().setCause(error).log("Hold ledger stopped following runs"));
+  }
+
+  private static boolean releasesHolds(final ExecutionEvent event) {
+    return switch (event) {
+      case ExecutionEvent.ControlOutcome outcome ->
+          outcome.applied()
+              && (RESUME_WORKFLOW.equals(outcome.command())
+                  || STOP_WORKFLOW.equals(outcome.command()));
+      case ExecutionEvent.WorkflowStatusChanged status ->
+          com.infenia.yukta.model.execution.TaskStatus.isTerminalName(status.status());
+      default -> false;
+    };
   }
 
   /** Fails start-up for a bean supervisor whose id breaks the naming rule. */

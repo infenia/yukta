@@ -28,6 +28,7 @@ import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Set;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -45,10 +46,11 @@ class SupervisorHostDirectivesTest {
 
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+  private final ExecutionEventFeed feed = new ExecutionEventFeed();
   private final SupervisorHost host =
       SupervisorHostFixture.create(
           providerOf(),
-          new ExecutionEventFeed(),
+          feed,
           dispatcher,
           new InMemoryExecutionLogStore(),
           meters,
@@ -228,6 +230,34 @@ class SupervisorHostDirectivesTest {
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
     assertThat(host.held("eng")).containsExactly("e1");
     assertThat(host.held("p")).containsExactly("e1");
+  }
+
+  @Test
+  void aRunResumedBySomeoneElseOrEndedIsNoLongerHeld() {
+    host.start();
+    attach(
+        pausing(10),
+        new Directive.Command("k1", new PauseWorkflowCommand("e1"), Cause.event("x"), null, null),
+        new Directive.Command("k2", new PauseWorkflowCommand("e2"), Cause.event("y"), null, null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").size() == 2);
+
+    // a person resumes e1: the supervisor's pause no longer holds it
+    feed.publish(
+        new ExecutionEvent.ControlOutcome(
+            "e1",
+            "s",
+            "w",
+            "ResumeWorkflowCommand",
+            "key:alice",
+            true,
+            null,
+            Instant.now(),
+            null,
+            "OPERATOR"));
+    // e2 ends
+    feed.publish(
+        new ExecutionEvent.WorkflowStatusChanged("e2", "s", "w", "CANCELLED", Instant.now()));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").isEmpty());
   }
 
   @Test

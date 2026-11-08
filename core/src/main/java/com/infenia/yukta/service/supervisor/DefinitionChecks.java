@@ -83,7 +83,11 @@ public final class DefinitionChecks {
                               issues));
               return issues;
             })
-        .flatMap(issues -> issues.isEmpty() ? ownershipIssues(data) : Mono.just(issues));
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? ownershipIssues(data.sessionId(), data.supervisors(), data.workflows())
+                    : Mono.just(issues));
   }
 
   /**
@@ -127,14 +131,40 @@ public final class DefinitionChecks {
    * what the session declares against the attachments others made by hand (or from other sessions),
    * and those attachments against the nodes and groups of the new definitions.
    */
-  private Mono<List<Issue>> ownershipIssues(final SessionConfigData data) {
-    final String sessionId = data.sessionId();
+  /**
+   * Checks one workflow as part of its session, for a save that changes only that workflow (a
+   * rollback to a saved version): the references, then ownership across the whole session with
+   * this version in place, as a session save does.
+   *
+   * @param sessionId the session
+   * @param sessionRefs what the session itself declares
+   * @param workflows the stored workflows of the session, with the new version in place
+   * @param workflow the new version
+   * @return the problems, empty when the save may go ahead
+   */
+  public Mono<List<Issue>> check(
+      final String sessionId,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows,
+      final WorkflowDefinition workflow) {
+    return check(workflow)
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? ownershipIssues(sessionId, sessionRefs, workflows)
+                    : Mono.just(issues));
+  }
+
+  private Mono<List<Issue>> ownershipIssues(
+      final String sessionId,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows) {
     final OwnershipValidator validator =
         new OwnershipValidator(
             (session, workflow) ->
                 session != null && !session.equals(sessionId)
                     ? Optional.empty()
-                    : Optional.ofNullable(data.workflows().get(workflow)).map(WorkflowShape::from));
+                    : Optional.ofNullable(workflows.get(workflow)).map(WorkflowShape::from));
     return service
         .attachments()
         .filter(
@@ -152,7 +182,7 @@ public final class DefinitionChecks {
                           .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
                           .toList());
               final Map<String, SupervisorAttachment> declared =
-                  DefinitionSupervisors.desired(sessionId, data.supervisors(), data.workflows());
+                  DefinitionSupervisors.desired(sessionId, sessionRefs, workflows);
               declared.values().stream()
                   .filter(SupervisorAttachment::enabled)
                   .forEach(
@@ -161,7 +191,11 @@ public final class DefinitionChecks {
                             new OwnershipValidator.Claim(a.supervisorId(), a.scope());
                         validator
                             .conflicts(claim, claims)
-                            .forEach(c -> issues.add(new Issue(fieldOf(a, data), c.message())));
+                            .forEach(
+                                c ->
+                                    issues.add(
+                                        new Issue(
+                                            fieldOf(a, sessionRefs, workflows), c.message())));
                         claims.add(claim);
                       });
               final List<OwnershipValidator.Claim> keptClaims =
@@ -188,9 +222,16 @@ public final class DefinitionChecks {
   /** The field of a declaration, such as {@code workflows.build.supervisors[0].supervisor}. */
   /* default */ static String fieldOf(
       final SupervisorAttachment attachment, final SessionConfigData data) {
+    return fieldOf(attachment, data.supervisors(), data.workflows());
+  }
+
+  private static String fieldOf(
+      final SupervisorAttachment attachment,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows) {
     final String workflowId = attachment.originWorkflowId();
     final List<SupervisorRef> refs =
-        workflowId == null ? data.supervisors() : data.workflows().get(workflowId).supervisors();
+        workflowId == null ? sessionRefs : workflows.get(workflowId).supervisors();
     for (int i = 0; i < refs.size(); i++) {
       if (DefinitionSupervisors.attachmentId(
               attachment.originSessionId(), workflowId == null ? "" : workflowId, refs.get(i))

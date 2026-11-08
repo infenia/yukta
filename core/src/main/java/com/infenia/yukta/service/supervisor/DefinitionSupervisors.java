@@ -216,6 +216,30 @@ public class DefinitionSupervisors implements DefinitionUsage {
     return checks.require(workflow);
   }
 
+  /**
+   * Refuses a new version of one workflow, such as a rollback, as a session save would: a missing
+   * or misused supervisor, or ownership that would overlap with this version in place.
+   *
+   * @param sessionId the session
+   * @param workflow the new version
+   * @return completes when it may be saved; errors with {@link SettingsValidationException}
+   */
+  public Mono<Void> require(final String sessionId, final WorkflowDefinition workflow) {
+    return Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
+        .flatMap(
+            stored -> {
+              final Map<String, WorkflowDefinition> workflows =
+                  new java.util.LinkedHashMap<>(stored.getT2());
+              workflows.put(workflow.workflowId(), workflow);
+              return checks.check(sessionId, stored.getT1(), workflows, workflow);
+            })
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.error(new SettingsValidationException(issues)));
+  }
+
   // ---- reconcile
 
   /**

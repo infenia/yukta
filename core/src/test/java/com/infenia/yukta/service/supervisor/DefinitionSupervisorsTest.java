@@ -25,6 +25,7 @@ import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -525,6 +526,21 @@ class DefinitionSupervisorsTest {
             () -> declared.require(workflow("w1", ref("nope"))).block())
         .isInstanceOf(SettingsValidationException.class)
         .hasMessageContaining("supervisors[0].supervisor");
+  }
+
+  @Test
+  void requireWithTheSessionRefusesAVersionThatTakesWhatAnotherSupervisorOwns() {
+    supervisor("guard");
+    supervisor("other");
+    definitions.save(SESSION, workflow("w1")).block();
+    manual("m", "other", new SupervisorScope.Section("w1", SESSION, Set.of("deploy")));
+
+    // a rollback to a version that declares guard on deploy is checked like a session save
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> declared.require(SESSION, workflow("w1", ref("guard", "deploy"))).block())
+        .isInstanceOf(SettingsValidationException.class)
+        .hasMessageContaining("workflows.w1.supervisors[0]");
+    declared.require(SESSION, workflow("w1", ref("guard", "build.*"))).block();
   }
 
   @Test
