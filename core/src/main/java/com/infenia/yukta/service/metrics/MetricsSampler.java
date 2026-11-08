@@ -40,6 +40,7 @@ import reactor.core.publisher.Sinks;
 @Component
 // All state is guarded by this one lock, so plain maps and method-level synchronization are right.
 @SuppressWarnings({
+  "PMD.CouplingBetweenObjects",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidSynchronizedAtMethodLevel",
@@ -74,6 +75,9 @@ public class MetricsSampler {
 
   /** Cumulative values at the previous sample, to turn counters and timers into rates. */
   private Map<String, double[]> previous = new HashMap<>();
+
+  /** The series keys of the previous sample, so every sample shares one String per series. */
+  private Map<String, String> keys = new HashMap<>();
 
   /** When the previous sample was taken. */
   private long previousTime;
@@ -150,7 +154,7 @@ public class MetricsSampler {
     }
     previous = raw; // meters that disappeared drop out of the baseline here
     previousTime = now;
-    final MetricSample sample = new MetricSample(now, Map.copyOf(values));
+    final MetricSample sample = new MetricSample(now, shareKeys(values));
     push(fine, sample, properties.fineRetention().dividedBy(properties.interval()));
     final long minute = now / MINUTE;
     if (minute != lastMinute) {
@@ -158,6 +162,23 @@ public class MetricsSampler {
       push(coarse, sample, properties.coarseRetention().dividedBy(Duration.ofMinutes(1)));
     }
     live.tryEmitNext(sample);
+  }
+
+  /**
+   * The values with the keys of the previous sample, so the buffers hold one String per series
+   * instead of a new one per sample. Keys of meters that are gone are forgotten.
+   */
+  private Map<String, Double> shareKeys(final Map<String, Double> values) {
+    final Map<String, String> next = HashMap.newHashMap(values.size());
+    final Map<String, Double> shared = HashMap.newHashMap(values.size());
+    values.forEach(
+        (key, value) -> {
+          final String canonical = keys.getOrDefault(key, key);
+          next.put(canonical, canonical);
+          shared.put(canonical, value);
+        });
+    keys = next;
+    return Map.copyOf(shared);
   }
 
   /** Allowed meters in allow-list order, then by name, so the same ones survive the cap. */

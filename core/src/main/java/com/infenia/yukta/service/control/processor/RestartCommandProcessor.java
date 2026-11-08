@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.control.processor;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
-import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
@@ -12,9 +11,7 @@ import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
-import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -57,31 +54,11 @@ public class RestartCommandProcessor {
   /** Reports the outcome of a restart back to the awaiting gateway caller. */
   private final RestartCompletionSink completionSink;
 
-  /** Per-execution restart serialization: tracks which executions are currently being restarted. */
-  private final Map<String, Object> restartInProgress = new ConcurrentHashMap<>();
-
   /** Applies the command. */
   public Mono<Void> process(final RestartCommand restart) {
 
-    return serializeRestart(restart);
-  }
-
-  private Mono<Void> serializeRestart(final RestartCommand restart) {
-    final Object lock = new Object();
-    final boolean acquired = restartInProgress.putIfAbsent(restart.executionId(), lock) == null;
-
-    if (!acquired) {
-      log.atWarn()
-          .addKeyValue("executionId", restart.executionId())
-          .log("Restart already in progress, rejecting duplicate");
-      final ConflictException busy =
-          new ConflictException("Restart already in progress for this execution");
-      completionSink.completeRestartFailure(restart.newExecutionId(), busy);
-      return Mono.error(busy);
-    }
-
-    return executeAtomicRestart(restart)
-        .doFinally(_ -> restartInProgress.remove(restart.executionId()));
+    // The command sequencer runs the commands of one execution one after the other.
+    return executeAtomicRestart(restart);
   }
 
   private Mono<Void> executeAtomicRestart(final RestartCommand restart) {
@@ -143,14 +120,17 @@ public class RestartCommandProcessor {
       final ArchivedExecution archived,
       final RestartCommand restart,
       final ExecutionScheduler.@Nullable Admission admission) {
-    orchestrator
-        .execute(
-            archived.sessionId(),
-            archived.workflowId(),
+    completionSink
+        .reportingStart(
             restart.newExecutionId(),
-            archived.prepared(),
-            archived.payload(),
-            admission)
+            orchestrator.execute(
+                archived.sessionId(),
+                archived.workflowId(),
+                restart.newExecutionId(),
+                archived.prepared(),
+                archived.payload(),
+                admission),
+            () -> registry.findByExecutionId(restart.newExecutionId()).isPresent())
         .subscribeOn(Schedulers.boundedElastic())
         .doOnError(
             err ->
@@ -168,6 +148,5 @@ public class RestartCommandProcessor {
         .addKeyValue("workflowId", archived.workflowId())
         .addKeyValue("definitionVersion", archived.definitionVersion())
         .log("Restarted execution");
-    completionSink.completeRestartSuccess(restart.newExecutionId());
   }
 }

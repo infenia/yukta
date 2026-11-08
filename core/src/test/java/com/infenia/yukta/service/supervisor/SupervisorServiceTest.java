@@ -115,6 +115,19 @@ class SupervisorServiceTest {
     return new SupervisorAttachment(id, supervisorId, scope, on);
   }
 
+  @Test
+  void manualAttachmentCannotUseReservedPrefix() {
+    StepVerifier.create(
+            service.attach(
+                attachment("def-0123456789abcdef", "p", new SupervisorScope.Global(), true)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("reserved"))
+        .verify();
+  }
+
   private SupervisorAttachment attached(final String id, final SupervisorScope scope) {
     StepVerifier.create(service.saveSupervisor(supervisor("p")))
         .expectNextCount(1)
