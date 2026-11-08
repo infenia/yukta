@@ -11,14 +11,15 @@ dependencies {
 
     // Default plugins
 
-    implementation(libs.spring.boot.starter.webflux)
     implementation(libs.spring.boot.starter.webclient)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.micrometer.core)
     implementation("io.micrometer:context-propagation")
     implementation(libs.caffeine)
 
-    implementation(libs.springdoc.openapi)
+    // @Schema on the model records; the application brings the full OpenAPI stack (web, boot)
+    compileOnly(libs.swagger.annotations)
+    testCompileOnly(libs.swagger.annotations)
 
     annotationProcessor(libs.spring.boot.configuration.processor)
 
