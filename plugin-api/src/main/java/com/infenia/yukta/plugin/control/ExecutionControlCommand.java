@@ -369,9 +369,6 @@ public sealed interface ExecutionControlCommand
    * @param payload the start payload (may carry {@code yukta.version})
    * @param idempotencyKey makes a repeated start return the first run; may be {@code null}
    */
-  @SuppressFBWarnings(
-      value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"},
-      justification = "the compact constructor stores an unmodifiable copy")
   record StartWorkflowCommand(
       String sessionId,
       String workflowId,
