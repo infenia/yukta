@@ -163,7 +163,6 @@ com.infenia.yukta.service.input.token.AnswerTokens
 com.infenia.yukta.service.input.token.TokenAnswerService
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader
-com.infenia.yukta.service.orchestrator.TakeoverRecovery
 com.infenia.yukta.service.log.ExecutionRecovery
 com.infenia.yukta.service.log.InMemoryExecutionLogStore
 com.infenia.yukta.service.log.LogStoreSubscriber
@@ -174,6 +173,7 @@ com.infenia.yukta.service.metrics.MetricsSampler
 com.infenia.yukta.service.metrics.RunAnalytics
 com.infenia.yukta.service.orchestrator.ExecutionResumer
 com.infenia.yukta.service.orchestrator.SubWorkflowRunner
+com.infenia.yukta.service.orchestrator.TakeoverRecovery
 com.infenia.yukta.service.orchestrator.WorkflowOrchestrator
 com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler
 com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService
