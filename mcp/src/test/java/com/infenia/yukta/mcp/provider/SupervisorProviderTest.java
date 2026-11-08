@@ -12,6 +12,8 @@ import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
@@ -33,7 +35,13 @@ class SupervisorProviderTest {
 
   private final SupervisorService service = mock(SupervisorService.class);
 
-  private final SupervisorProvider provider = new SupervisorProvider(host, service);
+  private final com.infenia.yukta.service.supervisor.agent.AgentCredentials credentials =
+      new com.infenia.yukta.service.supervisor.agent.AgentCredentials();
+
+  private final OwnershipMap ownership = mock(OwnershipMap.class);
+
+  private final SupervisorProvider provider =
+      new SupervisorProvider(host, service, credentials, ownership);
 
   @BeforeEach
   void noAttachmentsYet() {
@@ -59,8 +67,7 @@ class SupervisorProviderTest {
                     "A",
                     "w",
                     List.of("build.*"),
-                    0,
-                    null)));
+                    0)));
     when(service.attachments())
         .thenReturn(
             Flux.just(new SupervisorAttachment("b1", "p", new SupervisorScope.Session("A"), true)));
@@ -312,6 +319,137 @@ class SupervisorProviderTest {
 
     StepVerifier.create(provider.detach("m"))
         .assertNext(d -> assertThat(d.attachmentId()).isEqualTo("m"))
+        .verifyComplete();
+  }
+
+  @Test
+  void contractNamesItsVersionAndOperations() {
+    final var contract = provider.contract();
+    org.assertj.core.api.Assertions.assertThat(contract.version()).isEqualTo(1);
+    org.assertj.core.api.Assertions.assertThat(contract.operations()).isNotEmpty();
+  }
+
+  @Test
+  void presetsOfAnUnknownTypeAreRefusedAndKnownOnesListed() {
+    when(service.presets("nope")).thenReturn(java.util.Optional.empty());
+    when(service.presets("t"))
+        .thenReturn(
+            java.util.Optional.of(
+                java.util.List.of(
+                    new com.infenia.yukta.plugin.control.SupervisorPreset(
+                        "p", "does p", java.util.Map.of("k", 1)))));
+
+    reactor.test.StepVerifier.create(provider.presets("t"))
+        .assertNext(
+            list -> {
+              org.assertj.core.api.Assertions.assertThat(list.presets()).hasSize(1);
+              org.assertj.core.api.Assertions.assertThat(list.presets().get(0).name())
+                  .isEqualTo("p");
+            })
+        .verifyComplete();
+    reactor.test.StepVerifier.create(provider.presets("nope"))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void versionsShowNamesOfSettingsNeverTheirValues() {
+    final var saved =
+        new Supervisor("s1", "t", java.util.Map.of("bearer", "topsecret", "url", "u"), false);
+    when(service.versions("s1"))
+        .thenReturn(
+            Mono.just(
+                java.util.List.of(
+                    new com.infenia.yukta.service.supervisor.SupervisorVersions.Version(
+                        2, java.time.Instant.EPOCH, saved))));
+
+    reactor.test.StepVerifier.create(provider.versions("s1"))
+        .assertNext(
+            list -> {
+              final var version = list.versions().get(0);
+              org.assertj.core.api.Assertions.assertThat(version.version()).isEqualTo(2);
+              org.assertj.core.api.Assertions.assertThat(version.settingKeys())
+                  .containsExactly("bearer", "url");
+              org.assertj.core.api.Assertions.assertThat(list.toString())
+                  .doesNotContain("topsecret");
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void rollbackAndReplayAnswerFromTheService() {
+    when(service.rollback("s1", 1))
+        .thenReturn(Mono.just(new Supervisor("s1", "t", java.util.Map.of(), true, "d")));
+    when(service.replay("s1", null, "run1"))
+        .thenReturn(
+            Mono.just(
+                java.util.List.of(
+                    new SupervisorService.ReplayDecision(
+                        "PauseWorkflowCommand", "run1", null, "tick", "why", false))));
+
+    reactor.test.StepVerifier.create(provider.rollback("s1", 1))
+        .assertNext(saved -> org.assertj.core.api.Assertions.assertThat(saved.dryRun()).isTrue())
+        .verifyComplete();
+    reactor.test.StepVerifier.create(provider.replay("s1", "run1", null))
+        .assertNext(
+            replay -> {
+              org.assertj.core.api.Assertions.assertThat(replay.decisions()).hasSize(1);
+              org.assertj.core.api.Assertions.assertThat(replay.decisions().get(0).allowed())
+                  .isFalse();
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void aCredentialIsMadeForAnHttpSupervisorOnlyAndRevoked() {
+    when(service.supervisors())
+        .thenReturn(
+            Flux.just(
+                new Supervisor("agent", "http", java.util.Map.of(), false),
+                new Supervisor("rules", "rule-supervisor", java.util.Map.of(), false)));
+
+    final String[] token = new String[1];
+    reactor.test.StepVerifier.create(provider.issueCredential("agent", 2))
+        .assertNext(
+            issued -> {
+              token[0] = issued.token();
+              org.assertj.core.api.Assertions.assertThat(issued.expiresAt()).isNotNull();
+            })
+        .verifyComplete();
+    org.assertj.core.api.Assertions.assertThat(credentials.authenticate(token[0]))
+        .contains("agent");
+    reactor.test.StepVerifier.create(provider.issueCredential("rules", null))
+        .expectError(ConflictException.class)
+        .verify();
+    reactor.test.StepVerifier.create(provider.issueCredential("ghost", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    reactor.test.StepVerifier.create(provider.issueCredential("agent", 0))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+
+    reactor.test.StepVerifier.create(provider.revokeCredential("agent"))
+        .expectNextCount(1)
+        .verifyComplete();
+    reactor.test.StepVerifier.create(provider.revokeCredential("agent"))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void ownershipIsTheMapsAnswer() {
+    when(ownership.of("s", "w"))
+        .thenReturn(
+            Mono.just(
+                new OwnershipMap.Ownership(
+                    "s", "w", true, "guard", java.util.Map.of("a", "default"))));
+    reactor.test.StepVerifier.create(provider.ownership("s", "w"))
+        .assertNext(
+            found -> {
+              org.assertj.core.api.Assertions.assertThat(found.run()).isEqualTo("guard");
+              org.assertj.core.api.Assertions.assertThat(found.nodes())
+                  .containsEntry("a", "default");
+            })
         .verifyComplete();
   }
 }

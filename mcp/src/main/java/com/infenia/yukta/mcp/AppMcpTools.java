@@ -19,11 +19,17 @@ import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo;
+import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
+import com.infenia.yukta.mcp.dto.SupervisorCredential;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
+import com.infenia.yukta.mcp.dto.SupervisorOwnership;
+import com.infenia.yukta.mcp.dto.SupervisorPresetList;
+import com.infenia.yukta.mcp.dto.SupervisorReplay;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
 import com.infenia.yukta.mcp.dto.SupervisorTypeDetails;
 import com.infenia.yukta.mcp.dto.SupervisorTypeList;
+import com.infenia.yukta.mcp.dto.SupervisorVersionList;
 import com.infenia.yukta.mcp.dto.WhoamiResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.mcp.dto.WorkflowHistory;
@@ -228,6 +234,193 @@ public class AppMcpTools {
       @McpToolParam(required = false, description = "What the supervisor is for")
           final String description) {
     return supervisorProvider.save(id, type, settings, Boolean.TRUE.equals(dryRun), description);
+  }
+
+  /**
+   * The supervisor contract.
+   *
+   * @return its version and operations
+   */
+  @McpTool(
+      name = "get_supervisor_contract",
+      title = "Get Supervisor Contract",
+      description =
+          "The version of the supervisor contract and the names of its operations: what a"
+              + " supervisor may read and do. A refusal that names a supervisor is a decision of"
+              + " the owner, not an error to retry.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorContractInfo> getSupervisorContract() {
+    return Mono.fromSupplier(supervisorProvider::contract);
+  }
+
+  /**
+   * Who owns each part of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return the owners
+   */
+  @McpTool(
+      name = "get_ownership",
+      title = "Get Ownership",
+      description =
+          "Which supervisor carries the run level and each node of a workflow, or 'default' for "
+              + "a unit that nobody owns, and whether the default supervisor is on. A command for "
+              + "a unit goes to its owner, which may refuse it.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorOwnership> getOwnership(
+      @McpToolParam(required = true, description = "The session id") final String sessionId,
+      @McpToolParam(required = true, description = "The workflow id") final String workflowId) {
+    return supervisorProvider.ownership(sessionId, workflowId);
+  }
+
+  /**
+   * The presets of a supervisor type.
+   *
+   * @param type the type
+   * @return ready-made settings
+   */
+  @McpTool(
+      name = "list_supervisor_presets",
+      title = "List Supervisor Presets",
+      description =
+          "Ready-made settings for a supervisor type (for rule-supervisor: failure-guard, "
+              + "approval-gate, too-many-running). Save one with save_supervisor and adjust it.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorPresetList> listSupervisorPresets(
+      @McpToolParam(required = true, description = "The type name from list_supervisor_types")
+          final String type) {
+    return supervisorProvider.presets(type);
+  }
+
+  /**
+   * The saved versions of a supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @return its versions, newest first
+   */
+  @McpTool(
+      name = "list_supervisor_versions",
+      title = "List Supervisor Versions",
+      description =
+          "The newest saved states of a supervisor (since the server started), newest first, "
+              + "with the names of their settings. Use rollback_supervisor to restore one.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorVersionList> listSupervisorVersions(
+      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId) {
+    return supervisorProvider.versions(supervisorId);
+  }
+
+  /**
+   * Roll a supervisor back.
+   *
+   * @param supervisorId the supervisor
+   * @param version the number of the version
+   * @return the supervisor as restored
+   */
+  @McpTool(
+      name = "rollback_supervisor",
+      title = "Roll Back Supervisor",
+      description =
+          "Make an earlier saved version of a supervisor current again (saved as a new version; "
+              + "its attachments restart with it). Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<SupervisorSaved> rollbackSupervisor(
+      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId,
+      @McpToolParam(
+              required = true,
+              description = "The version number from list_supervisor_versions")
+          final Integer version) {
+    return supervisorProvider.rollback(supervisorId, version);
+  }
+
+  /**
+   * Replay a supervisor over a past run.
+   *
+   * @param supervisorId the supervisor
+   * @param executionId the past run
+   * @param settings draft settings
+   * @return what it would have done
+   */
+  @McpTool(
+      name = "replay_supervisor",
+      title = "Replay Supervisor",
+      description =
+          "Show what a supervisor would have done on the recorded events of a past run, in dry "
+              + "run: nothing is sent. Only statuses were recorded. Give settings to try a draft "
+              + "instead of the stored ones. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorReplay> replaySupervisor(
+      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId,
+      @McpToolParam(required = true, description = "A past execution id") final String executionId,
+      @McpToolParam(
+              required = false,
+              description = "Draft settings to try; default the stored ones")
+          final Map<String, Object> settings) {
+    return supervisorProvider.replay(supervisorId, executionId, settings);
+  }
+
+  /**
+   * Make the credential of an agent supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @param ttlHours hours it works
+   * @return the token, shown once
+   */
+  @McpTool(
+      name = "create_credential",
+      title = "Create Supervisor Credential",
+      description =
+          "Make the credential of a supervisor of type http (an earlier one stops working at "
+              + "once). The token is shown once and it passes through your context: prefer the UI "
+              + "or `yukta supervisors credential create` and do not repeat the token in "
+              + "messages. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<SupervisorCredential> createCredential(
+      @McpToolParam(required = true, description = "The id of a supervisor of type http")
+          final String supervisorId,
+      @McpToolParam(required = false, description = "Hours it works; default no expiry")
+          final Integer ttlHours) {
+    return supervisorProvider.issueCredential(supervisorId, ttlHours);
+  }
+
+  /**
+   * Cut the credential of an agent supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @return the supervisor id
+   */
+  @McpTool(
+      name = "revoke_credential",
+      title = "Revoke Supervisor Credential",
+      description = "Cut the credential of an agent supervisor at once. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = true,
+              idempotentHint = false,
+              openWorldHint = false))
+  public Mono<SupervisorDetached> revokeCredential(
+      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId) {
+    return supervisorProvider.revokeCredential(supervisorId);
   }
 
   /**
@@ -472,7 +665,8 @@ public class AppMcpTools {
                       + "session and workflow returns the first execution ID (kept for "
                       + "yukta.start.idempotency-ttl, 10 minutes by default)")
           final String idempotencyKey) {
-    return workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey);
+    return Refusals.named(
+        workflowExecutionProvider.startWorkflow(sessionId, workflowId, idempotencyKey));
   }
 
   /**
@@ -581,15 +775,16 @@ public class AppMcpTools {
                   "For STOP and STOP_ALL: DRAIN lets in-flight work finish (default), CANCEL"
                       + " cancels it, KILL stops at once")
           final StopMode mode) {
-    return workflowControlProvider.controlWorkflow(
-        sessionId,
-        action,
-        executionId,
-        workflowId,
-        fromNodeId,
-        reason,
-        Boolean.TRUE.equals(tree),
-        mode);
+    return Refusals.named(
+        workflowControlProvider.controlWorkflow(
+            sessionId,
+            action,
+            executionId,
+            workflowId,
+            fromNodeId,
+            reason,
+            Boolean.TRUE.equals(tree),
+            mode));
   }
 
   /**
@@ -707,8 +902,9 @@ public class AppMcpTools {
           final Boolean immediate,
       @McpToolParam(required = false, description = "Optional reason recorded with stop actions")
           final String reason) {
-    return workflowControlProvider.controlNode(
-        sessionId, executionId, nodeId, action, immediate, reason);
+    return Refusals.named(
+        workflowControlProvider.controlNode(
+            sessionId, executionId, nodeId, action, immediate, reason));
   }
 
   /**
@@ -755,7 +951,8 @@ public class AppMcpTools {
               required = true,
               description = "Most executions of one workflow running at once; 0 for none")
           final int maxPerWorkflow) {
-    return workflowControlProvider.setSchedulerLimits(maxConcurrent, maxPerWorkflow);
+    return Refusals.named(
+        workflowControlProvider.setSchedulerLimits(maxConcurrent, maxPerWorkflow));
   }
 
   /**
@@ -848,8 +1045,8 @@ public class AppMcpTools {
           final String field,
       @McpToolParam(required = true, description = "The value that pauses the node")
           final String equalsValue) {
-    return workflowControlProvider.addBreakpoint(
-        sessionId, executionId, nodeId, field, equalsValue);
+    return Refusals.named(
+        workflowControlProvider.addBreakpoint(sessionId, executionId, nodeId, field, equalsValue));
   }
 
   /**
@@ -933,7 +1130,8 @@ public class AppMcpTools {
           final String data,
       @McpToolParam(required = false, description = "Why; recorded in the execution log")
           final String rationale) {
-    return inputProvider.answer(sessionId, executionId, requestId, decision, text, data, rationale);
+    return Refusals.named(
+        inputProvider.answer(sessionId, executionId, requestId, decision, text, data, rationale));
   }
 
   /**
@@ -966,7 +1164,8 @@ public class AppMcpTools {
       @McpToolParam(required = true, description = "Why it is handed up") final String reason,
       @McpToolParam(required = false, description = "What to suggest to whoever answers next")
           final String advice) {
-    return inputProvider.escalate(sessionId, executionId, requestId, reason, advice);
+    return Refusals.named(
+        inputProvider.escalate(sessionId, executionId, requestId, reason, advice));
   }
 
   /**

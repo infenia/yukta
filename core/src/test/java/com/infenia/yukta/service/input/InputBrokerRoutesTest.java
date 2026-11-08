@@ -78,6 +78,10 @@ class InputBrokerRoutesTest {
   private final MutableClock clock = new MutableClock();
   private final List<ExecutionEvent> events = new CopyOnWriteArrayList<>();
   private final List<EligibleSupervisors.Candidate> attached = new ArrayList<>();
+
+  /** Who reports to whom, by supervisor id. */
+  private final java.util.Map<String, List<String>> parents = new java.util.HashMap<>();
+
   private final Map<String, InputRoute> routes = new LinkedHashMap<>();
   private final SessionConfigStore sessions = mock(SessionConfigStore.class);
 
@@ -154,7 +158,19 @@ class InputBrokerRoutesTest {
 
   private InputBroker broker(final InputRequestStore requests) {
     final ObjectProvider<EligibleSupervisors> directory = mock(ObjectProvider.class);
-    when(directory.getIfAvailable()).thenReturn(() -> List.copyOf(attached));
+    when(directory.getIfAvailable())
+        .thenReturn(
+            new EligibleSupervisors() {
+              @Override
+              public List<Candidate> bound() {
+                return List.copyOf(attached);
+              }
+
+              @Override
+              public List<String> parentsOf(final String candidateId) {
+                return parents.getOrDefault(candidateId, List.of());
+              }
+            });
     final ObjectProvider<SessionConfigStore> sessionStore = mock(ObjectProvider.class);
     when(sessionStore.getIfAvailable()).thenReturn(sessions);
     feed.events().subscribe(events::add);
@@ -168,6 +184,17 @@ class InputBrokerRoutesTest {
         clock,
         new RouteResolver(routes, sessionStore),
         directory);
+  }
+
+  private void reportsTo(final String child, final String parent) {
+    parents.merge(
+        child,
+        List.of(parent),
+        (a, b) -> {
+          final List<String> both = new ArrayList<>(a);
+          both.addAll(b);
+          return both;
+        });
   }
 
   private void supervisor(final String id, final SupervisorScope scope) {
@@ -482,11 +509,19 @@ class InputBrokerRoutesTest {
   void escalationThatLostTheRaceReturnsTheRequestWhereTheWinnerPutIt() {
     final Tier above =
         new Tier(
-            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+            "above",
+            List.of("supervisor:parent"),
+            null,
+            Mode.FIRST,
+            0,
+            0,
+            ResponderType.AUTO,
+            null);
     routes.put(
         "chain", route("chain", FinalAction.FAIL, auto("supervisor:*", null), above, humans(null)));
     supervisor("section", SECTION);
     supervisor("workflow", WORKFLOW);
+    reportsTo("section", "workflow");
     final InputRequestStore racing = spy(store);
     final InputBroker broker = broker(racing);
     final InputRequest request = open(broker, spec("k1", "chain"));
@@ -520,14 +555,22 @@ class InputBrokerRoutesTest {
   }
 
   @Test
-  void supervisorThatEscalatesIsFollowedByTheOnesAboveIt() {
+  void supervisorThatEscalatesIsFollowedByItsParents() {
     final Tier above =
         new Tier(
-            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+            "above",
+            List.of("supervisor:parent"),
+            null,
+            Mode.FIRST,
+            0,
+            0,
+            ResponderType.AUTO,
+            null);
     routes.put(
         "chain", route("chain", FinalAction.FAIL, auto("supervisor:*", null), above, humans(null)));
     supervisor("section", SECTION);
     supervisor("workflow", WORKFLOW);
+    reportsTo("section", "workflow");
     supervisor("peer", SECTION);
     final InputBroker broker = broker();
     final InputRequest request = open(broker, spec("k1", "chain"));
@@ -540,11 +583,11 @@ class InputBrokerRoutesTest {
   }
 
   @Test
-  void aboveFollowsTheTierBeforeWhenNoSupervisorEscalated() {
+  void parentFollowsTheTierBeforeWhenNoSupervisorEscalated() {
     final Tier above =
         new Tier(
             "above",
-            List.of("supervisor:above"),
+            List.of("supervisor:parent"),
             THIRTY_SECONDS,
             Mode.FIRST,
             0,
@@ -564,6 +607,7 @@ class InputBrokerRoutesTest {
     routes.put("chain", route("chain", FinalAction.FAIL, first, above, humans(null)));
     supervisor("section", SECTION);
     supervisor("workflow", WORKFLOW);
+    reportsTo("section", "workflow");
     final InputBroker broker = broker();
     final InputRequest request = open(broker, spec("k1", "chain"));
 
@@ -574,10 +618,17 @@ class InputBrokerRoutesTest {
   }
 
   @Test
-  void aboveWithNobodyAboveSkipsToTheNextTier() {
+  void parentWithNoParentSkipsToTheNextTier() {
     final Tier above =
         new Tier(
-            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+            "above",
+            List.of("supervisor:parent"),
+            null,
+            Mode.FIRST,
+            0,
+            0,
+            ResponderType.AUTO,
+            null);
     routes.put(
         "chain", route("chain", FinalAction.FAIL, auto("supervisor:*", null), above, humans(null)));
     supervisor("workflow", WORKFLOW);
@@ -734,10 +785,17 @@ class InputBrokerRoutesTest {
   }
 
   @Test
-  void humanWhoEscalatesLeavesTheSupervisorsAboveToTheTierBefore() {
+  void humanWhoEscalatesLeavesTheParentsToTheTierBefore() {
     final Tier above =
         new Tier(
-            "above", List.of("supervisor:above"), null, Mode.FIRST, 0, 0, ResponderType.AUTO, null);
+            "above",
+            List.of("supervisor:parent"),
+            null,
+            Mode.FIRST,
+            0,
+            0,
+            ResponderType.AUTO,
+            null);
     final Tier first =
         new Tier(
             "first",
@@ -751,6 +809,7 @@ class InputBrokerRoutesTest {
     routes.put("chain", route("chain", FinalAction.FAIL, first, above, humans(null)));
     supervisor("section", SECTION);
     supervisor("workflow", WORKFLOW);
+    reportsTo("section", "workflow");
     final InputBroker broker = broker();
     final InputRequest request = open(broker, spec("k1", "chain"));
 

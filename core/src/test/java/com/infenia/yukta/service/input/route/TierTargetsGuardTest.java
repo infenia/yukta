@@ -39,6 +39,11 @@ class TierTargetsGuardTest {
         public boolean mayReceive(final Candidate candidate, final InputRequest request) {
           return !candidate.equals(REFUSED);
         }
+
+        @Override
+        public List<String> parentsOf(final String candidateId) {
+          return "asker".equals(candidateId) ? List.of("ok", "no", "far") : List.of();
+        }
       };
 
   @Test
@@ -50,11 +55,10 @@ class TierTargetsGuardTest {
   }
 
   @Test
-  void aboveSkipsRefusedSupervisor() {
-    final Tier tier = new Tier("up", List.of("supervisor:above"), null, null, 0, 0, null, null);
+  void parentSkipsRefusedSupervisor() {
+    final Tier tier = new Tier("up", List.of("supervisor:parent"), null, null, 0, 0, null, null);
 
-    assertThat(
-            TierTargets.selectors(REQUEST, tier, BOUND, List.of(new SupervisorScope.Session("x"))))
+    assertThat(TierTargets.selectors(REQUEST, tier, BOUND, List.of("asker")))
         .containsExactly("supervisor:ok");
   }
 }

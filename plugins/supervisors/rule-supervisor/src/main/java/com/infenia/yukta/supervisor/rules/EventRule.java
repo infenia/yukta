@@ -118,6 +118,24 @@ public final class EventRule {
   }
 
   /**
+   * The period of a timed rule.
+   *
+   * @return the period text such as {@code 30s}, or {@code null} for a rule that reacts to events
+   */
+  public String every() {
+    return when.every();
+  }
+
+  /**
+   * The reason the rule gives its command.
+   *
+   * @return the reason, or {@code null}
+   */
+  public String reason() {
+    return then.reason();
+  }
+
+  /**
    * The rule's id.
    *
    * @return the id
@@ -154,8 +172,22 @@ public final class EventRule {
    * @return true if every condition of the rule holds
    */
   public boolean matches(final ExecutionEvent event, final int attempt) {
+    return matches(event, attempt, Map.of());
+  }
+
+  /**
+   * Whether the rule matches an event, with more facts for its condition.
+   *
+   * @param event the event
+   * @param attempt the restart attempt of its run
+   * @param extra more facts, such as {@code read}
+   * @return true if it matches
+   */
+  public boolean matches(
+      final ExecutionEvent event, final int attempt, final Map<String, Object> extra) {
     final Map<String, Object> fields = Fields.eventFields(event);
     fields.put(Fields.ATTEMPT, attempt);
+    fields.putAll(extra);
     final String kind = when.event();
     final String name = event.getClass().getSimpleName();
     return (kind == null || kind.equals(name))

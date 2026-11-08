@@ -3,6 +3,7 @@
 package com.infenia.yukta.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,10 +34,26 @@ public record SupervisorView(
     long applied,
     long rejected,
     long recorded,
-    long rateLimited) {
+    long rateLimited,
+    @Schema(description = "The supervisors it reports to, in the order they are asked")
+        List<String> parents,
+    @Schema(
+            description =
+                "How each kind of delegation (APPROVAL, INPUT, CONSULT) is asked of the parents")
+        Map<String, DelegationView> delegation) {
+
+  /**
+   * How one kind of delegation is asked.
+   *
+   * @param mode ORDERED, ALL or ANY
+   * @param timeoutSeconds how long one parent has to answer
+   */
+  public record DelegationView(String mode, long timeoutSeconds) {}
 
   /** Keeps an immutable copy of the settings. */
   public SupervisorView {
     settings = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(settings));
+    parents = parents == null ? List.of() : List.copyOf(parents);
+    delegation = delegation == null ? Map.of() : Map.copyOf(delegation);
   }
 }
