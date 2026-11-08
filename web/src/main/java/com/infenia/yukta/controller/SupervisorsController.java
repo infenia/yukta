@@ -101,7 +101,17 @@ public class SupervisorsController {
       String type,
       String description,
       Map<String, Object> settings,
-      @Nullable Boolean dryRun) {
+      @Nullable Boolean dryRun,
+      @Nullable List<String> parents,
+      @Nullable Map<String, DelegationBody> delegation) {
+
+    /**
+     * How one kind of delegation is asked.
+     *
+     * @param mode ORDERED, ALL or ANY
+     * @param timeoutSeconds how long one parent has to answer; the default when absent
+     */
+    public record DelegationBody(@Nullable String mode, @Nullable Long timeoutSeconds) {}
 
     /** Keeps an immutable copy of the settings. */
     public SupervisorBody {
@@ -515,7 +525,56 @@ public class SupervisorsController {
         infos.stream().mapToLong(SupervisorInfo::applied).sum(),
         infos.stream().mapToLong(SupervisorInfo::rejected).sum(),
         infos.stream().mapToLong(SupervisorInfo::recorded).sum(),
-        infos.stream().mapToLong(SupervisorInfo::rateLimited).sum());
+        infos.stream().mapToLong(SupervisorInfo::rateLimited).sum(),
+        supervisor.parents(),
+        delegationView(supervisor));
+  }
+
+  private static Map<String, SupervisorView.DelegationView> delegationView(
+      final Supervisor supervisor) {
+    final Map<String, SupervisorView.DelegationView> view = new java.util.TreeMap<>();
+    supervisor
+        .delegation()
+        .forEach(
+            (kind, d) ->
+                view.put(
+                    kind.name(),
+                    new SupervisorView.DelegationView(d.mode().name(), d.timeout().toSeconds())));
+    return view;
+  }
+
+  private static Map<
+          com.infenia.yukta.plugin.control.DelegationKind,
+          com.infenia.yukta.plugin.control.Delegation>
+      delegationOf(final @Nullable Map<String, SupervisorBody.DelegationBody> body) {
+    final Map<
+            com.infenia.yukta.plugin.control.DelegationKind,
+            com.infenia.yukta.plugin.control.Delegation>
+        out = new java.util.EnumMap<>(com.infenia.yukta.plugin.control.DelegationKind.class);
+    if (body != null) {
+      body.forEach(
+          (kind, d) -> {
+            try {
+              out.put(
+                  com.infenia.yukta.plugin.control.DelegationKind.valueOf(
+                      kind.toUpperCase(java.util.Locale.ROOT)),
+                  new com.infenia.yukta.plugin.control.Delegation(
+                      d.mode() == null
+                          ? com.infenia.yukta.plugin.control.DelegationMode.ORDERED
+                          : com.infenia.yukta.plugin.control.DelegationMode.valueOf(
+                              d.mode().toUpperCase(java.util.Locale.ROOT)),
+                      d.timeoutSeconds() == null
+                          ? com.infenia.yukta.plugin.control.Delegation.DEFAULT_TIMEOUT
+                          : java.time.Duration.ofSeconds(d.timeoutSeconds())));
+            } catch (IllegalArgumentException e) {
+              throw new IllegalArgumentException(
+                  "delegation: unknown kind or mode, or a bad timeout (kinds APPROVAL, INPUT,"
+                      + " CONSULT; modes ORDERED, ALL, ANY)",
+                  e);
+            }
+          });
+    }
+    return out;
   }
 
   private SupervisorView systemView(final SupervisorInfo info) {
@@ -530,7 +589,9 @@ public class SupervisorsController {
         info.applied(),
         info.rejected(),
         info.recorded(),
-        info.rateLimited());
+        info.rateLimited(),
+        List.of(),
+        Map.of());
   }
 
   /** The supervisor as saved, shown without its secrets and without counts. */
@@ -601,7 +662,9 @@ public class SupervisorsController {
         required("type", body.type()),
         settings,
         Boolean.TRUE.equals(body.dryRun()),
-        body.description());
+        body.description(),
+        body.parents() == null ? List.of() : body.parents(),
+        delegationOf(body.delegation()));
   }
 
   private static String idOrNew(final @Nullable String id) {

@@ -413,6 +413,65 @@ class SupervisorServiceTest {
     expectConflict(attachment("b1", "b", new SupervisorScope.Server(), true), "the server");
   }
 
+  // --- hierarchy: parents ---
+
+  private static Supervisor withParents(final String id, final String... parents) {
+    return new Supervisor(id, TYPE, Map.of(), false, null, List.of(parents), Map.of());
+  }
+
+  @Test
+  void aSupervisorMayReportToSeveralStoredParents() {
+    saveSupervisors("p1", "p2");
+
+    StepVerifier.create(service.saveSupervisor(withParents("child", "p1", "p2")))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void aMissingParentASelfReferenceACycleAndTooManyLevelsAreRefusedAtSave() {
+    saveSupervisors("a");
+    StepVerifier.create(service.saveSupervisor(withParents("x", "ghost")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("y", "y")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("b", "a")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("a", "b")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("c", "b")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("d", "c")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("e", "d")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void aParentCannotBeDeletedWhileSupervisorsReportToIt() {
+    saveSupervisors("boss");
+    StepVerifier.create(service.saveSupervisor(withParents("worker", "boss")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(service.deleteSupervisor("boss"))
+        .expectErrorSatisfies(
+            error ->
+                org.assertj.core.api.Assertions.assertThat(error)
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining("parent of [worker]"))
+        .verify();
+    StepVerifier.create(service.deleteSupervisor("worker")).verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("boss")).verifyComplete();
+  }
+
   @Test
   void attachIsLimited() {
     StepVerifier.create(service.saveSupervisor(supervisor("p")))

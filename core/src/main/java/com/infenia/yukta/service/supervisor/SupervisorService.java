@@ -24,6 +24,7 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
 import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
@@ -356,6 +357,7 @@ public class SupervisorService {
                 () ->
                     workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
         .then(Mono.fromRunnable(() -> validateAsSaved(supervisor)))
+        .then(checkParents(supervisor))
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
@@ -382,6 +384,18 @@ public class SupervisorService {
                                 }))
                 .then())
         .thenReturn(supervisor);
+  }
+
+  /** A supervisor reports only to stored supervisors, in no cycle, at most four levels up. */
+  private Mono<Void> checkParents(final Supervisor supervisor) {
+    if (supervisor.parents().isEmpty()) {
+      return Mono.empty();
+    }
+    return store
+        .supervisors()
+        .collectMap(Supervisor::id)
+        .doOnNext(stored -> SupervisorHierarchy.validate(supervisor, stored))
+        .then();
   }
 
   /**
@@ -446,8 +460,24 @@ public class SupervisorService {
                           new ConflictException(
                               "Supervisor " + id + " is a child of composite " + composites));
                 }))
+        .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)));
+  }
+
+  /** Refuses with 409, naming them, when other supervisors report to this one. */
+  private Mono<Void> childrenCheck(final String id) {
+    return store
+        .supervisors()
+        .collectList()
+        .flatMap(
+            all -> {
+              final List<String> children = SupervisorHierarchy.childrenOf(id, all);
+              return children.isEmpty()
+                  ? Mono.<Void>empty()
+                  : Mono.error(
+                      new ConflictException("Supervisor " + id + " is the parent of " + children));
+            });
   }
 
   /** Refuses with 409, naming them, when sessions or workflows declare the supervisor. */

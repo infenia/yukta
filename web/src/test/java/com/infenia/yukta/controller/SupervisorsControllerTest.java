@@ -90,7 +90,7 @@ class SupervisorsControllerTest {
   private final SupervisorsController controller = new SupervisorsController(service, host);
 
   private static SupervisorBody body(final String id, final Map<String, Object> settings) {
-    return new SupervisorBody(id, TYPE, "for tests", settings, false);
+    return new SupervisorBody(id, TYPE, "for tests", settings, false, null, null);
   }
 
   private void created(final String id) {
@@ -359,7 +359,8 @@ class SupervisorsControllerTest {
     StepVerifier.create(controller.attach(new AttachmentBody("a", null, "global", true)))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(controller.create(new SupervisorBody("x", " ", null, null, null)))
+    StepVerifier.create(
+            controller.create(new SupervisorBody("x", " ", null, null, null, null, null)))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
@@ -464,5 +465,52 @@ class SupervisorsControllerTest {
     assertThat(ids(controller.attachments(null, null, "manual"))).containsExactly("srv");
     assertThat(ids(controller.attachments("A", null, "manual"))).isEmpty();
     assertThat(ids(controller.attachments(null, "w1", "manual"))).isEmpty();
+  }
+
+  @Test
+  void parentsAndDelegationModesAreReadFromTheBodyAndShownInTheView() {
+    controller.create(body("boss", Map.of())).block();
+    final SupervisorBody withParents =
+        new SupervisorBody(
+            "child",
+            TYPE,
+            "reports up",
+            Map.of(),
+            false,
+            java.util.List.of("boss"),
+            Map.of(
+                "approval",
+                new SupervisorBody.DelegationBody("all", 45L),
+                "input",
+                new SupervisorBody.DelegationBody(null, null)));
+
+    StepVerifier.create(controller.create(withParents))
+        .assertNext(
+            r -> {
+              org.assertj.core.api.Assertions.assertThat(r.data().parents())
+                  .containsExactly("boss");
+              org.assertj.core.api.Assertions.assertThat(r.data().delegation())
+                  .containsEntry(
+                      "APPROVAL",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))
+                  .containsEntry(
+                      "INPUT",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView(
+                          "ORDERED", 30));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(
+            controller.create(
+                new SupervisorBody(
+                    "bad",
+                    TYPE,
+                    null,
+                    Map.of(),
+                    false,
+                    null,
+                    Map.of("nonsense", new SupervisorBody.DelegationBody("ALL", 1L)))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
   }
 }

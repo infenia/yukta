@@ -3819,6 +3819,16 @@ export interface components {
             /** Format: date-time */
             savedAt?: string;
         };
+        DelegationBody: {
+            mode?: string;
+            /** Format: int64 */
+            timeoutSeconds?: number;
+        };
+        DelegationView: {
+            mode?: string;
+            /** Format: int64 */
+            timeoutSeconds?: number;
+        };
         /** @description A connection between two nodes */
         Edge: {
             /** @description Source node ID */
@@ -4284,9 +4294,13 @@ export interface components {
             version?: string;
         };
         SupervisorBody: {
+            delegation?: {
+                [key: string]: components["schemas"]["DelegationBody"];
+            };
             description?: string;
             dryRun?: boolean;
             id?: string;
+            parents?: string[];
             settings?: {
                 [key: string]: unknown;
             };
@@ -4374,9 +4388,15 @@ export interface components {
             applied?: number;
             /** Format: int32 */
             attachments?: number;
+            /** @description How each kind of delegation (APPROVAL, INPUT, CONSULT) is asked of the parents */
+            delegation?: {
+                [key: string]: components["schemas"]["DelegationView"];
+            };
             description?: string;
             dryRun?: boolean;
             id?: string;
+            /** @description The supervisors it reports to, in the order they are asked */
+            parents?: string[];
             /** Format: int64 */
             rateLimited?: number;
             /** Format: int64 */

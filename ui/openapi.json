@@ -2601,6 +2601,30 @@
         },
         "type" : "object"
       },
+      "DelegationBody" : {
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "timeoutSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DelegationView" : {
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "timeoutSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "Edge" : {
         "description" : "A connection between two nodes",
         "properties" : {
@@ -3572,6 +3596,12 @@
       },
       "SupervisorBody" : {
         "properties" : {
+          "delegation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DelegationBody"
+            },
+            "type" : "object"
+          },
           "description" : {
             "type" : "string"
           },
@@ -3580,6 +3610,12 @@
           },
           "id" : {
             "type" : "string"
+          },
+          "parents" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "settings" : {
             "additionalProperties" : { },
@@ -3802,6 +3838,13 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "delegation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DelegationView"
+            },
+            "description" : "How each kind of delegation (APPROVAL, INPUT, CONSULT) is asked of the parents",
+            "type" : "object"
+          },
           "description" : {
             "type" : "string"
           },
@@ -3810,6 +3853,13 @@
           },
           "id" : {
             "type" : "string"
+          },
+          "parents" : {
+            "description" : "The supervisors it reports to, in the order they are asked",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "rateLimited" : {
             "format" : "int64",

@@ -92,6 +92,27 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void parentsAndDelegationModesAreStoredAndReadBack() {
+    final Supervisor child =
+        new Supervisor(
+            "child",
+            "rule-supervisor",
+            Map.of(),
+            false,
+            null,
+            java.util.List.of("p1", "p2"),
+            Map.of(
+                com.infenia.yukta.plugin.control.DelegationKind.APPROVAL,
+                new com.infenia.yukta.plugin.control.Delegation(
+                    com.infenia.yukta.plugin.control.DelegationMode.ALL,
+                    java.time.Duration.ofSeconds(45))));
+
+    StepVerifier.create(store.saveSupervisor(child)).verifyComplete();
+
+    StepVerifier.create(store.supervisors()).expectNext(child).verifyComplete();
+  }
+
+  @Test
   void aConflictMarkIsStoredAndReadBack() {
     final SupervisorAttachment marked =
         new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();
