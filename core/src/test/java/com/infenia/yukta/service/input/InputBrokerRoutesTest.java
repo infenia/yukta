@@ -34,7 +34,7 @@ import com.infenia.yukta.service.input.route.RouteResolver;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;

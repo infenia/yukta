@@ -21,7 +21,7 @@ import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.review.DryRunRecorder;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

@@ -8,7 +8,7 @@ import static org.mockito.Mockito.mock;
 import com.infenia.yukta.config.SessionConfigProperties;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;

@@ -80,7 +80,9 @@ export function serverProperties(): string {
     )
   // the route of the ticket gates (ticket-session.json): a route nobody configured is refused, so without it `yk ticket run` stops at its first question
   // RouteSettings moved from service/input/route to model/input; the dev server may be built from either
-  const routeSettings = ['service/input/route', 'model/input'].map((d) => join(DEV_HOME, `main/core/src/main/java/com/infenia/yukta/${d}/RouteSettings.java`))
+  const routeSettings = ['service/input/route', 'model/input'].map((d) =>
+    join(DEV_HOME, `main/core/src/main/java/com/infenia/yukta/${d}/RouteSettings.java`),
+  )
   if (routeSettings.some((f) => existsSync(f))) {
     const r = 'yukta.input.routes.ticket.'
     keys.push(

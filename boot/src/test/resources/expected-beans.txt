@@ -194,10 +194,10 @@ com.infenia.yukta.service.result.ExecutionResultService
 com.infenia.yukta.service.review.AttachedSupervisors
 com.infenia.yukta.service.review.ControlReviewer
 com.infenia.yukta.service.review.ExecutionEventFeed
-com.infenia.yukta.service.session.InternalSessions
 com.infenia.yukta.service.session.SessionService
-com.infenia.yukta.service.session.store.InMemorySessionConfigStore
-com.infenia.yukta.service.session.store.SessionConfigStoreConfiguration
+com.infenia.yukta.service.sessionstore.InMemorySessionConfigStore
+com.infenia.yukta.service.sessionstore.InternalSessions
+com.infenia.yukta.service.sessionstore.SessionConfigStoreConfiguration
 com.infenia.yukta.service.store.CheckpointMetrics
 com.infenia.yukta.service.store.InMemoryNodeCheckpointStore
 com.infenia.yukta.service.streaming.DefaultStatusHistoryCache

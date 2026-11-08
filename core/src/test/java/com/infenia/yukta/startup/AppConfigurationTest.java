@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.config.SessionConfigProperties;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import java.time.Duration;
 import java.util.concurrent.locks.LockSupport;
 import lombok.NoArgsConstructor;

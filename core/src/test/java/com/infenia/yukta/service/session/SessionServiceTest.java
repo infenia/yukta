@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -19,7 +20,8 @@ import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -50,6 +52,8 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @ExpectedErrorLog("ERROR com.infenia.yukta.service.session.SessionService - ")
 class SessionServiceTest {
+
+  private static final String SYS = "sys";
 
   private static final String DESC = "desc";
   private static final String DESC2 = "desc2";
@@ -1008,7 +1012,7 @@ class SessionServiceTest {
   @Test
   void deleteSession_detachesTheSupervisorsOfTheSession() {
     final com.infenia.yukta.service.supervisor.SupervisorService supervisors =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.SupervisorService.class);
+        mock(com.infenia.yukta.service.supervisor.SupervisorService.class);
     when(supervisors.removeForSession("s")).thenReturn(Mono.empty());
     sessionService.setSupervisors(supervisors);
     when(configService.getSessionIds()).thenReturn(Flux.just("s"));
@@ -1068,7 +1072,7 @@ class SessionServiceTest {
   @Test
   void applyConfig_checksTheDeclaredSupervisorsBeforeSavingAndAttachesThemAfter() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     final SessionConfigData data =
         new SessionConfigData(
@@ -1089,7 +1093,7 @@ class SessionServiceTest {
   @Test
   void applyConfig_attachesTheDeclaredSupervisorsEvenWhenLaterStepFails() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     final WorkflowDefinition workflow =
         Fixtures.workflow(TEST_WORKFLOW, DESC, List.of(), List.of());
@@ -1116,7 +1120,7 @@ class SessionServiceTest {
   @Test
   void applyConfig_refusesDeclaredSupervisorsThatDoNotCheckOutAndSavesNothing() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     final SessionConfigData data =
         new SessionConfigData(
@@ -1143,7 +1147,7 @@ class SessionServiceTest {
   @Test
   void deleteWorkflow_bringsTheDeclaredSupervisorsInStepWithTheSessionsOtherWorkflows() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     when(declared.reconcile("s")).thenReturn(Mono.empty());
     when(workflowDefinitionStore.find("s", "w"))
@@ -1160,7 +1164,7 @@ class SessionServiceTest {
   @Test
   void deleteSession_makesTheSessionForgetWhatItDeclared() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     when(declared.forget("s")).thenReturn(Mono.empty());
     when(configService.getSessionIds()).thenReturn(Flux.just("s"));
@@ -1177,7 +1181,7 @@ class SessionServiceTest {
   @Test
   void sessionConfigCarriesWhatTheSessionDeclares() {
     final com.infenia.yukta.service.supervisor.DefinitionSupervisors declared =
-        org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
+        mock(com.infenia.yukta.service.supervisor.DefinitionSupervisors.class);
     sessionService.setDefinitionSupervisors(declared);
     when(declared.sessionRefs("s1")).thenReturn(Mono.just(List.of(ref("guard"))));
     final Map<String, Object> config = new java.util.HashMap<>();
@@ -1190,6 +1194,41 @@ class SessionServiceTest {
 
     StepVerifier.create(sessionService.getSessionConfig("s1"))
         .assertNext(response -> assertThat(response.supervisors()).containsExactly(ref("guard")))
+        .verifyComplete();
+  }
+
+  @Test
+  void sessionListsHideInternalSessionsUnlessAsked() {
+    final SessionConfigStore configs = mock(SessionConfigStore.class);
+    final SessionService service =
+        new SessionService(
+            configs,
+            mock(ControlBusGateway.class),
+            mock(WorkflowDefinitionStore.class),
+            mock(PreparedWorkflowCache.class),
+            mock(WorkflowPreparator.class));
+    when(configs.getSessionIds()).thenReturn(Flux.just("a", SYS, "b"));
+    when(configs.getTags(any()))
+        .thenAnswer(
+            call ->
+                Mono.just(
+                    SYS.equals(call.getArgument(0))
+                        ? Map.of(InternalSessions.TAG, "true")
+                        : Map.<String, String>of()));
+
+    StepVerifier.create(service.getSessionIds(true).collectList())
+        .assertNext(ids -> assertThat(ids).containsExactly("a", SYS, "b"))
+        .verifyComplete();
+    StepVerifier.create(service.getSessionIds(false).collectList())
+        .assertNext(ids -> assertThat(ids).containsExactly("a", SYS, "b"))
+        .verifyComplete();
+
+    service.setInternalSessions(new InternalSessions(configs));
+    StepVerifier.create(service.getSessionIds(false).collectList())
+        .assertNext(ids -> assertThat(ids).containsExactly("a", "b"))
+        .verifyComplete();
+    StepVerifier.create(service.getSessionIds(true).collectList())
+        .assertNext(ids -> assertThat(ids).containsExactly("a", SYS, "b"))
         .verifyComplete();
   }
 }

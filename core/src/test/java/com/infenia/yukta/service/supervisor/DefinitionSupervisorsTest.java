@@ -18,7 +18,7 @@ import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
 import com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
