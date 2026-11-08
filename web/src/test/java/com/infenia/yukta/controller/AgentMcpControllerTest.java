@@ -87,7 +87,7 @@ class AgentMcpControllerTest {
     assertThat(result(rpc(exchange, "initialize", Map.of())).get("protocolVersion"))
         .isEqualTo("2025-03-26");
     assertThat(result(rpc(exchange, "ping", null))).isEmpty();
-    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(6);
+    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(7);
     assertThat(((Map<?, ?>) rpc(exchange, "nope", null).get("error")).get("code"))
         .isEqualTo(-32601);
     assertThat(

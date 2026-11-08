@@ -53,6 +53,11 @@ public class AgentMcpController {
               "The executions and open input requests you supervise, with a cursor.",
               Map.of()),
           tool(
+              "next_signals",
+              "Signals after a cursor (from get_snapshot or the last call), waiting up to 25"
+                  + " seconds for the first one; returns the new cursor.",
+              Map.of("after", Map.of("type", "integer"), "waitSeconds", Map.of("type", "integer"))),
+          tool(
               "list_executions",
               "The executions you supervise, newest first.",
               Map.of("status", Map.of("type", "string"), "limit", Map.of("type", "integer"))),
@@ -134,6 +139,12 @@ public class AgentMcpController {
       final ServerWebExchange exchange, final String name, final Map<String, Object> a) {
     return switch (name) {
       case "get_snapshot" -> api.snapshot(exchange).map(r -> (Object) r.data());
+      case "next_signals" ->
+          api.next(
+                  exchange,
+                  a.get("after") instanceof Number n ? n.longValue() : 0L,
+                  a.get("waitSeconds") instanceof Number w ? w.intValue() : 0)
+              .map(r -> (Object) r.data());
       case "list_executions" ->
           api.executions(exchange, string(a, "status"), integer(a.get("limit")))
               .map(r -> (Object) r.data());

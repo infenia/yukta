@@ -403,4 +403,30 @@ class AgentApiControllerTest {
       }
     }
   }
+
+  @Test
+  void aPollReturnsWhatIsThereAtOnceAndAnEmptyBatchWhenNothingComes() {
+    final reactor.core.publisher.Sinks.Many<Signal> in =
+        reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
+    final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
+    in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
+    in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(1)));
+
+    StepVerifier.create(controller.next(as("a1"), 0, 5))
+        .assertNext(
+            r -> {
+              assertThat(r.data().signals()).hasSize(2);
+              assertThat(r.data().cursor()).isEqualTo(2);
+            })
+        .verifyComplete();
+    // nothing after cursor 2: it gives up after the wait and keeps the cursor
+    StepVerifier.create(controller.next(as("a1"), 2, 0))
+        .assertNext(
+            r -> {
+              assertThat(r.data().signals()).isEmpty();
+              assertThat(r.data().cursor()).isEqualTo(2);
+            })
+        .verifyComplete();
+    engine.close();
+  }
 }

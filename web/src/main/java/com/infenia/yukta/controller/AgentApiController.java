@@ -19,6 +19,7 @@ import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.agent.AgentHub;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +51,10 @@ import reactor.core.publisher.Mono;
     name = "Agent API",
     description = "For an application that is the decision maker of a supervisor")
 public class AgentApiController {
+
+  private static final int MAX_POLL_SECONDS = 25;
+  private static final int MAX_BATCH = 50;
+  private static final long POLL_WINDOW_MILLIS = 200;
 
   private static final Set<String> VERDICTS = Set.of("ALLOW", "DENY", "REQUIRE_APPROVAL");
 
@@ -140,6 +145,45 @@ public class AgentApiController {
             .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()));
     return SseStreams.events(envelopes, null, SseStreams.HEARTBEAT);
   }
+
+  /**
+   * The signals after a cursor, waiting up to 25 seconds for the first one: a poll, for a client
+   * that cannot hold a stream open (an AI agent over MCP).
+   *
+   * @param exchange the request
+   * @param after the cursor of the last signal seen
+   * @param waitSeconds how long to wait when there is none yet (at most 25)
+   * @return the signals that were there, at most 50, and the cursor to continue from
+   */
+  @GetMapping("/signals")
+  @Operation(summary = "Poll the signals after a cursor")
+  public Mono<ApiResponse<SignalBatch>> next(
+      final ServerWebExchange exchange,
+      @RequestParam(defaultValue = "0") final long after,
+      @RequestParam(name = "wait", defaultValue = "0") final int waitSeconds) {
+    final Duration wait = Duration.ofSeconds(Math.clamp(waitSeconds, 0, MAX_POLL_SECONDS));
+    return channel(supervisor(exchange))
+        .signalsAfter(after)
+        .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()))
+        .buffer(Duration.ofMillis(POLL_WINDOW_MILLIS))
+        .filter(batch -> !batch.isEmpty())
+        .next()
+        .timeout(wait, Mono.just(List.of()))
+        .map(
+            batch -> {
+              final List<SignalEnvelope> some = batch.stream().limit(MAX_BATCH).toList();
+              final long cursor = some.isEmpty() ? after : some.get(some.size() - 1).cursor();
+              return ApiResponse.success(200, "Signals", new SignalBatch(cursor, some));
+            });
+  }
+
+  /**
+   * A batch of signals.
+   *
+   * @param cursor where to continue from
+   * @param signals the signals, oldest first; empty when nothing happened in time
+   */
+  public record SignalBatch(long cursor, List<SignalEnvelope> signals) {}
 
   /**
    * The owned state with a cursor: read it, then stream {@code events?after=<cursor>} and nothing

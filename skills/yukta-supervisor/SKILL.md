@@ -16,12 +16,13 @@ Use the MCP endpoint `POST <server>/api/agent/v1/mcp` with `Authorization: Beare
 | Tool | Use |
 |---|---|
 | `get_snapshot` | The executions and open input requests you own, with a cursor. Start here. |
+| `next_signals` | The signals after a cursor (`after`), waiting up to 25 seconds (`waitSeconds`) for the first; returns the new cursor. |
 | `list_executions`, `list_open_inputs` | The same, filtered (`status`, `limit`). |
 | `send_directive` | `key` (unique per decision), `cause`, `reason`, `ifStatus`, `command`. |
 | `answer_review` | Answer a review: `id` and `verdict` ALLOW, DENY, REQUIRE_APPROVAL or NO_OPINION. |
 | `answer_delegation` | Answer a delegation from a child supervisor. |
 
-There is no push on this endpoint: poll `get_snapshot` (or `list_executions`) at the pace the task needs. A program can instead stream `GET /api/agent/v1/events?after=<cursor>`.
+There is no push on this endpoint: call `next_signals` with the cursor of `get_snapshot` in a loop, and re-read the snapshot if the cursor is too old to continue. A program can instead stream `GET /api/agent/v1/events?after=<cursor>`.
 
 ## The loop
 
