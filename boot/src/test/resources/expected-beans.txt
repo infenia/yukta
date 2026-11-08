@@ -7,6 +7,8 @@ com.infenia.yukta.config.SessionConfigProperties
 com.infenia.yukta.config.SpaWebFluxConfig
 com.infenia.yukta.config.YuktaProperties
 com.infenia.yukta.console.ConsoleRunner
+com.infenia.yukta.controller.AgentApiController
+com.infenia.yukta.controller.AgentCredentialController
 com.infenia.yukta.controller.ControlAuditController
 com.infenia.yukta.controller.ControlBusController
 com.infenia.yukta.controller.EditionController
@@ -42,6 +44,7 @@ com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory
 com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
+com.infenia.yukta.filter.AgentCredentialFilter
 com.infenia.yukta.filter.ApiKeyFilter
 com.infenia.yukta.filter.DeprecatedAliasFilter
 com.infenia.yukta.filter.HostOriginFilter
