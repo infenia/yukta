@@ -13,7 +13,7 @@ import reactor.test.StepVerifier;
 class RefusalsTest {
 
   @Test
-  void aSupervisorsRefusalNamesTheCodeTheSupervisorAndTheReason() {
+  void supervisorsRefusalNamesTheCodeTheSupervisorAndTheReason() {
     StepVerifier.create(
             Refusals.named(
                 Mono.<String>error(
@@ -29,7 +29,7 @@ class RefusalsTest {
   }
 
   @Test
-  void aRefusalWithNoOwnerAndAPlainDenialAreNamedToo() {
+  void refusalWithNoOwnerAndPlainDenialAreNamedToo() {
     StepVerifier.create(
             Refusals.named(Mono.<String>error(new ControlledBySupervisorException(null, "nobody"))))
         .expectErrorSatisfies(

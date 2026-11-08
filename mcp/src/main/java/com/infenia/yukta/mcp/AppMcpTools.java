@@ -70,7 +70,8 @@ import reactor.core.publisher.Mono;
   "PMD.UseObjectForClearerAPI",
   "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
-  "PMD.TooManyMethods"
+  "PMD.TooManyMethods",
+  "PMD.ExcessivePublicCount"
 })
 public class AppMcpTools {
 
@@ -85,6 +86,9 @@ public class AppMcpTools {
 
   /** Description of the execution id parameter. */
   private static final String EXECUTION_ID_DESC = "The unique identifier of the workflow execution";
+
+  /** Description of the supervisor id parameter. */
+  private static final String SUPERVISOR_ID_DESC = "The supervisor id";
 
   /** Provides session information for MCP tools. */
   private final SessionInfoProvider sessionInfoProvider;
@@ -311,7 +315,7 @@ public class AppMcpTools {
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<SupervisorVersionList> listSupervisorVersions(
-      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId) {
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId) {
     return supervisorProvider.versions(supervisorId);
   }
 
@@ -336,7 +340,7 @@ public class AppMcpTools {
               idempotentHint = false,
               openWorldHint = false))
   public Mono<SupervisorSaved> rollbackSupervisor(
-      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId,
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
       @McpToolParam(
               required = true,
               description = "The version number from list_supervisor_versions")
@@ -362,7 +366,7 @@ public class AppMcpTools {
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<SupervisorReplay> replaySupervisor(
-      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId,
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
       @McpToolParam(required = true, description = "A past execution id") final String executionId,
       @McpToolParam(
               required = false,
@@ -419,7 +423,7 @@ public class AppMcpTools {
               idempotentHint = false,
               openWorldHint = false))
   public Mono<SupervisorDetached> revokeCredential(
-      @McpToolParam(required = true, description = "The supervisor id") final String supervisorId) {
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId) {
     return supervisorProvider.revokeCredential(supervisorId);
   }
 

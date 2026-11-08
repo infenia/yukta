@@ -52,7 +52,7 @@ public class SupervisorProvider {
   private final AgentCredentials credentials;
 
   /** Who owns each part of a workflow. */
-  private final OwnershipMap ownership;
+  private final OwnershipMap ownershipMap;
 
   /**
    * The supervisors that run, the configured supervisors and the attachments.
@@ -358,10 +358,9 @@ public class SupervisorProvider {
               }
               final AgentCredentials.Issued issued =
                   credentials.issue(id, ttlHours == null ? null : Duration.ofHours(ttlHours));
+              final java.time.Instant expiresAt = issued.expiresAt();
               return new SupervisorCredential(
-                  id,
-                  issued.token(),
-                  issued.expiresAt() == null ? null : issued.expiresAt().toString());
+                  id, issued.token(), expiresAt == null ? null : expiresAt.toString());
             });
   }
 
@@ -399,7 +398,7 @@ public class SupervisorProvider {
    * @return the owners
    */
   public Mono<SupervisorOwnership> ownership(final String sessionId, final String workflowId) {
-    return ownership
+    return ownershipMap
         .ownersOf(sessionId, workflowId)
         .map(
             found ->
