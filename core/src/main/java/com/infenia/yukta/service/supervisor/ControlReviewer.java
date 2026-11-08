@@ -41,6 +41,12 @@ public class ControlReviewer {
   /** The {@code via} of a unit that nobody owns. */
   public static final String DEFAULT_VIA = "default";
 
+  /**
+   * Reactor context key of an {@code AtomicReference<String>} that a caller may put in to learn
+   * which supervisor carried a person's command: its id, or {@link #DEFAULT_VIA}.
+   */
+  public static final String VIA_KEY = "yukta.control.via";
+
   /** A unit has one owner; saved data with more is still reviewed, by the lowest id. */
   private static final int OWNERS_PER_UNIT = 1;
 
@@ -184,6 +190,7 @@ public class ControlReviewer {
             // housekeeping is never reviewed
             return Mono.just(ReviewVerdict.ALLOWED);
           }
+          via(context, owner.map(bound -> bound.attachment().supervisorId()).orElse(DEFAULT_VIA));
           if (owner.isEmpty()) {
             return Mono.just(
                 defaultEnabled
@@ -208,6 +215,12 @@ public class ControlReviewer {
    * allows it lets the command through, one that refuses ends it, and when no parent decides (none,
    * all silent, or a {@code HIGH} risk, which only a person approves) the need stays for a person.
    */
+  private static void via(final reactor.util.context.ContextView context, final String carrier) {
+    context
+        .<java.util.concurrent.atomic.AtomicReference<String>>getOrEmpty(VIA_KEY)
+        .ifPresent(holder -> holder.set(carrier));
+  }
+
   private Mono<ReviewVerdict> delegated(
       final BoundSupervisor owner, final ControlRequest request, final ReviewVerdict verdict) {
     if (!(verdict instanceof ReviewVerdict.NeedsApproval needs)
@@ -320,6 +333,37 @@ public class ControlReviewer {
     return owner.get().capabilities().allowsOperator(command)
         ? new Capability(true, name, null)
         : new Capability(false, name, name + " controls this. People cannot do this directly.");
+  }
+
+  /**
+   * What a caller should know about supervision before acting: whether the default supervisor
+   * carries what nobody owns, and how many supervisors own something the caller can reach.
+   *
+   * @param defaultSupervisor whether people can control what nobody owns
+   * @param owners the attached supervisors that own something in reach
+   */
+  public record Summary(boolean defaultSupervisor, int owners) {}
+
+  /**
+   * The supervision summary for a caller.
+   *
+   * @param sessions the sessions the caller is limited to, or {@code null} for all
+   * @return the summary
+   */
+  public Summary summary(final @Nullable List<String> sessions) {
+    final int owners =
+        (int)
+            attached.stream()
+                .filter(bound -> !(bound.scope() instanceof SupervisorScope.Global))
+                .filter(
+                    bound ->
+                        sessions == null
+                            || bound.scope().sessionId() != null
+                                && sessions.contains(bound.scope().sessionId()))
+                .map(bound -> bound.attachment().supervisorId())
+                .distinct()
+                .count();
+    return new Summary(defaultEnabled, owners);
   }
 
   /**

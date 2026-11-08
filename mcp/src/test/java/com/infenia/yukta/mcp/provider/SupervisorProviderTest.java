@@ -419,7 +419,8 @@ class SupervisorProviderTest {
     org.assertj.core.api.Assertions.assertThat(credentials.authenticate(token[0]))
         .contains("agent");
     reactor.test.StepVerifier.create(provider.issueCredential("agent", null))
-        .assertNext(issued -> org.assertj.core.api.Assertions.assertThat(issued.expiresAt()).isNull())
+        .assertNext(
+            issued -> org.assertj.core.api.Assertions.assertThat(issued.expiresAt()).isNull())
         .verifyComplete();
     reactor.test.StepVerifier.create(provider.issueCredential("rules", null))
         .expectError(ConflictException.class)
