@@ -109,7 +109,7 @@ class SupervisorCapabilitiesTest {
     final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
     final SupervisorCapabilities listed =
         SupervisorCapabilities.from(
-            profile(Map.of("operatorAccess", java.util.List.of("PauseWorkflowCommand"))));
+            profile(Map.of("operatorAccess", List.of("PauseWorkflowCommand"))));
     final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
     final ExecutionControlCommand resume = new ExecutionControlCommand.ResumeWorkflowCommand("e");
 

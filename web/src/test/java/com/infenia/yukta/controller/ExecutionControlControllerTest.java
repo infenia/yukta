@@ -36,8 +36,6 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link ExecutionControlController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.ExcessiveImports",
-  "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals"

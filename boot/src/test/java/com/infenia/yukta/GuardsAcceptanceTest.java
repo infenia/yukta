@@ -131,7 +131,7 @@ class GuardsAcceptanceTest {
 
   @Test
   @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.RestartCoordinator - ")
-  void approvalGateThatOwnsTheSessionHoldsTheRestartAPersonSends() throws Exception {
+  void approvalGateThatOwnsTheSessionHoldsRestartsFromPeople() throws Exception {
     final String session = "gate-" + UUID.randomUUID();
     final String tag = UUID.randomUUID().toString().substring(0, 8);
     attach(

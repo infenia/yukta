@@ -4,10 +4,8 @@ package com.infenia.yukta.service.supervisor;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
@@ -19,10 +17,12 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.testsupport.YuktaSettings;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -30,7 +30,7 @@ import reactor.util.context.Context;
 
 /** Production review: the owner only, and only for what people send. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 class ControlReviewerOwnerTest {
 
   private static final String PAUSE = "PauseWorkflowCommand";
@@ -54,13 +54,15 @@ class ControlReviewerOwnerTest {
     reviewer.setAttachedSupervisors(attached);
     reviewer.setDryRun(
         new StaticListableBeanFactory().getBeanProvider(SupervisorHost.class),
-        YuktaSettings.bind(Map.of("yukta.supervisor.default.enabled", "" + defaultEnabled)));
+        YuktaSettings.bind(
+            Map.of("yukta.supervisor.default.enabled", String.valueOf(defaultEnabled))));
     return reviewer;
   }
 
   private ExecutionSupervisor answering(final Decision decision) {
-    final ExecutionSupervisor delegate = mock(ExecutionSupervisor.class);
-    when(delegate.review(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.just(decision));
+    final ExecutionSupervisor delegate = Mockito.mock(ExecutionSupervisor.class);
+    Mockito.when(delegate.review(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(Mono.just(decision));
     return delegate;
   }
 
@@ -80,13 +82,13 @@ class ControlReviewerOwnerTest {
     return delegate;
   }
 
-  private static Context as(final ControlActor.Channel channel) {
+  private static Context contextOf(final ControlActor.Channel channel) {
     return Context.of(ControlActor.CHANNEL_KEY, channel.name());
   }
 
   private static Mono<ReviewVerdict> verdict(
       final ControlReviewer reviewer, final ControlRequest request, final ControlActor.Channel c) {
-    return reviewer.verdict(request, Set.of()).contextWrite(as(c));
+    return reviewer.verdict(request, Set.of()).contextWrite(contextOf(c));
   }
 
   @Test
@@ -125,11 +127,13 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void reviewTurnsAControlledUnitIntoTheConflictPeopleSee() {
+  void reviewTurnsControlledUnitsIntoConflictsPeopleSee() {
     own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
 
     StepVerifier.create(
-            reviewer(true).review(RUN_COMMAND).contextWrite(as(ControlActor.Channel.OPERATOR)))
+            reviewer(true)
+                .review(RUN_COMMAND)
+                .contextWrite(contextOf(ControlActor.Channel.OPERATOR)))
         .expectError(ControlledBySupervisorException.class)
         .verify();
   }
@@ -187,7 +191,7 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void runLevelAndNodeCommandsGoToTheirOwnOwnersWhenAWorkflowIsSplit() {
+  void runLevelAndNodeCommandsGoToTheirOwnOwnersWhenWorkflowIsSplit() {
     final ExecutionSupervisor runOwner = answering(Decision.deny("run owner"));
     final ExecutionSupervisor nodeOwner = answering(Decision.deny("node owner"));
     own("r", new SupervisorScope.Run("w", "s"), runOwner, PAUSE);
@@ -207,7 +211,7 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void aNodeOwnerDoesNotOwnTheRunLevel() {
+  void nodeOwnerDoesNotOwnTheRunLevel() {
     own("n", new SupervisorScope.Section("w", "s", Set.of("build.*")), answering(Decision.ALLOW));
 
     StepVerifier.create(verdict(reviewer(true), RUN_COMMAND, ControlActor.Channel.OPERATOR))
@@ -247,16 +251,14 @@ class ControlReviewerOwnerTest {
     own("srv", new SupervisorScope.Server(), answering(Decision.ALLOW));
     final ControlReviewer reviewer = reviewer(true);
 
-    for (final ExecutionControlCommand command :
-        new ExecutionControlCommand[] {
-          new ExecutionControlCommand.DrainCommand(true),
-          new ExecutionControlCommand.RecoverCommand("old")
-        }) {
-      StepVerifier.create(
-              verdict(
-                  reviewer,
-                  new ControlRequest(command, null, null, null),
-                  ControlActor.Channel.OPERATOR))
+    final List<ControlRequest> requests =
+        List.of(
+            new ControlRequest(new ExecutionControlCommand.DrainCommand(true), null, null, null),
+            new ControlRequest(
+                new ExecutionControlCommand.RecoverCommand("old"), null, null, null));
+
+    for (final ControlRequest request : requests) {
+      StepVerifier.create(verdict(reviewer, request, ControlActor.Channel.OPERATOR))
           .assertNext(v -> assertThat(v).isInstanceOf(ReviewVerdict.Controlled.class))
           .verifyComplete();
     }

@@ -27,7 +27,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Tests how the verdicts of several supervisors combine, with a need for approval. */
-@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @NoArgsConstructor
 class ControlReviewerApprovalTest {
 

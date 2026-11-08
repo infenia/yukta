@@ -67,7 +67,7 @@ class SupervisedControlTest {
       new SupervisedControl(gateway, dispatcher, scheduler, resumer);
 
   @Test
-  void drainIsReviewedAsAServerCommandAndRefusesStartsWhenApplied() {
+  void drainIsReviewedAsServerCommandAndRefusesStartsWhenApplied() {
     StepVerifier.create(control.drain(true)).verifyComplete();
 
     assertThat(seen).containsExactly("reviewedAdmin:OPERATOR");
@@ -95,7 +95,7 @@ class SupervisedControlTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void recoverIsReviewedAndContinuesTheAbortedRunAsANewOne() {
+  void recoverIsReviewedAndContinuesTheAbortedRunAsAnotherRun() {
     Mockito.when(resumer.resume("old")).thenReturn(Mono.just("new"));
 
     StepVerifier.create(control.recover("old")).verifyComplete();
@@ -107,9 +107,7 @@ class SupervisedControlTest {
             Mockito.eq(new ExecutionControlCommand.RecoverCommand("old")),
             Mockito.eq("Recover"),
             action.capture());
-    StepVerifier.create(((Mono<Object>) action.getValue().get()))
-        .expectNext("new")
-        .verifyComplete();
+    StepVerifier.create((Mono<Object>) action.getValue().get()).expectNext("new").verifyComplete();
   }
 
   @Test

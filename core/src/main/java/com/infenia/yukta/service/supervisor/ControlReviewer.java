@@ -3,19 +3,14 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.config.YuktaProperties;
-import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
-import com.infenia.yukta.plugin.input.InputRisk;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +25,9 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 public class ControlReviewer {
+
+  /** A unit has one owner; saved data with more is still reviewed, by the lowest id. */
+  private static final int OWNERS_PER_UNIT = 1;
 
   /** The supervisors attached at run time; set by Spring, empty without it. */
   private AttachedSupervisors attached = new AttachedSupervisors();
@@ -195,11 +193,12 @@ public class ControlReviewer {
     return Flux.fromIterable(reviewers)
         .concatMap(
             supervisor ->
-                decide(supervisor, request).map(decision -> new Vote(supervisor.id(), decision)))
+                decide(supervisor, request)
+                    .map(decision -> new ReviewVerdicts.Vote(supervisor.id(), decision)))
         .filter(vote -> !vote.decision().allowed() && !vote.satisfiedBy(satisfied))
         .takeUntil(vote -> !vote.decision().requiresApproval())
         .collectList()
-        .map(votes -> combine(request, votes, byPerson));
+        .map(votes -> ReviewVerdicts.combine(request, votes, byPerson));
   }
 
   /** The supervisors attached at run time, for a reviewer that selects differently. */
@@ -223,7 +222,7 @@ public class ControlReviewer {
                         .matches(request.sessionId(), request.workflowId(), request.nodeId()))
             .sorted(Comparator.comparing(BoundSupervisor::id))
             .toList();
-    if (owners.size() > 1) {
+    if (owners.size() > OWNERS_PER_UNIT) {
       log.atWarn()
           .addKeyValue("owners", owners.stream().map(BoundSupervisor::id).toList())
           .log("More than one supervisor owns the same unit; the first answers");
@@ -250,72 +249,6 @@ public class ControlReviewer {
         .map(decision -> dryRunned(supervisor, request, decision));
   }
 
-  /** The answers that are not allows, in order; at most one refusal, as the last. */
-  private static ReviewVerdict combine(
-      final ControlRequest request, final List<Vote> votes, final boolean byPerson) {
-    if (votes.isEmpty()) {
-      return ReviewVerdict.ALLOWED;
-    }
-    final Vote last = votes.getLast();
-    if (!last.decision().requiresApproval()) {
-      return new ReviewVerdict.Denied(last.supervisorId() + ": " + last.decision().reason());
-    }
-    if (byPerson && isStop(request)) {
-      log.atWarn()
-          .addKeyValue("command", request.command().getClass().getSimpleName())
-          .addKeyValue("actor", request.actor())
-          .log("A supervisor wants a stop approved; a person sent it, so it runs now");
-      return ReviewVerdict.ALLOWED;
-    }
-    return merged(votes);
-  }
-
-  /** Several needs for approval as one request. */
-  private static ReviewVerdict merged(final List<Vote> votes) {
-    InputRisk risk = InputRisk.LOW;
-    String route = null;
-    Duration ttl = null;
-    final List<String> reasons = new ArrayList<>();
-    final List<String> askedBy = new ArrayList<>();
-    for (final Vote vote : votes) {
-      final ApprovalNeed need = Objects.requireNonNull(vote.decision().approval());
-      risk = need.risk().atLeast(risk) ? need.risk() : risk;
-      route = route == null ? need.routeName() : route;
-      ttl = shorter(ttl, need.ttl());
-      reasons.add(
-          vote.supervisorId()
-              + ": "
-              + Objects.requireNonNullElse(vote.decision().reason(), "approval required"));
-      askedBy.add(vote.supervisorId());
-    }
-    return new ReviewVerdict.NeedsApproval(
-        new ApprovalNeed(risk, route, ttl), String.join("; ", reasons), askedBy);
-  }
-
-  private static @Nullable Duration shorter(
-      final @Nullable Duration current, final @Nullable Duration next) {
-    return current == null || next != null && next.compareTo(current) < 0 ? next : current;
-  }
-
-  private static boolean isStop(final ControlRequest request) {
-    return request.command() instanceof ExecutionControlCommand.StopWorkflowCommand
-        || request.command() instanceof ExecutionControlCommand.StopNodeCommand;
-  }
-
-  /**
-   * One supervisor's decision, by its id.
-   *
-   * @param supervisorId the supervisor
-   * @param decision what it said
-   */
-  private record Vote(String supervisorId, Decision decision) {
-
-    /** A need for approval that this supervisor's approved request already met. */
-    private boolean satisfiedBy(final Set<String> satisfied) {
-      return decision.requiresApproval() && satisfied.contains(supervisorId);
-    }
-  }
-
   /** A refusal or a need for approval from a dry-run supervisor is recorded, not enforced. */
   private Decision dryRunned(
       final ExecutionSupervisor supervisor, final ControlRequest request, final Decision decision) {
@@ -340,7 +273,7 @@ public class ControlReviewer {
   /** The answer when a supervisor times out: a stop is allowed, anything else refused. */
   private Decision fallback(
       final ExecutionSupervisor supervisor, final ControlRequest request, final String why) {
-    final boolean stop = isStop(request);
+    final boolean stop = ReviewVerdicts.isStop(request);
     log.atWarn()
         .addKeyValue("supervisor", supervisor.id())
         .addKeyValue("timeout", timeout)

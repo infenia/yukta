@@ -90,10 +90,8 @@ class SupervisorAcceptanceTest {
     // the rule pauses the run once the node is running
     await()
         .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId(executionId).controlState())
-                    .isEqualTo("PAUSED"));
+        .until(() -> "PAUSED".equals(tracker.getProgressByExecutionId(executionId).controlState()));
+    assertThat(tracker.getProgressByExecutionId(executionId).controlState()).isEqualTo("PAUSED");
     // the control log entry is written after the state flips, so wait for it too
     await()
         .atMost(WAIT)
