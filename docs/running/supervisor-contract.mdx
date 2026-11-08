@@ -43,7 +43,7 @@ An assignment says what a supervisor owns. The unit of ownership is a **node** o
 - A node in several groups is fine until two of those groups go to two supervisors.
 - Nothing is inherited and nothing is overridden. To give one node to a specialist, the main supervisor's assignment must first stop covering it.
 
-**Groups** are a `groups` map in the workflow definition (a name to node ids and `<prefix>.*` selectors). Every member must resolve when the definition is saved. An assignment names one as `group:<name>`.
+**Groups** are the stages nodes already declare: a node's group is its `group`, or the part of its id before the first dot. An assignment names one as `group:<name>` within one session (`workflow:<session>/<workflow>//group:<name>`); it owns the nodes of that group in the stored workflow and follows new versions. A group that names no node is refused when the definition is saved. A node has one group, so two supervisors can only share a node through a `group:` selector and a prefix or id selector that take the same node, which the one-owner check refuses.
 
 **The default supervisor** carries commands for units nobody owns. It is a fallback and never applies where an owner exists. Its engine is `operator-gateway`: today's REST, MCP, CLI and UI endpoints, unchanged. With `yukta.supervisor.default.enabled=false` an unowned unit cannot be controlled by anyone.
 
