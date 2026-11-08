@@ -6,6 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -257,6 +258,29 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
       return tail.read() == '\n';
     } catch (final IOException e) {
       return false;
+    }
+  }
+
+  /**
+   * Removes the output of every run that is not in {@code kept}: what an earlier process left for
+   * runs that are no longer in the execution log would otherwise stay on disk for good.
+   *
+   * @param kept the ids of the runs whose output is still wanted
+   */
+  public void removeNotIn(final Set<String> kept) {
+    if (!Files.isDirectory(root)) {
+      return;
+    }
+    try (var children = Files.list(root)) {
+      children
+          .map(child -> root.relativize(child).toString())
+          .filter(name -> name.startsWith("e-"))
+          .map(name -> URLDecoder.decode(name.substring(2), StandardCharsets.UTF_8))
+          .filter(executionId -> !kept.contains(executionId))
+          .toList()
+          .forEach(this::clear);
+    } catch (final IOException | UncheckedIOException e) {
+      log.atWarn().setCause(e).log("Could not remove the output of runs that are gone");
     }
   }
 

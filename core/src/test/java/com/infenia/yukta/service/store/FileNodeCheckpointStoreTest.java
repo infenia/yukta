@@ -257,6 +257,43 @@ class FileNodeCheckpointStoreTest {
   }
 
   @Test
+  void removeNotIn_keepsTheWantedRunsAndIgnoresMissingRoot() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("keep", "n1", message("a")).block();
+    store.save("drop one", "n1", message("b")).block();
+
+    store.removeNotIn(java.util.Set.of("keep"));
+
+    try (var left = Files.list(dir)) {
+      assertThat(left.map(path -> dir.relativize(path).toString()).toList())
+          .containsExactly("e-keep");
+    }
+    // no directory yet: nothing to do
+    new FileNodeCheckpointStore(dir.resolve("missing").toString(), JsonMapper.builder().build())
+        .removeNotIn(java.util.Set.of());
+  }
+
+  @Test
+  void removeNotIn_logsAndGoesOnWhenTheRootCannotBeRead() throws IOException {
+    final FileNodeCheckpointStore store = store();
+    store.save("e1", "n1", message("a")).block();
+    final java.io.File root = dir.toFile();
+    org.junit.jupiter.api.Assumptions.assumeTrue(root.setReadable(false));
+    try {
+      org.junit.jupiter.api.Assumptions.assumeFalse(Files.isReadable(dir));
+
+      final long before = store.bytesHeld();
+
+      store.removeNotIn(java.util.Set.of());
+
+      // nothing could be listed, so nothing was removed and nothing was thrown
+      assertThat(store.bytesHeld()).isEqualTo(before);
+    } finally {
+      root.setReadable(true);
+    }
+  }
+
+  @Test
   void lateMarkerAfterClear_leavesNoDirectory() throws IOException {
     final FileNodeCheckpointStore store = store();
     store.clear("e1");
