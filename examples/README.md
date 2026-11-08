@@ -57,12 +57,24 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 
 ### Supervisors
 
-[`16-supervisor-profiles/input-requests.json`](16-supervisor-profiles/input-requests.json) is a rule supervisor that approves low
-risk input requests for staging and escalates the rest with advice. Create it with `POST /api/supervisors` (admin key) and
-attach it to a session with `POST /api/supervisors/attachments`; see the docs page "Input requests". A test loads it, so it stays valid.
+A supervisor watches runs and steers them: it vetoes commands, advises on input requests, or answers low risk ones. Three use-case
+examples carry one; their `run.sh` creates it (`PUT /api/supervisors/<id>`, an upsert) before it applies the session with the supervisor
+declared, and then proves it acted. `session.json` itself stays a plain template (a declared supervisor must exist when a session is saved).
 
-Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs?state=OPEN` and answers the
-request with `POST /api/executions/{e}/inputs/{requestId}/answer`. In real use a person, a supervisor or an agent answers it from the UI,
+| # | Supervisor | What it does |
+|---|---|---|
+| [03](03-release-approval/) | `rule-supervisor` `deny` | Refuses a `KILL` stop of a release (`403`) |
+| [04](04-pr-risk-gate/) | `rule-supervisor` `escalate`, section `reviewer` | Adds advice to the reviewer's request |
+| [08](08-alert-triage/) | `rule-supervisor` `escalate`, section `wait-ack` | Adds advice to the on-call's acknowledgement |
+| [16](16-supervisor-profiles/) | `rule-supervisor` `answer` + `escalate` | Approves low risk staging input requests, escalates the rest |
+| [17](17-supervisor-workflow/) | `workflow` | A workflow decides for a session, and a section supervisor hands up to it |
+
+A `WAIT_FOR_SIGNAL` approval has risk `HIGH`, so a supervisor can only advise on it; a supervisor answers requests of risk `LOW` (or `MEDIUM`) that come
+from `ASK_INPUT` or an agent. Example 16 and its docs page "Input requests" show that. Create 16 with `POST /api/supervisors` (admin key) and attach it
+to a session with `POST /api/supervisors/attachments`. A test loads it, so it stays valid.
+
+Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs?state=OPEN,ESCALATED` and answers the
+request with `POST /api/executions/{e}/inputs/{requestId}/answer`. In real use a person answers it (an agent may too, over MCP; a supervisor cannot, see above) from the UI,
 the CLI (`yukta inputs`), REST or MCP.
 
 Example 10 note: MCP output validation rejects executions that are still running, so that
@@ -92,10 +104,11 @@ Exit codes: `0` PASS, `3` SKIP (a needed plugin or LLM endpoint is missing), any
 
 ```
 examples/
-  lib/common.sh        shared helpers: api, apply_session, run_workflow
+  lib/common.sh        shared helpers: api, apply_session, apply_supervisor, run_workflow
   run-all.sh           runs every example and prints a summary
   NN-<name>/
     session.json       session and workflow definitions
+    supervisor.json    the supervisor of the example, where it has one (03, 04, 08)
     payload.json       request payload, where the trigger takes one
     run.sh             apply, start, wait, assert
     README.md          use case, graph, trigger, expected result
