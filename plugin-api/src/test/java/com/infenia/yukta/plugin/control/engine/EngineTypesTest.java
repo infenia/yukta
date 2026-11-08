@@ -32,6 +32,10 @@ class EngineTypesTest {
     assertThat(Cause.answers("r").unprompted()).isFalse();
     assertThatThrownBy(() -> new Cause(Cause.Kind.EVENT, " "))
         .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new Cause(Cause.Kind.ANSWERS, null))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new Cause(null, "x")).isInstanceOf(NullPointerException.class);
+    assertThat(new Cause(Cause.Kind.TICK, null).text()).isEqualTo("tick");
   }
 
   @Test
@@ -58,6 +62,30 @@ class EngineTypesTest {
                     null)
                 .reason())
         .isEqualTo("why");
+  }
+
+  @Test
+  void everySignalAndDirectiveIsBuiltAndNamesItsKind() {
+    final var request =
+        new com.infenia.yukta.plugin.control.ControlRequest(
+            new ExecutionControlCommand.PauseWorkflowCommand("e"), "key:ci", "s", "w");
+    assertThat(new Signal.Review("r1", request, java.time.Duration.ofSeconds(5)).kind())
+        .isEqualTo(Signal.Kind.REVIEW);
+    assertThat(
+            new Signal.Event(
+                    "ev1",
+                    "c1",
+                    new com.infenia.yukta.plugin.control.ExecutionEvent.ControlOutcome(
+                        "e", "s", "w", "PauseWorkflowCommand", null, true, null, Instant.EPOCH))
+                .kind())
+        .isEqualTo(Signal.Kind.EVENT);
+    final var verdict = new Directive.ReviewVerdict("r1", Directive.Verdict.DENY, "closed");
+    assertThat(verdict.verdict()).isEqualTo(Directive.Verdict.DENY);
+    assertThat(verdict.reason()).isEqualTo("closed");
+    assertThat(new Directive.Notify("queue is long", Cause.tick(), "depth 40").message())
+        .isEqualTo("queue is long");
+    assertThat(Signal.Kind.values()).hasSize(5);
+    assertThat(Cause.Kind.values()).hasSize(4);
   }
 
   @Test
