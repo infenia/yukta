@@ -25,7 +25,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
+@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.AvoidDuplicateLiterals"})
 class WorkflowVersionControllerTest {
 
   private static final String VERSION_B = "0002-b";
@@ -40,6 +40,7 @@ class WorkflowVersionControllerTest {
   @BeforeEach
   void setUp() {
     when(declared.reconcile(any())).thenReturn(Mono.empty());
+    when(declared.require(any())).thenReturn(Mono.empty());
     client =
         WebTestClient.bindToController(
                 new WorkflowVersionController(definitions, controlBus, declared))
@@ -123,6 +124,25 @@ class WorkflowVersionControllerTest {
         .isEqualTo("w1");
     verify(definitions).save("s1", old);
     verify(controlBus).compileAndCacheWorkflow("s1", old);
+  }
+
+  @Test
+  void rollbackToVersionWhoseSupervisorIsGoneIsRefusedAndSavesNothing() {
+    final WorkflowDefinition old =
+        Fixtures.workflow(
+            "w1", "old", List.of(Fixtures.node("n", "CONSTANT_SOURCE", Map.of())), List.of());
+    when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
+    when(declared.require(old))
+        .thenReturn(
+            Mono.error(
+                new com.infenia.yukta.service.supervisor.SettingsValidationException(
+                    List.of(
+                        new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                            "supervisors[0].supervisor", "no supervisor 'audit'")))));
+
+    client.post().uri(BASE + "/rollback?version=0001-a").exchange().expectStatus().isBadRequest();
+
+    verify(definitions, org.mockito.Mockito.never()).save(any(), any());
   }
 
   @Test

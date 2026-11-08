@@ -296,6 +296,17 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
+  void requireRefusesWorkflowThatNamesMissingSupervisorAndAcceptsGoodOne() {
+    supervisor("guard");
+
+    declared.require(workflow("w1", ref("guard"))).block();
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> declared.require(workflow("w1", ref("nope"))).block())
+        .isInstanceOf(SettingsValidationException.class)
+        .hasMessageContaining("supervisors[0].supervisor");
+  }
+
+  @Test
   void cleanSessionAndDraftWorkflowHaveNoProblems() {
     supervisor("guard");
 

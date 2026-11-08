@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @RequiredArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidCatchingGenericException"})
 class WorkflowStarter {
 
   /** The stored workflow definitions. */
@@ -199,9 +199,19 @@ class WorkflowStarter {
               if (admission.refused()) {
                 return admission.permit().thenReturn(executionId);
               }
+              final Mono<Void> execution;
+              try {
+                execution =
+                    orchestrator.execute(
+                        sessionId, workflowId, executionId, prepared, payload, admission);
+              } catch (RuntimeException e) {
+                // the slot was taken when it was asked for: a throw before the run is built (the
+                // orchestrator validates its arguments) must not keep it for good
+                admission.giveBack();
+                throw e;
+              }
               final Disposable run =
-                  orchestrator
-                      .execute(sessionId, workflowId, executionId, prepared, payload, admission)
+                  execution
                       .doOnError(
                           err ->
                               log.atError()

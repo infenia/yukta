@@ -23,7 +23,8 @@ public class SessionConfigStoreConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean(SessionConfigStore.class)
-  @ConditionalOnExpression("!'postgres'.equals('${yukta.session.store-type:in-memory}')")
+  @ConditionalOnExpression(
+      "!'postgres'.equalsIgnoreCase('${yukta.session.store-type:in-memory}'.trim())")
   public SessionConfigStore inMemorySessionConfigStore(
       final WorkflowDefinitionStore workflowDefinitionStore) {
     return new InMemorySessionConfigStore(workflowDefinitionStore);

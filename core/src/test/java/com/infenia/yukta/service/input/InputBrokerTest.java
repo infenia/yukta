@@ -316,6 +316,39 @@ class InputBrokerTest {
   }
 
   @Test
+  void answerThatCannotBeStored_endsTheWaitingAskerWithAnErrorInsteadOfLeavingItHanging() {
+    final InputRequestStore failing = Mockito.spy(store);
+    final InputBroker flaky =
+        new InputBroker(
+            failing,
+            feed,
+            log,
+            meters,
+            new InputRedactor(List.of("note")),
+            limits(),
+            clock,
+            new com.infenia.yukta.service.input.route.RouteResolver(Map.of(), null),
+            null);
+    final reactor.core.publisher.Sinks.One<String> ended = reactor.core.publisher.Sinks.one();
+    flaky
+        .ask(who("e1", "n1"), spec("k1"))
+        .subscribe(
+            r -> ended.tryEmitValue("answered"),
+            e -> ended.tryEmitValue(e.getClass().getSimpleName()));
+    final InputRequest request =
+        flaky.listOpen(null, null).collectList().blockOptional().orElseThrow().getFirst();
+    Mockito.doReturn(Mono.error(new IllegalStateException("store down")))
+        .when(failing)
+        .saveResponse(ArgumentMatchers.any());
+
+    StepVerifier.create(flaky.answer(request.id(), null, answer(request, "ann")))
+        .expectErrorMessage("store down")
+        .verify();
+
+    assertThat(ended.asMono().block(Duration.ofSeconds(2))).isEqualTo("InputCancelledException");
+  }
+
+  @Test
   void theRequestSurvivesWhileAnotherCallerStillWaits() {
     final Disposable first = inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();
     inputBroker.ask(who("e1", "n1"), spec("k1")).subscribe();

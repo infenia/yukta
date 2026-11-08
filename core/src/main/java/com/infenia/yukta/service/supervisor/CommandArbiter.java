@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -39,8 +40,10 @@ import reactor.core.scheduler.Schedulers;
  */
 @SuppressWarnings({
   "PMD.CyclomaticComplexity",
+  "PMD.CouplingBetweenObjects",
   "PMD.UseConcurrentHashMap",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.TooManyMethods"
 })
 public class CommandArbiter {
 
@@ -82,6 +85,9 @@ public class CommandArbiter {
 
   /** Flip counts, by supervisor and target. */
   private final Map<String, Flaps> flaps = new HashMap<>();
+
+  /** When the next sweep of the stop and flip records is due. */
+  private Instant nextSweep = Instant.MIN;
 
   /**
    * Creates the arbiter from the settings.
@@ -145,12 +151,13 @@ public class CommandArbiter {
     }
     lock.lock();
     try {
+      sweep(now);
       final Instant stopped = stops.get(command.executionId());
       if (move.pausing() && stopped != null && stopped.plus(STOP_MEMORY).isAfter(now)) {
         return Mono.just(new Decision(Verdict.ARBITRATED, "the run was stopped a moment ago"));
       }
       final Flaps own = flaps.get(supervisorId + '|' + move.target());
-      if (own != null && own.blockedUntil != null && own.blockedUntil.isAfter(now)) {
+      if (own != null && own.blockedUntil.isAfter(now)) {
         return Mono.just(
             new Decision(Verdict.FLAPPING_BLOCKED, "blocked until " + own.blockedUntil));
       }
@@ -160,9 +167,32 @@ public class CommandArbiter {
     }
   }
 
+  /**
+   * Forgets what can no longer matter: a stop older than the memory, and a flip record that is idle
+   * for longer than both the period and the cooldown. Once per period, with the lock held, so the
+   * maps follow the activity of the last period, not every run and node ever touched.
+   */
+  private void sweep(final Instant now) {
+    if (now.isBefore(nextSweep)) {
+      return;
+    }
+    final Duration idle = quiet();
+    nextSweep = now.plus(idle);
+    stops.values().removeIf(stopped -> stopped.plus(STOP_MEMORY).isBefore(now));
+    flaps.values().removeIf(record -> record.touched.plus(idle).isBefore(now));
+  }
+
+  /** How long a record may sit unused: past every period that could still read it. */
+  private Duration quiet() {
+    return Stream.of(flapPeriod, flapCooldown, STOP_MEMORY)
+        .max(Comparator.naturalOrder())
+        .orElse(STOP_MEMORY);
+  }
+
   private void noteStop(final String executionId, final Instant now) {
     lock.lock();
     try {
+      sweep(now);
       stops.put(executionId, now);
     } finally {
       lock.unlock();
@@ -206,30 +236,46 @@ public class CommandArbiter {
     final Entry winner =
         closed.entries.stream().min(Comparator.comparingInt((Entry e) -> e.order)).orElseThrow();
     final Instant now = clock.instant();
+    final List<Entry> arrivals = new ArrayList<>(closed.entries);
+    final Map<Entry, Decision> decisions = decide(arrivals, winner, closed.move, now);
+    arrivals.forEach(entry -> entry.sink.tryEmitValue(decisions.get(entry)));
+  }
+
+  /**
+   * The decision for each entry of a closed window. The winning side sends one command: the first
+   * to arrive of its supervisors that is not blocked for turning the target around too often; its
+   * allies are coalesced into that one. The other side lost only if something was sent; if every
+   * winner was blocked, it may go on.
+   */
+  private Map<Entry, Decision> decide(
+      final List<Entry> arrivals, final Entry winner, final Move move, final Instant now) {
+    final Map<Entry, Decision> decisions = new HashMap<>();
     boolean sent = false;
-    for (final Entry entry : new ArrayList<>(closed.entries)) {
-      final boolean winning = entry.polarity.equals(winner.polarity);
-      final Decision decision;
-      if (winning && !sent) {
-        sent = true;
-        decision = flapped(entry, closed.move, now);
-      } else if (winning) {
-        decision =
-            new Decision(Verdict.COALESCED, "the same command is sent for another supervisor");
-      } else {
-        decision =
-            new Decision(
-                Verdict.ARBITRATED,
-                "lost to supervisor " + winner.supervisorId + " (order " + winner.order + ")");
+    for (final Entry entry : arrivals) {
+      if (entry.polarity.equals(winner.polarity)) {
+        final Decision decision =
+            sent
+                ? new Decision(Verdict.COALESCED, "the same command is sent for another supervisor")
+                : flapped(entry, move, now);
+        sent = sent || decision.verdict() == Verdict.SEND;
+        decisions.put(entry, decision);
       }
-      entry.sink.tryEmitValue(decision);
     }
+    final Decision lost =
+        sent
+            ? new Decision(
+                Verdict.ARBITRATED,
+                "lost to supervisor " + winner.supervisorId + " (order " + winner.order + ")")
+            : Decision.SEND;
+    arrivals.forEach(entry -> decisions.putIfAbsent(entry, lost));
+    return decisions;
   }
 
   /** Counts a turn-around of a supervisor on a target and blocks it once it is too many. */
   private Decision flapped(final Entry entry, final Move move, final Instant now) {
     final Flaps own =
         flaps.computeIfAbsent(entry.supervisorId + '|' + move.target(), _ -> new Flaps());
+    own.touched = now;
     final String before = own.last.put(move.family(), entry.polarity);
     if (before != null && !before.equals(entry.polarity)) {
       own.flips.addLast(now);
@@ -301,7 +347,10 @@ public class CommandArbiter {
   private static final class Flaps {
     private final Map<String, String> last = new HashMap<>();
     private final Deque<Instant> flips = new ArrayDeque<>();
-    private @Nullable Instant blockedUntil;
+    private Instant blockedUntil = Instant.MIN;
+
+    /** When this record was last used. */
+    private Instant touched = Instant.MIN;
   }
 
   /** What to do with a command. */

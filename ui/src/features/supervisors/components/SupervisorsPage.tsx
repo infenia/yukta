@@ -61,7 +61,10 @@ export function SupervisorsPage() {
         title="Supervisors"
         description="Automatic operators that watch runs and step in: pick a type, configure it, attach it to a scope."
         actions={
-          <div role="tablist" className="border-border flex gap-4 border-b">
+          <div
+            role="tablist"
+            className="border-border flex max-w-full gap-4 overflow-x-auto border-b"
+          >
             {TABS.map((name) => (
               <button
                 key={name}
@@ -71,7 +74,7 @@ export function SupervisorsPage() {
                 aria-selected={tab === name}
                 aria-controls="supervisors-tabpanel"
                 onClick={() => show(name)}
-                className={`text-label-md -mb-px h-9 border-b-2 px-0.5 ${
+                className={`text-label-md -mb-px h-9 shrink-0 border-b-2 px-0.5 ${
                   tab === name
                     ? 'border-primary text-on-surface'
                     : 'text-on-surface-variant hover:text-on-surface border-transparent'

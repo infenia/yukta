@@ -31,7 +31,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
-public class AnswerTokens {
+public final class AnswerTokens {
 
   /** The MAC algorithm. */
   private static final String ALGORITHM = "HmacSHA256";
@@ -79,6 +79,11 @@ public class AnswerTokens {
                   + " survive a restart");
     } else {
       bytes = secret.getBytes(StandardCharsets.UTF_8);
+      if (bytes.length < SECRET_BYTES) {
+        // a short secret makes the key guessable from a captured token
+        throw new IllegalArgumentException(
+            "yukta.input.token-secret must be at least " + SECRET_BYTES + " bytes long");
+      }
     }
     this.key = new SecretKeySpec(bytes, ALGORITHM);
   }

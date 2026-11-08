@@ -440,7 +440,12 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
     return executionIndex.values().stream()
-        .filter(state -> isWithin(state.executionId, rootExecutionId))
+        // every run records its root, so only a root that is not the recorded one needs the walk
+        .filter(
+            state ->
+                rootExecutionId.equals(state.rootExecutionId)
+                    || rootExecutionId.equals(state.executionId)
+                    || isWithin(state.executionId, rootExecutionId))
         .map(ExecutionHistory::summary)
         .sorted(Comparator.comparing(WorkflowExecutionSummary::startTime))
         .toList();

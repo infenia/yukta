@@ -26,6 +26,8 @@ class PluginRegistryTest {
   /** Test plugin type identifier. */
   private static final String TEST_TYPE = "test-type";
 
+  private static final String REGISTERED = "registered";
+
   @BeforeEach
   void setUp() {
     try (LocalValidatorFactoryBean validatorFactoryBean = new LocalValidatorFactoryBean()) {

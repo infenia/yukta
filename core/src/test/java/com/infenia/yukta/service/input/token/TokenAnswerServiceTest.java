@@ -63,7 +63,8 @@ class TokenAnswerServiceTest {
 
   private final MutableClock clock = new MutableClock();
   private final InMemoryInputRequestStore store = new InMemoryInputRequestStore(100);
-  private final AnswerTokens tokens = new AnswerTokens("test-secret", clock);
+  private final AnswerTokens tokens =
+      new AnswerTokens("test-secret-test-secret-test-secret", clock);
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
   private final AtomicReference<ContextView> seen = new AtomicReference<>();
   private InputBroker broker;
@@ -213,7 +214,7 @@ class TokenAnswerServiceTest {
     final TokenAnswerService restarted =
         new TokenAnswerService(
             broker,
-            new AnswerTokens("test-secret", clock),
+            new AnswerTokens("test-secret-test-secret-test-secret", clock),
             new RouteResolver(Map.of(), null),
             controlBus,
             new SimpleMeterRegistry());

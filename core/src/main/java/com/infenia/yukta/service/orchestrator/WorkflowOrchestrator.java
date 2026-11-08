@@ -454,7 +454,17 @@ public class WorkflowOrchestrator {
       final Map<String, Object> payload) {
     return Mono.<Void>fromRunnable(
             () -> archiveBlocking(executionId, sessionId, workflowId, prepared, payload))
-        .subscribeOn(Schedulers.boundedElastic());
+        .subscribeOn(Schedulers.boundedElastic())
+        // The archive is bookkeeping for a restart: its failure (a log append, a checkpoint clear
+        // of an old run) must not cancel the run it is archiving, which is joined with it.
+        .onErrorResume(
+            error -> {
+              log.atWarn()
+                  .setCause(error)
+                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                  .log("Could not archive the run; it cannot be restarted from the archive");
+              return Mono.empty();
+            });
   }
 
   private void archiveBlocking(

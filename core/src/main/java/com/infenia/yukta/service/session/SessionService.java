@@ -222,8 +222,19 @@ public class SessionService {
         // A workflow that could not be removed fails the apply, after the rest of it has run: the
         // store
         // would otherwise differ from the declared config while the caller is told it worked.
-        .then(staleWorkflowCleanup.onErrorResume(err -> applyRest.then(Mono.error(err))))
-        .then(applyRest)
+        .then(
+            Mono.defer(
+                () ->
+                    staleWorkflowCleanup
+                        .onErrorResume(err -> applyRest.then(Mono.error(err)))
+                        .then(applyRest)
+                        // The session is stored by now: what it declares must be attached even if
+                        // a later step failed, or the stored definition and the supervisors differ.
+                        .onErrorResume(
+                            err ->
+                                Mono.defer(() -> reconcileDeclared(data))
+                                    .onErrorComplete()
+                                    .then(Mono.<Void>error(err)))))
         .then(Mono.defer(() -> reconcileDeclared(data)))
         .doOnSuccess(
             _ ->

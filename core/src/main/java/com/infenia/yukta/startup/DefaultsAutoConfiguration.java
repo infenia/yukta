@@ -59,7 +59,7 @@ public class DefaultsAutoConfiguration {
   @ConditionalOnMissingBean(ExecutionLogStore.class)
   @ConditionalOnExpression(
       "'${yukta.execution-log.dir:}'.isEmpty()"
-          + " && !'postgres'.equals('${yukta.session.store-type:in-memory}')")
+          + " && !'postgres'.equalsIgnoreCase('${yukta.session.store-type:in-memory}'.trim())")
   public InMemoryExecutionLogStore inMemoryExecutionLogStore(final YuktaProperties properties) {
     return new InMemoryExecutionLogStore(
         properties.executionLog().retainedRuns(), properties.executionLog().compactAfter());
@@ -75,7 +75,8 @@ public class DefaultsAutoConfiguration {
   @Bean
   @ConditionalOnMissingBean(NodeCheckpointStore.class)
   @ConditionalOnExpression(
-      "'${yukta.restart.dir:}'.isEmpty() && !'postgres'.equals('${yukta.restart.store-type:}')")
+      "'${yukta.restart.dir:}'.isEmpty() &&"
+          + " !'postgres'.equalsIgnoreCase('${yukta.restart.store-type:}'.trim())")
   public InMemoryNodeCheckpointStore inMemoryNodeCheckpointStore(
       final YuktaProperties properties, final ObjectProvider<ObjectMapper> mapper) {
     final YuktaProperties.Restart restart = properties.restart();
@@ -138,7 +139,7 @@ public class DefaultsAutoConfiguration {
    */
   @Bean
   @ConditionalOnMissingBean(LeaderElection.class)
-  @ConditionalOnExpression("!'postgres'.equals('${yukta.ha.mode:}')")
+  @ConditionalOnExpression("!'postgres'.equalsIgnoreCase('${yukta.ha.mode:}'.trim())")
   public SingleServerLeader singleServerLeader() {
     return new SingleServerLeader();
   }

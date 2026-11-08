@@ -186,7 +186,9 @@ final class ExecutionStreams {
     // is either seen live or found in the state: it cannot fall between the two
     Flux<WorkflowProgress> statusFlux =
         Flux.merge(
-            sink.asFlux(),
+            // a snapshot is the whole state: a slow watcher gets the latest, never a gap that
+            // would hide the terminal one (the sink drops for a subscriber without demand)
+            sink.asFlux().onBackpressureLatest(),
             Flux.defer(
                 () -> {
                   final WorkflowState state = states.apply(executionId);

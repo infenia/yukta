@@ -613,15 +613,12 @@ public class ExecutionScheduler implements SmartLifecycle {
   public void stop(final Runnable callback) {
     final Sinks.Empty<Void> signal;
     final boolean idle;
+    final List<Waiter> refused = new ArrayList<>();
     synchronized (lock) {
       signal = drained;
       closed = true;
       started = false;
-      queue.drain(
-          waiter ->
-              waiter
-                  .grant()
-                  .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
+      queue.drain(refused::add);
       idle = runningTotal == 0;
       if (!idle) {
         log.atInfo()
@@ -630,6 +627,12 @@ public class ExecutionScheduler implements SmartLifecycle {
             .log("Waiting for running executions to finish");
       }
     }
+    // A waiter's subscriber runs its teardown on this thread, so it is told outside the lock.
+    refused.forEach(
+        waiter ->
+            waiter
+                .grant()
+                .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
     // Spring's callback runs outside the lock
     if (idle) {
       callback.run();

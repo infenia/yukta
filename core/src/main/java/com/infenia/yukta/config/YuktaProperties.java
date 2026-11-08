@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.validation.annotation.Validated;
@@ -99,8 +100,8 @@ public record YuktaProperties(
       @Min(0) @DefaultValue("100") int queueCapacity,
       @Min(0) @DefaultValue("0") int queueCapacityPerWorkflow,
       @NotNull @DefaultValue("QUEUE") OnLimit onLimit,
-      @NotNull @DefaultValue("30s") Duration shutdownTimeout,
-      @NotNull @DefaultValue("0") Duration queueTimeout,
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("30s") Duration shutdownTimeout,
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("0") Duration queueTimeout,
       @Min(0) @DefaultValue("0") int maxStartsPerMinute,
       @NotNull @DefaultValue("1h") Duration timeout) {}
 
@@ -155,7 +156,7 @@ public record YuktaProperties(
       @DefaultValue("false") boolean dryRun,
       @Min(1) @DefaultValue("20") int maxCommandsPerSecond,
       @Min(1) @DefaultValue("10000") int bufferSize,
-      @NotNull @DefaultValue("5s") Duration reviewTimeout,
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("5s") Duration reviewTimeout,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
       @Valid @NotNull @DefaultValue Arbiter arbiter) {}
 
@@ -242,7 +243,7 @@ public record YuktaProperties(
    *
    * @param drainTimeout how long a drain may take before falling back to a cancel
    */
-  public record Stop(@NotNull @DefaultValue("30s") Duration drainTimeout) {}
+  public record Stop(@NotNull @DurationMin(nanos = 0) @DefaultValue("30s") Duration drainTimeout) {}
 
   /**
    * Start idempotency.
@@ -251,7 +252,7 @@ public record YuktaProperties(
    * @param idempotencyMaxKeys most keys remembered
    */
   public record Start(
-      @NotNull @DefaultValue("10m") Duration idempotencyTtl,
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("10m") Duration idempotencyTtl,
       @Min(1) @DefaultValue("100000") long idempotencyMaxKeys) {}
 
   /**
@@ -263,7 +264,7 @@ public record YuktaProperties(
    */
   public record Results(
       @Min(1) @DefaultValue("1000") int retainedEvents,
-      @NotNull @DefaultValue("1h") Duration retention,
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("1h") Duration retention,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxExecutions) {}
 
   /**
@@ -271,7 +272,7 @@ public record YuktaProperties(
    *
    * @param lease how long a heartbeat keeps a worker
    */
-  public record Workers(@NotNull @DefaultValue("15s") Duration lease) {}
+  public record Workers(@NotNull @DurationMin(nanos = 0) @DefaultValue("15s") Duration lease) {}
 
   /**
    * The prepared workflow cache.
@@ -280,5 +281,6 @@ public record YuktaProperties(
    * @param maxSize most workflows kept
    */
   public record Cache(
-      @NotNull @DefaultValue("10m") Duration ttl, @Min(1) @DefaultValue("1000") long maxSize) {}
+      @NotNull @DurationMin(nanos = 0) @DefaultValue("10m") Duration ttl,
+      @Min(1) @DefaultValue("1000") long maxSize) {}
 }

@@ -343,7 +343,14 @@ public class InputBroker {
         .flatMap(
             change ->
                 change.applied()
-                    ? store.saveResponse(response).map(saved -> answered(change.request(), saved))
+                    ? store
+                        .saveResponse(response)
+                        .map(saved -> answered(change.request(), saved))
+                        // the request is ANSWERED already: its waiters must hear that the answer
+                        // was lost instead of waiting for good
+                        .onErrorResume(
+                            error ->
+                                settle(change.request()).onErrorComplete().then(Mono.error(error)))
                     : Mono.just(change.request()));
   }
 
@@ -1230,6 +1237,16 @@ public class InputBroker {
           store
               .findResponse(request.id())
               .doOnNext(response -> emit(request.id(), sink -> sink.tryEmitValue(response)))
+              .switchIfEmpty(
+                  Mono.fromRunnable(
+                      () ->
+                          emit(
+                              request.id(),
+                              sink ->
+                                  sink.tryEmitError(
+                                      new InputCancelledException(
+                                          request.id(),
+                                          "The answer was lost: it could not be stored")))))
               .then();
       case EXPIRED ->
           Mono.fromRunnable(

@@ -12,11 +12,12 @@ import org.junit.jupiter.api.Test;
 
 /** One-time tokens: made for a request and a tier, checked in constant time, used once. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.HardCodedCryptoKey"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.HardCodedCryptoKey", "PMD.TooManyMethods"})
 class AnswerTokensTest {
 
   private final MutableClock clock = new MutableClock();
-  private final AnswerTokens tokens = new AnswerTokens("a-long-test-secret", clock);
+  private final AnswerTokens tokens =
+      new AnswerTokens("a-long-test-secret-a-long-test-secret", clock);
 
   private long expiry() {
     return clock.instant().plus(Duration.ofHours(1)).getEpochSecond();
@@ -28,6 +29,13 @@ class AnswerTokensTest {
     final String token = tokens.mint("r1", "ops", Instant.ofEpochSecond(expires));
 
     assertThat(tokens.verify("r1", "ops", expires, token)).isTrue();
+  }
+
+  @Test
+  void shortSecretIsRefusedAtStartup() {
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> new AnswerTokens("too-short", clock))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("at least 32 bytes");
   }
 
   @Test
@@ -43,7 +51,7 @@ class AnswerTokensTest {
 
   @Test
   void theSpringConstructorUsesTheSystemClock() {
-    final AnswerTokens real = new AnswerTokens("secret");
+    final AnswerTokens real = new AnswerTokens("secret-secret-secret-secret-secret-1");
     final Instant soon = Instant.now().plusSeconds(60);
 
     assertThat(real.verify("r1", "ops", soon.getEpochSecond(), real.mint("r1", "ops", soon)))
@@ -67,7 +75,8 @@ class AnswerTokensTest {
   void tokenMadeWithAnotherSecretIsRefused() {
     final long expires = expiry();
     final String foreign =
-        new AnswerTokens("another-secret", clock).mint("r1", "ops", Instant.ofEpochSecond(expires));
+        new AnswerTokens("another-secret-another-secret-another", clock)
+            .mint("r1", "ops", Instant.ofEpochSecond(expires));
 
     assertThat(tokens.verify("r1", "ops", expires, foreign)).isFalse();
   }

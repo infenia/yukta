@@ -396,10 +396,22 @@ public class ParkedCommands implements CommandProposals {
     final String text =
         command.executionId()
             + '\n'
-            + command
+            + identity(command)
             + '\n'
             + String.join(",", askedBy.stream().sorted().toList());
     return "control-" + UUID.nameUUIDFromBytes(text.getBytes(StandardCharsets.UTF_8));
+  }
+
+  /** The command without the ids made for each attempt, which would make a retry look new. */
+  private static String identity(final ExecutionControlCommand command) {
+    return switch (command) {
+      case ExecutionControlCommand.RestartCommand c ->
+          new ExecutionControlCommand.RestartCommand(c.executionId(), "").toString();
+      case ExecutionControlCommand.RestartFromNodeCommand c ->
+          new ExecutionControlCommand.RestartFromNodeCommand(c.executionId(), c.fromNodeId(), "")
+              .toString();
+      default -> command.toString();
+    };
   }
 
   private static String truncated(final String text) {

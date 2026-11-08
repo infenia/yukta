@@ -675,12 +675,23 @@ class DefaultControlBusGatewayTest {
             Fixtures.workflowProgress(
                 executionId, "sess", "wf", TaskStatus.RUNNING, List.of(), null, null));
     when(taskTracker.finishWorkflow(executionId, TaskStatus.STOPPED)).thenReturn(Mono.empty());
+    final List<com.infenia.yukta.security.AuditRecord> sunk = new ArrayList<>();
+    gateway.setAuditSink(sunk::add);
 
     StepVerifier.create(gateway.stopExecution(executionId, "stop", StopMode.DRAIN))
         .expectNext(executionId)
         .verifyComplete();
 
     verify(taskTracker).finishWorkflow(executionId, TaskStatus.STOPPED);
+    // it changed how the run ended, so the audit says so
+    assertThat(sunk)
+        .singleElement()
+        .satisfies(
+            r -> {
+              assertThat(r.executionId()).isEqualTo(executionId);
+              assertThat(r.applied()).isTrue();
+              assertThat(r.reason()).contains("stop");
+            });
   }
 
   @Test
@@ -2699,6 +2710,58 @@ class DefaultControlBusGatewayTest {
               assertThat(limits.running()).isZero();
             })
         .verifyComplete();
+  }
+
+  private DefaultControlBusGateway gatewayWith(final ExecutionScheduler scheduler) {
+    return new DefaultControlBusGateway(
+        controlBusService,
+        taskTracker,
+        executionControlStore,
+        archive,
+        orchestrator,
+        workflowDefinitionStore,
+        preparedWorkflowCache,
+        scheduler,
+        StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
+  }
+
+  @Test
+  void setLimits_negativeValuesAreRefusedNotTakenForUnlimited() {
+    final ExecutionScheduler real =
+        ExecutionSchedulerFixture.create(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+
+    StepVerifier.create(gatewayWith(real).changeLimits(-1, 0))
+        .expectErrorMessage("Limits cannot be negative; use 0 for no limit")
+        .verify();
+    StepVerifier.create(gatewayWith(real).changeLimits(0, -3))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void startWorkflow_whenTheOrchestratorThrowsBeforeTheRun_theSlotIsGivenBack() {
+    final String sessionId = "sess-throw";
+    final String workflowId = "wf-throw";
+    final WorkflowDefinition definition = Fixtures.workflow(workflowId, "d", List.of(), List.of());
+    final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
+    final ExecutionScheduler real =
+        ExecutionSchedulerFixture.create(
+            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+    when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
+    when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
+        .thenReturn(Optional.empty());
+    when(orchestrator.prepareWorkflow(definition)).thenReturn(Mono.just(preparedWorkflow));
+    when(orchestrator.execute(
+            eq(sessionId), eq(workflowId), anyString(), eq(preparedWorkflow), anyMap(), any()))
+        .thenThrow(new IllegalArgumentException("invalid arguments"));
+
+    StepVerifier.create(gatewayWith(real).startWorkflow(sessionId, workflowId, Map.of(), null))
+        .expectErrorMessage("invalid arguments")
+        .verify();
+
+    assertThat(real.running()).isZero();
   }
 
   @Test

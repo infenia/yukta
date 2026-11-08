@@ -175,6 +175,29 @@ class InMemoryWorkflowDefinitionStoreTest {
   }
 
   @Test
+  void notesGoWithTheirWorkflowWhenItIsRemovedOrTheSessionDeleted() {
+    store.save(SESSION_ID_1, version("noted")).block();
+    final String revisionId =
+        java.util.Objects.requireNonNull(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst())
+            .id();
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, revisionId, "kept while it exists").block();
+    final Map<?, ?> notes =
+        (Map<?, ?>) org.springframework.test.util.ReflectionTestUtils.getField(store, "notes");
+    assertThat(notes).hasSize(1);
+
+    store.remove(SESSION_ID_1, WORKFLOW_ID_1).block();
+    assertThat(notes).isEmpty();
+
+    store.save(SESSION_ID_1, version("again")).block();
+    final String again =
+        java.util.Objects.requireNonNull(store.revisions(SESSION_ID_1, WORKFLOW_ID_1).blockFirst())
+            .id();
+    store.saveNote(SESSION_ID_1, WORKFLOW_ID_1, again, "second life").block();
+    store.removeAll(SESSION_ID_1).block();
+    assertThat(notes).isEmpty();
+  }
+
+  @Test
   void noteShowsOnVersion_blankClearsIt_unknownIsNotFound() {
     store.save(SESSION_ID_1, version("noted")).block();
     final String revisionId =
