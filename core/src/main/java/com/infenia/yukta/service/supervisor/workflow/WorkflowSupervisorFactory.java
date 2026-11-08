@@ -12,7 +12,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.ConfigField.Type;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

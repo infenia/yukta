@@ -8,7 +8,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.SupervisorResultMapper;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;

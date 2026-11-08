@@ -9,7 +9,7 @@ import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 

@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.session;
+package com.infenia.yukta.service.sessionstore;
 
-import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;

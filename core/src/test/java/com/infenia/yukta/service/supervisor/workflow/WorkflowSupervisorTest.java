@@ -16,7 +16,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;

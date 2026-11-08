@@ -4,7 +4,7 @@ package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionSnapshot;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Instant;
 import java.util.Map;

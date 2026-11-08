@@ -10,7 +10,7 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.leader.LeaderElection;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import io.micrometer.core.instrument.Metrics;

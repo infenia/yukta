@@ -11,7 +11,7 @@ import com.infenia.yukta.model.input.RouteSettings;
 import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
