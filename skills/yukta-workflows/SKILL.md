@@ -59,6 +59,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `attach_supervisor` | `ADMIN` | `supervisorId`, `scope`, optional `enabled`, `attachmentId` |
 | `detach_supervisor` | `ADMIN` | `attachmentId` |
 | `get_supervisor_contract` | `VIEWER` | none |
+| `get_ownership` | `VIEWER` | `sessionId`, `workflowId` |
 | `list_supervisor_presets` | `VIEWER` | `type` |
 | `list_supervisor_versions` | `VIEWER` | `supervisorId` |
 | `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` |

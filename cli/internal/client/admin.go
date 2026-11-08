@@ -99,6 +99,14 @@ func (c *Client) GetSupervision(session, workflow, execution, node string) (any,
 	return c.getData(path)
 }
 
+// GetOwnership shows which supervisor carries the run level and each node of a workflow.
+func (c *Client) GetOwnership(session, workflow string) (any, error) {
+	query := url.Values{}
+	query.Set("session", session)
+	query.Set("workflow", workflow)
+	return c.getData("/api/supervision/ownership?" + query.Encode())
+}
+
 // GetSupervisorContract reads the supervisor contract version and its operation names.
 func (c *Client) GetSupervisorContract() (any, error) { return c.getData("/api/supervisor-contract") }
 

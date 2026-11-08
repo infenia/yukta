@@ -7,6 +7,7 @@ import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
 import com.infenia.yukta.mcp.dto.SupervisorCredential;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
+import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
 import com.infenia.yukta.mcp.dto.SupervisorReplay;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
@@ -21,6 +22,7 @@ import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
@@ -48,6 +50,9 @@ public class SupervisorProvider {
 
   /** The credentials of agent supervisors. */
   private final AgentCredentials credentials;
+
+  /** Who owns each part of a workflow. */
+  private final OwnershipMap ownership;
 
   /**
    * The supervisors that run, the configured supervisors and the attachments.
@@ -384,5 +389,25 @@ public class SupervisorProvider {
         SupervisorContract.operations().entrySet().stream()
             .flatMap(e -> e.getValue().stream().map(op -> e.getKey() + ":" + op))
             .toList());
+  }
+
+  /**
+   * Who owns the run level and each node of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return the owners
+   */
+  public Mono<SupervisorOwnership> ownership(final String sessionId, final String workflowId) {
+    return ownership
+        .of(sessionId, workflowId)
+        .map(
+            found ->
+                new SupervisorOwnership(
+                    found.sessionId(),
+                    found.workflowId(),
+                    found.defaultSupervisor(),
+                    found.run(),
+                    found.nodes()));
   }
 }

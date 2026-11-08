@@ -280,6 +280,15 @@ public class ControlReviewer {
   }
 
   /**
+   * Whether a unit that nobody owns is carried by the default supervisor.
+   *
+   * @return true if it is
+   */
+  public boolean defaultSupervisorEnabled() {
+    return defaultEnabled;
+  }
+
+  /**
    * What a person may do with a unit, without sending anything: who carries the command and whether
    * it is allowed. The owner's own review is not asked, so an owner that lists the command may
    * still refuse it when it is sent.

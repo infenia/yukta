@@ -146,3 +146,15 @@ func ContractCmd(c *client.Client) *cobra.Command {
 	return commands.DataCmd("supervisor-contract", "Show the supervisor contract version and its operations", 0,
 		func([]string) (any, error) { return c.GetSupervisorContract() })
 }
+
+// OwnershipCmd creates "ownership": which supervisor carries each part of a workflow.
+func OwnershipCmd(c *client.Client) *cobra.Command {
+	var session, workflow string
+	cmd := commands.DataCmd("ownership", "Show which supervisor owns the run level and each node of a workflow", 0,
+		func([]string) (any, error) { return c.GetOwnership(session, workflow) })
+	cmd.Flags().StringVar(&session, "session", "", "The session")
+	cmd.Flags().StringVar(&workflow, "workflow", "", "The workflow")
+	_ = cmd.MarkFlagRequired("session")
+	_ = cmd.MarkFlagRequired("workflow")
+	return cmd
+}

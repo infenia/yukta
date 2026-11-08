@@ -118,6 +118,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `attach_supervisor` | `ADMIN` | `supervisorId`, `scope` (`global`, `session:<id>`, `workflow:<id>` or `workflow:<sessionId>/<workflowId>`); optional `enabled`, `attachmentId` | The attachment. It supervises the runs of the scope from now on, including runs already going |
 | `detach_supervisor` | `ADMIN` | `attachmentId` | `attachmentId` and `detached`; an unknown attachment, or one declared by a definition, is an error |
 | `get_supervisor_contract` | `VIEWER` | none | `version` and `operations` of the supervisor contract |
+| `get_ownership` | `VIEWER` | `sessionId`, `workflowId` | `run` and `nodes`: the supervisor that carries the run level and each node, or `default`; `defaultSupervisor` says whether that one is on |
 | `list_supervisor_presets` | `VIEWER` | `type` | `presets`: ready-made settings (`name`, `description`, `settings`) |
 | `list_supervisor_versions` | `VIEWER` | `supervisorId` | `versions` (`version`, `savedAt`, `type`, `dryRun`, `settingKeys`), newest first; never the values of settings |
 | `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` | The supervisor as restored (saved as a new version) |

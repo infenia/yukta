@@ -7,6 +7,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.LinkedHashMap;
@@ -63,6 +64,8 @@ public class SupervisionController {
   /** Finds the session and workflow of a run. */
   private final ControlBusGateway controlBus;
 
+  private final OwnershipMap ownershipMap;
+
   /**
    * Who carries each command of a target.
    *
@@ -73,6 +76,19 @@ public class SupervisionController {
    * @return the commands with {@code allowed}, {@code via} and {@code reason}; with no target the
    *     server's commands
    */
+  @GetMapping("/ownership")
+  @Operation(
+      summary = "Who owns each part of a workflow",
+      description =
+          "The supervisor that carries the run level and each node of a workflow, or"
+              + " 'default' for a unit that nobody owns, and whether the default supervisor is on.")
+  public Mono<ApiResponse<OwnershipMap.Ownership>> ownership(
+      @RequestParam final String session, @RequestParam final String workflow) {
+    return ownershipMap
+        .of(session, workflow)
+        .map(found -> ApiResponse.success(200, "Ownership retrieved", found));
+  }
+
   @GetMapping
   @Operation(summary = "Who may send which command to a node, a run or the server")
   public Mono<ApiResponse<Map<String, ControlReviewer.Capability>>> supervision(

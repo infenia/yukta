@@ -23,6 +23,7 @@ import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
 import com.infenia.yukta.mcp.dto.SupervisorCredential;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
+import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
 import com.infenia.yukta.mcp.dto.SupervisorReplay;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
@@ -251,6 +252,28 @@ public class AppMcpTools {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<SupervisorContractInfo> getSupervisorContract() {
     return Mono.fromSupplier(supervisorProvider::contract);
+  }
+
+  /**
+   * Who owns each part of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return the owners
+   */
+  @McpTool(
+      name = "get_ownership",
+      title = "Get Ownership",
+      description =
+          "Which supervisor carries the run level and each node of a workflow, or 'default' for "
+              + "a unit that nobody owns, and whether the default supervisor is on. A command for "
+              + "a unit goes to its owner, which may refuse it.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorOwnership> getOwnership(
+      @McpToolParam(required = true, description = "The session id") final String sessionId,
+      @McpToolParam(required = true, description = "The workflow id") final String workflowId) {
+    return supervisorProvider.ownership(sessionId, workflowId);
   }
 
   /**

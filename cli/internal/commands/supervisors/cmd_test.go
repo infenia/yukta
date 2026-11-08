@@ -143,3 +143,23 @@ func TestSupervisionAndContractRead(t *testing.T) {
 		t.Errorf("got %q (%v)", got, err)
 	}
 }
+
+func TestOwnershipNeedsASessionAndAWorkflow(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RequestURI()
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+	cmd := OwnershipCmd(client.NewClient(srv.URL))
+	cmd.SetArgs([]string{"--session", "s", "--workflow", "w"})
+	if err := cmd.Execute(); err != nil || got != "/api/supervision/ownership?session=s&workflow=w" {
+		t.Errorf("got %q (%v)", got, err)
+	}
+	cmd = OwnershipCmd(client.NewClient(srv.URL))
+	cmd.SetArgs([]string{"--session", "s"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	if err := cmd.Execute(); err == nil {
+		t.Error("a workflow is required")
+	}
+}

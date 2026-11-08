@@ -19,7 +19,10 @@ class SupervisionControllerTest {
 
   private final ControlReviewer reviewer = mock(ControlReviewer.class);
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
-  private final SupervisionController controller = new SupervisionController(reviewer, controlBus);
+  private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
+      mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);
+  private final SupervisionController controller =
+      new SupervisionController(reviewer, controlBus, ownership);
 
   private static ControlReviewer.Capability allowed() {
     return new ControlReviewer.Capability(true, "default", null);
@@ -97,6 +100,18 @@ class SupervisionControllerTest {
               assertThat(r.data()).containsOnlyKeys("drain", "setLimits");
               assertThat(r.data().get("drain").reason()).isEqualTo("off");
             })
+        .verifyComplete();
+  }
+
+  @Test
+  void ownershipComesFromTheMap() {
+    final var owned =
+        new com.infenia.yukta.service.supervisor.OwnershipMap.Ownership(
+            "s", "w", true, "default", java.util.Map.of("build.a", "guard"));
+    when(ownership.of("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
+
+    StepVerifier.create(controller.ownership("s", "w"))
+        .assertNext(r -> assertThat(r.data()).isEqualTo(owned))
         .verifyComplete();
   }
 }

@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
@@ -37,7 +38,10 @@ class SupervisorProviderTest {
   private final com.infenia.yukta.service.supervisor.agent.AgentCredentials credentials =
       new com.infenia.yukta.service.supervisor.agent.AgentCredentials();
 
-  private final SupervisorProvider provider = new SupervisorProvider(host, service, credentials);
+  private final OwnershipMap ownership = mock(OwnershipMap.class);
+
+  private final SupervisorProvider provider =
+      new SupervisorProvider(host, service, credentials, ownership);
 
   @BeforeEach
   void noAttachmentsYet() {
@@ -430,5 +434,22 @@ class SupervisorProviderTest {
     reactor.test.StepVerifier.create(provider.revokeCredential("agent"))
         .expectError(IllegalArgumentException.class)
         .verify();
+  }
+
+  @Test
+  void ownershipIsTheMapsAnswer() {
+    when(ownership.of("s", "w"))
+        .thenReturn(
+            Mono.just(
+                new OwnershipMap.Ownership(
+                    "s", "w", true, "guard", java.util.Map.of("a", "default"))));
+    reactor.test.StepVerifier.create(provider.ownership("s", "w"))
+        .assertNext(
+            found -> {
+              org.assertj.core.api.Assertions.assertThat(found.run()).isEqualTo("guard");
+              org.assertj.core.api.Assertions.assertThat(found.nodes())
+                  .containsEntry("a", "default");
+            })
+        .verifyComplete();
   }
 }
