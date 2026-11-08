@@ -5,6 +5,9 @@ import { describe, it, expect } from 'vitest';
 import {
   DEFAULT_NODE_HEIGHT,
   DEFAULT_NODE_WIDTH,
+  PORT_ROW,
+  nodeSize,
+  portTop,
   layoutGraph,
 } from '../layout';
 import {
@@ -14,6 +17,7 @@ import {
   createMockTask,
 } from '@/test/factories/workflowFactory';
 import { must } from '@/test/utils/testUtils';
+import { createMockGraphNode } from '@/test/factories/workflowFactory';
 import type { TaskProgress } from '../../types/workflow';
 
 function tasksByNode(tasks: TaskProgress[]): Record<string, TaskProgress> {
@@ -52,12 +56,23 @@ describe('layoutGraph', () => {
     expect(pending.data.status).toBe('pending');
   });
 
-  it('gives every node the default size', () => {
+  it('sizes every node from its own content, never below the default', () => {
     const { nodes } = layoutGraph(createMockGraph(), {});
     for (const n of nodes) {
-      expect(n.width).toBe(DEFAULT_NODE_WIDTH);
-      expect(n.height).toBe(DEFAULT_NODE_HEIGHT);
+      expect(n.width).toBeGreaterThanOrEqual(DEFAULT_NODE_WIDTH);
+      expect(n.height).toBeGreaterThanOrEqual(DEFAULT_NODE_HEIGHT);
     }
+  });
+
+  it('grows a node with its output ports so each port gets its own row', () => {
+    const base = createMockGraphNode({ category: 'PROCESSOR' });
+    const few = nodeSize({ ...base, outputPorts: ['a'] });
+    const many = nodeSize({ ...base, outputPorts: ['a', 'b', 'c', 'd', 'e'] });
+    expect(many.height).toBeGreaterThanOrEqual(5 * PORT_ROW);
+    expect(many.height).toBeGreaterThan(few.height);
+    // the first and last port handles stay inside the card
+    expect(portTop(0, 5, many.height)).toBeGreaterThan(0);
+    expect(portTop(4, 5, many.height)).toBeLessThan(many.height);
   });
 
   it('wires sourceHandle from the edge sourcePort when the port exists', () => {

@@ -16,15 +16,31 @@ import {
 import { categoryAccent, categoryTint } from '../../lib/categoryAccent';
 import { paletteColor, paletteTint } from '../../lib/paletteColor';
 import { pluginIcon, pluginLabel } from '../../lib/pluginIcons';
-import type { WorkflowFlowNode } from '../../lib/layout';
+import {
+  nodeSize,
+  outputPortsOf,
+  portTop,
+  type WorkflowFlowNode,
+} from '../../lib/layout';
+import { portGlyph } from '../../lib/portGlyph';
 import type { NodeUiStatus, TaskProgress } from '../../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
 
-const STATUS_ICONS: Partial<Record<NodeUiStatus, string>> = {
-  running: 'sync',
-  failed: 'error',
-  paused: 'pause_circle',
-  skipped: 'skip_next',
+/** The glyph in the status badge; pending is a hollow dot and running a pulsing one. */
+const STATUS_GLYPHS: Partial<Record<NodeUiStatus, string>> = {
+  completed: 'check',
+  failed: 'close',
+  paused: 'pause',
+  skipped: 'remove',
+};
+
+const STATUS_BADGE_CLASSES: Record<NodeUiStatus, string> = {
+  completed: 'bg-success text-white',
+  running: 'live-dot bg-(--node-accent)',
+  pending: 'border-2 border-outline bg-surface',
+  failed: 'bg-error text-white',
+  paused: 'bg-warning text-white',
+  skipped: 'bg-outline text-white',
 };
 
 const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
@@ -36,14 +52,11 @@ const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
   skipped: 'border-outline-variant opacity-50',
 };
 
-const STATUS_DOT_CLASSES: Record<NodeUiStatus, string> = {
-  completed: 'bg-success',
-  running: 'live-dot bg-(--node-accent)',
-  pending: 'border border-outline',
-  failed: 'bg-error',
-  paused: 'bg-warning',
-  skipped: 'border border-outline',
-};
+const TONE_CLASSES = {
+  ok: 'border-success!',
+  bad: 'border-error!',
+  neutral: 'border-(--node-accent)!',
+} as const;
 
 function progressPercent(
   status: NodeUiStatus,
@@ -58,37 +71,13 @@ function progressPercent(
     : null;
 }
 
-function progressDetail(
-  status: NodeUiStatus,
-  task?: TaskProgress
-): string | null {
-  if (status !== 'running') {
-    return null;
-  }
-  const metadata = task?.metadata ?? {};
-  const raw = metadata['progress'] ?? metadata['percent'];
-  if (typeof raw === 'number' && Number.isFinite(raw)) {
-    return `${Math.round(raw)}%`;
-  }
-  return null;
-}
-
-function outputHandleTop(index: number, count: number): string {
-  return `${((index + 1) / (count + 1)) * 100}%`;
-}
-
-/** A description longer than this probably does not fit on the card's one line. */
-const LONG_DESCRIPTION = 32;
-
 const HANDLE_CLASSES =
-  'size-2.5! border-2! border-(--node-accent)! bg-surface!';
+  'size-2.5! border-2! bg-surface! transition-transform hover:scale-150';
 
 /**
- * The canvas node placeholder shell.
- *
- * Provides: an icon slot (category default, spinner while running), 0..N input/output
- * port handles for edge anchoring, a backend-HTML details slot, and status/progress
- * details (status line, progress metric, error badge).
+ * The canvas node. It speaks in symbols: the plugin icon tile says what it is, a badge on the
+ * tile says its state (the tooltip spells it out), a ring around the tile shows progress, an
+ * info button holds the description, and output ports sit on the right edge, one row each.
  */
 export function WorkflowNodeCard({
   data,
@@ -97,24 +86,22 @@ export function WorkflowNodeCard({
   const { node, status, task, hideDescription, hideStatus } = data;
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const isTrigger = node.category === 'TRIGGER';
-  const isTerminal = node.category === 'TERMINAL';
-  const icon = STATUS_ICONS[status] ?? pluginIcon(node.type, node.category);
-  // The default node id is "<type>-N"; only show the plugin name when the id doesn't already say it.
+  const icon = pluginIcon(node.type, node.category);
+  // The default node id is "<type>-N"; only show the id when it says more than the plugin name.
   const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const showType = !norm(node.nodeId).startsWith(norm(node.type));
+  const showId = !norm(node.nodeId).startsWith(norm(node.type));
   // The raw task status tells e.g. "Timed out" from "Failed"; without one, the bucket's label.
   const statusLabel = task?.status
     ? toStatusDisplay(task.status, 'node').label
     : toNodeStatusLabel(status);
-  const detail = progressDetail(status, task);
   const percent = progressPercent(status, task);
   const accent = categoryAccent(node.category);
   const color = paletteColor(node.color);
-  const outputPorts = isTerminal
-    ? []
-    : node.outputPorts.length > 0
-      ? node.outputPorts
-      : [null];
+  const outputPorts = outputPortsOf(node);
+  const { height } = nodeSize(node);
+  const glyph = STATUS_GLYPHS[status];
+  const stateTip =
+    percent === null ? statusLabel : `${statusLabel} ${Math.round(percent)}%`;
 
   return (
     <div
@@ -129,19 +116,21 @@ export function WorkflowNodeCard({
       aria-label={`${node.nodeId}: ${statusLabel}`}
       data-testid={`workflow-node-${node.nodeId}`}
       data-status={status}
+      data-category={node.category ?? undefined}
       data-selected={selected ? 'true' : undefined}
       data-color={color ? node.color : undefined}
       style={
         {
           '--node-accent': accent,
-          // a soft wash fading out under the header, on top of the card's own background
+          // a soft wash fading out under the top edge, on top of the card's own background
           backgroundImage: color
             ? `linear-gradient(to bottom, ${paletteTint(node.color)}, transparent 64px)`
             : undefined,
         } as React.CSSProperties
       }
       className={cn(
-        'yukta-node bg-surface relative flex size-full flex-col rounded-xl border border-t-[3px] border-t-(--node-accent) outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
+        'yukta-node group bg-surface relative flex size-full items-center gap-3 border border-t-[3px] border-t-(--node-accent) px-3 outline-none focus-visible:ring-2 focus-visible:ring-(--node-accent)',
+        node.category === 'TERMINAL' ? 'rounded-xl rounded-r-md' : 'rounded-xl',
         STATUS_CARD_CLASSES[status]
       )}
     >
@@ -149,37 +138,48 @@ export function WorkflowNodeCard({
         <Handle
           type="target"
           position={Position.Left}
-          className={HANDLE_CLASSES}
+          className={cn(HANDLE_CLASSES, 'border-(--node-accent)!')}
           aria-label={`${node.nodeId} input`}
         />
       )}
-      {outputPorts.map((port, index) => (
-        <Handle
-          key={port ?? 'default-out'}
-          id={port ?? undefined}
-          type="source"
-          position={Position.Right}
-          style={{ top: outputHandleTop(index, outputPorts.length) }}
-          title={port ?? 'output'}
-          className={HANDLE_CLASSES}
-          aria-label={`${node.nodeId} output ${port ?? 'default'}`}
-        />
-      ))}
+      {outputPorts.map((port, index) => {
+        const { tone } = portGlyph(port);
+        const top = portTop(index, outputPorts.length, height);
+        return (
+          <Handle
+            key={port ?? 'default-out'}
+            id={port ?? undefined}
+            type="source"
+            position={Position.Right}
+            style={{ top }}
+            className={cn(HANDLE_CLASSES, TONE_CLASSES[tone])}
+            aria-label={`${node.nodeId} output ${port ?? 'default'}`}
+          />
+        );
+      })}
       {outputPorts.length > 1 &&
-        outputPorts.map((port, index) => (
-          <span
-            key={`label-${port}`}
-            data-testid="port-label"
-            aria-hidden="true"
-            style={{ top: outputHandleTop(index, outputPorts.length) }}
-            className="bg-surface text-body-sm text-on-surface-variant pointer-events-none absolute right-3 -translate-y-1/2 pl-1"
-          >
-            {port}
-          </span>
-        ))}
+        outputPorts.map((port, index) => {
+          const { icon: portIcon } = portGlyph(port);
+          return (
+            <span
+              key={`label-${port}`}
+              data-testid="port-label"
+              aria-hidden="true"
+              style={{ top: portTop(index, outputPorts.length, height) }}
+              className="border-outline-variant bg-surface text-label-sm text-on-surface-variant shadow-card pointer-events-none absolute left-full ml-2 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border px-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100"
+            >
+              {portIcon && (
+                <span className="material-symbols-outlined text-base">
+                  {portIcon}
+                </span>
+              )}
+              {port}
+            </span>
+          );
+        })}
 
       {color && (
-        // a marker only: borders and the status dot keep meaning status and category
+        // a marker only: borders and the status badge keep meaning status and category
         <span
           aria-hidden="true"
           data-testid="node-color-stripe"
@@ -187,79 +187,96 @@ export function WorkflowNodeCard({
           style={{ backgroundColor: color }}
         />
       )}
-      <div className="flex items-center gap-2.5 px-3 pt-2.5">
+
+      <Tip label={hideStatus ? null : stateTip}>
         <span
-          className="flex size-8 shrink-0 items-center justify-center rounded-lg text-(--node-accent)"
-          style={{ background: categoryTint(node.category) }}
+          className="relative shrink-0"
+          data-testid="node-tile"
+          tabIndex={-1}
         >
-          <span
-            className={cn(
-              'material-symbols-outlined text-lg',
-              status === 'running' && 'animate-spin',
-              status === 'failed' && 'text-error'
-            )}
-            data-testid="node-icon"
-          >
-            {icon}
+          {status === 'running' && (
+            <span
+              aria-hidden="true"
+              data-testid="progress-ring"
+              className={cn(
+                'absolute -inset-1 rounded-[14px]',
+                percent === null
+                  ? 'animate-spin border-2 border-transparent border-t-(--node-accent)'
+                  : 'node-ring'
+              )}
+              style={
+                percent === null
+                  ? undefined
+                  : ({
+                      '--node-progress': `${percent}%`,
+                    } as React.CSSProperties)
+              }
+            />
+          )}
+          <span className="bg-surface relative flex size-10 items-center justify-center rounded-xl text-(--node-accent)">
+            <span
+              className="absolute inset-0 rounded-xl"
+              style={{ background: categoryTint(node.category) }}
+            />
+            <span
+              className="material-symbols-outlined relative text-xl"
+              data-testid="node-icon"
+            >
+              {icon}
+            </span>
           </span>
+          {!hideStatus && (
+            <span
+              aria-hidden="true"
+              data-testid="status-badge"
+              className={cn(
+                'node-badge border-surface absolute -right-1 -bottom-1 flex size-4 items-center justify-center rounded-full border-2',
+                STATUS_BADGE_CLASSES[status]
+              )}
+            >
+              {glyph && (
+                <span className="material-symbols-outlined text-[12px]! leading-none">
+                  {glyph}
+                </span>
+              )}
+            </span>
+          )}
         </span>
-        <div className="min-w-0">
-          <p className="text-label-md text-on-surface truncate">
+      </Tip>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-label-md text-on-surface truncate">
+          {pluginLabel(node.type)}
+        </p>
+        {showId && (
+          <p className="text-body-sm text-on-surface-variant truncate">
             {node.nodeId}
           </p>
-          {showType && (
-            <p className="text-body-sm text-on-surface-variant truncate">
-              {pluginLabel(node.type)}
-            </p>
-          )}
-        </div>
+        )}
       </div>
 
-      {node.description && !hideDescription && (
-        <div className="flex items-start gap-1 px-3 pt-1.5">
-          <p className="text-body-sm text-on-surface-variant min-w-0 flex-1 truncate">
-            {node.description}
-          </p>
-          {node.description.length > LONG_DESCRIPTION && (
-            <Popover>
+      <div className="flex shrink-0 items-center gap-0.5 pr-1">
+        {node.description && !hideDescription && (
+          <Popover>
+            <Tip label="Description">
               <PopoverTrigger
-                aria-label={`Show the full description of ${node.nodeId}`}
-                className="nodrag text-on-surface-variant hover:text-on-surface -my-0.5 inline-flex shrink-0 items-center rounded"
+                aria-label={`Show the description of ${node.nodeId}`}
+                className="nodrag text-on-surface-variant hover:text-on-surface inline-flex rounded opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 group-data-[selected=true]:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-base"
+                  className="material-symbols-outlined text-lg"
                 >
-                  expand_more
+                  info
                 </span>
               </PopoverTrigger>
-              <PopoverContent className="nodrag nowheel">
-                <p className="text-body-sm text-on-surface whitespace-pre-line">
-                  {node.description}
-                </p>
-              </PopoverContent>
-            </Popover>
-          )}
-        </div>
-      )}
-
-      <div className="mt-auto flex items-center justify-between px-3 pt-1 pb-2">
-        {!hideStatus && (
-          <span
-            className={cn(
-              'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
-              status === 'failed' && 'text-error'
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn('size-2 rounded-full', STATUS_DOT_CLASSES[status])}
-            />
-            {statusLabel}
-          </span>
-        )}
-        {detail && (
-          <span className="text-body-sm text-on-surface-variant">{detail}</span>
+            </Tip>
+            <PopoverContent className="nodrag nowheel">
+              <p className="text-body-sm text-on-surface whitespace-pre-line">
+                {node.description}
+              </p>
+            </PopoverContent>
+          </Popover>
         )}
         {subWorkflowHref && (
           <Tip label={`Open ${node.subWorkflowId}`}>
@@ -268,30 +285,18 @@ export function WorkflowNodeCard({
               aria-label={`Open sub-workflow ${node.subWorkflowId}`}
               // the canvas opens the node's sheet on a node click, which would undo this navigation
               onClick={(event) => event.stopPropagation()}
-              className="nodrag text-label-sm text-primary inline-flex items-center hover:underline"
+              className="nodrag text-primary hover:bg-muted inline-flex rounded p-0.5"
             >
-              Open
               <span
                 aria-hidden="true"
-                className="material-symbols-outlined text-base"
+                className="material-symbols-outlined text-lg"
               >
-                chevron_right
+                account_tree
               </span>
             </Link>
           </Tip>
         )}
       </div>
-      {percent !== null && (
-        <div
-          className="bg-surface-container-high h-0.5 w-full"
-          aria-hidden="true"
-        >
-          <div
-            className="h-full bg-(--node-accent)"
-            style={{ width: `${percent}%` }}
-          />
-        </div>
-      )}
     </div>
   );
 }

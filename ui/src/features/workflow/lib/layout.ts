@@ -4,6 +4,7 @@
 import dagre from '@dagrejs/dagre';
 import { MarkerType, type Edge, type Node } from '@xyflow/react';
 import { categoryAccent } from './categoryAccent';
+import { pluginLabel } from './pluginIcons';
 import { aggregateStatus, groupNodes } from './groups';
 import { toNodeUiStatus } from './statusMapper';
 import type {
@@ -46,11 +47,46 @@ export type CanvasNode = WorkflowFlowNode | StageFlowNode | StageFrameNode;
 const FRAME_PAD = 16;
 const FRAME_LABEL = 36;
 
-/** Uniform canvas node size. */
-export const DEFAULT_NODE_WIDTH = 240;
-/** Room for a header, a one-line description, the status row and a progress bar. */
-export const DEFAULT_NODE_HEIGHT = 108;
-const NODE_SIZE = { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT };
+/** Smallest node: the icon tile plus padding. A node grows with its output ports and name. */
+export const DEFAULT_NODE_WIDTH = 200;
+export const DEFAULT_NODE_HEIGHT = 56;
+/** Vertical room for one output port, and the padding above the first and below the last. */
+export const PORT_ROW = 22;
+export const NODE_PAD = 10;
+const MAX_NODE_WIDTH = 320;
+/** A closed stage has one input and one output, so a fixed size is enough. */
+const STAGE_SIZE = { width: 200, height: 64 };
+
+/** Output ports a node draws: none for a terminal, a default one when it declares none. */
+export function outputPortsOf(node: WorkflowGraphNode): (string | null)[] {
+  if (node.category === 'TERMINAL') return [];
+  return node.outputPorts.length > 0 ? node.outputPorts : [null];
+}
+
+/** Port handle position in px from the card's top: ports are stacked and centred on the card. */
+export function portTop(index: number, count: number, height: number): number {
+  return height / 2 + (index - (count - 1) / 2) * PORT_ROW;
+}
+
+/**
+ * The size a node card is drawn at. Height follows the output ports (each gets its own row, so
+ * nothing overlaps them); width follows the longest name. The description does not count: it
+ * lives in a popover.
+ */
+export function nodeSize(node: WorkflowGraphNode): {
+  width: number;
+  height: number;
+} {
+  const ports = outputPortsOf(node).length;
+  const longest = Math.max(pluginLabel(node.type).length, node.nodeId.length);
+  return {
+    width: Math.min(
+      MAX_NODE_WIDTH,
+      Math.max(DEFAULT_NODE_WIDTH, 150 + longest * 7.5)
+    ),
+    height: Math.max(DEFAULT_NODE_HEIGHT, ports * PORT_ROW + 2 * NODE_PAD),
+  };
+}
 
 function resolveSourceHandle(
   sourceNode: WorkflowGraphNode,
@@ -117,7 +153,11 @@ export function layoutGraph(
 
   graph.nodes.forEach((node) => {
     const shown = shownAs(node.nodeId);
-    dagreGraph.setNode(shown, { ...NODE_SIZE }); // dagre writes x/y into the label
+    // dagre writes x/y into the label
+    dagreGraph.setNode(
+      shown,
+      shown === node.nodeId ? nodeSize(node) : { ...STAGE_SIZE }
+    );
     const stage = stageByNode.get(node.nodeId);
     if (stage && shown === node.nodeId) {
       // an open stage is a dagre cluster, so its nodes stay together
@@ -138,7 +178,7 @@ export function layoutGraph(
   const nodes: CanvasNode[] = graph.nodes
     .filter((node) => shownAs(node.nodeId) === node.nodeId)
     .map((node) => {
-      const { width, height } = NODE_SIZE;
+      const { width, height } = nodeSize(node);
       const position = dagreGraph.node(node.nodeId);
       // top port -> topmost target: the card lays ports out in this order
       const targetY = (port: string) =>
@@ -187,8 +227,11 @@ export function layoutGraph(
       nodes.push({
         id: `stage:${stage}`,
         type: 'stageNode',
-        position: { x: x - NODE_SIZE.width / 2, y: y - NODE_SIZE.height / 2 },
-        ...NODE_SIZE,
+        position: {
+          x: x - STAGE_SIZE.width / 2,
+          y: y - STAGE_SIZE.height / 2,
+        },
+        ...STAGE_SIZE,
         draggable: false,
         connectable: false,
         data,
@@ -197,10 +240,10 @@ export function layoutGraph(
     }
     // The frame hugs its nodes' boxes; dagre's own cluster size leaves no room for a label
     const boxes = members.map((m) => dagreGraph.node(m.nodeId));
-    const left = Math.min(...boxes.map((b) => b.x)) - NODE_SIZE.width / 2;
-    const top = Math.min(...boxes.map((b) => b.y)) - NODE_SIZE.height / 2;
-    const right = Math.max(...boxes.map((b) => b.x)) + NODE_SIZE.width / 2;
-    const bottom = Math.max(...boxes.map((b) => b.y)) + NODE_SIZE.height / 2;
+    const left = Math.min(...boxes.map((b) => b.x - b.width / 2));
+    const top = Math.min(...boxes.map((b) => b.y - b.height / 2));
+    const right = Math.max(...boxes.map((b) => b.x + b.width / 2));
+    const bottom = Math.max(...boxes.map((b) => b.y + b.height / 2));
     nodes.unshift({
       id: `frame:${stage}`,
       type: 'stageFrame',

@@ -46,8 +46,9 @@ describe('WorkflowNodeCard', () => {
     const card = screen.getByTestId('workflow-node-data-ingress');
     expect(card).toHaveAttribute('aria-label', 'data-ingress: Succeeded');
     expect(screen.getByTestId('node-icon')).toHaveTextContent('input');
-    expect(card).toHaveTextContent('Succeeded');
+    expect(card).not.toHaveTextContent('Succeeded');
     expect(card).not.toHaveTextContent('100%');
+    expect(screen.getByTestId('status-badge')).toHaveTextContent('check');
     expect(card.querySelector('.target')).toBeNull();
     expect(card.querySelector('.source')).not.toBeNull();
   });
@@ -79,7 +80,7 @@ describe('WorkflowNodeCard', () => {
     });
     expect(
       screen.getAllByTestId('port-label').map((label) => label.textContent)
-    ).toEqual(['default', 'invalid']);
+    ).toEqual(['arrow_forwarddefault', 'invalid']);
   });
 
   it('shows no port label for a single output', () => {
@@ -125,7 +126,7 @@ describe('WorkflowNodeCard', () => {
     ).toHaveLength(1);
   });
 
-  it('shows a spinner and metadata progress while running', () => {
+  it('shows a progress ring, not text, while running', () => {
     renderCard({
       node: createMockGraphNode({
         nodeId: 'vectorize-batch',
@@ -135,11 +136,14 @@ describe('WorkflowNodeCard', () => {
       task: createMockTask({ status: 'RUNNING', metadata: { progress: 42 } }),
     });
 
-    expect(screen.getByTestId('node-icon')).toHaveTextContent('sync');
-    expect(screen.getByTestId('node-icon')).toHaveClass('animate-spin');
+    expect(
+      screen
+        .getByTestId('progress-ring')
+        .style.getPropertyValue('--node-progress')
+    ).toBe('42%');
     expect(
       screen.getByTestId('workflow-node-vectorize-batch')
-    ).toHaveTextContent('42%');
+    ).not.toHaveTextContent('42%');
   });
 
   it('shows no progress text while running without a progress metric', () => {
@@ -195,7 +199,7 @@ describe('WorkflowNodeCard', () => {
 
     expect(
       screen.getByTestId('workflow-node-HTTP_REQUEST-1')
-    ).not.toHaveTextContent('Http Request');
+    ).not.toHaveTextContent('HTTP_REQUEST-1');
   });
 
   it('renders percent from the percent metadata key', () => {
@@ -205,18 +209,25 @@ describe('WorkflowNodeCard', () => {
       task: createMockTask({ status: 'RUNNING', metadata: { percent: 66.4 } }),
     });
 
-    expect(screen.getByTestId('workflow-node-p3')).toHaveTextContent('66%');
+    expect(
+      screen
+        .getByTestId('progress-ring')
+        .style.getPropertyValue('--node-progress')
+    ).toBe('66.4%');
   });
 
-  it('marks failed nodes with the error icon and label', () => {
+  it('marks failed nodes with a cross badge and a red border', () => {
     renderCard({
       node: createMockGraphNode({ nodeId: 'p4', category: 'PROCESSOR' }),
       status: 'failed',
       task: createMockTask({ status: 'FAILURE' }),
     });
 
-    expect(screen.getByTestId('node-icon')).toHaveTextContent('error');
-    expect(screen.getByTestId('workflow-node-p4')).toHaveTextContent('Failed');
+    expect(screen.getByTestId('status-badge')).toHaveTextContent('close');
+    expect(screen.getByTestId('workflow-node-p4')).toHaveAttribute(
+      'aria-label',
+      'p4: Failed'
+    );
     expect(screen.getByTestId('workflow-node-p4')).toHaveClass('border-error');
   });
 
@@ -227,8 +238,9 @@ describe('WorkflowNodeCard', () => {
     });
 
     expect(screen.getByTestId('node-icon')).toHaveTextContent('extension');
-    expect(screen.getByTestId('workflow-node-mystery')).toHaveTextContent(
-      'Waiting'
+    expect(screen.getByTestId('workflow-node-mystery')).toHaveAttribute(
+      'aria-label',
+      'mystery: Waiting'
     );
   });
 
@@ -255,7 +267,11 @@ describe('WorkflowNodeCard', () => {
 
     const card = screen.getByTestId('workflow-node-data-ingress');
     expect(card).toHaveAttribute('data-selected', 'true');
-    expect(card).toHaveTextContent('61%');
+    expect(
+      screen
+        .getByTestId('progress-ring')
+        .style.getPropertyValue('--node-progress')
+    ).toBe('61.4%');
   });
 
   it('shows no progress for a running node without a task', () => {
@@ -270,40 +286,37 @@ describe('WorkflowNodeCard', () => {
     const LONG =
       'Runs the whole repair loop: it reads the failing check, patches the code, and runs the check again until it passes.';
 
-    it('shows a short description on one line, with no expand control', () => {
-      renderCard({
-        node: createMockGraphNode({ description: 'Ingest raw data' }),
-        status: 'pending',
-      });
-      expect(screen.getByText('Ingest raw data')).toHaveClass('truncate');
-      expect(
-        screen.queryByRole('button', { name: /full description/ })
-      ).not.toBeInTheDocument();
-    });
-
-    it('clamps a long description to one line and shows all of it from an expand control', async () => {
+    it('keeps the description out of the card and opens it from the info button', async () => {
       renderCard({
         node: createMockGraphNode({ nodeId: 'repair', description: LONG }),
         status: 'pending',
       });
-      expect(screen.getByText(LONG)).toHaveClass('truncate');
+      expect(screen.queryByText(LONG)).not.toBeInTheDocument();
 
       await userEvent.click(
         screen.getByRole('button', {
-          name: 'Show the full description of repair',
+          name: 'Show the description of repair',
         })
       );
-      const full = await screen.findAllByText(LONG);
-      // the card's own line and the popover's copy
-      expect(full).toHaveLength(2);
-      expect(full[1]).toHaveClass('whitespace-pre-line');
+      expect(await screen.findByText(LONG)).toHaveClass('whitespace-pre-line');
     });
 
-    it('keeps the Open link of a sub-workflow node next to a long description', () => {
+    it('has no info button without a description', () => {
+      renderCard({
+        node: createMockGraphNode({ description: '' }),
+        status: 'pending',
+      });
+      expect(
+        screen.queryByRole('button', { name: /description/ })
+      ).not.toBeInTheDocument();
+    });
+
+    it('keeps the sub-workflow link next to the info button, clear of five ports', () => {
       renderCard({
         node: createMockGraphNode({
           nodeId: 'sub',
           subWorkflowId: 'fix',
+          outputPorts: ['a', 'b', 'c', 'd', 'e'],
           description: LONG,
         }),
         status: 'running',

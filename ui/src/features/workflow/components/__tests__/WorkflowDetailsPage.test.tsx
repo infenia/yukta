@@ -377,8 +377,9 @@ describe('WorkflowDetailsPage', () => {
         'Running'
       )
     );
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
-      'Succeeded'
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveAttribute(
+      'aria-label',
+      'data-ingress: Succeeded'
     );
   });
 
@@ -570,8 +571,9 @@ describe('WorkflowDetailsPage', () => {
     expect(screen.getByTestId('execution-summary')).toHaveTextContent(
       'Not run'
     );
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
-      'Waiting'
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveAttribute(
+      'aria-label',
+      'data-ingress: Waiting'
     );
     expect(screen.getByTestId('logs-body')).toHaveTextContent('No log output.');
     expect(MockEventSource.instances).toHaveLength(0);

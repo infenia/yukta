@@ -6,7 +6,12 @@ import { layoutGraph, type WorkflowFlowNode } from './layout';
 import type { WorkflowGraph, WorkflowGraphNode } from '../types/workflow';
 
 const n = (nodeId: string, outputPorts: string[] = []) =>
-  ({ nodeId, outputPorts, inputPorts: [] }) as unknown as WorkflowGraphNode;
+  ({
+    nodeId,
+    type: 'X',
+    outputPorts,
+    inputPorts: [],
+  }) as unknown as WorkflowGraphNode;
 
 describe('layoutGraph output port order', () => {
   it('lists ports top to bottom by where their targets are placed', () => {

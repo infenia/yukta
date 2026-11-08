@@ -47,7 +47,7 @@ describe('WorkflowNodeCard color', () => {
     expect(card.style.getPropertyValue('--node-accent')).toBe(
       'var(--color-cat-processor)'
     );
-    expect(screen.getByTestId('node-icon')).toHaveClass('text-error');
+    expect(screen.getByTestId('status-badge')).toHaveTextContent('close');
   });
 
   it('draws nothing extra without a color or with an unknown one', () => {
