@@ -14,7 +14,8 @@ import com.fasterxml.jackson.annotation.JsonInclude;
  *     <selector>,<selector>}
  * @param enabled whether it runs
  * @param source {@code MANUAL}, {@code DEFINITION} or {@code SYSTEM}
+ * @param locked whether it changes only when the request asks to unlock
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SupervisorAttachmentInfo(
-    String id, String supervisorId, String scope, boolean enabled, String source) {}
+public record SupervisorAssignmentInfo(
+    String id, String supervisorId, String scope, boolean enabled, String source, boolean locked) {}

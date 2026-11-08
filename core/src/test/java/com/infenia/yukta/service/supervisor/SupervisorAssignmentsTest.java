@@ -149,7 +149,8 @@ class SupervisorAssignmentsTest {
         .verify();
     StepVerifier.create(assignments.of("a")).expectNextCount(1).verifyComplete();
     // a locked assignment cannot be detached around the lock either
-    StepVerifier.create(service.detach(SupervisorAssignments.idOf("a", new SupervisorScope.Server())))
+    StepVerifier.create(
+            service.detach(SupervisorAssignments.idOf("a", new SupervisorScope.Server())))
         .expectError(ConflictException.class)
         .verify();
     StepVerifier.create(

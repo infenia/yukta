@@ -25,12 +25,12 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException;
+import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
-import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -170,9 +170,7 @@ class SupervisorsControllerTest {
               assertThat(r.data().description()).isEqualTo("for tests");
             })
         .verifyComplete();
-    StepVerifier.create(attach("a1", "s1", "global", false))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(controller.list())
         .assertNext(
@@ -303,7 +301,10 @@ class SupervisorsControllerTest {
                 "s1", false, List.of(new AssignmentBody("session:A", true, null))))
         .assertNext(
             r -> {
-              assertThat(r.data()).singleElement().extracting(AssignmentView::source).isEqualTo("MANUAL");
+              assertThat(r.data())
+                  .singleElement()
+                  .extracting(AssignmentView::source)
+                  .isEqualTo("MANUAL");
               assertThat(r.data().get(0).id()).startsWith(SupervisorAssignments.ID_PREFIX);
             })
         .verifyComplete();
@@ -326,7 +327,8 @@ class SupervisorsControllerTest {
 
     // an empty list removes the assignments made here; the definition's stays
     StepVerifier.create(controller.setAssignments("s1", false, List.of()))
-        .assertNext(r -> assertThat(r.data()).extracting(AssignmentView::id).containsExactly("def-1"))
+        .assertNext(
+            r -> assertThat(r.data()).extracting(AssignmentView::id).containsExactly("def-1"))
         .verifyComplete();
   }
 
@@ -344,7 +346,10 @@ class SupervisorsControllerTest {
         .assertNext(
             r -> {
               assertThat(r.data().valid()).isFalse();
-              assertThat(r.data().problems()).singleElement().asString().startsWith("assignments[0]");
+              assertThat(r.data().problems())
+                  .singleElement()
+                  .asString()
+                  .startsWith("assignments[0]");
             })
         .verifyComplete();
     StepVerifier.create(
@@ -385,9 +390,7 @@ class SupervisorsControllerTest {
           {"wother", "workflow:A/w2"},
           {"sec", "workflow:A/w1//build.*"}
         }) {
-      StepVerifier.create(attach(a[0], "s1", a[1], false))
-          .expectNextCount(1)
-          .verifyComplete();
+      StepVerifier.create(attach(a[0], "s1", a[1], false)).expectNextCount(1).verifyComplete();
     }
 
     assertThat(ids(controller.assignments("A", "w1", null)))
@@ -415,9 +418,7 @@ class SupervisorsControllerTest {
   @Test
   void decisionsFilterByAttachmentOrSupervisorAndAreCapped() {
     created("s1");
-    StepVerifier.create(attach("a1", "s1", "global", false))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
     final Instant now = Instant.now();
     final SupervisorDecision older =
         new SupervisorDecision(
@@ -451,12 +452,12 @@ class SupervisorsControllerTest {
   @Test
   void deletingSupervisorThatIsStillAttachedConflicts() {
     created("s1");
-    StepVerifier.create(attach("a1", "s1", "global", false))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(controller.delete("s1")).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.setAssignments("s1", false, List.of())).expectNextCount(1).verifyComplete();
+    StepVerifier.create(controller.setAssignments("s1", false, List.of()))
+        .expectNextCount(1)
+        .verifyComplete();
     StepVerifier.create(controller.delete("s1")).expectNextCount(1).verifyComplete();
     StepVerifier.create(controller.delete("s1")).expectError(NotFoundException.class).verify();
   }
@@ -534,7 +535,8 @@ class SupervisorsControllerTest {
     created("s1");
 
     StepVerifier.create(
-            controller.setAssignments("s1", false, List.of(new AssignmentBody("server", null, null))))
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("server", null, null))))
         .assertNext(
             r -> {
               assertThat(r.data().get(0).enabled()).isTrue();
@@ -554,9 +556,7 @@ class SupervisorsControllerTest {
           {"sec", "workflow:A/w1//x"},
           {"se", "session:A"}
         }) {
-      StepVerifier.create(attach(a[0], "s1", a[1], false))
-          .expectNextCount(1)
-          .verifyComplete();
+      StepVerifier.create(attach(a[0], "s1", a[1], false)).expectNextCount(1).verifyComplete();
     }
 
     assertThat(ids(controller.assignments(null, "w1", null)))
@@ -572,9 +572,7 @@ class SupervisorsControllerTest {
   @Test
   void serverAttachmentsListedOnlyWithoutFilter() {
     created("s1");
-    StepVerifier.create(attach("srv", "s1", "server", false))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("srv", "s1", "server", false)).expectNextCount(1).verifyComplete();
 
     assertThat(ids(controller.assignments(null, null, "manual"))).containsExactly("srv");
     assertThat(ids(controller.assignments("A", null, "manual"))).isEmpty();

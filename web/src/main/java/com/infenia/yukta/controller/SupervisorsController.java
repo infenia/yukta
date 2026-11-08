@@ -12,11 +12,12 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorAssignments;
+import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -134,7 +135,8 @@ public class SupervisorsController {
    * @param enabled whether it runs; true when missing
    * @param locked whether only a lock holder may change or remove it; false when missing
    */
-  public record AssignmentBody(String target, @Nullable Boolean enabled, @Nullable Boolean locked) {}
+  public record AssignmentBody(
+      String target, @Nullable Boolean enabled, @Nullable Boolean locked) {}
 
   // ---- supervisors
 
@@ -701,7 +703,15 @@ public class SupervisorsController {
           default -> "global";
         };
     return new AssignmentView(
-        info.id(), info.id(), scope, true, SupervisorSource.SYSTEM.name(), null, null, false, false);
+        info.id(),
+        info.id(),
+        scope,
+        true,
+        SupervisorSource.SYSTEM.name(),
+        null,
+        null,
+        false,
+        false);
   }
 
   /** Whether runs of the session and workflow fall in the scope; no filter means everything. */

@@ -93,8 +93,8 @@ public class SupervisorAssignments {
   }
 
   /**
-   * The id of the assignment of a supervisor to a target: the same for the same pair, whatever
-   * else changes.
+   * The id of the assignment of a supervisor to a target: the same for the same pair, whatever else
+   * changes.
    *
    * @param supervisorId the supervisor
    * @param scope the target
@@ -133,7 +133,8 @@ public class SupervisorAssignments {
   }
 
   /** The bad targets, and the overlaps with other supervisors, apart. */
-  private record Problems(List<Issue> issues, List<Issue> overlaps, List<OwnershipConflict> conflicts) {
+  private record Problems(
+      List<Issue> issues, List<Issue> overlaps, List<OwnershipConflict> conflicts) {
 
     /** Every problem, in the order of the assignments sent. */
     private List<Issue> all() {
@@ -161,8 +162,8 @@ public class SupervisorAssignments {
   }
 
   /**
-   * Makes a supervisor own exactly these targets (its {@code MANUAL} assignments), after every check
-   * passed. Assignments that stay the same are left running.
+   * Makes a supervisor own exactly these targets (its {@code MANUAL} assignments), after every
+   * check passed. Assignments that stay the same are left running.
    *
    * @param supervisorId the supervisor
    * @param wanted what it should own
@@ -244,8 +245,7 @@ public class SupervisorAssignments {
   }
 
   private String lockedMessage(final List<SupervisorAttachment> locked) {
-    final String targets =
-        String.join(", ", locked.stream().map(a -> a.scope().key()).toList());
+    final String targets = String.join(", ", locked.stream().map(a -> a.scope().key()).toList());
     return lockHolders.isEmpty()
         ? "Locked assignments (" + targets + ") change only when the request asks to unlock"
         : "Locked assignments ("

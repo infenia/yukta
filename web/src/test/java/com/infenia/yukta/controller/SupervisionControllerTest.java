@@ -18,6 +18,16 @@ import reactor.test.StepVerifier;
 class SupervisionControllerTest {
 
   private final ControlReviewer reviewer = mock(ControlReviewer.class);
+
+  {
+    // the list of commands is the reviewer's own; each answer comes from capability, stubbed below
+    org.mockito.Mockito.when(
+            reviewer.capabilities(
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any()))
+        .thenCallRealMethod();
+  }
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
   private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
       mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.controller;
+package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import java.util.LinkedHashMap;

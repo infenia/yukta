@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
  * @param conflict true when start-up found it owning a unit that another attachment owns and
  *     disabled it; the administrator resolves it
  * @param locked whether only a lock holder may change or remove it ({@code
- *     yukta.supervisor.lock-holders}), so an administrator key alone cannot take away the supervisor
- *     that protects a workflow
+ *     yukta.supervisor.lock-holders}), so an administrator key alone cannot take away the
+ *     supervisor that protects a workflow
  */
 public record SupervisorAttachment(
     String id,
@@ -112,7 +112,15 @@ public record SupervisorAttachment(
       @Nullable final String originWorkflowId,
       final boolean conflict) {
     this(
-        id, supervisorId, scope, enabled, source, originSessionId, originWorkflowId, conflict, false);
+        id,
+        supervisorId,
+        scope,
+        enabled,
+        source,
+        originSessionId,
+        originWorkflowId,
+        conflict,
+        false);
   }
 
   /**
@@ -123,6 +131,14 @@ public record SupervisorAttachment(
    */
   public SupervisorAttachment withLocked(final boolean lock) {
     return new SupervisorAttachment(
-        id, supervisorId, scope, enabled, source, originSessionId, originWorkflowId, conflict, lock);
+        id,
+        supervisorId,
+        scope,
+        enabled,
+        source,
+        originSessionId,
+        originWorkflowId,
+        conflict,
+        lock);
   }
 }

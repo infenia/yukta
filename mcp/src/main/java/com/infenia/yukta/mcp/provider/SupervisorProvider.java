@@ -2,10 +2,16 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp.provider;
 
-import com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo;
+import com.infenia.yukta.mcp.dto.AssignmentInput;
+import com.infenia.yukta.mcp.dto.SupervisionAnswer;
+import com.infenia.yukta.mcp.dto.SupervisorAssignmentInfo;
+import com.infenia.yukta.mcp.dto.SupervisorAssignmentList;
+import com.infenia.yukta.mcp.dto.SupervisorCheck;
 import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
 import com.infenia.yukta.mcp.dto.SupervisorCredential;
+import com.infenia.yukta.mcp.dto.SupervisorDeleted;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
+import com.infenia.yukta.mcp.dto.SupervisorDetails;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
@@ -14,27 +20,34 @@ import com.infenia.yukta.mcp.dto.SupervisorSaved;
 import com.infenia.yukta.mcp.dto.SupervisorTypeDetails;
 import com.infenia.yukta.mcp.dto.SupervisorTypeList;
 import com.infenia.yukta.mcp.dto.SupervisorVersionList;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorContract;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
-import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.review.ControlReviewer;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
-/** Lists, saves, attaches and detaches supervisors, and describes their types, for MCP tools. */
+/** Lists, saves and deletes supervisors, sets what they own and describes the engines, for MCP. */
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
@@ -54,6 +67,15 @@ public class SupervisorProvider {
 
   /** Who owns each part of a workflow. */
   private final OwnershipMap ownershipMap;
+
+  /** What supervisors own, set as a whole. */
+  private final SupervisorAssignments assignments;
+
+  /** Who carries each command. */
+  private final ControlReviewer reviewer;
+
+  /** Finds the session and workflow of a run. */
+  private final ControlBusGateway controlBus;
 
   /**
    * The supervisors that run, the configured supervisors and the attachments.
@@ -171,63 +193,152 @@ public class SupervisorProvider {
   }
 
   /**
-   * Attaches a supervisor to a scope; the attachment is MANUAL.
+   * What a supervisor owns.
    *
-   * @param supervisorId an existing supervisor
-   * @param scope {@code global}, {@code session:<id>}, {@code workflow:<id>}, {@code
-   *     workflow:<sessionId>/<workflowId>} or a section {@code workflow:<sessionId>/<workflowId>//
-   *     <selector>,<selector>}
-   * @param enabled whether it runs; null means yes
-   * @param attachmentId the attachment id; null or blank generates one
-   * @return the attachment
+   * @param supervisorId the supervisor
+   * @return its assignments
    */
-  public Mono<SupervisorAttachmentInfo> attach(
-      final String supervisorId,
-      final String scope,
-      final Boolean enabled,
-      final String attachmentId) {
-    return Mono.fromSupplier(
-            () ->
-                new SupervisorAttachment(
-                    attachmentId == null || attachmentId.isBlank()
-                        ? UUID.randomUUID().toString()
-                        : attachmentId.strip(),
-                    supervisorId,
-                    SupervisorScope.parse(scope),
-                    enabled == null || enabled))
-        .flatMap(
-            attachment ->
-                manual(attachment.id()).then(Mono.defer(() -> service.attach(attachment))))
-        .map(SupervisorProvider::info);
+  public Mono<SupervisorAssignmentList> assignments(final String supervisorId) {
+    return assignments
+        .of(supervisorId)
+        .map(SupervisorProvider::info)
+        .collectList()
+        .map(list -> new SupervisorAssignmentList(supervisorId, list));
   }
 
   /**
-   * Detaches a manual attachment.
+   * Makes a supervisor own exactly these targets, after every check passed.
    *
-   * @param attachmentId the attachment id
-   * @return the result; an error for an unknown attachment or one that comes from a definition
+   * @param supervisorId the supervisor
+   * @param wanted what it should own
+   * @param unlock whether locked assignments may be changed or removed
+   * @return what it owns afterwards
    */
-  public Mono<SupervisorDetached> detach(final String attachmentId) {
-    return manual(attachmentId)
-        .then(Mono.defer(() -> service.detach(attachmentId)))
-        .thenReturn(new SupervisorDetached(attachmentId, true));
+  public Mono<SupervisorAssignmentList> setAssignments(
+      final String supervisorId, final List<AssignmentInput> wanted, final Boolean unlock) {
+    return Mono.fromSupplier(() -> wanted(wanted))
+        .flatMap(list -> assignments.set(supervisorId, list, Boolean.TRUE.equals(unlock)))
+        .map(
+            saved ->
+                new SupervisorAssignmentList(
+                    supervisorId, saved.stream().map(SupervisorProvider::info).toList()));
   }
 
-  /** Errors with a conflict if the attachment exists and was not made by hand. */
-  private Mono<Void> manual(final String attachmentId) {
+  /**
+   * What would be wrong with setting these assignments, without changing anything.
+   *
+   * @param supervisorId the supervisor
+   * @param wanted what it should own
+   * @return whether it is fine, and the problems
+   */
+  public Mono<SupervisorCheck> checkAssignments(
+      final String supervisorId, final List<AssignmentInput> wanted) {
+    return Mono.fromSupplier(() -> wanted(wanted))
+        .flatMap(list -> assignments.check(supervisorId, list))
+        .map(
+            issues ->
+                new SupervisorCheck(
+                    issues.isEmpty(),
+                    issues.stream().map(i -> i.field() + ": " + i.message()).toList()));
+  }
+
+  /**
+   * One configured supervisor with its settings (secrets hidden), parents and assignments.
+   *
+   * @param id the supervisor id
+   * @return the supervisor; an error for an unknown one
+   */
+  public Mono<SupervisorDetails> details(final String id) {
     return service
-        .attachments()
-        .filter(a -> a.id().equals(attachmentId) && a.source() != SupervisorSource.MANUAL)
+        .supervisors()
+        .filter(s -> s.id().equals(id))
         .next()
-        .flatMap(
-            a ->
-                Mono.<Void>error(
-                    new ConflictException(
-                        "Attachment "
-                            + attachmentId
-                            + " comes from a "
-                            + a.source()
-                            + " source; edit the definition that declares it")));
+        .switchIfEmpty(Mono.error(new IllegalArgumentException("Unknown supervisor: " + id)))
+        .zipWith(Mono.defer(() -> assignments.of(id).map(SupervisorProvider::info).collectList()))
+        .map(
+            pair -> {
+              final Supervisor supervisor = pair.getT1();
+              final Set<String> secrets =
+                  service.configSchema(supervisor.type()).stream()
+                      .filter(f -> f.type() == ConfigField.Type.SECRET)
+                      .map(ConfigField::name)
+                      .collect(java.util.stream.Collectors.toSet());
+              return new SupervisorDetails(
+                  supervisor.id(),
+                  supervisor.type(),
+                  supervisor.description(),
+                  supervisor.dryRun(),
+                  SupervisorSettingsMask.hide(supervisor.settings(), secrets),
+                  supervisor.parents(),
+                  pair.getT2());
+            });
+  }
+
+  /**
+   * Deletes a supervisor that owns nothing and that no definition or child names.
+   *
+   * @param id the supervisor id
+   * @return the result; an error when something still uses it
+   */
+  public Mono<SupervisorDeleted> delete(final String id) {
+    return service.deleteSupervisor(id).thenReturn(new SupervisorDeleted(id, true));
+  }
+
+  /**
+   * Who may send which command to a node, a run or the server.
+   *
+   * @param sessionId the session, or null
+   * @param workflowId the workflow, or null
+   * @param executionId a run, whose session and workflow are used, or null
+   * @param nodeId the node, or null for the run level
+   * @return one answer per command
+   */
+  public Mono<SupervisionAnswer> supervision(
+      final @Nullable String sessionId,
+      final @Nullable String workflowId,
+      final @Nullable String executionId,
+      final @Nullable String nodeId) {
+    return Mono.fromSupplier(
+        () -> {
+          String session = sessionId;
+          String workflow = workflowId;
+          if (executionId != null) {
+            final WorkflowProgress progress = controlBus.getCurrentProgress(executionId);
+            if (progress != null) {
+              session = progress.sessionId();
+              workflow = progress.workflowId();
+            }
+          }
+          return new SupervisionAnswer(
+              reviewer.capabilities(session, workflow, nodeId).entrySet().stream()
+                  .map(
+                      e ->
+                          new SupervisionAnswer.Command(
+                              e.getKey(),
+                              e.getValue().allowed(),
+                              e.getValue().via(),
+                              e.getValue().reason()))
+                  .toList());
+        });
+  }
+
+  private static List<SupervisorAssignments.Assignment> wanted(
+      final @Nullable List<AssignmentInput> wanted) {
+    if (wanted == null) {
+      throw new IllegalArgumentException("assignments is required (an empty list owns nothing)");
+    }
+    return wanted.stream()
+        .map(
+            a -> {
+              if (a.target() == null || a.target().isBlank()) {
+                throw new IllegalArgumentException("each assignment needs a target");
+              }
+              return new SupervisorAssignments.Assignment(
+                  SupervisorScope.parse(a.target()),
+                  a.enabled() == null || a.enabled(),
+                  Boolean.TRUE.equals(a.locked()));
+            })
+        .toList();
   }
 
   private SupervisorDescriptor descriptor(final String type) {
@@ -236,13 +347,14 @@ public class SupervisorProvider {
         .orElseThrow(() -> new IllegalArgumentException("Unknown supervisor type: " + type));
   }
 
-  private static SupervisorAttachmentInfo info(final SupervisorAttachment attachment) {
-    return new SupervisorAttachmentInfo(
+  private static SupervisorAssignmentInfo info(final SupervisorAttachment attachment) {
+    return new SupervisorAssignmentInfo(
         attachment.id(),
         attachment.supervisorId(),
         attachment.scope().key(),
         attachment.enabled(),
-        attachment.source().name());
+        attachment.source().name(),
+        attachment.locked());
   }
 
   /**
