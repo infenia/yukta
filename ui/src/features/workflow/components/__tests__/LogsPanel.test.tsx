@@ -238,7 +238,7 @@ describe('LogsPanel', () => {
     const user = userEvent.setup();
     render(<LogsPanel entries={entries} isStreaming={false} />);
 
-    const toggle = screen.getByRole('switch', { name: /toggle auto-scroll/i });
+    const toggle = screen.getByRole('switch', { name: /follow new lines/i });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
 
     await user.click(toggle);
@@ -247,7 +247,7 @@ describe('LogsPanel', () => {
 
   it('stops following when the reader scrolls up, not on growth or scrolling down', () => {
     render(<LogsPanel entries={entries} isStreaming={false} />);
-    const toggle = screen.getByRole('switch', { name: /toggle auto-scroll/i });
+    const toggle = screen.getByRole('switch', { name: /follow new lines/i });
     const body = screen.getByTestId('logs-body');
     Object.defineProperty(body, 'scrollHeight', { value: 1000 });
     Object.defineProperty(body, 'clientHeight', { value: 200 });
@@ -354,13 +354,13 @@ describe('LogsPanel', () => {
       const user = userEvent.setup({ delay: null });
       render(<LogsPanel entries={entries} isStreaming={false} />);
       await user.click(
-        screen.getByRole('switch', { name: /toggle auto-scroll/i })
+        screen.getByRole('switch', { name: /follow new lines/i })
       );
 
       await user.click(screen.getByRole('button', { name: 'Jump to latest' }));
 
       expect(
-        screen.getByRole('switch', { name: /toggle auto-scroll/i })
+        screen.getByRole('switch', { name: /follow new lines/i })
       ).toHaveAttribute('aria-checked', 'true');
     });
   });
