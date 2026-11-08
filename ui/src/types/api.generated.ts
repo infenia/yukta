@@ -208,7 +208,7 @@ export interface paths {
          * List control commands
          * @description Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them
          */
-        get: operations["list_5"];
+        get: operations["list_4"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1484,7 +1484,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get the supervisor contract version and operations */
-        get: operations["get_4"];
+        get: operations["get_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1501,7 +1501,7 @@ export interface paths {
             cookie?: never;
         };
         /** List supervisor types */
-        get: operations["list_1"];
+        get: operations["list_3"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1518,7 +1518,7 @@ export interface paths {
             cookie?: never;
         };
         /** Get a supervisor type */
-        get: operations["get_1"];
+        get: operations["get_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1561,74 +1561,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisor-types": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List supervisor types */
-        get: operations["list_2"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/supervisor-types/{type}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a supervisor type */
-        get: operations["get_2"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/supervisor-types/{type}/presets": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the presets of a supervisor type */
-        get: operations["presets_1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/supervisor-types/{type}/usage": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List the supervisors of a type */
-        get: operations["usage_1"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/supervisors": {
         parameters: {
             query?: never;
@@ -1647,43 +1579,21 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/attachments": {
+    "/api/supervisors/assignments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List attachments */
-        get: operations["attachments"];
+        /** List assignments */
+        get: operations["assignments"];
         put?: never;
-        /**
-         * Attach a supervisor
-         * @description Attach a supervisor to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches only those nodes and no workflow-wide event or command. Attachments made here are MANUAL; those from a definition are changed by editing the definition.
-         */
-        post: operations["attach"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
-        trace?: never;
-    };
-    "/api/supervisors/attachments/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Detach a supervisor */
-        delete: operations["detach"];
-        options?: never;
-        head?: never;
-        /** Enable or disable an attachment */
-        patch: operations["patch"];
         trace?: never;
     };
     "/api/supervisors/decisions": {
@@ -1762,17 +1672,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/supervisors/{id}/attachments": {
+    "/api/supervisors/{id}/assignments": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** List the attachments of a supervisor */
-        get: operations["attachmentsOf"];
-        put?: never;
+        /** List what a supervisor owns */
+        get: operations["assignmentsOf"];
+        /**
+         * Set what a supervisor owns
+         * @description Replaces the assignments made here (MANUAL); those from definitions change with the definition. A target is server, session:<id>, workflow:<s>/<w>, run:<s>/<w> or workflow:<s>/<w>//<selector>,... (node ids, <prefix>.*, group:<name>).
+         */
+        put: operations["setAssignments"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/supervisors/{id}/assignments/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Check what a supervisor would own, without saving */
+        post: operations["checkAssignments"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1860,7 +1791,7 @@ export interface paths {
          * List the session templates
          * @description The bundled examples: id, title, a one-line summary and the plugin types used
          */
-        get: operations["list_4"];
+        get: operations["list_2"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1880,7 +1811,7 @@ export interface paths {
          * Get a session template
          * @description The README (markdown) and the session definition to apply. 404 if unknown
          */
-        get: operations["get_3"];
+        get: operations["get_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1900,7 +1831,7 @@ export interface paths {
          * List workers
          * @description Lists the workers that are connected and keep their lease, ordered by id, with the pools they serve, the plugin types they may run, their capacity and the slots in use at their last heartbeat
          */
-        get: operations["list_3"];
+        get: operations["list_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2339,39 +2270,6 @@ export interface components {
             text?: string | null;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseAttachmentView: {
-            /** @description The response data */
-            data?: components["schemas"]["AttachmentView"];
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseCatalog: {
             /** @description The response data */
             data?: components["schemas"]["Catalog"];
@@ -2603,9 +2501,9 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseListAttachmentView: {
+        ApiResponseListAssignmentView: {
             /** @description The response data */
-            data?: components["schemas"]["AttachmentView"][];
+            data?: components["schemas"]["AssignmentView"][];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4162,6 +4060,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseValidationView: {
+            /** @description The response data */
+            data?: components["schemas"]["ValidationView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseVoid: {
             /** @description The response data */
             data?: unknown;
@@ -4425,16 +4356,17 @@ export interface components {
              */
             timestamp?: string;
         };
-        AttachmentBody: {
+        AssignmentBody: {
             enabled?: boolean;
-            id?: string;
-            scope?: string;
-            supervisorId?: string;
+            locked?: boolean;
+            target?: string;
         };
-        /** @description An attachment of a supervisor to a scope */
-        AttachmentView: {
+        /** @description What a supervisor owns: one assignment */
+        AssignmentView: {
+            conflict?: boolean;
             enabled?: boolean;
             id?: string;
+            locked?: boolean;
             originSessionId?: string;
             originWorkflowId?: string;
             /**
@@ -4628,9 +4560,6 @@ export interface components {
         EnableStepModeCommand: components["schemas"]["ExecutionControlCommand"] & {
             executionId?: string;
             nodeId?: string | null;
-        };
-        EnabledBody: {
-            enabled?: boolean;
         };
         EscalateInputCommand: components["schemas"]["ExecutionControlCommand"] & {
             advice?: string | null;
@@ -5201,12 +5130,12 @@ export interface components {
         ServerSentEventString: unknown;
         ServerSentEventWorkflowProgress: unknown;
         SessionConfigResponse: {
+            assignments?: components["schemas"]["SupervisorRef"][];
             description?: string;
             initiator?: string;
             name?: string;
             projectPath?: string;
             sessionId?: string;
-            supervisors?: components["schemas"]["SupervisorRef"][];
             tags?: {
                 [key: string]: string;
             };
@@ -5563,6 +5492,10 @@ export interface components {
             sessionId?: string;
             workflowId?: string;
         };
+        ValidationView: {
+            problems?: string[];
+            valid?: boolean;
+        };
         VerdictBody: {
             reason?: string;
             verdict?: string;
@@ -5607,6 +5540,8 @@ export interface components {
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinition: {
+            /** @description What supervisors own in this workflow; assigned when it is saved */
+            assignments?: components["schemas"]["SupervisorRef"][];
             /**
              * @description A human-readable description of the workflow
              * @example Nightly report
@@ -5620,8 +5555,6 @@ export interface components {
             } | null;
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["Node"][];
-            /** @description Supervisors declared for this workflow; attached when it is saved */
-            supervisors?: components["schemas"]["SupervisorRef"][];
             /** @description Unique workflow identifier */
             workflowId: string;
         };
@@ -6146,7 +6079,7 @@ export interface operations {
             };
         };
     };
-    list_5: {
+    list_4: {
         parameters: {
             query?: {
                 limit?: number;
@@ -7924,7 +7857,7 @@ export interface operations {
             };
         };
     };
-    get_4: {
+    get_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -7944,7 +7877,7 @@ export interface operations {
             };
         };
     };
-    list_1: {
+    list_3: {
         parameters: {
             query?: never;
             header?: never;
@@ -7964,7 +7897,7 @@ export interface operations {
             };
         };
     };
-    get_1: {
+    get_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -8030,92 +7963,6 @@ export interface operations {
             };
         };
     };
-    list_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListSupervisorTypeSummary"];
-                };
-            };
-        };
-    };
-    get_2: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseSupervisorTypeDetails"];
-                };
-            };
-        };
-    };
-    presets_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListSupervisorPreset"];
-                };
-            };
-        };
-    };
-    usage_1: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                type: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseListString"];
-                };
-            };
-        };
-    };
     list: {
         parameters: {
             query?: never;
@@ -8160,7 +8007,7 @@ export interface operations {
             };
         };
     };
-    attachments: {
+    assignments: {
         parameters: {
             query?: {
                 session?: string | null;
@@ -8179,79 +8026,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListAttachmentView"];
-                };
-            };
-        };
-    };
-    attach: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AttachmentBody"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseAttachmentView"];
-                };
-            };
-        };
-    };
-    detach: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseVoid"];
-                };
-            };
-        };
-    };
-    patch: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["EnabledBody"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "*/*": components["schemas"]["ApiResponseAttachmentView"];
+                    "*/*": components["schemas"]["ApiResponseListAssignmentView"];
                 };
             };
         };
@@ -8394,7 +8169,7 @@ export interface operations {
             };
         };
     };
-    attachmentsOf: {
+    assignmentsOf: {
         parameters: {
             query?: never;
             header?: never;
@@ -8411,7 +8186,61 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseListAttachmentView"];
+                    "*/*": components["schemas"]["ApiResponseListAssignmentView"];
+                };
+            };
+        };
+    };
+    setAssignments: {
+        parameters: {
+            query?: {
+                unlock?: boolean;
+            };
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentBody"][];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListAssignmentView"];
+                };
+            };
+        };
+    };
+    checkAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssignmentBody"][];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseValidationView"];
                 };
             };
         };
@@ -8557,7 +8386,7 @@ export interface operations {
             };
         };
     };
-    list_4: {
+    list_2: {
         parameters: {
             query?: never;
             header?: never;
@@ -8577,7 +8406,7 @@ export interface operations {
             };
         };
     };
-    get_3: {
+    get_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -8600,7 +8429,7 @@ export interface operations {
             };
         };
     };
-    list_3: {
+    list_1: {
         parameters: {
             query?: never;
             header?: never;

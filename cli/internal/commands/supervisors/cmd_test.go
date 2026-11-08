@@ -4,9 +4,11 @@
 package supervisors
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -25,18 +27,18 @@ func TestSupervisorsCommands(t *testing.T) {
 		want string
 	}{
 		{nil, "/api/supervisors/status"},
-		{[]string{"types"}, "/api/supervisor-types"},
-		{[]string{"types", "composite"}, "/api/supervisor-types/composite"},
 		{[]string{"list"}, "/api/supervisors"},
 		{[]string{"show", "s1"}, "/api/supervisors/s1"},
-		{[]string{"presets", "rule-supervisor"}, "/api/supervisor-types/rule-supervisor/presets"},
+		{[]string{"presets", "rules"}, "/api/supervisor-engines/rules/presets"},
 		{[]string{"versions", "s1"}, "/api/supervisors/s1/versions"},
 		{[]string{"rollback", "s1", "--version", "2"}, "/api/supervisors/s1/rollback"},
 		{[]string{"replay", "s1", "--execution", "e1", "--settings", "{}"}, "/api/supervisors/s1/replay"},
 		{[]string{"credential", "create", "s1", "--ttl-hours", "3"}, "/api/supervisors/s1/credential"},
 		{[]string{"credential", "revoke", "s1"}, "/api/supervisors/s1/credential"},
-		{[]string{"engines"}, "/api/supervisor-types"},
-		{[]string{"engines", "http"}, "/api/supervisor-types/http"},
+		{[]string{"engines"}, "/api/supervisor-engines"},
+		{[]string{"engines", "http"}, "/api/supervisor-engines/http"},
+		{[]string{"assignments", "s1"}, "/api/supervisors/s1/assignments"},
+		{[]string{"credential", "show", "s1"}, "/api/supervisors/s1/credential"},
 		{[]string{"decisions", "--supervisor", "s1", "--limit", "5"}, "/api/supervisors/decisions"},
 		{[]string{"delete", "s1"}, "/api/supervisors/s1"},
 	}
@@ -161,5 +163,79 @@ func TestOwnershipNeedsASessionAndAWorkflow(t *testing.T) {
 	cmd.SilenceUsage, cmd.SilenceErrors = true, true
 	if err := cmd.Execute(); err == nil {
 		t.Error("a workflow is required")
+	}
+}
+
+// assignmentServer answers like the server: s1 owns server by hand and a definition owns a session.
+func assignmentServer(t *testing.T, calls *[]string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		*calls = append(*calls, r.Method+" "+r.URL.RequestURI()+" "+string(body))
+		switch {
+		case r.Method == "GET" && r.URL.Path == "/api/supervisors/s1/assignments":
+			_, _ = w.Write([]byte(`{"data":[{"scope":"server","enabled":true,"source":"MANUAL","locked":true},` +
+				`{"scope":"session:a","enabled":true,"source":"DEFINITION"}]}`))
+		case r.Method == "GET" && r.URL.Path == "/api/supervisors/s1":
+			_, _ = w.Write([]byte(`{"data":{"type":"rules","settings":{},"dryRun":false,` +
+				`"delegation":{"INPUT":{"mode":"ALL"}}}}`))
+		default:
+			_, _ = w.Write([]byte(`{"data":[]}`))
+		}
+	}))
+}
+
+func TestAssignmentAndParentCommands(t *testing.T) {
+	var calls []string
+	srv := assignmentServer(t, &calls)
+	defer srv.Close()
+	file := filepath.Join(t.TempDir(), "a.json")
+	if err := os.WriteFile(file, []byte(`[{"target":"run:s/w"}]`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		args []string
+		want string
+	}{
+		{[]string{"assign", "s1", "run:s/w", "--locked"},
+			`PUT /api/supervisors/s1/assignments [{"target":"server","enabled":true,"locked":true},{"target":"run:s/w","enabled":true,"locked":true}]`},
+		{[]string{"assign", "s1", "server", "--disabled"},
+			`PUT /api/supervisors/s1/assignments [{"target":"server","enabled":false,"locked":false}]`},
+		{[]string{"unassign", "s1", "server", "--unlock"}, `PUT /api/supervisors/s1/assignments?unlock=true []`},
+		{[]string{"check-assign", "s1", "run:s/w", "workflow:s/x"},
+			`POST /api/supervisors/s1/assignments/check [{"target":"server","enabled":true,"locked":true},` +
+				`{"target":"run:s/w","enabled":true,"locked":false},{"target":"workflow:s/x","enabled":true,"locked":false}]`},
+		{[]string{"set-assignments", "s1", "-f", file}, `PUT /api/supervisors/s1/assignments [{"target":"run:s/w"}]`},
+		{[]string{"parents", "set", "s1", "--parent", "lead", "--mode", "approval=any"},
+			`PUT /api/supervisors/s1 {"delegation":{"APPROVAL":{"mode":"ANY"},"INPUT":{"mode":"ALL"}},` +
+				`"description":null,"dryRun":false,"id":"s1","parents":["lead"],"settings":{},"type":"rules"}`},
+	}
+	for _, tt := range tests {
+		calls = nil
+		cmd := SupervisorsCmd(client.NewClient(srv.URL))
+		cmd.SetArgs(tt.args)
+		if err := cmd.Execute(); err != nil || calls[len(calls)-1] != tt.want {
+			t.Errorf("%v:\nwant %s\ngot  %v (%v)", tt.args, tt.want, calls, err)
+		}
+	}
+}
+
+func TestAssignmentCommandsRefuseBadInput(t *testing.T) {
+	var calls []string
+	srv := assignmentServer(t, &calls)
+	defer srv.Close()
+	for _, args := range [][]string{
+		{"unassign", "s1", "session:a"},
+		{"set-assignments", "s1", "-f", filepath.Join(t.TempDir(), "missing.json")},
+		{"parents", "set", "s1", "--mode", "approval"},
+		{"check-assign", "s1"},
+	} {
+		cmd := SupervisorsCmd(client.NewClient(srv.URL))
+		cmd.SetArgs(args)
+		cmd.SilenceUsage, cmd.SilenceErrors = true, true
+		if err := cmd.Execute(); err == nil {
+			t.Errorf("%v must fail", args)
+		}
 	}
 }

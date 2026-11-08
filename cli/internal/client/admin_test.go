@@ -25,8 +25,8 @@ func TestAdminCalls(t *testing.T) {
 		{"GET /api/supervisors/status", c.GetSupervisors},
 		{"GET /api/supervisors", c.ListSupervisors},
 		{"GET /api/supervisors/s%2F1", func() (any, error) { return c.GetSupervisor("s/1") }},
-		{"GET /api/supervisor-types", c.GetSupervisorTypes},
-		{"GET /api/supervisor-types/rule-supervisor", func() (any, error) { return c.GetSupervisorType("rule-supervisor") }},
+		{"GET /api/supervisor-engines", c.GetSupervisorEngines},
+		{"GET /api/supervisor-engines/rules", func() (any, error) { return c.GetSupervisorEngine("rules") }},
 		{"GET /api/workers", c.GetWorkers},
 		{"GET /api/sessions/s/config", func() (any, error) { return c.GetSessionConfig("s") }},
 		{"GET /api/control/audit", func() (any, error) { return c.GetControlAudit(0, "") }},
@@ -38,6 +38,33 @@ func TestAdminCalls(t *testing.T) {
 	for _, tt := range tests {
 		if _, err := tt.call(); err != nil || got != tt.want {
 			t.Errorf("want %q, got %q (%v)", tt.want, got, err)
+		}
+	}
+}
+
+func TestAssignmentHelpersReportServerErrorsAndOddAnswers(t *testing.T) {
+	answer := `{"data":"not a list"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(answer))
+	}))
+	defer srv.Close()
+	c := NewClient(srv.URL)
+
+	if _, err := c.Assign("s1", "server", true, false); err == nil {
+		t.Error("an answer that is not a list must fail")
+	}
+	if _, err := c.SetParents("s1", nil, nil); err == nil {
+		t.Error("a supervisor that is not an object must fail")
+	}
+	down := NewClient("http://127.0.0.1:1")
+	for name, call := range map[string]func() (any, error){
+		"assign":   func() (any, error) { return down.Assign("s", "server", true, false) },
+		"unassign": func() (any, error) { return down.Unassign("s", "server", false) },
+		"check":    func() (any, error) { return down.CheckAssign("s", []string{"server"}) },
+		"parents":  func() (any, error) { return down.SetParents("s", nil, nil) },
+	} {
+		if _, err := call(); err == nil {
+			t.Errorf("%s must fail when the server is down", name)
 		}
 	}
 }

@@ -76,49 +76,6 @@
           "type" : "object"
         } ]
       },
-      "ApiResponseAttachmentView" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "$ref" : "#/components/schemas/AttachmentView",
-            "description" : "The response data"
-          },
-          "error" : {
-            "description" : "The HTTP status error name",
-            "example" : "Bad Request",
-            "type" : "string"
-          },
-          "errors" : {
-            "description" : "The list of field validation errors",
-            "items" : {
-              "$ref" : "#/components/schemas/FieldError"
-            },
-            "type" : "array"
-          },
-          "message" : {
-            "description" : "A human-readable message",
-            "example" : "Operation successful",
-            "type" : "string"
-          },
-          "path" : {
-            "description" : "The request path",
-            "example" : "/api/files",
-            "type" : "string"
-          },
-          "status" : {
-            "description" : "The HTTP status code",
-            "example" : 200,
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "timestamp" : {
-            "description" : "The time the response was generated",
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
       "ApiResponseCatalog" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -423,13 +380,13 @@
         },
         "type" : "object"
       },
-      "ApiResponseListAttachmentView" : {
+      "ApiResponseListAssignmentView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
           "data" : {
             "description" : "The response data",
             "items" : {
-              "$ref" : "#/components/schemas/AttachmentView"
+              "$ref" : "#/components/schemas/AssignmentView"
             },
             "type" : "array"
           },
@@ -2526,6 +2483,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseValidationView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ValidationView",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseVoid" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -2869,31 +2869,34 @@
         },
         "type" : "object"
       },
-      "AttachmentBody" : {
+      "AssignmentBody" : {
         "properties" : {
           "enabled" : {
             "type" : "boolean"
           },
-          "id" : {
-            "type" : "string"
+          "locked" : {
+            "type" : "boolean"
           },
-          "scope" : {
-            "type" : "string"
-          },
-          "supervisorId" : {
+          "target" : {
             "type" : "string"
           }
         },
         "type" : "object"
       },
-      "AttachmentView" : {
-        "description" : "An attachment of a supervisor to a scope",
+      "AssignmentView" : {
+        "description" : "What a supervisor owns: one assignment",
         "properties" : {
+          "conflict" : {
+            "type" : "boolean"
+          },
           "enabled" : {
             "type" : "boolean"
           },
           "id" : {
             "type" : "string"
+          },
+          "locked" : {
+            "type" : "boolean"
           },
           "originSessionId" : {
             "type" : "string"
@@ -3406,14 +3409,6 @@
           },
           "type" : "object"
         } ]
-      },
-      "EnabledBody" : {
-        "properties" : {
-          "enabled" : {
-            "type" : "boolean"
-          }
-        },
-        "type" : "object"
       },
       "EscalateInputCommand" : {
         "allOf" : [ {
@@ -4864,6 +4859,12 @@
       "ServerSentEventWorkflowProgress" : { },
       "SessionConfigResponse" : {
         "properties" : {
+          "assignments" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "type" : "array"
+          },
           "description" : {
             "type" : "string"
           },
@@ -4878,12 +4879,6 @@
           },
           "sessionId" : {
             "type" : "string"
-          },
-          "supervisors" : {
-            "items" : {
-              "$ref" : "#/components/schemas/SupervisorRef"
-            },
-            "type" : "array"
           },
           "tags" : {
             "additionalProperties" : {
@@ -5747,6 +5742,20 @@
         },
         "type" : "object"
       },
+      "ValidationView" : {
+        "properties" : {
+          "problems" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "valid" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "VerdictBody" : {
         "properties" : {
           "reason" : {
@@ -5855,6 +5864,15 @@
       "WorkflowDefinition" : {
         "description" : "Definition of a reactive workflow DAG",
         "properties" : {
+          "assignments" : {
+            "description" : "What supervisors own in this workflow; assigned when it is saved",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorRef"
+            },
+            "maxItems" : 20,
+            "minItems" : 0,
+            "type" : "array"
+          },
           "description" : {
             "description" : "A human-readable description of the workflow",
             "example" : "Nightly report",
@@ -5885,15 +5903,6 @@
             },
             "maxItems" : 500,
             "minItems" : 1,
-            "type" : "array"
-          },
-          "supervisors" : {
-            "description" : "Supervisors declared for this workflow; attached when it is saved",
-            "items" : {
-              "$ref" : "#/components/schemas/SupervisorRef"
-            },
-            "maxItems" : 20,
-            "minItems" : 0,
             "type" : "array"
           },
           "workflowId" : {
@@ -6743,7 +6752,7 @@
     "/api/control/audit" : {
       "get" : {
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
-        "operationId" : "list_5",
+        "operationId" : "list_4",
         "parameters" : [ {
           "in" : "query",
           "name" : "limit",
@@ -9473,7 +9482,7 @@
     },
     "/api/supervisor-contract" : {
       "get" : {
-        "operationId" : "get_4",
+        "operationId" : "get_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -9492,7 +9501,7 @@
     },
     "/api/supervisor-engines" : {
       "get" : {
-        "operationId" : "list_1",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -9511,7 +9520,7 @@
     },
     "/api/supervisor-engines/{type}" : {
       "get" : {
-        "operationId" : "get_1",
+        "operationId" : "get_2",
         "parameters" : [ {
           "in" : "path",
           "name" : "type",
@@ -9590,106 +9599,6 @@
         "tags" : [ "Supervisor types API" ]
       }
     },
-    "/api/supervisor-types" : {
-      "get" : {
-        "operationId" : "list_2",
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSupervisorTypeSummary"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "List supervisor types",
-        "tags" : [ "Supervisor types API" ]
-      }
-    },
-    "/api/supervisor-types/{type}" : {
-      "get" : {
-        "operationId" : "get_2",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "type",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseSupervisorTypeDetails"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Get a supervisor type",
-        "tags" : [ "Supervisor types API" ]
-      }
-    },
-    "/api/supervisor-types/{type}/presets" : {
-      "get" : {
-        "operationId" : "presets_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "type",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListSupervisorPreset"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "List the presets of a supervisor type",
-        "tags" : [ "Supervisor types API" ]
-      }
-    },
-    "/api/supervisor-types/{type}/usage" : {
-      "get" : {
-        "operationId" : "usage_1",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "type",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListString"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "List the supervisors of a type",
-        "tags" : [ "Supervisor types API" ]
-      }
-    },
     "/api/supervisors" : {
       "get" : {
         "operationId" : "list",
@@ -9736,9 +9645,9 @@
         "tags" : [ "Supervisors API" ]
       }
     },
-    "/api/supervisors/attachments" : {
+    "/api/supervisors/assignments" : {
       "get" : {
-        "operationId" : "attachments",
+        "operationId" : "assignments",
         "parameters" : [ {
           "in" : "query",
           "name" : "session",
@@ -9766,104 +9675,14 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListAttachmentView"
+                  "$ref" : "#/components/schemas/ApiResponseListAssignmentView"
                 }
               }
             },
             "description" : "OK"
           }
         },
-        "summary" : "List attachments",
-        "tags" : [ "Supervisors API" ]
-      },
-      "post" : {
-        "description" : "Attach a supervisor to a scope. A section scope (workflow:<s>/<w>//build.*,deploy) watches only those nodes and no workflow-wide event or command. Attachments made here are MANUAL; those from a definition are changed by editing the definition.",
-        "operationId" : "attach",
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/AttachmentBody"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "201" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseAttachmentView"
-                }
-              }
-            },
-            "description" : "Created"
-          }
-        },
-        "summary" : "Attach a supervisor",
-        "tags" : [ "Supervisors API" ]
-      }
-    },
-    "/api/supervisors/attachments/{id}" : {
-      "delete" : {
-        "operationId" : "detach",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseVoid"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Detach a supervisor",
-        "tags" : [ "Supervisors API" ]
-      },
-      "patch" : {
-        "operationId" : "patch",
-        "parameters" : [ {
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/EnabledBody"
-              }
-            }
-          },
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "*/*" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseAttachmentView"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "summary" : "Enable or disable an attachment",
+        "summary" : "List assignments",
         "tags" : [ "Supervisors API" ]
       }
     },
@@ -10047,9 +9866,9 @@
         "tags" : [ "Supervisors API" ]
       }
     },
-    "/api/supervisors/{id}/attachments" : {
+    "/api/supervisors/{id}/assignments" : {
       "get" : {
-        "operationId" : "attachmentsOf",
+        "operationId" : "assignmentsOf",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -10063,14 +9882,101 @@
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseListAttachmentView"
+                  "$ref" : "#/components/schemas/ApiResponseListAssignmentView"
                 }
               }
             },
             "description" : "OK"
           }
         },
-        "summary" : "List the attachments of a supervisor",
+        "summary" : "List what a supervisor owns",
+        "tags" : [ "Supervisors API" ]
+      },
+      "put" : {
+        "description" : "Replaces the assignments made here (MANUAL); those from definitions change with the definition. A target is server, session:<id>, workflow:<s>/<w>, run:<s>/<w> or workflow:<s>/<w>//<selector>,... (node ids, <prefix>.*, group:<name>).",
+        "operationId" : "setAssignments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "unlock",
+          "required" : false,
+          "schema" : {
+            "default" : false,
+            "type" : "boolean"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "items" : {
+                  "$ref" : "#/components/schemas/AssignmentBody"
+                },
+                "type" : "array"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListAssignmentView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Set what a supervisor owns",
+        "tags" : [ "Supervisors API" ]
+      }
+    },
+    "/api/supervisors/{id}/assignments/check" : {
+      "post" : {
+        "operationId" : "checkAssignments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "items" : {
+                  "$ref" : "#/components/schemas/AssignmentBody"
+                },
+                "type" : "array"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseValidationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Check what a supervisor would own, without saving",
         "tags" : [ "Supervisors API" ]
       }
     },
@@ -10271,7 +10177,7 @@
     "/api/templates" : {
       "get" : {
         "description" : "The bundled examples: id, title, a one-line summary and the plugin types used",
-        "operationId" : "list_4",
+        "operationId" : "list_2",
         "responses" : {
           "200" : {
             "content" : {
@@ -10291,7 +10197,7 @@
     "/api/templates/{id}" : {
       "get" : {
         "description" : "The README (markdown) and the session definition to apply. 404 if unknown",
-        "operationId" : "get_3",
+        "operationId" : "get_1",
         "parameters" : [ {
           "description" : "Template id",
           "in" : "path",
@@ -10320,7 +10226,7 @@
     "/api/workers" : {
       "get" : {
         "description" : "Lists the workers that are connected and keep their lease, ordered by id, with the pools they serve, the plugin types they may run, their capacity and the slots in use at their last heartbeat",
-        "operationId" : "list_3",
+        "operationId" : "list_1",
         "responses" : {
           "200" : {
             "content" : {
@@ -11250,9 +11156,6 @@
     "description" : "Validate a draft workflow without saving it",
     "name" : "Session API"
   }, {
-    "description" : "Supervisors, their attachments and their decisions",
-    "name" : "Supervisors API"
-  }, {
     "description" : "The catalog of supervisor types",
     "name" : "Supervisor types API"
   }, {
@@ -11306,6 +11209,9 @@
   }, {
     "description" : "Follow the result of an execution",
     "name" : "Execution Results API"
+  }, {
+    "description" : "Supervisors, what they own and their decisions",
+    "name" : "Supervisors API"
   }, {
     "description" : "Stream execution logs",
     "name" : "Execution Logs API"

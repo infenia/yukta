@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 // GetSupervisors lists the supervisors that run, with their scope and command counts.
@@ -21,17 +22,155 @@ func (c *Client) GetSupervisor(id string) (any, error) {
 	return c.getData(apiPath("/api/supervisors/%s", id))
 }
 
-// GetSupervisorTypes lists the supervisor types in the catalog.
-func (c *Client) GetSupervisorTypes() (any, error) { return c.getData("/api/supervisor-types") }
+// GetSupervisorEngines lists the decision makers (engines) in the catalog.
+func (c *Client) GetSupervisorEngines() (any, error) { return c.getData("/api/supervisor-engines") }
 
-// GetSupervisorType describes one supervisor type with the settings it takes.
-func (c *Client) GetSupervisorType(name string) (any, error) {
-	return c.getData(apiPath("/api/supervisor-types/%s", name))
+// GetSupervisorEngine describes one engine with the settings it takes.
+func (c *Client) GetSupervisorEngine(name string) (any, error) {
+	return c.getData(apiPath("/api/supervisor-engines/%s", name))
 }
 
-// GetSupervisorPresets lists the ready-made settings of a supervisor type.
+// GetSupervisorPresets lists the ready-made settings of an engine.
 func (c *Client) GetSupervisorPresets(name string) (any, error) {
-	return c.getData(apiPath("/api/supervisor-types/%s/presets", name))
+	return c.getData(apiPath("/api/supervisor-engines/%s/presets", name))
+}
+
+// Assignment is one thing a supervisor owns, as the assignments endpoint takes it.
+type Assignment struct {
+	Target  string `json:"target"`
+	Enabled bool   `json:"enabled"`
+	Locked  bool   `json:"locked"`
+}
+
+// GetAssignments lists what a supervisor owns, whatever made it.
+func (c *Client) GetAssignments(id string) (any, error) {
+	return c.getData(apiPath("/api/supervisors/%s/assignments", id))
+}
+
+// manualAssignments reads the assignments made by hand: those a PUT replaces.
+func (c *Client) manualAssignments(id string) ([]Assignment, error) {
+	data, err := c.GetAssignments(id)
+	if err != nil {
+		return nil, err
+	}
+	raw, _ := json.Marshal(data)
+	var views []struct {
+		Scope   string `json:"scope"`
+		Enabled bool   `json:"enabled"`
+		Source  string `json:"source"`
+		Locked  bool   `json:"locked"`
+	}
+	if err := json.Unmarshal(raw, &views); err != nil {
+		return nil, fmt.Errorf("unexpected assignments: %w", err)
+	}
+	out := []Assignment{}
+	for _, v := range views {
+		if v.Source == "MANUAL" {
+			out = append(out, Assignment{Target: v.Scope, Enabled: v.Enabled, Locked: v.Locked})
+		}
+	}
+	return out, nil
+}
+
+// SetAssignments makes a supervisor own exactly these targets; unlock allows changing locked ones.
+func (c *Client) SetAssignments(id string, list []Assignment, unlock bool) (any, error) {
+	body, _ := json.Marshal(list)
+	return c.SetAssignmentsBody(id, body, unlock)
+}
+
+// SetAssignmentsBody sends a JSON list of assignments as it is, such as a file.
+func (c *Client) SetAssignmentsBody(id string, body []byte, unlock bool) (any, error) {
+	path := apiPath("/api/supervisors/%s/assignments", id)
+	if unlock {
+		path += "?unlock=true"
+	}
+	return c.dataCall("PUT", path, body)
+}
+
+// Assign adds a target to what a supervisor owns, or changes it if it is already there.
+func (c *Client) Assign(id, target string, enabled, locked bool) (any, error) {
+	current, err := c.manualAssignments(id)
+	if err != nil {
+		return nil, err
+	}
+	next := []Assignment{}
+	for _, a := range current {
+		if a.Target != target {
+			next = append(next, a)
+		}
+	}
+	return c.SetAssignments(id, append(next, Assignment{Target: target, Enabled: enabled, Locked: locked}), false)
+}
+
+// Unassign removes a target from what a supervisor owns.
+func (c *Client) Unassign(id, target string, unlock bool) (any, error) {
+	current, err := c.manualAssignments(id)
+	if err != nil {
+		return nil, err
+	}
+	next := []Assignment{}
+	found := false
+	for _, a := range current {
+		if a.Target == target {
+			found = true
+			continue
+		}
+		next = append(next, a)
+	}
+	if !found {
+		return nil, fmt.Errorf("%s does not own %s by hand", id, target)
+	}
+	return c.SetAssignments(id, next, unlock)
+}
+
+// CheckAssign checks what a supervisor would own with these targets added, without saving.
+func (c *Client) CheckAssign(id string, targets []string) (any, error) {
+	current, err := c.manualAssignments(id)
+	if err != nil {
+		return nil, err
+	}
+	for _, t := range targets {
+		current = append(current, Assignment{Target: t, Enabled: true})
+	}
+	body, _ := json.Marshal(current)
+	return c.dataCall("POST", apiPath("/api/supervisors/%s/assignments/check", id), body)
+}
+
+// GetAgentCredential shows the metadata of a supervisor's credential, never the secret.
+func (c *Client) GetAgentCredential(id string) (any, error) {
+	return c.getData(apiPath("/api/supervisors/%s/credential", id))
+}
+
+// SetParents makes a supervisor report to these parents, in order, with a delegation mode per
+// kind (approval, input, consult => ORDERED, ALL or ANY); its other settings stay as they are.
+func (c *Client) SetParents(id string, parents []string, modes map[string]string) (any, error) {
+	data, err := c.GetSupervisor(id)
+	if err != nil {
+		return nil, err
+	}
+	current, ok := data.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("unexpected supervisor %s", id)
+	}
+	delegation := map[string]any{}
+	if before, ok := current["delegation"].(map[string]any); ok {
+		for k, v := range before {
+			delegation[k] = v
+		}
+	}
+	for kind, mode := range modes {
+		delegation[strings.ToUpper(kind)] = map[string]any{"mode": strings.ToUpper(mode)}
+	}
+	body, _ := json.Marshal(map[string]any{
+		"id":          id,
+		"type":        current["type"],
+		"description": current["description"],
+		"settings":    current["settings"],
+		"dryRun":      current["dryRun"],
+		"parents":     parents,
+		"delegation":  delegation,
+	})
+	return c.dataCall("PUT", apiPath("/api/supervisors/%s", id), body)
 }
 
 // GetSupervisorVersions lists the saved versions of a supervisor, newest first.
