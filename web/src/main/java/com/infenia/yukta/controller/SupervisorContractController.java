@@ -6,6 +6,8 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.control.SupervisorContract;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +27,13 @@ public class SupervisorContractController {
    * @param version the major version
    * @param operations the names by group: read, act, signals, directives, causes, outcomes
    */
-  public record ContractView(int version, Map<String, List<String>> operations) {}
+  public record ContractView(int version, Map<String, List<String>> operations) {
+
+    /** Copies the operations so the view keeps its own unmodifiable, ordered map. */
+    public ContractView {
+      operations = Collections.unmodifiableMap(new LinkedHashMap<>(operations));
+    }
+  }
 
   /**
    * Describe the contract.

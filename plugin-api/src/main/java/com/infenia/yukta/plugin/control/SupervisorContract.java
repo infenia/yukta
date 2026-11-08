@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 import lombok.experimental.UtilityClass;
 
 /**
@@ -89,13 +90,17 @@ public class SupervisorContract {
    * @return group name to names: read, act, signals, directives, causes, outcomes
    */
   public static Map<String, List<String>> operations() {
-    final Map<String, List<String>> all = new LinkedHashMap<>();
-    all.put("read", READ_OPERATIONS);
-    all.put("act", ACT_OPERATIONS);
-    all.put("signals", SIGNAL_KINDS);
-    all.put("directives", DIRECTIVE_KINDS);
-    all.put("causes", CAUSES);
-    all.put("outcomes", OUTCOMES);
-    return Collections.unmodifiableMap(all);
+    return Collections.unmodifiableMap(
+        Stream.of(
+                Map.entry("read", READ_OPERATIONS),
+                Map.entry("act", ACT_OPERATIONS),
+                Map.entry("signals", SIGNAL_KINDS),
+                Map.entry("directives", DIRECTIVE_KINDS),
+                Map.entry("causes", CAUSES),
+                Map.entry("outcomes", OUTCOMES))
+            .collect(
+                LinkedHashMap<String, List<String>>::new,
+                (all, group) -> all.put(group.getKey(), group.getValue()),
+                Map::putAll));
   }
 }

@@ -74,7 +74,7 @@ class SupervisorContractTest {
   }
 
   private static Path findPage() {
-    return Stream.iterate(Path.of("").toAbsolutePath(), p -> p.getParent())
+    return Stream.iterate(Path.of("").toAbsolutePath(), Path::getParent)
         .limit(5)
         .filter(p -> p != null)
         .map(p -> p.resolve("docs/running/supervisor-contract.mdx"))
