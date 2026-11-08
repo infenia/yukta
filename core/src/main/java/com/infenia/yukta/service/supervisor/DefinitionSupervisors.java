@@ -13,10 +13,13 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.HexFormat;
@@ -26,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -33,9 +37,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * Keeps the attachments of the supervisors that sessions and workflows declare in step with their
@@ -46,11 +52,12 @@ import reactor.core.publisher.Sinks;
  * <p>Attachment ids are {@code def-} and the first 16 hex digits of the SHA-256 of the session,
  * workflow, supervisor and sorted node selectors, so reordering the declarations changes nothing
  * and a run stays supervised without a detach and attach. A declaration that cannot be attached is
- * logged and left for the next reconcile; it never fails the save.
+ * logged, counted and tried again within a minute; it never fails the save.
  */
 @Slf4j
 @Component
 @SuppressWarnings({
+  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
@@ -64,6 +71,9 @@ public class DefinitionSupervisors implements DefinitionUsage {
 
   /** Log key of a session id. */
   private static final String SESSION_KEY = "sessionId";
+
+  /** How often failed declarations are tried again. */
+  private static final Duration RETRY_EVERY = Duration.ofMinutes(1);
 
   /** Hex digits of the hash kept in an id. */
   private static final int HASH_DIGITS = 16;
@@ -91,6 +101,12 @@ public class DefinitionSupervisors implements DefinitionUsage {
 
   /** Tells whether this server is the leader; null on a single server. */
   @Nullable private LeaderElection election;
+
+  /** True when a declaration failed to attach or detach since the last retry. */
+  private final AtomicBoolean anyFailed = new AtomicBoolean();
+
+  /** The periodic retry; null until the server is up. */
+  @Nullable private Disposable retry;
 
   /**
    * Creates the reconciler.
@@ -135,6 +151,23 @@ public class DefinitionSupervisors implements DefinitionUsage {
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void onReady() {
     reconcileAllInBackground();
+    // ponytail: a fixed minute; make it a setting if operators need to tune it
+    retry = Flux.interval(RETRY_EVERY, Schedulers.parallel()).subscribe(_ -> retryFailed());
+  }
+
+  /** Stops the retry. */
+  @PreDestroy
+  /* default */ void stop() {
+    if (retry != null) {
+      retry.dispose();
+    }
+  }
+
+  /** Reconciles everything again if a declaration failed since the last time. */
+  /* default */ void retryFailed() {
+    if (anyFailed.getAndSet(false)) {
+      reconcileAllInBackground();
+    }
   }
 
   private void reconcileAllInBackground() {
@@ -395,8 +428,15 @@ public class DefinitionSupervisors implements DefinitionUsage {
                   .addKeyValue("supervisor", a.supervisorId())
                   .addKeyValue("scope", a.scope().key())
                   .log("Could not attach a supervisor declared in a definition");
+              failed("attach");
               return Mono.empty();
             });
+  }
+
+  /** Counts a failure and has the next retry reconcile again. */
+  private void failed(final String operation) {
+    anyFailed.set(true);
+    Metrics.counter("yukta.supervisor.declarations.failed", "operation", operation).increment();
   }
 
   private Mono<Void> detachQuietly(final String sessionId, final String id) {
@@ -409,6 +449,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
                   .addKeyValue(SESSION_KEY, sessionId)
                   .addKeyValue("attachment", id)
                   .log("Could not detach a supervisor no definition declares any more");
+              failed("detach");
               return Mono.empty();
             });
   }

@@ -81,6 +81,18 @@ class MetricsSamplerTest {
   }
 
   @Test
+  void samplesShareOneKeyStringPerSeries() {
+    registry.gauge(GAUGE, new AtomicInteger(1));
+    final MetricsSampler sampler = sampler(100);
+    sampler.sample(T0);
+    final String first = values(sampler).keySet().iterator().next();
+    sampler.sample(T0 + 5_000);
+    final String second = values(sampler).keySet().iterator().next();
+
+    assertThat(second).isEqualTo(first).isSameAs(first);
+  }
+
+  @Test
   void counterResetAndRemovedMeterDoNotBreakSampling() {
     final Counter counter = registry.counter(COUNTER_A);
     final MetricsSampler sampler = sampler(100);

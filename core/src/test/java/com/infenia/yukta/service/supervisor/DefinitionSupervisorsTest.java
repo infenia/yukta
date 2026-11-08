@@ -218,6 +218,37 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
+  void failedDeclarationIsAttachedByTheRetryOnceItCanBe() {
+    save(session(List.of(), workflow("w1", ref("later"))));
+    assertThat(attachments()).isEmpty();
+
+    supervisor("later");
+    declared.retryFailed();
+
+    org.awaitility.Awaitility.await()
+        .atMost(java.time.Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(attachments()).hasSize(1));
+  }
+
+  @Test
+  void retryDoesNothingWhenNothingFailed() {
+    supervisor("guard");
+    save(session(List.of(ref("guard"))));
+    final long before = attachments().size();
+
+    declared.retryFailed();
+
+    assertThat(attachments()).hasSize((int) before);
+  }
+
+  @Test
+  void retryStartsWhenTheServerIsUpAndStopsOnShutdown() {
+    declared.stop();
+    declared.onReady();
+    declared.stop();
+  }
+
+  @Test
   void sectionThatIsNotValidIsSkipped() {
     supervisor("guard");
     save(session(List.of(), workflow("w1", ref("guard", "a,b"), ref("guard"))));

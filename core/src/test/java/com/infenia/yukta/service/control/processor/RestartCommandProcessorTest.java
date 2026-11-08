@@ -4,16 +4,18 @@ package com.infenia.yukta.service.control.processor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
-import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
@@ -24,6 +26,7 @@ import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.gateway.RestartCompletionSink;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
+import com.infenia.yukta.testsupport.ErrorGuardExtension;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
 import java.util.Optional;
@@ -45,7 +48,8 @@ class RestartCommandProcessorTest {
 
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
-  private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
+  private final RestartCompletionSink completionSink =
+      mock(RestartCompletionSink.class, CALLS_REAL_METHODS);
   private ExecutionScheduler scheduler =
       ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
@@ -55,6 +59,9 @@ class RestartCommandProcessorTest {
 
   @BeforeEach
   void setUp() {
+    // the new run's control is registered once it is subscribed
+    when(registry.findByExecutionId(argThat((String id) -> id != null && id.startsWith("new-"))))
+        .thenReturn(Optional.of(mock(ExecutionControl.class)));
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
     archive.put(new ArchivedExecution("exec-1", "s1", "w1", prepared, "v1", Map.of("k", "v")));
@@ -70,7 +77,7 @@ class RestartCommandProcessorTest {
     verify(orchestrator)
         .execute(eq("s1"), eq("w1"), eq("new-1"), eq(prepared), eq(Map.of("k", "v")), any());
     verify(registry, never()).remove(any());
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
   }
 
   @Test
@@ -86,7 +93,7 @@ class RestartCommandProcessorTest {
 
     assertThat(safeStop.asMono().toFuture()).isDone();
     verify(registry).remove("exec-1");
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
   }
 
   @Test
@@ -149,7 +156,7 @@ class RestartCommandProcessorTest {
 
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
     verify(completionSink, never()).completeRestartFailure(any(), any());
   }
 
@@ -161,21 +168,22 @@ class RestartCommandProcessorTest {
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
     StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-2"))).verifyComplete();
 
-    verify(completionSink).completeRestartSuccess("new-1");
-    verify(completionSink).completeRestartSuccess("new-2");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000)).completeRestartSuccess("new-2");
   }
 
   @Test
-  void secondRestartWhileOneIsInProgress_isRejected() {
+  void restartFailingBeforeTheRunIsRegistered_isReportedAsFailure() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    when(orchestrator.execute(any(), any(), any(), any(), any(), any())).thenReturn(Mono.never());
+    when(registry.findByExecutionId("new-1")).thenReturn(Optional.empty());
+    when(orchestrator.execute(any(), any(), any(), any(), any(), any()))
+        .thenReturn(Mono.error(new IllegalStateException("no control")));
 
-    final var first = processor.process(new RestartCommand("exec-1", "new-1"));
-    final var second = processor.process(new RestartCommand("exec-1", "new-2"));
+    StepVerifier.create(processor.process(new RestartCommand("exec-1", "new-1"))).verifyComplete();
 
-    StepVerifier.create(second).verifyError(ConflictException.class);
-    verify(completionSink).completeRestartFailure(eq("new-2"), any(ConflictException.class));
-    StepVerifier.create(first).verifyComplete();
-    verify(completionSink).completeRestartSuccess("new-1");
+    verify(completionSink, timeout(2000))
+        .completeRestartFailure(eq("new-1"), any(IllegalStateException.class));
+    verify(completionSink, never()).completeRestartSuccess(any());
+    ErrorGuardExtension.awaitLogged("Restarted execution failed", java.time.Duration.ofSeconds(2));
   }
 }
