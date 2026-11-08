@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { iconButton } from '@/components/ui/iconTone';
-import { IconButton } from '@/components/common/IconButton';
 import { getSessionDraft } from '@/features/builder/api';
 import {
   CopyAsMenu,
@@ -196,12 +195,15 @@ export function SessionDetailsPage() {
           }}
           actions={
             <div className="flex items-center gap-2">
-              <IconButton
-                icon="add"
-                label="New workflow"
-                tone="success"
-                onClick={() => setCreating(true)}
-              />
+              <Button type="button" onClick={() => setCreating(true)}>
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-base"
+                >
+                  add
+                </span>
+                New workflow
+              </Button>
               <SessionCopyAs
                 sessionId={session.sessionId}
                 workflowIds={workflows.map((w) => w.workflowId)}

@@ -50,6 +50,22 @@ message to the `error` port, which leads straight to `rejected`. Only a terminal
 - Several approvers: add a second `WAIT_FOR_SIGNAL` (for example `security-approve`) after `approve`.
 - LLM: none needed. To have a model draft release notes for the approver, add an `LLM_CALL` before `approve` that reads the build output.
 
+## Supervisor
+
+[`supervisor.json`](supervisor.json) is a rule supervisor that **refuses** `StopWorkflow` with `mode == 'KILL'`: a killed release can leave
+production half deployed, so a stop has to drain or cancel. A supervisor can also veto a person's command; the caller gets `403` and the
+reason. `session.json` stays a plain template; `run.sh` creates the supervisor first (a declared supervisor must exist when the session is
+saved) and adds the declaration to the workflow:
+
+```bash
+curl -X PUT localhost:9858/api/supervisors/example-03-release-guard -H 'Content-Type: application/json' -d @supervisor.json
+curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
+  -d "$(jq '.workflows.release.supervisors = [{supervisor: "example-03-release-guard"}]' session.json)"
+```
+
+`run.sh` sends `POST /api/executions/<e>/stop?mode=KILL` while a release waits for approval and expects `403`; the release then carries on.
+Make it yours: add `deny` rules for other commands (`if` can read `mode`, `actor`, `nodeId`), or `requireApproval` to hold a command until a person approves it.
+
 ## Trigger
 
 ```bash

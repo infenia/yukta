@@ -96,6 +96,20 @@ curl -X POST localhost:9858/hooks/example-08-alert-triage/alert \
   -H "X-Signature-256: sha256=$sig" -d "$body"
 ```
 
+## Supervisor
+
+[`supervisor.json`](supervisor.json) is a rule supervisor bound to the `wait-ack` node. When the on-call is asked to acknowledge, it
+**escalates** the request with advice ("still down after 3 restarts: check the last deploy"). It advises only: the acknowledgement has risk
+`HIGH`, which a supervisor can never answer. `session.json` stays a plain template; `run.sh` creates the supervisor first and adds the declaration:
+
+```bash
+curl -X PUT localhost:9858/api/supervisors/example-08-ack-advice -H 'Content-Type: application/json' -d @supervisor.json
+curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
+  -d "$(jq '.workflows.alert.supervisors = [{supervisor: "example-08-ack-advice", nodes: ["wait-ack"]}]' session.json)"
+```
+
+`run.sh` checks the advice on the request of scenario 3 before it plays the on-call.
+
 ## Trigger
 
 ```bash

@@ -1,0 +1,19 @@
+{
+  "id": "example-04-reviewer-advice",
+  "type": "rule-supervisor",
+  "dryRun": false,
+  "settings": {
+    "rules": [
+      {
+        "id": "advise-the-reviewer",
+        "when": { "event": "InputRequested" },
+        "then": {
+          "escalate": {
+            "reason": "borderline score: no rule decides this PR",
+            "advice": "Read the files under migrations/ and auth/ first, and check that tests were added."
+          }
+        }
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@
 # Use case: production release with a human approval gate, a smoke check and automatic rollback.
 # This script installs release.sh (the stand-in for your real commands) and plays the approver:
 # it waits for the pending approval, then sends the signal.
+# A rule supervisor on the workflow refuses a KILL stop; the script proves it while a release waits.
 # Needs a server that allows `sh` (yukta.process.allowed-commands=sh, or YUKTA_PROCESS_ALLOW_ANY=true).
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
@@ -81,11 +82,18 @@ check() {  # NAME [!] COMMAND...: fail the example when the command's result is 
 # --------------------------------------------------------------------------------------------
 
 require_process
-apply_session session.json
+# The supervisor must exist before a session declares it. session.json stays a plain template; the declaration is added here.
+apply_supervisor supervisor.json
+jq '.workflows.release.supervisors = [{supervisor: "example-03-release-guard"}]' session.json >"$STATE/supervised.json"
+apply_session "$STATE/supervised.json"
 
 echo "--> happy path: build, test, staging, approve, deploy, smoke check"
 start_run v1.5.0; wait_approval approve
 check staging-before-approval node_ran staging
+echo "--> supervisor: a KILL stop is refused, the release keeps waiting"
+refusal=$(api POST "/api/executions/$EID/stop?mode=KILL" 2>&1 >/dev/null || true)
+[[ $refusal == *"HTTP 403"* && $refusal == *"use DRAIN or CANCEL"* ]] || { echo "    FAIL: KILL was not refused: '$refusal'"; exit 1; }
+echo "    PASS kill-refused: ${refusal#*: }"
 [[ $(cat "$STATE/live") == v1.4.0 ]] || { echo "    FAIL: production changed before approval"; exit 1; }
 signal approve approve-release approve; wait_done
 expect released released SUCCESS v1.5.0 "RELEASE LIVE"
@@ -114,10 +122,10 @@ check no-deploy ! node_ran deploy
 expect rejected rejected FAILED v1.5.0 ""
 
 echo "--> nobody approves in time (window shortened to 2 s for the test)"
-jq '.workflows.release.nodes |= map(if .nodeId == "approve" then .config.timeoutSeconds = 2 else . end)' session.json >"$STATE/fast.json"
+jq '.workflows.release.nodes |= map(if .nodeId == "approve" then .config.timeoutSeconds = 2 else . end)' "$STATE/supervised.json" >"$STATE/fast.json"
 api POST /api/sessions "$(cat "$STATE/fast.json")" >/dev/null
 start_run v1.9.0; wait_done
 check no-deploy ! node_ran deploy
 expect expired needs-owner ESCALATE v1.5.0 "APPROVAL EXPIRED"
-api POST /api/sessions "$(cat session.json)" >/dev/null
+api POST /api/sessions "$(cat "$STATE/supervised.json")" >/dev/null
 echo "PASS 03-release-approval"

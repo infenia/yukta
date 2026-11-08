@@ -1,0 +1,17 @@
+{
+  "id": "example-03-release-guard",
+  "type": "rule-supervisor",
+  "dryRun": false,
+  "settings": {
+    "rules": [
+      {
+        "id": "no-kill-during-release",
+        "deny": {
+          "command": "StopWorkflow",
+          "if": "mode == 'KILL'",
+          "reason": "use DRAIN or CANCEL on a release: KILL can leave production half deployed"
+        }
+      }
+    ]
+  }
+}

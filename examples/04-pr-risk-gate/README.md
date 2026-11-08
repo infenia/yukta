@@ -58,6 +58,22 @@ unless `after-review` names it.
 - How long the reviewer has: `timeoutSeconds` and `onTimeout` on `reviewer`.
 - LLM: the scoring is fixed rules. To add model judgement, put an `LLM_CALL` (or `SCORE` / `CLASSIFY` with a decision model) between `score` and `route` as a PR-risk summariser that writes a free-text risk note for the reviewer. Keep the fixed rules as the gate.
 
+## Supervisor
+
+[`supervisor.json`](supervisor.json) is a rule supervisor bound to the `reviewer` node only (a *section* scope). When a borderline PR
+reaches `reviewer`, it **escalates** the input request with advice, so the reviewer sees what to look at first. It cannot approve: a
+`WAIT_FOR_SIGNAL` approval has risk `HIGH`, which only a person may answer. `session.json` stays a plain template; `run.sh` creates the
+supervisor first and adds the declaration:
+
+```bash
+curl -X PUT localhost:9858/api/supervisors/example-04-reviewer-advice -H 'Content-Type: application/json' -d @supervisor.json
+curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
+  -d "$(jq '.workflows.pr.supervisors = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json)"
+```
+
+`run.sh` reads the open request (`GET /api/sessions/<s>/inputs?state=ESCALATED`) and checks the advice before it answers. Make it yours: add
+an `if` on `context` or `prompt`, or use a `workflow` supervisor to build the advice with an `LLM_CALL`.
+
 ## Trigger
 
 ```bash
