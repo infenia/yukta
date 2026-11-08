@@ -20,7 +20,7 @@ import org.mockito.ArgumentCaptor;
 import reactor.core.publisher.Mono;
 
 @NoArgsConstructor
-@SuppressWarnings("unchecked")
+@SuppressWarnings({"PMD.TooManyStaticImports", "unchecked"})
 class TakeoverRecoveryTest {
 
   private final LeaderElection election = mock(LeaderElection.class);
