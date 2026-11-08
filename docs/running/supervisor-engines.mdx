@@ -67,3 +67,15 @@ A line that is not a directive is dropped. If the program exits, Yukta starts it
 ## Write an engine
 
 An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
+
+## Moving from earlier versions
+
+This is an alpha release, so these changes break:
+
+* One owner per unit. Two attachments that overlap are no longer both asked: at start-up the first (by id) stays on and the others are saved disabled with `conflict: true`; resolve them in `/supervisors`. A `global` attachment owns nothing and only observes. Section selectors `group:<name>` are refused until groups are expanded.
+* A person's command goes to the owner of the unit, and the owner's `operatorAccess` (a list of command names, default none) decides which of them a person may send. A command for a unit with no owner is allowed while `yukta.supervisor.default.enabled` is true (the default).
+* Bean supervisors (`ExecutionSupervisor` beans) stop reviewing commands; they still observe and send.
+* The composite type is gone: use `parents` and the delegation modes `ORDERED`, `ALL`, `ANY`. The input tier `supervisor:above` is now `supervisor:parent`, and a supervisor approves another's command only from above it in the hierarchy.
+* The `webhook` type is called `callout`. `order`, `arbitrated` and `coalesced` are gone from the status of a supervisor.
+* A refusal is `409 CONTROLLED_BY_SUPERVISOR`; a command that needs approval is `202 AWAITING_APPROVAL`; the CLI exits with code 6 for a refusal.
+* The catalog is also at `/api/supervisor-engines`.

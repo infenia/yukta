@@ -233,6 +233,10 @@ On failure the command prints `error: <message>` to standard error. An HTTP erro
 | `yukta-cli inputs list [--session ID]`, `inputs show`, `inputs answer`, `inputs escalate` | Input requests: list the open ones, read, answer or escalate one |
 | `yukta-cli controlbus audit` | Control commands sent, newest first |
 | `yukta-cli supervisors`, `yukta-cli workers` | Supervisors and remote workers |
+| `yukta-cli supervisors engines\|list\|show\|save -f\|validate -f\|delete\|presets\|versions\|rollback --version\|replay --execution\|decisions` | Manage supervisors and their decision engines |
+| `yukta-cli supervisors credential create\|revoke <id>` | The credential of an `http` supervisor; the token is printed once |
+| `yukta-cli supervisors agent --credential-file f --exec prog` | Run a program as the decision maker of an `http` supervisor (signals on its stdin as JSON lines, directives from its stdout) |
+| `yukta-cli supervision`, `yukta-cli supervisor-contract` | Who owns a target and what is allowed there; the contract version. A command that a supervisor refuses exits with code 6 |
 
 Run `yukta-cli <command> --help` for flags. Draining the server (`/api/admin/drain`), templates and metrics have no command; use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.
 
