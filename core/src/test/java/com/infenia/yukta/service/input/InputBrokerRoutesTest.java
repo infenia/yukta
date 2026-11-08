@@ -250,6 +250,30 @@ class InputBrokerRoutesTest {
   }
 
   @Test
+  void requestKeepsTheRouteItWasOpenedWith() {
+    routes.put("ops-route", route("ops-route", FinalAction.FAIL, humans(null)));
+    final SessionSnapshot snapshot = mock(SessionSnapshot.class);
+    when(snapshot.tags()).thenReturn(Map.of("input.route", "ops-route"));
+    when(sessions.getAllConfigs("session")).thenReturn(Mono.just(snapshot));
+
+    final InputRequest opened = open(broker(), spec("k1", null));
+
+    assertThat(opened.spec().routeName()).isEqualTo("ops-route");
+    assertThat(open(broker(), spec("k2", null)).spec().routeName()).isEqualTo("ops-route");
+  }
+
+  @Test
+  void builtInRouteIsFoundAgainByItsName() {
+    final InputRequest opened = open(broker(), spec("k1", null));
+
+    assertThat(opened.spec().routeName()).isEqualTo("default");
+    StepVerifier.create(
+            new RouteResolver(Map.of(), null).resolve(opened.spec(), opened.sessionId()))
+        .expectNextMatches(route -> "default".equals(route.name()))
+        .verifyComplete();
+  }
+
+  @Test
   void sessionWithoutTheTagOrWithFailingLookupUsesTheDefault() {
     routes.put("default", route("default", FinalAction.FAIL, humans(null)));
     final SessionSnapshot snapshot = mock(SessionSnapshot.class);
