@@ -24,6 +24,7 @@ com.infenia.yukta.controller.NodeOutputController
 com.infenia.yukta.controller.PluginController
 com.infenia.yukta.controller.ProjectPathController
 com.infenia.yukta.controller.SessionConfigController
+com.infenia.yukta.controller.SupervisionController
 com.infenia.yukta.controller.SupervisorContractController
 com.infenia.yukta.controller.SupervisorTypesController
 com.infenia.yukta.controller.SupervisorsController
@@ -73,6 +74,7 @@ com.infenia.yukta.mcp.provider.WorkflowExecutionProvider
 com.infenia.yukta.mcp.provider.WorkflowVersionProvider
 com.infenia.yukta.message.channel.DirectNodeMessageChannelConfiguration
 com.infenia.yukta.message.channel.DirectNodeMessageChannelProvider
+com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory
 com.infenia.yukta.plugin.core.filter.FilterProcessor
 com.infenia.yukta.plugin.core.filter.ValidateProcessor
 com.infenia.yukta.plugin.core.flow.AskInputProcessor
@@ -208,8 +210,12 @@ com.infenia.yukta.service.supervisor.ExecutionEventFeed
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService
+com.infenia.yukta.service.supervisor.agent.AgentCredentials
+com.infenia.yukta.service.supervisor.agent.AgentEngineConfiguration
+com.infenia.yukta.service.supervisor.agent.AgentHub
 com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory
 com.infenia.yukta.service.supervisor.composite.SupervisorResolver
+com.infenia.yukta.service.supervisor.engine.SupervisorQueries
 com.infenia.yukta.service.supervisor.workflow.SupervisorWorkflowRunner
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory

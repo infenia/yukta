@@ -53,6 +53,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -131,8 +132,8 @@ public class SupervisorService {
   /** Checks workflow supervisors against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
 
-  /** What engines may read; null where a module provides none. */
-  @Nullable private SupervisorQueries queries;
+  /** What engines may read, looked up late: the queries need the service that needs this one. */
+  @Nullable private ObjectProvider<SupervisorQueries> queries;
 
   /** The newest saved states of each supervisor. */
   private final SupervisorVersions versions = new SupervisorVersions();
@@ -371,8 +372,8 @@ public class SupervisorService {
    *
    * @param supervisorQueries the queries
    */
-  @Autowired(required = false)
-  public void setQueries(final SupervisorQueries supervisorQueries) {
+  @Autowired
+  public void setQueries(final ObjectProvider<SupervisorQueries> supervisorQueries) {
     this.queries = supervisorQueries;
   }
 
@@ -1063,7 +1064,10 @@ public class SupervisorService {
       aware.bindTo(attachment.id());
     }
     if (made instanceof ReadsAware reading && queries != null) {
-      reading.readsFrom(queries.readsFor(attachment.scope()));
+      final SupervisorQueries reads = queries.getIfAvailable();
+      if (reads != null) {
+        reading.readsFrom(reads.readsFor(attachment.scope()));
+      }
     }
     host.attach(
         new BoundSupervisor(
