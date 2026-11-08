@@ -21,7 +21,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Schedulers;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
@@ -119,11 +121,11 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
                   running[0] = process;
                   final Writer stdin =
                       new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8);
-                  final var feeding =
-                      signals.subscribe(signal -> write(stdin, signal), sink::error);
+                  final Disposable feeding = feed(stdin, signals, sink);
                   sink.onDispose(
                       () -> {
                         feeding.dispose();
+                        closeQuietly(stdin);
                         process.destroyForcibly();
                       });
                   Schedulers.boundedElastic().schedule(() -> read(process, sink));
@@ -140,6 +142,12 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     };
   }
 
+  /** Writes every signal to the program's input; the writer is closed when the feed is disposed. */
+  private static Disposable feed(
+      final Writer stdin, final Flux<Signal> signals, final FluxSink<Directive> sink) {
+    return signals.subscribe(signal -> write(stdin, signal), sink::error);
+  }
+
   private static void write(final Writer stdin, final Signal signal) {
     // the signals arrive one at a time on one subscription, so the writes never interleave
     try {
@@ -151,9 +159,16 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     }
   }
 
+  private static void closeQuietly(final Writer stdin) {
+    try {
+      stdin.close();
+    } catch (final IOException e) {
+      log.atDebug().setCause(e).log("The input of the program could not be closed");
+    }
+  }
+
   @SuppressWarnings("unchecked")
-  private static void read(
-      final Process process, final reactor.core.publisher.FluxSink<Directive> sink) {
+  private static void read(final Process process, final FluxSink<Directive> sink) {
     try (BufferedReader out =
         new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {

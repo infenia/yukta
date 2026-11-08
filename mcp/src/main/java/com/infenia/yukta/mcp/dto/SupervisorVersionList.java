@@ -15,6 +15,11 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorVersionList(String supervisorId, List<Version> versions) {
 
+  /** Keeps an immutable copy of the versions. */
+  public SupervisorVersionList {
+    versions = List.copyOf(versions);
+  }
+
   /**
    * One saved state.
    *
@@ -26,5 +31,11 @@ public record SupervisorVersionList(String supervisorId, List<Version> versions)
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
   public record Version(
-      int version, String savedAt, String type, boolean dryRun, List<String> settingKeys) {}
+      int version, String savedAt, String type, boolean dryRun, List<String> settingKeys) {
+
+    /** Keeps an immutable copy of the setting names. */
+    public Version {
+      settingKeys = List.copyOf(settingKeys);
+    }
+  }
 }

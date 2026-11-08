@@ -32,6 +32,7 @@ import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -333,11 +334,12 @@ public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
       throw new IllegalArgumentException(
           "Rule '" + ruleId + "' has every, so it needs a command and no event");
     }
-    if (then.reason() == null || then.reason().isBlank()) {
+    final String reason = then.reason();
+    if (reason == null || reason.isBlank()) {
       throw new IllegalArgumentException(
           "Rule '" + ruleId + "' has every, so it acts on its own and needs a reason");
     }
-    period(ruleId, when.every());
+    period(ruleId, Objects.requireNonNull(when.every(), "every"));
     return new EventRule(ruleId, when, then);
   }
 

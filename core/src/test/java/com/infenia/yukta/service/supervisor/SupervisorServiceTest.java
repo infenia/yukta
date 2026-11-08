@@ -1115,7 +1115,9 @@ class SupervisorServiceTest {
   private static Boolean replayedAllowed(
       final SupervisorService made,
       final @org.jspecify.annotations.Nullable Map<String, Object> draft) {
-    return made.replay("r", draft, "run1").block().getFirst().allowed();
+    return java.util.Objects.requireNonNull(made.replay("r", draft, "run1").block())
+        .getFirst()
+        .allowed();
   }
 
   @Test

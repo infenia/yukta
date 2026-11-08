@@ -14,8 +14,12 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { renderWithProviders } from '@/test/utils/testUtils';
+import {
+  expectTooltip,
+  renderWithProviders,
+} from '@/test/utils/testUtils';
 import { RunControls } from '../RunControls';
+import { RunButton } from '../RunButton';
 import { parsePayload } from '../RunButton.helpers';
 
 const calls: string[] = [];
@@ -92,6 +96,34 @@ function setup(status: string | null, executionId: string | null = 'e1') {
   );
   return onStarted;
 }
+
+describe('RunButton', () => {
+  it('shows its label as a tooltip when icon only, and keeps the class it is given', async () => {
+    renderWithProviders(
+      <RunButton
+        sessionId="s1"
+        workflowId="w1"
+        onStarted={vi.fn()}
+        iconOnly
+        label="Run check"
+        className="custom-run"
+      />
+    );
+    const button = screen.getByRole('button', { name: 'Run check' });
+    expect(button).toHaveClass('custom-run');
+    expect(button).not.toHaveTextContent('Run');
+    await expectTooltip(button, 'Run check');
+  });
+
+  it('keeps the text label when it is not icon only', () => {
+    renderWithProviders(
+      <RunButton sessionId="s1" workflowId="w1" onStarted={vi.fn()} />
+    );
+    expect(
+      screen.getByRole('button', { name: 'Run workflow' })
+    ).toHaveTextContent('Run');
+  });
+});
 
 describe('parsePayload', () => {
   it('treats empty text as no payload and accepts objects', () => {

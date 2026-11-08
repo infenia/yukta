@@ -14,7 +14,6 @@ import com.infenia.yukta.service.supervisor.SupervisorStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -154,13 +153,9 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   /** The delegation modes as JSON: kind to mode and timeout in milliseconds. */
   private static Map<String, Map<String, Object>> delegationJson(
       final Map<DelegationKind, Delegation> delegation) {
-    return delegation.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                e -> e.getKey().name(),
-                e -> delegationEntry(e.getValue()),
-                (a, b) -> a,
-                () -> new java.util.TreeMap<String, Map<String, Object>>()));
+    final Map<String, Map<String, Object>> json = new java.util.TreeMap<>();
+    delegation.forEach((kind, d) -> json.put(kind.name(), delegationEntry(d)));
+    return json;
   }
 
   private static Map<String, Object> delegationEntry(final Delegation d) {
@@ -169,13 +164,10 @@ public class R2dbcSupervisorStore implements SupervisorStore {
 
   private static Map<DelegationKind, Delegation> delegationOf(
       final Map<String, Map<String, Object>> json) {
-    return json.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                e -> DelegationKind.valueOf(e.getKey()),
-                e -> delegationFrom(e.getValue()),
-                (a, b) -> a,
-                () -> new java.util.EnumMap<DelegationKind, Delegation>(DelegationKind.class)));
+    final Map<DelegationKind, Delegation> delegation =
+        new java.util.EnumMap<>(DelegationKind.class);
+    json.forEach((kind, d) -> delegation.put(DelegationKind.valueOf(kind), delegationFrom(d)));
+    return delegation;
   }
 
   private static Delegation delegationFrom(final Map<String, Object> d) {

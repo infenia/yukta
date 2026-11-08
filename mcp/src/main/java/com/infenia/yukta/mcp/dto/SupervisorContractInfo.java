@@ -12,4 +12,10 @@ import java.util.List;
  * @param operations the names of its operations
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record SupervisorContractInfo(int version, List<String> operations) {}
+public record SupervisorContractInfo(int version, List<String> operations) {
+
+  /** Keeps an immutable copy of the operation names. */
+  public SupervisorContractInfo {
+    operations = List.copyOf(operations);
+  }
+}

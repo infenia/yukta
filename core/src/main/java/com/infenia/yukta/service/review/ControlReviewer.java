@@ -60,7 +60,7 @@ public class ControlReviewer {
   private @Nullable ObjectProvider<DryRunRecorder> hostLookup;
 
   /** Whether people may control what nobody owns ({@code yukta.supervisor.default.enabled}). */
-  private boolean defaultEnabled = true;
+  private volatile boolean defaultEnabled = true;
 
   /** Whether every supervisor only records ({@code yukta.supervisor.dry-run}). */
   private boolean dryRun;

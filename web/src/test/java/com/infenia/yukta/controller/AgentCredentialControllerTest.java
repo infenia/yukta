@@ -52,7 +52,8 @@ class AgentCredentialControllerTest {
   @Test
   void metadataIsShownWithoutTheSecretAndIsGoneAfterRevoke() {
     has("a1", "http");
-    final String token = controller.issue("a1", null, null).block().data().token();
+    final String token =
+        java.util.Objects.requireNonNull(controller.issue("a1", null, null).block()).data().token();
 
     StepVerifier.create(controller.show("a1"))
         .assertNext(

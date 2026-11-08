@@ -515,6 +515,29 @@ describe('the wizard', () => {
     );
   });
 
+  it('lets the wizard turn off the dry run before it is reviewed', async () => {
+    const user = userEvent.setup();
+    renderAt('/supervisors/new');
+
+    await screen.findByRole('option', { name: 'Failure guard' });
+    await user.selectOptions(
+      screen.getByLabelText('Supervisor type'),
+      'failure-guard'
+    );
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.type(screen.getByLabelText('Name'), 'live');
+    await user.type(screen.getByLabelText('Description'), 'goes live');
+    await user.type(await screen.findByLabelText(/failures/), '5');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    const dryRun = screen.getByLabelText(/Dry run/);
+    expect(dryRun).toBeChecked();
+    await user.click(dryRun);
+    expect(dryRun).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText(preText(/"dryRun": false/))).toBeInTheDocument();
+  });
+
   it('shows the field errors the server finds and blocks next and save', async () => {
     validation = {
       valid: false,
