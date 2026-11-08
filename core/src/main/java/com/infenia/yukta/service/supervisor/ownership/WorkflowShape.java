@@ -3,6 +3,8 @@
 package com.infenia.yukta.service.supervisor.ownership;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -23,7 +25,7 @@ public record WorkflowShape(Map<String, @Nullable String> groupByNode) {
 
   /** Keeps an unmodifiable copy. */
   public WorkflowShape {
-    groupByNode = java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(groupByNode));
+    groupByNode = Collections.unmodifiableMap(new LinkedHashMap<>(groupByNode));
   }
 
   /**
@@ -32,14 +34,20 @@ public record WorkflowShape(Map<String, @Nullable String> groupByNode) {
    * @param definition the definition
    * @return its nodes and groups
    */
-  public static WorkflowShape of(final WorkflowDefinition definition) {
-    final Map<String, @Nullable String> groups = new java.util.LinkedHashMap<>();
-    for (final WorkflowDefinition.Node node : definition.nodes()) {
-      final String id = node.nodeId();
-      final int dot = id.indexOf('.');
-      groups.put(id, node.group() != null ? node.group() : dot > 0 ? id.substring(0, dot) : null);
-    }
-    return new WorkflowShape(groups);
+  public static WorkflowShape from(final WorkflowDefinition definition) {
+    return new WorkflowShape(
+        definition.nodes().stream()
+            .<Map<String, @Nullable String>>collect(
+                LinkedHashMap::new,
+                (groups, node) -> groups.put(node.nodeId(), groupOf(node)),
+                Map::putAll));
+  }
+
+  /** The declared group of a node, or without one the part of its id before the first dot. */
+  private static @Nullable String groupOf(final WorkflowDefinition.Node node) {
+    final String id = node.nodeId();
+    final int dot = id.indexOf('.');
+    return node.group() != null ? node.group() : dot > 0 ? id.substring(0, dot) : null;
   }
 
   /**

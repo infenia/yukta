@@ -473,4 +473,16 @@ class SupervisorsControllerTest {
     assertThat(ids(controller.attachments("B", null, null))).containsExactly("w1b");
     assertThat(ids(controller.attachments(null, "w2", null))).isEmpty();
   }
+
+  @Test
+  void serverAttachmentsListedOnlyWithoutFilter() {
+    created("s1");
+    StepVerifier.create(controller.attach(new AttachmentBody("srv", "s1", "server", false)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(ids(controller.attachments(null, null, "manual"))).containsExactly("srv");
+    assertThat(ids(controller.attachments("A", null, "manual"))).isEmpty();
+    assertThat(ids(controller.attachments(null, "w1", "manual"))).isEmpty();
+  }
 }

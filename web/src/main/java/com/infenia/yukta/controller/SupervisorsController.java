@@ -572,17 +572,26 @@ public class SupervisorsController {
       return true;
     }
     final String scopeSession = scope.sessionId();
-    final String scopeWorkflow = scope.workflowId();
     return switch (scope.kind()) {
       case GLOBAL -> true;
       case SESSION -> session != null && session.equals(scopeSession);
       case SERVER -> false;
       case WORKFLOW, RUN, SECTION ->
-          workflow == null
-              ? scopeSession != null && scopeSession.equals(session)
-              : workflow.equals(scopeWorkflow)
-                  && (scopeSession == null || session == null || scopeSession.equals(session));
+          inWorkflow(scopeSession, scope.workflowId(), session, workflow);
     };
+  }
+
+  /** Whether a workflow scope falls in the filter; a session-only filter takes its workflows. */
+  private static boolean inWorkflow(
+      final @Nullable String scopeSession,
+      final @Nullable String scopeWorkflow,
+      final @Nullable String session,
+      final @Nullable String workflow) {
+    if (workflow == null) {
+      return scopeSession != null && scopeSession.equals(session);
+    }
+    return workflow.equals(scopeWorkflow)
+        && (scopeSession == null || session == null || scopeSession.equals(session));
   }
 
   private static Supervisor draft(

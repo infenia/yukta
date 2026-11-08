@@ -6,8 +6,6 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.function.BiFunction;
 import org.jspecify.annotations.Nullable;
 
@@ -52,11 +50,7 @@ public final class OwnershipValidator {
     final List<OwnershipConflict> found = new ArrayList<>();
     for (final Claim other : existing) {
       if (!other.supervisorId().equals(candidate.supervisorId())) {
-        overlap(candidate.scope(), other.scope())
-            .map(
-                disputed ->
-                    new OwnershipConflict(candidate.supervisorId(), other.supervisorId(), disputed))
-            .ifPresent(found::add);
+        conflict(candidate, other).ifPresent(found::add);
       }
     }
     return found;
@@ -77,24 +71,40 @@ public final class OwnershipValidator {
     return found;
   }
 
+  private Optional<OwnershipConflict> conflict(final Claim candidate, final Claim other) {
+    return overlap(candidate.scope(), other.scope())
+        .map(
+            disputed ->
+                new OwnershipConflict(candidate.supervisorId(), other.supervisorId(), disputed));
+  }
+
   private Optional<String> overlap(final SupervisorScope a, final SupervisorScope b) {
     if (a instanceof SupervisorScope.Global || b instanceof SupervisorScope.Global) {
       return Optional.of("everything is");
     }
     if (a instanceof SupervisorScope.Server || b instanceof SupervisorScope.Server) {
-      return a instanceof SupervisorScope.Server && b instanceof SupervisorScope.Server
-          ? Optional.of("the server is")
-          : Optional.empty();
+      return serverOverlap(a, b);
     }
-    if (!compatible(a.sessionId(), b.sessionId())) {
+    return scopedOverlap(a, b);
+  }
+
+  private static Optional<String> serverOverlap(final SupervisorScope a, final SupervisorScope b) {
+    return a instanceof SupervisorScope.Server && b instanceof SupervisorScope.Server
+        ? Optional.of("the server is")
+        : Optional.empty();
+  }
+
+  private Optional<String> scopedOverlap(final SupervisorScope a, final SupervisorScope b) {
+    if (!compatible(a.sessionId(), b.sessionId()) || !compatible(a.workflowId(), b.workflowId())) {
       return Optional.empty();
     }
     if (a instanceof SupervisorScope.Session || b instanceof SupervisorScope.Session) {
       return Optional.of("the workflows of session " + describe(a, b) + " are");
     }
-    if (!compatible(a.workflowId(), b.workflowId())) {
-      return Optional.empty();
-    }
+    return workflowOverlap(a, b);
+  }
+
+  private Optional<String> workflowOverlap(final SupervisorScope a, final SupervisorScope b) {
     final String workflow = a.workflowId();
     if (a instanceof SupervisorScope.Workflow || b instanceof SupervisorScope.Workflow) {
       return Optional.of("workflow " + workflow + " is");
@@ -103,72 +113,9 @@ public final class OwnershipValidator {
       return Optional.of("the run level of " + workflow + " is");
     }
     if (a instanceof SupervisorScope.Section x && b instanceof SupervisorScope.Section y) {
-      return sections(workflow, x, y);
+      return SectionOverlap.between(shapes.apply(a.sessionId(), workflow), workflow, x, y);
     }
     return Optional.empty();
-  }
-
-  private Optional<String> sections(
-      final String workflow, final SupervisorScope.Section a, final SupervisorScope.Section b) {
-    final Optional<WorkflowShape> shape = shapes.apply(a.sessionId(), workflow);
-    final Set<String> nodes = new TreeSet<>();
-    final List<String> text = new ArrayList<>();
-    for (final String mine : a.nodes()) {
-      for (final String theirs : b.nodes()) {
-        final Set<String> bothTake = both(shape, mine, theirs);
-        if (!bothTake.isEmpty()) {
-          nodes.addAll(bothTake);
-        } else if (unresolved(shape, mine) || unresolved(shape, theirs)) {
-          if (selectorsOverlap(mine, theirs)) {
-            text.add(mine.equals(theirs) ? mine : mine + " and " + theirs);
-          }
-        }
-      }
-    }
-    if (nodes.isEmpty() && text.isEmpty()) {
-      return Optional.empty();
-    }
-    final List<String> parts = new ArrayList<>(nodes.stream().map(n -> "node " + n).toList());
-    parts.addAll(text.stream().map(t -> "selector " + t).toList());
-    return Optional.of(String.join(", ", parts) + " of " + workflow + " are");
-  }
-
-  private static Set<String> both(
-      final Optional<WorkflowShape> shape, final String mine, final String theirs) {
-    if (shape.isEmpty()) {
-      return Set.of();
-    }
-    final Set<String> common = new TreeSet<>(shape.get().take(mine));
-    common.retainAll(shape.get().take(theirs));
-    return common;
-  }
-
-  /** A selector that takes no real node: it may take one later. */
-  private static boolean unresolved(final Optional<WorkflowShape> shape, final String selector) {
-    return shape.isEmpty() || shape.get().take(selector).isEmpty();
-  }
-
-  /** Text comparison of two selectors, for nodes that do not exist yet. */
-  private static boolean selectorsOverlap(final String a, final String b) {
-    final boolean groupA = a.startsWith(WorkflowShape.GROUP_PREFIX);
-    final boolean groupB = b.startsWith(WorkflowShape.GROUP_PREFIX);
-    if (groupA || groupB) {
-      return a.equals(b);
-    }
-    final boolean prefixA = a.endsWith(".*");
-    final boolean prefixB = b.endsWith(".*");
-    final String headA = prefixA ? a.substring(0, a.length() - 1) : a;
-    final String headB = prefixB ? b.substring(0, b.length() - 1) : b;
-    if (prefixA && prefixB) {
-      return headA.startsWith(headB) || headB.startsWith(headA);
-    }
-    if (prefixA) {
-      return headB.startsWith(headA);
-    }
-    if (prefixB) {
-      return headA.startsWith(headB);
-    }
-    return a.equals(b);
   }
 
   private static boolean compatible(final @Nullable String a, final @Nullable String b) {
