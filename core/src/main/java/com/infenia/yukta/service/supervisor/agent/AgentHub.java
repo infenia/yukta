@@ -115,16 +115,16 @@ public final class AgentHub {
             // listen first, then read what is remembered: a signal sent in between is in one of
             // the two, and the cursor drops the copy
             final Sinks.Many<Sequenced> live =
-                Sinks.many().unicast().onBackpressureBuffer(Queues.<Sequenced>get(LIVE_BUFFER).get());
+                Sinks.many()
+                    .unicast()
+                    .onBackpressureBuffer(Queues.<Sequenced>get(LIVE_BUFFER).get());
             final reactor.core.Disposable listening =
                 signalSink
                     .asFlux()
                     .subscribe(
                         // a reader too far behind drops the overflow; the jump in the cursor of the
                         // next signal it gets says how many
-                        live::tryEmitNext,
-                        live::tryEmitError,
-                        live::tryEmitComplete);
+                        live::tryEmitNext, live::tryEmitError, live::tryEmitComplete);
             final List<Sequenced> past;
             final long oldest;
             final long current;
@@ -165,7 +165,9 @@ public final class AgentHub {
       return new Sequenced(
           cursor,
           new Signal.Event(
-              "missed-" + cursor, String.valueOf(cursor), new ExecutionEvent.EventsMissed(count, now)),
+              "missed-" + cursor,
+              String.valueOf(cursor),
+              new ExecutionEvent.EventsMissed(count, now)),
           now);
     }
 

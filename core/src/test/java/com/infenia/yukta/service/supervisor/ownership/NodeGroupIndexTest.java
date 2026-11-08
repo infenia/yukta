@@ -53,11 +53,12 @@ class NodeGroupIndexTest {
   void scopesWithoutGroupsOrWithoutSessionAreLeftAsTheyAre() {
     index.put("s", workflow("build.a"));
     final SupervisorScope plain = new SupervisorScope.Section("w", "s", Set.of("build.*"));
-    final SupervisorScope anySession = new SupervisorScope.Section("w", null, Set.of("group:build"));
+    final SupervisorScope anySession =
+        new SupervisorScope.Section("w", null, Set.of("group:build"));
 
     assertThat(index.resolve(plain)).isSameAs(plain);
     assertThat(index.resolve(anySession)).isSameAs(anySession);
-    assertThat(index.resolve(new SupervisorScope.Workflow("w", "s"))).isEqualTo(
-        new SupervisorScope.Workflow("w", "s"));
+    assertThat(index.resolve(new SupervisorScope.Workflow("w", "s")))
+        .isEqualTo(new SupervisorScope.Workflow("w", "s"));
   }
 }

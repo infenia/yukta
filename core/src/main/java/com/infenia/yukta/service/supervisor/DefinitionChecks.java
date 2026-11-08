@@ -133,8 +133,8 @@ public final class DefinitionChecks {
    */
   /**
    * Checks one workflow as part of its session, for a save that changes only that workflow (a
-   * rollback to a saved version): the references, then ownership across the whole session with
-   * this version in place, as a session save does.
+   * rollback to a saved version): the references, then ownership across the whole session with this
+   * version in place, as a session save does.
    *
    * @param sessionId the session
    * @param sessionRefs what the session itself declares

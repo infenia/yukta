@@ -299,8 +299,7 @@ class DefinitionSupervisorsTest {
                           assertThat(issue.message()).contains("selects no node");
                         }))
         .verifyComplete();
-    StepVerifier.create(
-            declared.check(session(List.of(), workflow("w1", ref("a", "group:build")))))
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:build")))))
         .assertNext(issues -> assertThat(issues).isEmpty())
         .verifyComplete();
   }

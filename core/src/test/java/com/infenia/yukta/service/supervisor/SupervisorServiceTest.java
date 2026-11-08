@@ -32,12 +32,12 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
-import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
-import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -389,7 +389,10 @@ class SupervisorServiceTest {
     StepVerifier.create(
             service.attach(
                 attachment(
-                    "a0", "a", new SupervisorScope.Section("w", null, Set.of("group:build")), true)))
+                    "a0",
+                    "a",
+                    new SupervisorScope.Section("w", null, Set.of("group:build")),
+                    true)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)

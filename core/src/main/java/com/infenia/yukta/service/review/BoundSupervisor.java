@@ -22,8 +22,8 @@ import reactor.core.publisher.Mono;
  * @param dryRun whether its commands are only recorded
  * @param capabilities which commands it may send and whether it may answer input requests
  * @param observeInternal whether it also sees the events of the internal session its scope names
- * @param scope what it owns, as matched at run time: the attachment's scope with its {@code
- *     group:} selectors resolved to the nodes they name now
+ * @param scope what it owns, as matched at run time: the attachment's scope with its {@code group:}
+ *     selectors resolved to the nodes they name now
  */
 public record BoundSupervisor(
     SupervisorAttachment attachment,

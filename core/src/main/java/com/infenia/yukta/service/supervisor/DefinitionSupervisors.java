@@ -11,6 +11,7 @@ import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
@@ -36,7 +37,6 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
-import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -138,6 +138,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /* default */ void register() {
     service.setDefinitionUsage(this);
   }
+
   /**
    * Keeps the groups of the stored workflows current, for {@code group:} selectors.
    *
@@ -147,7 +148,6 @@ public class DefinitionSupervisors implements DefinitionUsage {
   public void setNodeGroups(final NodeGroupIndex groups) {
     this.nodeGroups = groups;
   }
-
 
   /**
    * Reconciles every session again when this server becomes the leader later.

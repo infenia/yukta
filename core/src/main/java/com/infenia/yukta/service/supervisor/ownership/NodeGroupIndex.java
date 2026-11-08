@@ -14,8 +14,8 @@ import org.springframework.stereotype.Component;
 /**
  * The groups of the stored workflows, per session, so that a {@code group:<name>} selector can be
  * matched at run time. A node's group is its {@code group}, or the part of its id before the first
- * dot ({@link WorkflowShape}). Filled from the definitions whenever the supervisors of a session are
- * reconciled (every session save and rollback, and at start-up); until then a group matches no
+ * dot ({@link WorkflowShape}). Filled from the definitions whenever the supervisors of a session
+ * are reconciled (every session save and rollback, and at start-up); until then a group matches no
  * node, so it owns nothing rather than too much.
  */
 @Component

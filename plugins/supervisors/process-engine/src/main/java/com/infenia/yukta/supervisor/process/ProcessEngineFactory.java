@@ -23,6 +23,7 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -147,7 +148,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
         stdin.write('\n');
         stdin.flush();
       }
-    } catch (final IOException | RuntimeException e) {
+    } catch (final IOException | JacksonException e) {
       log.atDebug().setCause(e).log("A signal could not be written to the program");
     }
   }
@@ -168,7 +169,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
           if (parsed instanceof Map<?, ?> map) {
             DirectiveJson.read((Map<String, Object>) map).ifPresent(sink::next);
           }
-        } catch (final RuntimeException notJson) {
+        } catch (final JacksonException | IllegalArgumentException | ClassCastException notJson) {
           log.atDebug().log("The program wrote a line that is not JSON; dropped");
         }
       }

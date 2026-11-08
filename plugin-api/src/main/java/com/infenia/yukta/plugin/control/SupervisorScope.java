@@ -105,9 +105,9 @@ public sealed interface SupervisorScope {
    */
   /**
    * Whether this scope owns what a command acts on, the way the server enforces ownership: a
-   * server-level command belongs only to a {@link Server} scope, a {@link Server} scope owns nothing
-   * else, a {@link Global} scope owns nothing, and a command whose run could not be looked up (no
-   * session and no workflow) is owned by nobody.
+   * server-level command belongs only to a {@link Server} scope, a {@link Server} scope owns
+   * nothing else, a {@link Global} scope owns nothing, and a command whose run could not be looked
+   * up (no session and no workflow) is owned by nobody.
    *
    * @param command the command
    * @param runSessionId the session of its run, or {@code null} when unknown

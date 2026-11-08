@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
-import com.infenia.yukta.service.review.ExecutionEventFeed;
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -24,11 +23,12 @@ import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.util.Set;
 import java.time.Instant;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -49,14 +49,7 @@ class SupervisorHostDirectivesTest {
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
   private final SupervisorHost host =
       SupervisorHostFixture.create(
-          providerOf(),
-          feed,
-          dispatcher,
-          new InMemoryExecutionLogStore(),
-          meters,
-          false,
-          20,
-          100);
+          providerOf(), feed, dispatcher, new InMemoryExecutionLogStore(), meters, false, 20, 100);
 
   @AfterEach
   void tearDown() {

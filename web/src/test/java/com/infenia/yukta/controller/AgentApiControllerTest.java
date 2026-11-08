@@ -609,7 +609,6 @@ class AgentApiControllerTest {
         .then(engine::close)
         .thenConsumeWhile(event -> true)
         .verifyComplete();
-    assertThatThrownBy(() -> controller.snapshot(as("a1")))
-        .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
+    assertThatThrownBy(() -> controller.snapshot(as("a1"))).isInstanceOf(NotFoundException.class);
   }
 }

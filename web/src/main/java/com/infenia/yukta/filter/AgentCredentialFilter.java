@@ -11,14 +11,14 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.env.Environment;
-import org.springframework.core.env.StandardEnvironment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -128,8 +128,7 @@ public class AgentCredentialFilter implements WebFilter {
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
       return reject(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid agent credential");
     }
-    if (exchange.getRequest().getHeaders().getContentLength()
-        > maxBodyBytes) {
+    if (exchange.getRequest().getHeaders().getContentLength() > maxBodyBytes) {
       return reject(exchange, HttpStatus.CONTENT_TOO_LARGE, "The request body is too large");
     }
     if (!requests.tryAcquire(supervisor.get())) {

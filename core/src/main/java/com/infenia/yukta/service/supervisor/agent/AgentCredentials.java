@@ -133,8 +133,7 @@ public final class AgentCredentials {
         ? Mono.empty()
         : kept.all()
             .filter(c -> live(c.expiresAt()))
-            .doOnNext(
-                c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses(), null))
+            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses(), null))
             .then()
             .onErrorResume(
                 error -> {
