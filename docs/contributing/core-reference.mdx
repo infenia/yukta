@@ -214,16 +214,16 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 |---|---|---|---|
 | `service.orchestrator` | Runs a workflow end to end; restart and resume entry points | `WorkflowOrchestrator` `ExecutionResumer` `RestartPlan` `SubWorkflowRunner` | ENG, DUR-03 |
 | `…orchestrator.validator` | Structural and policy validation | `WorkflowValidator` | DEF-02 |
-| `…orchestrator.preparator / compiler` | Topological sort, compile, resources, run deadline | `WorkflowPreparator` `WorkflowCompiler` `TopologicalSortService` | DEF-03 |
+| `…orchestrator.preparator / compiler` | Prepare, compile, resources, run deadline | `WorkflowPreparator` `WorkflowCompiler` | DEF-03 |
 | `…orchestrator.assembly / strategy` | One assembler per node kind; shared stream helpers | `TriggerNodeAssemblerStrategy` `ProcessorNodeAssemblerStrategy` `TerminalNodeAssemblerStrategy` | ENG-02 |
 | `…orchestrator.stream` | Node runtime: policies, activity/clocks, broadcast, failure ledger | `NodePolicies` `NodeActivity` `NodeTimeouts` `NodeBroadcast` `FailureLedger` `StreamTopologyDecorator` | ENG-01…05 |
 | `…orchestrator.tracker` | Event queue, per-run state, telemetry, history, streams | `DefaultTaskTrackerService` `WorkflowState` `TrackerEventApplier` `RunTelemetry` `ExecutionHistory` `ExecutionStreams` | OBS, ENG-06 |
-| `service.control` | Scheduler, command sequencing, per-run control handles | `ExecutionScheduler` `CommandSequencer` `ExecutionControl` `ControlBusService` | ADM, CTL |
+| `service.control` | Scheduler, per-run control handles, start facade | `ExecutionScheduler` `WorkflowService` `ExecutionControl` `ControlBusService` | ADM, CTL |
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
 | `service.supervisor` | Supervisor host, reviewer hook, event feed | `SupervisorHost` `ControlReviewer` `ExecutionEventFeed` | CTL-06, CTL-07 |
 | `service.log / archive / store` | Execution log, recovery, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionRecovery` `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
-| `service.workflow / workflow.store` | Definitions, versions, diff, prepared-workflow cache | `WorkflowService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
+| `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
 | `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
 | `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` `TakeoverRecovery` | SCL |
@@ -257,7 +257,7 @@ Keeps each workflow definition per session together with its newest 20 versions,
 
 **Surface:** REST `GET …/versions/diff?from=&to=` (omit `to` for current), rollback endpoint, `POST …/versions/note?version=&note=`. MCP `list_workflow_versions`, `diff_workflow_versions`, `rollback_workflow`, `note_workflow_version`. UI Versions panel.
 
-**Source:** `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff` `WorkflowService`
+**Source:** `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `InMemoryWorkflowDefinitionStore` `DefinitionRevision` `WorkflowDiff`
 
 **Limits:** Newest 20 versions kept. PostgreSQL variant lives in [DUR-04](#dur-04-postgresql-stores).
 

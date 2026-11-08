@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.orchestrator.preparator;
+package com.infenia.yukta.service.workflow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -16,8 +16,7 @@ import org.junit.jupiter.api.Test;
 /** Unit tests for {@link TopologicalSortService}. */
 @NoArgsConstructor
 @SuppressWarnings("PMD.TooManyMethods")
-@ExpectedErrorLog(
-    "ERROR com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService - ")
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.workflow.TopologicalSortService - ")
 class TopologicalSortServiceTest {
 
   /** Instance under test. */

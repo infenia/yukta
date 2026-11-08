@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.workflow;
+package com.infenia.yukta.service.control.gateway;
 
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import java.util.Map;

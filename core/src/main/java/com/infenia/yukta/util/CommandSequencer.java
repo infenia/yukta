@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.control;
+package com.infenia.yukta.util;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;

@@ -3,7 +3,7 @@
 package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.service.control.CommandSequencer;
+import com.infenia.yukta.util.CommandSequencer;
 import java.util.Optional;
 import java.util.function.Function;
 import lombok.experimental.UtilityClass;
