@@ -157,16 +157,18 @@ public class RunAnalytics {
     this.seeded = store == null;
   }
 
+  /** Counts an event the analytics buffer had no room for. */
+  /* default */ static void countDropped() {
+    Metrics.counter("yukta.tracker.dropped", "kind", "analytics").increment();
+  }
+
   /** Starts following the feed. */
   @PostConstruct
   /* default */ void start() {
     // own thread and buffer: a dashboard query holding the lock must not stall the tracker
     subscription =
         feed.events()
-            .onBackpressureBuffer(
-                10_000,
-                _ -> Metrics.counter("yukta.tracker.dropped", "kind", "analytics").increment(),
-                BufferOverflowStrategy.DROP_LATEST)
+            .onBackpressureBuffer(10_000, _ -> countDropped(), BufferOverflowStrategy.DROP_LATEST)
             .publishOn(Schedulers.single())
             .subscribe(this::accept);
   }

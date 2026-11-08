@@ -355,6 +355,49 @@ class CompositeEdgeCasesTest {
   }
 
   @Test
+  void stopIsAllowedWhenChildFailsOrAnswersNothing() {
+    final var settings =
+        new CompositeSettings(
+            CompositeMode.PARALLEL, List.of("a"), ReviewMode.ALL, 0, Duration.ofSeconds(1));
+    for (final ExecutionControlCommand stop :
+        List.of(
+            new ExecutionControlCommand.StopNodeCommand("e1", "n", false, null),
+            new ExecutionControlCommand.StopWorkflowCommand("e1", null, null))) {
+      final var request = new ControlRequest(stop, "a", "s", "wf");
+      for (final Mono<Decision> review :
+          List.of(Mono.<Decision>empty(), Mono.<Decision>error(new IllegalStateException("x")))) {
+        StepVerifier.create(
+                new CompositeSupervisor(
+                        "c",
+                        settings,
+                        List.of("a"),
+                        List.of(new Plain(0, review)),
+                        Clock.systemUTC())
+                    .review(request))
+            .expectNext(Decision.ALLOW)
+            .verifyComplete();
+      }
+    }
+  }
+
+  @Test
+  void failingChildDeniesCommandThatIsNotStop() {
+    final var settings =
+        new CompositeSettings(
+            CompositeMode.PARALLEL, List.of("a"), ReviewMode.ALL, 0, Duration.ofSeconds(1));
+    StepVerifier.create(
+            new CompositeSupervisor(
+                    "c",
+                    settings,
+                    List.of("a"),
+                    List.of(new Plain(0, Mono.error(new IllegalStateException("x")))),
+                    Clock.systemUTC())
+                .review(REQUEST))
+        .assertNext(decision -> assertThat(decision.allowed()).isFalse())
+        .verifyComplete();
+  }
+
+  @Test
   void firstMatchSendsAnyDecisionAndSkipsFailingPlane() {
     final ControlPlanePlugin failing =
         new ControlPlanePlugin() {

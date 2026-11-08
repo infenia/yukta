@@ -101,6 +101,7 @@ class MetricsSamplerTest {
     }
     final MetricsSampler sampler = sampler(5);
     sampler.sample(T0);
+    sampler.sample(T0 + 5_000L); // the cap is reported once, not again
 
     assertThat(values(sampler)).hasSize(5);
   }
