@@ -29,7 +29,7 @@ Today a supervisor type is the decision logic and its configuration at once. Sev
 | D13 | Selectors (`owned.running`, `workflow:<id>`, `node:<ids>`) and the hold ledger are in contract v1. |
 | D14 | The `rules` engine may initiate through timed rules, under the same limits. |
 
-Contract details settled in S0 (recorded in the page and the plan): `notify` is in v1; the error codes are `CONTROLLED_BY_SUPERVISOR` (409), `OWNERSHIP_CONFLICT` (409), `NOT_OWNED` (409), `AWAITING_APPROVAL` (202) and `CONTROL_REJECTED` (403); the CLI exits with `4` on a refusal; the version header is `Yukta-Supervisor-Contract`; the selector cap is 200 and the default initiative limit 10 per minute; `locked` assignments are in (S2); an admin emergency stop is not in v1.
+Contract details settled in S0 (recorded in the page and the plan): `notify` is in v1; the error codes are `CONTROLLED_BY_SUPERVISOR` (409), `OWNERSHIP_CONFLICT` (409), `NOT_OWNED` (409), `AWAITING_APPROVAL` (202) and `CONTROL_REJECTED` (403); the CLI exits with `6` on a refusal (4 is the server-error code); the version header is `Yukta-Supervisor-Contract`; the selector cap is 200 and the default initiative limit 10 per minute; `locked` assignments are in (S2); an admin emergency stop is not in v1.
 
 ## Consequences
 

@@ -567,7 +567,7 @@ Two audiences use these interfaces, and they are kept apart:
 |---|---|---|
 | REST control and start routes | Same paths and bodies. New refusals `409 CONTROLLED_BY_SUPERVISOR` and `202 AWAITING_APPROVAL` appear only where an owner exists. Responses gain `via` (the supervisor) and `cause`. | No while nothing is owned (the default supervisor allows what is allowed today) |
 | MCP operator tools (`start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `set_scheduler_limits`, `answer_input`, ...) | Same names and arguments. The result object gains `via` and, for a refusal, `code`, `supervisor` and `reason`. Descriptions say that a supervisor may refuse. | No |
-| CLI control commands | Same commands. A refusal prints the owner and the reason and exits with a distinct code (`4`). | No |
+| CLI control commands | Same commands. A refusal prints the owner and the reason and exits with a distinct code (`6`). | No |
 | `GET /api/supervisor-types`, `attach_supervisor`, `detach_supervisor`, `yukta supervisors types`, the `supervisors` block of definitions | Replaced by engines, assignments and the `assignments` block | **Yes** (alpha, announced in the migration note) |
 | Dogfood `yk` and `examples/dogfood/supervisor/*.json`, `examples/16`, `examples/17` | Migrated with S7 | Yes, same PR |
 
@@ -637,7 +637,7 @@ A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then 
 | `yukta ownership [--session s --workflow w]` and `yukta supervision …` | Who owns what, and whether a command would be allowed |
 | `yukta supervisor-contract` | The version and operations |
 
-Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `4`, decided in S0). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
+Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `6`, decided in S0; 4 is the server-error code). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
 
 ### Other clients and assets
 

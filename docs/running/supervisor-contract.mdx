@@ -239,7 +239,7 @@ When an engine starts or reconnects it receives `Started` with a snapshot and a 
 | `409 NOT_OWNED` | "*name* does not own this." | A directive named a unit outside the supervisor |
 | `401`, `403`, `429` | | Agent API: bad credential, not allowed, rate limited |
 
-The CLI exits with code **4** when a control command is refused by a supervisor, and prints the owner and reason.
+The CLI exits with code **6** (4 is the server-error code) when a supervisor refuses a control command, and prints the owner and reason.
 
 ## Decisions recorded for version 1
 
@@ -247,7 +247,7 @@ The CLI exits with code **4** when a control command is refused by a supervisor,
 |---|---|
 | Is `notify` in v1? | **Yes** |
 | Error codes and statuses | As in the table above |
-| CLI exit code for a refusal | `4` |
+| CLI exit code for a refusal | `6` (4 was already the server-error code) |
 | Version header | `Yukta-Supervisor-Contract` |
 | Selector cap | 200 executions per command |
 | Default initiative limit | 10 per minute |
@@ -279,7 +279,7 @@ The primary screens avoid *engine*, *unit*, *directive* and *delegation*; they a
 |---|---|---|
 | REST control and start routes | Same paths and bodies. New refusals appear only where an owner exists. Responses gain `via` and `cause`. | No |
 | MCP operator tools | Same names and arguments. Results gain `via` and, for a refusal, `code`, `supervisor` and `reason`. | No |
-| CLI control commands | Same commands. A refusal prints the owner and reason and exits with `4`. | No |
+| CLI control commands | Same commands. A refusal prints the owner and reason and exits with `6`. | No |
 | `/api/supervisor-types`, `attach_supervisor`, `detach_supervisor`, `yukta supervisors types`, the `supervisors` block of definitions | Replaced by engines, assignments and the `assignments` block | **Yes** (alpha) |
 
 See also [Supervisors](/running/supervisors) and the [design plan](https://github.com/infenia/yukta/blob/main/design/plans/supervisor-framework.md).

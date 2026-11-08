@@ -6,6 +6,7 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import java.time.Duration;
@@ -25,6 +26,9 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 public class ControlReviewer {
+
+  /** The {@code via} of a unit that nobody owns. */
+  public static final String DEFAULT_VIA = "default";
 
   /** A unit has one owner; saved data with more is still reviewed, by the lowest id. */
   private static final int OWNERS_PER_UNIT = 1;
@@ -205,6 +209,45 @@ public class ControlReviewer {
   protected final java.util.stream.Stream<BoundSupervisor> attachedSupervisors() {
     return attached.stream();
   }
+
+  /**
+   * What a person may do with a unit, without sending anything: who carries the command and whether
+   * it is allowed. The owner's own review is not asked, so an owner that lists the command may
+   * still refuse it when it is sent.
+   *
+   * @param sessionId the session, or {@code null} for the server
+   * @param workflowId the workflow, or {@code null} for the server
+   * @param nodeId the node, or {@code null} for the run level or the server
+   * @param command a command of the kind asked about
+   * @return who carries it and whether people may send it
+   */
+  public Capability capability(
+      final @Nullable String sessionId,
+      final @Nullable String workflowId,
+      final @Nullable String nodeId,
+      final ExecutionControlCommand command) {
+    final Optional<BoundSupervisor> owner =
+        owner(new ControlRequest(command, null, sessionId, workflowId, nodeId));
+    if (owner.isEmpty()) {
+      return defaultEnabled
+          ? new Capability(true, DEFAULT_VIA, null)
+          : new Capability(
+              false, DEFAULT_VIA, "Nothing owns this and the default supervisor is off");
+    }
+    final String name = owner.get().attachment().supervisorId();
+    return owner.get().capabilities().allowsOperator(command)
+        ? new Capability(true, name, null)
+        : new Capability(false, name, name + " controls this. People cannot do this directly.");
+  }
+
+  /**
+   * Who carries a command and whether people may send it.
+   *
+   * @param allowed whether people may send it
+   * @param via the owning supervisor, or {@code default} for the default supervisor
+   * @param reason why not, or {@code null}
+   */
+  public record Capability(boolean allowed, String via, @Nullable String reason) {}
 
   /**
    * The one supervisor that owns what a command is about: the attached supervisor whose scope takes

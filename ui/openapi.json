@@ -1209,6 +1209,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseMapStringCapability" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/Capability"
+            },
+            "description" : "The response data",
+            "type" : "object"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseMapStringInteger" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -2357,6 +2403,20 @@
             "type" : "string"
           },
           "field" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Capability" : {
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "via" : {
             "type" : "string"
           }
         },
@@ -7227,6 +7287,54 @@
         "tags" : [ "Workflow Versions API" ]
       }
     },
+    "/api/supervision" : {
+      "get" : {
+        "operationId" : "supervision",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "workflow",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "execution",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "node",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringCapability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Who may send which command to a node, a run or the server",
+        "tags" : [ "Supervision API" ]
+      }
+    },
     "/api/supervisor-contract" : {
       "get" : {
         "operationId" : "get_3",
@@ -8699,6 +8807,9 @@
   }, {
     "description" : "Answer an input request with a one-time token",
     "name" : "Input Requests API"
+  }, {
+    "description" : "Who may do what to a node, a run or the server",
+    "name" : "Supervision API"
   }, {
     "description" : "Signed inbound calls that start a workflow",
     "name" : "Webhook API"
