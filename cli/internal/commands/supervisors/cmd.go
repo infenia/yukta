@@ -5,6 +5,9 @@
 package supervisors
 
 import (
+	"fmt"
+	"os"
+
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
 	"github.com/spf13/cobra"
@@ -17,6 +20,7 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 		func([]string) (any, error) { return c.GetSupervisors() })
 	cmd.AddCommand(
 		typesCmd(c),
+		enginesCmd(c),
 		commands.DataCmd("list", "List the configured supervisors", 0,
 			func([]string) (any, error) { return c.ListSupervisors() }),
 		commands.DataCmd("show <id>", "Show one configured supervisor", 1,
@@ -26,6 +30,11 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 		commands.DataCmd("versions <id>", "List the saved versions of a supervisor, newest first", 1,
 			func(args []string) (any, error) { return c.GetSupervisorVersions(args[0]) }),
 		rollbackCmd(c),
+		decisionsCmd(c),
+		fileCmd(c, "save", "Create or replace a supervisor from a JSON file (-f)", c.SaveSupervisor),
+		fileCmd(c, "validate", "Check a draft supervisor from a JSON file (-f) without saving it", c.ValidateSupervisor),
+		commands.DataCmd("delete <id>", "Delete a supervisor that nothing uses", 1,
+			func(args []string) (any, error) { return c.DeleteSupervisor(args[0]) }),
 		replayCmd(c),
 		credentialCmd(c),
 	)
@@ -77,4 +86,62 @@ func credentialCmd(c *client.Client) *cobra.Command {
 		commands.DataCmd("revoke <id>", "Cut the credential at once", 1,
 			func(args []string) (any, error) { return c.RevokeAgentCredential(args[0]) }))
 	return group
+}
+
+// enginesCmd lists the decision engines, which are the supervisor types.
+func enginesCmd(c *client.Client) *cobra.Command {
+	cmd := commands.DataCmd("engines [type]", "List the decision engines, or describe one with its settings", 0,
+		func(args []string) (any, error) {
+			if len(args) == 1 {
+				return c.GetSupervisorType(args[0])
+			}
+			return c.GetSupervisorTypes()
+		})
+	cmd.Args = cobra.MaximumNArgs(1)
+	return cmd
+}
+
+// decisionsCmd lists what the supervisors decided lately.
+func decisionsCmd(c *client.Client) *cobra.Command {
+	var supervisor string
+	var limit int
+	cmd := commands.DataCmd("decisions", "List the newest decisions of the supervisors", 0,
+		func([]string) (any, error) { return c.GetSupervisorDecisions(supervisor, limit) })
+	cmd.Flags().StringVar(&supervisor, "supervisor", "", "Only this supervisor")
+	cmd.Flags().IntVar(&limit, "limit", 50, "Most decisions to list")
+	return cmd
+}
+
+// fileCmd builds a command that sends the JSON file named by -f.
+func fileCmd(c *client.Client, name, short string, send func([]byte) (any, error)) *cobra.Command {
+	var file string
+	cmd := commands.DataCmd(name, short, 0, func([]string) (any, error) {
+		body, err := os.ReadFile(file) // #nosec G304 -- the user names the file
+		if err != nil {
+			return nil, fmt.Errorf("cannot read %s: %w", file, err)
+		}
+		return send(body)
+	})
+	cmd.Flags().StringVarP(&file, "file", "f", "", "The JSON file")
+	_ = cmd.MarkFlagRequired("file")
+	_ = c
+	return cmd
+}
+
+// SupervisionCmd creates "supervision": who owns a target and whether a command would be allowed.
+func SupervisionCmd(c *client.Client) *cobra.Command {
+	var session, workflow, execution, node string
+	cmd := commands.DataCmd("supervision", "Show who owns a target and what is allowed there", 0,
+		func([]string) (any, error) { return c.GetSupervision(session, workflow, execution, node) })
+	cmd.Flags().StringVar(&session, "session", "", "The session")
+	cmd.Flags().StringVar(&workflow, "workflow", "", "The workflow")
+	cmd.Flags().StringVar(&execution, "execution", "", "The execution")
+	cmd.Flags().StringVar(&node, "node", "", "The node")
+	return cmd
+}
+
+// ContractCmd creates "supervisor-contract": the version and operations of the contract.
+func ContractCmd(c *client.Client) *cobra.Command {
+	return commands.DataCmd("supervisor-contract", "Show the supervisor contract version and its operations", 0,
+		func([]string) (any, error) { return c.GetSupervisorContract() })
 }

@@ -83,6 +83,63 @@ func (c *Client) RevokeAgentCredential(id string) (any, error) {
 	return c.dataCall("DELETE", apiPath("/api/supervisors/%s/credential", id), nil)
 }
 
+// GetSupervision asks what supervision applies to a target: who owns it and whether a command
+// would be allowed. Empty parts are left out.
+func (c *Client) GetSupervision(session, workflow, execution, node string) (any, error) {
+	query := url.Values{}
+	for key, value := range map[string]string{"session": session, "workflow": workflow, "execution": execution, "node": node} {
+		if value != "" {
+			query.Set(key, value)
+		}
+	}
+	path := "/api/supervision"
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+	return c.getData(path)
+}
+
+// GetSupervisorContract reads the supervisor contract version and its operation names.
+func (c *Client) GetSupervisorContract() (any, error) { return c.getData("/api/supervisor-contract") }
+
+// GetSupervisorDecisions lists the newest decisions of the supervisors; an empty supervisor means
+// all of them.
+func (c *Client) GetSupervisorDecisions(supervisor string, limit int) (any, error) {
+	query := url.Values{}
+	if supervisor != "" {
+		query.Set("supervisor", supervisor)
+	}
+	if limit > 0 {
+		query.Set("limit", strconv.Itoa(limit))
+	}
+	path := "/api/supervisors/decisions"
+	if len(query) > 0 {
+		path += "?" + query.Encode()
+	}
+	return c.getData(path)
+}
+
+// SaveSupervisor creates or replaces a supervisor from its JSON body, which names its id.
+func (c *Client) SaveSupervisor(body []byte) (any, error) {
+	var named struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(body, &named); err != nil || named.ID == "" {
+		return nil, fmt.Errorf("the supervisor file must be a JSON object with an id")
+	}
+	return c.dataCall("PUT", apiPath("/api/supervisors/%s", named.ID), body)
+}
+
+// ValidateSupervisor checks a draft supervisor without saving it.
+func (c *Client) ValidateSupervisor(body []byte) (any, error) {
+	return c.dataCall("POST", "/api/supervisors/validate", body)
+}
+
+// DeleteSupervisor deletes a supervisor that nothing uses.
+func (c *Client) DeleteSupervisor(id string) (any, error) {
+	return c.dataCall("DELETE", apiPath("/api/supervisors/%s", id), nil)
+}
+
 // GetWorkers lists the workers.
 func (c *Client) GetWorkers() (any, error) { return c.getData("/api/workers") }
 
