@@ -8,8 +8,8 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.CallerIdentity;
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.workflow.ConfigRedactor;
 import com.infenia.yukta.service.workflow.WorkflowService;
@@ -122,7 +122,7 @@ public class WorkflowExecutionProvider {
     return Mono.deferContextual(
         context -> {
           final Map<String, Object> payload =
-              ExecutionLogEvent.withInitiator(Map.of(), initiator(context));
+              StartOptions.withInitiator(Map.of(), initiator(context));
           return keyed
               ? workflowService
                   .start(sessionId, workflowId, payload, idempotencyKey.strip())

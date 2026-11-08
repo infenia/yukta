@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.log;
+package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.log.LogRetention;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.store.FileNodeCheckpointStore;
 import java.util.ArrayList;

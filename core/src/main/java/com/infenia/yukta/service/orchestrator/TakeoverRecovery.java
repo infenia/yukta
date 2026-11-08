@@ -4,7 +4,6 @@ package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.leader.LeaderElection;
-import com.infenia.yukta.service.log.ExecutionRecovery;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;

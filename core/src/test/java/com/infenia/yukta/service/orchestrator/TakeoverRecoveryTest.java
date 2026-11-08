@@ -9,7 +9,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.service.leader.LeaderElection;
-import com.infenia.yukta.service.log.ExecutionRecovery;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.util.List;
 import java.util.Map;
