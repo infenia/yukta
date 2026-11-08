@@ -14,7 +14,7 @@ import org.springframework.expression.Expression;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 
 /**
- * The settings of a profile of type {@code workflow}, checked once.
+ * The settings of a supervisor of type {@code workflow}, checked once.
  *
  * @param sessionId the internal session that holds the workflow
  * @param workflowId the workflow
@@ -80,13 +80,13 @@ public record WorkflowSettings(
   /**
    * Reads and checks the settings.
    *
-   * @param profile the profile
+   * @param supervisor the supervisor
    * @param reservedSlots the size of the reserved pool, the ceiling of {@code maxConcurrent}
    * @return the settings
    * @throws IllegalArgumentException if a setting is missing or out of range
    */
-  public static WorkflowSettings read(final Supervisor profile, final int reservedSlots) {
-    final Map<String, Object> m = profile.settings();
+  public static WorkflowSettings read(final Supervisor supervisor, final int reservedSlots) {
+    final Map<String, Object> m = supervisor.settings();
     final int concurrent = number(m.get("maxConcurrent"), "maxConcurrent", DEFAULT_CONCURRENT);
     if (concurrent < 1 || concurrent > reservedSlots) {
       throw new IllegalArgumentException(

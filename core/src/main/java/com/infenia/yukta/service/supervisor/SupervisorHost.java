@@ -122,10 +122,10 @@ public class SupervisorHost {
   private final BlockingDeque<SupervisorDecision> recentDecisions =
       new LinkedBlockingDeque<>(MAX_DECISIONS);
 
-  /** Serializes attaching, detaching and stopping, so a binding never has two subscriptions. */
+  /** Serializes attaching, detaching and stopping, so a attachment never has two subscriptions. */
   private final ReentrantLock lock = new ReentrantLock();
 
-  /** Subscriptions of the supervisors attached at run time, by binding id. */
+  /** Subscriptions of the supervisors attached at run time, by attachment id. */
   private final Map<String, Disposable> attachedSubscriptions = new ConcurrentHashMap<>();
 
   /** The supervisors attached at run time. */
@@ -234,8 +234,8 @@ public class SupervisorHost {
   }
 
   /**
-   * Starts a supervisor made from a binding, replacing one with the same binding id. It sees the
-   * events from now on, so a run already going is supervised from where it is.
+   * Starts a supervisor made from a attachment, replacing one with the same attachment id. It sees
+   * the events from now on, so a run already going is supervised from where it is.
    *
    * @param supervisor the supervisor
    */
@@ -253,18 +253,18 @@ public class SupervisorHost {
   /**
    * Stops an attached supervisor.
    *
-   * @param bindingId the binding id
+   * @param attachmentId the attachment id
    * @return true if one was attached
    */
-  public boolean detach(final String bindingId) {
+  public boolean detach(final String attachmentId) {
     lock.lock();
     try {
-      final Disposable subscription = attachedSubscriptions.remove(bindingId);
+      final Disposable subscription = attachedSubscriptions.remove(attachmentId);
       if (subscription != null) {
         subscription.dispose();
       }
-      meters.find(COMMANDS_METRIC).tag("id", bindingId).counters().forEach(meters::remove);
-      return attachedSupervisors.remove(bindingId) != null;
+      meters.find(COMMANDS_METRIC).tag("id", attachmentId).counters().forEach(meters::remove);
+      return attachedSupervisors.remove(attachmentId) != null;
     } finally {
       lock.unlock();
     }
@@ -293,7 +293,7 @@ public class SupervisorHost {
   /**
    * Records that a dry-run supervisor would have refused a command, so the cockpit shows it.
    *
-   * @param supervisorId the supervisor or binding
+   * @param supervisorId the supervisor or attachment
    * @param command the command it would have refused
    * @param reason why
    */
@@ -428,7 +428,7 @@ public class SupervisorHost {
   }
 
   /**
-   * Events of an internal session reach a supervisor only when its profile says {@code
+   * Events of an internal session reach a supervisor only when its supervisor says {@code
    * observeInternal: true} and its scope names that session.
    */
   private Mono<Boolean> visible(
@@ -658,7 +658,7 @@ public class SupervisorHost {
   /**
    * The newest decisions about the commands supervisors emitted, since startup.
    *
-   * @param supervisorId only this supervisor or binding, or null for all
+   * @param supervisorId only this supervisor or attachment, or null for all
    * @param limit most entries to return
    * @return the decisions, newest first
    */

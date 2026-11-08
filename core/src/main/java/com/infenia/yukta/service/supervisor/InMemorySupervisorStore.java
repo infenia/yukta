@@ -13,17 +13,17 @@ import lombok.NoArgsConstructor;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** Keeps profiles and bindings in memory; they are gone after a restart. */
+/** Keeps supervisors and attachments in memory; they are gone after a restart. */
 @NoArgsConstructor
 public class InMemorySupervisorStore implements SupervisorStore {
 
-  /** Profiles by id. */
+  /** Supervisors by id. */
   private final Map<String, Supervisor> profileById = new ConcurrentHashMap<>();
 
   /** What each session declares for itself as a whole. */
   private final Map<String, List<SupervisorRef>> refsBySession = new ConcurrentHashMap<>();
 
-  /** Bindings by id. */
+  /** Attachments by id. */
   private final Map<String, SupervisorAttachment> bindingById = new ConcurrentHashMap<>();
 
   @Override
@@ -33,8 +33,8 @@ public class InMemorySupervisorStore implements SupervisorStore {
   }
 
   @Override
-  public Mono<Void> saveSupervisor(final Supervisor profile) {
-    return Mono.fromRunnable(() -> profileById.put(profile.id(), profile));
+  public Mono<Void> saveSupervisor(final Supervisor supervisor) {
+    return Mono.fromRunnable(() -> profileById.put(supervisor.id(), supervisor));
   }
 
   @Override
@@ -49,8 +49,8 @@ public class InMemorySupervisorStore implements SupervisorStore {
   }
 
   @Override
-  public Mono<Void> saveAttachment(final SupervisorAttachment binding) {
-    return Mono.fromRunnable(() -> bindingById.put(binding.id(), binding));
+  public Mono<Void> saveAttachment(final SupervisorAttachment attachment) {
+    return Mono.fromRunnable(() -> bindingById.put(attachment.id(), attachment));
   }
 
   @Override

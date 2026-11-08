@@ -12,10 +12,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The settings of a profile of type {@code composite}, checked once.
+ * The settings of a supervisor of type {@code composite}, checked once.
  *
  * @param mode how the children are combined
- * @param children the profile ids of the children, in order
+ * @param children the supervisor ids of the children, in order
  * @param review how their reviews add up
  * @param quorum for {@link CompositeMode#QUORUM}, how many must agree
  * @param window for {@link CompositeMode#QUORUM}, how long equal commands are collected
@@ -35,7 +35,7 @@ public record CompositeSettings(
    * Keeps an immutable copy of the children.
    *
    * @param mode how the children are combined
-   * @param children the child profile ids
+   * @param children the child supervisor ids
    * @param review how their reviews add up
    * @param quorum how many must agree
    * @param window how long equal commands are collected
@@ -47,12 +47,12 @@ public record CompositeSettings(
   /**
    * Reads and checks the settings.
    *
-   * @param profile the profile
+   * @param supervisor the supervisor
    * @return the settings
    * @throws IllegalArgumentException if a setting is missing or out of range
    */
-  public static CompositeSettings read(final Supervisor profile) {
-    final Map<String, Object> settings = profile.settings();
+  public static CompositeSettings read(final Supervisor supervisor) {
+    final Map<String, Object> settings = supervisor.settings();
     final CompositeMode mode = enumOf(CompositeMode.class, settings.get("mode"), "mode", null);
     final List<String> children = children(settings.get("children"));
     final ReviewMode review =
@@ -64,7 +64,7 @@ public record CompositeSettings(
   @SuppressWarnings("PMD.CyclomaticComplexity")
   private static List<String> children(final Object value) {
     if (!(value instanceof List<?> list) || list.isEmpty()) {
-      throw new IllegalArgumentException("Setting 'children' must be a list of profile ids");
+      throw new IllegalArgumentException("Setting 'children' must be a list of supervisor ids");
     }
     if (list.size() > MAX_CHILDREN) {
       throw new IllegalArgumentException("A composite has at most " + MAX_CHILDREN + " children");
@@ -73,7 +73,7 @@ public record CompositeSettings(
     final Set<String> seen = new HashSet<>();
     for (final Object item : list) {
       if (!(item instanceof String id) || id.isBlank() || !seen.add(id)) {
-        throw new IllegalArgumentException("Children must be distinct, non-blank profile ids");
+        throw new IllegalArgumentException("Children must be distinct, non-blank supervisor ids");
       }
       ids.add(id);
     }

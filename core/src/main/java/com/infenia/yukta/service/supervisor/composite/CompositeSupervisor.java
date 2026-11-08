@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.composite;
 
+import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlDecision;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ControlRequest;
@@ -9,6 +10,7 @@ import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.input.InputRisk;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -17,32 +19,39 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
  * Runs other supervisors as one. The children are not bound separately, so nothing is subscribed
- * twice and the composite has one id and one scope (the binding's).
+ * twice and the composite has one id and one scope (the attachment's).
  */
-@SuppressWarnings({"PMD.AvoidFieldNameMatchingMethodName", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods"
+})
 public final class CompositeSupervisor implements ExecutionSupervisor {
 
   /** How long one child may take to review. */
   private static final Duration REVIEW_TIMEOUT = Duration.ofSeconds(4);
 
-  /** The id until a binding replaces it. */
+  /** The id until a attachment replaces it. */
   private final String id;
 
   /** How the children are combined. */
   private final CompositeSettings settings;
 
-  /** The profile ids of the children, in the order of {@link #children}. */
+  /** The supervisor ids of the children, in the order of {@link #children}. */
   private final List<String> childIds;
 
-  /** The children, built from their profiles. */
+  /** The children, built from their supervisors. */
   private final List<ExecutionSupervisor> children;
 
   /** Time for the quorum window. */
@@ -53,7 +62,7 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
    *
    * @param id the supervisor id
    * @param settings the mode and the review rule
-   * @param childIds the profile ids of the children
+   * @param childIds the supervisor ids of the children
    * @param children the children, same order
    * @param clock time for the quorum window
    */
@@ -71,7 +80,7 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
   }
 
   /**
-   * The profile ids of the children.
+   * The supervisor ids of the children.
    *
    * @return the ids, in order
    */
@@ -172,36 +181,76 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
               .onErrorReturn(stop ? Decision.ALLOW : Decision.deny("review failed"))
               .map(decision -> new Verdict(childId, decision)));
     }
+    // all children are asked at once, so the slowest one, not their sum, has to fit the outer
+    // review timeout
+    final Mono<List<Verdict>> all = Flux.mergeSequential(reviews).collectList();
     return switch (settings.review()) {
-      case ALL ->
-          Flux.concat(reviews)
-              .filter(verdict -> !verdict.decision().allowed())
-              .next()
-              .map(Verdict::denial)
-              .defaultIfEmpty(Decision.ALLOW);
-      case ANY -> Flux.merge(reviews).collectList().map(CompositeSupervisor::any);
-      case MAJORITY -> Flux.merge(reviews).collectList().map(CompositeSupervisor::majority);
+      case ALL -> all.map(CompositeSupervisor::all);
+      case ANY -> all.map(CompositeSupervisor::any);
+      case MAJORITY -> all.map(CompositeSupervisor::majority);
     };
   }
 
-  private static Decision any(final List<Verdict> verdicts) {
-    return verdicts.stream().anyMatch(v -> v.decision().allowed())
-        ? Decision.ALLOW
-        : verdicts.get(0).denial();
+  /** The first refusal; else the approvals as one need; else allow. */
+  private static Decision all(final List<Verdict> verdicts) {
+    return verdicts.stream()
+        .filter(v -> !v.decision().allowed() && !v.decision().requiresApproval())
+        .findFirst()
+        .map(Verdict::denial)
+        .orElseGet(() -> approvals(verdicts).orElse(Decision.ALLOW));
   }
 
+  /** Allow if one allows; else the approvals as one need, if any; else the first refusal. */
+  private static Decision any(final List<Verdict> verdicts) {
+    if (verdicts.stream().anyMatch(v -> v.decision().allowed())) {
+      return Decision.ALLOW;
+    }
+    return approvals(verdicts).orElseGet(() -> verdicts.get(0).denial());
+  }
+
+  /** Allow on a majority; approval can still make one, so it is asked for before refusing. */
   private static Decision majority(final List<Verdict> verdicts) {
     final long allowed = verdicts.stream().filter(v -> v.decision().allowed()).count();
-    return allowed * 2 > verdicts.size()
-        ? Decision.ALLOW
+    if (allowed * 2 > verdicts.size()) {
+      return Decision.ALLOW;
+    }
+    final long pending = verdicts.stream().filter(v -> v.decision().requiresApproval()).count();
+    return (allowed + pending) * 2 > verdicts.size()
+        ? approvals(verdicts).orElseThrow()
         : Decision.deny(
             "only " + allowed + " of " + verdicts.size() + " supervisors allowed the command");
+  }
+
+  /** The children's needs for approval as one: highest risk, first route, shortest ttl. */
+  private static Optional<Decision> approvals(final List<Verdict> verdicts) {
+    final List<Verdict> asking =
+        verdicts.stream().filter(v -> v.decision().requiresApproval()).toList();
+    if (asking.isEmpty()) {
+      return Optional.empty();
+    }
+    InputRisk risk = InputRisk.LOW;
+    String route = null;
+    Duration ttl = null;
+    for (final Verdict verdict : asking) {
+      final ApprovalNeed need = Objects.requireNonNull(verdict.decision().approval());
+      risk = need.risk().atLeast(risk) ? need.risk() : risk;
+      route = route == null ? need.routeName() : route;
+      ttl = ttl == null || need.ttl() != null && need.ttl().compareTo(ttl) < 0 ? need.ttl() : ttl;
+    }
+    return Optional.of(
+        Decision.requireApproval(
+            asking.stream().map(Verdict::reason).collect(Collectors.joining("; ")),
+            new ApprovalNeed(risk, route, ttl)));
   }
 
   /** One child's review. */
   private record Verdict(String child, Decision decision) {
     /* default */ Decision denial() {
-      return Decision.deny(child + ": " + decision.reason());
+      return Decision.deny(reason());
+    }
+
+    /* default */ String reason() {
+      return child + ": " + Objects.requireNonNullElse(decision.reason(), "approval required");
     }
   }
 

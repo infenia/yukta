@@ -34,12 +34,13 @@ class ControlReviewerDryRunTest {
 
   @Test
   void review_dryRunSupervisor_isRecordedNotEnforced() {
-    final var binding = new SupervisorAttachment("try-it", "p", new SupervisorScope.Global(), true);
+    final var attachment =
+        new SupervisorAttachment("try-it", "p", new SupervisorScope.Global(), true);
     final Reviewer refuser =
         new Reviewer("try-it", 0, _ -> Mono.just(Decision.deny("no")), new ArrayList<>());
     final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf());
     final AttachedSupervisors attached = new AttachedSupervisors();
-    attached.put(Fixtures.boundSupervisor(binding, refuser, true));
+    attached.put(Fixtures.boundSupervisor(attachment, refuser, true));
     reviewer.setAttachedSupervisors(attached);
 
     StepVerifier.create(reviewer.review(REQUEST)).verifyComplete();

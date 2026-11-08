@@ -96,7 +96,9 @@ class WorkflowSupervisorTest {
             any());
     assertThat(payload.getValue())
         .containsKeys("event", "request")
-        .containsEntry("bindingId", "b1");
+        .containsEntry("attachmentId", "b1")
+        .containsEntry("bindingId", "b1")
+        .containsEntry("supervisorId", "p");
     assertThat(supervisor.id()).isEqualTo("p");
     assertThat(supervisor.decisionTimeout()).isEqualTo(Duration.ofSeconds(10));
   }
@@ -292,7 +294,7 @@ class WorkflowSupervisorTest {
     when(runner.reservedSlots()).thenReturn(4);
     final WorkflowSupervisorFactory factory =
         new WorkflowSupervisorFactory(runner, internal, redactor);
-    final Supervisor profile =
+    final Supervisor supervisor =
         new Supervisor(
             "p",
             "workflow",
@@ -301,7 +303,7 @@ class WorkflowSupervisorTest {
 
     assertThat(factory.type()).isEqualTo("workflow");
     assertThat(factory.defaultAllowedCommands()).isEmpty();
-    assertThat(factory.create(profile)).isInstanceOf(WorkflowSupervisor.class);
+    assertThat(factory.create(supervisor)).isInstanceOf(WorkflowSupervisor.class);
     assertThat(new ControlDecision(List.of(), 1, ControlDecision.Source.RULE).commands()).isEmpty();
   }
 }

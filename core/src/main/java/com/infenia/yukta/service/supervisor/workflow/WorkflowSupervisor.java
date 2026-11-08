@@ -57,7 +57,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   private final InputRedactor redactor;
 
-  /** Commands the profile names; {@code null} for no restriction. */
+  /** Commands the supervisor names; {@code null} for no restriction. */
   private final @Nullable Set<String> allowed;
 
   /** Limits the runs of this supervisor at once. */
@@ -72,18 +72,18 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
         }
       };
 
-  /** The binding id, which is the actor of the commands; set when the binding starts. */
-  private volatile String bindingId;
+  /** The attachment id, which is the actor of the commands; set when the attachment starts. */
+  private volatile String attachmentId;
 
   /**
    * Creates the supervisor.
    *
-   * @param supervisorId the profile id (the binding id until a binding is set)
+   * @param supervisorId the supervisor id (the attachment id until an attachment is set)
    * @param settings the settings
    * @param runner starts the runs
    * @param internal tells whether the session is internal
    * @param redactor masks secrets in the event
-   * @param allowed the commands the profile names
+   * @param allowed the commands the supervisor names
    */
   public WorkflowSupervisor(
       final String supervisorId,
@@ -93,7 +93,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
       final InputRedactor redactor,
       final @Nullable Set<String> allowed) {
     this.supervisorId = supervisorId;
-    this.bindingId = supervisorId;
+    this.attachmentId = supervisorId;
     this.settings = settings;
     this.runner = runner;
     this.internal = internal;
@@ -103,12 +103,12 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   }
 
   /**
-   * Tells the supervisor under which id its binding sends commands.
+   * Tells the supervisor under which id its attachment sends commands.
    *
-   * @param id the binding id
+   * @param id the attachment id
    */
   public void bindTo(final String id) {
-    this.bindingId = id;
+    this.attachmentId = id;
   }
 
   @Override
@@ -136,7 +136,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
             Mono.fromRunnable(
                 () ->
                     log.atWarn()
-                        .addKeyValue("supervisor", bindingId)
+                        .addKeyValue("supervisor", attachmentId)
                         .log("Session of the supervisor workflow is not internal; no opinion")))
         .filter(Boolean::booleanValue)
         .filter(_ -> concurrent.tryAcquire())
@@ -146,7 +146,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
   private Mono<ControlDecision> attempt(final ExecutionEvent event, final int attempt) {
     return runner
         .run(
-            bindingId,
+            attachmentId,
             settings.sessionId(),
             settings.workflowId(),
             payload(event),
@@ -171,7 +171,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
           SupervisorResultMapper.map(result.results(), allowed, event.executionId(), MAX_COMMANDS);
       if (mapped.dropped() > 0) {
         log.atWarn()
-            .addKeyValue("supervisor", bindingId)
+            .addKeyValue("supervisor", attachmentId)
             .addKeyValue("dropped", mapped.dropped())
             .log("Dropped commands the supervisor workflow may not send");
       }
@@ -207,8 +207,10 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
     final Map<String, Object> out = new java.util.HashMap<>();
     out.put("event", redacted);
     out.put("request", redacted.get("request"));
-    out.put("supervisorId", bindingId);
-    out.put("bindingId", bindingId);
+    out.put("supervisorId", supervisorId);
+    out.put("attachmentId", attachmentId);
+    // deprecated alias of attachmentId, kept for one release
+    out.put("bindingId", attachmentId);
     return out;
   }
 
@@ -231,7 +233,7 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   /** True the first time an event is seen: a redelivered event does not start a second run. */
   private boolean fresh(final ExecutionEvent event) {
-    final String key = bindingId + ":" + event.getClass().getSimpleName() + ":" + event;
+    final String key = attachmentId + ":" + event.getClass().getSimpleName() + ":" + event;
     synchronized (seen) {
       return seen.put(key, Boolean.TRUE) == null;
     }

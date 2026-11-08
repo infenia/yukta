@@ -9,7 +9,7 @@ import org.jspecify.annotations.Nullable;
  * What became of one command a supervisor emitted.
  *
  * @param time when it was decided
- * @param supervisorId the supervisor, or the binding id of an attached one
+ * @param supervisorId the supervisor, or the attachment id of an attached one
  * @param outcome {@code applied}, {@code rejected}, {@code dry-run} or {@code rate-limited}
  * @param command the command name, such as {@code PauseWorkflowCommand}
  * @param executionId the run it addressed

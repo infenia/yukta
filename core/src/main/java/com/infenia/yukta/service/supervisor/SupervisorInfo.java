@@ -28,7 +28,8 @@ import org.jspecify.annotations.Nullable;
  * @param arbitrated conflicting commands the arbiter dropped in favour of another supervisor
  * @param coalesced commands merged into an equal one from another supervisor
  * @param flappingBlocked commands blocked because the supervisor kept turning a target around
- * @param children for a {@code COMPOSITE}, the profile ids of its children, otherwise {@code null}
+ * @param children for a {@code COMPOSITE}, the supervisor ids of its children, otherwise {@code
+ *     null}
  */
 @SuppressFBWarnings(
     value = "EI_EXPOSE_REP",
@@ -73,7 +74,7 @@ public record SupervisorInfo(
    * @param arbitrated commands lost to another supervisor
    * @param coalesced commands merged into an equal one
    * @param flappingBlocked commands blocked by the flap guard
-   * @param children the child profile ids of a composite, or {@code null}
+   * @param children the child supervisor ids of a composite, or {@code null}
    */
   public SupervisorInfo {
     if (scopeNodes != null) {
