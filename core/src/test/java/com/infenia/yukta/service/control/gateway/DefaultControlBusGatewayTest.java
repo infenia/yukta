@@ -139,10 +139,10 @@ class DefaultControlBusGatewayTest {
     final Message<String> signal = DefaultMessage.create(null, "test-payload");
     when(controlBusService.emit(signal))
         .thenReturn(
-            Mono.error(new com.infenia.yukta.service.supervisor.ControlRejectedException("no")));
+            Mono.error(new com.infenia.yukta.service.review.ControlRejectedException("no")));
 
     StepVerifier.create(gateway.emit(signal))
-        .verifyError(com.infenia.yukta.service.supervisor.ControlRejectedException.class);
+        .verifyError(com.infenia.yukta.service.review.ControlRejectedException.class);
   }
 
   @Test
@@ -151,11 +151,11 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(signal))
         .thenReturn(
             Mono.error(
-                new com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException(
+                new com.infenia.yukta.service.review.ControlAwaitingApprovalException(
                     "r1", "why")));
 
     StepVerifier.create(gateway.emit(signal))
-        .verifyError(com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException.class);
+        .verifyError(com.infenia.yukta.service.review.ControlAwaitingApprovalException.class);
   }
 
   @Test
@@ -2824,17 +2824,17 @@ class DefaultControlBusGatewayTest {
             null, Map.of("executionId", "e", "name", "ok", "decision", "approve"));
 
     StepVerifier.create(gateway.sendCommand("s1", "wf", null, "node", signal))
-        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
     StepVerifier.create(
             gateway.sendCommand(
                 "s1", "wf", null, "node", DefaultMessage.create(null, Map.of("decision", "x"))))
-        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
     StepVerifier.create(
             gateway.sendCommand(
                 "s1", "wf", null, "node", DefaultMessage.create(null, Map.of("executionId", "e"))))
-        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
     verify(controlBusService, never()).sendCommand(any(), any(), any(), any());
   }
@@ -2857,11 +2857,11 @@ class DefaultControlBusGatewayTest {
             real,
             StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
             auditLog);
-    final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
-        mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
+    final com.infenia.yukta.service.review.ControlReviewer reviewer =
+        mock(com.infenia.yukta.service.review.ControlReviewer.class);
     when(reviewer.review(any()))
         .thenReturn(
-            Mono.error(new com.infenia.yukta.service.supervisor.ControlRejectedException("no")));
+            Mono.error(new com.infenia.yukta.service.review.ControlRejectedException("no")));
     limited.setReviewer(reviewer);
 
     StepVerifier.create(
@@ -2871,7 +2871,7 @@ class DefaultControlBusGatewayTest {
                     ctx ->
                         ctx.put(
                             com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
-        .expectError(com.infenia.yukta.service.supervisor.ControlRejectedException.class)
+        .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
 
     assertThat(auditLog.readAll())

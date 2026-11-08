@@ -16,7 +16,7 @@ import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
-import com.infenia.yukta.service.supervisor.AttachedSupervisors;
+import com.infenia.yukta.service.review.AttachedSupervisors;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.Optional;
 import java.util.Set;

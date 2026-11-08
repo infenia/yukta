@@ -23,7 +23,7 @@ import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.WorkflowOrchestrator;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
-import com.infenia.yukta.service.supervisor.ControlRejectedException;
+import com.infenia.yukta.service.review.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Duration;

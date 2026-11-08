@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
-import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.util.List;

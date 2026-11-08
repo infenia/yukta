@@ -16,6 +16,11 @@ import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.review.AttachedSupervisors;
+import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
+import com.infenia.yukta.service.review.DryRunRecorder;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import io.micrometer.core.instrument.Counter;
@@ -62,7 +67,7 @@ import reactor.util.retry.Retry;
 @Slf4j
 @Component
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
-public class SupervisorHost {
+public class SupervisorHost implements DryRunRecorder {
 
   /** Events handed to the supervisor's thread at a time. */
   private static final int SUPERVISOR_PREFETCH = 256;
@@ -297,6 +302,7 @@ public class SupervisorHost {
    * @param command the command it would have refused
    * @param reason why
    */
+  @Override
   public void wouldHaveRefused(
       final String supervisorId, final ExecutionControlCommand command, final String reason) {
     count(supervisorId, DRY_RUN);
