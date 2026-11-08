@@ -5,7 +5,7 @@ A supervisor of type `http` is operated by a program with its own credential. Th
 | File | What |
 |---|---|
 | `cpu_guard.sh` | A shell script run by `yukta supervisors agent`: it pauses runs while the load is high and resumes only what it paused (`target: held`). Uses **initiative**. |
-| `agent.py` | The same loop in Python with the standard library: stream, decide, send. |
+| `agent.py`, `go/main.go` | The same loop in Python and in Go with the standard library: stream, decide, send. |
 | `supervisor.json`, `attachment.json` | The supervisor (`cpu-guard`, allowed to pause and resume on its own) and its attachment to a session. |
 
 ```bash
