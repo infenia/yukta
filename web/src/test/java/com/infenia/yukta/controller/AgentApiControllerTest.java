@@ -450,7 +450,8 @@ class AgentApiControllerTest {
       assertThatThrownBy(
               () ->
                   controller.directive(
-                      as("a1"), new AgentApiController.DirectiveBody("k", forged, null, null, pause)))
+                      as("a1"),
+                      new AgentApiController.DirectiveBody("k", forged, null, null, pause)))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("names no signal sent");
     }

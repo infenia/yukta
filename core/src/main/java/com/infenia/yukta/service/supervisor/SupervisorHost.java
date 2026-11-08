@@ -685,9 +685,7 @@ public class SupervisorHost {
    * is never within a section. A target that cannot be read counts as outside.
    */
   private Mono<Boolean> inScope(
-      final SupervisorScope scope,
-      final ExecutionControlCommand command,
-      final boolean attached) {
+      final SupervisorScope scope, final ExecutionControlCommand command, final boolean attached) {
     // an attached Global scope owns nothing (it only observes); a bean supervisor keeps it all
     return scope instanceof SupervisorScope.Global
         ? Mono.just(!attached)

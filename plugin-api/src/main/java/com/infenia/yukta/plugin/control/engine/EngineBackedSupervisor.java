@@ -37,7 +37,8 @@ public final class EngineBackedSupervisor
   private final boolean reviews;
   private final Duration reviewTimeout;
   private final Map<String, Sinks.One<Decision>> pending = new ConcurrentHashMap<>();
-  private final Sinks.Many<Signal> asked = Sinks.many().multicast().onBackpressureBuffer(MAX_OPEN_REVIEWS, false);
+  private final Sinks.Many<Signal> asked =
+      Sinks.many().multicast().onBackpressureBuffer(MAX_OPEN_REVIEWS, false);
   private final AtomicLong seq = new AtomicLong();
   private final Consumer<EngineReads> readsSink;
 
@@ -147,9 +148,7 @@ public final class EngineBackedSupervisor
     final Sinks.One<Decision> sink = Sinks.one();
     pending.put(reviewId, sink);
     asked.tryEmitNext(new Signal.Review(reviewId, request, reviewTimeout));
-    return sink.asMono()
-        .timeout(reviewTimeout)
-        .doFinally(done -> pending.remove(reviewId));
+    return sink.asMono().timeout(reviewTimeout).doFinally(done -> pending.remove(reviewId));
   }
 
   @Override

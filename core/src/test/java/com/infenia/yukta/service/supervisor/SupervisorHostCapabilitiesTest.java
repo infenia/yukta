@@ -50,8 +50,7 @@ class SupervisorHostCapabilitiesTest {
 
   {
     // the supervisors own session A; every command targets a run in it
-    when(dispatcher.target(any()))
-        .thenReturn(Mono.just(new CommandTarget("A", "w", null)));
+    when(dispatcher.target(any())).thenReturn(Mono.just(new CommandTarget("A", "w", null)));
   }
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
