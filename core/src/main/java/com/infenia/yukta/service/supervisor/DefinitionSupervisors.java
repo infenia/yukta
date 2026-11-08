@@ -309,14 +309,21 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return completes when done
    */
   public Mono<Void> reconcileAll() {
-    return Flux.merge(
-            sessions.getSessionIds(),
-            service
-                .attachments()
-                .filter(a -> a.source() == SupervisorSource.DEFINITION)
-                .mapNotNull(SupervisorAttachment::originSessionId))
-        .distinct()
-        .concatMap(this::reconcile)
+    return sessions
+        .getSessionIds()
+        .collect(Collectors.toSet())
+        .flatMapMany(
+            known ->
+                Flux.concat(
+                    Flux.fromIterable(known).concatMap(this::reconcile),
+                    service
+                        .attachments()
+                        .filter(a -> a.source() == SupervisorSource.DEFINITION)
+                        .mapNotNull(SupervisorAttachment::originSessionId)
+                        .distinct()
+                        .filter(id -> !known.contains(id))
+                        // the session is gone: drop the declarations it left behind first
+                        .concatMap(this::forget)))
         .then();
   }
 
