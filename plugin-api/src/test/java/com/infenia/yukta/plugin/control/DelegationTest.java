@@ -23,6 +23,10 @@ class DelegationTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> new Delegation(null, Duration.ofSeconds(1)))
         .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new Delegation(DelegationMode.ANY, null))
+        .isInstanceOf(NullPointerException.class);
+    assertThatThrownBy(() -> new Delegation(DelegationMode.ANY, Duration.ofSeconds(-1)))
+        .isInstanceOf(IllegalArgumentException.class);
     assertThat(DelegationKind.values())
         .containsExactly(DelegationKind.APPROVAL, DelegationKind.INPUT, DelegationKind.CONSULT);
     assertThat(DelegationMode.values()).hasSize(3);
