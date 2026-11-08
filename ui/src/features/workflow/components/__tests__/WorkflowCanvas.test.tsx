@@ -42,14 +42,17 @@ describe('WorkflowCanvas', () => {
       <WorkflowCanvas graph={createMockGraph()} tasksByNode={tasksByNode()} />
     );
 
-    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveTextContent(
-      'Succeeded'
+    expect(screen.getByTestId('workflow-node-data-ingress')).toHaveAttribute(
+      'data-status',
+      'completed'
     );
-    expect(
-      screen.getByTestId('workflow-node-vectorize-batch')
-    ).toHaveTextContent('Running');
-    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveTextContent(
-      'Waiting'
+    expect(screen.getByTestId('workflow-node-vectorize-batch')).toHaveAttribute(
+      'data-status',
+      'running'
+    );
+    expect(screen.getByTestId('workflow-node-sink-storage')).toHaveAttribute(
+      'data-status',
+      'pending'
     );
   });
 });

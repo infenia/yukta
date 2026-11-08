@@ -3,18 +3,19 @@
 
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { cn } from '@/lib/utils';
+import { Tip } from '@/components/ui/tooltip';
 import { toNodeStatusLabel } from '../../lib/statusMapper';
 import type { StageFlowNode, StageFrameNode } from '../../lib/layout';
 import { paletteColor, paletteTint } from '../../lib/paletteColor';
 import type { NodeUiStatus } from '../../types/workflow';
 
-const DOT: Record<NodeUiStatus, string> = {
+const BADGE: Record<NodeUiStatus, string> = {
   completed: 'bg-success',
   running: 'live-dot bg-primary',
-  pending: 'border border-outline',
+  pending: 'border-2 border-outline bg-surface',
   failed: 'bg-error',
   paused: 'bg-warning',
-  skipped: 'border border-outline',
+  skipped: 'bg-outline',
 };
 
 const HANDLE = 'size-2.5! border-2! border-outline! bg-surface!';
@@ -32,24 +33,54 @@ function StageDot({ color }: { color?: string | null }) {
   ) : null;
 }
 
+/** The state as a dot; the label is in the tooltip and the accessible name. */
 function StageStatus({ status }: { status: NodeUiStatus }) {
   return (
-    <span
-      className={cn(
-        'text-body-sm text-on-surface-variant inline-flex items-center gap-1.5',
-        status === 'failed' && 'text-error'
-      )}
-    >
+    <Tip label={toNodeStatusLabel(status)}>
       <span
-        aria-hidden="true"
-        className={cn('size-2 rounded-full', DOT[status])}
+        role="img"
+        aria-label={toNodeStatusLabel(status)}
+        data-testid="stage-status"
+        className={cn('size-3 shrink-0 rounded-full', BADGE[status])}
       />
-      {toNodeStatusLabel(status)}
-    </span>
+    </Tip>
   );
 }
 
-/** A closed stage: its name, node count and aggregate status, drawn in place of its nodes. */
+function ToggleButton({
+  stage,
+  open,
+  onToggle,
+  className,
+}: {
+  stage: string;
+  open: boolean;
+  onToggle?: (stage: string) => void;
+  className?: string;
+}) {
+  const label = `${open ? 'Collapse' : 'Expand'} stage ${stage}`;
+  return (
+    <Tip label={open ? 'Collapse' : 'Expand'}>
+      <button
+        type="button"
+        // xyflow turns pointer events off on a frame that cannot be selected
+        style={{ pointerEvents: 'auto' }}
+        className={cn(
+          'nodrag text-on-surface-variant hover:bg-muted hover:text-on-surface inline-flex rounded-md p-0.5 transition-colors',
+          className
+        )}
+        aria-label={label}
+        onClick={() => onToggle?.(stage)}
+      >
+        <span aria-hidden="true" className="material-symbols-outlined text-xl">
+          {open ? 'unfold_less' : 'unfold_more'}
+        </span>
+      </button>
+    </Tip>
+  );
+}
+
+/** A closed stage: a stack of cards with the stage name, member count and aggregate state. */
 export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
   const { stage, count, status, onToggle, color } = data;
   return (
@@ -60,43 +91,47 @@ export function StageNodeCard({ data }: NodeProps<StageFlowNode>) {
       data-status={status}
       style={{ backgroundColor: paletteTint(color, 16) }}
       className={cn(
-        'bg-surface-container relative flex size-full flex-col rounded-xl border border-dashed px-3 py-2.5',
-        status === 'failed' ? 'border-error' : 'border-outline'
+        'stage-stack group relative size-full rounded-xl',
+        !color && 'bg-surface-container'
       )}
     >
       <Handle type="target" position={Position.Left} className={HANDLE} />
       <Handle type="source" position={Position.Right} className={HANDLE} />
-      <div className="flex items-center gap-2">
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-on-surface-variant text-lg"
-        >
-          stacks
+      <div
+        className={cn(
+          'relative flex size-full items-center gap-3 rounded-xl border border-dashed px-3',
+          status === 'failed' ? 'border-error' : 'border-outline'
+        )}
+      >
+        <span className="relative shrink-0">
+          <span className="bg-muted text-on-surface-variant flex size-10 items-center justify-center rounded-xl">
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-xl"
+            >
+              stacks
+            </span>
+          </span>
+          <span
+            data-testid="stage-count"
+            aria-hidden="true"
+            className="bg-foreground text-label-sm text-background absolute -top-1.5 -right-1.5 min-w-5 rounded-full px-1 text-center tabular-nums"
+          >
+            {count}
+          </span>
         </span>
         <StageDot color={color} />
         <p className="text-label-md text-on-surface min-w-0 flex-1 truncate">
           {stage}
         </p>
-        <span className="text-body-sm text-muted-foreground tabular-nums">
-          {count} nodes
-        </span>
-      </div>
-      <div className="mt-auto flex items-center justify-between">
         <StageStatus status={status} />
-        <button
-          type="button"
-          className="nodrag text-label-sm text-primary hover:underline"
-          aria-label={`Expand stage ${stage}`}
-          onClick={() => onToggle?.(stage)}
-        >
-          Expand
-        </button>
+        <ToggleButton stage={stage} open={false} onToggle={onToggle} />
       </div>
     </div>
   );
 }
 
-/** The frame behind an open stage's nodes, with its name, status and a way to close it. */
+/** The frame behind an open stage's nodes, with its name, state and a way to close it. */
 export function StageFrame({ data }: NodeProps<StageFrameNode>) {
   const { stage, count, status, onToggle, color } = data;
   return (
@@ -111,22 +146,27 @@ export function StageFrame({ data }: NodeProps<StageFrameNode>) {
       )}
     >
       <div className="flex items-center gap-2 px-3 py-2">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-on-surface-variant text-lg"
+        >
+          stacks
+        </span>
         <StageDot color={color} />
         <p className="text-label-md text-on-surface truncate">{stage}</p>
-        <span className="text-body-sm text-muted-foreground tabular-nums">
-          {count} nodes
+        <span
+          aria-label={`${count} nodes`}
+          className="bg-foreground text-label-sm text-background min-w-5 rounded-full px-1 text-center tabular-nums"
+        >
+          {count}
         </span>
         <StageStatus status={status} />
-        <button
-          type="button"
-          // xyflow turns pointer events off on a frame that cannot be selected
-          style={{ pointerEvents: 'auto' }}
-          className="nodrag text-label-sm text-primary ml-auto hover:underline"
-          aria-label={`Collapse stage ${stage}`}
-          onClick={() => onToggle?.(stage)}
-        >
-          Collapse
-        </button>
+        <ToggleButton
+          stage={stage}
+          open
+          onToggle={onToggle}
+          className="ml-auto"
+        />
       </div>
     </div>
   );
