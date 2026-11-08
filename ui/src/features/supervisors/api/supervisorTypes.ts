@@ -5,7 +5,7 @@ import { api, fetchApi } from '@/lib/apiClient';
 import type { SupervisorTypeDetails, SupervisorTypeSummary } from '../types';
 
 export const getSupervisorTypes = () =>
-  fetchApi<SupervisorTypeSummary[]>('/api/supervisor-types');
+  fetchApi<SupervisorTypeSummary[]>('/api/supervisor-engines');
 
 export const getSupervisorType = (type: string) =>
-  fetchApi<SupervisorTypeDetails>(api`/api/supervisor-types/${type}`);
+  fetchApi<SupervisorTypeDetails>(api`/api/supervisor-engines/${type}`);

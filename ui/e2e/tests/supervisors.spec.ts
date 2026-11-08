@@ -38,11 +38,11 @@ async function mockSupervisorsApi(page: Page) {
       workflows: Record<string, { assignments?: unknown[] }>;
     },
   };
-  await page.route('**/api/supervisor-types', (route) =>
-    route.fulfill(envelope('/api/supervisor-types', [type]))
+  await page.route('**/api/supervisor-engines', (route) =>
+    route.fulfill(envelope('/api/supervisor-engines', [type]))
   );
-  await page.route('**/api/supervisor-types/*', (route) =>
-    route.fulfill(envelope('/api/supervisor-types/failure-guard', type))
+  await page.route('**/api/supervisor-engines/*', (route) =>
+    route.fulfill(envelope('/api/supervisor-engines/failure-guard', type))
   );
   await page.route('**/api/supervisors/validate', (route) =>
     route.fulfill(envelope('/validate', { valid: true, errors: [] }))
@@ -55,10 +55,10 @@ async function mockSupervisorsApi(page: Page) {
     }
     return route.fulfill(envelope('/api/supervisors', state.supervisors));
   });
-  await page.route('**/api/supervisors/attachments*', (route) =>
+  await page.route('**/api/supervisors/assignments*', (route) =>
     route.fulfill(
       envelope(
-        '/attachments',
+        '/assignments',
         state.savedSession
           ? [
               {

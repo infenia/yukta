@@ -58,7 +58,7 @@ const rows = [
 
 let asked = '';
 const server = setupServer(
-  http.get('/api/supervisors/attachments', ({ request }) => {
+  http.get('/api/supervisors/assignments', ({ request }) => {
     asked = new URL(request.url).search;
     return envelope(rows);
   })
@@ -116,13 +116,13 @@ describe('EffectiveSupervision', () => {
   });
 
   it('renders nothing when none apply or when it cannot be read', async () => {
-    server.use(http.get('/api/supervisors/attachments', () => envelope([])));
+    server.use(http.get('/api/supervisors/assignments', () => envelope([])));
     const first = renderCard('w1');
     await waitFor(() => expect(asked).not.toBe(''));
     expect(screen.queryByRole('region', { name: 'Supervisors' })).toBeNull();
     first.unmount();
     server.use(
-      http.get('/api/supervisors/attachments', () => envelope({}, 500))
+      http.get('/api/supervisors/assignments', () => envelope({}, 500))
     );
     renderCard('w1');
     await waitFor(() => expect(screen.queryByText(/Supervision/)).toBeNull());

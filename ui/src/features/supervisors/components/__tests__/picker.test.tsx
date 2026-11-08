@@ -27,7 +27,7 @@ const server = setupServer(
       { id: 'rules', type: 't', system: true },
     ])
   ),
-  http.get('/api/supervisor-types', () =>
+  http.get('/api/supervisor-engines', () =>
     ok([
       {
         type: 'failure-guard',
@@ -38,7 +38,7 @@ const server = setupServer(
       },
     ])
   ),
-  http.get('/api/supervisor-types/:type', () =>
+  http.get('/api/supervisor-engines/:type', () =>
     ok({
       type: 'failure-guard',
       displayName: 'Failure guard',
