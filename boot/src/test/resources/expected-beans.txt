@@ -128,6 +128,7 @@ com.infenia.yukta.service.archive.ExecutionArchive
 com.infenia.yukta.service.control.ControlBusService
 com.infenia.yukta.service.control.ExecutionScheduler
 com.infenia.yukta.service.control.SchedulerMetrics
+com.infenia.yukta.service.control.SupervisedControl
 com.infenia.yukta.service.control.TreeControl
 com.infenia.yukta.service.control.directive.CommandHandler
 com.infenia.yukta.service.control.directive.DirectiveDispatcher

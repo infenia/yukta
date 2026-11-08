@@ -112,7 +112,9 @@ class CommandHandlerTest {
   @Test
   void handle_commandsWithoutProcessor_areAllRejected() {
     final ExecutionControlCommand[] commands = {
-      new SetLimitsCommand(1, 1), new SetPriorityCommand(EXECUTION_ID, 5)
+      new SetLimitsCommand(1, 1),
+      new SetPriorityCommand(EXECUTION_ID, 5),
+      new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null)
     };
 
     for (final ExecutionControlCommand command : commands) {

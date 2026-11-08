@@ -91,7 +91,7 @@ class RuleSelfTest {
   }
 
   @Test
-  void aCommandSentAroundTheOneEntryIsCaught() {
+  void commandSentAroundTheOneEntryIsCaught() {
     assertViolated(ControlEntryRules.ONLY_CONTROL_APPLIES_COMMANDS, BadControlCaller.class);
     assertAccepted(ControlEntryRules.ONLY_CONTROL_APPLIES_COMMANDS, GoodClass.class);
   }

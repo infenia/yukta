@@ -106,7 +106,7 @@ class DirectiveDispatcherChannelTest {
   }
 
   @Test
-  void aStartHasTheWorkflowAsItsTarget() {
+  void startHasTheWorkflowAsItsTarget() {
     final var start = new ExecutionControlCommand.StartWorkflowCommand("s", "w", Map.of(), "key");
     StepVerifier.create(dispatcher(new ArrayList<>()).target(start))
         .assertNext(
@@ -120,7 +120,7 @@ class DirectiveDispatcherChannelTest {
   }
 
   @Test
-  void aStartIsNotQueuedOnARun() {
+  void startIsNotQueuedOnRun() {
     final var start = new ExecutionControlCommand.StartWorkflowCommand("s", "w", Map.of(), null);
     StepVerifier.create(dispatcher(new ArrayList<>()).dispatchOrdered(start))
         .expectError(IllegalArgumentException.class)

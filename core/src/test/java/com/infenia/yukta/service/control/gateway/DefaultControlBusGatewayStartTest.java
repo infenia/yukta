@@ -64,7 +64,7 @@ class DefaultControlBusGatewayStartTest {
   }
 
   @Test
-  void aRefusedStartNeverLoadsTheWorkflowAndIsAuditedWithItsChannel() {
+  void refusedStartNeverLoadsTheWorkflowAndIsAuditedWithItsChannel() {
     when(reviewer.review(any())).thenReturn(Mono.error(new ControlRejectedException("no starts")));
 
     StepVerifier.create(

@@ -105,6 +105,14 @@ class SupervisorCapabilitiesTest {
   }
 
   @Test
+  void channelsAreNamed() {
+    assertThat(ControlActor.CHANNEL_KEY).isEqualTo("yukta.control.channel");
+    assertThat(ControlActor.Channel.values())
+        .extracting(Enum::name)
+        .containsExactly("OPERATOR", "ENGINE", "SYSTEM");
+  }
+
+  @Test
   void actorKindsAreNamed() {
     assertThat(ControlActor.KIND_KEY).isEqualTo("yukta.control.actor.kind");
     assertThat(ControlActor.Kind.values())

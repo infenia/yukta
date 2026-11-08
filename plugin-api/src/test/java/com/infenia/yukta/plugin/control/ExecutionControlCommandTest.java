@@ -163,6 +163,13 @@ class ExecutionControlCommandTest {
   }
 
   @Test
+  void startBelongsToNoRunYet() {
+    final var start = new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null);
+    assertThat(start.executionId()).isEqualTo(ExecutionControlCommand.START);
+    assertThat(start.nodeId()).isNull();
+  }
+
+  @Test
   void setBreakpoint_acceptsPayloadAndMetadataFields_andRejectsOthers() {
     assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload", "x").field())
         .isEqualTo("payload");
