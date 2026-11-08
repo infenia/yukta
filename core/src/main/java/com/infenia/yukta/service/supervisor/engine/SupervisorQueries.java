@@ -164,8 +164,10 @@ public class SupervisorQueries {
    */
   public Flux<Run> executions(
       final SupervisorScope scope, final @Nullable TaskStatus status, final int limit) {
-    return sessions
-        .getSessionIds(false)
+    // a scope that names its session reads only that one; the others look through every session
+    final Flux<String> sessionIds =
+        scope.sessionId() != null ? Flux.just(scope.sessionId()) : sessions.getSessionIds(false);
+    return sessionIds
         .concatMap(
             id ->
                 controlBus

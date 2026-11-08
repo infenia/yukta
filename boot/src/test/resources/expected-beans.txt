@@ -39,9 +39,6 @@ com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
-com.infenia.yukta.controlplane.composite.RulesFirstControlPlaneFactory
-com.infenia.yukta.controlplane.model.ModelControlPlaneFactory
-com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory
 com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
@@ -239,9 +236,6 @@ com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.AppConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
-com.infenia.yukta.supervisor.guards.ApprovalGateFactory
-com.infenia.yukta.supervisor.guards.FailureGuardFactory
-com.infenia.yukta.supervisor.guards.StallWatchdogFactory
+com.infenia.yukta.supervisor.callout.CalloutSupervisorFactory
 com.infenia.yukta.supervisor.process.ProcessEngineConfiguration
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory
-com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory

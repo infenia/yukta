@@ -1,0 +1,188 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
+
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
+import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.gateway.ControlBusGateway;
+import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
+import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
+import com.infenia.yukta.supervisor.rules.LegacyGuards;
+import com.infenia.yukta.testing.Fixtures;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.server.LocalServerPort;
+import tools.jackson.databind.json.JsonMapper;
+
+/** The guard presets of the rules engine (failure guard, approval gate, stall watchdog) at work. */
+@SpringBootTest(
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+    properties = "yukta.process.allow-any=true")
+@NoArgsConstructor
+@SuppressWarnings({"PMD.SignatureDeclareThrowsException", "PMD.UnitTestShouldIncludeAssert"})
+class PresetsAcceptanceTest {
+
+  private static final Duration WAIT = Duration.ofSeconds(30);
+
+  @LocalServerPort private int port;
+
+  @Autowired private ControlBusGateway gateway;
+  @Autowired private com.infenia.yukta.service.control.SupervisedControl control;
+  @Autowired private WorkflowDefinitionStore definitions;
+  @Autowired private TaskTrackerService tracker;
+
+  private HttpResponse<String> call(final String method, final String path, final String body)
+      throws Exception {
+    return HttpClient.newHttpClient()
+        .send(
+            HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                .header("Content-Type", "application/json")
+                .method(method, HttpRequest.BodyPublishers.ofString(body))
+                .build(),
+            HttpResponse.BodyHandlers.ofString());
+  }
+
+  private void post(final String path, final String body) throws Exception {
+    final HttpResponse<String> response = call("POST", path, body);
+    assertThat(response.statusCode()).as(response.body()).isEqualTo(201);
+  }
+
+  /** A trigger feeding a node that fails at once and a node that sleeps. */
+  private String workflow(final String session, final boolean failing) {
+    final String id = "wf-" + UUID.randomUUID();
+    definitions
+        .save(
+            session,
+            Fixtures.workflow(
+                id,
+                "guarded",
+                List.of(
+                    Fixtures.node("t", "CONSTANT_SOURCE", Map.of()),
+                    Fixtures.node(
+                        "bad",
+                        "PROCESS_EXECUTOR",
+                        Map.of(
+                            "command",
+                            List.of("sh", "-c", failing ? "exit 3" : "sleep 60"),
+                            "outputFormat",
+                            "RAW")),
+                    Fixtures.node(
+                        "slow",
+                        "PROCESS_EXECUTOR",
+                        Map.of("command", List.of("sleep", "60"), "outputFormat", "RAW")),
+                    Fixtures.node("end", "CONSOLE_TERMINAL", Map.of())),
+                List.of(
+                    new Edge("t", "bad", null),
+                    new Edge("t", "slow", null),
+                    new Edge("bad", "end", null),
+                    new Edge("slow", "end", null))))
+        .block();
+    return id;
+  }
+
+  private static final JsonMapper JSON = JsonMapper.builder().build();
+
+  /**
+   * A rules supervisor with a guard's rule document (and extra common settings) owning a session.
+   */
+  private void attach(
+      final String id,
+      final LegacyGuards.Converted rules,
+      final Map<String, Object> common,
+      final String session)
+      throws Exception {
+    final Map<String, Object> settings = new java.util.LinkedHashMap<>(rules.rules());
+    settings.putAll(common);
+    post(
+        "/api/supervisors",
+        JSON.writeValueAsString(Map.of("id", id, "type", "rules", "settings", settings)));
+    final HttpResponse<String> assigned =
+        call(
+            "PUT",
+            "/api/supervisors/" + id + "/assignments",
+            "[{\"target\":\"session:" + session + "\"}]");
+    assertThat(assigned.statusCode()).as(assigned.body()).isEqualTo(200);
+  }
+
+  @Test
+  void failureGuardPausesTheWorkflowAfterTheFirstFailure() throws Exception {
+    final String session = "guard-" + UUID.randomUUID();
+    final String id = "fg-" + UUID.randomUUID().toString().substring(0, 8);
+    attach(
+        id,
+        LegacyGuards.failureGuard(Map.of("failures", 1, "nodes", List.of("bad"))),
+        Map.of(),
+        session);
+    final String workflowId = workflow(session, true);
+
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
+
+    // the guard sees the failure and sends its command, whether or not the run is still alive
+    await()
+        .atMost(WAIT)
+        .untilAsserted(
+            () ->
+                assertThat(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
+                    .contains("PauseWorkflowCommand", executionId));
+  }
+
+  @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.RestartCoordinator - ")
+  void approvalGateThatOwnsTheSessionHoldsRestartsFromPeople() throws Exception {
+    final String session = "gate-" + UUID.randomUUID();
+    final String tag = UUID.randomUUID().toString().substring(0, 8);
+    attach(
+        "ag-" + tag,
+        LegacyGuards.approvalGate(Map.of("commands", List.of("RestartCommand"), "ttl", 60)),
+        Map.of("operatorAccess", List.of("RestartCommand")),
+        session);
+    final String workflowId = workflow(session, false);
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
+
+    // the owner lets people send a restart, and asks for approval before it runs
+    assertThatThrownBy(() -> control.restartWorkflow(executionId).block())
+        .isInstanceOf(ControlAwaitingApprovalException.class);
+    // a stop is never parked for a person
+    gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
+  }
+
+  @Test
+  void stallWatchdogPausesWorkflowThatDoesNothingForTooLong() throws Exception {
+    final String session = "stall-" + UUID.randomUUID();
+    final String id = "sw-" + UUID.randomUUID().toString().substring(0, 8);
+    // the watchdog is a timed rule over whole runs, so it acts on its own: it needs initiative
+    attach(
+        id,
+        LegacyGuards.stallWatchdog(Map.of("maxSilenceSeconds", 1, "checkEverySeconds", 1)),
+        Map.of("initiative", List.of("PauseWorkflowCommand")),
+        session);
+    final String workflowId = workflow(session, false);
+
+    final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
+
+    await()
+        .atMost(WAIT)
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId(executionId).controlState())
+                    .as(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
+                    .isEqualTo("PAUSED"));
+    gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
+  }
+}

@@ -641,7 +641,7 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 - **Catalog and attachments:** a `SupervisorFactory` describes its type (`SupervisorDescriptor`: name, description, category) and its settings (`getConfigSchema()`), which `SupervisorSettingsValidator` checks when a supervisor is saved. A configured `Supervisor` is attached to a scope as a `SupervisorAttachment` with a `SupervisorSource`: `MANUAL`, `DEFINITION` or `SYSTEM`. REST: `/api/supervisor-types`, `/api/supervisors`, `/api/supervisors/attachments`, `/api/supervisors/decisions`; MCP: `SupervisorProvider`.
 - **Declared in definitions:** a session or workflow lists `supervisors`; `DefinitionSupervisors` attaches them on save (source `DEFINITION`), detaches those no longer declared and leaves `MANUAL` attachments alone. A supervisor a definition uses cannot be deleted.
 - Generic types: `failure-guard`, `stall-watchdog`, `approval-gate`, `callout` (was `webhook`; `plugins/supervisors/guards`, `.../webhook`).
-- Reference implementation: `plugins/supervisors/rule-supervisor` (JSON rules + SpEL).
+- Reference implementation: `plugins/supervisors/rules` (JSON rules + SpEL).
 
 **Configure:** `yukta.supervisor.max-commands-per-second` · `yukta.supervisor.dry-run` · `yukta.supervisor.rules.file` · `yukta.supervisor.reserved-slots` · `yukta.supervisor.max-depth` · `yukta.supervisor.max-attachments`
 

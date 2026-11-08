@@ -39,7 +39,7 @@ the **supervisor** (control plane) watches, repairs, and restarts from the faile
 ## Findings: can today's supervisor do this? — No (5 gaps)
 | # | Gap | Evidence |
 |---|---|---|
-| G1 | Rule `then` cannot emit `Restart`/`RestartFromNode` (only Pause/Resume/Stop Workflow/Node). The engine supports them (`RestartFromNodeCommandProcessor`, `RestartCoordinator`, `DirectiveDispatcher.isRestartOfArchived` allows restart of a *finished* run), but `EventRule.commandFor` rejects them. Restart also needs a pre-generated `newExecutionId`. | `plugins/supervisors/rule-supervisor/.../EventRule.java`, `ExecutionControlCommand.RestartFromNodeCommand` |
+| G1 | Rule `then` cannot emit `Restart`/`RestartFromNode` (only Pause/Resume/Stop Workflow/Node). The engine supports them (`RestartFromNodeCommandProcessor`, `RestartCoordinator`, `DirectiveDispatcher.isRestartOfArchived` allows restart of a *finished* run), but `EventRule.commandFor` rejects them. Restart also needs a pre-generated `newExecutionId`. | `plugins/supervisors/rules/.../EventRule.java`, `ExecutionControlCommand.RestartFromNodeCommand` |
 | G2 | No way to say *which exit* a run took. `CONSOLE_TERMINAL` only logs; a failure port routed into it ends the run `COMPLETED`, so success vs "needs restart" vs "unfixable" are indistinguishable from `WorkflowStatusChanged`. | `ConsoleTerminalPlugin`, `routeByExitCode` ports |
 | G3 | Untaken nodes are reported `SUCCESS` (README: "Nodes that were not reached are reported SUCCESS"), so a rule keyed on an exit terminal's `NodeStatusChanged` would false-fire. Needs verification, then a `SKIPPED/NOT_REACHED` status or an explicit outcome event. | `examples/dogfood/README.md` Self-healing section |
 | G4 | Rules are stateless per event: no per-(execution, stage) attempt budget across *restarts* (a restart is a **new** execution id; `count/withinSeconds` is keyed per execution), so a "apply → re-check → still failing" loop cannot be bounded in rules. No lineage between old and new execution. | `RuleSupervisor.countReached` key `rule/executionId` |
@@ -80,7 +80,7 @@ restarts on `RETRY` with `attempt < 2`, escalates otherwise; final `verify` is j
 
 ### 3. Files to change
 - `plugin-api/.../control/ExecutionEvent.java` (+ `OutcomeReported`), tests.
-- `plugins/supervisors/rule-supervisor/.../{EventRule,Fields,When,Then}.java` + `RuleSupervisorTest`.
+- `plugins/supervisors/rules/.../{EventRule,Fields,When,Then}.java` + `RuleSupervisorTest`.
 - `core/.../service/supervisor/SupervisorHost.java` (new-id generation for restart commands; audit field extraction already handles `RestartFromNodeCommand`), `RestartFromNodeCommandProcessor` (attempt lineage).
 - `core/` orchestrator: report unreached nodes `SKIPPED` (G3) — verify first; if invasive, defer and rely on `OUTCOME_TERMINAL`.
 - New `plugins/terminals/outcome-terminal` (copy structure of `notify-terminal`; register in boot).
@@ -92,7 +92,7 @@ restarts on `RETRY` with `attempt < 2`, escalates otherwise; final `verify` is j
 1. G1+G2 (event + terminal + restart rule action) with unit tests → 2. attempt lineage (G4) → 3. rule file + per-stage session + driver script → 4. G3 verification/fix → 5. docs + bugs.mdx → 6. cleanup of unrolled chain.
 
 ## Verification
-- Unit: `./gradlew :plugin-api:test :plugins:supervisors:rule-supervisor:test :core:test --tests '*Restart*' --tests '*SupervisorHost*'` and the new terminal's tests.
+- Unit: `./gradlew :plugin-api:test :plugins:supervisors:rules:test :core:test --tests '*Restart*' --tests '*SupervisorHost*'` and the new terminal's tests.
 - Acceptance: extend `boot/.../SupervisorAcceptanceTest` — stage fails, apply succeeds → rule restarts from node → second execution `COMPLETED` with SUCCESS outcome; apply fails → ESCALATE emitted, no restart; attempt budget stops a third restart.
 - End to end (the three scenarios you listed): on a scratch checkout (1) clean tree → SUCCESS path; (2) introduce a formatting error → apply runs, supervisor restarts from `spotless`, SUCCESS; (3) make `spotlessApply` fail (e.g. syntax error) → ESCALATE, fixer repairs, restart, SUCCESS. Use `yukta-check.sh --watch -m core` and confirm the single `RESULT` line.
 - Finally `./gradlew spotlessApply check` (Tier 4) once.

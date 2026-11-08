@@ -28,6 +28,7 @@ class SupervisionControllerTest {
                 org.mockito.ArgumentMatchers.any()))
         .thenCallRealMethod();
   }
+
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
   private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
       mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);

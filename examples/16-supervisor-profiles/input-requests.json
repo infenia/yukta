@@ -1,6 +1,6 @@
 {
   "id": "input-rules",
-  "type": "rule-supervisor",
+  "type": "rules",
   "dryRun": false,
   "settings": {
     "canAnswer": true,
