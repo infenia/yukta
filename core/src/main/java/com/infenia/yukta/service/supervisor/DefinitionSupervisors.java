@@ -339,6 +339,10 @@ public class DefinitionSupervisors implements DefinitionUsage {
       final @Nullable String sessionId,
       final String field,
       final List<Issue> issues) {
+    if (nodes.stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX))) {
+      issues.add(new Issue(field, SupervisorService.GROUPS_NOT_YET));
+      return;
+    }
     try {
       final SupervisorScope.Section section =
           new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes));

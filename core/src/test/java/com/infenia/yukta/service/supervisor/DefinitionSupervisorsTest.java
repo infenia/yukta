@@ -172,30 +172,18 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void checkRefusesANewVersionThatMakesTwoManualAttachmentsTakeTheSameNode() {
+  void checkRefusesAGroupSelectorUntilItCanBeResolved() {
     supervisor("a");
-    supervisor("b");
-    manual("m1", "a", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("group:ci")));
-    manual("m2", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("deploy")));
-    final WorkflowDefinition regrouped =
-        Fixtures.workflow(
-            "w1",
-            "d",
-            List.of(
-                new WorkflowDefinition.Node("build.compile", "T", Map.of(), "ci", null),
-                new WorkflowDefinition.Node("deploy", "T", Map.of(), "ci", null)),
-            List.of(),
-            List.of());
 
-    StepVerifier.create(declared.check(session(List.of(), regrouped)))
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))
         .assertNext(
             issues ->
                 assertThat(issues)
                     .singleElement()
                     .satisfies(
                         issue -> {
-                          assertThat(issue.field()).isEqualTo("workflows.w1.nodes");
-                          assertThat(issue.message()).contains("node deploy", "owned by");
+                          assertThat(issue.field()).isEqualTo("workflows.w1.supervisors[0].nodes");
+                          assertThat(issue.message()).isEqualTo(SupervisorService.GROUPS_NOT_YET);
                         }))
         .verifyComplete();
   }

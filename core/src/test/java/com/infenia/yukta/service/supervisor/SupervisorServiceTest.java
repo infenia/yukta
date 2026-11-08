@@ -350,32 +350,19 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aGroupAndAPrefixThatTakeTheSameNodeAreRefused() {
-    final var definitions =
-        new com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore();
-    definitions
-        .save(
-            "s",
-            com.infenia.yukta.testing.Fixtures.workflow(
-                "w",
-                "d",
-                List.of(
-                    new com.infenia.yukta.model.workflow.WorkflowDefinition.Node(
-                        "build.test", "CONSTANT_SOURCE", Map.of(), "ci", null)),
-                List.of()))
-        .block();
-    service.setDefinitions(definitions);
-    saveSupervisors("a", "b");
+  void groupSelectorsAreRefusedUntilTheyCanBeResolved() {
+    saveSupervisors("a");
+
     StepVerifier.create(
             service.attach(
                 attachment(
                     "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:ci")), true)))
-        .expectNextCount(1)
-        .verifyComplete();
-
-    expectConflict(
-        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true),
-        "node build.test");
+        .expectErrorSatisfies(
+            error ->
+                org.assertj.core.api.Assertions.assertThat(error)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(SupervisorService.GROUPS_NOT_YET))
+        .verify();
   }
 
   @Test

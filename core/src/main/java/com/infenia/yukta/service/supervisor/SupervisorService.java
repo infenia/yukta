@@ -13,6 +13,7 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -454,6 +455,17 @@ public class SupervisorService {
     this.definitions = workflowDefinitions;
   }
 
+  /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
+  public static final String GROUPS_NOT_YET =
+      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
+          + " such as build.*";
+
+  /** Whether a scope is a section with a {@code group:} selector. */
+  public static boolean usesGroups(final SupervisorScope scope) {
+    return scope instanceof SupervisorScope.Section section
+        && section.nodes().stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX));
+  }
+
   /**
    * Attaches a supervisor to a scope. An enabled attachment starts at once.
    *
@@ -467,6 +479,9 @@ public class SupervisorService {
       SupervisorIds.validate(attachment.id(), "attachment id");
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
+    }
+    if (usesGroups(attachment.scope())) {
+      return Mono.error(new IllegalArgumentException(GROUPS_NOT_YET));
     }
     if (host.isBuiltIn(attachment.id())) {
       return Mono.error(
