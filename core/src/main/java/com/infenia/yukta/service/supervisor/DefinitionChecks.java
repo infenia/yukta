@@ -272,6 +272,17 @@ public final class DefinitionChecks {
     }
   }
 
+  /** The nodes the {@code group:} selectors name in this version of the workflow. */
+  private static Set<String> groupMembers(
+      final List<String> selectors, final WorkflowDefinition workflow) {
+    final WorkflowShape shape = WorkflowShape.from(workflow);
+    final Set<String> members = new HashSet<>();
+    selectors.stream()
+        .filter(selector -> selector.startsWith(WorkflowShape.GROUP_PREFIX))
+        .forEach(selector -> members.addAll(shape.take(selector)));
+    return members;
+  }
+
   private static void checkNodes(
       final List<String> nodes,
       final WorkflowDefinition workflow,
@@ -279,13 +290,10 @@ public final class DefinitionChecks {
       final @Nullable String sessionId,
       final String field,
       final List<Issue> issues) {
-    if (nodes.stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX))) {
-      issues.add(new Issue(field, SupervisorService.GROUPS_NOT_YET));
-      return;
-    }
     try {
       final SupervisorScope.Section section =
-          new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes));
+          new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes))
+              .withGroupMembers(groupMembers(nodes, workflow));
       final boolean any =
           workflow.nodes().stream()
               .anyMatch(node -> section.matches(sessionId, workflow.workflowId(), node.nodeId()));

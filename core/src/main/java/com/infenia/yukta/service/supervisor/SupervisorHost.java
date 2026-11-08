@@ -43,6 +43,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -342,6 +343,16 @@ public class SupervisorHost implements DryRunRecorder {
     } finally {
       lock.unlock();
     }
+  }
+
+  /**
+   * The running supervisor of an attachment.
+   *
+   * @param attachmentId the attachment id
+   * @return it, or empty when it is not running
+   */
+  public Optional<BoundSupervisor> attached(final String attachmentId) {
+    return attachedSupervisors.stream().filter(s -> s.id().equals(attachmentId)).findFirst();
   }
 
   /**

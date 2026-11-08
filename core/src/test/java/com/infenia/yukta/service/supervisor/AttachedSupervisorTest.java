@@ -316,8 +316,10 @@ class AttachedSupervisorTest {
                   new ExecutionEvent.WorkflowStatusChanged(
                       "x", "A", "w", "RUNNING", Instant.now()));
               assertThat(host.decisions("chatty", 1000)).hasSize(500);
+              // the commands land one by one: wait for the last before reading the newest
+              assertThat(host.decisions("chatty", 1000).getFirst().executionId())
+                  .isEqualTo("e599");
             });
-    assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
   }
 
   @Test

@@ -33,6 +33,7 @@ import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
 import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
 import com.infenia.yukta.service.review.BoundSupervisor;
@@ -96,9 +97,9 @@ public class SupervisorService {
   private final AtomicInteger attaching = new AtomicInteger();
 
   /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
-  public static final String GROUPS_NOT_YET =
-      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
-          + " such as build.*";
+  public static final String GROUPS_NEED_SESSION =
+      "Group selectors (group:<name>) need the session: workflow:<sessionId>/<workflowId>//group:"
+          + "<name>";
 
   /** Start of the messages about one supervisor. */
   private static final String SUPERVISOR_PREFIX = "Supervisor ";
@@ -151,6 +152,9 @@ public class SupervisorService {
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
 
+  /** The groups of the stored workflows, for {@code group:} selectors; none in plain tests. */
+  @Nullable private NodeGroupIndex nodeGroups;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -191,6 +195,16 @@ public class SupervisorService {
    */
   public void setDefinitionUsage(final DefinitionUsage usage) {
     this.definitionUsage = usage;
+  }
+
+  /**
+   * Lets {@code group:} selectors match the nodes of the stored workflows.
+   *
+   * @param groups the groups of the stored workflows
+   */
+  @Autowired(required = false)
+  public void setNodeGroups(final NodeGroupIndex groups) {
+    this.nodeGroups = groups;
   }
 
   /**
@@ -682,10 +696,11 @@ public class SupervisorService {
     this.definitions = workflowDefinitions;
   }
 
-  /** Whether a scope is a section with a {@code group:} selector. */
-  public static boolean usesGroups(final SupervisorScope scope) {
+  /** Whether a scope is a section with a {@code group:} selector that does not name its session. */
+  public static boolean groupsWithoutSession(final SupervisorScope scope) {
     return scope instanceof SupervisorScope.Section section
-        && section.nodes().stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX));
+        && section.hasGroups()
+        && section.sessionId() == null;
   }
 
   /**
@@ -702,8 +717,9 @@ public class SupervisorService {
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
     }
-    if (usesGroups(attachment.scope())) {
-      return Mono.error(new IllegalArgumentException(GROUPS_NOT_YET));
+    if (groupsWithoutSession(attachment.scope())) {
+      // a group is the stage nodes of one stored workflow declare, so it is resolved per session
+      return Mono.error(new IllegalArgumentException(GROUPS_NEED_SESSION));
     }
     if (attachment.source() == SupervisorSource.MANUAL
         && attachment.id().startsWith(DefinitionSupervisors.ID_PREFIX)) {
@@ -1047,11 +1063,12 @@ public class SupervisorService {
     if (made instanceof AttachmentAware aware) {
       aware.bindTo(attachment.id());
     }
+    final SupervisorScope owned =
+        nodeGroups == null ? attachment.scope() : nodeGroups.resolve(attachment.scope());
     if (made instanceof ReadsAware reading && queries != null) {
       final SupervisorQueries reads = queries.getIfAvailable();
       if (reads != null) {
-        reading.readsFrom(
-            reads.readsFor(attachment.scope(), () -> host.held(attachment.supervisorId())));
+        reading.readsFrom(reads.readsFor(owned, () -> host.held(attachment.supervisorId())));
       }
     }
     host.attach(
@@ -1060,8 +1077,49 @@ public class SupervisorService {
             made,
             supervisor.dryRun(),
             capabilities(supervisor),
-            Boolean.TRUE.equals(
-                supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL))));
+            Boolean.TRUE.equals(supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL)),
+            owned));
+  }
+
+  /**
+   * Starts again the attachments of a session whose {@code group:} selectors now name other nodes,
+   * after its workflows changed.
+   *
+   * @param sessionId the session
+   * @return completes when done
+   */
+  public Mono<Void> regroup(final String sessionId) {
+    final NodeGroupIndex groups = nodeGroups;
+    if (groups == null) {
+      return Mono.empty();
+    }
+    return store
+        .attachments()
+        .filter(
+            a ->
+                a.enabled()
+                    && a.scope() instanceof SupervisorScope.Section section
+                    && section.hasGroups()
+                    && sessionId.equals(section.sessionId())
+                    && host.attached(a.id())
+                        .map(bound -> !bound.scope().equals(groups.resolve(a.scope())))
+                        .orElse(false))
+        .concatMap(
+            a ->
+                store
+                    .supervisors()
+                    .filter(supervisor -> supervisor.id().equals(a.supervisorId()))
+                    .next()
+                    .doOnNext(supervisor -> start(a, supervisor))
+                    .onErrorResume(
+                        error -> {
+                          log.atWarn()
+                              .setCause(error)
+                              .addKeyValue("attachmentId", a.id())
+                              .log("Could not restart a supervisor whose groups changed");
+                          return Mono.empty();
+                        }))
+        .then();
   }
 
   /** Records an attach or detach with the caller as actor. */

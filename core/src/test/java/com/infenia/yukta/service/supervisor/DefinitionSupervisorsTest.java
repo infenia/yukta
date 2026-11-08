@@ -284,9 +284,10 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void checkRefusesGroupSelectorUntilItCanBeResolved() {
+  void groupSelectorMustNameAGroupOfTheWorkflow() {
     supervisor("a");
 
+    // build.compile and build.test make the group build; there is no group ci
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))
         .assertNext(
             issues ->
@@ -295,8 +296,12 @@ class DefinitionSupervisorsTest {
                     .satisfies(
                         issue -> {
                           assertThat(issue.field()).isEqualTo("workflows.w1.supervisors[0].nodes");
-                          assertThat(issue.message()).isEqualTo(SupervisorService.GROUPS_NOT_YET);
+                          assertThat(issue.message()).contains("selects no node");
                         }))
+        .verifyComplete();
+    StepVerifier.create(
+            declared.check(session(List.of(), workflow("w1", ref("a", "group:build")))))
+        .assertNext(issues -> assertThat(issues).isEmpty())
         .verifyComplete();
   }
 

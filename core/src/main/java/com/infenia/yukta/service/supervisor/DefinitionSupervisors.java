@@ -36,6 +36,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.Disposable;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -103,6 +104,9 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /** True when a declaration failed to attach or detach since the last retry. */
   private final AtomicBoolean anyFailed = new AtomicBoolean();
 
+  /** The groups of the stored workflows, kept current on every reconcile. */
+  @Nullable private NodeGroupIndex nodeGroups;
+
   /** The periodic retry; null until the server is up. */
   @Nullable private Disposable retry;
 
@@ -134,6 +138,16 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /* default */ void register() {
     service.setDefinitionUsage(this);
   }
+  /**
+   * Keeps the groups of the stored workflows current, for {@code group:} selectors.
+   *
+   * @param groups the index
+   */
+  @Autowired(required = false)
+  public void setNodeGroups(final NodeGroupIndex groups) {
+    this.nodeGroups = groups;
+  }
+
 
   /**
    * Reconciles every session again when this server becomes the leader later.
@@ -305,6 +319,10 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return completes when done
    */
   public Mono<Void> forget(final String sessionId) {
+    final NodeGroupIndex groups = nodeGroups;
+    if (groups != null) {
+      groups.forget(sessionId);
+    }
     return store.saveSessionRefs(sessionId, List.of()).then(reconcile(sessionId));
   }
 
@@ -356,7 +374,12 @@ public class DefinitionSupervisors implements DefinitionUsage {
                       .filter(a -> !a.equals(existing.get(a.id())))
                       .concatMap(a -> attachQuietly(sessionId, a))
                       .then();
-              return detach.then(attach);
+              final NodeGroupIndex groups = nodeGroups;
+              final Mono<Void> regroup =
+                  groups != null && groups.put(sessionId, tuple.getT2())
+                      ? service.regroup(sessionId)
+                      : Mono.empty();
+              return regroup.then(detach).then(attach);
             });
   }
 
