@@ -905,7 +905,7 @@ public class InputBroker {
             who.workflowId(),
             who.executionId(),
             who.nodeId(),
-            spec,
+            withRoute(spec, route.name()),
             InputState.OPEN,
             0,
             first.name(),
@@ -917,6 +917,24 @@ public class InputBroker {
             now,
             now);
     return retarget(draft, TierTargets.selectors(draft, first, directory(), List.of()));
+  }
+
+  /** The question with the route it was given, so later steps do not resolve the route again. */
+  private static InputRequestSpec withRoute(final InputRequestSpec spec, final String route) {
+    return new InputRequestSpec(
+        spec.key(),
+        spec.kind(),
+        spec.prompt(),
+        spec.context(),
+        spec.options(),
+        spec.responseSchema(),
+        spec.risk(),
+        spec.audience(),
+        spec.ttl(),
+        spec.onTimeout(),
+        spec.defaultDecision(),
+        route,
+        spec.requester());
   }
 
   /** The same version of a request, with other selectors. */

@@ -92,14 +92,15 @@ public class RouteResolver {
   }
 
   /**
-   * Finds the route of a request.
+   * Finds the route of a request. A request is stamped with its route's name when it is created, so
+   * later steps find the same route whatever the session's tag says by then.
    *
    * @param spec the question, which may name a route
    * @param sessionId the session of the run that asks
    * @return the route; never empty
    */
   public Mono<InputRoute> resolve(final InputRequestSpec spec, final String sessionId) {
-    final InputRoute named = spec.routeName() == null ? null : routes.get(spec.routeName());
+    final InputRoute named = spec.routeName() == null ? null : byName(spec.routeName());
     if (spec.routeName() != null && named == null) {
       return Mono.error(
           new IllegalArgumentException("No input route is called '" + spec.routeName() + "'"));
@@ -110,6 +111,11 @@ public class RouteResolver {
     return sessionRoute(sessionId)
         .map(name -> routes.getOrDefault(name, fallback()))
         .defaultIfEmpty(fallback());
+  }
+
+  /** A route by name; the name of the default route also finds the built-in one. */
+  private @Nullable InputRoute byName(final String name) {
+    return DEFAULT_ROUTE.equals(name) ? fallback() : routes.get(name);
   }
 
   private InputRoute fallback() {
