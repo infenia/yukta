@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.startup;
 
-import com.infenia.yukta.service.session.store.InMemorySessionConfigStore;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.InMemorySessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;

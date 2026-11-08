@@ -30,7 +30,7 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
 
   /** Provider of the on-disk stores. */
   private static final String FILES =
-      "com.infenia.yukta.service.session.store.FileSessionConfigStore";
+      "com.infenia.yukta.service.sessionstore.FileSessionConfigStore";
 
   /** Provider of the PostgreSQL stores and the leader lease. */
   private static final String POSTGRES =

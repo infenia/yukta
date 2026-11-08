@@ -16,7 +16,7 @@ import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.runtime.ControlAudit;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

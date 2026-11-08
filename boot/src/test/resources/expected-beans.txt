@@ -191,10 +191,10 @@ com.infenia.yukta.service.runtime.SchedulerMetrics
 com.infenia.yukta.service.runtime.factory.ExecutionControlFactory
 com.infenia.yukta.service.runtime.store.ActivePluginRegistry
 com.infenia.yukta.service.runtime.store.InMemoryExecutionControlStore
-com.infenia.yukta.service.session.InternalSessions
 com.infenia.yukta.service.session.SessionService
-com.infenia.yukta.service.session.store.InMemorySessionConfigStore
-com.infenia.yukta.service.session.store.SessionConfigStoreConfiguration
+com.infenia.yukta.service.sessionstore.InMemorySessionConfigStore
+com.infenia.yukta.service.sessionstore.InternalSessions
+com.infenia.yukta.service.sessionstore.SessionConfigStoreConfiguration
 com.infenia.yukta.service.store.CheckpointMetrics
 com.infenia.yukta.service.store.InMemoryNodeCheckpointStore
 com.infenia.yukta.service.streaming.DefaultStatusHistoryCache
