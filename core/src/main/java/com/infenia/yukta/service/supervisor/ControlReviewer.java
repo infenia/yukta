@@ -6,11 +6,19 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
+import com.infenia.yukta.plugin.control.Delegation;
+import com.infenia.yukta.plugin.control.DelegationKind;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.service.supervisor.hierarchy.DelegationChain;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
@@ -26,8 +34,14 @@ import reactor.core.publisher.Mono;
 @Component
 public class ControlReviewer {
 
+  /** The {@code via} of a unit that nobody owns. */
+  public static final String DEFAULT_VIA = "default";
+
   /** A unit has one owner; saved data with more is still reviewed, by the lowest id. */
   private static final int OWNERS_PER_UNIT = 1;
+
+  /** The stored supervisors, for their parents; none without it. */
+  private @Nullable SupervisorResolver hierarchy;
 
   /** The supervisors attached at run time; set by Spring, empty without it. */
   private AttachedSupervisors attached = new AttachedSupervisors();
@@ -78,6 +92,16 @@ public class ControlReviewer {
   @Autowired
   public void setAttachedSupervisors(final AttachedSupervisors attachedSupervisors) {
     this.attached = attachedSupervisors;
+  }
+
+  /**
+   * Lets an owner's need for approval go to its parents first.
+   *
+   * @param resolver the stored supervisors
+   */
+  @Autowired(required = false)
+  public void setHierarchy(final SupervisorResolver resolver) {
+    this.hierarchy = resolver;
   }
 
   /**
@@ -170,8 +194,57 @@ public class ControlReviewer {
                 new ReviewVerdict.Controlled(
                     name, name + " controls this. People cannot do this directly."));
           }
-          return ask(List.of(bound), request, satisfied, byPerson);
+          return ask(List.of(bound), request, satisfied, byPerson)
+              .flatMap(verdict -> delegated(bound, request, verdict));
         });
+  }
+
+  /**
+   * An owner's need for approval goes to its parents first, in the mode set for approvals. One that
+   * allows it lets the command through, one that refuses ends it, and when no parent decides (none,
+   * all silent, or a {@code HIGH} risk, which only a person approves) the need stays for a person.
+   */
+  private Mono<ReviewVerdict> delegated(
+      final BoundSupervisor owner, final ControlRequest request, final ReviewVerdict verdict) {
+    if (!(verdict instanceof ReviewVerdict.NeedsApproval needs)
+        || hierarchy == null
+        || needs.need().risk() == InputRisk.HIGH) {
+      return Mono.just(verdict);
+    }
+    final Optional<Supervisor> shell = hierarchy.supervisor(owner.attachment().supervisorId());
+    if (shell.isEmpty() || shell.get().parents().isEmpty()) {
+      return Mono.just(verdict);
+    }
+    final Delegation how = shell.get().delegationFor(DelegationKind.APPROVAL);
+    return DelegationChain.resolve(how, shell.get().parents(), parent -> askParent(parent, request))
+        .map(
+            outcome ->
+                switch (outcome.kind()) {
+                  case ALLOWED -> ReviewVerdict.ALLOWED;
+                  case REFUSED -> new ReviewVerdict.Denied(outcome.by() + ": " + outcome.reason());
+                  case PERSON ->
+                      new ReviewVerdict.NeedsApproval(
+                          needs.need(),
+                          needs.reason() + " (asked " + outcome.asked() + ")",
+                          needs.askedBy());
+                });
+  }
+
+  /** One parent's answer: its own review of the command, if it runs; silent if it does not. */
+  private Mono<DelegationChain.Reply> askParent(final String parent, final ControlRequest request) {
+    return attachedSupervisors()
+        .filter(bound -> bound.attachment().supervisorId().equals(parent))
+        .findFirst()
+        .map(bound -> decide(bound, request))
+        .orElseGet(Mono::empty)
+        .map(
+            decision ->
+                decision.allowed()
+                    ? DelegationChain.Reply.allow()
+                    : decision.requiresApproval()
+                        ? DelegationChain.Reply.noOpinion()
+                        : DelegationChain.Reply.deny(
+                            Objects.requireNonNullElse(decision.reason(), "refused")));
   }
 
   /**
@@ -205,6 +278,54 @@ public class ControlReviewer {
   protected final java.util.stream.Stream<BoundSupervisor> attachedSupervisors() {
     return attached.stream();
   }
+
+  /**
+   * Whether a unit that nobody owns is carried by the default supervisor.
+   *
+   * @return true if it is
+   */
+  public boolean defaultSupervisorEnabled() {
+    return defaultEnabled;
+  }
+
+  /**
+   * What a person may do with a unit, without sending anything: who carries the command and whether
+   * it is allowed. The owner's own review is not asked, so an owner that lists the command may
+   * still refuse it when it is sent.
+   *
+   * @param sessionId the session, or {@code null} for the server
+   * @param workflowId the workflow, or {@code null} for the server
+   * @param nodeId the node, or {@code null} for the run level or the server
+   * @param command a command of the kind asked about
+   * @return who carries it and whether people may send it
+   */
+  public Capability capability(
+      final @Nullable String sessionId,
+      final @Nullable String workflowId,
+      final @Nullable String nodeId,
+      final ExecutionControlCommand command) {
+    final Optional<BoundSupervisor> owner =
+        owner(new ControlRequest(command, null, sessionId, workflowId, nodeId));
+    if (owner.isEmpty()) {
+      return defaultEnabled
+          ? new Capability(true, DEFAULT_VIA, null)
+          : new Capability(
+              false, DEFAULT_VIA, "Nothing owns this and the default supervisor is off");
+    }
+    final String name = owner.get().attachment().supervisorId();
+    return owner.get().capabilities().allowsOperator(command)
+        ? new Capability(true, name, null)
+        : new Capability(false, name, name + " controls this. People cannot do this directly.");
+  }
+
+  /**
+   * Who carries a command and whether people may send it.
+   *
+   * @param allowed whether people may send it
+   * @param via the owning supervisor, or {@code default} for the default supervisor
+   * @param reason why not, or {@code null}
+   */
+  public record Capability(boolean allowed, String via, @Nullable String reason) {}
 
   /**
    * The one supervisor that owns what a command is about: the attached supervisor whose scope takes

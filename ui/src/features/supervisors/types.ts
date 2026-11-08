@@ -12,7 +12,7 @@ export type SupervisorCategory =
   | 'COMPOSITION'
   | 'WORKFLOW';
 
-export type SupervisorKind = 'SUPERVISOR' | 'CONTROL_PLANE' | 'COMPOSITE';
+export type SupervisorKind = 'SUPERVISOR' | 'CONTROL_PLANE';
 
 /** A supervisor type in the catalog. */
 export interface SupervisorTypeSummary {

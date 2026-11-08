@@ -49,11 +49,6 @@ class ControlReviewerTest {
     }
 
     @Override
-    public int order() {
-      return order;
-    }
-
-    @Override
     public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
       return Flux.empty();
     }
@@ -98,11 +93,6 @@ class ControlReviewerTest {
     @Override
     public String id() {
       return "plane";
-    }
-
-    @Override
-    public int order() {
-      return 5;
     }
 
     @Override
@@ -184,8 +174,8 @@ class ControlReviewerTest {
     final ControlReviewer reviewer =
         ControlReviewerFixture.create(
             providerOf(
-                new Reviewer("late", 5, _ -> Mono.just(Decision.ALLOW), asked),
                 new Reviewer("strict", 1, _ -> Mono.just(Decision.deny("nope")), asked),
+                new Reviewer("late", 5, _ -> Mono.just(Decision.ALLOW), asked),
                 new Reviewer("never", 9, _ -> Mono.just(Decision.ALLOW), asked)));
 
     StepVerifier.create(reviewer.review(REQUEST))

@@ -61,10 +61,12 @@ class PluginRuntimeAcceptanceTest {
           Map.entry("PROCESS_EXECUTOR", Map.of("command", List.of("echo", "hi"))),
           Map.entry("CONSOLE_TERMINAL", Map.of()),
           Map.entry("API_TRIGGER", Map.of()),
+          Map.entry("SUPERVISOR_SIGNAL", Map.of()),
           Map.entry("WEBHOOK_TRIGGER", Map.of("path", "p", "secret", "s")),
           Map.entry("CONSTANT_SOURCE", Map.of()),
           Map.entry("KV_STORE", Map.of("op", "put", "key", "k", "namespace", "runtime")),
           Map.entry("OUTCOME_TERMINAL", Map.of("outcome", "SUCCESS")),
+          Map.entry("SUPERVISOR_DECISION", Map.of()),
           Map.entry("SCHEDULE_TRIGGER", Map.of("intervalMs", 1000)));
 
   /** Type to why it has no fixture. */

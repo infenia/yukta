@@ -6,7 +6,6 @@ import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import java.time.Duration;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -46,7 +45,6 @@ public final class PipelineReviewer extends ControlReviewer {
                           supervisor
                               .scope()
                               .matches(request.sessionId(), request.workflowId(), request.nodeId()))
-                  .sorted(Comparator.comparingInt(ExecutionSupervisor::order))
                   .toList();
           return ask(asked, request, satisfied, byPerson);
         });

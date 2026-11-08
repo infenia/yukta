@@ -34,6 +34,19 @@ public class SupervisorCommonSettings {
               SupervisorCapabilities.commandNames(),
               "Command types that people may send through it, which it then reviews; none by"
                   + " default, so people cannot control what it owns"),
+          new ConfigField(
+              SupervisorCapabilities.INITIATIVE,
+              Type.LIST,
+              false,
+              null,
+              SupervisorCapabilities.commandNames(),
+              "Command types it may send with no triggering signal (a timer or its own initiative);"
+                  + " none by default"),
+          ConfigField.optional(
+              SupervisorCapabilities.MAX_INITIATIVE_PER_MINUTE,
+              Type.NUMBER,
+              false,
+              "How many commands without a triggering signal per minute (default 10)"),
           ConfigField.optional(
               SupervisorCapabilities.CAN_ANSWER,
               Type.BOOLEAN,

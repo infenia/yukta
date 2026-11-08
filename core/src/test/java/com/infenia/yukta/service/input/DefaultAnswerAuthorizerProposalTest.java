@@ -54,11 +54,33 @@ class DefaultAnswerAuthorizerProposalTest {
 
   private CommandProposals.Proposal current;
 
-  private final DefaultAnswerAuthorizer authorizer =
-      new DefaultAnswerAuthorizer(
-          mock(ExecutionControlStore.class),
-          new SimpleMeterRegistry(),
-          id -> "r1".equals(id) ? Optional.ofNullable(this.current) : Optional.empty());
+  private final DefaultAnswerAuthorizer authorizer = authorizer();
+
+  private DefaultAnswerAuthorizer authorizer() {
+    final DefaultAnswerAuthorizer made =
+        new DefaultAnswerAuthorizer(
+            mock(ExecutionControlStore.class),
+            new SimpleMeterRegistry(),
+            id -> "r1".equals(id) ? Optional.ofNullable(this.current) : Optional.empty());
+    // section reports to workflow, which reports to wide
+    made.setHierarchy(
+        new EligibleSupervisors() {
+          @Override
+          public List<Candidate> bound() {
+            return List.of();
+          }
+
+          @Override
+          public List<String> parentsOf(final String candidateId) {
+            return switch (candidateId) {
+              case "section" -> List.of("workflow");
+              case "workflow" -> List.of("wide");
+              default -> List.of();
+            };
+          }
+        });
+    return made;
+  }
 
   private static InputRequest request(final String id, final InputRisk risk) {
     return InputTestSupport.request(
@@ -102,7 +124,7 @@ class DefaultAnswerAuthorizerProposalTest {
   }
 
   @Test
-  void supervisorApprovesAnotherSupervisorsCommandOnlyWithStrictlyWiderScope() {
+  void supervisorApprovesAnotherSupervisorsCommandOnlyFromAbove() {
     current = new CommandProposals.Proposal("StopNodeCommand", SECTION_SUPERVISOR, List.of());
     expectAllowed(WORKFLOW_SUPERVISOR, InputRisk.MEDIUM);
     expectAllowed(SESSION_SUPERVISOR, InputRisk.MEDIUM);
@@ -126,7 +148,7 @@ class DefaultAnswerAuthorizerProposalTest {
   }
 
   @Test
-  void proposerWithoutScopeCannotBeCovered() {
+  void aSupervisorThatReportsToNobodyIsOutrankedByNobody() {
     current =
         new CommandProposals.Proposal(
             "StopNodeCommand",

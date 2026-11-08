@@ -3,20 +3,30 @@
 package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo;
+import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
+import com.infenia.yukta.mcp.dto.SupervisorCredential;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
+import com.infenia.yukta.mcp.dto.SupervisorOwnership;
+import com.infenia.yukta.mcp.dto.SupervisorPresetList;
+import com.infenia.yukta.mcp.dto.SupervisorReplay;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
 import com.infenia.yukta.mcp.dto.SupervisorTypeDetails;
 import com.infenia.yukta.mcp.dto.SupervisorTypeList;
+import com.infenia.yukta.mcp.dto.SupervisorVersionList;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
+import com.infenia.yukta.plugin.control.SupervisorContract;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.ConflictException;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -37,6 +47,12 @@ public class SupervisorProvider {
 
   /** Saves, attaches and detaches them. */
   private final SupervisorService service;
+
+  /** The credentials of agent supervisors. */
+  private final AgentCredentials credentials;
+
+  /** Who owns each part of a workflow. */
+  private final OwnershipMap ownership;
 
   /**
    * The supervisors that run, the configured supervisors and the attachments.
@@ -226,5 +242,172 @@ public class SupervisorProvider {
         attachment.scope().key(),
         attachment.enabled(),
         attachment.source().name());
+  }
+
+  /**
+   * The ready-made settings of a type.
+   *
+   * @param type the type
+   * @return its presets
+   */
+  public Mono<SupervisorPresetList> presets(final String type) {
+    return Mono.fromSupplier(
+        () ->
+            new SupervisorPresetList(
+                type,
+                service
+                    .presets(type)
+                    .orElseThrow(
+                        () -> new IllegalArgumentException("Unknown supervisor type: " + type))
+                    .stream()
+                    .map(
+                        p ->
+                            new SupervisorPresetList.Preset(
+                                p.name(), p.description(), p.settings()))
+                    .toList()));
+  }
+
+  /**
+   * The saved states of a supervisor, without their settings.
+   *
+   * @param id the supervisor
+   * @return the versions, newest first
+   */
+  public Mono<SupervisorVersionList> versions(final String id) {
+    return service
+        .versions(id)
+        .map(
+            found ->
+                new SupervisorVersionList(
+                    id,
+                    found.stream()
+                        .map(
+                            v ->
+                                new SupervisorVersionList.Version(
+                                    v.version(),
+                                    v.savedAt().toString(),
+                                    v.supervisor().type(),
+                                    v.supervisor().dryRun(),
+                                    v.supervisor().settings().keySet().stream().sorted().toList()))
+                        .toList()));
+  }
+
+  /**
+   * Makes an earlier state current again.
+   *
+   * @param id the supervisor
+   * @param version the number of the state
+   * @return the supervisor as restored
+   */
+  public Mono<SupervisorSaved> rollback(final String id, final int version) {
+    return service
+        .rollback(id, version)
+        .map(s -> new SupervisorSaved(s.id(), s.type(), s.description(), s.dryRun()));
+  }
+
+  /**
+   * Tries a supervisor on a past run in dry run.
+   *
+   * @param id the supervisor
+   * @param executionId the past run
+   * @param settings draft settings, or {@code null} for the stored ones
+   * @return what it would have sent
+   */
+  public Mono<SupervisorReplay> replay(
+      final String id, final String executionId, final Map<String, Object> settings) {
+    return service
+        .replay(id, settings, executionId)
+        .map(
+            found ->
+                new SupervisorReplay(
+                    id,
+                    executionId,
+                    found.stream()
+                        .map(
+                            d ->
+                                new SupervisorReplay.Decision(
+                                    d.command(),
+                                    d.executionId(),
+                                    d.nodeId(),
+                                    d.cause(),
+                                    d.reason(),
+                                    d.allowed()))
+                        .toList()));
+  }
+
+  /**
+   * Makes the credential of an {@code http} supervisor; an earlier one stops working.
+   *
+   * @param id the supervisor
+   * @param ttlHours hours it works, or {@code null} for no expiry
+   * @return the token, shown once
+   */
+  public Mono<SupervisorCredential> issueCredential(final String id, final Integer ttlHours) {
+    if (ttlHours != null && ttlHours < 1) {
+      return Mono.error(new IllegalArgumentException("ttlHours must be at least 1"));
+    }
+    return service
+        .supervisors()
+        .filter(found -> found.id().equals(id))
+        .next()
+        .switchIfEmpty(Mono.error(new IllegalArgumentException("Unknown supervisor: " + id)))
+        .map(
+            found -> {
+              if (!"http".equals(found.type())) {
+                throw new ConflictException("Only a supervisor of type http has a credential");
+              }
+              final AgentCredentials.Issued issued =
+                  credentials.issue(id, ttlHours == null ? null : Duration.ofHours(ttlHours));
+              return new SupervisorCredential(
+                  id,
+                  issued.token(),
+                  issued.expiresAt() == null ? null : issued.expiresAt().toString());
+            });
+  }
+
+  /**
+   * Cuts the credential of a supervisor at once.
+   *
+   * @param id the supervisor
+   * @return the supervisor id
+   */
+  public Mono<SupervisorDetached> revokeCredential(final String id) {
+    if (!credentials.revoke(id)) {
+      return Mono.error(new IllegalArgumentException("Supervisor " + id + " has no credential"));
+    }
+    return Mono.just(new SupervisorDetached(id, true));
+  }
+
+  /**
+   * The supervisor contract.
+   *
+   * @return its version and the names of its operations
+   */
+  public SupervisorContractInfo contract() {
+    return new SupervisorContractInfo(
+        SupervisorContract.VERSION,
+        SupervisorContract.operations().entrySet().stream()
+            .flatMap(e -> e.getValue().stream().map(op -> e.getKey() + ":" + op))
+            .toList());
+  }
+
+  /**
+   * Who owns the run level and each node of a workflow.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return the owners
+   */
+  public Mono<SupervisorOwnership> ownership(final String sessionId, final String workflowId) {
+    return ownership
+        .of(sessionId, workflowId)
+        .map(
+            found ->
+                new SupervisorOwnership(
+                    found.sessionId(),
+                    found.workflowId(),
+                    found.defaultSupervisor(),
+                    found.run(),
+                    found.nodes()));
   }
 }
