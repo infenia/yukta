@@ -6,8 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.service.session.store.InMemorySessionConfigStore;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
+import com.infenia.yukta.service.sessionstore.InMemorySessionConfigStore;
+import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 

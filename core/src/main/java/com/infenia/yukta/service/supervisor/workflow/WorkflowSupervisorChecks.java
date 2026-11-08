@@ -3,7 +3,7 @@
 package com.infenia.yukta.service.supervisor.workflow;
 
 import com.infenia.yukta.plugin.control.Supervisor;
-import com.infenia.yukta.service.session.InternalSessions;
+import com.infenia.yukta.service.sessionstore.InternalSessions;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;

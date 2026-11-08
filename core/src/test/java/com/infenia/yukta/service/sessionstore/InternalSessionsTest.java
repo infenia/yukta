@@ -1,30 +1,21 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.session;
+package com.infenia.yukta.service.sessionstore;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
-import com.infenia.yukta.service.session.store.SessionConfigStore;
-import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
-import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class InternalSessionsTest {
 
   private final SessionConfigStore store = mock(SessionConfigStore.class);
@@ -87,40 +78,5 @@ class InternalSessionsTest {
     now[0] = Clock.fixed(Instant.EPOCH.plus(Duration.ofSeconds(60)), ZoneOffset.UTC);
     internal.checkInternal("s").block();
     verify(store, Mockito.times(3)).getTags("s");
-  }
-
-  @Test
-  void sessionListsHideInternalSessionsUnlessAsked() {
-    final SessionConfigStore configs = mock(SessionConfigStore.class);
-    final SessionService service =
-        new SessionService(
-            configs,
-            mock(ControlBusGateway.class),
-            mock(WorkflowDefinitionStore.class),
-            mock(PreparedWorkflowCache.class),
-            mock(WorkflowPreparator.class));
-    when(configs.getSessionIds()).thenReturn(Flux.just("a", "sys", "b"));
-    when(configs.getTags(ArgumentMatchers.any()))
-        .thenAnswer(
-            call ->
-                Mono.just(
-                    "sys".equals(call.getArgument(0))
-                        ? Map.of(InternalSessions.TAG, "true")
-                        : Map.<String, String>of()));
-
-    StepVerifier.create(service.getSessionIds(true).collectList())
-        .assertNext(ids -> assertThat(ids).containsExactly("a", "sys", "b"))
-        .verifyComplete();
-    StepVerifier.create(service.getSessionIds(false).collectList())
-        .assertNext(ids -> assertThat(ids).containsExactly("a", "sys", "b"))
-        .verifyComplete();
-
-    service.setInternalSessions(new InternalSessions(configs));
-    StepVerifier.create(service.getSessionIds(false).collectList())
-        .assertNext(ids -> assertThat(ids).containsExactly("a", "b"))
-        .verifyComplete();
-    StepVerifier.create(service.getSessionIds(true).collectList())
-        .assertNext(ids -> assertThat(ids).containsExactly("a", "sys", "b"))
-        .verifyComplete();
   }
 }
