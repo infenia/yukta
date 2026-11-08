@@ -4,7 +4,6 @@ package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -47,7 +46,8 @@ class WorkflowControlProviderTest {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
     tracker = mock(TaskTrackerService.class);
-    when(controlBus.recordAdminAction(any(), any(), anyBoolean(), any())).thenReturn(Mono.empty());
+    when(controlBus.reviewedAdmin(any(), any(), any()))
+        .thenAnswer(call -> ((java.util.function.Supplier<Mono<?>>) call.getArgument(2)).get());
     provider =
         new WorkflowControlProvider(
             controlBus,
