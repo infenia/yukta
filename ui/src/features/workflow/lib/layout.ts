@@ -53,7 +53,7 @@ export const DEFAULT_NODE_HEIGHT = 56;
 /** Vertical room for one output port, and the padding above the first and below the last. */
 export const PORT_ROW = 22;
 export const NODE_PAD = 10;
-const MAX_NODE_WIDTH = 300;
+const MAX_NODE_WIDTH = 320;
 /** A closed stage has one input and one output, so a fixed size is enough. */
 const STAGE_SIZE = { width: 200, height: 64 };
 
@@ -82,7 +82,7 @@ export function nodeSize(node: WorkflowGraphNode): {
   return {
     width: Math.min(
       MAX_NODE_WIDTH,
-      Math.max(DEFAULT_NODE_WIDTH, 112 + longest * 7)
+      Math.max(DEFAULT_NODE_WIDTH, 150 + longest * 7.5)
     ),
     height: Math.max(DEFAULT_NODE_HEIGHT, ports * PORT_ROW + 2 * NODE_PAD),
   };
