@@ -134,8 +134,7 @@ public record SupervisorCapabilities(
   }
 
   private static Set<String> operators(final @Nullable Object value) {
-    final Set<String> listed = commands(value, Set.of());
-    return listed == null ? Set.of() : listed;
+    return Objects.requireNonNullElse(commands(value, Set.of()), Set.of());
   }
 
   /**

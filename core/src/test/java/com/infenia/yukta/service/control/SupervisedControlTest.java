@@ -17,6 +17,7 @@ import java.util.Map;
 import java.util.function.Function;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -66,31 +67,49 @@ class SupervisedControlTest {
       new SupervisedControl(gateway, dispatcher, scheduler, resumer);
 
   @Test
-  void drainRefusesStartsAndIsAuditedAsAnOperatorAction() {
+  void drainIsReviewedAsAServerCommandAndRefusesStartsWhenApplied() {
     StepVerifier.create(control.drain(true)).verifyComplete();
 
+    assertThat(seen).containsExactly("reviewedAdmin:OPERATOR");
+    final var command = ArgumentCaptor.forClass(ExecutionControlCommand.class);
+    final var action = ArgumentCaptor.forClass(java.util.function.Supplier.class);
+    Mockito.verify(gateway).reviewedAdmin(command.capture(), Mockito.eq("Drain"), action.capture());
+    assertThat(command.getValue()).isEqualTo(new ExecutionControlCommand.DrainCommand(true));
+    StepVerifier.create((Mono<?>) action.getValue().get()).verifyComplete();
     Mockito.verify(scheduler).setDraining(true);
-    Mockito.verify(gateway).recordAdminAction("Drain", "server", true, null);
-    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
   }
 
   @Test
-  void undrainAdmitsStartsAgainAndIsAuditedAsAnOperatorAction() {
+  void undrainAdmitsStartsAgain() {
     StepVerifier.create(control.drain(false)).verifyComplete();
 
+    final var action = ArgumentCaptor.forClass(java.util.function.Supplier.class);
+    Mockito.verify(gateway)
+        .reviewedAdmin(
+            Mockito.eq(new ExecutionControlCommand.DrainCommand(false)),
+            Mockito.eq("Undrain"),
+            action.capture());
+    StepVerifier.create((Mono<?>) action.getValue().get()).verifyComplete();
     Mockito.verify(scheduler).setDraining(false);
-    Mockito.verify(gateway).recordAdminAction("Undrain", "server", true, null);
-    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
   }
 
   @Test
-  void recoverContinuesTheAbortedRunAsNewOneAndIsAudited() {
+  @SuppressWarnings("unchecked")
+  void recoverIsReviewedAndContinuesTheAbortedRunAsANewOne() {
     Mockito.when(resumer.resume("old")).thenReturn(Mono.just("new"));
 
-    StepVerifier.create(control.recover("old")).expectNext("new").verifyComplete();
+    StepVerifier.create(control.recover("old")).verifyComplete();
 
-    Mockito.verify(gateway).recordAdminAction("Recover", "old", true, null);
-    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
+    assertThat(seen).containsExactly("reviewedAdmin:OPERATOR");
+    final var action = ArgumentCaptor.forClass(java.util.function.Supplier.class);
+    Mockito.verify(gateway)
+        .reviewedAdmin(
+            Mockito.eq(new ExecutionControlCommand.RecoverCommand("old")),
+            Mockito.eq("Recover"),
+            action.capture());
+    StepVerifier.create(((Mono<Object>) action.getValue().get()))
+        .expectNext("new")
+        .verifyComplete();
   }
 
   @Test

@@ -101,7 +101,25 @@ class SupervisorCapabilitiesTest {
                     java.util.Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
                         .map(Class::getSimpleName)
                         .toList())));
-    assertThat(caps.allowedCommands()).hasSize(18);
+    assertThat(caps.allowedCommands()).hasSize(20);
+  }
+
+  @Test
+  void operatorAccessIsNoneUnlessCommandsAreListed() {
+    final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
+    final SupervisorCapabilities listed =
+        SupervisorCapabilities.from(
+            profile(Map.of("operatorAccess", java.util.List.of("PauseWorkflowCommand"))));
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+    final ExecutionControlCommand resume = new ExecutionControlCommand.ResumeWorkflowCommand("e");
+
+    assertThat(none.operatorAccess()).isEmpty();
+    assertThat(none.allowsOperator(pause)).isFalse();
+    assertThat(listed.allowsOperator(pause)).isTrue();
+    assertThat(listed.allowsOperator(resume)).isFalse();
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW).operatorAccess()).isEmpty();
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW, null).operatorAccess())
+        .isEmpty();
   }
 
   @Test

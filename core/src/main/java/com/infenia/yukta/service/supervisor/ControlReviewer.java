@@ -23,6 +23,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Asks every {@link ExecutionSupervisor} whether a control command may run. */
@@ -171,12 +172,39 @@ public class ControlReviewer {
                 new ReviewVerdict.Controlled(
                     name, name + " controls this. People cannot do this directly."));
           }
-          return decide(bound, request)
-              .map(decision -> new Vote(bound.id(), decision))
-              .filter(vote -> !vote.decision().allowed() && !vote.satisfiedBy(satisfied))
-              .map(vote -> combine(request, List.of(vote), byPerson))
-              .defaultIfEmpty(ReviewVerdict.ALLOWED);
+          return ask(List.of(bound), request, satisfied, byPerson);
         });
+  }
+
+  /**
+   * Asks the given supervisors in order and combines their answers: the first refusal ends the
+   * review and wins over any need for approval, and several needs merge into one. Production asks
+   * the owner only; the same pipeline will ask a chain of parents when delegation arrives.
+   *
+   * @param reviewers who to ask, in order
+   * @param request the command and who sent it
+   * @param satisfied the supervisors whose approval request for this command was approved
+   * @param byPerson whether a person (not a supervisor) sent the command
+   * @return the combined verdict
+   */
+  protected Mono<ReviewVerdict> ask(
+      final List<? extends ExecutionSupervisor> reviewers,
+      final ControlRequest request,
+      final Set<String> satisfied,
+      final boolean byPerson) {
+    return Flux.fromIterable(reviewers)
+        .concatMap(
+            supervisor ->
+                decide(supervisor, request).map(decision -> new Vote(supervisor.id(), decision)))
+        .filter(vote -> !vote.decision().allowed() && !vote.satisfiedBy(satisfied))
+        .takeUntil(vote -> !vote.decision().requiresApproval())
+        .collectList()
+        .map(votes -> combine(request, votes, byPerson));
+  }
+
+  /** The supervisors attached at run time, for a reviewer that selects differently. */
+  protected final java.util.stream.Stream<BoundSupervisor> attachedSupervisors() {
+    return attached.stream();
   }
 
   /**

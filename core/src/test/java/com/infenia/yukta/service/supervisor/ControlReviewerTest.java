@@ -114,7 +114,7 @@ class ControlReviewerTest {
   @Test
   void settingsBuildReviewerThatStillRefusesWhenNotDryRun() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())),
             YuktaSettings.bind(Map.of("yukta.supervisor.review-timeout", "2s")));
     final ControlRequest request =
@@ -229,7 +229,7 @@ class ControlReviewerTest {
   @Test
   void review_hungSupervisor_refusesTheCommandAfterTheTimeout() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
             Duration.ofMillis(50));
 
@@ -241,7 +241,7 @@ class ControlReviewerTest {
   @Test
   void review_hungSupervisor_stillLetsStopThrough() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
             Duration.ofMillis(50));
 

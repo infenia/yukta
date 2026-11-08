@@ -50,7 +50,8 @@ public final class ControlEntryRules {
           "changePriority",
           "answerInput",
           "escalateInput",
-          "recordAdminAction");
+          "recordAdminAction",
+          "reviewedAdmin");
 
   private static final Set<String> DISPATCH = Set.of("dispatchOrdered", "dispatch");
 
