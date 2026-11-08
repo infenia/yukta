@@ -147,16 +147,19 @@ public class RestartFromNodeCommandProcessor {
           registry.remove(control.executionId());
         });
 
-    orchestrator
-        .restartFromNode(
-            archived.sessionId(),
-            archived.workflowId(),
-            restart.executionId(),
+    completionSink
+        .reportingStart(
             restart.newExecutionId(),
-            archived.prepared(),
-            restart.fromNodeId(),
-            outputs,
-            admission)
+            orchestrator.restartFromNode(
+                archived.sessionId(),
+                archived.workflowId(),
+                restart.executionId(),
+                restart.newExecutionId(),
+                archived.prepared(),
+                restart.fromNodeId(),
+                outputs,
+                admission),
+            () -> registry.findByExecutionId(restart.newExecutionId()).isPresent())
         .subscribeOn(Schedulers.boundedElastic())
         .doOnError(
             err ->
@@ -174,7 +177,6 @@ public class RestartFromNodeCommandProcessor {
         .addKeyValue("fromNodeId", restart.fromNodeId())
         .addKeyValue("definitionVersion", archived.definitionVersion())
         .log("Restarted execution from node");
-    completionSink.completeRestartSuccess(restart.newExecutionId());
     return Mono.empty();
   }
 }
