@@ -11,6 +11,7 @@ lombok = "9.8.2"
 mapstruct = "1.6.3"
 springAi = "2.0.0"
 springdoc = "3.2.0"
+swagger-annotations = "2.2.55"
 lombokMapstructBinding = "0.2.0"
 checkstyle = "13.2.0"
 pmd = "7.21.0"
@@ -58,6 +59,7 @@ spring-ai-client-chat = { group = "org.springframework.ai", name = "spring-ai-cl
 spring-ai-openai = { group = "org.springframework.ai", name = "spring-ai-openai" }
 spring-ai-anthropic = { group = "org.springframework.ai", name = "spring-ai-anthropic" }
 spring-ai-ollama = { group = "org.springframework.ai", name = "spring-ai-ollama" }
+swagger-annotations = { group = "io.swagger.core.v3", name = "swagger-annotations-jakarta", version.ref = "swagger-annotations" }
 springdoc-openapi = { group = "org.springdoc", name = "springdoc-openapi-starter-webflux-ui", version.ref = "springdoc" }
 handlebars = { group = "com.github.jknack", name = "handlebars", version.ref = "handlebars" }
 graalvm-polyglot = { group = "org.graalvm.polyglot", name = "polyglot", version.ref = "graalvmPolyglot" }
