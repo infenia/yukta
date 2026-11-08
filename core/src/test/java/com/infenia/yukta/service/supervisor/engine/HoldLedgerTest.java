@@ -10,12 +10,13 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeWorkflowCo
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopWorkflowCommand;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
 class HoldLedgerTest {
 
   private final HoldLedger ledger = new HoldLedger();
 
   @Test
-  void aPauseIsHeldUntilTheRunIsResumedOrStopped() {
+  void pauseIsHeldUntilTheRunIsResumedOrStopped() {
     ledger.applied("s", new PauseWorkflowCommand("a"));
     ledger.applied("s", new PauseWorkflowCommand("b"));
     ledger.applied("s", new PauseWorkflowCommand("c"));
@@ -37,7 +38,7 @@ class HoldLedgerTest {
   }
 
   @Test
-  void aSupervisorHoldsAtMostAThousandRunsAndTheNewestPauseIsKept() {
+  void supervisorHoldsAtMostThousandRunsAndTheNewestPauseIsKept() {
     for (int i = 0; i < HoldLedger.MAX_PER_SUPERVISOR + 5; i++) {
       ledger.applied("s", new PauseWorkflowCommand("r" + i));
     }

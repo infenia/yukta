@@ -3,12 +3,12 @@
 package com.infenia.yukta.service.supervisor.engine;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.SequencedSet;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * The executions each supervisor paused, so "resume held" resumes only those and never a run that a
@@ -19,7 +19,8 @@ public final class HoldLedger {
   /** Most executions remembered per supervisor. */
   public static final int MAX_PER_SUPERVISOR = 1000;
 
-  private final Map<String, Set<String>> held = new ConcurrentHashMap<>();
+  private final Map<String, SequencedSet<String>> bySupervisor = new HashMap<>(); // NOPMD - locked
+  private final ReentrantLock lock = new ReentrantLock();
 
   /**
    * Notes a command a supervisor applied: a pause adds the run, a resume or a stop removes it.
@@ -29,18 +30,7 @@ public final class HoldLedger {
    */
   public void applied(final String supervisorId, final ExecutionControlCommand command) {
     switch (command) {
-      case ExecutionControlCommand.PauseWorkflowCommand pause -> {
-        final Set<String> mine =
-            held.computeIfAbsent(
-                supervisorId, id -> Collections.synchronizedSet(new LinkedHashSet<>()));
-        synchronized (mine) {
-          mine.add(pause.executionId());
-          // ponytail: no end-of-run hook; the oldest entry (most likely a finished run) goes first
-          if (mine.size() > MAX_PER_SUPERVISOR) {
-            mine.remove(mine.iterator().next());
-          }
-        }
-      }
+      case ExecutionControlCommand.PauseWorkflowCommand pause -> hold(supervisorId, pause);
       case ExecutionControlCommand.ResumeWorkflowCommand resume ->
           release(supervisorId, resume.executionId());
       case ExecutionControlCommand.StopWorkflowCommand stop ->
@@ -51,32 +41,51 @@ public final class HoldLedger {
     }
   }
 
-  /**
-   * The executions a supervisor paused and has not resumed.
-   *
-   * @param supervisorId the supervisor
-   * @return their ids, oldest first
-   */
-  public List<String> held(final String supervisorId) {
-    final Set<String> mine = held.get(supervisorId);
-    if (mine == null) {
-      return List.of();
-    }
-    synchronized (mine) {
-      return List.copyOf(mine);
+  private void hold(final String supervisorId, final ExecutionControlCommand pause) {
+    lock.lock();
+    try {
+      final SequencedSet<String> mine =
+          bySupervisor.computeIfAbsent(supervisorId, id -> new LinkedHashSet<>());
+      mine.add(pause.executionId());
+      // ponytail: no end-of-run hook; the oldest entry (most likely a finished run) goes first
+      if (mine.size() > MAX_PER_SUPERVISOR) {
+        mine.removeFirst();
+      }
+    } finally {
+      lock.unlock();
     }
   }
 
   /**
-   * Forgets one held execution.
+   * The executions a supervisor holds, oldest first.
    *
    * @param supervisorId the supervisor
-   * @param executionId the run
+   * @return their ids
+   */
+  public List<String> held(final String supervisorId) {
+    lock.lock();
+    try {
+      return List.copyOf(bySupervisor.getOrDefault(supervisorId, new LinkedHashSet<>()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Forgets one execution of a supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @param executionId the execution
    */
   public void release(final String supervisorId, final String executionId) {
-    final Set<String> mine = held.get(supervisorId);
-    if (mine != null) {
-      mine.remove(executionId);
+    lock.lock();
+    try {
+      final SequencedSet<String> mine = bySupervisor.get(supervisorId);
+      if (mine != null) {
+        mine.remove(executionId);
+      }
+    } finally {
+      lock.unlock();
     }
   }
 }

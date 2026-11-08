@@ -144,7 +144,8 @@ public final class DirectiveGate {
       final Directive.Command directive,
       final SupervisorCapabilities capabilities,
       final boolean dryRun) {
-    if (directive.reason() == null || directive.reason().isBlank()) {
+    final String reason = directive.reason();
+    if (reason == null || reason.isBlank()) {
       return Rejection.REASON_REQUIRED;
     }
     if (!capabilities.mayInitiate(directive.command())) {

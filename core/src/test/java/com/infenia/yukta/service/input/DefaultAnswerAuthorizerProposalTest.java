@@ -27,6 +27,7 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert"
 })
@@ -148,7 +149,7 @@ class DefaultAnswerAuthorizerProposalTest {
   }
 
   @Test
-  void aSupervisorThatReportsToNobodyIsOutrankedByNobody() {
+  void supervisorThatReportsToNobodyIsOutrankedByNobody() {
     current =
         new CommandProposals.Proposal(
             "StopNodeCommand",

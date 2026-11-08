@@ -26,6 +26,7 @@ import org.springframework.beans.factory.ObjectProvider;
 
 /** The directory lists the attached supervisors with their scope. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AttachedSupervisorsDirectoryTest {
 
   private static final InputRequest REQUEST =

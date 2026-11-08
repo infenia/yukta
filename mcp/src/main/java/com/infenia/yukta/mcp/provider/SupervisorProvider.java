@@ -400,7 +400,7 @@ public class SupervisorProvider {
    */
   public Mono<SupervisorOwnership> ownership(final String sessionId, final String workflowId) {
     return ownership
-        .of(sessionId, workflowId)
+        .ownersOf(sessionId, workflowId)
         .map(
             found ->
                 new SupervisorOwnership(

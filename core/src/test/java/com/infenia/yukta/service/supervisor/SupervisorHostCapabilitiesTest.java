@@ -42,6 +42,7 @@ import reactor.util.context.ContextView;
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
+  "PMD.NonStaticInitializer",
   "PMD.TooManyStaticImports"
 })
 class SupervisorHostCapabilitiesTest {

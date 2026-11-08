@@ -14,6 +14,9 @@ import reactor.core.publisher.Mono;
 @Component
 public class OwnershipMap {
 
+  private final ControlReviewer reviewer;
+  private final WorkflowDefinitionStore definitions;
+
   /**
    * The owners of a workflow.
    *
@@ -36,9 +39,6 @@ public class OwnershipMap {
     }
   }
 
-  private final ControlReviewer reviewer;
-  private final WorkflowDefinitionStore definitions;
-
   /**
    * Creates the map.
    *
@@ -57,7 +57,7 @@ public class OwnershipMap {
    * @param workflowId the workflow
    * @return the owners; errors with {@link NotFoundException} for an unknown workflow
    */
-  public Mono<Ownership> of(final String sessionId, final String workflowId) {
+  public Mono<Ownership> ownersOf(final String sessionId, final String workflowId) {
     return definitions
         .find(sessionId, workflowId)
         .switchIfEmpty(
@@ -65,7 +65,7 @@ public class OwnershipMap {
                 new NotFoundException("Workflow not found: " + sessionId + "/" + workflowId)))
         .map(
             definition -> {
-              final Map<String, String> nodes = new LinkedHashMap<>();
+              final Map<String, String> nodes = new LinkedHashMap<>(); // NOPMD - local, ordered
               definition
                   .nodes()
                   .forEach(

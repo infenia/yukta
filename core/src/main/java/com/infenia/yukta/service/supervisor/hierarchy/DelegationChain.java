@@ -42,6 +42,11 @@ public final class DelegationChain {
   public record Outcome(
       Kind kind, @Nullable String by, @Nullable String reason, List<String> asked) {
 
+    /** Keeps an unmodifiable copy of the parents asked. */
+    public Outcome {
+      asked = List.copyOf(asked);
+    }
+
     /** Who decided. */
     public enum Kind {
       /** A parent allowed it. */
@@ -122,7 +127,8 @@ public final class DelegationChain {
   }
 
   private static String line(final Asked reply) {
-    return reply.parent() + ":" + (reply.answer() == null ? "silent" : reply.answer().name());
+    final Answer answer = reply.answer();
+    return reply.parent() + ":" + (answer == null ? "silent" : answer.name());
   }
 
   private static Mono<Outcome> ordered(

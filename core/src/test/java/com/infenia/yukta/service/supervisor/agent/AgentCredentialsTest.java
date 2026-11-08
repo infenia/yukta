@@ -10,10 +10,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 class AgentCredentialsTest {
 
   @Test
-  void aTokenFindsItsSupervisorUntilItIsRevoked() {
+  void tokenFindsItsSupervisorUntilItIsRevoked() {
     final AgentCredentials credentials = new AgentCredentials();
     final AgentCredentials.Issued issued = credentials.issue("a1", null);
 
@@ -95,7 +96,7 @@ class AgentCredentialsTest {
   }
 
   @Test
-  void aStoredCredentialSurvivesARestartUntilItIsRevoked() {
+  void storedCredentialSurvivesRestartUntilItIsRevoked() {
     final MapStore store = new MapStore();
     final AgentCredentials first = new AgentCredentials();
     first.setStore(store);
@@ -113,7 +114,7 @@ class AgentCredentialsTest {
   }
 
   @Test
-  void anExpiredStoredCredentialIsNotLoadedAndAFailingStoreDoesNotBreakIssuing() {
+  void anExpiredStoredCredentialIsNotLoadedAndFailingStoreDoesNotBreakIssuing() {
     final MapStore store = new MapStore();
     store.rows.put(
         "old", new AgentCredentialStore.Stored("old", "h", Instant.parse("2020-01-01T00:00:00Z")));
@@ -148,7 +149,7 @@ class AgentCredentialsTest {
   }
 
   @Test
-  void aCredentialTiedToAddressesWorksOnlyFromThem() {
+  void credentialTiedToAddressesWorksOnlyFromThem() {
     final AgentCredentials credentials = new AgentCredentials();
     final String token =
         credentials.issue("a1", null, java.util.Set.of("10.0.0.5", "10.0.0.6")).token();

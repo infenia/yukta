@@ -21,7 +21,7 @@ import reactor.test.StepVerifier;
  * Each mode with allowing, refusing, silent and slow parents; a refusal is final in all of them.
  */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.TooManyMethods"})
 class DelegationChainTest {
 
   private static final Duration SHORT = Duration.ofMillis(100);

@@ -21,6 +21,10 @@ public final class SupervisorVersions {
   /** Most versions kept per supervisor. */
   public static final int KEPT = 20;
 
+  private final Clock clock;
+  // each value is an immutable list, replaced whole, so a read needs no lock
+  private final Map<String, List<Version>> history = new ConcurrentHashMap<>();
+
   /**
    * One saved state.
    *
@@ -29,9 +33,6 @@ public final class SupervisorVersions {
    * @param supervisor the supervisor as saved
    */
   public record Version(int version, Instant savedAt, Supervisor supervisor) {}
-
-  private final Clock clock;
-  private final Map<String, Deque<Version>> history = new ConcurrentHashMap<>();
 
   /** Creates the history with the system clock. */
   public SupervisorVersions() {
@@ -56,17 +57,18 @@ public final class SupervisorVersions {
     history.compute(
         supervisor.id(),
         (id, versions) -> {
-          final Deque<Version> kept = versions == null ? new ArrayDeque<>() : versions;
-          final Version newest = kept.peekFirst();
-          if (newest == null || !newest.supervisor().equals(supervisor)) {
-            kept.addFirst(
-                new Version(
-                    newest == null ? 1 : newest.version() + 1, clock.instant(), supervisor));
-            while (kept.size() > KEPT) {
-              kept.removeLast();
-            }
+          final List<Version> kept = versions == null ? List.of() : versions;
+          final Version newest = kept.isEmpty() ? null : kept.getFirst();
+          if (newest != null && newest.supervisor().equals(supervisor)) {
+            return kept;
           }
-          return kept;
+          final Deque<Version> next = new ArrayDeque<>(kept);
+          next.addFirst(
+              new Version(newest == null ? 1 : newest.version() + 1, clock.instant(), supervisor));
+          while (next.size() > KEPT) {
+            next.removeLast();
+          }
+          return List.copyOf(next);
         });
   }
 
@@ -77,13 +79,7 @@ public final class SupervisorVersions {
    * @return newest first; empty for an unknown supervisor
    */
   public List<Version> list(final String id) {
-    final Deque<Version> versions = history.get(id);
-    if (versions == null) {
-      return List.of();
-    }
-    synchronized (versions) {
-      return List.copyOf(versions);
-    }
+    return history.getOrDefault(id, List.of());
   }
 
   /**

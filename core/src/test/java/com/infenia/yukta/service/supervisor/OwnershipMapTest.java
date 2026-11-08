@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings("PMD.TooManyStaticImports")
 class OwnershipMapTest {
 
   private final ControlReviewer reviewer = mock(ControlReviewer.class);
@@ -47,7 +48,7 @@ class OwnershipMapTest {
             eq("s"), eq("w"), eq(null), any(ExecutionControlCommand.PauseWorkflowCommand.class)))
         .thenReturn(new ControlReviewer.Capability(true, "run-owner", null));
 
-    StepVerifier.create(map.of("s", "w"))
+    StepVerifier.create(map.ownersOf("s", "w"))
         .assertNext(
             owned -> {
               assertThat(owned.run()).isEqualTo("run-owner");
@@ -61,6 +62,6 @@ class OwnershipMapTest {
   @Test
   void anUnknownWorkflowIsNotFound() {
     when(definitions.find("s", "nope")).thenReturn(Mono.empty());
-    StepVerifier.create(map.of("s", "nope")).expectError(NotFoundException.class).verify();
+    StepVerifier.create(map.ownersOf("s", "nope")).expectError(NotFoundException.class).verify();
   }
 }

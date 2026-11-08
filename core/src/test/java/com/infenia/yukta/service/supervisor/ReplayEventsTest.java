@@ -10,10 +10,11 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class ReplayEventsTest {
 
   @Test
-  void aRunBecomesItsStatusEvents() {
+  void runBecomesItsStatusEvents() {
     final List<ExecutionEvent> events =
         ReplayEvents.from(
             List.of(

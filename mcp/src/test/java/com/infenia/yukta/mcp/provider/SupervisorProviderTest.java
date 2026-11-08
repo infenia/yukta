@@ -438,7 +438,7 @@ class SupervisorProviderTest {
 
   @Test
   void ownershipIsTheMapsAnswer() {
-    when(ownership.of("s", "w"))
+    when(ownership.ownersOf("s", "w"))
         .thenReturn(
             Mono.just(
                 new OwnershipMap.Ownership(

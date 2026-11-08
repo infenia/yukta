@@ -16,6 +16,9 @@ import java.util.List;
 @FunctionalInterface
 public interface EligibleSupervisors {
 
+  /** How many levels of parents are followed. */
+  int MAX_LEVELS = 4;
+
   /** Knows no supervisor. */
   EligibleSupervisors NONE = List::of;
 
@@ -69,10 +72,7 @@ public interface EligibleSupervisors {
   default boolean outranks(final String higherId, final String lowerId) {
     List<String> level = List.of(lowerId);
     for (int depth = 0; depth < MAX_LEVELS && !level.isEmpty(); depth++) {
-      final List<String> next = new java.util.ArrayList<>();
-      for (final String id : level) {
-        next.addAll(parentsOf(id));
-      }
+      final List<String> next = level.stream().flatMap(id -> parentsOf(id).stream()).toList();
       if (next.contains(higherId)) {
         return true;
       }
@@ -80,7 +80,4 @@ public interface EligibleSupervisors {
     }
     return false;
   }
-
-  /** How many levels of parents are followed. */
-  int MAX_LEVELS = 4;
 }

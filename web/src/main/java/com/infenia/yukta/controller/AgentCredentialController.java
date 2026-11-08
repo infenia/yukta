@@ -64,7 +64,7 @@ public class AgentCredentialController {
         .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
         .map(
             found -> {
-              if (!HttpEngineFactory.TYPE.equals(found.type())) {
+              if (!HttpEngineFactory.HTTP_TYPE.equals(found.type())) {
                 throw new ConflictException("Only a supervisor of type http has a credential");
               }
               final AgentCredentials.Issued issued =

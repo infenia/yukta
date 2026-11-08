@@ -70,7 +70,12 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 public class SupervisorHost {
 
   /** Events handed to the supervisor's thread at a time. */
@@ -327,11 +332,12 @@ public class SupervisorHost {
   }
 
   /** Releases what an engine holds when its supervisor is detached. */
+  @SuppressWarnings("PMD.CloseResource") // closing it is the point; the host does not own it
   private static void close(final BoundSupervisor removed) {
     if (removed.delegate() instanceof AutoCloseable closeable) {
       try {
         closeable.close();
-      } catch (Exception e) {
+      } catch (Exception e) { // NOPMD - AutoCloseable.close throws Exception; a detach goes on
         log.atWarn()
             .setCause(e)
             .addKeyValue(SUPERVISOR_KEY, removed.id())
@@ -546,7 +552,8 @@ public class SupervisorHost {
                       supervisor.scope(),
                       true,
                       recordOnly);
-              if (decision.rejection() == null) {
+              final DirectiveGate.Rejection rejection = decision.rejection();
+              if (rejection == null) {
                 return preconditionHolds(directive, target)
                     .flatMap(
                         holds ->
@@ -561,9 +568,9 @@ public class SupervisorHost {
               }
               return notApplied(
                       supervisor.id(),
-                      decision.rejection().name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                      rejection.name().toLowerCase(Locale.ROOT).replace('_', '-'),
                       directive.command(),
-                      "refused: " + decision.rejection() + " (" + directive.cause().text() + ")")
+                      "refused: " + rejection + " (" + directive.cause().text() + ")")
                   .then(Mono.<ExecutionControlCommand>empty());
             });
   }

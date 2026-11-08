@@ -108,7 +108,7 @@ class SupervisionControllerTest {
     final var owned =
         new com.infenia.yukta.service.supervisor.OwnershipMap.Ownership(
             "s", "w", true, "default", java.util.Map.of("build.a", "guard"));
-    when(ownership.of("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
+    when(ownership.ownersOf("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
 
     StepVerifier.create(controller.ownership("s", "w"))
         .assertNext(r -> assertThat(r.data()).isEqualTo(owned))

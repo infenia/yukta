@@ -102,8 +102,8 @@ public class SupervisorQueries {
       final SupervisorScope scope, final String sessionId, final String workflowId) {
     return scope.matches(sessionId, workflowId)
         || scope instanceof SupervisorScope.Section section
-            && section.workflowId().equals(workflowId)
-            && (section.sessionId() == null || section.sessionId().equals(sessionId));
+            && workflowId.equals(section.workflowId())
+            && (section.sessionId() == null || sessionId.equals(section.sessionId()));
   }
 
   /**

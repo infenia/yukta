@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
  * A supervisor that keeps turning one target around is stopped; others and other targets are not.
  */
 @NoArgsConstructor
+@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
 class TurnAroundGuardTest {
 
   private static final Duration PERIOD = Duration.ofSeconds(60);

@@ -29,9 +29,13 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-/** Asks every {@link ExecutionSupervisor} whether a control command may run. */
+/**
+ * Decides whether a control command may run: a person's command goes to the one owner of its unit
+ * (and the owner's parents for an approval), an engine's or the system's is allowed here.
+ */
 @Slf4j
 @Component
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public class ControlReviewer {
 
   /** The {@code via} of a unit that nobody owns. */

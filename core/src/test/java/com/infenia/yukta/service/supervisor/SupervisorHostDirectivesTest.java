@@ -34,6 +34,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Commands of an engine pass the directive gate before they are applied. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert"
+})
 class SupervisorHostDirectivesTest {
 
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
@@ -95,7 +101,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aReactionIsAppliedAndARepeatedKeyOnlyOnce() {
+  void reactionIsAppliedAndRepeatedKeyOnlyOnce() {
     attach(
         pausing(10), command("k", Cause.event("e1"), null), command("k", Cause.event("e1"), null));
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
@@ -103,7 +109,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void anInitiativeNeedsAReason() {
+  void anInitiativeNeedsReason() {
     attach(pausing(10), command("k", Cause.initiative(), " "));
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("reason-required") == 1);
     assertThat(count("applied")).isZero();
@@ -128,7 +134,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aBeanSupervisorOfDirectivesIsGatedToo() {
+  void beanSupervisorOfDirectivesIsGatedToo() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     when(dispatcher.target(any())).thenReturn(Mono.just(new CommandTarget("s", "w", null)));
     final DirectiveSupervisor bean =
@@ -172,7 +178,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aCommandWhoseIfStatusDoesNotMatchTheRunIsNotApplied() {
+  void commandWhoseIfStatusDoesNotMatchTheRunIsNotApplied() {
     statusIs("PAUSED");
     attach(
         pausing(10),
@@ -183,7 +189,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aCommandWhoseIfStatusMatchesIsAppliedAndPausedRunsAreHeld() {
+  void commandWhoseIfStatusMatchesIsAppliedAndPausedRunsAreHeld() {
     statusIs("running");
     attach(
         pausing(10),
@@ -213,6 +219,7 @@ class SupervisorHostDirectivesTest {
         closed[0] = true;
       }
     }
+
     host.attach(
         Fixtures.boundSupervisor(
             new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),
@@ -242,6 +249,7 @@ class SupervisorHostDirectivesTest {
         throw new java.io.IOException("stuck");
       }
     }
+
     host.attach(
         Fixtures.boundSupervisor(
             new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),

@@ -36,7 +36,13 @@ import reactor.util.context.Context;
 
 /** An owner's need for approval goes to its parents first, and only then to a person. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.NonStaticInitializer",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports"
+})
 class ControlReviewerParentsTest {
 
   private static final String PAUSE = "PauseWorkflowCommand";

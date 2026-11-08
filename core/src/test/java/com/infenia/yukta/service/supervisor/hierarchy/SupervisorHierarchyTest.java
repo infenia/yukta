@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 /** A parent exists, is not the supervisor, makes no cycle and the chain is at most four long. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 class SupervisorHierarchyTest {
 
   private final Map<String, Supervisor> stored = new HashMap<>();

@@ -5,11 +5,17 @@ package com.infenia.yukta.service.supervisor.agent;
 import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 
 /**
@@ -26,6 +32,12 @@ public final class AgentHub {
   /** Directives an agent may post before the supervisor takes them; more are refused. */
   public static final int MAX_WAITING_DIRECTIVES = 256;
 
+  private final Map<String, Channel> channels = new ConcurrentHashMap<>();
+
+  private final Sinks.Many<String> changes = Sinks.many().multicast().directBestEffort();
+
+  private final ReentrantLock changesLock = new ReentrantLock();
+
   /**
    * A signal with its place in the stream.
    *
@@ -37,17 +49,17 @@ public final class AgentHub {
   /** One supervisor's meeting point. */
   public static final class Channel {
 
-    private final Sinks.Many<Sequenced> signals = Sinks.many().multicast().directBestEffort();
-    private final java.util.ArrayDeque<Sequenced> recent = new java.util.ArrayDeque<>();
-    private final java.util.concurrent.atomic.AtomicLong sequence =
-        new java.util.concurrent.atomic.AtomicLong();
+    private final Sinks.Many<Sequenced> signalSink = Sinks.many().multicast().directBestEffort();
+    private final Deque<Sequenced> recent = new ArrayDeque<>();
+    private final ReentrantLock lock = new ReentrantLock();
+    private final AtomicLong sequence = new AtomicLong();
     // multicast without auto-cancel: the host subscribes again after an engine failure
-    private final Sinks.Many<Directive> directives =
+    private final Sinks.Many<Directive> directiveSink =
         Sinks.many().multicast().onBackpressureBuffer(MAX_WAITING_DIRECTIVES, false);
-    private final Supplier<EngineReads> reads;
+    private final Supplier<EngineReads> readSource;
 
     private Channel(final Supplier<EngineReads> reads) {
-      this.reads = reads;
+      this.readSource = reads;
     }
 
     /**
@@ -55,8 +67,8 @@ public final class AgentHub {
      *
      * @return the signals sent since it subscribed
      */
-    public reactor.core.publisher.Flux<Signal> signals() {
-      return signals.asFlux().map(Sequenced::signal);
+    public Flux<Signal> signals() {
+      return signalSink.asFlux().map(Sequenced::signal);
     }
 
     /**
@@ -76,17 +88,19 @@ public final class AgentHub {
      * @param after the cursor of the last signal the agent saw
      * @return the signals with their cursors
      */
-    public reactor.core.publisher.Flux<Sequenced> signalsAfter(final long after) {
-      return reactor.core.publisher.Flux.defer(
+    public Flux<Sequenced> signalsAfter(final long after) {
+      return Flux.defer(
           () -> {
-            final java.util.List<Sequenced> past;
-            synchronized (recent) {
+            final List<Sequenced> past;
+            lock.lock();
+            try {
               past = recent.stream().filter(s -> s.cursor() > after).toList();
+            } finally {
+              lock.unlock();
             }
-            final long last = past.isEmpty() ? after : past.get(past.size() - 1).cursor();
-            return reactor.core.publisher.Flux.concat(
-                reactor.core.publisher.Flux.fromIterable(past),
-                signals.asFlux().filter(s -> s.cursor() > last));
+            final long last = past.isEmpty() ? after : past.getLast().cursor();
+            return Flux.concat(
+                Flux.fromIterable(past), signalSink.asFlux().filter(s -> s.cursor() > last));
           });
     }
 
@@ -97,7 +111,7 @@ public final class AgentHub {
      * @return true if the supervisor took it
      */
     public boolean offer(final Directive directive) {
-      return directives.tryEmitNext(directive).isSuccess();
+      return directiveSink.tryEmitNext(directive).isSuccess();
     }
 
     /**
@@ -108,7 +122,8 @@ public final class AgentHub {
      * @return true if the agent was sent it
      */
     public boolean sent(final String id) {
-      synchronized (recent) {
+      lock.lock();
+      try {
         return recent.stream()
             .map(Sequenced::signal)
             .anyMatch(
@@ -119,6 +134,8 @@ public final class AgentHub {
                       case Signal.Delegated delegated -> id.equals(delegated.id());
                       default -> false;
                     });
+      } finally {
+        lock.unlock();
       }
     }
 
@@ -128,41 +145,45 @@ public final class AgentHub {
      * @return the reads of the supervisor
      */
     public EngineReads reads() {
-      return reads.get();
+      return readSource.get();
     }
 
     /* default */ void signal(final Signal signal) {
-      synchronized (recent) {
+      lock.lock();
+      try {
         final Sequenced next = new Sequenced(sequence.incrementAndGet(), signal);
         recent.addLast(next);
         while (recent.size() > REMEMBERED) {
           recent.removeFirst();
         }
-        signals.tryEmitNext(next);
+        signalSink.tryEmitNext(next);
+      } finally {
+        lock.unlock();
       }
     }
 
-    /* default */ reactor.core.publisher.Flux<Directive> directives() {
-      return directives.asFlux();
+    /* default */ Flux<Directive> directives() {
+      return directiveSink.asFlux();
     }
 
     /* default */ void complete() {
-      signals.tryEmitComplete();
-      directives.tryEmitComplete();
+      signalSink.tryEmitComplete();
+      directiveSink.tryEmitComplete();
     }
   }
-
-  private final Map<String, Channel> channels = new ConcurrentHashMap<>();
-
-  private final Sinks.Many<String> credentialChanges = Sinks.many().multicast().directBestEffort();
 
   /**
    * Says that a supervisor's credential was revoked or replaced, so open agent streams end.
    *
    * @param supervisorId the supervisor
    */
-  public synchronized void credentialChanged(final String supervisorId) {
-    credentialChanges.tryEmitNext(supervisorId);
+  public void credentialChanged(final String supervisorId) {
+    changesLock.lock();
+    try {
+      changes.tryEmitNext(supervisorId);
+    } finally {
+      changesLock.unlock();
+    }
   }
 
   /**
@@ -170,8 +191,8 @@ public final class AgentHub {
    *
    * @return their ids
    */
-  public reactor.core.publisher.Flux<String> credentialChanges() {
-    return credentialChanges.asFlux();
+  public Flux<String> credentialChanges() {
+    return changes.asFlux();
   }
 
   /**

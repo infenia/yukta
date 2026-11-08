@@ -37,10 +37,12 @@ import reactor.test.StepVerifier;
 /** Attaching and detaching supervisors at run time. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.TooManyStaticImports",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.NonStaticInitializer",
   "PMD.ShortMethodName",
   "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyStaticImports",
   "PMD.UnitTestShouldIncludeAssert"
 })
 class AttachedSupervisorTest {

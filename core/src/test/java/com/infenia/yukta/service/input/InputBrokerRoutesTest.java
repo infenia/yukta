@@ -80,7 +80,7 @@ class InputBrokerRoutesTest {
   private final List<EligibleSupervisors.Candidate> attached = new ArrayList<>();
 
   /** Who reports to whom, by supervisor id. */
-  private final java.util.Map<String, List<String>> parents = new java.util.HashMap<>();
+  private final Map<String, List<String>> parents = new java.util.HashMap<>();
 
   private final Map<String, InputRoute> routes = new LinkedHashMap<>();
   private final SessionConfigStore sessions = mock(SessionConfigStore.class);

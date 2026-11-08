@@ -22,6 +22,7 @@ import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
 /** The {@code http} engine passes signals to the agent and the agent's directives back. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CloseResource"})
 class HttpEngineTest {
 
   private final AgentHub hub = new AgentHub();
@@ -94,7 +95,7 @@ class HttpEngineTest {
   }
 
   @Test
-  void aNewEngineReplacesTheChannelOfAnEarlierOne() {
+  void newEngineReplacesTheChannelOfAnEarlierOne() {
     final SupervisorEngine first = engine();
     final AgentHub.Channel firstChannel = hub.channel("agent-1").orElseThrow();
     final SupervisorEngine second = engine();

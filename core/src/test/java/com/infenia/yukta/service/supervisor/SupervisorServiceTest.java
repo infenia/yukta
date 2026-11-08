@@ -49,12 +49,14 @@ import reactor.test.scheduler.VirtualTimeScheduler;
 import reactor.util.context.Context;
 
 @SuppressWarnings({
-  "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyStaticImports",
-  "PMD.ShortMethodName",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.ExcessiveImports"
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert"
 })
 class SupervisorServiceTest {
 
@@ -290,7 +292,7 @@ class SupervisorServiceTest {
     StepVerifier.create(service.attach(attachment))
         .expectErrorSatisfies(
             error ->
-                org.assertj.core.api.Assertions.assertThat(error)
+                assertThat(error)
                     .isInstanceOf(
                         com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException
                             .class)
@@ -359,7 +361,7 @@ class SupervisorServiceTest {
                     "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:ci")), true)))
         .expectErrorSatisfies(
             error ->
-                org.assertj.core.api.Assertions.assertThat(error)
+                assertThat(error)
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessage(SupervisorService.GROUPS_NOT_YET))
         .verify();
@@ -464,7 +466,7 @@ class SupervisorServiceTest {
     StepVerifier.create(service.deleteSupervisor("boss"))
         .expectErrorSatisfies(
             error ->
-                org.assertj.core.api.Assertions.assertThat(error)
+                assertThat(error)
                     .isInstanceOf(ConflictException.class)
                     .hasMessageContaining("parent of [worker]"))
         .verify();
@@ -473,7 +475,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void deletingASupervisorRevokesItsAgentCredential() {
+  void deletingSupervisorRevokesItsAgentCredential() {
     final var credentials = new com.infenia.yukta.service.supervisor.agent.AgentCredentials();
     service.setAgentCredentials(credentials);
     saveSupervisors("agent");
@@ -482,7 +484,7 @@ class SupervisorServiceTest {
     StepVerifier.create(service.deleteSupervisor("agent")).verifyComplete();
 
     // a supervisor saved again under the same id does not inherit the old credential
-    org.assertj.core.api.Assertions.assertThat(credentials.authenticate(token)).isEmpty();
+    assertThat(credentials.authenticate(token)).isEmpty();
   }
 
   @Test
@@ -628,11 +630,7 @@ class SupervisorServiceTest {
         .block();
     store
         .saveAttachment(
-            attachment(
-                "m2",
-                "b",
-                new SupervisorScope.Section("w", "s", java.util.Set.of("build.*")),
-                true))
+            attachment("m2", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true))
         .block();
     store.saveAttachment(attachment("m3", "b", new SupervisorScope.Run("w2", "s"), true)).block();
 
@@ -890,7 +888,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void everyChangeIsAVersionAndARollbackSavesAnEarlierOneAsANewVersion() {
+  void everyChangeIsVersionAndRollbackSavesAnEarlierOneAsNewVersion() {
     final Supervisor first = new Supervisor("v", TYPE, Map.of("level", 1), false);
     final Supervisor second = new Supervisor("v", TYPE, Map.of("level", 2), false);
     StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
@@ -919,7 +917,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aVersionThatIsNotKeptAndAnUnknownSupervisorAreNotFound() {
+  void versionThatIsNotKeptAndAnUnknownSupervisorAreNotFound() {
     StepVerifier.create(service.saveSupervisor(supervisor("v")))
         .expectNextCount(1)
         .verifyComplete();
@@ -928,7 +926,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void deletingASupervisorForgetsItsVersions() {
+  void deletingSupervisorForgetsItsVersions() {
     StepVerifier.create(service.saveSupervisor(supervisor("v")))
         .expectNextCount(1)
         .verifyComplete();
@@ -1023,7 +1021,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aReplayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
+  void replayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
     StepVerifier.create(replaying(false).replay("r", null, "run1"))
         .assertNext(
             decisions ->
@@ -1042,7 +1040,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aReplayOfAPlainSupervisorSeesEveryStatusEvent() {
+  void replayOfPlainSupervisorSeesEveryStatusEvent() {
     StepVerifier.create(replaying(true).replay("r", Map.of(), "run1"))
         .assertNext(
             decisions -> {
@@ -1053,7 +1051,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aReplayNeedsTheSupervisorAndARecordedRun() {
+  void replayNeedsTheSupervisorAndRecordedRun() {
     final SupervisorService made = replaying(false);
     StepVerifier.create(made.replay("nope", null, "run1"))
         .expectError(NotFoundException.class)

@@ -76,7 +76,8 @@ import reactor.util.retry.Retry;
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
-  "PMD.GodClass"
+  "PMD.GodClass",
+  "PMD.CyclomaticComplexity"
 })
 public class SupervisorService {
 
@@ -99,6 +100,13 @@ public class SupervisorService {
 
   /** Start of the messages about one supervisor. */
   private static final String SUPERVISOR_PREFIX = "Supervisor ";
+
+  private static final String NOT_FOUND = "Supervisor not found: ";
+
+  /** Most decisions one replay returns, and how long a replay waits for a timer. */
+  private static final int REPLAY_LIMIT = 100;
+
+  private static final Duration REPLAY_WAIT = Duration.ofSeconds(2);
 
   /** Where supervisors and attachments are kept. */
   private final SupervisorStore store;
@@ -136,7 +144,7 @@ public class SupervisorService {
   @Nullable private ObjectProvider<SupervisorQueries> queries;
 
   /** The newest saved states of each supervisor. */
-  private final SupervisorVersions versions = new SupervisorVersions();
+  private final SupervisorVersions history = new SupervisorVersions();
 
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
@@ -388,8 +396,8 @@ public class SupervisorService {
         .supervisors()
         .filter(found -> found.id().equals(id))
         .next()
-        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
-        .map(found -> versions.list(id));
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
+        .map(found -> history.list(id));
   }
 
   /**
@@ -410,11 +418,6 @@ public class SupervisorService {
       @Nullable String reason,
       boolean allowed) {}
 
-  /** Most decisions one replay returns, and how long a replay waits for a timer. */
-  private static final int REPLAY_LIMIT = 100;
-
-  private static final Duration REPLAY_WAIT = Duration.ofSeconds(2);
-
   /**
    * Tries a supervisor (its stored settings, or draft settings) on the recorded events of a past
    * run, in dry run: nothing is sent. Only statuses were recorded, so a rule on logs or input
@@ -431,7 +434,7 @@ public class SupervisorService {
         .supervisors()
         .filter(found -> found.id().equals(id))
         .next()
-        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
         .flatMap(
             stored -> {
               final List<ExecutionEvent> events =
@@ -495,7 +498,7 @@ public class SupervisorService {
   public Mono<Supervisor> rollback(final String id, final int version) {
     return Mono.defer(
         () ->
-            versions
+            history
                 .find(id, version)
                 .map(found -> saveSupervisor(found.supervisor()))
                 .orElseGet(
@@ -524,7 +527,7 @@ public class SupervisorService {
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
-        .doOnSuccess(saved -> versions.record(supervisor))
+        .doOnSuccess(saved -> history.record(supervisor))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
@@ -587,7 +590,7 @@ public class SupervisorService {
         .then(Mono.defer(() -> deleteUnused(id)))
         .doOnSuccess(
             done -> {
-              versions.forget(id);
+              history.forget(id);
               // a supervisor created again under this id must not take the old credential
               final AgentCredentials agents = agentCredentials;
               if (agents != null) {
@@ -655,9 +658,7 @@ public class SupervisorService {
                     : store.deleteSupervisor(id))
         .flatMap(
             existed ->
-                existed
-                    ? Mono.<Void>empty()
-                    : Mono.error(new NotFoundException("Supervisor not found: " + id)));
+                existed ? Mono.<Void>empty() : Mono.error(new NotFoundException(NOT_FOUND + id)));
   }
 
   /**
@@ -726,8 +727,7 @@ public class SupervisorService {
         .supervisors()
         .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
         .next()
-        .switchIfEmpty(
-            Mono.error(new NotFoundException("Supervisor not found: " + attachment.supervisorId())))
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + attachment.supervisorId())))
         .flatMap(
             supervisor ->
                 store
@@ -753,7 +753,7 @@ public class SupervisorService {
         .then(
             store
                 .saveAttachment(attachment)
-                .onErrorResume(error -> rollback(attachment.id()).then(Mono.error(error))))
+                .onErrorResume(error -> restoreAttachment(attachment.id()).then(Mono.error(error))))
         .then(
             audited(
                 true,
@@ -821,7 +821,7 @@ public class SupervisorService {
   }
 
   /** Puts the host back to what the store holds for a attachment when saving it failed. */
-  private Mono<Void> rollback(final String attachmentId) {
+  private Mono<Void> restoreAttachment(final String attachmentId) {
     return store
         .attachments()
         .filter(existing -> existing.id().equals(attachmentId))

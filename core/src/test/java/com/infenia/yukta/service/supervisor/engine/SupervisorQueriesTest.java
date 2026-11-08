@@ -66,7 +66,7 @@ class SupervisorQueriesTest {
   }
 
   @Test
-  void aSectionSeesTheRunsOfItsWorkflowButAnotherWorkflowIsHidden() {
+  void sectionSeesTheRunsOfItsWorkflowButAnotherWorkflowIsHidden() {
     assertThat(SupervisorQueries.sees(new SupervisorScope.Section("w", "s", Set.of("n")), "s", "w"))
         .isTrue();
     assertThat(

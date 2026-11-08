@@ -30,22 +30,13 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
+@SuppressWarnings("PMD.TooManyMethods")
 public final class AgentCredentials {
 
   /** The prefix of a token, so a leaked one is easy to spot. */
   public static final String PREFIX = "yag_";
 
   private static final int TOKEN_BYTES = 32;
-
-  /**
-   * A new credential.
-   *
-   * @param token the secret to give the agent; it cannot be read again
-   * @param expiresAt when it stops working, or {@code null}
-   */
-  public record Issued(String token, @Nullable Instant expiresAt) {}
-
-  private record Entry(String supervisorId, @Nullable Instant expiresAt, Set<String> addresses) {}
 
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
@@ -56,6 +47,16 @@ public final class AgentCredentials {
   @Nullable private AgentCredentialStore store;
 
   @Nullable private AgentHub hub;
+
+  /**
+   * A new credential.
+   *
+   * @param token the secret to give the agent; it cannot be read again
+   * @param expiresAt when it stops working, or {@code null}
+   */
+  public record Issued(String token, @Nullable Instant expiresAt) {}
+
+  private record Entry(String supervisorId, @Nullable Instant expiresAt, Set<String> addresses) {}
 
   /** Creates the store with the system clock. */
   public AgentCredentials() {
@@ -102,7 +103,7 @@ public final class AgentCredentials {
     return kept == null
         ? Mono.empty()
         : kept.all()
-            .filter(c -> c.expiresAt() == null || c.expiresAt().isAfter(clock.instant()))
+            .filter(c -> live(c.expiresAt()))
             .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses()))
             .then()
             .onErrorResume(
@@ -196,7 +197,7 @@ public final class AgentCredentials {
       return Optional.empty();
     }
     return Optional.ofNullable(byHash.get(hash(token)))
-        .filter(entry -> entry.expiresAt() == null || entry.expiresAt().isAfter(clock.instant()))
+        .filter(entry -> live(entry.expiresAt()))
         .filter(
             entry ->
                 entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
@@ -235,6 +236,10 @@ public final class AgentCredentials {
    */
   public boolean has(final String supervisorId) {
     return hashOf.containsKey(supervisorId);
+  }
+
+  private boolean live(final @Nullable Instant expiresAt) {
+    return expiresAt == null || expiresAt.isAfter(clock.instant());
   }
 
   private static String hash(final String token) {

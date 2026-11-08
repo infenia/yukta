@@ -22,7 +22,7 @@ import reactor.core.publisher.Flux;
 public final class HttpEngineFactory implements SupervisorEngineFactory {
 
   /** The engine type. */
-  public static final String TYPE = "http";
+  public static final String HTTP_TYPE = "http";
 
   private final AgentHub hub;
 
@@ -37,7 +37,7 @@ public final class HttpEngineFactory implements SupervisorEngineFactory {
 
   @Override
   public String type() {
-    return TYPE;
+    return HTTP_TYPE;
   }
 
   @Override

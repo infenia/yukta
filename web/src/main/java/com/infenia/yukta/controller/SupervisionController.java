@@ -85,7 +85,7 @@ public class SupervisionController {
   public Mono<ApiResponse<OwnershipMap.Ownership>> ownership(
       @RequestParam final String session, @RequestParam final String workflow) {
     return ownershipMap
-        .of(session, workflow)
+        .ownersOf(session, workflow)
         .map(found -> ApiResponse.success(200, "Ownership retrieved", found));
   }
 
