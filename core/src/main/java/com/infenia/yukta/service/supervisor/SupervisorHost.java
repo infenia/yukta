@@ -8,9 +8,12 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.Directive;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
@@ -19,6 +22,8 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
+import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
+import com.infenia.yukta.service.supervisor.engine.EngineRunner;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -26,9 +31,13 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -133,6 +142,9 @@ public class SupervisorHost {
 
   /** The supervisors attached at run time. */
   private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
+
+  /** Checks the commands of engines. */
+  private final DirectiveGate directiveGate = new DirectiveGate();
 
   /** Orders the conflicting commands of supervisors. */
   private final TurnAroundGuard guard;
@@ -399,7 +411,7 @@ public class SupervisorHost {
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
         .addKeyValue("dryRun", recordOnly)
         .log("Starting supervisor");
-    return Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
+    return Flux.defer(() -> commandsOf(supervisor, recordOnly))
         .doOnError(
             error ->
                 log.atWarn()
@@ -431,6 +443,75 @@ public class SupervisorHost {
                         }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
+  }
+
+  /**
+   * The commands of a supervisor. Those of a {@link DirectiveSupervisor} first pass the {@link
+   * DirectiveGate}: a reason and an {@code initiative} entry for a command nobody prompted, the
+   * initiative rate, and at most one application per idempotency key.
+   */
+  private Flux<ExecutionControlCommand> commandsOf(
+      final ExecutionSupervisor supervisor, final boolean recordOnly) {
+    final Flux<ExecutionEvent> events = withoutOwnOutcomes(supervisor);
+    final ExecutionSupervisor real =
+        supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
+    if (!(real instanceof DirectiveSupervisor directives)) {
+      return supervisor.supervise(events);
+    }
+    final SupervisorCapabilities capabilities =
+        supervisor instanceof BoundSupervisor bound
+            ? bound.capabilities()
+            : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
+    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
+    return directives
+        .directives(events)
+        .concatMap(
+            directive ->
+                seen.add(directive.key())
+                    ? gated(supervisor, directive, capabilities, recordOnly)
+                    : Mono.empty());
+  }
+
+  private Mono<ExecutionControlCommand> gated(
+      final ExecutionSupervisor supervisor,
+      final Directive.Command directive,
+      final SupervisorCapabilities capabilities,
+      final boolean recordOnly) {
+    return dispatcher
+        .target(directive.command())
+        .map(t -> new EngineRunner.Target(t.sessionId(), t.workflowId(), t.nodeId()))
+        .onErrorReturn(new EngineRunner.Target(null, null, null))
+        .flatMap(
+            target -> {
+              final DirectiveGate.Decision decision =
+                  directiveGate.check(
+                      supervisor.id(),
+                      directive,
+                      target,
+                      capabilities,
+                      supervisor.scope(),
+                      true,
+                      recordOnly);
+              if (decision.rejection() == null) {
+                return Mono.just(directive.command());
+              }
+              return notApplied(
+                      supervisor.id(),
+                      decision.rejection().name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                      directive.command(),
+                      "refused: " + decision.rejection() + " (" + directive.cause().text() + ")")
+                  .then(Mono.<ExecutionControlCommand>empty());
+            });
+  }
+
+  /** The keys remembered per supervisor: the newest 1000. */
+  private static final class BoundedKeys extends LinkedHashMap<String, Boolean> {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+      return size() > 1000;
+    }
   }
 
   /**

@@ -5,9 +5,7 @@ package com.infenia.yukta.plugin.control.engine;
 import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import java.time.Duration;
 import java.util.List;
@@ -24,7 +22,7 @@ import reactor.core.publisher.Sinks;
  * a {@link Directive.Command} is emitted as the supervisor's command. The host then applies the
  * usual scope, capability, rate and dry-run checks to it.
  */
-public final class EngineBackedSupervisor implements ExecutionSupervisor, AutoCloseable {
+public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCloseable {
 
   private static final Duration REVIEW_TIMEOUT = Duration.ofSeconds(10);
 
@@ -79,7 +77,7 @@ public final class EngineBackedSupervisor implements ExecutionSupervisor, AutoCl
   }
 
   @Override
-  public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+  public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
     final Flux<Signal> signals =
         Flux.merge(
             Flux.<Signal>just(new Signal.Started("first", "", List.of(), List.of(), List.of())),
@@ -90,7 +88,7 @@ public final class EngineBackedSupervisor implements ExecutionSupervisor, AutoCl
         .flatMap(
             directive ->
                 switch (directive) {
-                  case Directive.Command command -> Mono.just(command.command());
+                  case Directive.Command command -> Mono.just(command);
                   case Directive.ReviewVerdict verdict -> answer(verdict);
                   case Directive.NoOpinion none -> answer(none);
                   default -> Mono.empty();
@@ -102,7 +100,7 @@ public final class EngineBackedSupervisor implements ExecutionSupervisor, AutoCl
     return new Signal.Event(n, n, event);
   }
 
-  private Mono<ExecutionControlCommand> answer(final Directive.ReviewVerdict verdict) {
+  private Mono<Directive.Command> answer(final Directive.ReviewVerdict verdict) {
     final Sinks.One<Decision> sink = pending.get(verdict.answers());
     if (sink != null) {
       sink.tryEmitValue(
@@ -116,7 +114,7 @@ public final class EngineBackedSupervisor implements ExecutionSupervisor, AutoCl
     return Mono.empty();
   }
 
-  private Mono<ExecutionControlCommand> answer(final Directive.NoOpinion none) {
+  private Mono<Directive.Command> answer(final Directive.NoOpinion none) {
     final Sinks.One<Decision> sink = pending.get(none.answers());
     if (sink != null) {
       sink.tryEmitValue(Decision.ALLOW);
