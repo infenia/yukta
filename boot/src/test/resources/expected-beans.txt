@@ -122,9 +122,11 @@ com.infenia.yukta.plugin.sql.SqlQueryPlugin
 com.infenia.yukta.plugin.terminal.ConsoleTerminalPlugin
 com.infenia.yukta.plugin.terminal.NotifyTerminal
 com.infenia.yukta.plugin.terminal.OutcomeTerminal
+com.infenia.yukta.plugin.terminal.SupervisorDecisionTerminal
 com.infenia.yukta.plugin.trigger.ApiTriggerPlugin
 com.infenia.yukta.plugin.trigger.ConfigVariableSource
 com.infenia.yukta.plugin.trigger.ScheduleTrigger
+com.infenia.yukta.plugin.trigger.SupervisorSignalTrigger
 com.infenia.yukta.plugin.trigger.WebhookTriggerPlugin
 com.infenia.yukta.plugin.util.EgressPolicy
 com.infenia.yukta.plugin.util.VariableResolver
