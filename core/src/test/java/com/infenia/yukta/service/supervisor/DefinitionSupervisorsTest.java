@@ -271,6 +271,21 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
+  void reconcileAllDropsDeclarationsOfDeletedSession() {
+    supervisor("guard");
+    save(session(List.of(ref("guard"))));
+    definitions.removeAll(SESSION).block();
+    when(sessions.getSessionIds()).thenReturn(Flux.empty());
+
+    StepVerifier.create(declared.reconcileAll()).verifyComplete();
+
+    assertThat(attachments()).isEmpty();
+    StepVerifier.create(declared.sessionRefs(SESSION))
+        .assertNext(refs -> assertThat(refs).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
   void forgetRemovesWhatTheSessionDeclared() {
     supervisor("guard");
     save(session(List.of(ref("guard")), workflow("w1", ref("guard"))));

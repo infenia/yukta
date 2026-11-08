@@ -300,13 +300,13 @@ public class SessionService {
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
         .then(
             Mono.defer(
-                () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
-        .then(
-            Mono.defer(
                 () ->
                     definitionSupervisors == null
                         ? Mono.empty()
                         : definitionSupervisors.forget(sessionId)))
+        .then(
+            Mono.defer(
+                () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
         .doOnSuccess(
             _ -> {
               preparedWorkflowCache.invalidateAll(sessionId);
