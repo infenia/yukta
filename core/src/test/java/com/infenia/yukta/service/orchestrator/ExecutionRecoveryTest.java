@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.log;
+package com.infenia.yukta.service.orchestrator;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -9,6 +9,9 @@ import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
+import com.infenia.yukta.service.control.StartOptions;
+import com.infenia.yukta.service.log.ExecutionLogEvent;
+import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.orchestrator.tracker.TrackerFactory;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
@@ -159,7 +162,7 @@ class ExecutionRecoveryTest {
   void restoredRunsKeepWhoStartedThem() {
     store.append(
         ExecutionLogEvent.started(
-            "mine", "s1", "w1", "v1", ExecutionLogEvent.withInitiator(Map.of(), "schedule")));
+            "mine", "s1", "w1", "v1", StartOptions.withInitiator(Map.of(), "schedule")));
     store.append(
         ExecutionLogEvent.finished("mine", "s1", "w1", "SUCCESS", Map.of("n1", "SUCCESS")));
     store.append(ExecutionLogEvent.started("old", "s1", "w1", "v1"));

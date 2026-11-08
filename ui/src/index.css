@@ -596,6 +596,63 @@
   }
 }
 
+/* Progress ring around a running node's icon tile */
+.node-ring {
+  background: conic-gradient(
+    var(--node-accent) var(--node-progress),
+    color-mix(in oklab, var(--node-accent) 18%, transparent) 0
+  );
+  transition: background 300ms ease;
+}
+
+/* Status badge: finished states pop in once, a failure shakes once */
+.yukta-node[data-status='completed'] .node-badge,
+.yukta-node[data-status='failed'] .node-badge {
+  animation: badge-pop 320ms var(--ease-out-soft) both;
+}
+
+.yukta-node[data-status='failed'] {
+  animation: node-shake 360ms ease-in-out 1;
+}
+
+@keyframes badge-pop {
+  from {
+    transform: scale(0.2);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+}
+
+@keyframes node-shake {
+  25% {
+    translate: -3px 0;
+  }
+  75% {
+    translate: 3px 0;
+  }
+}
+
+/* A closed stage reads as a pile of cards */
+.stage-stack {
+  filter: drop-shadow(6px 0 0 var(--border)) drop-shadow(12px 0 0 var(--muted));
+}
+
+.react-flow__node {
+  animation: node-in 220ms var(--ease-out-soft) both;
+}
+
+@keyframes node-in {
+  from {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+
+.yukta-node:hover {
+  box-shadow: var(--shadow-raised);
+}
+
 @keyframes graph-in {
   from {
     opacity: 0;

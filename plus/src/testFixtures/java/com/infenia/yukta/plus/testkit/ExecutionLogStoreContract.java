@@ -4,6 +4,7 @@ package com.infenia.yukta.plus.testkit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import java.util.List;
@@ -46,7 +47,7 @@ public abstract class ExecutionLogStoreContract {
     final ExecutionLogStore store = create();
     final ExecutionLogEvent started =
         ExecutionLogEvent.started(
-            "e1", "s", "w", "v", ExecutionLogEvent.withInitiator(Map.of("k", "v"), "yk check"));
+            "e1", "s", "w", "v", StartOptions.withInitiator(Map.of("k", "v"), "yk check"));
     final ExecutionLogEvent without = ExecutionLogEvent.started("e2", "s", "w", "v");
 
     store.append(started);

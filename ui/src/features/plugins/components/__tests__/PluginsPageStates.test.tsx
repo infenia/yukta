@@ -216,6 +216,42 @@ describe('PluginCanvasPreview', () => {
     render(<PluginCanvasPreview plugin={base} />);
     expect(await screen.findByTestId('workflow-node-Sink')).toBeInTheDocument();
   });
+
+  it('shows a dashed neighbour for each output port of a processor', async () => {
+    const processor: PluginDetails = {
+      ...base,
+      type: 'Router',
+      category: 'PROCESSOR',
+      outputPorts: ['ok', 'error'],
+    };
+    render(<PluginCanvasPreview plugin={processor} />);
+    expect(await screen.findByText('Any earlier node')).toBeInTheDocument();
+    expect(await screen.findByText('Next, on “ok”')).toBeInTheDocument();
+    expect(await screen.findByText('Next, on “error”')).toBeInTheDocument();
+  });
+
+  it('shows a generic next neighbour for a processor without ports', async () => {
+    const processor: PluginDetails = {
+      ...base,
+      type: 'Mapper',
+      category: 'PROCESSOR',
+      outputPorts: [],
+    };
+    render(<PluginCanvasPreview plugin={processor} />);
+    expect(await screen.findByText('Next node')).toBeInTheDocument();
+  });
+
+  it('omits the upstream neighbour for a trigger', async () => {
+    const trigger: PluginDetails = {
+      ...base,
+      type: 'Timer',
+      category: 'TRIGGER',
+      outputPorts: ['default'],
+    };
+    render(<PluginCanvasPreview plugin={trigger} />);
+    expect(await screen.findByText('Next, on “default”')).toBeInTheDocument();
+    expect(screen.queryByText('Any earlier node')).not.toBeInTheDocument();
+  });
 });
 
 describe('nodeExample', () => {

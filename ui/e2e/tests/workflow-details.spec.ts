@@ -42,15 +42,16 @@ test.describe('Workflow Details Page', () => {
     );
 
     await expect(page.getByTestId('workflow-node-Data_Ingress')).toBeVisible();
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
-      'Succeeded'
-    );
+    // the node says its state with a badge; the wording is in the accessible name
+    await expect(
+      page.getByTestId('workflow-node-Data_Ingress')
+    ).toHaveAttribute('data-status', 'completed');
     await expect(
       page.getByTestId('workflow-node-Vectorize_Batch')
-    ).toContainText('Running');
-    await expect(page.getByTestId('workflow-node-Sink_Storage')).toContainText(
-      'Waiting'
-    );
+    ).toHaveAttribute('data-status', 'running');
+    await expect(
+      page.getByTestId('workflow-node-Sink_Storage')
+    ).toHaveAttribute('data-status', 'pending');
 
     await expect(page.getByTestId('task-sequence')).toContainText('Succeeded');
     await expect(page.getByTestId('task-sequence')).toContainText(
@@ -144,14 +145,14 @@ test.describe('Workflow Details Page', () => {
 
     await page.goto(WORKFLOW_URL);
     const node = page.getByTestId('workflow-node-Vectorize_Batch');
-    await expect(node).toContainText('Running');
+    await expect(node).toHaveAttribute('data-status', 'running');
     await page.evaluate(() => {
       (window as unknown as { notReloaded: boolean }).notReloaded = true;
     });
 
     release();
 
-    await expect(node).toContainText('Succeeded');
+    await expect(node).toHaveAttribute('data-status', 'completed');
     expect(
       await page.evaluate(
         () => (window as unknown as { notReloaded?: boolean }).notReloaded
@@ -334,7 +335,7 @@ test.describe('Workflow Details Page', () => {
     expect(calls).toEqual(['?priority=10']);
   });
 
-  test('a long description stays on one line, so the card keeps its status row, and opens in full', async ({
+  test('a long description stays out of the card and opens in full from the info button', async ({
     page,
     mockWorkflowApi,
   }) => {
@@ -353,16 +354,11 @@ test.describe('Workflow Details Page', () => {
     await page.goto(WORKFLOW_URL);
 
     const card = page.getByTestId('workflow-node-Vectorize_Batch');
-    await expect(card).toContainText('Running');
-    // nothing of the card falls outside its box
-    const overflow = await card.evaluate(
-      (el) => el.scrollHeight - el.clientHeight
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
-
+    await expect(card).toHaveAttribute('data-status', 'running');
+    await expect(card).not.toContainText('Runs the whole repair loop');
     await card
       .getByRole('button', {
-        name: 'Show the full description of Vectorize_Batch',
+        name: 'Show the description of Vectorize_Batch',
       })
       .click();
     await expect(page.getByText(long).last()).toBeVisible();
@@ -675,9 +671,9 @@ test.describe('Workflow Details Page', () => {
     await expect(page.getByTestId('run-history-empty')).toHaveText(
       'Not Yet Run'
     );
-    await expect(page.getByTestId('workflow-node-Data_Ingress')).toContainText(
-      'Waiting'
-    );
+    await expect(
+      page.getByTestId('workflow-node-Data_Ingress')
+    ).toHaveAttribute('aria-label', 'Data_Ingress: Waiting');
     await expect(page.getByTestId('logs-body')).toContainText('No log output.');
   });
 

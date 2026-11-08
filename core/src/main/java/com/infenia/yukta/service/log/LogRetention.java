@@ -11,7 +11,7 @@ import lombok.experimental.UtilityClass;
 
 /** Decides which events of an execution log survive a compaction. */
 @UtilityClass
-class LogRetention {
+public class LogRetention {
 
   /**
    * The newest runs of every session that are kept even when a busier session has pushed them out
@@ -28,7 +28,7 @@ class LogRetention {
    * @param retainedRuns the global limit
    * @return the ids to keep
    */
-  /* default */ static Set<String> keep(
+  public static Set<String> keep(
       final List<String> runs,
       final java.util.function.Function<String, String> sessionOf,
       final int retainedRuns) {

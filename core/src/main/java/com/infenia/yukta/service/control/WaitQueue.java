@@ -13,8 +13,12 @@ import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 
-/** Waiting starts by priority (highest first, oldest first within one); the lock guards it. */
-public final class WaitQueue {
+/**
+ * Waiting starts by priority (highest first, oldest first within one). Only the collections are
+ * safe to read on their own; every call that changes the queue or walks {@link #groups()} is made
+ * under {@code ExecutionScheduler}'s lock, which is what keeps the groups and the count right.
+ */
+final class WaitQueue {
   private final ConcurrentNavigableMap<Integer, Set<Waiter>> byPriority =
       new ConcurrentSkipListMap<>(Comparator.reverseOrder());
   private final Map<String, Integer> perKey = new ConcurrentHashMap<>();
@@ -26,7 +30,7 @@ public final class WaitQueue {
    *
    * @return the count
    */
-  public int size() {
+  /* default */ int size() {
     return total;
   }
 
@@ -36,7 +40,7 @@ public final class WaitQueue {
    * @param key the workflow key
    * @return the count
    */
-  public int count(final String key) {
+  /* default */ int count(final String key) {
     return perKey.getOrDefault(key, 0);
   }
 
@@ -46,8 +50,7 @@ public final class WaitQueue {
    * @param executionId the execution
    * @return the waiter, or null if it is not waiting
    */
-  @Nullable
-  public Waiter byExecution(final String executionId) {
+  @Nullable /* default */ Waiter byExecution(final String executionId) {
     return waitersById.get(executionId);
   }
 
@@ -56,7 +59,7 @@ public final class WaitQueue {
    *
    * @return the groups
    */
-  public Collection<Set<Waiter>> groups() {
+  /* default */ Collection<Set<Waiter>> groups() {
     return byPriority.values();
   }
 
@@ -65,7 +68,7 @@ public final class WaitQueue {
    *
    * @param waiter the start
    */
-  public void add(final Waiter waiter) {
+  /* default */ void add(final Waiter waiter) {
     byPriority.computeIfAbsent(waiter.priority().get(), _ -> new LinkedHashSet<>()).add(waiter);
     perKey.merge(waiter.key(), 1, Integer::sum);
     final String executionId = waiter.executionId();
@@ -81,7 +84,7 @@ public final class WaitQueue {
    * @param waiter the start
    * @return true if it was waiting
    */
-  public boolean remove(final Waiter waiter) {
+  /* default */ boolean remove(final Waiter waiter) {
     final int priority = waiter.priority().get();
     final Set<Waiter> group = byPriority.get(priority);
     if (group == null || !group.remove(waiter)) {
@@ -104,7 +107,7 @@ public final class WaitQueue {
    *
    * @param action what to do with each start
    */
-  public void drain(final Consumer<Waiter> action) {
+  /* default */ void drain(final Consumer<Waiter> action) {
     byPriority.values().forEach(group -> group.forEach(action));
     byPriority.clear();
     perKey.clear();

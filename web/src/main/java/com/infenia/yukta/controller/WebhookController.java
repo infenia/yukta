@@ -7,8 +7,8 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.store.SecretContext;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.control.gateway.WorkflowService;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -113,7 +113,7 @@ public class WebhookController {
                 workflowService.start(
                     sessionId,
                     hook.workflowId(),
-                    ExecutionLogEvent.withInitiator(payload(hook, headers, raw), "webhook"),
+                    StartOptions.withInitiator(payload(hook, headers, raw), "webhook"),
                     text(hook.config(), "idempotencyHeader") == null
                         ? null
                         : headers.getFirst(text(hook.config(), "idempotencyHeader"))))

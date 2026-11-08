@@ -15,8 +15,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { WorkflowNodeCard } from '@/features/workflow/components/nodes/WorkflowNodeCard';
 import {
-  DEFAULT_NODE_HEIGHT,
-  DEFAULT_NODE_WIDTH,
+  nodeSize,
   type WorkflowFlowNode,
 } from '@/features/workflow/lib/layout';
 import type { PluginDetails } from '../types';
@@ -36,16 +35,16 @@ const NODE_TYPES = { workflowNode: WorkflowNodeCard, ghost: GhostNode };
 const GHOST = { width: 150, height: 48 };
 const GAP = 80;
 const MAX_GHOSTS = 3;
-const GHOST_TOP = (DEFAULT_NODE_HEIGHT - GHOST.height) / 2;
 
 /** Renders the real canvas node card for a plugin, between dashed neighbours, so the preview can't drift from the canvas. */
 export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
+  const size = nodeSize({ ...plugin, nodeId: plugin.type });
+  const ghostTop = (size.height - GHOST.height) / 2;
   const node: WorkflowFlowNode = {
     id: plugin.type,
     type: 'workflowNode',
     position: { x: 0, y: 0 },
-    width: DEFAULT_NODE_WIDTH,
-    height: DEFAULT_NODE_HEIGHT,
+    ...size,
     data: {
       status: 'pending',
       hideDescription: true,
@@ -60,7 +59,7 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
     nodes.push({
       id: 'in',
       type: 'ghost',
-      position: { x: -GHOST.width - GAP, y: GHOST_TOP },
+      position: { x: -GHOST.width - GAP, y: ghostTop },
       ...GHOST,
       data: { label: 'Any earlier node' },
     });
@@ -73,8 +72,8 @@ export function PluginCanvasPreview({ plugin }: { plugin: PluginDetails }) {
         id: `out-${i}`,
         type: 'ghost',
         position: {
-          x: DEFAULT_NODE_WIDTH + GAP,
-          y: GHOST_TOP + (i - (shown.length - 1) / 2) * (GHOST.height + 16),
+          x: size.width + GAP,
+          y: ghostTop + (i - (shown.length - 1) / 2) * (GHOST.height + 16),
         },
         ...GHOST,
         data: { label: port ? `Next, on “${port}”` : 'Next node' },

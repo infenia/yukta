@@ -3132,15 +3132,71 @@ class DefaultTaskTrackerServiceTest {
             });
 
     tracker.emitBreakpointEvent("bp-exec", "n1", null);
-    assertThat(tracker.getProgressByExecutionId("bp-exec").tasks().getFirst().breakpoint())
-        .isNull();
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(
+                        tracker.getProgressByExecutionId("bp-exec").tasks().getFirst().breakpoint())
+                    .isNull());
+  }
+
+  @Test
+  void failingBatchDoesNotStopTheConsumer() {
+    StepVerifier.create(tracker.startWorkflow("bad-exec", "bad-sess", "bad-wf", List.of("a")))
+        .verifyComplete();
+    StepVerifier.create(tracker.startWorkflow("ok-exec", "ok-sess", "ok-wf", List.of("a")))
+        .verifyComplete();
+    org.mockito.Mockito.doThrow(new IllegalStateException("cache broke"))
+        .when(statusHistoryCache)
+        .put(org.mockito.ArgumentMatchers.eq("bad-exec"), org.mockito.ArgumentMatchers.any());
+
+    tracker.emitControlStateEvent("bad-exec", ControlState.PAUSED);
+    tracker.emitControlStateEvent("ok-exec", ControlState.PAUSED);
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId("ok-exec").controlState())
+                    .isEqualTo("PAUSED"));
+  }
+
+  @Test
+  void controlStateAndStatusChangesAreAppliedInTheOrderTheyWereEmitted() {
+    StepVerifier.create(tracker.startWorkflow("ord-exec", "ord-sess", "ord-wf", List.of("n1")))
+        .verifyComplete();
+
+    tracker.emitControlStateEvent("ord-exec", ControlState.PAUSED);
+    tracker.emitTaskStatusEvent("ord-exec", "n1", "m", TaskStatus.RUNNING, Map.of());
+    tracker.emitControlStateEvent("ord-exec", ControlState.RESUMED);
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> {
+              final WorkflowProgress progress = tracker.getProgressByExecutionId("ord-exec");
+              assertThat(progress.controlState()).isEqualTo("RESUMED");
+              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
+            });
   }
 
   @Test
   void testControlStateForUnknownExecutionIsIgnored() {
-    tracker.emitControlStateEvent("nobody", ControlState.PAUSED);
+    StepVerifier.create(tracker.startWorkflow("known", "known-sess", "known-wf", List.of("a")))
+        .verifyComplete();
 
-    assertThat(tracker.getActiveSessions()).isEmpty();
+    tracker.emitControlStateEvent("nobody", ControlState.PAUSED);
+    // events are applied in order: once this one shows, the unknown one has been dealt with
+    tracker.emitControlStateEvent("known", ControlState.PAUSED);
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId("known").controlState())
+                    .isEqualTo("PAUSED"));
+    assertThat(tracker.getProgressByExecutionId("nobody")).isNull();
   }
 
   @Test
@@ -3196,7 +3252,12 @@ class DefaultTaskTrackerServiceTest {
 
     tracker.emitControlStateEvent("ns-exec", ControlState.PAUSED);
 
-    assertThat(tracker.getProgressByExecutionId("ns-exec").controlState()).isEqualTo("PAUSED");
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(tracker.getProgressByExecutionId("ns-exec").controlState())
+                    .isEqualTo("PAUSED"));
   }
 
   @Test

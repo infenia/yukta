@@ -14,7 +14,7 @@ class ExecutionLogEventInitiatorTest {
 
   @Test
   void runStartRecordsWhoStartedIt() {
-    final var payload = ExecutionLogEvent.withInitiator(Map.of("a", 1), "yk check");
+    final var payload = StartOptions.withInitiator(Map.of("a", 1), "yk check");
 
     final var started = ExecutionLogEvent.started("e1", "s", "w", "v", payload);
 
@@ -42,12 +42,12 @@ class ExecutionLogEventInitiatorTest {
   void callersOwnValueOfTheReservedKeyIsDropped() {
     final Map<String, Object> forged = Map.of(ExecutionLogEvent.INITIATOR_KEY, "root");
 
-    assertThat(ExecutionLogEvent.withInitiator(forged, "key-a"))
+    assertThat(StartOptions.withInitiator(forged, "key-a"))
         .containsEntry(ExecutionLogEvent.INITIATOR_KEY, "key-a");
     // with nobody known, the forged value goes and nothing replaces it
-    assertThat(ExecutionLogEvent.withInitiator(forged, null))
+    assertThat(StartOptions.withInitiator(forged, null))
         .doesNotContainKey(ExecutionLogEvent.INITIATOR_KEY);
-    assertThat(ExecutionLogEvent.withInitiator(forged, " "))
+    assertThat(StartOptions.withInitiator(forged, " "))
         .doesNotContainKey(ExecutionLogEvent.INITIATOR_KEY);
     // the argument is not changed
     assertThat(forged).containsEntry(ExecutionLogEvent.INITIATOR_KEY, "root");
@@ -75,7 +75,7 @@ class ExecutionLogEventInitiatorTest {
   @Test
   void externalPayloadCannotNameParentRun() {
     final var payload =
-        ExecutionLogEvent.withInitiator(
+        StartOptions.withInitiator(
             Map.of("yukta.parentExecutionId", "victim", "yukta.depth", 0, "a", 1), "k");
 
     assertThat(payload)
@@ -86,7 +86,7 @@ class ExecutionLogEventInitiatorTest {
   @Test
   void externalPayloadCannotForgeSupervisorMarkers() {
     final var payload =
-        ExecutionLogEvent.withInitiator(
+        StartOptions.withInitiator(
             Map.of("yukta.supervisor.depth", 2, "yukta.supervisor.id", "s", "a", 1), "k");
 
     assertThat(payload).doesNotContainKeys("yukta.supervisor.depth", "yukta.supervisor.id");
@@ -95,7 +95,7 @@ class ExecutionLogEventInitiatorTest {
   @Test
   void externalPayloadCannotSetStartOptionsOnlyTypedOptionsCan() {
     final var clean =
-        ExecutionLogEvent.withInitiator(
+        StartOptions.withInitiator(
             Map.of(ExecutionScheduler.PRIORITY_KEY, 99, StartOptions.VERSION_KEY, "old"), "k");
     assertThat(clean).doesNotContainKeys(ExecutionScheduler.PRIORITY_KEY, StartOptions.VERSION_KEY);
 

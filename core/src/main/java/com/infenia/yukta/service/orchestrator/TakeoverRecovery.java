@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.leader;
+package com.infenia.yukta.service.orchestrator;
 
 import com.infenia.yukta.config.YuktaProperties;
-import com.infenia.yukta.service.log.ExecutionRecovery;
-import com.infenia.yukta.service.orchestrator.ExecutionResumer;
+import com.infenia.yukta.service.leader.LeaderElection;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;

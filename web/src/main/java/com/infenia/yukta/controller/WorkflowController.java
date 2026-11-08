@@ -15,7 +15,6 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.control.gateway.WorkflowService;
-import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -94,7 +93,7 @@ public class WorkflowController {
                         HttpStatus.FORBIDDEN, "priority and version need the ADMIN role"));
               }
               final Map<String, Object> clean =
-                  ExecutionLogEvent.withInitiator(request.payload(), initiator(request, context));
+                  StartOptions.withInitiator(request.payload(), initiator(request, context));
               final Map<String, Object> payload = options == null ? clean : options.into(clean);
               return workflowService.start(
                   request.sessionId(), request.workflowId(), payload, idempotencyKey);

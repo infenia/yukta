@@ -212,7 +212,7 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 
 | Package | Responsibility | Key classes | Features |
 |---|---|---|---|
-| `service.orchestrator` | Runs a workflow end to end; restart and resume entry points | `WorkflowOrchestrator` `ExecutionResumer` `RestartPlan` `SubWorkflowRunner` | ENG, DUR-03 |
+| `service.orchestrator` | Runs a workflow end to end; restart, resume and boot recovery entry points | `WorkflowOrchestrator` `ExecutionResumer` `ExecutionRecovery` `RestartPlan` `SubWorkflowRunner` | ENG, DUR-03 |
 | `…orchestrator.validator` | Structural and policy validation | `WorkflowValidator` | DEF-02 |
 | `…orchestrator.preparator / compiler` | Prepare, compile, resources, run deadline | `WorkflowPreparator` `WorkflowCompiler` | DEF-03 |
 | `…orchestrator.assembly / strategy` | One assembler per node kind; shared stream helpers | `TriggerNodeAssemblerStrategy` `ProcessorNodeAssemblerStrategy` `TerminalNodeAssemblerStrategy` | ENG-02 |
@@ -222,11 +222,11 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
 | `service.supervisor` | Supervisor host, reviewer hook, event feed | `SupervisorHost` `ControlReviewer` `ExecutionEventFeed` | CTL-06, CTL-07 |
-| `service.log / archive / store` | Execution log, recovery, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionRecovery` `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
+| `service.log / archive / store` | Execution log, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
 | `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
 | `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
 | `service.result / streaming` | Terminal results channel; progress history cache | `ExecutionResultService` `StatusHistoryCache` | OBS |
-| `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` `TakeoverRecovery` | SCL |
+| `service.worker / leader` | Worker registry and remote node execution; leader election | `WorkerRegistry` `RemoteProcessor` `RemoteNodes` `LeaderElection` | SCL |
 | `service.plugin` | Plugin lookup by type | `PluginRegistry` | EXT-01 |
 | `security` | API keys, roles, request path rules | `ApiKeys` `ApiRole` `RequestPaths` | SEC-01 |
 | `logging.api` | Plugin log store and node output paging | `PluginLogStore` `NodeOutputPager` | EXT-02, OBS-02 |
@@ -915,7 +915,7 @@ Several servers share a PostgreSQL database; one holds a lease and admits runs, 
 
 **Surface:** Gauge `yukta.leader` (1 on the leader)
 
-**Source:** `LeaderElection` `SingleServerLeader` `NotLeaderException` `TakeoverRecovery`
+**Source:** `LeaderElection` `SingleServerLeader` `NotLeaderException`; `TakeoverRecovery` is in `service.orchestrator`
 
 **Limits:** Lost on takeover: live approval waits, queued starts, slots and the old tracker state. Clients must send requests to the leader (no proxy); use a load-balancer health check on the leader gauge.
 
