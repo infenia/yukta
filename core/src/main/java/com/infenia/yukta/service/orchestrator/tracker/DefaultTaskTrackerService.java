@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.event.BreakpointEvent;
+import com.infenia.yukta.event.ControlStateEvent;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
@@ -177,7 +179,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
             statusSinks,
             statusHistoryCache,
             this::findState,
-            state -> getProgress(state.sessionId, state.executionId));
+            DefaultTaskTrackerService::toProgress);
     this.history = new ExecutionHistory(sessionStates, executionIndex);
     this.applier =
         new TrackerEventApplier(
@@ -460,16 +462,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public void emitControlStateEvent(
       @NotBlank final String executionId, @NotNull final ControlState state) {
-    final WorkflowState workflowState = findState(executionId);
-    if (workflowState == null) {
-      log.atWarn()
-          .addKeyValue("executionId", executionId)
-          .addKeyValue("controlState", state)
-          .log("Received control state for unknown execution");
-      return;
-    }
-    workflowState.setControlState(state.name());
-    streams.notifyStatusChange(workflowState);
+    // queued like every other change, so the applier is the only writer of the state and snapshots
+    publish(new ControlStateEvent(executionId, state));
   }
 
   @Override
@@ -477,12 +471,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @NotBlank final String executionId,
       @NotBlank final String nodeId,
       final TaskProgress.@Nullable Breakpoint breakpoint) {
-    Optional.ofNullable(findState(executionId))
-        .ifPresent(
-            workflowState -> {
-              workflowState.setBreakpoint(nodeId, breakpoint);
-              streams.notifyStatusChange(workflowState);
-            });
+    publish(new BreakpointEvent(executionId, nodeId, breakpoint));
   }
 
   @Override
