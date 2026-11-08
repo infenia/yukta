@@ -65,11 +65,6 @@ class CompositeEdgeCasesTest {
     }
 
     @Override
-    public int order() {
-      return order;
-    }
-
-    @Override
     public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
       return events.map(_ -> PAUSE);
     }
@@ -120,11 +115,6 @@ class CompositeEdgeCasesTest {
             Clock.systemUTC());
     assertThat(composite.id()).isEqualTo("comp");
     assertThat(composite.childIds()).containsExactly("a", "b");
-    assertThat(composite.order()).isEqualTo(2);
-    assertThat(
-            new CompositeSupervisor("x", quorumSettings(2), List.of(), List.of(), Clock.systemUTC())
-                .order())
-        .isZero();
   }
 
   @Test

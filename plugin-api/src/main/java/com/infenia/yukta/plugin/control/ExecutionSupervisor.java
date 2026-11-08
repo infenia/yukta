@@ -24,15 +24,6 @@ public interface ExecutionSupervisor {
   String id();
 
   /**
-   * Orders reviews: lower values review first.
-   *
-   * @return the order
-   */
-  default int order() {
-    return 0;
-  }
-
-  /**
    * Which runs this supervisor watches and may veto. It sees only the events of runs within the
    * scope, and is asked to review only the commands of such runs; a command that belongs to no run,
    * such as {@code SetLimitsCommand}, is reviewed by global supervisors only.

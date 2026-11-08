@@ -520,17 +520,16 @@ class SupervisorHostTest {
     final List<SupervisorInfo> status = host.status();
 
     assertThat(status)
-        .extracting(SupervisorInfo::id, SupervisorInfo::kind, SupervisorInfo::order)
+        .extracting(SupervisorInfo::id, SupervisorInfo::kind)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple("rules", "SUPERVISOR", 0),
-            org.assertj.core.groups.Tuple.tuple("plane", "CONTROL_PLANE", 5));
-    assertThat(status.getFirst())
+            org.assertj.core.groups.Tuple.tuple("plane", "CONTROL_PLANE"),
+            org.assertj.core.groups.Tuple.tuple("rules", "SUPERVISOR"));
+    assertThat(status.get(1))
         .isEqualTo(
             new SupervisorInfo(
                 "rules",
                 "SUPERVISOR",
-                status.getFirst().type(),
-                0,
+                status.get(1).type(),
                 true,
                 7,
                 3,
@@ -542,12 +541,10 @@ class SupervisorHostTest {
                 null,
                 null,
                 0,
-                0,
-                0,
                 null));
-    assertThat(status.get(1).applied()).isZero();
-    assertThat(status.getFirst().type()).contains("SupervisorHostTest");
-    assertThat(status.get(1).type()).isEqualTo("NamedPlane");
+    assertThat(status.getFirst().applied()).isZero();
+    assertThat(status.get(1).type()).contains("SupervisorHostTest");
+    assertThat(status.getFirst().type()).isEqualTo("NamedPlane");
   }
 
   @Test

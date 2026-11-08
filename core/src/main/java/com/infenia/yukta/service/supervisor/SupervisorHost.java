@@ -28,7 +28,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -136,7 +135,7 @@ public class SupervisorHost {
   private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
 
   /** Orders the conflicting commands of supervisors. */
-  private final CommandArbiter arbiter;
+  private final TurnAroundGuard guard;
 
   /**
    * Creates the host.
@@ -168,11 +167,11 @@ public class SupervisorHost {
         properties.supervisor().dryRun(),
         properties.supervisor().maxCommandsPerSecond(),
         properties.supervisor().bufferSize(),
-        new CommandArbiter(properties.supervisor().arbiter()));
+        new TurnAroundGuard(properties.supervisor().turnAround()));
   }
 
   /**
-   * Creates the host with an arbiter for the commands of its supervisors.
+   * Creates the host with a guard against a supervisor flapping against itself.
    *
    * @param supervisors the supervisors to host
    * @param feed the event feed
@@ -183,7 +182,7 @@ public class SupervisorHost {
    * @param dryRun whether commands are only recorded
    * @param maxCommandsPerSecond the command rate limit of one supervisor
    * @param bufferSize events a supervisor may have waiting
-   * @param arbiter orders conflicting commands
+   * @param guard stops a supervisor from turning a target around too often
    */
   @SuppressWarnings("PMD.ExcessiveParameterList")
   public SupervisorHost(
@@ -196,8 +195,8 @@ public class SupervisorHost {
       final boolean dryRun,
       final int maxCommandsPerSecond,
       final int bufferSize,
-      final CommandArbiter arbiter) {
-    this.arbiter = arbiter;
+      final TurnAroundGuard guard) {
+    this.guard = guard;
     this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;
@@ -341,11 +340,11 @@ public class SupervisorHost {
   /**
    * Describes the supervisors that run and what they have done since startup.
    *
-   * @return one entry per supervisor, in review order
+   * @return one entry per supervisor, by id
    */
   public List<SupervisorInfo> status() {
     return Stream.concat(
-            supervisors.orderedStream().sorted(Comparator.comparingInt(ExecutionSupervisor::order)),
+            supervisors.orderedStream().sorted(Comparator.comparing(ExecutionSupervisor::id)),
             attachedSupervisors.stream().sorted(Comparator.comparing(BoundSupervisor::id)))
         .map(
             supervisor -> {
@@ -355,7 +354,6 @@ public class SupervisorHost {
                   supervisor.id(),
                   kind(real),
                   typeName(real.getClass()),
-                  supervisor.order(),
                   dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
                   maxCommandsPerSecond,
                   commands(supervisor.id(), "applied"),
@@ -368,8 +366,6 @@ public class SupervisorHost {
                   supervisor.scope() instanceof SupervisorScope.Section section
                       ? List.copyOf(section.nodes())
                       : null,
-                  commands(supervisor.id(), "arbitrated"),
-                  commands(supervisor.id(), "coalesced"),
                   commands(supervisor.id(), "flapping-blocked"),
                   real instanceof CompositeSupervisor composite ? composite.childIds() : null);
             })
@@ -418,7 +414,6 @@ public class SupervisorHost {
                         () ->
                             apply(
                                 supervisorId,
-                                supervisor.order(),
                                 supervisor.scope(),
                                 command,
                                 limit,
@@ -493,7 +488,6 @@ public class SupervisorHost {
 
   private Mono<Void> apply(
       final String supervisorId,
-      final int order,
       final SupervisorScope scope,
       final ExecutionControlCommand command,
       final RateLimit limit,
@@ -516,7 +510,7 @@ public class SupervisorHost {
               .flatMap(
                   inside ->
                       inside
-                          ? arbitrated(supervisorId, order, command, limit, recordOnly)
+                          ? guarded(supervisorId, command, limit, recordOnly)
                           : notApplied(
                               supervisorId,
                               OUT_OF_SCOPE,
@@ -541,24 +535,16 @@ public class SupervisorHost {
             .onErrorReturn(false);
   }
 
-  /** Lets the arbiter decide a command that can conflict, then applies it or records why not. */
-  private Mono<Void> arbitrated(
+  /** Blocks a supervisor that keeps turning a target around, else applies the command. */
+  private Mono<Void> guarded(
       final String supervisorId,
-      final int order,
       final ExecutionControlCommand command,
       final RateLimit limit,
       final boolean recordOnly) {
-    return arbiter
-        .submit(supervisorId, order, command)
-        .flatMap(
-            decision ->
-                decision.verdict() == CommandArbiter.Verdict.SEND
-                    ? limited(supervisorId, command, limit, recordOnly)
-                    : notApplied(
-                        supervisorId,
-                        decision.verdict().name().toLowerCase(Locale.ROOT).replace('_', '-'),
-                        command,
-                        decision.reason()));
+    return guard
+        .check(supervisorId, command)
+        .map(reason -> notApplied(supervisorId, "flapping-blocked", command, reason))
+        .orElseGet(() -> limited(supervisorId, command, limit, recordOnly));
   }
 
   /** Applies a command in scope, or records it in dry-run or over the rate limit. */

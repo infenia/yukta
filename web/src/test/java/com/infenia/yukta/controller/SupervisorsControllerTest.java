@@ -177,7 +177,6 @@ class SupervisorsControllerTest {
             "rules",
             "SUPERVISOR",
             "RuleSupervisor",
-            0,
             false,
             20,
             3,
@@ -188,8 +187,6 @@ class SupervisorsControllerTest {
             null,
             null,
             null,
-            0,
-            0,
             0,
             null);
     when(host.status()).thenReturn(List.of(info));
@@ -370,24 +367,7 @@ class SupervisorsControllerTest {
   private static SupervisorInfo system(
       final String id, final String scope, final String session, final String workflow) {
     return new SupervisorInfo(
-        id,
-        "SUPERVISOR",
-        "T",
-        0,
-        false,
-        20,
-        0,
-        0,
-        0,
-        0,
-        scope,
-        session,
-        workflow,
-        null,
-        0,
-        0,
-        0,
-        null);
+        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0, null);
   }
 
   @Test

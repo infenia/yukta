@@ -95,11 +95,6 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
   }
 
   @Override
-  public int order() {
-    return children.stream().mapToInt(ExecutionSupervisor::order).min().orElse(0);
-  }
-
-  @Override
   public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
     return switch (settings.mode()) {
       case CHAIN, FIRST_MATCH ->

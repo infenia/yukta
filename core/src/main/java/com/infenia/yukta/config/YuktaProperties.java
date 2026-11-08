@@ -159,7 +159,7 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DurationMin(nanos = 0) @DefaultValue("5s") Duration reviewTimeout,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
-      @Valid @NotNull @DefaultValue Arbiter arbiter,
+      @Valid @NotNull @DefaultValue TurnAround turnAround,
       @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor) {}
 
   /**
@@ -172,30 +172,25 @@ public record YuktaProperties(
   public record DefaultSupervisor(@DefaultValue("true") boolean enabled) {}
 
   /**
-   * How commands of supervisors that act on the same target are ordered.
+   * The guard against a supervisor flapping against itself.
    *
-   * @param window how long conflicting commands wait for each other; zero turns the arbiter off
-   * @param flapPeriod the period in which turn-arounds are counted
-   * @param flapLimit most turn-arounds of one target by one supervisor in the period
-   * @param flapCooldown how long a supervisor over the limit is blocked
+   * @param period the period in which turn-arounds of a target are counted
+   * @param limit most turn-arounds of one target by one supervisor in the period
+   * @param cooldown how long a supervisor over the limit is blocked on that target
    */
-  public record Arbiter(
-      @NotNull @DefaultValue("500ms") Duration window,
-      @NotNull @DefaultValue("60s") Duration flapPeriod,
-      @Min(1) @DefaultValue("4") int flapLimit,
-      @NotNull @DefaultValue("5m") Duration flapCooldown) {
+  public record TurnAround(
+      @NotNull @DefaultValue("60s") Duration period,
+      @Min(1) @DefaultValue("4") int limit,
+      @NotNull @DefaultValue("5m") Duration cooldown) {
 
-    /** Checks that the window is not negative and the other durations are positive. */
-    public Arbiter {
-      if (window.isNegative()) {
-        throw new IllegalArgumentException("yukta.supervisor.arbiter.window must not be negative");
+    /** Checks that the durations are positive. */
+    public TurnAround {
+      if (period.isZero() || period.isNegative()) {
+        throw new IllegalArgumentException("yukta.supervisor.turn-around.period must be positive");
       }
-      if (flapPeriod.isZero() || flapPeriod.isNegative()) {
-        throw new IllegalArgumentException("yukta.supervisor.arbiter.flap-period must be positive");
-      }
-      if (flapCooldown.isZero() || flapCooldown.isNegative()) {
+      if (cooldown.isZero() || cooldown.isNegative()) {
         throw new IllegalArgumentException(
-            "yukta.supervisor.arbiter.flap-cooldown must be positive");
+            "yukta.supervisor.turn-around.cooldown must be positive");
       }
     }
   }

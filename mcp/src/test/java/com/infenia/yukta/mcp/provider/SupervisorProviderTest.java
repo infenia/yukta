@@ -49,7 +49,6 @@ class SupervisorProviderTest {
                     "b1",
                     "SUPERVISOR",
                     "T",
-                    0,
                     true,
                     20,
                     3,
@@ -60,8 +59,6 @@ class SupervisorProviderTest {
                     "A",
                     "w",
                     List.of("build.*"),
-                    0,
-                    0,
                     0,
                     null)));
     when(service.attachments())

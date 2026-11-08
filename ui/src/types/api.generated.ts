@@ -4247,11 +4247,7 @@ export interface components {
         SupervisorInfo: {
             /** Format: int64 */
             applied?: number;
-            /** Format: int64 */
-            arbitrated?: number;
             children?: string[];
-            /** Format: int64 */
-            coalesced?: number;
             dryRun?: boolean;
             /** Format: int64 */
             flappingBlocked?: number;
@@ -4259,8 +4255,6 @@ export interface components {
             kind?: string;
             /** Format: int32 */
             maxCommandsPerSecond?: number;
-            /** Format: int32 */
-            order?: number;
             /** Format: int64 */
             rateLimited?: number;
             /** Format: int64 */

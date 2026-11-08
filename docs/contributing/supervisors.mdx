@@ -85,7 +85,8 @@ Each way has its own owner: only `MANUAL` attachments can be changed through the
 | `yukta.supervisor.max-attachments` | `200` | Limit on all attachments |
 | `yukta.supervisor.buffer-size` | `10000` | Per-supervisor event buffer |
 | `yukta.supervisor.review-timeout` | `5s` | Time a `review` has before it is refused (a stop is allowed) |
-| `yukta.supervisor.arbiter.window`, `.flap-limit`, `.flap-period`, `.flap-cooldown` | see [core reference](/contributing/core-reference) | Conflict arbitration. Window `0` turns it off. |
+| `yukta.supervisor.turn-around.period`, `.limit`, `.cooldown` | see [core reference](/contributing/core-reference) | Guard against a supervisor flapping against itself. |
+| `yukta.supervisor.default.enabled` | `true` | Lets people control what nobody owns. |
 | `yukta.supervisor.reserved-slots`, `.max-depth` | `4`, `2` | Capacity and nesting of workflow supervisors |
 | `yukta.session.store-type=postgres` | in memory | Keeps supervisors and attachments across restarts |
 
@@ -110,7 +111,7 @@ ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorH
                       SupervisorHost.apply: checks, in this order
                       1. allowedCommands      → forbidden
                       2. scope                → out-of-scope
-                      3. CommandArbiter       → coalesced / arbitrated / flapping-blocked
+                      3. TurnAroundGuard      → flapping-blocked
                       4. rate limit           → rate-limited
                       5. dry run              → dry-run (recorded only)
                                                             │
@@ -135,7 +136,7 @@ ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorH
 
 **Review.** `ControlReviewer` asks every attached supervisor with a matching scope, in `order()`. A denial wins, and an error counts as a denial. Needs for approval merge into one (highest risk, shortest ttl). The command is parked behind an `APPROVAL` input request and re-dispatched with a one-time grant once approved. Rules for who may approve: the sender and the askers cannot (`separation`), a supervisor needs a strictly wider scope (`rank`), and `HIGH` is for a person.
 
-**Disagreement.** Pause and resume commands for one target wait in an arbiter window. The lowest `order` wins, ties go to the earlier one, and a supervisor that turns a target around too often is blocked for a cooldown.
+**Disagreement.** There is none between supervisors: one owner per unit. A supervisor that turns a target around too often is blocked for a cooldown (`TurnAroundGuard`).
 
 **Where results show.** `GET /api/supervisors/status` (live counts), `GET /api/supervisors/decisions` (the newest 500 outcomes, in memory), the metric `yukta.supervisor.commands{id,outcome}` and the audit lines `PauseWorkflowCommand [by <id>]`.
 
@@ -299,7 +300,7 @@ Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vit
 | Area | Files |
 |---|---|
 | Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
-| Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `CommandArbiter`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
+| Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `TurnAroundGuard`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
 | Composite and workflow | `core/.../service/supervisor/composite/`, `.../workflow/` |
 | Types | `plugins/supervisors/rule-supervisor`, `guards`, `webhook` |
 | REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
