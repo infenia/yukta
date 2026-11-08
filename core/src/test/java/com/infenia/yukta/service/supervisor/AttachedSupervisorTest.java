@@ -234,7 +234,6 @@ class AttachedSupervisorTest {
     final BoundSupervisor supervisor = bound("b1", new SupervisorScope.Session("A"), false);
 
     assertThat(supervisor.id()).isEqualTo("b1");
-    assertThat(supervisor.order()).isZero();
     assertThat(supervisor.scope()).isEqualTo(new SupervisorScope.Session("A"));
     StepVerifier.create(
             supervisor.review(

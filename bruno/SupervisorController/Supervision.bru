@@ -1,0 +1,17 @@
+meta {
+  name: Supervision
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{base_url}}/api/supervision?session={{sessionId}}&workflow={{workflowId}}
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

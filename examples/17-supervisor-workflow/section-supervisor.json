@@ -13,5 +13,8 @@
     "allowedCommands": [
       "EscalateInputCommand"
     ]
-  }
+  },
+  "parents": [
+    "low-risk-workflow"
+  ]
 }

@@ -1,0 +1,17 @@
+meta {
+  name: List Supervisors
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{base_url}}/api/supervisors
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

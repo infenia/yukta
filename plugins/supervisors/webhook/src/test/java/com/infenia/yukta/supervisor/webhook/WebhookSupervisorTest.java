@@ -375,12 +375,12 @@ class WebhookSupervisorTest {
                 .headers())
         .containsEntry("X", "${env.OPEN");
     assertThat(new WebhookSupervisorFactory(EgressPolicy.OPEN, List.of()).type())
-        .isEqualTo("webhook");
+        .isEqualTo("callout");
     assertThat(factory.config(Map.of("url", "http://a.example")).events())
         .containsExactlyInAnyOrder("InputRequested", "NodeStatusChanged");
     assertThat(
             factory
-                .create(new Supervisor("w", "webhook", Map.of("url", "http://a.example"), false))
+                .create(new Supervisor("w", "callout", Map.of("url", "http://a.example"), false))
                 .id())
         .isEqualTo("w");
   }
@@ -448,7 +448,7 @@ class WebhookSupervisorTest {
     assertThat(SupervisorCommonSettings.KEYS).contains("allowedCommands");
     StepVerifier.create(
             factory
-                .create(new Supervisor("w", "webhook", descriptor.exampleSettings(), false))
+                .create(new Supervisor("w", "callout", descriptor.exampleSettings(), false))
                 .supervise(Flux.empty()))
         .verifyComplete();
   }

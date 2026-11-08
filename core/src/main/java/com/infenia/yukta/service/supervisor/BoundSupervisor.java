@@ -38,11 +38,6 @@ public record BoundSupervisor(
   }
 
   @Override
-  public int order() {
-    return delegate.order();
-  }
-
-  @Override
   public SupervisorScope scope() {
     return attachment.scope();
   }

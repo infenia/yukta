@@ -44,6 +44,26 @@ class SupervisorAttachmentTest {
   }
 
   @Test
+  void attachmentCanBeMarkedAsConflictAndThenIsDisabled() {
+    final SupervisorAttachment declared =
+        new SupervisorAttachment(
+            "a",
+            "p",
+            new SupervisorScope.Run("w", "s"),
+            true,
+            SupervisorSource.DEFINITION,
+            "s",
+            "w");
+
+    assertThat(declared.conflict()).isFalse();
+    final SupervisorAttachment marked = declared.asConflict();
+    assertThat(marked.conflict()).isTrue();
+    assertThat(marked.enabled()).isFalse();
+    assertThat(marked.source()).isEqualTo(SupervisorSource.DEFINITION);
+    assertThat(marked.originWorkflowId()).isEqualTo("w");
+  }
+
+  @Test
   void profileKeepsAnImmutableCopyOfItsSettingsAndAllowsNullValues() {
     final Map<String, Object> settings = Collections.singletonMap("k", null);
     final Supervisor profile = new Supervisor("p", "rule-supervisor", settings, true);

@@ -171,13 +171,14 @@ func SetTestOutputFormat(format string) {
 }
 
 // Exit codes, a contract for scripts: 0 ok, 1 other failure, 2 usage, 3 not found, 4 server
-// (5xx), 5 timeout.
+// (5xx), 5 timeout, 6 refused by a supervisor (409 CONTROLLED_BY_SUPERVISOR or 403 CONTROL_REJECTED).
 const (
 	ExitFailure  = 1
 	ExitUsage    = 2
 	ExitNotFound = 3
 	ExitServer   = 4
 	ExitTimeout  = 5
+	ExitRefused  = 6
 )
 
 // ExitCode maps an error from Execute to the process exit code. usage tells that the command line
@@ -193,6 +194,8 @@ func ExitCode(err error, usage bool) int {
 		return ExitTimeout
 	case status == http.StatusNotFound:
 		return ExitNotFound
+	case isAPI && client.IsRefusal(err):
+		return ExitRefused
 	case isAPI && status >= 500:
 		return ExitServer
 	}

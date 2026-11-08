@@ -630,6 +630,48 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
         });
   }
 
+  @Override
+  public <T> Mono<T> reviewedAdmin(
+      final ExecutionControlCommand command,
+      final String name,
+      final java.util.function.Supplier<Mono<T>> action) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          final String channel = ControlAudit.channel(context);
+          final Mono<Void> review =
+              reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
+          return review
+              .then(Mono.defer(action))
+              .doOnSuccess(
+                  _ ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              true,
+                              command.executionId(),
+                              name,
+                              actor,
+                              null,
+                              Instant.now(),
+                              channel)))
+              .doOnError(
+                  error ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              false,
+                              command.executionId(),
+                              name,
+                              actor,
+                              error.getMessage(),
+                              Instant.now(),
+                              channel)));
+        });
+  }
+
   /** The review request for a command, with the session and workflow of its live run if any. */
   private ControlRequest request(final ExecutionControlCommand command, final String actor) {
     return executionControlStore

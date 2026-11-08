@@ -43,7 +43,9 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetPriorityCommand,
         ExecutionControlCommand.AnswerInputCommand,
         ExecutionControlCommand.EscalateInputCommand,
-        ExecutionControlCommand.StartWorkflowCommand {
+        ExecutionControlCommand.StartWorkflowCommand,
+        ExecutionControlCommand.RecoverCommand,
+        ExecutionControlCommand.DrainCommand {
 
   /** Execution id the commands that belong to no run carry. */
   String SCHEDULER = "scheduler";
@@ -396,6 +398,29 @@ public sealed interface ExecutionControlCommand
     @Override
     public String executionId() {
       return START;
+    }
+  }
+
+  /**
+   * Continue a run that a server restart aborted, as a new run. It only passes through {@link
+   * ExecutionSupervisor#review}; the server applies it. The run is not live, so it is reviewed as a
+   * server-level command.
+   *
+   * @param executionId the aborted run
+   */
+  record RecoverCommand(String executionId) implements ExecutionControlCommand {}
+
+  /**
+   * Refuse new starts (or admit them again). It belongs to no run, so {@link #executionId()} is
+   * {@value #SCHEDULER}; it only passes through {@link ExecutionSupervisor#review}.
+   *
+   * @param draining true to refuse new starts, false to admit them again
+   */
+  record DrainCommand(boolean draining) implements ExecutionControlCommand {
+
+    @Override
+    public String executionId() {
+      return SCHEDULER;
     }
   }
 }

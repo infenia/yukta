@@ -92,6 +92,44 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void parentsAndDelegationModesAreStoredAndReadBack() {
+    final Supervisor child =
+        new Supervisor(
+            "child",
+            "rule-supervisor",
+            Map.of(),
+            false,
+            null,
+            java.util.List.of("p1", "p2"),
+            Map.of(
+                com.infenia.yukta.plugin.control.DelegationKind.APPROVAL,
+                new com.infenia.yukta.plugin.control.Delegation(
+                    com.infenia.yukta.plugin.control.DelegationMode.ALL,
+                    java.time.Duration.ofSeconds(45))));
+
+    StepVerifier.create(store.saveSupervisor(child)).verifyComplete();
+
+    StepVerifier.create(store.supervisors()).expectNext(child).verifyComplete();
+  }
+
+  @Test
+  void conflictMarkIsStoredAndReadBack() {
+    final SupervisorAttachment marked =
+        new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();
+
+    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
+    StepVerifier.create(store.saveAttachment(marked)).verifyComplete();
+
+    StepVerifier.create(store.attachments())
+        .assertNext(
+            a -> {
+              org.assertj.core.api.Assertions.assertThat(a.conflict()).isTrue();
+              org.assertj.core.api.Assertions.assertThat(a.enabled()).isFalse();
+            })
+        .verifyComplete();
+  }
+
+  @Test
   void sectionScopeIsStoredAsTextAndReadBack() {
     StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
     final Set<String> nodes = new LinkedHashSet<>();

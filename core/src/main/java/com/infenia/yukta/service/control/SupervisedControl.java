@@ -340,25 +340,24 @@ public class SupervisedControl {
    */
   public Mono<String> recover(final String executionId) {
     return operator(
-        Mono.defer(() -> resumer.resume(executionId))
-            .flatMap(
-                newId ->
-                    gateway
-                        .recordAdminAction("Recover", executionId, true, null)
-                        .thenReturn(newId)));
+        gateway.reviewedAdmin(
+            new ExecutionControlCommand.RecoverCommand(executionId),
+            "Recover",
+            () -> Mono.defer(() -> resumer.resume(executionId))));
   }
 
   /**
-   * Refuse new starts, or admit them again. Not reviewed by supervisors yet (it has no command
-   * type); it is audited.
+   * Refuse new starts, or admit them again. Reviewed as a server-level command and audited.
    *
    * @param draining true to drain
    * @return completes when applied
    */
   public Mono<Void> drain(final boolean draining) {
     return operator(
-        Mono.fromRunnable(() -> scheduler.setDraining(draining))
-            .then(gateway.recordAdminAction(draining ? "Drain" : "Undrain", "server", true, null)));
+        gateway.reviewedAdmin(
+            new ExecutionControlCommand.DrainCommand(draining),
+            draining ? "Drain" : "Undrain",
+            () -> Mono.<Void>fromRunnable(() -> scheduler.setDraining(draining))));
   }
 
   // --- ENGINE: directives from a supervisor's engine ---

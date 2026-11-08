@@ -36,6 +36,8 @@ public final class SupervisorHostFixture {
         dryRun,
         maxCommandsPerSecond,
         bufferSize,
-        CommandArbiter.disabled());
+        new TurnAroundGuard(
+            new com.infenia.yukta.config.YuktaProperties.TurnAround(
+                java.time.Duration.ofSeconds(60), 4, java.time.Duration.ofMinutes(5))));
   }
 }

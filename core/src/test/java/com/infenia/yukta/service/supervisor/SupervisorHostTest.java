@@ -111,25 +111,6 @@ class SupervisorHostTest {
   }
 
   @Test
-  void status_showsCompositeWithChildren() {
-    final var settings =
-        new com.infenia.yukta.service.supervisor.composite.CompositeSettings(
-            com.infenia.yukta.service.supervisor.composite.CompositeMode.PARALLEL,
-            List.of("a"),
-            com.infenia.yukta.service.supervisor.composite.ReviewMode.ALL,
-            0,
-            Duration.ofSeconds(1));
-    start(
-        new com.infenia.yukta.service.supervisor.composite.CompositeSupervisor(
-            "comp", settings, List.of("a"), List.of(), java.time.Clock.systemUTC()),
-        false,
-        10);
-
-    assertThat(host.status().getFirst().kind()).isEqualTo("COMPOSITE");
-    assertThat(host.status().getFirst().children()).containsExactly("a");
-  }
-
-  @Test
   void isBuiltIn_isTrueOnlyForSupervisorsConfiguredAsBeans() {
     start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 20);
 
@@ -520,17 +501,16 @@ class SupervisorHostTest {
     final List<SupervisorInfo> status = host.status();
 
     assertThat(status)
-        .extracting(SupervisorInfo::id, SupervisorInfo::kind, SupervisorInfo::order)
+        .extracting(SupervisorInfo::id, SupervisorInfo::kind)
         .containsExactly(
-            org.assertj.core.groups.Tuple.tuple("rules", "SUPERVISOR", 0),
-            org.assertj.core.groups.Tuple.tuple("plane", "CONTROL_PLANE", 5));
-    assertThat(status.getFirst())
+            org.assertj.core.groups.Tuple.tuple("plane", "CONTROL_PLANE"),
+            org.assertj.core.groups.Tuple.tuple("rules", "SUPERVISOR"));
+    assertThat(status.get(1))
         .isEqualTo(
             new SupervisorInfo(
                 "rules",
                 "SUPERVISOR",
-                status.getFirst().type(),
-                0,
+                status.get(1).type(),
                 true,
                 7,
                 3,
@@ -541,13 +521,10 @@ class SupervisorHostTest {
                 null,
                 null,
                 null,
-                0,
-                0,
-                0,
-                null));
-    assertThat(status.get(1).applied()).isZero();
-    assertThat(status.getFirst().type()).contains("SupervisorHostTest");
-    assertThat(status.get(1).type()).isEqualTo("NamedPlane");
+                0));
+    assertThat(status.getFirst().applied()).isZero();
+    assertThat(status.get(1).type()).contains("SupervisorHostTest");
+    assertThat(status.getFirst().type()).isEqualTo("NamedPlane");
   }
 
   @Test

@@ -110,6 +110,8 @@
               "running/control-dashboard",
               "running/supervisors",
               "running/supervisor-contract",
+              "running/supervisor-engines",
+              "running/writing-a-supervisor",
               "running/control-planes",
               "running/rule-files"
             ]
