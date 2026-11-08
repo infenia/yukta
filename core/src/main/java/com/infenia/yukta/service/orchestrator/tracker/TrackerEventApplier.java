@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.orchestrator.tracker;
 
+import com.infenia.yukta.event.BreakpointEvent;
+import com.infenia.yukta.event.ControlStateEvent;
 import com.infenia.yukta.event.TaskStatusEvent;
 import com.infenia.yukta.event.TrackerEvent;
 import com.infenia.yukta.event.WorkflowLogEvent;
@@ -100,11 +102,34 @@ final class TrackerEventApplier {
         case TaskStatusEvent task -> applyTask(task, touched);
         case WorkflowStatusEvent workflow -> applyWorkflow(workflow, touched);
         case WorkflowLogEvent logEvent -> applyLog(logEvent);
+        case ControlStateEvent control -> applyControl(control, touched);
+        case BreakpointEvent breakpoint -> applyBreakpoint(breakpoint, touched);
       }
     } catch (
         @SuppressWarnings("PMD.AvoidCatchingGenericException")
         final RuntimeException e) {
       log.atError().setCause(e).addKeyValue("event", event).log("Failed to apply tracker event");
+    }
+  }
+
+  private void applyControl(final ControlStateEvent event, final Set<WorkflowState> touched) {
+    final WorkflowState state = states.apply(event.executionId());
+    if (state == null) {
+      log.atWarn()
+          .addKeyValue("executionId", event.executionId())
+          .addKeyValue("controlState", event.state())
+          .log("Received control state for unknown execution");
+      return;
+    }
+    state.setControlState(event.state().name());
+    touched.add(state);
+  }
+
+  private void applyBreakpoint(final BreakpointEvent event, final Set<WorkflowState> touched) {
+    final WorkflowState state = states.apply(event.executionId());
+    if (state != null) {
+      state.setBreakpoint(event.nodeId(), event.breakpoint());
+      touched.add(state);
     }
   }
 

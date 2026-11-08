@@ -4,4 +4,8 @@ package com.infenia.yukta.event;
 
 /** An event applied to the execution tracker, in the order in which it was emitted. */
 public sealed interface TrackerEvent
-    permits TaskStatusEvent, WorkflowStatusEvent, WorkflowLogEvent {}
+    permits TaskStatusEvent,
+        WorkflowStatusEvent,
+        WorkflowLogEvent,
+        ControlStateEvent,
+        BreakpointEvent {}
