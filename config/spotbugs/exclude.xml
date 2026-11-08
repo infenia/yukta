@@ -43,4 +43,10 @@
     </Or>
     <Bug pattern="EI_EXPOSE_REP"/>
   </Match>
+
+  <!-- Spring injects shared beans through constructors and setters that are meant to be held;
+       the pattern is a false positive there. EI_EXPOSE_REP (returned state) stays on. -->
+  <Match>
+    <Bug pattern="EI_EXPOSE_REP2"/>
+  </Match>
 </FindBugsFilter>

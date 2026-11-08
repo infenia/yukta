@@ -5,7 +5,6 @@ package com.infenia.yukta.service.leader;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.log.ExecutionRecovery;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.SmartInitializingSingleton;
@@ -60,7 +59,6 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
    * @param resumer resumes aborted runs
    * @param autoResume whether interrupted runs are resumed on their own
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // all three are shared Spring beans
   public TakeoverRecovery(
       final LeaderElection election,
       final ExecutionRecovery recovery,

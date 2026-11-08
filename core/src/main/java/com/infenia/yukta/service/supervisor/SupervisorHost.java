@@ -18,7 +18,6 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -178,7 +177,6 @@ public class SupervisorHost {
    * @param bufferSize events a supervisor may have waiting
    * @param arbiter orders conflicting commands
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public SupervisorHost(
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
@@ -231,9 +229,6 @@ public class SupervisorHost {
    * @param attached the set
    */
   @Autowired
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared service, which is meant to be held")
   public void setAttachedSupervisors(final AttachedSupervisors attached) {
     this.attachedSupervisors = attached;
   }
@@ -314,9 +309,6 @@ public class SupervisorHost {
    * @param internal the lookup
    */
   @Autowired(required = false)
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared lookup, which is meant to be held")
   public void setInternalSessions(final InternalSessions internal) {
     this.internalSessions = internal;
   }

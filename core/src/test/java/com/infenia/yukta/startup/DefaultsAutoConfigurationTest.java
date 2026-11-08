@@ -8,6 +8,7 @@ import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.security.ApiAuthenticator;
 import com.infenia.yukta.security.ApiKeyAuthenticator;
+import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.SingleServerLeader;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -36,6 +37,7 @@ class DefaultsAutoConfigurationTest {
         context -> {
           assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
           assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
+          assertThat(context).hasSingleBean(InMemoryExecutionControlStore.class);
           assertThat(context).hasSingleBean(SingleServerLeader.class);
           assertThat(context).hasSingleBean(ApiKeyAuthenticator.class);
           assertThat(context.getBean(EditionInfo.class)).isEqualTo(EditionInfo.community());

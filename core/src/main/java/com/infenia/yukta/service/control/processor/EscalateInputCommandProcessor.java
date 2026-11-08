@@ -9,7 +9,6 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputCommandGuard;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -33,7 +32,6 @@ public class EscalateInputCommandProcessor {
    * @param guard checks leadership, the request, its run and the sender
    * @param broker hands the request up
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public EscalateInputCommandProcessor(final InputCommandGuard guard, final InputBroker broker) {
     this.guard = guard;
     this.broker = broker;

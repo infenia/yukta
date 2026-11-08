@@ -210,4 +210,19 @@ class ExecutionContextBuilderTest {
     assertThat(contextPayload.containsKey("key1")).isTrue();
     assertThat(contextPayload.containsKey("key2")).isFalse();
   }
+
+  @Test
+  void theIdsReachTheLoggingContextWhileTheContextIsApplied() {
+    final io.micrometer.context.ContextSnapshotFactory factory =
+        io.micrometer.context.ContextSnapshotFactory.builder().build();
+    org.slf4j.MDC.put("nodeId", "before");
+    try (io.micrometer.context.ContextSnapshot.Scope ignored =
+        factory.setThreadLocalsFrom(Context.of("executionId", "e1", "nodeId", "n1"))) {
+      assertThat(org.slf4j.MDC.get("executionId")).isEqualTo("e1");
+      assertThat(org.slf4j.MDC.get("nodeId")).isEqualTo("n1");
+    }
+    assertThat(org.slf4j.MDC.get("executionId")).isNull();
+    assertThat(org.slf4j.MDC.get("nodeId")).isEqualTo("before");
+    org.slf4j.MDC.remove("nodeId");
+  }
 }

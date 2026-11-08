@@ -11,7 +11,6 @@ import com.infenia.yukta.security.ApiKeys;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.supervisor.AttachedSupervisors;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
@@ -52,7 +51,6 @@ public class ActorResolver {
    * @param attached the supervisors attached at run time
    * @param authenticator tells whether authentication is required
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public ActorResolver(final AttachedSupervisors attached, final ApiAuthenticator authenticator) {
     this.attached = attached;
     this.authenticator = authenticator;

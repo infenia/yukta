@@ -5,7 +5,6 @@ package com.infenia.yukta.service.input;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.LeaderTimer;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
@@ -72,7 +71,6 @@ public class InputRetention implements SmartLifecycle {
    * @param scheduler runs the timer; a virtual-time scheduler in tests
    * @param clock the time of a purge
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public InputRetention(
       final InputRequestStore store,
       final LeaderElection leader,

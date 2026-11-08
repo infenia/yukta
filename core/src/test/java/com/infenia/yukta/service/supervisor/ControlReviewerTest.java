@@ -264,7 +264,7 @@ class ControlReviewerTest {
   }
 
   @Test
-  void review_failingSupervisor_refusesStopToo() {
+  void review_failingSupervisor_allowsStop() {
     final ControlReviewer reviewer =
         ControlReviewerFixture.create(
             providerOf(
@@ -281,7 +281,6 @@ class ControlReviewerTest {
                     null,
                     null,
                     null)))
-        .expectErrorMessage("broken: review failed")
-        .verify();
+        .verifyComplete(); // a failing reviewer must not keep a person from stopping
   }
 }

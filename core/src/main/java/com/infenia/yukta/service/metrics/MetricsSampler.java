@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.metrics;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.FunctionCounter;
 import io.micrometer.core.instrument.Gauge;
@@ -15,6 +14,7 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +81,9 @@ public class MetricsSampler {
   /** The minute of the last coarse sample. */
   private long lastMinute = -1;
 
+  /** Whether the series cap was reported, so the log says it once. */
+  private boolean capReported;
+
   /** The running timer, null before start. */
   private Disposable ticker;
 
@@ -90,9 +93,6 @@ public class MetricsSampler {
    * @param registry where the values come from
    * @param properties the settings
    */
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared registry, which is meant to be held")
   public MetricsSampler(final MeterRegistry registry, final MetricsProperties properties) {
     this.registry = registry;
     this.properties = properties;
@@ -124,19 +124,29 @@ public class MetricsSampler {
     final Map<String, Double> values = new TreeMap<>();
     final Map<String, double[]> raw = new HashMap<>();
     final double seconds = previousTime == 0 ? 0 : (now - previousTime) / MILLIS_PER_SECOND;
-    for (final Meter meter : registry.getMeters()) {
-      if (values.size() >= properties.maxSeries()) {
-        break;
+    int skipped = 0;
+    for (final Meter meter : orderedMeters()) {
+      final Map<String, Double> own = new TreeMap<>();
+      try {
+        read(meter, seconds, own, raw);
+      } catch (
+          @SuppressWarnings("PMD.AvoidCatchingGenericException")
+          final RuntimeException e) {
+        log.atDebug().setCause(e).addKeyValue("meter", meter.getId()).log("Skipped meter");
+        continue;
       }
-      if (allowed(meter.getId().getName())) {
-        try {
-          read(meter, seconds, values, raw);
-        } catch (
-            @SuppressWarnings("PMD.AvoidCatchingGenericException")
-            final RuntimeException e) {
-          log.atDebug().setCause(e).addKeyValue("meter", meter.getId()).log("Skipped meter");
-        }
+      if (values.size() + own.size() > properties.maxSeries()) {
+        skipped++;
+      } else {
+        values.putAll(own);
       }
+    }
+    if (skipped > 0 && !capReported) {
+      capReported = true;
+      log.atWarn()
+          .addKeyValue("maxSeries", properties.maxSeries())
+          .addKeyValue("skippedMeters", skipped)
+          .log("Metric series cap reached; later meters are not sampled");
     }
     previous = raw; // meters that disappeared drop out of the baseline here
     previousTime = now;
@@ -150,8 +160,24 @@ public class MetricsSampler {
     live.tryEmitNext(sample);
   }
 
-  private boolean allowed(final String name) {
-    return properties.allowList().stream().anyMatch(name::startsWith);
+  /** Allowed meters in allow-list order, then by name, so the same ones survive the cap. */
+  private List<Meter> orderedMeters() {
+    return registry.getMeters().stream()
+        .filter(meter -> allowIndex(meter.getId().getName()) >= 0)
+        .sorted(
+            Comparator.comparingInt((Meter meter) -> allowIndex(meter.getId().getName()))
+                .thenComparing(meter -> meter.getId().toString()))
+        .toList();
+  }
+
+  private int allowIndex(final String name) {
+    final List<String> allow = properties.allowList();
+    for (int i = 0; i < allow.size(); i++) {
+      if (name.startsWith(allow.get(i))) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   private void read(

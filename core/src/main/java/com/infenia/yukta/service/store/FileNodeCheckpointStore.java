@@ -4,7 +4,6 @@ package com.infenia.yukta.service.store;
 
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URLDecoder;
@@ -133,7 +132,6 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
    * @param dir root directory
    * @param mapper reads and writes messages
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public FileNodeCheckpointStore(final String dir, final ObjectMapper mapper) {
     this.root = Path.of(dir);
     this.mapper = mapper;

@@ -7,7 +7,6 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.EligibleSupervisors;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -35,7 +34,6 @@ public class AttachedSupervisorsDirectory implements EligibleSupervisors {
    * @param runs finds the start payload of the run that raised a request
    */
   @Autowired
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public AttachedSupervisorsDirectory(
       final AttachedSupervisors attached, final ExecutionControlStore runs) {
     this.attached = attached;
@@ -47,7 +45,6 @@ public class AttachedSupervisorsDirectory implements EligibleSupervisors {
    *
    * @param attached the attached supervisors
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // a shared Spring bean, held on purpose
   public AttachedSupervisorsDirectory(final AttachedSupervisors attached) {
     this.attached = attached;
     this.runs = null;

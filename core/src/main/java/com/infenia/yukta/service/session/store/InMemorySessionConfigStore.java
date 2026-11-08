@@ -141,11 +141,12 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<SessionSnapshot> getAllConfigs(@SessionId final String sessionId) {
-    return sessionExists(sessionId)
+    final var config = sessions.get(sessionId);
+    return config != null
         ? Mono.zip(
             arr -> {
               final SessionSnapshot configs =
-                  SessionSnapshot.fromValues(sessionId, sessions.get(sessionId).name(), arr);
+                  SessionSnapshot.fromValues(sessionId, config.name(), arr);
               log.atDebug()
                   .addKeyValue("sessionId", sessionId)
                   .addKeyValue("workflows", configs.workflows().size())
@@ -159,10 +160,6 @@ public class InMemorySessionConfigStore implements SessionConfigStore {
             getDescription(sessionId),
             workflowDefinitionStore.findAll(sessionId))
         : Mono.empty();
-  }
-
-  private boolean sessionExists(final String sessionId) {
-    return sessions.containsKey(sessionId);
   }
 
   @Override

@@ -12,7 +12,6 @@ import com.infenia.yukta.service.control.ExecutionControl;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,7 +61,6 @@ public class StopWorkflowCommandProcessor {
    * @param taskTracker reports the stopping state
    * @param drainTimeout how long a drain may take before falling back to a cancel
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2")
   public StopWorkflowCommandProcessor(
       final ExecutionControlStore registry,
       final TaskTrackerService taskTracker,

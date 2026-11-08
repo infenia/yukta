@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.Ticker;
 import com.github.benmanes.caffeine.cache.stats.CacheStats;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
@@ -63,8 +64,14 @@ public class PreparedWorkflowCache {
    */
   public PreparedWorkflowCache(
       final long ttlMs, final long maxEntries, final MeterRegistry meters) {
+    this(ttlMs, maxEntries, meters, Ticker.systemTicker());
+  }
+
+  /* default */ PreparedWorkflowCache(
+      final long ttlMs, final long maxEntries, final MeterRegistry meters, final Ticker ticker) {
     this.cache =
         Caffeine.newBuilder()
+            .ticker(ticker)
             .expireAfterAccess(ttlMs, TimeUnit.MILLISECONDS)
             .maximumSize(maxEntries)
             .recordStats()

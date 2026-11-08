@@ -45,8 +45,8 @@ public class WorkflowCompiler {
   /** The largest node {@code bufferSize} used; a larger one is cut to it. */
   private static final int MAX_BUFFER_SIZE = 65_536;
 
-  /** Reference count timeout in seconds for disposing resources. */
-  private static final long REF_COUNT_TIMEOUT = 30L;
+  /** Idle timeout in seconds for a node whose config and plugin set none. */
+  private static final long DEFAULT_NODE_TIMEOUT_SECONDS = 30L;
 
   /** Log key for execution ID. */
   private static final String LOG_KEY_EXECUTION_ID = "executionId";
@@ -418,7 +418,7 @@ public class WorkflowCompiler {
             .addKeyValue("source", "pluginDefault")
             .log("Using plugin default timeout");
       } else {
-        result = Duration.ofSeconds(REF_COUNT_TIMEOUT);
+        result = Duration.ofSeconds(DEFAULT_NODE_TIMEOUT_SECONDS);
         log.atTrace()
             .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
             .addKeyValue("timeoutMs", result.toMillis())

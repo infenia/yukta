@@ -4,12 +4,15 @@ package com.infenia.yukta.service.orchestrator.assembly;
 
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import io.micrometer.context.ContextRegistry;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.NoArgsConstructor;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.MDC;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.context.Context;
@@ -49,6 +52,18 @@ public class ExecutionContextBuilder {
 
   /** Context key for payload data. */
   public static final String CTX_PAYLOAD = "payload";
+
+  static {
+    // With automatic context propagation (enabled in YuktaApplication) these context values are
+    // restored into the logging MDC on whichever thread runs the operator, so every log line of
+    // a run carries its ids.
+    for (final String key :
+        List.of(CTX_SESSION_ID, CTX_WORKFLOW_ID, CTX_EXECUTION_ID, CTX_NODE_ID)) {
+      ContextRegistry.getInstance()
+          .registerThreadLocalAccessor(
+              key, () -> MDC.get(key), value -> MDC.put(key, value), () -> MDC.remove(key));
+    }
+  }
 
   /** The heartbeat callback, or null. */
   @Nullable private Runnable heartbeatValue;

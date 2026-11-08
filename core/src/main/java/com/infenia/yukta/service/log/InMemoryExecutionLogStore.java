@@ -3,7 +3,9 @@
 package com.infenia.yukta.service.log;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
@@ -26,6 +28,10 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
 
   /** The events, oldest first. */
   private List<ExecutionLogEvent> events = new ArrayList<>();
+
+  /** The same events by execution id, so a lookup of one run does not scan the log. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // guarded by the lock
+  private Map<String, List<ExecutionLogEvent>> byRun = new HashMap<>();
 
   /** Events appended since the last trim. */
   private int sinceTrim;
@@ -51,10 +57,12 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
     lock.lock();
     try {
       events.add(event);
+      byRun.computeIfAbsent(event.executionId(), _ -> new ArrayList<>()).add(event);
       sinceTrim++;
       if (sinceTrim >= compactAfter) {
         sinceTrim = 0;
         events = new ArrayList<>(LogRetention.trim(events, retainedRuns));
+        reindex();
       }
     } finally {
       lock.unlock();
@@ -76,9 +84,29 @@ public class InMemoryExecutionLogStore implements ExecutionLogStore {
     lock.lock();
     try {
       events = new ArrayList<>(kept);
+      reindex();
       sinceTrim = 0;
     } finally {
       lock.unlock();
+    }
+  }
+
+  @Override
+  public List<ExecutionLogEvent> forExecution(final String executionId) {
+    lock.lock();
+    try {
+      return List.copyOf(byRun.getOrDefault(executionId, List.of()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /** Rebuilds the per-run index; the caller holds the lock. */
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  private void reindex() {
+    byRun = new HashMap<>();
+    for (final ExecutionLogEvent event : events) {
+      byRun.computeIfAbsent(event.executionId(), _ -> new ArrayList<>()).add(event);
     }
   }
 }

@@ -9,7 +9,6 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.SupervisorResultMapper;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.session.InternalSessions;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,9 +37,6 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.AvoidLiteralsInIfCondition",
   "PMD.AvoidSynchronizedStatement"
 })
-@SuppressFBWarnings(
-    value = "EI_EXPOSE_REP2",
-    justification = "shared Spring beans, held on purpose")
 public final class WorkflowSupervisor implements ControlPlanePlugin {
 
   /** How many event keys are remembered to drop a redelivered event. */

@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.tracker;
 import com.infenia.yukta.model.execution.TaskProgress;
 import com.infenia.yukta.model.execution.TaskStatus;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,11 +75,17 @@ final class WorkflowState {
     this.startTime = startTime;
   }
 
-  /* default */ void updateTask(
+  /**
+   * Applies a node event.
+   *
+   * @return whether the node entered a terminal status with this event
+   */
+  /* default */ boolean updateTask(
       final String nodeId,
       final String module,
       final TaskStatus status,
       final Map<String, Object> metadata) {
+    final boolean[] ended = {false};
     taskMap.compute(
         nodeId,
         (_, old) -> {
@@ -87,33 +94,40 @@ final class WorkflowState {
           }
           // A node only moves forward: a late event never reopens an ended node or steps back,
           // though what it reports is still merged.
-          return createUpdatedTask(
-              old, module, mayMoveTo(old.status(), status) ? status : old.status(), metadata);
+          final boolean moves = mayMoveTo(old.status(), status);
+          ended[0] = moves && status.isTerminal() && !old.status().isTerminal();
+          return createUpdatedTask(old, module, moves ? status : old.status(), metadata);
         });
+    return ended[0];
   }
 
   /**
-   * Gives every node that has not reached a terminal status its final one, once the run has ended.
-   * A running node was cancelled; a node that never started was skipped when the run succeeded,
-   * never reached when it failed, and cancelled otherwise.
+   * Gives every node that has not reached a terminal status its final one, once the run has ended,
+   * and returns those nodes. A running node was cancelled; a node that never started was skipped
+   * when the run succeeded, never reached when it failed, and cancelled otherwise.
    */
-  /* default */ void finalizeTasks(final TaskStatus runStatus) {
+  /* default */ List<TaskProgress> finalizeTasks(final TaskStatus runStatus) {
     final Instant now = Instant.now();
+    final List<TaskProgress> finalized = new ArrayList<>();
     taskMap.replaceAll(
         (_, task) -> {
           if (task.status().isTerminal()) {
             return task;
           }
           final TaskStatus finalStatus = finalStatusFor(task.status(), runStatus);
-          return new TaskProgress(
-              task.nodeId(),
-              task.module(),
-              finalStatus,
-              task.startTime(),
-              now,
-              task.metadata(),
-              task.breakpoint());
+          final TaskProgress done =
+              new TaskProgress(
+                  task.nodeId(),
+                  task.module(),
+                  finalStatus,
+                  task.startTime(),
+                  now,
+                  task.metadata(),
+                  task.breakpoint());
+          finalized.add(done);
+          return done;
         });
+    return finalized;
   }
 
   private static TaskStatus finalStatusFor(

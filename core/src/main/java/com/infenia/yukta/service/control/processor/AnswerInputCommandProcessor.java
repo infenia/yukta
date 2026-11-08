@@ -11,7 +11,6 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.input.AnswerShape;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputCommandGuard;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -57,7 +56,6 @@ public class AnswerInputCommandProcessor {
    * @param broker takes the answer
    * @param clock the time of the answer
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public AnswerInputCommandProcessor(
       final InputCommandGuard guard, final InputBroker broker, final Clock clock) {
     this.guard = guard;

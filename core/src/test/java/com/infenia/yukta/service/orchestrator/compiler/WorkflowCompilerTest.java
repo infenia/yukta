@@ -270,7 +270,7 @@ class WorkflowCompilerTest {
     when(plugin.getDefaultBufferSize()).thenReturn(1024);
     final NodeAssembler mockAssembler = mock(NodeAssembler.class);
     when(assemblerStrategy.supports(plugin, false)).thenReturn(true);
-    // Falls back to REF_COUNT_TIMEOUT = 30s
+    // Falls back to DEFAULT_NODE_TIMEOUT_SECONDS = 30s
     when(assemblerStrategy.createAssembler(
             eq(node), eq(plugin), eq(Duration.ofSeconds(30)), eq(0), eq(1024)))
         .thenReturn(mockAssembler);

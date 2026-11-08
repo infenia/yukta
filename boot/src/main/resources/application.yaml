@@ -41,7 +41,7 @@ spring:
 
 logging:
   pattern:
-    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level %logger{36} : [%X{requestId:-}] %msg %kvp%n"
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level %logger{36} : [%X{requestId:-}] [%X{executionId:-}/%X{nodeId:-}] %msg %kvp%n"
   level:
     root: INFO
     com.infenia.yukta: INFO

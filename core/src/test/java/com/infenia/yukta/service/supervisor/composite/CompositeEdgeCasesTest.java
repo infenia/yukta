@@ -126,7 +126,7 @@ class CompositeEdgeCasesTest {
   }
 
   @Test
-  void emptyReviewsAllowAndAllDenyingAnyDenies() {
+  void emptyReviewsDenyAndAllDenyingAnyDenies() {
     final var empty = new Plain(0, Mono.empty());
     final var deny = new Plain(0, Mono.just(Decision.deny("no")));
     for (final ReviewMode mode : ReviewMode.values()) {
@@ -137,7 +137,7 @@ class CompositeEdgeCasesTest {
               new CompositeSupervisor(
                       "c", settings, List.of("a"), List.of(empty), Clock.systemUTC())
                   .review(REQUEST))
-          .expectNext(Decision.ALLOW)
+          .assertNext(decision -> assertThat(decision.allowed()).isFalse())
           .verifyComplete();
     }
     final var any =
@@ -351,6 +351,49 @@ class CompositeEdgeCasesTest {
                     .review(new ControlRequest(stopNode, "a", "s", "wf")))
         .thenAwait(Duration.ofSeconds(5))
         .expectNext(Decision.ALLOW)
+        .verifyComplete();
+  }
+
+  @Test
+  void stopIsAllowedWhenChildFailsOrAnswersNothing() {
+    final var settings =
+        new CompositeSettings(
+            CompositeMode.PARALLEL, List.of("a"), ReviewMode.ALL, 0, Duration.ofSeconds(1));
+    for (final ExecutionControlCommand stop :
+        List.of(
+            new ExecutionControlCommand.StopNodeCommand("e1", "n", false, null),
+            new ExecutionControlCommand.StopWorkflowCommand("e1", null, null))) {
+      final var request = new ControlRequest(stop, "a", "s", "wf");
+      for (final Mono<Decision> review :
+          List.of(Mono.<Decision>empty(), Mono.<Decision>error(new IllegalStateException("x")))) {
+        StepVerifier.create(
+                new CompositeSupervisor(
+                        "c",
+                        settings,
+                        List.of("a"),
+                        List.of(new Plain(0, review)),
+                        Clock.systemUTC())
+                    .review(request))
+            .expectNext(Decision.ALLOW)
+            .verifyComplete();
+      }
+    }
+  }
+
+  @Test
+  void failingChildDeniesCommandThatIsNotStop() {
+    final var settings =
+        new CompositeSettings(
+            CompositeMode.PARALLEL, List.of("a"), ReviewMode.ALL, 0, Duration.ofSeconds(1));
+    StepVerifier.create(
+            new CompositeSupervisor(
+                    "c",
+                    settings,
+                    List.of("a"),
+                    List.of(new Plain(0, Mono.error(new IllegalStateException("x")))),
+                    Clock.systemUTC())
+                .review(REQUEST))
+        .assertNext(decision -> assertThat(decision.allowed()).isFalse())
         .verifyComplete();
   }
 

@@ -631,7 +631,7 @@ Programs that watch every run and steer it: a rule engine, an AI agent or your o
 **Behaviour**
 
 - A bean implements `ExecutionSupervisor`: `supervise(Flux<ExecutionEvent>)` receives the global event feed and returns `ExecutionControlCommand`s. `SupervisorHost` subscribes each supervisor once and applies commands with the supervisor id as actor (logged as `PauseWorkflowCommand [by <id>]`).
-- **Isolation:** failures resubscribe with backoff; commands are limited to `yukta.supervisor.max-commands-per-second` (20); `yukta.supervisor.dry-run=true` records without applying; a supervisor never sees the outcome of its own commands; events arrive through a bounded buffer (256) on `boundedElastic`, and a slow supervisor drops events (`yukta.tracker.dropped{kind=supervisor}`) instead of holding the tracker.
+- **Isolation:** failures resubscribe with backoff; commands are limited to `yukta.supervisor.max-commands-per-second` (20); `yukta.supervisor.dry-run=true` records without applying; a supervisor never sees the outcome of its own commands; events arrive through a bounded buffer (`yukta.supervisor.buffer-size`, 10,000) on `boundedElastic`, and a slow supervisor drops events (`yukta.tracker.dropped{kind=supervisor}`) instead of holding the tracker.
 - **No JVM code needed:** the feed is also an SSE stream, `GET /api/events/stream` (filters `executionId`, `type`); external agents steer through REST or MCP.
 - `GET /api/supervisors` reports kind (`CONTROL_PLANE` \| `SUPERVISOR`), order, dry-run flag, command counts and scope (`scope`, `scopeSessionId`, `scopeWorkflowId`, `scopeNodes`).
 - **Scopes** (`SupervisorScope`: `Global`, `Session`, `Workflow`, `Section`): a scope filters the events a supervisor sees (`matches(session, workflow, event.nodeId())`), the commands it reviews (`ControlRequest.nodeId`) and the commands it may send. A `Section` (`workflow:[<s>/]<w>//<selector>,...`; a selector is a node id or `<prefix>.*`, 1 to 50) matches only items that name one of its nodes, never a workflow-wide event or command. `covers` and `strictlyCovers` order scopes (global, session, workflow, section); strict cover has no cycles.
@@ -1052,6 +1052,11 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.supervisor.max-commands-per-second` | 20 | [CTL-07](#ctl-07-supervisors) | Rate limit per supervisor |
 | `yukta.supervisor.max-attachments` | 200 | [CTL-07](#ctl-07-supervisors) | Most supervisor attachments at once |
 | `yukta.supervisor.reserved-slots` | 4 | [CTL-07](#ctl-07-supervisors) | Slots of their own for workflow supervisor runs |
+| `yukta.execution.max-concurrent-children` | 0 (off) | [ADM-01](#adm-01-scheduler-limits-and-queue) | Child runs one parent may have at once |
+| `yukta.supervisor.buffer-size` | 10000 | [CTL-07](#ctl-07-supervisors) | Events a supervisor may have waiting before they are dropped for it |
+| `yukta.supervisor.review-timeout` | 5s | [CTL-07](#ctl-07-supervisors) | Time a supervisor gets to review a command |
+| `yukta.input.retention` | 30d | [CTL-09](#ctl-09-input-requests) | How long finished requests are kept |
+| `yukta.control.approval.ttl` | 10m | [CTL-07](#ctl-07-supervisors) | Lifetime of a command waiting for approval |
 | `yukta.supervisor.max-depth` | 2 | [CTL-07](#ctl-07-supervisors) | Deepest nesting of supervisor workflows |
 | `yukta.supervisor.dry-run` | false | [CTL-07](#ctl-07-supervisors) | Record supervisor commands without applying |
 | `yukta.supervisor.rules.file` | unset | [CTL-07](#ctl-07-supervisors) | Enable the rule supervisor (module: rule-supervisor) |

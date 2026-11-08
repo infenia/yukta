@@ -4,25 +4,23 @@ package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.gateway.PluginLookup;
-import com.infenia.yukta.validation.PluginName;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotEmpty;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.TreeMap;
 import org.springframework.stereotype.Service;
-import org.springframework.validation.annotation.Validated;
 
 /** Registry for workflow plugins. */
 @Service
-@Validated
 @SuppressFBWarnings(
     value = "CT_CONSTRUCTOR_THROW",
     justification = "Fails fast at startup on duplicate plugin types")
 public class PluginRegistry implements PluginLookup {
-  /** Map of plugin type to plugin instances. */
-  private final Map<String, Plugin> plugins = new ConcurrentHashMap<>();
+  /** Plugin type to plugin, sorted by type so listings are stable; filled once, never changed. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // never changed after construction
+  private final Map<String, Plugin> plugins = new TreeMap<>();
 
   @Override
   public Optional<Plugin> find(final String type) {
@@ -55,7 +53,7 @@ public class PluginRegistry implements PluginLookup {
    * @param type the plugin type
    * @return the plugin, or null if not found
    */
-  public Plugin get(@PluginName final String type) {
+  public Plugin get(final String type) {
     return plugins.get(type);
   }
 
@@ -65,7 +63,7 @@ public class PluginRegistry implements PluginLookup {
    * @param type the plugin type
    * @return true if registered
    */
-  public boolean contains(@PluginName final String type) {
+  public boolean contains(final String type) {
     return plugins.containsKey(type);
   }
 

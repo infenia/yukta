@@ -29,7 +29,6 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.service.supervisor.ReviewVerdict;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -136,7 +135,6 @@ public class ParkedCommands implements CommandProposals {
    * @param dispatcher sends an approved command again
    * @param properties {@code yukta.control.approval.ttl} and {@code yukta.input.max-ttl}
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public ParkedCommands(
       final InputBroker broker,
       final ActorResolver actors,

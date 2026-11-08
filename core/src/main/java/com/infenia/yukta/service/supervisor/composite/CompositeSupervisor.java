@@ -167,7 +167,9 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
               .timeout(
                   REVIEW_TIMEOUT,
                   Mono.just(stop ? Decision.ALLOW : Decision.deny("review timed out")))
-              .onErrorReturn(Decision.deny("review failed"))
+              .switchIfEmpty(
+                  Mono.just(stop ? Decision.ALLOW : Decision.deny("review returned nothing")))
+              .onErrorReturn(stop ? Decision.ALLOW : Decision.deny("review failed"))
               .map(decision -> new Verdict(childId, decision)));
     }
     return switch (settings.review()) {
@@ -183,14 +185,14 @@ public final class CompositeSupervisor implements ExecutionSupervisor {
   }
 
   private static Decision any(final List<Verdict> verdicts) {
-    return verdicts.isEmpty() || verdicts.stream().anyMatch(v -> v.decision().allowed())
+    return verdicts.stream().anyMatch(v -> v.decision().allowed())
         ? Decision.ALLOW
         : verdicts.get(0).denial();
   }
 
   private static Decision majority(final List<Verdict> verdicts) {
     final long allowed = verdicts.stream().filter(v -> v.decision().allowed()).count();
-    return verdicts.isEmpty() || allowed * 2 > verdicts.size()
+    return allowed * 2 > verdicts.size()
         ? Decision.ALLOW
         : Decision.deny(
             "only " + allowed + " of " + verdicts.size() + " supervisors allowed the command");

@@ -166,4 +166,18 @@ public class DefaultsAutoConfiguration {
   public EditionInfo communityEdition() {
     return EditionInfo.community();
   }
+
+  /**
+   * Provide the ExecutionControlStore bean.
+   *
+   * <p>In-memory implementation suitable for single-node deployments. Override this bean to use
+   * alternative backends (Redis, database, etc.).
+   *
+   * @return the execution control store instance
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public ExecutionControlStore executionControlStore() {
+    return new InMemoryExecutionControlStore();
+  }
 }

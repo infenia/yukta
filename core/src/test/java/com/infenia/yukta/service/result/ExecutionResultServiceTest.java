@@ -35,12 +35,12 @@ class ExecutionResultServiceTest {
   }
 
   @Test
-  void liveRunsAreNeverEvictedBySize() throws InterruptedException {
+  void liveRunsAreNeverEvictedBySize() {
     final ExecutionResultService results = service(10); // cap of 10 finished runs
     for (int i = 0; i < 30; i++) {
       results.publish("e" + i, "t", i);
     }
-    Thread.sleep(200); // Caffeine evicts asynchronously
+    results.cleanUp();
     for (int i = 0; i < 30; i++) {
       assertThat(results.has("e" + i)).isTrue();
     }

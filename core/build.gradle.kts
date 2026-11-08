@@ -15,6 +15,7 @@ dependencies {
     implementation(libs.spring.boot.starter.webclient)
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.micrometer.core)
+    implementation("io.micrometer:context-propagation")
     implementation(libs.caffeine)
 
     implementation(libs.springdoc.openapi)

@@ -831,4 +831,18 @@ class RunAnalyticsTest {
 
     assertThat(analytics.snapshot("session:s1")).isEqualTo(other.snapshot("session:s1"));
   }
+
+  @Test
+  void droppedEventIsCounted() {
+    final io.micrometer.core.instrument.simple.SimpleMeterRegistry simple =
+        new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    io.micrometer.core.instrument.Metrics.addRegistry(simple);
+    try {
+      RunAnalytics.countDropped();
+      assertThat(simple.counter("yukta.tracker.dropped", "kind", "analytics").count())
+          .isEqualTo(1.0);
+    } finally {
+      io.micrometer.core.instrument.Metrics.removeRegistry(simple);
+    }
+  }
 }

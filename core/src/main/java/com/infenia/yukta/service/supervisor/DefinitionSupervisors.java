@@ -13,7 +13,6 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.annotation.PostConstruct;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -102,9 +101,6 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @param definitions the workflow definitions
    * @param sessions the sessions
    */
-  @SuppressFBWarnings(
-      value = "EI_EXPOSE_REP2",
-      justification = "Spring injects the shared services, which are meant to be held")
   public DefinitionSupervisors(
       final SupervisorService service,
       final SupervisorStore store,

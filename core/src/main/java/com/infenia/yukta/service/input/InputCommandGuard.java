@@ -9,7 +9,6 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -41,7 +40,6 @@ public class InputCommandGuard {
    * @param actors works out who sends the command
    * @param authorizer decides whether the sender may go on
    */
-  @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
   public InputCommandGuard(
       final LeaderElection leader,
       final InputBroker broker,

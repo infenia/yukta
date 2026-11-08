@@ -221,7 +221,7 @@ public class StreamTopologyDecorator {
    * <ul>
    *   <li>Reactor logging (if DEBUG enabled)
    *   <li>Checkpoint save to NodeCheckpointStore
-   *   <li>Task tracker log events (if TRACE enabled)
+   *   <li>Task tracker echo of the node output (when the node did not log live)
    * </ul>
    *
    * <p>Broadcasts via {@code publish(bufferSize)}: upstream is requested at the pace of the slowest
@@ -342,7 +342,8 @@ public class StreamTopologyDecorator {
    * <ol>
    *   <li>Reactor logging (if DEBUG enabled on this class)
    *   <li>Checkpoint save to NodeCheckpointStore
-   *   <li>Task tracker emission (if TRACE enabled)
+   *   <li>Task tracker echo of the node output (when the node did not log live); TRACE only
+   *       controls the local log line
    * </ol>
    *
    * @param executionId the execution identifier

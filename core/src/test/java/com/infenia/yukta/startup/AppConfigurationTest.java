@@ -6,8 +6,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.config.SessionConfigProperties;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
-import com.infenia.yukta.service.control.store.InMemoryExecutionControlStore;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
 import java.time.Duration;
 import java.util.concurrent.locks.LockSupport;
@@ -22,7 +20,6 @@ import reactor.test.StepVerifier;
 
 /** Tests for {@link AppConfiguration}. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class AppConfigurationTest {
 
   /** Application context runner for testing Spring configuration. */
@@ -36,9 +33,6 @@ class AppConfigurationTest {
     this.contextRunner.run(
         context -> {
           assertThat(context).hasSingleBean(Scheduler.class);
-          assertThat(context).hasSingleBean(ExecutionControlStore.class);
-          assertThat(context.getBean(ExecutionControlStore.class))
-              .isInstanceOf(InMemoryExecutionControlStore.class);
         });
   }
 
@@ -52,19 +46,6 @@ class AppConfigurationTest {
             context -> {
               assertThat(context).hasSingleBean(SessionConfigStore.class);
               assertThat(context.getBean(SessionConfigStore.class)).isSameAs(customStore);
-            });
-  }
-
-  @Test
-  @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
-  void shouldNotOverrideExistingExecutionControlStore() {
-    final ExecutionControlStore customStore = mock(ExecutionControlStore.class);
-    this.contextRunner
-        .withBean(ExecutionControlStore.class, () -> customStore)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(ExecutionControlStore.class);
-              assertThat(context.getBean(ExecutionControlStore.class)).isSameAs(customStore);
             });
   }
 
