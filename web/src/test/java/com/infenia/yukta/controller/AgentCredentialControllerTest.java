@@ -33,7 +33,7 @@ class AgentCredentialControllerTest {
   void anHttpSupervisorGetsACredentialThatWorksUntilRevoked() {
     has("a1", "http");
     final String[] token = new String[1];
-    StepVerifier.create(controller.issue("a1", 2))
+    StepVerifier.create(controller.issue("a1", 2, null))
         .assertNext(
             r -> {
               assertThat(r.status()).isEqualTo(201);
@@ -51,11 +51,13 @@ class AgentCredentialControllerTest {
   @Test
   void onlyAnHttpSupervisorMayHaveOneAndTheLifetimeIsPositive() {
     has("r1", "rule-supervisor");
-    StepVerifier.create(controller.issue("r1", null)).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.issue("nope", null))
+    StepVerifier.create(controller.issue("r1", null, null))
+        .expectError(ConflictException.class)
+        .verify();
+    StepVerifier.create(controller.issue("nope", null, null))
         .expectError(NotFoundException.class)
         .verify();
-    assertThatThrownBy(() -> controller.issue("r1", 0))
+    assertThatThrownBy(() -> controller.issue("r1", 0, null))
         .isInstanceOf(IllegalArgumentException.class);
   }
 }

@@ -30,4 +30,16 @@ class R2dbcAgentCredentialStoreTest extends PostgresTestSupport {
     StepVerifier.create(store.delete("b")).verifyComplete();
     StepVerifier.create(store.all()).expectNext(new Stored("a", "h3", expires)).verifyComplete();
   }
+
+  @Test
+  void theAddressesAComputerMayUseSurviveStoring() {
+    final Stored tied = new Stored("c", "h", null, java.util.Set.of("10.0.0.1", "10.0.0.2"));
+    StepVerifier.create(store.save(tied)).verifyComplete();
+    StepVerifier.create(store.all()).expectNext(tied).verifyComplete();
+    StepVerifier.create(store.save(new Stored("c", "h2", null))).verifyComplete();
+    StepVerifier.create(store.all())
+        .expectNext(new Stored("c", "h2", null, java.util.Set.of()))
+        .verifyComplete();
+    StepVerifier.create(store.delete("c")).verifyComplete();
+  }
 }

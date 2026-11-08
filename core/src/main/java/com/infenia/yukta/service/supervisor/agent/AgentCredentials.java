@@ -13,6 +13,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -44,7 +45,7 @@ public final class AgentCredentials {
    */
   public record Issued(String token, @Nullable Instant expiresAt) {}
 
-  private record Entry(String supervisorId, @Nullable Instant expiresAt) {}
+  private record Entry(String supervisorId, @Nullable Instant expiresAt, Set<String> addresses) {}
 
   private final Clock clock;
   private final SecureRandom random = new SecureRandom();
@@ -90,7 +91,7 @@ public final class AgentCredentials {
         ? Mono.empty()
         : kept.all()
             .filter(c -> c.expiresAt() == null || c.expiresAt().isAfter(clock.instant()))
-            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt()))
+            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses()))
             .then()
             .onErrorResume(
                 error -> {
@@ -100,12 +101,15 @@ public final class AgentCredentials {
   }
 
   private void remember(
-      final String supervisorId, final String hash, final @Nullable Instant expires) {
+      final String supervisorId,
+      final String hash,
+      final @Nullable Instant expires,
+      final Set<String> addresses) {
     final String earlier = hashOf.put(supervisorId, hash);
     if (earlier != null) {
       byHash.remove(earlier);
     }
-    byHash.put(hash, new Entry(supervisorId, expires));
+    byHash.put(hash, new Entry(supervisorId, expires, addresses));
   }
 
   private void persist(final Mono<Void> write, final String supervisorId) {
@@ -128,15 +132,29 @@ public final class AgentCredentials {
    * @return the token, shown once
    */
   public Issued issue(final String supervisorId, final @Nullable Duration ttl) {
+    return issue(supervisorId, ttl, Set.of());
+  }
+
+  /**
+   * Makes a credential that works only from some addresses.
+   *
+   * @param supervisorId the supervisor
+   * @param ttl how long it works, or {@code null} for no expiry
+   * @param addresses the source addresses it may be used from; empty for any
+   * @return the token, shown once
+   */
+  public Issued issue(
+      final String supervisorId, final @Nullable Duration ttl, final Set<String> addresses) {
     final byte[] bytes = new byte[TOKEN_BYTES];
     random.nextBytes(bytes);
     final String token = PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     final Instant expires = ttl == null ? null : clock.instant().plus(ttl);
     final String hash = hash(token);
-    remember(supervisorId, hash, expires);
+    remember(supervisorId, hash, expires, addresses);
     if (store != null) {
       persist(
-          store.save(new AgentCredentialStore.Stored(supervisorId, hash, expires)), supervisorId);
+          store.save(new AgentCredentialStore.Stored(supervisorId, hash, expires, addresses)),
+          supervisorId);
     }
     return new Issued(token, expires);
   }
@@ -148,11 +166,27 @@ public final class AgentCredentials {
    * @return the supervisor id, or empty for an unknown, revoked or expired token
    */
   public Optional<String> authenticate(final @Nullable String token) {
+    return authenticate(token, null);
+  }
+
+  /**
+   * Finds the supervisor a token belongs to, when it is used from an allowed address.
+   *
+   * @param token the token an agent presented
+   * @param remote the address the request came from, or {@code null} if unknown
+   * @return the supervisor id, or empty for an unknown, revoked or expired token, or a credential
+   *     tied to addresses that does not include {@code remote}
+   */
+  public Optional<String> authenticate(
+      final @Nullable String token, final @Nullable String remote) {
     if (token == null || !token.startsWith(PREFIX)) {
       return Optional.empty();
     }
     return Optional.ofNullable(byHash.get(hash(token)))
         .filter(entry -> entry.expiresAt() == null || entry.expiresAt().isAfter(clock.instant()))
+        .filter(
+            entry ->
+                entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
         .map(Entry::supervisorId);
   }
 

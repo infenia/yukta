@@ -179,4 +179,38 @@ class EngineBackedSupervisorTest {
     final Sinks.Many<String> unused = Sinks.many().unicast().onBackpressureBuffer();
     assertThat(unused).isNotNull();
   }
+
+  @Test
+  void reviewsBeyondTheCapAreTreatedAsUnanswered() {
+    final var sup =
+        new EngineBackedSupervisor(
+            "s1",
+            new SupervisorScope.Global(),
+            engine(signals -> signals.thenMany(Flux.<Directive>never())),
+            true,
+            Duration.ofSeconds(30),
+            reads -> {});
+    sup.supervise(Flux.never()).subscribe();
+    for (int i = 0; i < EngineBackedSupervisor.MAX_OPEN_REVIEWS; i++) {
+      sup.review(REQUEST).subscribe();
+    }
+    // the next one is not even asked
+    assertThat(sup.review(REQUEST).block(Duration.ofSeconds(2))).isEqualTo(Decision.ALLOW);
+  }
+
+  @Test
+  void anEngineThatDisconnectsMidReviewLeavesTheReviewToTimeOutAsSilence() {
+    final var sup =
+        supervisor(
+            engine(
+                signals ->
+                    signals
+                        .ofType(Signal.Review.class)
+                        .take(1)
+                        .flatMap(r -> Flux.<Directive>error(new IllegalStateException("gone")))),
+            true);
+    sup.supervise(Flux.never()).subscribe(d -> {}, e -> {});
+    // the engine failed after it saw the review; nobody answers, and the review is allowed
+    assertThat(sup.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.ALLOW);
+  }
 }

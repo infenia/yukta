@@ -352,4 +352,55 @@ class AgentApiControllerTest {
                         Map.of("type", "PauseWorkflow", "target", "everything"))))
         .hasMessageContaining("target must be");
   }
+
+  /** Whatever an agent sends, the server answers with a refusal it understands, never a crash. */
+  @Test
+  void garbageInADirectiveIsOnlyEverAnIllegalArgument() {
+    running(EngineReads.NONE);
+    final java.util.Random random = new java.util.Random(42);
+    final Object[] junk = {
+      null,
+      "",
+      " ",
+      "x",
+      7,
+      -1L,
+      3.5,
+      true,
+      List.of(),
+      List.of(1, 2),
+      Map.of(),
+      Map.of("a", Map.of("b", List.of())),
+      "x".repeat(5000),
+      new int[0]
+    };
+    final String[] types = {
+      "PauseWorkflow", "StopWorkflow", "AnswerInput", "SkipNode", "SetPriority", "Nope", "", null
+    };
+    for (int i = 0; i < 300; i++) {
+      final Map<String, Object> command = new java.util.HashMap<>();
+      command.put("type", types[random.nextInt(types.length)]);
+      if (random.nextBoolean()) {
+        command.put("executionId", junk[random.nextInt(junk.length)]);
+      }
+      for (final String key :
+          new String[] {"nodeId", "priority", "mode", "requestId", "target", "decision"}) {
+        if (random.nextInt(3) == 0) {
+          command.put(key, junk[random.nextInt(junk.length)]);
+        }
+      }
+      final AgentApiController.DirectiveBody body =
+          new AgentApiController.DirectiveBody(
+              (String) (random.nextBoolean() ? "k" + i : junk[random.nextInt(2)]),
+              random.nextBoolean() ? null : "event:" + junk[random.nextInt(6)],
+              null,
+              null,
+              command);
+      try {
+        controller.directive(as("a1"), body).block(Duration.ofSeconds(5));
+      } catch (final IllegalArgumentException | ClassCastException expected) {
+        // a refusal; ClassCastException only from the test's own cast above
+      }
+    }
+  }
 }

@@ -4,8 +4,10 @@ package com.infenia.yukta.filter;
 
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.SupervisorContract;
+import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.security.RequestPaths;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
+import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
@@ -38,7 +40,26 @@ public class AgentCredentialFilter implements WebFilter {
 
   private static final String BEARER = "Bearer ";
 
+  /** Largest request body, in bytes, when the property is not set. */
+  private static final int DEFAULT_MAX_BODY = 65_536;
+
+  /** Requests per credential and minute when the property is not set. */
+  private static final int DEFAULT_REQUESTS_PER_MINUTE = 600;
+
+  /** Wrong credentials per address and minute when the property is not set. */
+  private static final int DEFAULT_FAILURES_PER_MINUTE = 20;
+
   private final AgentCredentials credentials;
+
+  /** Caps the requests of one credential. */
+  private final CallRateLimiter requests =
+      new CallRateLimiter(
+          Integer.getInteger("yukta.agent.requests-per-minute", DEFAULT_REQUESTS_PER_MINUTE));
+
+  /** Caps the wrong credentials one address may try. */
+  private final CallRateLimiter failures =
+      new CallRateLimiter(
+          Integer.getInteger("yukta.agent.failures-per-minute", DEFAULT_FAILURES_PER_MINUTE));
 
   /**
    * Creates the filter.
@@ -71,11 +92,25 @@ public class AgentCredentialFilter implements WebFilter {
     if (!isAgentPath(RequestPaths.decoded(raw))) {
       return chain.filter(exchange);
     }
+    final String from = remote(exchange);
+    if (failures.exceeded(from)) {
+      exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
+      return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many failed attempts");
+    }
     final Optional<String> supervisor =
-        credentials.authenticate(token(exchange.getRequest().getHeaders()));
+        credentials.authenticate(token(exchange.getRequest().getHeaders()), from);
     if (supervisor.isEmpty()) {
+      failures.tryAcquire(from);
       exchange.getResponse().getHeaders().set(HttpHeaders.WWW_AUTHENTICATE, "Bearer");
       return reject(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid agent credential");
+    }
+    if (exchange.getRequest().getHeaders().getContentLength()
+        > Integer.getInteger("yukta.agent.max-body-bytes", DEFAULT_MAX_BODY)) {
+      return reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE, "The request body is too large");
+    }
+    if (!requests.tryAcquire(supervisor.get())) {
+      exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");
+      return reject(exchange, HttpStatus.TOO_MANY_REQUESTS, "Too many requests, slow down");
     }
     exchange.getAttributes().put(SUPERVISOR_ATTRIBUTE, supervisor.get());
     exchange
@@ -88,6 +123,11 @@ public class AgentCredentialFilter implements WebFilter {
             ctx ->
                 ctx.put(ControlActor.CONTEXT_KEY, supervisor.get())
                     .put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR));
+  }
+
+  private static String remote(final ServerWebExchange exchange) {
+    final InetSocketAddress address = exchange.getRequest().getRemoteAddress();
+    return address == null ? "unknown" : address.getAddress().getHostAddress();
   }
 
   private static @Nullable String token(final HttpHeaders headers) {

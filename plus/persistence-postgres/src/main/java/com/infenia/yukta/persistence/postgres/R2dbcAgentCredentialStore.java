@@ -5,6 +5,7 @@ package com.infenia.yukta.persistence.postgres;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.Set;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -26,14 +27,16 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
   @Override
   public Flux<Stored> all() {
     return client
-        .sql("SELECT supervisor_id, token_hash, expires_at FROM agent_credential")
+        .sql(
+            "SELECT supervisor_id, token_hash, expires_at, allowed_addresses FROM agent_credential")
         .map(
             row -> {
               final OffsetDateTime expires = row.get("expires_at", OffsetDateTime.class);
               return new Stored(
                   row.get("supervisor_id", String.class),
                   row.get("token_hash", String.class),
-                  expires == null ? null : expires.toInstant());
+                  expires == null ? null : expires.toInstant(),
+                  addressesOf(row.get("allowed_addresses", String.class)));
             })
         .all();
   }
@@ -44,17 +47,23 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
         client
             .sql(
                 """
-                INSERT INTO agent_credential (supervisor_id, token_hash, expires_at)
-                VALUES (:id, :hash, :expires)
+                INSERT INTO agent_credential (supervisor_id, token_hash, expires_at, allowed_addresses)
+                VALUES (:id, :hash, :expires, :addresses)
                 ON CONFLICT (supervisor_id) DO UPDATE SET token_hash = EXCLUDED.token_hash,
-                  expires_at = EXCLUDED.expires_at, created_at = now()
+                  expires_at = EXCLUDED.expires_at,
+                  allowed_addresses = EXCLUDED.allowed_addresses, created_at = now()
                 """)
             .bind("id", credential.supervisorId())
-            .bind("hash", credential.hash());
+            .bind("hash", credential.hash())
+            .bind("addresses", String.join(",", new java.util.TreeSet<>(credential.addresses())));
     return (credential.expiresAt() == null
             ? spec.bindNull("expires", OffsetDateTime.class)
             : spec.bind("expires", credential.expiresAt().atOffset(ZoneOffset.UTC)))
         .then();
+  }
+
+  private static Set<String> addressesOf(final String stored) {
+    return stored == null || stored.isBlank() ? Set.of() : Set.of(stored.split(","));
   }
 
   @Override

@@ -45,12 +45,15 @@ public class AgentCredentialController {
    *
    * @param id the supervisor id
    * @param ttlHours hours it works, or none for no expiry
+   * @param allowedAddresses source addresses it may be used from, or none for any
    * @return the token, shown once
    */
   @PostMapping
   @Operation(summary = "Issue or rotate the credential of an agent supervisor")
   public Mono<ApiResponse<IssuedView>> issue(
-      @PathVariable final String id, @RequestParam(required = false) final Integer ttlHours) {
+      @PathVariable final String id,
+      @RequestParam(required = false) final Integer ttlHours,
+      @RequestParam(required = false) final java.util.List<String> allowedAddresses) {
     if (ttlHours != null && ttlHours < 1) {
       throw new IllegalArgumentException("ttlHours must be at least 1");
     }
@@ -65,7 +68,12 @@ public class AgentCredentialController {
                 throw new ConflictException("Only a supervisor of type http has a credential");
               }
               final AgentCredentials.Issued issued =
-                  credentials.issue(id, ttlHours == null ? null : Duration.ofHours(ttlHours));
+                  credentials.issue(
+                      id,
+                      ttlHours == null ? null : Duration.ofHours(ttlHours),
+                      allowedAddresses == null
+                          ? java.util.Set.of()
+                          : java.util.Set.copyOf(allowedAddresses));
               return ApiResponse.success(
                   201, "Credential issued", new IssuedView(issued.token(), issued.expiresAt()));
             });

@@ -28,6 +28,9 @@ public final class EngineBackedSupervisor
 
   private static final Duration REVIEW_TIMEOUT = Duration.ofSeconds(10);
 
+  /** Most reviews waiting for the engine at once; more are treated as unanswered. */
+  public static final int MAX_OPEN_REVIEWS = 100;
+
   private final String id;
   private final SupervisorScope scope;
   private final SupervisorEngine engine;
@@ -134,6 +137,9 @@ public final class EngineBackedSupervisor
   @Override
   public Mono<Decision> review(final ControlRequest request) {
     if (!reviews) {
+      return Mono.just(Decision.ALLOW);
+    }
+    if (pending.size() >= MAX_OPEN_REVIEWS) {
       return Mono.just(Decision.ALLOW);
     }
     final String reviewId = "r" + seq.incrementAndGet();

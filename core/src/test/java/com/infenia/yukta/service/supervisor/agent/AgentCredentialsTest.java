@@ -146,4 +146,20 @@ class AgentCredentialsTest {
     assertThat(offline.authenticate(token)).contains("a");
     assertThat(offline.revoke("a")).isTrue();
   }
+
+  @Test
+  void aCredentialTiedToAddressesWorksOnlyFromThem() {
+    final AgentCredentials credentials = new AgentCredentials();
+    final String token =
+        credentials.issue("a1", null, java.util.Set.of("10.0.0.5", "10.0.0.6")).token();
+
+    assertThat(credentials.authenticate(token, "10.0.0.5")).contains("a1");
+    assertThat(credentials.authenticate(token, "10.0.0.6")).contains("a1");
+    assertThat(credentials.authenticate(token, "10.0.0.9")).isEmpty();
+    assertThat(credentials.authenticate(token, null)).isEmpty();
+    assertThat(credentials.authenticate(token)).isEmpty();
+    // without addresses it works from anywhere
+    final String open = credentials.issue("a2", null).token();
+    assertThat(credentials.authenticate(open, "203.0.113.1")).contains("a2");
+  }
 }

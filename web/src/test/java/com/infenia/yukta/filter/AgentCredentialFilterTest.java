@@ -82,4 +82,62 @@ class AgentCredentialFilterTest {
     assertThat(AgentCredentialFilter.isAgentPath("/api/agent/v10")).isFalse();
     assertThat(AgentCredentialFilter.isAgentPath("/api/agents")).isFalse();
   }
+
+  @Test
+  void aCredentialTiedToAddressesIsRefusedFromAnotherOne() {
+    final String token = credentials.issue("a1", null, java.util.Set.of("10.0.0.5")).token();
+    // the mock exchange has no remote address, which is never an allowed one
+    final MockServerWebExchange exchange = get("/api/agent/v1/self", "Bearer " + token);
+    filter.filter(exchange, chain).block();
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void anAddressThatKeepsGuessingIsStopped() {
+    System.setProperty("yukta.agent.failures-per-minute", "3");
+    try {
+      final AgentCredentialFilter strict = new AgentCredentialFilter(credentials);
+      HttpStatus last = null;
+      for (int i = 0; i < 6; i++) {
+        final MockServerWebExchange exchange = get("/api/agent/v1/self", "Bearer wrong");
+        strict.filter(exchange, chain).block();
+        last = (HttpStatus) exchange.getResponse().getStatusCode();
+      }
+      assertThat(last).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    } finally {
+      System.clearProperty("yukta.agent.failures-per-minute");
+    }
+  }
+
+  @Test
+  void aCredentialIsHeldToItsRequestRate() {
+    when(chain.filter(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
+    System.setProperty("yukta.agent.requests-per-minute", "2");
+    try {
+      final AgentCredentialFilter strict = new AgentCredentialFilter(credentials);
+      final String token = credentials.issue("a1", null).token();
+      HttpStatus last = null;
+      for (int i = 0; i < 4; i++) {
+        final MockServerWebExchange exchange = get("/api/agent/v1/self", "Bearer " + token);
+        strict.filter(exchange, chain).block();
+        last = (HttpStatus) exchange.getResponse().getStatusCode();
+      }
+      assertThat(last).isEqualTo(HttpStatus.TOO_MANY_REQUESTS);
+    } finally {
+      System.clearProperty("yukta.agent.requests-per-minute");
+    }
+  }
+
+  @Test
+  void aBodyOverTheLimitIsRefused() {
+    final String token = credentials.issue("a1", null).token();
+    final MockServerWebExchange exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.post("/api/agent/v1/directives")
+                .header("Authorization", "Bearer " + token)
+                .header("Content-Length", "1000000")
+                .build());
+    filter.filter(exchange, chain).block();
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+  }
 }
