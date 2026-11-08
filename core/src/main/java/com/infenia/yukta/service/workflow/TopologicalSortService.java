@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.orchestrator.preparator;
+package com.infenia.yukta.service.workflow;
 
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import java.util.ArrayDeque;

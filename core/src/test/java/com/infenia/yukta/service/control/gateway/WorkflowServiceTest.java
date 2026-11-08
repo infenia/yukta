@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.workflow;
+package com.infenia.yukta.service.control.gateway;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,7 +17,7 @@ import reactor.test.StepVerifier;
 
 /** Unit tests for {@link WorkflowService}. */
 @ExtendWith(MockitoExtension.class)
-@ExpectedErrorLog("ERROR com.infenia.yukta.service.workflow.WorkflowService - ")
+@ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.WorkflowService - ")
 class WorkflowServiceTest {
 
   /** Mock control bus gateway. */

@@ -134,6 +134,7 @@ com.infenia.yukta.service.control.directive.ParkedCommands
 com.infenia.yukta.service.control.factory.ExecutionControlFactory
 com.infenia.yukta.service.control.gateway.DefaultControlBusGateway
 com.infenia.yukta.service.control.gateway.StartIdempotency
+com.infenia.yukta.service.control.gateway.WorkflowService
 com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor
 com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor
 com.infenia.yukta.service.control.processor.NodeValveCommands
@@ -176,7 +177,6 @@ com.infenia.yukta.service.orchestrator.SubWorkflowRunner
 com.infenia.yukta.service.orchestrator.TakeoverRecovery
 com.infenia.yukta.service.orchestrator.WorkflowOrchestrator
 com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler
-com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService
 com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator
 com.infenia.yukta.service.orchestrator.strategy.ProcessorNodeAssemblerStrategy
 com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler
@@ -214,8 +214,8 @@ com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory
 com.infenia.yukta.service.worker.RemoteNodes
 com.infenia.yukta.service.worker.WorkerRegistry
 com.infenia.yukta.service.workflow.ConfigRedactor
+com.infenia.yukta.service.workflow.TopologicalSortService
 com.infenia.yukta.service.workflow.WorkflowGraphService
-com.infenia.yukta.service.workflow.WorkflowService
 com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore
 com.infenia.yukta.service.workflow.store.PreparedWorkflowCache
 com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration

@@ -22,6 +22,7 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.orchestrator.compiler.WorkflowCompiler;
 import com.infenia.yukta.service.orchestrator.validator.WorkflowValidator;
 import com.infenia.yukta.service.plugin.PluginRegistry;
+import com.infenia.yukta.service.workflow.TopologicalSortService;
 import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;

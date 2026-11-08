@@ -45,7 +45,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
       "ERROR com.infenia.yukta.plugin.core.transformer.MapperProcessor - ",
       "ERROR com.infenia.yukta.service.control.ControlBusService - ",
       "ERROR com.infenia.yukta.service.session.SessionService - ",
-      "ERROR com.infenia.yukta.service.workflow.WorkflowService - ",
+      "ERROR com.infenia.yukta.service.control.gateway.WorkflowService - ",
       "ERROR com.infenia.yukta.exception.GlobalExceptionHandler - "
     })
 class BoundaryFuzzAcceptanceTest {

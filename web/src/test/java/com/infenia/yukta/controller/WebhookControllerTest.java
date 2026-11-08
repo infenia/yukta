@@ -13,9 +13,9 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.plugin.store.SecretProvider;
+import com.infenia.yukta.service.control.gateway.WorkflowService;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.session.SessionService;
-import com.infenia.yukta.service.workflow.WorkflowService;
 import com.infenia.yukta.testing.Fixtures;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;

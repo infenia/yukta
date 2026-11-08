@@ -14,7 +14,6 @@ import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
-import com.infenia.yukta.service.orchestrator.preparator.TopologicalSortService;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
