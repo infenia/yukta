@@ -79,8 +79,8 @@ class SupervisorServiceTest {
         }
 
         @Override
-        public ExecutionSupervisor create(final Supervisor profile) {
-          if (profile.settings().containsKey("bad")) {
+        public ExecutionSupervisor create(final Supervisor supervisor) {
+          if (supervisor.settings().containsKey("bad")) {
             throw new IllegalArgumentException("bad settings");
           }
           return new ExecutionSupervisor() {
@@ -106,11 +106,11 @@ class SupervisorServiceTest {
         .toList();
   }
 
-  private static Supervisor profile(final String id) {
+  private static Supervisor supervisor(final String id) {
     return new Supervisor(id, TYPE, Map.of(), false);
   }
 
-  private static SupervisorAttachment binding(
+  private static SupervisorAttachment attachment(
       final String id, final String supervisorId, final SupervisorScope scope, final boolean on) {
     return new SupervisorAttachment(id, supervisorId, scope, on);
   }
@@ -119,7 +119,7 @@ class SupervisorServiceTest {
   void manualAttachmentCannotUseReservedPrefix() {
     StepVerifier.create(
             service.attach(
-                binding("def-0123456789abcdef", "p", new SupervisorScope.Global(), true)))
+                attachment("def-0123456789abcdef", "p", new SupervisorScope.Global(), true)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
@@ -129,10 +129,12 @@ class SupervisorServiceTest {
   }
 
   private SupervisorAttachment attached(final String id, final SupervisorScope scope) {
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
-    final SupervisorAttachment binding = binding(id, "p", scope, true);
-    StepVerifier.create(service.attach(binding)).expectNext(binding).verifyComplete();
-    return binding;
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    final SupervisorAttachment attachment = attachment(id, "p", scope, true);
+    StepVerifier.create(service.attach(attachment)).expectNext(attachment).verifyComplete();
+    return attachment;
   }
 
   @Test
@@ -143,10 +145,10 @@ class SupervisorServiceTest {
     verify(election).onLoss(onLoss.capture());
     when(election.isLeader()).thenReturn(false);
 
-    StepVerifier.create(service.saveSupervisor(profile("p")))
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
         .expectError(NotLeaderException.class)
         .verify();
-    StepVerifier.create(service.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(service.attach(attachment("b", "p", new SupervisorScope.Global(), true)))
         .expectError(NotLeaderException.class)
         .verify();
     StepVerifier.create(service.detach("b")).expectError(NotLeaderException.class).verify();
@@ -161,8 +163,10 @@ class SupervisorServiceTest {
     when(election.isLeader()).thenReturn(true);
     service.setLeaderElection(election);
 
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
-    StepVerifier.create(service.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.attach(attachment("b", "p", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(service.detach("b")).verifyComplete();
@@ -170,16 +174,23 @@ class SupervisorServiceTest {
 
   @Test
   void savingProfileLeavesDisabledAndForeignBindingsAlone() {
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
-    StepVerifier.create(service.saveSupervisor(profile("q"))).expectNextCount(1).verifyComplete();
-    StepVerifier.create(service.attach(binding("off", "p", new SupervisorScope.Global(), false)))
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
         .expectNextCount(1)
         .verifyComplete();
-    StepVerifier.create(service.attach(binding("other", "q", new SupervisorScope.Global(), true)))
+    StepVerifier.create(service.saveSupervisor(supervisor("q")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.attach(attachment("off", "p", new SupervisorScope.Global(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("other", "q", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
 
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
 
     verify(host, times(1)).attach(any(BoundSupervisor.class));
   }
@@ -212,41 +223,45 @@ class SupervisorServiceTest {
     StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, Map.of("bad", 1), false)))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(service.saveSupervisor(profile("p")))
-        .expectNext(profile("p"))
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNext(supervisor("p"))
         .verifyComplete();
 
-    StepVerifier.create(service.supervisors()).expectNext(profile("p")).verifyComplete();
+    StepVerifier.create(service.supervisors()).expectNext(supervisor("p")).verifyComplete();
   }
 
   @Test
   void attachStartsEnabledBindingAndRecordsIt() {
-    final SupervisorAttachment binding = attached("b1", new SupervisorScope.Session("A"));
+    final SupervisorAttachment attachment = attached("b1", new SupervisorScope.Session("A"));
 
     final ArgumentCaptor<BoundSupervisor> started = ArgumentCaptor.forClass(BoundSupervisor.class);
     verify(host).attach(started.capture());
     assertThat(started.getValue().id()).isEqualTo("b1");
     assertThat(started.getValue().scope()).isEqualTo(new SupervisorScope.Session("A"));
-    StepVerifier.create(service.attachments()).expectNext(binding).verifyComplete();
+    StepVerifier.create(service.attachments()).expectNext(attachment).verifyComplete();
     assertThat(audit())
         .anyMatch(e -> String.valueOf(e.status()).contains("AttachSupervisor(b1, session:A)"));
   }
 
   @Test
   void disabledBindingIsKeptButNotStarted() {
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
-    final SupervisorAttachment binding = binding("b1", "p", new SupervisorScope.Global(), false);
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+    final SupervisorAttachment attachment =
+        attachment("b1", "p", new SupervisorScope.Global(), false);
 
-    StepVerifier.create(service.attach(binding)).expectNext(binding).verifyComplete();
+    StepVerifier.create(service.attach(attachment)).expectNext(attachment).verifyComplete();
 
     verify(host, never()).attach(any());
     verify(host).detach("b1");
-    StepVerifier.create(service.attachments()).expectNext(binding).verifyComplete();
+    StepVerifier.create(service.attachments()).expectNext(attachment).verifyComplete();
   }
 
   @Test
   void attachNeedsKnownProfile() {
-    StepVerifier.create(service.attach(binding("b1", "ghost", new SupervisorScope.Global(), true)))
+    StepVerifier.create(
+            service.attach(attachment("b1", "ghost", new SupervisorScope.Global(), true)))
         .expectError(NotFoundException.class)
         .verify();
   }
@@ -254,9 +269,12 @@ class SupervisorServiceTest {
   @Test
   void attachRefusesTheIdOfConfiguredSupervisor() {
     when(host.isBuiltIn("rules")).thenReturn(true);
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
 
-    StepVerifier.create(service.attach(binding("rules", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(
+            service.attach(attachment("rules", "p", new SupervisorScope.Global(), true)))
         .expectError(ConflictException.class)
         .verify();
   }
@@ -272,20 +290,22 @@ class SupervisorServiceTest {
 
   @Test
   void attachIsLimited() {
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
     for (int i = 0; i < SupervisorService.DEFAULT_MAX_ATTACHMENTS; i++) {
       StepVerifier.create(
-              service.attach(binding("b" + i, "p", new SupervisorScope.Global(), false)))
+              service.attach(attachment("b" + i, "p", new SupervisorScope.Global(), false)))
           .expectNextCount(1)
           .verifyComplete();
     }
 
     StepVerifier.create(
-            service.attach(binding("one-more", "p", new SupervisorScope.Global(), true)))
+            service.attach(attachment("one-more", "p", new SupervisorScope.Global(), true)))
         .expectError(ConflictException.class)
         .verify();
-    // replacing an existing binding is not a new one
-    StepVerifier.create(service.attach(binding("b0", "p", new SupervisorScope.Global(), false)))
+    // replacing an existing attachment is not a new one
+    StepVerifier.create(service.attach(attachment("b0", "p", new SupervisorScope.Global(), false)))
         .expectNextCount(1)
         .verifyComplete();
   }
@@ -295,14 +315,16 @@ class SupervisorServiceTest {
     final SupervisorService limited =
         new SupervisorService(new InMemorySupervisorStore(), List.of(factory), host, log);
     limited.setProperties(YuktaSettings.bind(Map.of("yukta.supervisor.max-attachments", "2")));
-    StepVerifier.create(limited.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(limited.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
     for (final String id : List.of("b0", "b1")) {
-      StepVerifier.create(limited.attach(binding(id, "p", new SupervisorScope.Global(), false)))
+      StepVerifier.create(limited.attach(attachment(id, "p", new SupervisorScope.Global(), false)))
           .expectNextCount(1)
           .verifyComplete();
     }
 
-    StepVerifier.create(limited.attach(binding("b2", "p", new SupervisorScope.Global(), false)))
+    StepVerifier.create(limited.attach(attachment("b2", "p", new SupervisorScope.Global(), false)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
@@ -356,19 +378,20 @@ class SupervisorServiceTest {
   void deletingSessionDetachesOnlyItsBindings() {
     attached("session-b", new SupervisorScope.Session("A"));
     StepVerifier.create(
-            service.attach(binding("wf-b", "p", new SupervisorScope.Workflow("w", "A"), true)))
+            service.attach(attachment("wf-b", "p", new SupervisorScope.Workflow("w", "A"), true)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
-            service.attach(binding("other", "p", new SupervisorScope.Session("B"), true)))
+            service.attach(attachment("other", "p", new SupervisorScope.Session("B"), true)))
         .expectNextCount(1)
         .verifyComplete();
-    StepVerifier.create(service.attach(binding("global", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(
+            service.attach(attachment("global", "p", new SupervisorScope.Global(), true)))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
             service.attach(
-                binding("section-b", "p", SupervisorScope.parse("workflow:A/w//build.*"), true)))
+                attachment("section-b", "p", SupervisorScope.parse("workflow:A/w//build.*"), true)))
         .expectNextCount(1)
         .verifyComplete();
 
@@ -384,12 +407,12 @@ class SupervisorServiceTest {
 
   @Test
   void restoreStartsKeptEnabledBindingsAndSkipsBrokenOnes() {
-    store.saveSupervisor(profile("p")).block();
+    store.saveSupervisor(supervisor("p")).block();
     store.saveSupervisor(new Supervisor("broken", TYPE, Map.of("bad", 1), false)).block();
-    store.saveAttachment(binding("on", "p", new SupervisorScope.Global(), true)).block();
-    store.saveAttachment(binding("off", "p", new SupervisorScope.Global(), false)).block();
-    store.saveAttachment(binding("orphan", "ghost", new SupervisorScope.Global(), true)).block();
-    store.saveAttachment(binding("bad", "broken", new SupervisorScope.Global(), true)).block();
+    store.saveAttachment(attachment("on", "p", new SupervisorScope.Global(), true)).block();
+    store.saveAttachment(attachment("off", "p", new SupervisorScope.Global(), false)).block();
+    store.saveAttachment(attachment("orphan", "ghost", new SupervisorScope.Global(), true)).block();
+    store.saveAttachment(attachment("bad", "broken", new SupervisorScope.Global(), true)).block();
 
     service.restore();
 
@@ -405,10 +428,10 @@ class SupervisorServiceTest {
     service.setMeterRegistry(meters);
     final LeaderElection election = mock(LeaderElection.class);
     service.setLeaderElection(election);
-    store.saveSupervisor(profile("p")).block();
+    store.saveSupervisor(supervisor("p")).block();
     store.saveSupervisor(new Supervisor("broken", TYPE, Map.of("bad", 1), false)).block();
-    store.saveAttachment(binding("on", "p", new SupervisorScope.Global(), true)).block();
-    store.saveAttachment(binding("bad", "broken", new SupervisorScope.Global(), true)).block();
+    store.saveAttachment(attachment("on", "p", new SupervisorScope.Global(), true)).block();
+    store.saveAttachment(attachment("bad", "broken", new SupervisorScope.Global(), true)).block();
 
     service.restore();
     verify(host, never()).attach(any(BoundSupervisor.class));
@@ -448,16 +471,18 @@ class SupervisorServiceTest {
     }
   }
 
-  /** A service whose store refuses to save a binding, after a binding {@code b} was attached. */
+  /**
+   * A service whose store refuses to save a attachment, after a attachment {@code b} was attached.
+   */
   private SupervisorService failingSave(final boolean firstEnabled) {
     final SupervisorStore failing = spy(new InMemorySupervisorStore());
     final SupervisorService failingService =
         new SupervisorService(failing, List.of(factory), host, log);
-    StepVerifier.create(failingService.saveSupervisor(profile("p")))
+    StepVerifier.create(failingService.saveSupervisor(supervisor("p")))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(
-            failingService.attach(binding("b", "p", new SupervisorScope.Global(), firstEnabled)))
+            failingService.attach(attachment("b", "p", new SupervisorScope.Global(), firstEnabled)))
         .expectNextCount(1)
         .verifyComplete();
     doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveAttachment(any());
@@ -468,7 +493,7 @@ class SupervisorServiceTest {
   void failedSaveRestartsTheBindingThatWasStored() {
     final SupervisorService failing = failingSave(true);
 
-    StepVerifier.create(failing.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(failing.attach(attachment("b", "p", new SupervisorScope.Global(), true)))
         .expectError(IllegalStateException.class)
         .verify();
 
@@ -479,7 +504,7 @@ class SupervisorServiceTest {
   void failedSaveStopsTheSupervisorWhenTheStoredBindingIsOff() {
     final SupervisorService failing = failingSave(false);
 
-    StepVerifier.create(failing.attach(binding("b", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(failing.attach(attachment("b", "p", new SupervisorScope.Global(), true)))
         .expectError(IllegalStateException.class)
         .verify();
 
@@ -492,13 +517,13 @@ class SupervisorServiceTest {
     final SupervisorStore failing = spy(new InMemorySupervisorStore());
     final SupervisorService failingService =
         new SupervisorService(failing, List.of(factory), host, log);
-    StepVerifier.create(failingService.saveSupervisor(profile("p")))
+    StepVerifier.create(failingService.saveSupervisor(supervisor("p")))
         .expectNextCount(1)
         .verifyComplete();
     doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveAttachment(any());
 
     StepVerifier.create(
-            failingService.attach(binding("n", "p", new SupervisorScope.Global(), true)))
+            failingService.attach(attachment("n", "p", new SupervisorScope.Global(), true)))
         .expectError(IllegalStateException.class)
         .verify();
 
@@ -510,7 +535,7 @@ class SupervisorServiceTest {
     final SupervisorStore failing = spy(new InMemorySupervisorStore());
     final SupervisorService failingService =
         new SupervisorService(failing, List.of(factory), host, log);
-    StepVerifier.create(failingService.saveSupervisor(profile("p")))
+    StepVerifier.create(failingService.saveSupervisor(supervisor("p")))
         .expectNextCount(1)
         .verifyComplete();
     doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveAttachment(any());
@@ -520,19 +545,19 @@ class SupervisorServiceTest {
         .attachments();
 
     StepVerifier.create(
-            failingService.attach(binding("n", "p", new SupervisorScope.Global(), true)))
+            failingService.attach(attachment("n", "p", new SupervisorScope.Global(), true)))
         .expectErrorMessage("db")
         .verify();
   }
 
   @Test
   void savingProfileWithBadIdIsRefusedAndStoresNothing() {
-    StepVerifier.create(service.saveSupervisor(profile("key:admin")))
+    StepVerifier.create(service.saveSupervisor(supervisor("key:admin")))
         .expectErrorSatisfies(
             e ->
                 assertThat(e)
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("profile id")
+                    .hasMessageContaining("supervisor id")
                     .hasMessageContaining("key:admin"))
         .verify();
 
@@ -541,14 +566,16 @@ class SupervisorServiceTest {
 
   @Test
   void attachingBindingWithBadIdIsRefusedAndStoresNothing() {
-    StepVerifier.create(service.saveSupervisor(profile("p"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
 
-    StepVerifier.create(service.attach(binding("a b", "p", new SupervisorScope.Global(), true)))
+    StepVerifier.create(service.attach(attachment("a b", "p", new SupervisorScope.Global(), true)))
         .expectErrorSatisfies(
             e ->
                 assertThat(e)
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("binding id"))
+                    .hasMessageContaining("attachment id"))
         .verify();
 
     StepVerifier.create(store.attachments()).verifyComplete();
@@ -565,7 +592,7 @@ class SupervisorServiceTest {
           }
 
           @Override
-          public ExecutionSupervisor create(final Supervisor profile) {
+          public ExecutionSupervisor create(final Supervisor supervisor) {
             throw new UnsupportedOperationException("not used by this test");
           }
 
@@ -605,19 +632,19 @@ class SupervisorServiceTest {
 
   @Test
   void validIdIsAccepted() {
-    StepVerifier.create(service.saveSupervisor(profile("My.profile_1-x")))
+    StepVerifier.create(service.saveSupervisor(supervisor("My.profile_1-x")))
         .expectNextCount(1)
         .verifyComplete();
   }
 
   @Test
   void restoreFailsTheBindingWhoseIdBreaksRule() {
-    StepVerifier.create(store.saveSupervisor(profile("p"))).verifyComplete();
+    StepVerifier.create(store.saveSupervisor(supervisor("p"))).verifyComplete();
     StepVerifier.create(
-            store.saveAttachment(binding("key:admin", "p", new SupervisorScope.Global(), true)))
+            store.saveAttachment(attachment("key:admin", "p", new SupervisorScope.Global(), true)))
         .verifyComplete();
     StepVerifier.create(
-            store.saveAttachment(binding("good", "p", new SupervisorScope.Global(), true)))
+            store.saveAttachment(attachment("good", "p", new SupervisorScope.Global(), true)))
         .verifyComplete();
 
     service.restore();

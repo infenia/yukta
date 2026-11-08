@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 /**
- * Checks, when a {@code workflow} profile is saved, that its session is internal and its workflow
- * exists.
+ * Checks, when a {@code workflow} supervisor is saved, that its session is internal and its
+ * workflow exists.
  */
 @Component
 @RequiredArgsConstructor
@@ -22,17 +22,17 @@ public class WorkflowSupervisorChecks {
   private final WorkflowDefinitionStore definitions;
 
   /**
-   * Checks a profile; any other type passes.
+   * Checks a supervisor; any other type passes.
    *
-   * @param profile the profile
+   * @param supervisor the supervisor
    * @return completes if fine; errors with {@link IllegalArgumentException} otherwise
    */
-  public Mono<Void> check(final Supervisor profile) {
-    if (!WorkflowSupervisorFactory.PROFILE_TYPE.equals(profile.type())) {
+  public Mono<Void> check(final Supervisor supervisor) {
+    if (!WorkflowSupervisorFactory.TYPE_NAME.equals(supervisor.type())) {
       return Mono.empty();
     }
-    final String session = String.valueOf(profile.settings().get("sessionId"));
-    final String workflow = String.valueOf(profile.settings().get("workflowId"));
+    final String session = String.valueOf(supervisor.settings().get("sessionId"));
+    final String workflow = String.valueOf(supervisor.settings().get("workflowId"));
     return internal
         .checkInternal(session)
         .filter(Boolean::booleanValue)

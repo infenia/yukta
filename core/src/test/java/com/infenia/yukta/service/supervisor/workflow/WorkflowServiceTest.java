@@ -48,7 +48,7 @@ class WorkflowServiceTest {
     return service;
   }
 
-  private static Supervisor profile() {
+  private static Supervisor supervisor() {
     return new Supervisor(
         "wfp",
         "workflow",
@@ -60,7 +60,7 @@ class WorkflowServiceTest {
   void profileFailingChecksIsNotSaved() {
     when(checks.check(any())).thenReturn(Mono.error(new IllegalArgumentException("not internal")));
 
-    StepVerifier.create(service().saveSupervisor(profile()))
+    StepVerifier.create(service().saveSupervisor(supervisor()))
         .expectErrorMessage("not internal")
         .verify();
   }
@@ -69,7 +69,7 @@ class WorkflowServiceTest {
   void theBindingIdBecomesTheSupervisorsActor() {
     when(checks.check(any())).thenReturn(Mono.empty());
     final SupervisorService service = service();
-    service.saveSupervisor(profile()).block();
+    service.saveSupervisor(supervisor()).block();
 
     service
         .attach(new SupervisorAttachment("bind-1", "wfp", new SupervisorScope.Global(), true))

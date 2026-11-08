@@ -14,17 +14,17 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * A supervisor made from a profile and attached by a binding: it answers to the binding's id and
- * scope, and does what the supervisor made by the factory does.
+ * A supervisor made from a supervisor and attached by a attachment: it answers to the attachment's
+ * id and scope, and does what the supervisor made by the factory does.
  *
- * @param binding the binding that attached it
+ * @param attachment the attachment that attached it
  * @param delegate the supervisor the factory made
  * @param dryRun whether its commands are only recorded
  * @param capabilities which commands it may send and whether it may answer input requests
  * @param observeInternal whether it also sees the events of the internal session its scope names
  */
 public record BoundSupervisor(
-    SupervisorAttachment binding,
+    SupervisorAttachment attachment,
     ExecutionSupervisor delegate,
     boolean dryRun,
     SupervisorCapabilities capabilities,
@@ -34,7 +34,7 @@ public record BoundSupervisor(
   @Override
   @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
-    return binding.id();
+    return attachment.id();
   }
 
   @Override
@@ -44,7 +44,7 @@ public record BoundSupervisor(
 
   @Override
   public SupervisorScope scope() {
-    return binding.scope();
+    return attachment.scope();
   }
 
   @Override

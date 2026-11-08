@@ -194,7 +194,7 @@ class WorkflowStarter {
               // The slot is asked for here, not inside the run, so a refusal reaches the caller
               // as an error and no execution id is handed out for a run that cannot start.
               final ExecutionScheduler.Admission admission =
-                  scheduler.acquire(
+                  scheduler.acquireStart(
                       sessionId, workflowId, ExecutionScheduler.priorityOf(payload), executionId);
               if (admission.refused()) {
                 return admission.permit().thenReturn(executionId);

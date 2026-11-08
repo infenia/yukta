@@ -95,7 +95,7 @@ public class SupervisorWorkflowRunner {
   /**
    * Runs a supervisor workflow once.
    *
-   * @param supervisorId the binding id of the supervisor, written to the run
+   * @param supervisorId the attachment id of the supervisor, written to the run
    * @param sessionId the internal session
    * @param workflowId the workflow
    * @param payload the start payload (event, request, ids)

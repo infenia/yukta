@@ -179,7 +179,8 @@ public class ExecutionScheduler implements SmartLifecycle {
   }
 
   /**
-   * Refuses a start that could not be admitted or queued, so the caller finds out immediately.
+   * Refuses a start that could not be admitted or queued, so the caller finds out immediately. It
+   * takes no start-rate token: {@link #acquireStart} does, once the start has a place.
    *
    * @param sessionId the session
    * @param workflowId the workflow
@@ -207,8 +208,6 @@ public class ExecutionScheduler implements SmartLifecycle {
         }
       }
     }
-    // last, so a start that is refused for another reason does not use up a rate token
-    assertStartRate(sessionId, workflowId);
   }
 
   /**
@@ -225,6 +224,34 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       @Nullable final String executionId) {
+    return admit(sessionId, workflowId, priority, executionId, false);
+  }
+
+  /**
+   * Asks for a slot for a new start, which counts against {@code
+   * yukta.execution.max-starts-per-minute}. The token is taken last, once the start has a slot or a
+   * queue place, so a start that is refused for another reason does not use one up.
+   *
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param priority higher is admitted first when starts have to wait
+   * @param executionId the execution asking
+   * @return the slot at once if there is room, otherwise a Mono that waits for one
+   */
+  public Admission acquireStart(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      final String executionId) {
+    return admit(sessionId, workflowId, priority, executionId, true);
+  }
+
+  private Admission admit(
+      final String sessionId,
+      final String workflowId,
+      final int priority,
+      @Nullable final String executionId,
+      final boolean countsAgainstRate) {
     assertLeader();
     final String key = key(sessionId, workflowId);
     synchronized (lock) {
@@ -232,12 +259,17 @@ public class ExecutionScheduler implements SmartLifecycle {
       if (unavailable != null) {
         return refused(unavailable);
       }
-      if (fits(key)) {
-        return new Admission(true, Mono.just(take(key)));
-      }
-      final RejectReason reason = cannotQueue(key);
+      final boolean fits = fits(key);
+      final RejectReason reason = fits ? null : cannotQueue(key);
       if (reason != null) {
         return refused(refusal(reason, "Execution limit reached"));
+      }
+      if (countsAgainstRate && !startRate.tryAcquire(sessionId + "\0" + workflowId)) {
+        return refused(
+            refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
+      }
+      if (fits) {
+        return new Admission(true, Mono.just(take(key)));
       }
       final Waiter waiter =
           new Waiter(
@@ -278,12 +310,7 @@ public class ExecutionScheduler implements SmartLifecycle {
       final String workflowId,
       final int priority,
       final String executionId) {
-    assertLeader();
-    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
-      return refused(
-          refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute"));
-    }
-    return acquire(sessionId, workflowId, priority, executionId);
+    return admit(sessionId, workflowId, priority, executionId, true);
   }
 
   /**
@@ -445,13 +472,6 @@ public class ExecutionScheduler implements SmartLifecycle {
   @Autowired(required = false)
   public void setLeaderElection(final LeaderElection leaderElection) {
     this.election = leaderElection;
-  }
-
-  private void assertStartRate(final String sessionId, final String workflowId) {
-    // workflow ids are per session, so the session is part of the key
-    if (!startRate.tryAcquire(sessionId + "\0" + workflowId)) {
-      throw refusal(RejectReason.RATE_LIMIT, "Too many starts of this workflow per minute");
-    }
   }
 
   /** Counts a refusal and builds its exception. */

@@ -190,14 +190,41 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     scheduler.setMaxStartsPerMinute(2);
 
-    scheduler.assertCanAccept("s", "w");
-    scheduler.assertCanAccept("s", "w");
-    scheduler.assertCanAccept("s", "other");
+    assertThat(scheduler.acquireStart("s", "w", 0, "e1").refused()).isFalse();
+    assertThat(scheduler.acquireStart("s", "w", 0, "e2").refused()).isFalse();
+    assertThat(scheduler.acquireStart("s", "other", 0, "e3").refused()).isFalse();
 
-    assertThatThrownBy(() -> scheduler.assertCanAccept("s", "w"))
-        .isInstanceOf(ExecutionRejectedException.class)
-        .hasMessage("Too many starts of this workflow per minute");
+    final Admission third = scheduler.acquireStart("s", "w", 0, "e4");
+    assertThat(third.refused()).isTrue();
+    StepVerifier.create(third.permit())
+        .expectErrorMessage("Too many starts of this workflow per minute")
+        .verify();
     assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RATE_LIMIT)).isEqualTo(1);
+  }
+
+  @Test
+  void startRate_notSpentByStartRefusedElsewhere() {
+    final ExecutionScheduler scheduler = scheduler(1, 0, 10, OnLimit.REJECT);
+    scheduler.setMaxStartsPerMinute(2);
+    final Admission first = scheduler.acquireStart("s", "w", 0, "e1");
+
+    // refused for the limit: no token is used
+    assertThat(scheduler.acquireStart("s", "w", 0, "e2").refused()).isTrue();
+    assertThat(scheduler.acquireStart("s", "w", 0, "e3").refused()).isTrue();
+    assertThat(scheduler.rejected(ExecutionScheduler.RejectReason.RATE_LIMIT)).isZero();
+    first.giveBack();
+    assertThat(scheduler.acquireStart("s", "w", 0, "e4").refused()).isFalse();
+  }
+
+  @Test
+  void assertCanAccept_takesNoStartRateToken() {
+    final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
+    scheduler.setMaxStartsPerMinute(1);
+
+    scheduler.assertCanAccept("s", "w");
+    scheduler.assertCanAccept("s", "w");
+
+    assertThat(scheduler.acquireStart("s", "w", 0, "e1").refused()).isFalse();
   }
 
   @Test
@@ -205,10 +232,9 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     scheduler.setMaxStartsPerMinute(1);
 
-    scheduler.assertCanAccept("s1", "build");
+    scheduler.acquireStart("s1", "build", 0, "e1");
 
-    org.assertj.core.api.Assertions.assertThatCode(() -> scheduler.assertCanAccept("s2", "build"))
-        .doesNotThrowAnyException();
+    assertThat(scheduler.acquireStart("s2", "build", 0, "e2").refused()).isFalse();
   }
 
   @Test
@@ -216,7 +242,7 @@ class ExecutionSchedulerTest {
     final ExecutionScheduler scheduler = scheduler(0, 0, 10, OnLimit.QUEUE);
     scheduler.setMaxStartsPerMinute(2);
 
-    scheduler.assertCanAccept("s", "w");
+    assertThat(scheduler.acquireStart("s", "w", 0, "e0").refused()).isFalse();
     assertThat(scheduler.acquireRerun("s", "w", 0, "e1").refused()).isFalse();
     final Admission third = scheduler.acquireRerun("s", "w", 0, "e2");
 

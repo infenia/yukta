@@ -23,36 +23,36 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
- * Makes composite supervisors: other profiles run inside one supervisor with one id, one scope and
- * one set of metrics. Settings: {@code mode} ({@code CHAIN}, {@code FIRST_MATCH}, {@code PARALLEL},
- * {@code QUORUM}), {@code children} (profile ids), {@code review} ({@code ALL}, {@code ANY}, {@code
- * MAJORITY}), and for {@code QUORUM} {@code quorum} (default a majority) and {@code window} in
- * milliseconds (default 500).
+ * Makes composite supervisors: other supervisors run inside one supervisor with one id, one scope
+ * and one set of metrics. Settings: {@code mode} ({@code CHAIN}, {@code FIRST_MATCH}, {@code
+ * PARALLEL}, {@code QUORUM}), {@code children} (supervisor ids), {@code review} ({@code ALL},
+ * {@code ANY}, {@code MAJORITY}), and for {@code QUORUM} {@code quorum} (default a majority) and
+ * {@code window} in milliseconds (default 500).
  *
- * <p>A child's own scope is not checked: a profile has none, only its binding does, and the
- * children run inside the composite's binding.
+ * <p>A child's own scope is not checked: a supervisor has none, only its attachment does, and the
+ * children run inside the composite's attachment.
  */
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
 public class CompositeSupervisorFactory implements SupervisorFactory {
 
-  /** The supervisor type in a profile. */
-  public static final String PROFILE_TYPE = "composite";
+  /** The supervisor type in a supervisor. */
+  public static final String TYPE_NAME = "composite";
 
   /** Looked up late: the service that holds the factories needs the resolver. */
   private final ObjectProvider<SupervisorResolver> resolvers;
 
   @Override
   public String type() {
-    return PROFILE_TYPE;
+    return TYPE_NAME;
   }
 
   @Override
-  public ExecutionSupervisor create(final Supervisor profile) {
-    final CompositeSettings settings = CompositeSettings.read(profile);
+  public ExecutionSupervisor create(final Supervisor supervisor) {
+    final CompositeSettings settings = CompositeSettings.read(supervisor);
     final SupervisorResolver resolver = resolvers.getObject();
-    checkTree(resolver, profile, new LinkedHashSet<>());
+    checkTree(resolver, supervisor, new LinkedHashSet<>());
     final List<ExecutionSupervisor> children = new ArrayList<>();
     for (final String childId : settings.children()) {
       final ExecutionSupervisor child = resolver.resolve(childId);
@@ -67,14 +67,15 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
       children.add(child);
     }
     return new CompositeSupervisor(
-        profile.id(), settings, settings.children(), children, Clock.systemUTC());
+        supervisor.id(), settings, settings.children(), children, Clock.systemUTC());
   }
 
   /** Looks for a cycle and for nesting that is too deep, before anything is built. */
   private static void checkTree(
       final SupervisorResolver resolver, final Supervisor node, final Set<String> path) {
     if (!path.add(node.id())) {
-      throw new IllegalArgumentException("Composite profiles form a cycle at '" + node.id() + "'");
+      throw new IllegalArgumentException(
+          "Composite supervisors form a cycle at '" + node.id() + "'");
     }
     if (path.size() > CompositeSettings.MAX_DEPTH) {
       throw new IllegalArgumentException(
@@ -83,9 +84,10 @@ public class CompositeSupervisorFactory implements SupervisorFactory {
     for (final String childId : CompositeSettings.read(node).children()) {
       final Supervisor child =
           resolver
-              .profile(childId)
-              .orElseThrow(() -> new IllegalArgumentException("Unknown child profile: " + childId));
-      if (PROFILE_TYPE.equals(child.type())) {
+              .supervisor(childId)
+              .orElseThrow(
+                  () -> new IllegalArgumentException("Unknown child supervisor: " + childId));
+      if (TYPE_NAME.equals(child.type())) {
         checkTree(resolver, child, path);
       }
     }

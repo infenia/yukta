@@ -16,8 +16,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 /**
- * Turns the id of a stored profile into a supervisor, for composites. It holds a copy of the
- * profiles that {@code SupervisorService} refreshes before it validates or starts anything, so a
+ * Turns the id of a stored supervisor into a supervisor, for composites. It holds a copy of the
+ * supervisors that {@code SupervisorService} refreshes before it validates or starts anything, so a
  * lookup never waits for the store.
  */
 @Component
@@ -26,8 +26,8 @@ public class SupervisorResolver {
   /** The factories, looked up late: the service that owns them needs this resolver. */
   private final ObjectProvider<SupervisorFactory> factories;
 
-  /** The profiles by id. */
-  private final Map<String, Supervisor> profiles = new ConcurrentHashMap<>();
+  /** The supervisors by id. */
+  private final Map<String, Supervisor> supervisors = new ConcurrentHashMap<>();
 
   /**
    * Creates the resolver.
@@ -39,64 +39,66 @@ public class SupervisorResolver {
   }
 
   /**
-   * Replaces the copy of the profiles.
+   * Replaces the copy of the supervisors.
    *
-   * @param all every stored profile
+   * @param all every stored supervisor
    */
   public void refresh(final Collection<Supervisor> all) {
     final Map<String, Supervisor> next =
         all.stream().collect(Collectors.toMap(Supervisor::id, Function.identity()));
-    profiles.keySet().retainAll(next.keySet());
-    profiles.putAll(next);
+    supervisors.keySet().retainAll(next.keySet());
+    supervisors.putAll(next);
   }
 
   /**
-   * Puts a profile in this copy before it is stored, so a check sees the tree as it would be after
-   * the save. {@link #refresh} puts the stored profiles back.
+   * Puts a supervisor in this copy before it is stored, so a check sees the tree as it would be
+   * after the save. {@link #refresh} puts the stored supervisors back.
    *
-   * @param profile the profile about to be saved
+   * @param supervisor the supervisor about to be saved
    */
-  public void tentatively(final Supervisor profile) {
-    profiles.put(profile.id(), profile);
+  public void tentatively(final Supervisor supervisor) {
+    supervisors.put(supervisor.id(), supervisor);
   }
 
   /**
-   * Looks a profile up.
+   * Looks a supervisor up.
    *
-   * @param id the profile id
-   * @return the profile, if stored
+   * @param id the supervisor id
+   * @return the supervisor, if stored
    */
-  public Optional<Supervisor> profile(final String id) {
-    return Optional.ofNullable(profiles.get(id));
+  public Optional<Supervisor> supervisor(final String id) {
+    return Optional.ofNullable(supervisors.get(id));
   }
 
   /**
-   * Makes the supervisor of a stored profile.
+   * Makes the supervisor of a stored supervisor.
    *
-   * @param id the profile id
-   * @return the supervisor; its id is the profile id until a binding replaces it
-   * @throws IllegalArgumentException if the profile or its type is unknown, or its settings invalid
+   * @param id the supervisor id
+   * @return the supervisor; its id is the supervisor id until a attachment replaces it
+   * @throws IllegalArgumentException if the supervisor or its type is unknown, or its settings
+   *     invalid
    */
   public ExecutionSupervisor resolve(final String id) {
-    final Supervisor profile =
-        profile(id).orElseThrow(() -> new IllegalArgumentException("Unknown child profile: " + id));
+    final Supervisor supervisor =
+        supervisor(id)
+            .orElseThrow(() -> new IllegalArgumentException("Unknown child supervisor: " + id));
     return factories.stream()
-        .filter(factory -> factory.type().equals(profile.type()))
+        .filter(factory -> factory.type().equals(supervisor.type()))
         .findFirst()
         .orElseThrow(() -> new IllegalArgumentException("Child '" + id + "' has an unknown type"))
-        .create(profile);
+        .create(supervisor);
   }
 
   /**
-   * The composites that list a profile as a child, directly or through other composites.
+   * The composites that list a supervisor as a child, directly or through other composites.
    *
-   * @param id the profile id
-   * @return the ids of those composite profiles
+   * @param id the supervisor id
+   * @return the ids of those composite supervisors
    */
   public List<String> compositesUsing(final String id) {
-    return profiles.values().stream()
-        .filter(profile -> CompositeSupervisorFactory.PROFILE_TYPE.equals(profile.type()))
-        .filter(profile -> uses(profile, id, 0))
+    return supervisors.values().stream()
+        .filter(supervisor -> CompositeSupervisorFactory.TYPE_NAME.equals(supervisor.type()))
+        .filter(supervisor -> uses(supervisor, id, 0))
         .map(Supervisor::id)
         .sorted()
         .toList();
@@ -113,9 +115,8 @@ public class SupervisorResolver {
                 child ->
                     id.equals(child)
                         || child instanceof String childId
-                            && profile(childId)
-                                .filter(
-                                    p -> CompositeSupervisorFactory.PROFILE_TYPE.equals(p.type()))
+                            && supervisor(childId)
+                                .filter(p -> CompositeSupervisorFactory.TYPE_NAME.equals(p.type()))
                                 .map(p -> uses(p, id, depth + 1))
                                 .orElse(false));
   }

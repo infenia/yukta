@@ -10,53 +10,53 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /**
- * Keeps supervisor profiles and bindings, so those attached at run time can come back after a
+ * Keeps supervisor supervisors and attachments, so those attached at run time can come back after a
  * restart when the store is durable. The default keeps them in memory only.
  */
 public interface SupervisorStore {
 
   /**
-   * All profiles.
+   * All supervisors.
    *
-   * @return the profiles, ordered by id
+   * @return the supervisors, ordered by id
    */
   Flux<Supervisor> supervisors();
 
   /**
-   * Saves a profile, replacing one with the same id.
+   * Saves a supervisor, replacing one with the same id.
    *
-   * @param profile the profile
+   * @param supervisor the supervisor
    * @return completes when saved
    */
-  Mono<Void> saveSupervisor(Supervisor profile);
+  Mono<Void> saveSupervisor(Supervisor supervisor);
 
   /**
-   * Removes a profile.
+   * Removes a supervisor.
    *
-   * @param id the profile id
+   * @param id the supervisor id
    * @return true if there was one
    */
   Mono<Boolean> deleteSupervisor(String id);
 
   /**
-   * All bindings.
+   * All attachments.
    *
-   * @return the bindings, ordered by id
+   * @return the attachments, ordered by id
    */
   Flux<SupervisorAttachment> attachments();
 
   /**
-   * Saves a binding, replacing one with the same id.
+   * Saves a attachment, replacing one with the same id.
    *
-   * @param binding the binding
+   * @param attachment the attachment
    * @return completes when saved
    */
-  Mono<Void> saveAttachment(SupervisorAttachment binding);
+  Mono<Void> saveAttachment(SupervisorAttachment attachment);
 
   /**
-   * Removes a binding.
+   * Removes a attachment.
    *
-   * @param id the binding id
+   * @param id the attachment id
    * @return true if there was one
    */
   Mono<Boolean> deleteAttachment(String id);
