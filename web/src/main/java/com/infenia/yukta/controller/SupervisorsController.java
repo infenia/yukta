@@ -68,7 +68,9 @@ import reactor.core.publisher.Mono;
   SupervisorsController.SupervisorBody.class,
   SupervisorsController.AttachmentBody.class,
   SupervisorsController.EnabledBody.class,
-  SupervisorsController.VersionView.class
+  SupervisorsController.VersionView.class,
+  SupervisorsController.ReplayBody.class,
+  SupervisorService.ReplayDecision.class
 })
 public class SupervisorsController {
 
@@ -273,6 +275,30 @@ public class SupervisorsController {
             .rollback(id, version)
             .map(saved -> ApiResponse.success(200, "Supervisor rolled back", shown(saved)));
   }
+
+  /**
+   * Try a supervisor on the recorded events of a past run, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, optionally, draft settings to try instead of the stored ones
+   * @return what the supervisor would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/replay")
+  @Operation(summary = "Replay a supervisor over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replay(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return service
+        .replay(id, body.settings(), body.executionId())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
+  }
+
+  /**
+   * A replay request.
+   *
+   * @param executionId the past run
+   * @param settings draft settings to try, or {@code null} for the stored ones
+   */
+  public record ReplayBody(String executionId, @Nullable Map<String, Object> settings) {}
 
   /**
    * A saved version.

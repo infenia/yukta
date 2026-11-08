@@ -6,6 +6,8 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
@@ -14,6 +16,7 @@ import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
@@ -385,6 +388,99 @@ public class SupervisorService {
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
         .map(found -> versions.list(id));
+  }
+
+  /**
+   * What a command would have been, had the supervisor run on a past run.
+   *
+   * @param command the command type
+   * @param executionId the run it addresses
+   * @param nodeId the node, or {@code null}
+   * @param cause the cause as the audit shows it
+   * @param reason the reason it gave, or {@code null}
+   * @param allowed whether the supervisor's capabilities would let it through
+   */
+  public record ReplayDecision(
+      String command,
+      String executionId,
+      @Nullable String nodeId,
+      String cause,
+      @Nullable String reason,
+      boolean allowed) {}
+
+  /** Most decisions one replay returns, and how long a replay waits for a timer. */
+  private static final int REPLAY_LIMIT = 100;
+
+  private static final Duration REPLAY_WAIT = Duration.ofSeconds(2);
+
+  /**
+   * Tries a supervisor (its stored settings, or draft settings) on the recorded events of a past
+   * run, in dry run: nothing is sent. Only statuses were recorded, so a rule on logs or input
+   * requests does not fire, and a timed rule sees nothing to read.
+   *
+   * @param id the supervisor id
+   * @param draft draft settings to try instead of the stored ones, or {@code null}
+   * @param executionId the past run
+   * @return what it would have done
+   */
+  public Mono<List<ReplayDecision>> replay(
+      final String id, final @Nullable Map<String, Object> draft, final String executionId) {
+    return store
+        .supervisors()
+        .filter(found -> found.id().equals(id))
+        .next()
+        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
+        .flatMap(
+            stored -> {
+              final List<ExecutionEvent> events =
+                  ReplayEvents.from(executionLog.forExecution(executionId));
+              if (events.isEmpty()) {
+                return Mono.error(
+                    new NotFoundException("No recorded events for execution " + executionId));
+              }
+              final Supervisor trial =
+                  new Supervisor(
+                      id,
+                      stored.type(),
+                      draft == null ? stored.settings() : draft,
+                      true,
+                      stored.description(),
+                      stored.parents(),
+                      stored.delegation());
+              validateAsSaved(trial);
+              final SupervisorCapabilities caps = capabilities(trial);
+              final ExecutionSupervisor made = create(trial);
+              final Flux<ReplayDecision> out =
+                  made instanceof DirectiveSupervisor directives
+                      ? directives
+                          .directives(Flux.fromIterable(events))
+                          .map(
+                              d ->
+                                  decision(
+                                      d.command(),
+                                      d.cause().text(),
+                                      d.reason(),
+                                      caps.allows(d.command())
+                                          && (!d.cause().unprompted()
+                                              || caps.mayInitiate(d.command()))))
+                      : made.supervise(Flux.fromIterable(events))
+                          .map(c -> decision(c, "event", null, caps.allows(c)));
+              return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
+            });
+  }
+
+  private static ReplayDecision decision(
+      final ExecutionControlCommand command,
+      final String cause,
+      final @Nullable String reason,
+      final boolean allowed) {
+    return new ReplayDecision(
+        command.getClass().getSimpleName(),
+        command.executionId(),
+        command.nodeId(),
+        cause,
+        reason,
+        allowed);
   }
 
   /**

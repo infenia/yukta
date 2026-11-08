@@ -939,4 +939,114 @@ class SupervisorServiceTest {
     assertThat(kept.find("k", 5)).isEmpty();
     assertThat(kept.list("other")).isEmpty();
   }
+
+  /** Pauses a run when it fails; with the setting "plain" it is a supervisor without causes. */
+  private SupervisorService replaying(final boolean plain) {
+    final SupervisorFactory pausing =
+        new SupervisorFactory() {
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
+          public String type() {
+            return "pausing";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            if (plain) {
+              return new ExecutionSupervisor() {
+                @Override
+                public String id() {
+                  return "made";
+                }
+
+                @Override
+                public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+                  return events
+                      .filter(e -> e instanceof ExecutionEvent.WorkflowStatusChanged)
+                      .map(e -> new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()));
+                }
+              };
+            }
+            return new com.infenia.yukta.plugin.control.engine.DirectiveSupervisor() {
+              @Override
+              public String id() {
+                return "made";
+              }
+
+              @Override
+              public Flux<com.infenia.yukta.plugin.control.engine.Directive.Command> directives(
+                  final Flux<ExecutionEvent> events) {
+                return events
+                    .filter(
+                        e ->
+                            e instanceof ExecutionEvent.WorkflowStatusChanged changed
+                                && "FAILURE".equals(changed.status()))
+                    .map(
+                        e ->
+                            new com.infenia.yukta.plugin.control.engine.Directive.Command(
+                                "k",
+                                new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
+                                com.infenia.yukta.plugin.control.engine.Cause.tick(),
+                                "failed",
+                                null));
+              }
+            };
+          }
+        };
+    final SupervisorService made =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(pausing), host, log);
+    StepVerifier.create(made.saveSupervisor(new Supervisor("r", "pausing", Map.of(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    log.append(com.infenia.yukta.service.log.ExecutionLogEvent.started("run1", "s", "w", "v1"));
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.finished(
+            "run1", "s", "w", "FAILURE", Map.of("n1", "FAILURE")));
+    return made;
+  }
+
+  @Test
+  void aReplayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
+    StepVerifier.create(replaying(false).replay("r", null, "run1"))
+        .assertNext(
+            decisions ->
+                assertThat(decisions)
+                    .singleElement()
+                    .satisfies(
+                        d -> {
+                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                          assertThat(d.executionId()).isEqualTo("run1");
+                          assertThat(d.cause()).isEqualTo("tick");
+                          assertThat(d.reason()).isEqualTo("failed");
+                          // a tick is initiative, and the supervisor lists none
+                          assertThat(d.allowed()).isFalse();
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayOfAPlainSupervisorSeesEveryStatusEvent() {
+    StepVerifier.create(replaying(true).replay("r", Map.of(), "run1"))
+        .assertNext(
+            decisions -> {
+              assertThat(decisions).hasSize(2);
+              assertThat(decisions).allSatisfy(d -> assertThat(d.allowed()).isTrue());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayNeedsTheSupervisorAndARecordedRun() {
+    final SupervisorService made = replaying(false);
+    StepVerifier.create(made.replay("nope", null, "run1"))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(made.replay("r", null, "unknown"))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
 }

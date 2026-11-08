@@ -119,6 +119,16 @@ class SupervisorsControllerTest {
   }
 
   @Test
+  void aReplayOfAnUnknownRunIsNotFound() {
+    StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replay("s1", new SupervisorsController.ReplayBody("gone", null)))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+  }
+
+  @Test
   void aSystemSupervisorCannotBeRolledBack() {
     when(host.isBuiltIn("sys")).thenReturn(true);
     StepVerifier.create(controller.rollback("sys", 1))
