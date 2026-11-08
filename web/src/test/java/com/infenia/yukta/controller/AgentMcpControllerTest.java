@@ -24,6 +24,7 @@ import reactor.core.publisher.Flux;
 import tools.jackson.databind.ObjectMapper;
 
 /** An AI agent that is a supervisor reaches the agent API through MCP tools. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
 class AgentMcpControllerTest {
 
   private final AgentHub hub = new AgentHub();
@@ -69,7 +70,7 @@ class AgentMcpControllerTest {
     message.put("id", 1);
     message.put("method", method);
     message.put("params", params);
-    return mcp.handle(exchange, message).block().getBody();
+    return java.util.Objects.requireNonNull(mcp.handle(exchange, message).block()).getBody();
   }
 
   private static Map<String, Object> call(final String name, final Map<String, Object> args) {
@@ -89,7 +90,7 @@ class AgentMcpControllerTest {
     assertThat(result(rpc(exchange, "ping", null))).isEmpty();
     assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(7);
     assertThat(((Map<?, ?>) rpc(exchange, "nope", null).get("error")).get("code"))
-        .isEqualTo(-32601);
+        .isEqualTo(-32_601);
     assertThat(
             mcp.handle(exchange, Map.of("jsonrpc", "2.0", "method", "notifications/initialized"))
                 .block()
@@ -133,7 +134,53 @@ class AgentMcpControllerTest {
   }
 
   @Test
-  void aFailureIsAToolErrorAndABadCallIsAProtocolError() {
+  void signalsArePolledWithOrWithoutCursorAndDefaultsApply() {
+    final MockServerWebExchange exchange = running();
+    final Map<String, Object> polled =
+        result(
+            rpc(
+                exchange,
+                "tools/call",
+                call("next_signals", Map.of("after", 0, "waitSeconds", 0))));
+    assertThat(polled.get("isError")).isEqualTo(false);
+    assertThat(result(rpc(exchange, "tools/call", call("next_signals", Map.of()))).get("isError"))
+        .isEqualTo(false);
+    assertThat(
+            result(rpc(exchange, "tools/call", call("list_open_inputs", Map.of("limit", "x"))))
+                .get("isError"))
+        .isEqualTo(false);
+  }
+
+  @Test
+  void resultThatCannotBeWrittenIsToolError() {
+    final ObjectMapper broken = org.mockito.Mockito.mock(ObjectMapper.class);
+    org.mockito.Mockito.when(broken.writeValueAsString(org.mockito.ArgumentMatchers.any()))
+        .thenThrow(new tools.jackson.core.JacksonException("boom") {});
+    final AgentMcpController failing =
+        new AgentMcpController(new AgentApiController(hub, host), broken);
+    final MockServerWebExchange exchange = running();
+    final Map<String, Object> message =
+        Map.of(
+            "jsonrpc",
+            "2.0",
+            "id",
+            1,
+            "method",
+            "tools/call",
+            "params",
+            call("get_snapshot", Map.of()));
+    final Map<?, ?> answer =
+        (Map<?, ?>)
+            java.util.Objects.requireNonNull(
+                    java.util.Objects.requireNonNull(failing.handle(exchange, message).block())
+                        .getBody())
+                .get("result");
+    assertThat(answer.get("isError")).isEqualTo(true);
+    assertThat(answer.get("content").toString()).contains("could not be written");
+  }
+
+  @Test
+  void failureIsToolErrorAndBadCallIsProtocolError() {
     final MockServerWebExchange exchange = running();
     final Map<String, Object> bad =
         result(rpc(exchange, "tools/call", call("send_directive", Map.of("key", "k"))));
@@ -141,9 +188,9 @@ class AgentMcpControllerTest {
     assertThat(result(rpc(exchange, "tools/call", call("nope", Map.of()))).get("isError"))
         .isEqualTo(true);
     assertThat(((Map<?, ?>) rpc(exchange, "tools/call", Map.of()).get("error")).get("code"))
-        .isEqualTo(-32602);
+        .isEqualTo(-32_602);
     assertThat(((Map<?, ?>) rpc(exchange, "tools/call", "x").get("error")).get("code"))
-        .isEqualTo(-32602);
+        .isEqualTo(-32_602);
     assertThat(result(rpc(exchange, "tools/call", Map.of("name", "get_snapshot"))).get("isError"))
         .isEqualTo(false);
   }

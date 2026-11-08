@@ -298,7 +298,18 @@ public class SupervisorsController {
    * @param executionId the past run
    * @param settings draft settings to try, or {@code null} for the stored ones
    */
-  public record ReplayBody(String executionId, @Nullable Map<String, Object> settings) {}
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "the compact constructor stores an unmodifiable copy")
+  public record ReplayBody(String executionId, @Nullable Map<String, Object> settings) {
+
+    /** Keeps an unmodifiable copy of the draft settings; a setting may be null. */
+    public ReplayBody {
+      if (settings != null) {
+        settings = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
+      }
+    }
+  }
 
   /**
    * A saved version.
@@ -606,6 +617,7 @@ public class SupervisorsController {
         delegationView(supervisor));
   }
 
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private static Map<String, SupervisorView.DelegationView> delegationView(
       final Supervisor supervisor) {
     final Map<String, SupervisorView.DelegationView> view = new java.util.TreeMap<>();
@@ -619,6 +631,7 @@ public class SupervisorsController {
     return view;
   }
 
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private static Map<
           com.infenia.yukta.plugin.control.DelegationKind,
           com.infenia.yukta.plugin.control.Delegation>
@@ -630,18 +643,20 @@ public class SupervisorsController {
     if (body != null) {
       body.forEach(
           (kind, d) -> {
+            final String mode = d.mode();
+            final Long timeoutSeconds = d.timeoutSeconds();
             try {
               out.put(
                   com.infenia.yukta.plugin.control.DelegationKind.valueOf(
                       kind.toUpperCase(java.util.Locale.ROOT)),
                   new com.infenia.yukta.plugin.control.Delegation(
-                      d.mode() == null
+                      mode == null
                           ? com.infenia.yukta.plugin.control.DelegationMode.ORDERED
                           : com.infenia.yukta.plugin.control.DelegationMode.valueOf(
-                              d.mode().toUpperCase(java.util.Locale.ROOT)),
-                      d.timeoutSeconds() == null
+                              mode.toUpperCase(java.util.Locale.ROOT)),
+                      timeoutSeconds == null
                           ? com.infenia.yukta.plugin.control.Delegation.DEFAULT_TIMEOUT
-                          : java.time.Duration.ofSeconds(d.timeoutSeconds())));
+                          : java.time.Duration.ofSeconds(timeoutSeconds)));
             } catch (IllegalArgumentException e) {
               throw new IllegalArgumentException(
                   "delegation: unknown kind or mode, or a bad timeout (kinds APPROVAL, INPUT,"

@@ -17,10 +17,13 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.agent.AgentHub;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Duration;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,11 +53,24 @@ import reactor.core.publisher.Mono;
 @Tag(
     name = "Agent API",
     description = "For an application that is the decision maker of a supervisor")
+@SuppressWarnings({
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass",
+  "PMD.TooManyMethods"
+})
 public class AgentApiController {
 
   private static final int MAX_POLL_SECONDS = 25;
   private static final int MAX_BATCH = 50;
   private static final long POLL_WINDOW_MILLIS = 200;
+
+  private static final String EXPOSE_REP = "EI_EXPOSE_REP";
+  private static final String COPIED = "the compact constructor stores an unmodifiable copy";
+  private static final String HELD = "held";
+  private static final String OWNED_RUNNING = "owned.running";
+  private static final String NO_OPINION = "NO_OPINION";
+  private static final String TICK = "tick";
 
   private static final Set<String> VERDICTS = Set.of("ALLOW", "DENY", "REQUIRE_APPROVAL");
 
@@ -90,12 +106,21 @@ public class AgentApiController {
    *     execution:<id>}, {@code workflow:<id>}, {@code owned.running} or {@code held}, at most 200
    *     executions, each applied and audited alone) and its own fields
    */
+  @SuppressFBWarnings(value = EXPOSE_REP, justification = COPIED)
   public record DirectiveBody(
       String key,
       @Nullable String cause,
       @Nullable String reason,
       @Nullable String ifStatus,
-      Map<String, Object> command) {}
+      Map<String, Object> command) {
+
+    /** Keeps an unmodifiable copy of the command; a field of it may be null. */
+    public DirectiveBody {
+      if (command != null) {
+        command = Collections.unmodifiableMap(new LinkedHashMap<>(command));
+      }
+    }
+  }
 
   /**
    * The answer to a review.
@@ -110,7 +135,16 @@ public class AgentApiController {
    *
    * @param answer the answer
    */
-  public record AnswerBody(Map<String, Object> answer) {}
+  @SuppressFBWarnings(value = EXPOSE_REP, justification = COPIED)
+  public record AnswerBody(Map<String, Object> answer) {
+
+    /** Keeps an unmodifiable copy of the answer; a field of it may be null. */
+    public AnswerBody {
+      if (answer != null) {
+        answer = Collections.unmodifiableMap(new LinkedHashMap<>(answer));
+      }
+    }
+  }
 
   /**
    * Who the credential is.
@@ -170,7 +204,6 @@ public class AgentApiController {
         .signalsAfter(after)
         .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()))
         .buffer(Duration.ofMillis(POLL_WINDOW_MILLIS))
-        .filter(batch -> !batch.isEmpty())
         .next()
         .timeout(wait, Mono.just(List.of()))
         .map(
@@ -187,7 +220,13 @@ public class AgentApiController {
    * @param cursor where to continue from
    * @param signals the signals, oldest first; empty when nothing happened in time
    */
-  public record SignalBatch(long cursor, List<SignalEnvelope> signals) {}
+  public record SignalBatch(long cursor, List<SignalEnvelope> signals) {
+
+    /** Keeps an unmodifiable copy of the signals. */
+    public SignalBatch {
+      signals = List.copyOf(signals);
+    }
+  }
 
   /**
    * The owned state with a cursor: read it, then stream {@code events?after=<cursor>} and nothing
@@ -218,7 +257,14 @@ public class AgentApiController {
    * @param inputs the open input requests
    */
   public record SnapshotView(
-      long cursor, List<EngineReads.RunView> executions, List<InputRequest> inputs) {}
+      long cursor, List<EngineReads.RunView> executions, List<InputRequest> inputs) {
+
+    /** Keeps unmodifiable copies of the lists. */
+    public SnapshotView {
+      executions = List.copyOf(executions);
+      inputs = List.copyOf(inputs);
+    }
+  }
 
   /**
    * The executions the supervisor owns.
@@ -269,6 +315,11 @@ public class AgentApiController {
    */
   @PostMapping("/directives")
   @Operation(summary = "Send a command")
+  @SuppressWarnings({
+    "PMD.CyclomaticComplexity",
+    "PMD.UseConcurrentHashMap",
+    "PMD.AvoidInstantiatingObjectsInLoops"
+  })
   public Mono<ApiResponse<Void>> directive(
       final ServerWebExchange exchange, @RequestBody final DirectiveBody body) {
     final String supervisor = supervisor(exchange);
@@ -331,10 +382,10 @@ public class AgentApiController {
     if (selector.startsWith("execution:") && selector.length() > "execution:".length()) {
       return Mono.just(List.of(selector.substring("execution:".length())));
     }
-    if ("held".equals(selector)) {
+    if (HELD.equals(selector)) {
       return Mono.just(host.held(supervisor).stream().limit(cap).toList());
     }
-    if ("owned.running".equals(selector)) {
+    if (OWNED_RUNNING.equals(selector)) {
       return channel
           .reads()
           .executions("RUNNING", cap)
@@ -372,7 +423,7 @@ public class AgentApiController {
     final String verdict =
         body.verdict() == null ? "" : body.verdict().toUpperCase(java.util.Locale.ROOT);
     final Directive directive;
-    if ("NO_OPINION".equals(verdict)) {
+    if (NO_OPINION.equals(verdict)) {
       directive = new Directive.NoOpinion(id);
     } else if (VERDICTS.contains(verdict)) {
       directive =
@@ -421,6 +472,7 @@ public class AgentApiController {
     return id.toString();
   }
 
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private static ExecutionControlCommand command(final Map<String, Object> raw) {
     final Map<String, Object> copy = new HashMap<>(raw);
     if (!(copy.get("executionId") instanceof String run) || run.isBlank()) {
@@ -443,7 +495,7 @@ public class AgentApiController {
     if (text == null || "initiative".equals(text)) {
       return Cause.initiative();
     }
-    if ("tick".equals(text)) {
+    if (TICK.equals(text)) {
       return Cause.tick();
     }
     if (text.startsWith("event:")) {

@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -29,22 +30,17 @@ import tools.jackson.databind.ObjectMapper;
 public class AgentMcpController {
 
   private static final String PROTOCOL = "2025-03-26";
-  private static final int METHOD_NOT_FOUND = -32601;
-  private static final int INVALID_PARAMS = -32602;
+  private static final int METHOD_NOT_FOUND = -32_601;
+  private static final int INVALID_PARAMS = -32_602;
+
+  private static final String TYPE = "type";
+  private static final String INTEGER_TYPE = "integer";
+  private static final String STRING_TYPE = "string";
+  private static final String LIMIT = "limit";
+  private static final String REASON = "reason";
 
   private final AgentApiController api;
   private final ObjectMapper mapper;
-
-  private static Map<String, Object> tool(
-      final String name, final String description, final Map<String, Object> properties) {
-    return Map.of(
-        "name",
-        name,
-        "description",
-        description,
-        "inputSchema",
-        Map.of("type", "object", "properties", properties));
-  }
 
   private static final List<Map<String, Object>> TOOLS =
       List.of(
@@ -56,36 +52,56 @@ public class AgentMcpController {
               "next_signals",
               "Signals after a cursor (from get_snapshot or the last call), waiting up to 25"
                   + " seconds for the first one; returns the new cursor.",
-              Map.of("after", Map.of("type", "integer"), "waitSeconds", Map.of("type", "integer"))),
+              Map.of(
+                  "after", Map.of(TYPE, INTEGER_TYPE), "waitSeconds", Map.of(TYPE, INTEGER_TYPE))),
           tool(
               "list_executions",
               "The executions you supervise, newest first.",
-              Map.of("status", Map.of("type", "string"), "limit", Map.of("type", "integer"))),
+              Map.of("status", Map.of(TYPE, STRING_TYPE), LIMIT, Map.of(TYPE, INTEGER_TYPE))),
           tool(
               "list_open_inputs",
               "The open input requests of the units you supervise.",
-              Map.of("limit", Map.of("type", "integer"))),
+              Map.of(LIMIT, Map.of(TYPE, INTEGER_TYPE))),
           tool(
               "send_directive",
               "Send a command: key, cause (event:<id>, answers:<id>, tick or initiative), reason,"
                   + " ifStatus and command {type, executionId, ...}. The supervisor checks it.",
               Map.of(
-                  "key", Map.of("type", "string"),
-                  "cause", Map.of("type", "string"),
-                  "reason", Map.of("type", "string"),
-                  "ifStatus", Map.of("type", "string"),
-                  "command", Map.of("type", "object"))),
+                  "key",
+                  Map.of(TYPE, STRING_TYPE),
+                  "cause",
+                  Map.of(TYPE, STRING_TYPE),
+                  REASON,
+                  Map.of(TYPE, STRING_TYPE),
+                  "ifStatus",
+                  Map.of(TYPE, STRING_TYPE),
+                  "command",
+                  Map.of(TYPE, "object"))),
           tool(
               "answer_review",
               "Answer a review: id and verdict ALLOW, DENY, REQUIRE_APPROVAL or NO_OPINION.",
               Map.of(
-                  "id", Map.of("type", "string"),
-                  "verdict", Map.of("type", "string"),
-                  "reason", Map.of("type", "string"))),
+                  "id",
+                  Map.of(TYPE, STRING_TYPE),
+                  "verdict",
+                  Map.of(TYPE, STRING_TYPE),
+                  REASON,
+                  Map.of(TYPE, STRING_TYPE))),
           tool(
               "answer_delegation",
               "Answer a delegation from a child supervisor.",
-              Map.of("id", Map.of("type", "string"), "answer", Map.of("type", "object"))));
+              Map.of("id", Map.of(TYPE, STRING_TYPE), "answer", Map.of(TYPE, "object"))));
+
+  private static Map<String, Object> tool(
+      final String name, final String description, final Map<String, Object> properties) {
+    return Map.of(
+        "name",
+        name,
+        "description",
+        description,
+        "inputSchema",
+        Map.of(TYPE, "object", "properties", properties));
+  }
 
   /**
    * Handles one JSON-RPC message.
@@ -120,6 +136,7 @@ public class AgentMcpController {
     };
   }
 
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
   private Mono<ResponseEntity<Map<String, Object>>> call(
       final ServerWebExchange exchange, final Object id, final @Nullable Object params) {
     if (!(params instanceof Map<?, ?> p) || !(p.get("name") instanceof String name)) {
@@ -135,6 +152,7 @@ public class AgentMcpController {
         .flatMap(result -> reply(id, result));
   }
 
+  @SuppressWarnings("PMD.CyclomaticComplexity")
   private Mono<Object> run(
       final ServerWebExchange exchange, final String name, final Map<String, Object> a) {
     return switch (name) {
@@ -146,17 +164,17 @@ public class AgentMcpController {
                   a.get("waitSeconds") instanceof Number w ? w.intValue() : 0)
               .map(r -> (Object) r.data());
       case "list_executions" ->
-          api.executions(exchange, string(a, "status"), integer(a.get("limit")))
+          api.executions(exchange, string(a, "status"), integer(a.get(LIMIT)))
               .map(r -> (Object) r.data());
       case "list_open_inputs" ->
-          api.inputs(exchange, integer(a.get("limit"))).map(r -> (Object) r.data());
+          api.inputs(exchange, integer(a.get(LIMIT))).map(r -> (Object) r.data());
       case "send_directive" ->
           api.directive(
                   exchange,
                   new AgentApiController.DirectiveBody(
                       string(a, "key"),
                       string(a, "cause"),
-                      string(a, "reason"),
+                      string(a, REASON),
                       string(a, "ifStatus"),
                       map(a.get("command"))))
               .thenReturn("accepted");
@@ -164,7 +182,7 @@ public class AgentMcpController {
           api.review(
                   exchange,
                   string(a, "id"),
-                  new AgentApiController.VerdictBody(string(a, "verdict"), string(a, "reason")))
+                  new AgentApiController.VerdictBody(string(a, "verdict"), string(a, REASON)))
               .thenReturn("accepted");
       case "answer_delegation" ->
           api.delegation(
@@ -180,10 +198,10 @@ public class AgentMcpController {
     final String body;
     try {
       body = data instanceof String s ? s : mapper.writeValueAsString(data);
-    } catch (final RuntimeException e) {
+    } catch (final JacksonException e) {
       return text(true, "The result could not be written: " + e.getMessage());
     }
-    return Map.of("content", List.of(Map.of("type", "text", "text", body)), "isError", error);
+    return Map.of("content", List.of(Map.of(TYPE, "text", "text", body)), "isError", error);
   }
 
   private static @Nullable String string(final Map<String, Object> a, final String key) {

@@ -17,6 +17,11 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /** Only the credential of a supervisor opens the agent API, and it opens nothing else. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidUsingHardCodedIP",
+  "PMD.TooManyStaticImports"
+})
 class AgentCredentialFilterTest {
 
   private final AgentCredentials credentials = new AgentCredentials();
@@ -32,7 +37,7 @@ class AgentCredentialFilterTest {
   }
 
   @Test
-  void aValidCredentialPassesAndNamesTheSupervisor() {
+  void validCredentialPassesAndNamesTheSupervisor() {
     when(chain.filter(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
     final String token = credentials.issue("a1", null).token();
     final MockServerWebExchange exchange = get("/api/agent/v1/self", "Bearer " + token);
@@ -47,7 +52,7 @@ class AgentCredentialFilterTest {
   }
 
   @Test
-  void noCredentialAHumanKeyOrARevokedOneIsRefused() {
+  void noCredentialHumanKeyOrRevokedOneIsRefused() {
     final String token = credentials.issue("a1", null).token();
     credentials.revoke("a1");
     for (final String authorization :
@@ -84,12 +89,25 @@ class AgentCredentialFilterTest {
   }
 
   @Test
-  void aCredentialTiedToAddressesIsRefusedFromAnotherOne() {
+  void credentialTiedToAddressesIsRefusedFromAnotherOne() {
     final String token = credentials.issue("a1", null, java.util.Set.of("10.0.0.5")).token();
     // the mock exchange has no remote address, which is never an allowed one
     final MockServerWebExchange exchange = get("/api/agent/v1/self", "Bearer " + token);
     filter.filter(exchange, chain).block();
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+  }
+
+  @Test
+  void credentialTiedToAddressesPassesFromThatAddress() {
+    when(chain.filter(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
+    final String token = credentials.issue("a1", null, java.util.Set.of("10.0.0.5")).token();
+    final MockServerWebExchange exchange =
+        MockServerWebExchange.from(
+            MockServerHttpRequest.get("/api/agent/v1/self")
+                .header("Authorization", "Bearer " + token)
+                .remoteAddress(new java.net.InetSocketAddress("10.0.0.5", 4000)));
+    filter.filter(exchange, chain).block();
+    assertThat(exchange.getResponse().getStatusCode()).isNull();
   }
 
   @Test
@@ -110,7 +128,7 @@ class AgentCredentialFilterTest {
   }
 
   @Test
-  void aCredentialIsHeldToItsRequestRate() {
+  void credentialIsHeldToItsRequestRate() {
     when(chain.filter(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
     System.setProperty("yukta.agent.requests-per-minute", "2");
     try {
@@ -129,7 +147,7 @@ class AgentCredentialFilterTest {
   }
 
   @Test
-  void aBodyOverTheLimitIsRefused() {
+  void bodyOverTheLimitIsRefused() {
     final String token = credentials.issue("a1", null).token();
     final MockServerWebExchange exchange =
         MockServerWebExchange.from(

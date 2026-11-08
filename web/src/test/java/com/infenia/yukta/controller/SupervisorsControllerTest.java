@@ -3,6 +3,7 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -43,7 +44,8 @@ import reactor.test.StepVerifier;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.UseConcurrentHashMap"
 })
 class SupervisorsControllerTest {
 
@@ -98,7 +100,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void versionsAreListedWithSecretsHiddenAndARollbackRestoresOne() {
+  void versionsAreListedWithSecretsHiddenAndRollbackRestoresOne() {
     StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u1"))))
         .expectNextCount(1)
         .verifyComplete();
@@ -119,17 +121,28 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void aReplayOfAnUnknownRunIsNotFound() {
+  void replayOfAnUnknownRunIsNotFound() {
     StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(controller.replay("s1", new SupervisorsController.ReplayBody("gone", null)))
-        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .expectError(NotFoundException.class)
         .verify();
   }
 
   @Test
-  void aSystemSupervisorCannotBeRolledBack() {
+  void replayDraftIsKeptAsUnmodifiableCopy() {
+    final Map<String, Object> draft = new java.util.HashMap<>();
+    draft.put("url", null);
+    final SupervisorsController.ReplayBody body = new SupervisorsController.ReplayBody("e", draft);
+    draft.put("other", "x");
+    final Map<String, Object> kept = java.util.Objects.requireNonNull(body.settings());
+    assertThat(kept).containsOnlyKeys("url");
+    assertThatThrownBy(() -> kept.put("y", 1)).isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void systemSupervisorCannotBeRolledBack() {
     when(host.isBuiltIn("sys")).thenReturn(true);
     StepVerifier.create(controller.rollback("sys", 1))
         .expectError(ConflictException.class)
@@ -515,7 +528,7 @@ class SupervisorsControllerTest {
             "reports up",
             Map.of(),
             false,
-            java.util.List.of("boss"),
+            List.of("boss"),
             Map.of(
                 "approval",
                 new SupervisorBody.DelegationBody("all", 45L),
@@ -525,9 +538,8 @@ class SupervisorsControllerTest {
     StepVerifier.create(controller.create(withParents))
         .assertNext(
             r -> {
-              org.assertj.core.api.Assertions.assertThat(r.data().parents())
-                  .containsExactly("boss");
-              org.assertj.core.api.Assertions.assertThat(r.data().delegation())
+              assertThat(r.data().parents()).containsExactly("boss");
+              assertThat(r.data().delegation())
                   .containsEntry(
                       "APPROVAL",
                       new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))

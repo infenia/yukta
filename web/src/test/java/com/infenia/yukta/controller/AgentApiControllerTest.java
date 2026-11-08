@@ -30,6 +30,16 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** The agent API turns what an application sends into directives of its supervisor. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.CloseResource",
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestShouldIncludeAssert",
+  "PMD.UseConcurrentHashMap"
+})
 class AgentApiControllerTest {
 
   private final AgentHub hub = new AgentHub();
@@ -37,13 +47,6 @@ class AgentApiControllerTest {
       org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.SupervisorHost.class);
   private final AgentApiController controller = new AgentApiController(hub, host);
   private final List<Directive> received = new ArrayList<>();
-
-  private static MockServerWebExchange as(final String supervisor) {
-    final MockServerWebExchange exchange =
-        MockServerWebExchange.from(MockServerHttpRequest.get("/api/agent/v1/self"));
-    exchange.getAttributes().put(AgentCredentialFilter.SUPERVISOR_ATTRIBUTE, supervisor);
-    return exchange;
-  }
 
   /** Signals the agent was sent, so directives may name them as their cause. */
   private static final Flux<Signal> SENT =
@@ -56,6 +59,13 @@ class AgentApiControllerTest {
               new Signal.Delegated(
                   "q1", com.infenia.yukta.plugin.control.DelegationKind.APPROVAL, "c", Map.of()))
           .concatWith(Flux.never());
+
+  private static MockServerWebExchange as(final String supervisor) {
+    final MockServerWebExchange exchange =
+        MockServerWebExchange.from(MockServerHttpRequest.get("/api/agent/v1/self"));
+    exchange.getAttributes().put(AgentCredentialFilter.SUPERVISOR_ATTRIBUTE, supervisor);
+    return exchange;
+  }
 
   private SupervisorEngine running(final EngineReads reads) {
     return running(reads, SENT);
@@ -108,7 +118,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aDirectiveBecomesACommandOfTheSupervisor() {
+  void directiveBecomesCommandOfTheSupervisor() {
     running(EngineReads.NONE);
     StepVerifier.create(
             controller.directive(
@@ -129,7 +139,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aBadDirectiveIsRefusedBeforeItReachesTheSupervisor() {
+  void badDirectiveIsRefusedBeforeItReachesTheSupervisor() {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
     assertThatThrownBy(
@@ -157,6 +167,11 @@ class AgentApiControllerTest {
                     as("a1"),
                     new AgentApiController.DirectiveBody("k", "whenever", null, null, pause)))
         .hasMessageContaining("cause must be");
+    assertThatThrownBy(
+            () ->
+                controller.directive(
+                    as("a1"), new AgentApiController.DirectiveBody("k", null, null, null, null)))
+        .hasMessageContaining("needs a key and a command");
     assertThat(received).isEmpty();
   }
 
@@ -231,7 +246,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aSupervisorWithoutAnEngineIsNotFoundAndTheStreamNeedsOne() {
+  void supervisorWithoutAnEngineIsNotFoundAndTheStreamNeedsOne() {
     assertThatThrownBy(() -> controller.inputs(as("ghost"), 5))
         .isInstanceOf(NotFoundException.class);
     assertThatThrownBy(() -> controller.events(as("ghost"), -1))
@@ -248,7 +263,11 @@ class AgentApiControllerTest {
     final reactor.core.publisher.Sinks.Many<Signal> in =
         reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
     final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
-    StepVerifier.create(controller.events(as("a1"), -1).map(e -> e.data().kind()).take(1))
+    StepVerifier.create(
+            controller
+                .events(as("a1"), -1)
+                .map(e -> java.util.Objects.requireNonNull(e.data()).kind())
+                .take(1))
         .then(() -> in.tryEmitNext(new Signal.Tick(Instant.EPOCH)))
         .expectNext("TICK")
         .verifyComplete();
@@ -256,7 +275,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aSnapshotGivesTheCursorToResumeFrom() {
+  void snapshotGivesTheCursorToResumeFrom() {
     final reactor.core.publisher.Sinks.Many<Signal> in =
         reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
     final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
@@ -272,7 +291,11 @@ class AgentApiControllerTest {
             })
         .verifyComplete();
     // after cursor 1 only the second signal is replayed, then the live ones
-    StepVerifier.create(controller.events(as("a1"), 1).map(e -> e.data().cursor()).take(2))
+    StepVerifier.create(
+            controller
+                .events(as("a1"), 1)
+                .map(e -> java.util.Objects.requireNonNull(e.data()).cursor())
+                .take(2))
         .expectNext(2L)
         .then(() -> in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(2))))
         .expectNext(3L)
@@ -303,7 +326,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aSelectorIsExpandedToTheExecutionsItNamesEachSentAlone() {
+  void selectorIsExpandedToTheExecutionsItNamesEachSentAlone() {
     running(three());
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow");
     final java.util.function.Function<String, Map<String, Object>> aim =
@@ -338,7 +361,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void heldMeansWhatThisSupervisorPausedAndABadSelectorIsRefused() {
+  void heldMeansWhatThisSupervisorPausedAndBadSelectorIsRefused() {
     running(three());
     org.mockito.Mockito.when(host.held("a1")).thenReturn(List.of("r7", "r8"));
 
@@ -365,9 +388,49 @@ class AgentApiControllerTest {
         .hasMessageContaining("target must be");
   }
 
+  @Test
+  void selectorIsCappedAndBarePrefixIsRefused() {
+    running(three());
+    final List<String> many =
+        java.util.stream.IntStream.range(0, 250).mapToObj(i -> "r" + i).toList();
+    org.mockito.Mockito.when(host.held("a1")).thenReturn(many);
+
+    final var response =
+        controller
+            .directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody(
+                    "h", "tick", "r", null, Map.of("type", "ResumeWorkflow", "target", "held")))
+            .block();
+
+    assertThat(response.message()).contains("200 executions (the most allowed)");
+    for (final String bare : new String[] {"execution:", "workflow:"}) {
+      assertThatThrownBy(
+              () ->
+                  controller.directive(
+                      as("a1"),
+                      new AgentApiController.DirectiveBody(
+                          "x", "tick", "r", null, Map.of("type", "PauseWorkflow", "target", bare))))
+          .hasMessageContaining("target must be");
+    }
+  }
+
+  @Test
+  void directiveToStoppedSupervisorIsConflict() {
+    final SupervisorEngine engine = running(three());
+    final var pending =
+        controller.directive(
+            as("a1"),
+            new AgentApiController.DirectiveBody(
+                "w", "tick", "r", null, Map.of("type", "PauseWorkflow", "target", "workflow:w")));
+    engine.close();
+    assertThatThrownBy(pending::block)
+        .isInstanceOf(com.infenia.yukta.service.ConflictException.class);
+  }
+
   /** Whatever an agent sends, the server answers with a refusal it understands, never a crash. */
   @Test
-  void garbageInADirectiveIsOnlyEverAnIllegalArgument() {
+  void garbageInDirectiveIsOnlyEverAnIllegalArgument() {
     running(EngineReads.NONE);
     final java.util.Random random = new java.util.Random(42);
     final Object[] junk = {
@@ -417,7 +480,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aPollReturnsWhatIsThereAtOnceAndAnEmptyBatchWhenNothingComes() {
+  void pollReturnsWhatIsThereAtOnceAndAnEmptyBatchWhenNothingComes() {
     final reactor.core.publisher.Sinks.Many<Signal> in =
         reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
     final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
@@ -432,7 +495,7 @@ class AgentApiControllerTest {
             })
         .verifyComplete();
     // nothing after cursor 2: it gives up after the wait and keeps the cursor
-    StepVerifier.create(controller.next(as("a1"), 2, 0))
+    StepVerifier.create(controller.next(as("a1"), 2, 1))
         .assertNext(
             r -> {
               assertThat(r.data().signals()).isEmpty();
@@ -443,7 +506,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aCauseNamingNoSignalSentIsRefusedSoItCannotSkipTheInitiativeLimits() {
+  void causeNamingNoSignalSentIsRefusedSoItCannotSkipTheInitiativeLimits() {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
     for (final String forged : new String[] {"event:e999", "answers:nobody"}) {
@@ -459,7 +522,7 @@ class AgentApiControllerTest {
   }
 
   @Test
-  void aRevokedCredentialEndsTheOpenStream() {
+  void revokedCredentialEndsTheOpenStream() {
     running(EngineReads.NONE);
     StepVerifier.create(controller.events(as("a1"), 0))
         .expectNextCount(2)

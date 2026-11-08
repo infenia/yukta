@@ -104,6 +104,23 @@ class SupervisionControllerTest {
   }
 
   @Test
+  void unknownExecutionFallsBackToTheServerAndWorkflowAloneToTheRun() {
+    when(reviewer.capability(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenReturn(allowed());
+
+    StepVerifier.create(controller.supervision(null, null, "gone", null))
+        .assertNext(r -> assertThat(r.data()).containsOnlyKeys("drain", "setLimits"))
+        .verifyComplete();
+    StepVerifier.create(controller.supervision(null, "wf", null, null))
+        .assertNext(r -> assertThat(r.data()).containsKeys("pause", "resume", "stop"))
+        .verifyComplete();
+  }
+
+  @Test
   void ownershipComesFromTheMap() {
     final var owned =
         new com.infenia.yukta.service.supervisor.OwnershipMap.Ownership(

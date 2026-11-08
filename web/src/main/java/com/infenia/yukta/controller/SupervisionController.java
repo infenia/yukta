@@ -67,14 +67,11 @@ public class SupervisionController {
   private final OwnershipMap ownershipMap;
 
   /**
-   * Who carries each command of a target.
+   * Who owns each part of a workflow.
    *
-   * @param session the session; with {@code workflow} it names a workflow
+   * @param session the session
    * @param workflow the workflow
-   * @param execution a run, as a shorthand for its session and workflow
-   * @param node a node of the workflow: its commands are answered instead of the run's
-   * @return the commands with {@code allowed}, {@code via} and {@code reason}; with no target the
-   *     server's commands
+   * @return the owner of the run level and of each node
    */
   @GetMapping("/ownership")
   @Operation(
@@ -89,8 +86,19 @@ public class SupervisionController {
         .map(found -> ApiResponse.success(200, "Ownership retrieved", found));
   }
 
+  /**
+   * Who carries each command of a target.
+   *
+   * @param session the session; with {@code workflow} it names a workflow
+   * @param workflow the workflow
+   * @param execution a run, as a shorthand for its session and workflow
+   * @param node a node of the workflow: its commands are answered instead of the run's
+   * @return the commands with {@code allowed}, {@code via} and {@code reason}; with no target the
+   *     server's commands
+   */
   @GetMapping
   @Operation(summary = "Who may send which command to a node, a run or the server")
+  @SuppressWarnings({"PMD.UseObjectForClearerAPI", "PMD.UseConcurrentHashMap"})
   public Mono<ApiResponse<Map<String, ControlReviewer.Capability>>> supervision(
       @RequestParam(required = false) final @Nullable String session,
       @RequestParam(required = false) final @Nullable String workflow,

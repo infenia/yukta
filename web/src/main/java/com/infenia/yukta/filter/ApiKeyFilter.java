@@ -155,6 +155,7 @@ public class ApiKeyFilter implements WebFilter {
   }
 
   @Override
+  @SuppressWarnings("PMD.CyclomaticComplexity")
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
     if (authenticator.isOpen(Scope.REST)) {

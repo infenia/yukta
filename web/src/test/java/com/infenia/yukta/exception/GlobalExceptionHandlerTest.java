@@ -806,12 +806,14 @@ class GlobalExceptionHandlerTest {
         handler.handleControlled(
             new com.infenia.yukta.service.supervisor.ControlledBySupervisorException(null, "off"),
             request);
-    assertThat(nobody.getBody().errors()).extracting(e -> e.field()).containsExactly("code");
+    assertThat(nobody.getBody().errors())
+        .extracting(ApiResponse.FieldError::field)
+        .containsExactly("code");
 
     final var conflict =
         handler.handleOwnershipConflict(
             new com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException(
-                java.util.List.of(
+                List.of(
                     new com.infenia.yukta.service.supervisor.ownership.OwnershipConflict(
                         "a", "b", "workflow w is"))),
             request);
@@ -826,7 +828,7 @@ class GlobalExceptionHandlerTest {
             request);
     assertThat(rejected.getStatusCode().value()).isEqualTo(403);
     assertThat(rejected.getBody().errors())
-        .extracting(e -> e.message())
+        .extracting(ApiResponse.FieldError::message)
         .containsExactly("CONTROL_REJECTED");
   }
 }

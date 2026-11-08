@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 class AgentCredentialControllerTest {
 
   private final SupervisorService supervisors = mock(SupervisorService.class);
@@ -30,7 +31,7 @@ class AgentCredentialControllerTest {
   }
 
   @Test
-  void anHttpSupervisorGetsACredentialThatWorksUntilRevoked() {
+  void anHttpSupervisorGetsCredentialThatWorksUntilRevoked() {
     has("a1", "http");
     final String[] token = new String[1];
     StepVerifier.create(controller.issue("a1", 2, null))
@@ -46,6 +47,14 @@ class AgentCredentialControllerTest {
     assertThat(controller.revoke("a1").block().status()).isEqualTo(200);
     assertThat(credentials.authenticate(token[0])).isEmpty();
     assertThatThrownBy(() -> controller.revoke("a1")).isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  void credentialWithoutLifetimeTiedToAddressesNeverExpires() {
+    has("a1", "http");
+    StepVerifier.create(controller.issue("a1", null, java.util.List.of("10.0.0.5")))
+        .assertNext(r -> assertThat(r.data().expiresAt()).isNull())
+        .verifyComplete();
   }
 
   @Test
