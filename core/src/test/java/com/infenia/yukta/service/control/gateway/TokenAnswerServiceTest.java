@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.input.token;
+package com.infenia.yukta.service.control.gateway;
 
 import static com.infenia.yukta.service.input.InputTestSupport.limits;
 import static com.infenia.yukta.service.input.InputTestSupport.who;
@@ -29,11 +29,12 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
-import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.input.route.RouteResolver;
+import com.infenia.yukta.service.input.token.AnswerTokens;
+import com.infenia.yukta.service.input.token.InvalidAnswerTokenException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.redact.InputRedactor;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;

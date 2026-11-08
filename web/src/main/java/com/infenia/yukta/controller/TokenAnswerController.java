@@ -5,7 +5,7 @@ package com.infenia.yukta.controller;
 import com.infenia.yukta.dto.request.TokenAnswerRequest;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.security.CallRateLimiter;
-import com.infenia.yukta.service.input.token.TokenAnswerService;
+import com.infenia.yukta.service.control.gateway.TokenAnswerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
