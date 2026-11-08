@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.service.ConflictException;
@@ -35,6 +36,7 @@ import reactor.test.StepVerifier;
 
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.ExcessiveImports",
   "PMD.AvoidDuplicateLiterals",
   "PMD.TooManyStaticImports",
 })
@@ -45,8 +47,7 @@ class RestartCommandProcessorTest {
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.create(
-          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
+      ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, java.time.Duration.ofSeconds(30));
   private final PreparedWorkflow prepared = mock(PreparedWorkflow.class);
   private final ExecutionArchive archive = ExecutionArchiveFixture.create();
 
@@ -91,9 +92,7 @@ class RestartCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());
-    scheduler =
-        ExecutionSchedulerFixture.create(
-            1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    scheduler = ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, java.time.Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
@@ -108,9 +107,7 @@ class RestartCommandProcessorTest {
 
   @Test
   void twoRestartsForTheLastSlot_onlyOneProceeds() {
-    scheduler =
-        ExecutionSchedulerFixture.create(
-            1, 0, 0, ExecutionScheduler.OnLimit.REJECT, java.time.Duration.ZERO);
+    scheduler = ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, java.time.Duration.ZERO);
     processor =
         new RestartCommandProcessor(registry, archive, orchestrator, scheduler, completionSink);
     when(registry.findByExecutionId("exec-1")).thenReturn(Optional.empty());

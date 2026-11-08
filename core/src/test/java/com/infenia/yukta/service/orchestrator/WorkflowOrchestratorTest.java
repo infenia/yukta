@@ -16,6 +16,7 @@ import static org.mockito.Mockito.when;
 
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
@@ -81,8 +82,7 @@ class WorkflowOrchestratorTest {
 
   private final ExecutionArchive executionArchive = ExecutionArchiveFixture.create();
   private final ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.create(
-          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+      ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30));
   private final ExecutionLogStore executionLog = org.mockito.Mockito.mock(ExecutionLogStore.class);
 
   @BeforeEach
@@ -704,8 +704,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_waitsInQueueWhenTheLimitIsReached_andReportsQueuedThenRunning() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final WorkflowOrchestrator queued =
         new WorkflowOrchestrator(
             tracker,
@@ -747,12 +746,7 @@ class WorkflowOrchestratorTest {
   void execute_endsTimedOutWhenItWaitedTooLongInTheQueue() {
     final ExecutionScheduler limited =
         ExecutionSchedulerFixture.create(
-            1,
-            0,
-            10,
-            ExecutionScheduler.OnLimit.QUEUE,
-            Duration.ofSeconds(30),
-            Duration.ofMillis(50));
+            1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30), Duration.ofMillis(50));
     final WorkflowOrchestrator queued =
         new WorkflowOrchestrator(
             tracker,
@@ -786,8 +780,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_releasesItsSlotWhenTheBodyFails() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final WorkflowOrchestrator single =
         new WorkflowOrchestrator(
             tracker,
@@ -925,8 +918,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_reservedSlot_isUsedAndReleased() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-res");
     assertThat(limited.running()).isEqualTo(1);
@@ -941,8 +933,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_reservedQueuedSlot_waitsAndShowsQueued() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Permit held = limited.acquire("s", "w", 0, null).permit().block();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-wait");
@@ -964,8 +955,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_startsTrackingOnTheCallersThread_soStartedRunCanBeRead() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, "e-read");
 
@@ -981,8 +971,7 @@ class WorkflowOrchestratorTest {
   @Test
   void execute_whenTrackingCannotStart_givesTheReservedSlotBack() {
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(30));
     final PreparedWorkflow prepared = reservedSetUp();
     when(tracker.startWorkflow(anyString(), anyString(), anyString(), anyList()))
         .thenReturn(Mono.error(new IllegalStateException("no tracker")));
@@ -1108,7 +1097,7 @@ class WorkflowOrchestratorTest {
     when(compiler.compileRerunAssemblers(any(), any(), any(), any(), any(), any(), any()))
         .thenThrow(new IllegalStateException("cannot compile"));
     final ExecutionScheduler limited =
-        ExecutionSchedulerFixture.create(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, Duration.ZERO);
     final ExecutionScheduler.Admission admission = limited.acquire("s", "w", 0, null);
 
     StepVerifier.create(

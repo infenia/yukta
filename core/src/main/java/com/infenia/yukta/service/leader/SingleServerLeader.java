@@ -4,7 +4,8 @@ package com.infenia.yukta.service.leader;
 
 /**
  * The election of a single server: it is always the leader. Registered by {@link
- * com.infenia.yukta.config.DefaultsAutoConfiguration} unless another {@link LeaderElection} exists.
+ * com.infenia.yukta.startup.DefaultsAutoConfiguration} unless another {@link LeaderElection}
+ * exists.
  */
 public class SingleServerLeader implements LeaderElection {
 

@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.config;
 
-import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
-import com.infenia.yukta.service.input.route.RouteSettings;
+import com.infenia.yukta.model.control.OnLimit;
+import com.infenia.yukta.model.input.RouteSettings;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;

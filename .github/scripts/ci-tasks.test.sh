@@ -30,25 +30,25 @@ affected='.affected | join(" ")'
 shards='[.shards[].name] | join(" ")'
 
 # Library modules rebuild only what consumes them, not the whole repository.
-expect 'web/src/A.java' "$affected" '":architecture :boot :web"'
-expect 'mcp/src/A.java' "$affected" '":architecture :boot :mcp"'
+expect 'web/src/A.java' "$affected" '":architecture :boot :plus:plus-architecture :web"'
+expect 'mcp/src/A.java' "$affected" '":architecture :boot :mcp :plus:plus-architecture"'
 expect 'core/src/A.java' "$affected" \
-  '":architecture :boot :core :mcp :plus :plus:persistence-postgres :plus:workers :web"'
+  '":architecture :boot :core :mcp :plus :plus:persistence-postgres :plus:plus-architecture :plus:workers :web"'
 expect 'core/src/A.java' "$shards" '"platform infra postgres-acceptance workers-acceptance plus-acceptance"'
-expect 'messaging/src/A.java' '.affected | length' '33'
+expect 'messaging/src/A.java' '.affected | length' '34'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
 expect 'plugins/processors/llm-call/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:model-control-plane :plugins:control-planes:rules-first-control-plane :plugins:processors:decision :plugins:processors:llm-call"'
+  '":architecture :boot :plugins:control-planes:model-control-plane :plugins:control-planes:rules-first-control-plane :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
 expect 'plugins/supervisors/rule-supervisor/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:guards :plugins:supervisors:rule-supervisor"'
+  '":architecture :boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:guards :plugins:supervisors:rule-supervisor :plus:plus-architecture"'
 expect 'plugins/processors/internal/internal-core/src/A.java' "$affected" \
-  '":architecture :boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js"'
-expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform plugins"'
+  '":architecture :boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus:plus-architecture"'
+expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra plugins"'
 
 # The deepest module owns a path: plus/workers is not plus.
-expect 'plus/workers/src/A.java' "$affected" '":boot :plus:workers"'
+expect 'plus/workers/src/A.java' "$affected" '":boot :plus:plus-architecture :plus:workers"'
 expect 'plus/workers/src/A.java' "$shards" '"platform infra workers-acceptance"'
 expect 'plus/src/A.java' "$shards" '"platform infra postgres-acceptance plus-acceptance"'
 expect 'plus/persistence-postgres/src/A.java' "$shards" '"platform infra postgres-acceptance"'
@@ -64,13 +64,13 @@ expect 'boot/src/A.java' "$shards" '"platform postgres-acceptance workers-accept
 
 # Lint covers the affected JVM modules; boot gets OpenGrep only, cli and ui none.
 expect 'web/src/A.java' '.lint' \
-  '":architecture:opengrep :architecture:checkstyleMain :architecture:checkstyleTest :architecture:pmdMain :architecture:pmdTest :boot:opengrep :web:opengrep :web:checkstyleMain :web:checkstyleTest :web:pmdMain :web:pmdTest"'
+  '":architecture:opengrep :architecture:checkstyleMain :architecture:checkstyleTest :architecture:pmdMain :architecture:pmdTest :boot:opengrep :plus:plus-architecture:opengrep :plus:plus-architecture:checkstyleMain :plus:plus-architecture:checkstyleTest :plus:plus-architecture:pmdMain :plus:plus-architecture:pmdTest :web:opengrep :web:checkstyleMain :web:checkstyleTest :web:pmdMain :web:pmdTest"'
 expect 'cli/main.go' '.lint' '""'
 
 # The shards skip what the lint job already ran (partial runs only), so no check runs twice.
 shard_args='.shards[0].args'
 expect 'web/src/A.java' "$shard_args" \
-  '":architecture:build :boot:build :web:build --continue -x spotlessCheck -x :architecture:opengrep -x :architecture:checkstyleMain -x :architecture:checkstyleTest -x :architecture:pmdMain -x :architecture:pmdTest -x :boot:opengrep -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest"'
+  '":architecture:build :boot:build :web:build --continue -x spotlessCheck -x :architecture:opengrep -x :architecture:checkstyleMain -x :architecture:checkstyleTest -x :architecture:pmdMain -x :architecture:pmdTest -x :boot:opengrep -x :plus:plus-architecture:opengrep -x :plus:plus-architecture:checkstyleMain -x :plus:plus-architecture:checkstyleTest -x :plus:plus-architecture:pmdMain -x :plus:plus-architecture:pmdTest -x :web:opengrep -x :web:checkstyleMain -x :web:checkstyleTest -x :web:pmdMain -x :web:pmdTest"'
 expect 'cli/main.go' "$shard_args" '":cli:build --continue"'
 got=$(FULL=true "$planner" </dev/null | jq -c '[.shards[].args | contains(" -x ")] | any')
 [ "$got" = false ] || fail "FULL=true shards must not skip checks" false "$got"
@@ -88,7 +88,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",36,true]'
+want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",37,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.

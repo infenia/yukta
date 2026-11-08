@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.input;
 
+import com.infenia.yukta.model.input.ResponderType;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputForbiddenException;
@@ -9,7 +10,6 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.control.store.ExecutionControlStore;
-import com.infenia.yukta.service.input.route.ResponderType;
 import com.infenia.yukta.service.input.route.RouteResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;

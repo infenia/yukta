@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.logging.impl.memory;
+package com.infenia.yukta.service.log;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -179,7 +179,7 @@ class LogStoreSubscriberTest {
   @Nested
   @DisplayName("Error Handling")
   @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.logging.impl.memory.LogStoreSubscriber - ")
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.log.LogStoreSubscriber - ")
   class ErrorHandlingTests {
 
     @Test
@@ -398,7 +398,7 @@ class LogStoreSubscriberTest {
   @Nested
   @DisplayName("Pipeline Testing")
   @NoArgsConstructor
-  @ExpectedErrorLog("ERROR com.infenia.yukta.logging.impl.memory.LogStoreSubscriber - ")
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.log.LogStoreSubscriber - ")
   class PipelineTests {
 
     @Test

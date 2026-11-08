@@ -23,6 +23,10 @@
 /mcp/                 @arun-infenia @engineering-infenia
 /boot/                @arun-infenia @engineering-infenia
 
+# Architecture rules: weakening one needs a maintainer
+/architecture/        @arun-infenia @engineering-infenia
+/plus/plus-architecture/ @arun-infenia @engineering-infenia
+
 # Plugins
 /plugins/             @arun-infenia @engineering-infenia
 

@@ -3,12 +3,12 @@
 package com.infenia.yukta.service.input.delivery;
 
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponder;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.input.route.RouteResolver;
-import com.infenia.yukta.service.input.route.Tier;
 import com.infenia.yukta.service.input.token.AnswerTokens;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.LeaderTimer;

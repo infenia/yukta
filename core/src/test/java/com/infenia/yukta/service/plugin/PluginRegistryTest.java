@@ -21,10 +21,10 @@ import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 @SuppressWarnings("PMD.TooManyMethods")
 class PluginRegistryTest {
 
+  private static final String REGISTERED = "registered";
+
   /** Test plugin type identifier. */
   private static final String TEST_TYPE = "test-type";
-
-  private static final String REGISTERED = "registered";
 
   @BeforeEach
   void setUp() {

@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
 import com.infenia.yukta.plugin.core.UiDesign;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.SpelUtils;
 import java.lang.reflect.Array;
@@ -238,7 +239,8 @@ public final class RecipientListProcessor implements ProcessorPlugin {
             if (!strictMode) {
               return Flux.empty();
             }
-            return Flux.error(new RuntimeException(ERR_PREFIX + "Recipient computation failed", e));
+            return Flux.error(
+                new WorkflowExecutionException(ERR_PREFIX + "Recipient computation failed", e));
           }
         });
   }

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.input.route;
+package com.infenia.yukta.model.input;
 
 /** Who a tier is meant for. */
 public enum ResponderType {

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.model.control.OnLimit;
 import java.time.Duration;
 
 /**
@@ -17,7 +18,7 @@ public final class ExecutionSchedulerFixture {
       final int maxConcurrent,
       final int maxPerWorkflow,
       final int queueCapacity,
-      final ExecutionScheduler.OnLimit onLimit,
+      final OnLimit onLimit,
       final Duration shutdownTimeout,
       final Duration queueTimeout) {
     return new ExecutionScheduler(
@@ -29,7 +30,7 @@ public final class ExecutionSchedulerFixture {
       final int maxConcurrent,
       final int maxPerWorkflow,
       final int queueCapacity,
-      final ExecutionScheduler.OnLimit onLimit,
+      final OnLimit onLimit,
       final Duration shutdownTimeout) {
     return create(
         maxConcurrent, maxPerWorkflow, queueCapacity, onLimit, shutdownTimeout, Duration.ZERO);

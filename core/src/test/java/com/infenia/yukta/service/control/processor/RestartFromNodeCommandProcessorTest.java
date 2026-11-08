@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.workflow.PreparedWorkflow;
 import com.infenia.yukta.model.workflow.WorkflowNode;
 import com.infenia.yukta.model.workflow.WorkflowTemplate;
@@ -58,8 +59,7 @@ class RestartFromNodeCommandProcessorTest {
   private final ExecutionControlStore registry = mock(ExecutionControlStore.class);
   private final WorkflowOrchestrator orchestrator = mock(WorkflowOrchestrator.class);
   private ExecutionScheduler scheduler =
-      ExecutionSchedulerFixture.create(
-          0, 0, 100, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(30));
+      ExecutionSchedulerFixture.create(0, 0, 100, OnLimit.QUEUE, Duration.ofSeconds(30));
   private final RestartCompletionSink completionSink = mock(RestartCompletionSink.class);
   private final ExecutionArchive archive = ExecutionArchiveFixture.create();
   private final InMemoryNodeCheckpointStore checkpoints = new InMemoryNodeCheckpointStore(3);
@@ -148,8 +148,7 @@ class RestartFromNodeCommandProcessorTest {
   @Test
   void finishedExecution_isRefusedWhenTheLimitsAreFull() {
     when(registry.findByExecutionId(EXEC)).thenReturn(Optional.empty());
-    scheduler =
-        ExecutionSchedulerFixture.create(1, 0, 0, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+    scheduler = ExecutionSchedulerFixture.create(1, 0, 0, OnLimit.REJECT, Duration.ZERO);
     scheduler.acquire("s1", "w1", 0, null);
     processor =
         new RestartFromNodeCommandProcessor(

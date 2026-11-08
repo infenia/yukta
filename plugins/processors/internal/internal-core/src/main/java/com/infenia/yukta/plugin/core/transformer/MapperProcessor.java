@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.SpelUtils;
@@ -31,7 +32,6 @@ import reactor.core.publisher.Mono;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.AvoidThrowingRawExceptionTypes",
   "PMD.TooManyMethods",
   "PMD.AvoidCatchingGenericException",
   "PMD.GodClass",
@@ -192,7 +192,7 @@ public class MapperProcessor implements ProcessorPlugin {
           try {
             return getHandlebars().compileInline(t);
           } catch (Exception e) {
-            throw new RuntimeException("Failed to compile Handlebars template", e);
+            throw new IllegalArgumentException("Failed to compile Handlebars template", e);
           }
         });
   }
@@ -225,7 +225,8 @@ public class MapperProcessor implements ProcessorPlugin {
           } catch (RuntimeException e) {
             log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
             return Flux.error(
-                new RuntimeException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
+                new WorkflowExecutionException(
+                    ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
           }
         });
   }
@@ -303,7 +304,7 @@ public class MapperProcessor implements ProcessorPlugin {
         MapUtils.setNestedValue(mapResult, entry.getKey(), value);
       } catch (IOException e) {
         if (strictMode) {
-          throw new RuntimeException("Template application failed", e);
+          throw new WorkflowExecutionException("Template application failed", e);
         }
       } catch (RuntimeException e) {
         if (strictMode) {
@@ -320,7 +321,7 @@ public class MapperProcessor implements ProcessorPlugin {
       return template(mapping).apply(message);
     } catch (IOException e) {
       if (strictMode) {
-        throw new RuntimeException("Template application failed", e);
+        throw new WorkflowExecutionException("Template application failed", e);
       }
     } catch (RuntimeException e) {
       if (strictMode) {

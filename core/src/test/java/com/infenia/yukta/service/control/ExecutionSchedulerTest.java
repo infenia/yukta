@@ -5,9 +5,9 @@ package com.infenia.yukta.service.control;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.service.control.ExecutionScheduler.Admission;
-import com.infenia.yukta.service.control.ExecutionScheduler.OnLimit;
 import com.infenia.yukta.service.control.ExecutionScheduler.Permit;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
@@ -52,7 +52,7 @@ class ExecutionSchedulerTest {
 
   @Test
   void givingBackAnAdmissionFreesItsSlotOnceAndLeavesTheQueue() {
-    final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
+    final ExecutionScheduler scheduler = scheduler(1, 0, 5, OnLimit.QUEUE);
     final Admission first = scheduler.acquire("s1", "w1", 0, null);
     final Admission waiting = scheduler.acquire("s1", "w1", 0, null);
 
@@ -66,7 +66,7 @@ class ExecutionSchedulerTest {
 
   @Test
   void givingBackQueuedAdmissionLeavesTheQueueAtOnce() {
-    final ExecutionScheduler scheduler = scheduler(1, 0, 5, ExecutionScheduler.OnLimit.QUEUE);
+    final ExecutionScheduler scheduler = scheduler(1, 0, 5, OnLimit.QUEUE);
     granted(scheduler.acquire("s1", "w1", 0, null));
     final Admission waiting = scheduler.acquire("s1", "w1", 0, null);
     assertThat(scheduler.queued()).isEqualTo(1);
@@ -80,7 +80,7 @@ class ExecutionSchedulerTest {
 
   @Test
   void childRunsAreBoundedByTheChildLimit() {
-    final ExecutionScheduler scheduler = scheduler(0, 0, 0, ExecutionScheduler.OnLimit.REJECT);
+    final ExecutionScheduler scheduler = scheduler(0, 0, 0, OnLimit.REJECT);
     org.springframework.test.util.ReflectionTestUtils.setField(scheduler, "maxChildren", 2);
 
     final ExecutionScheduler.Admission first = scheduler.borrowed();

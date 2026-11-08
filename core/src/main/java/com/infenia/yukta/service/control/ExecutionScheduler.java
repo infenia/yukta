@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control;
 
 import com.infenia.yukta.config.YuktaProperties;
+import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.security.CallRateLimiter;
 import com.infenia.yukta.service.leader.LeaderElection;
@@ -671,12 +672,6 @@ public class ExecutionScheduler implements SmartLifecycle {
     NOT_LEADER,
     RATE_LIMIT,
     DRAINING
-  }
-
-  /** What to do with a start that does not fit within the limits. */
-  public enum OnLimit {
-    QUEUE,
-    REJECT
   }
 
   /** A claim on one execution slot; release it when the execution ends. */

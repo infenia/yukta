@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.input.route;
+package com.infenia.yukta.model.input;
 
 import com.infenia.yukta.plugin.input.Audience;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

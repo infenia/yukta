@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.model.control.OnLimit;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import lombok.NoArgsConstructor;
@@ -15,8 +16,7 @@ class SchedulerMetricsTest {
   @Test
   void bindTo_reportsRunningAndQueuedExecutions() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, Duration.ofSeconds(1));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, Duration.ofSeconds(1));
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);
 
@@ -33,8 +33,7 @@ class SchedulerMetricsTest {
   @Test
   void bindTo_reportsRejectionsByReason() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ofSeconds(1));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.REJECT, Duration.ofSeconds(1));
     final SimpleMeterRegistry registry = new SimpleMeterRegistry();
     new SchedulerMetrics(scheduler).bindTo(registry);
     scheduler.acquire("s", "w", 0, null);
