@@ -1040,7 +1040,8 @@ public class SupervisorService {
     if (made instanceof ReadsAware reading && queries != null) {
       final SupervisorQueries reads = queries.getIfAvailable();
       if (reads != null) {
-        reading.readsFrom(reads.readsFor(attachment.scope()));
+        reading.readsFrom(
+            reads.readsFor(attachment.scope(), () -> host.held(attachment.supervisorId())));
       }
     }
     host.attach(

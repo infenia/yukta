@@ -31,15 +31,15 @@ class AgentHubTest {
     assertThat(channel.cursor()).isEqualTo(2);
 
     StepVerifier.create(channel.signalsAfter(1))
-        .expectNext(new AgentHub.Sequenced(2, tick(2)))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
         .then(() -> channel.signal(tick(3)))
-        .expectNext(new AgentHub.Sequenced(3, tick(3)))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(3))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
 
     StepVerifier.create(channel.signalsAfter(3))
         .then(() -> channel.signal(tick(4)))
-        .expectNext(new AgentHub.Sequenced(4, tick(4)))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(4))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
   }
@@ -51,7 +51,7 @@ class AgentHubTest {
     StepVerifier.create(channel.signalsAfter(1))
         .then(() -> channel.signal(tick(1)))
         .then(() -> channel.signal(tick(2)))
-        .expectNext(new AgentHub.Sequenced(2, tick(2)))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
   }

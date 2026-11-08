@@ -12,6 +12,7 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.Cause;
 import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
@@ -513,13 +514,26 @@ public class SupervisorHost {
             ? bound.capabilities()
             : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
     final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
+    final Set<String> answered = Collections.newSetFromMap(new BoundedKeys());
     return directives
         .directives(events)
         .concatMap(
-            directive ->
-                seen.add(directive.key())
-                    ? gated(supervisor, directive, capabilities, recordOnly)
-                    : Mono.empty());
+            directive -> {
+              if (!seen.add(directive.key())) {
+                return Mono.empty();
+              }
+              final Cause cause = directive.cause();
+              if (cause.kind() == Cause.Kind.ANSWERS && !answered.add(cause.text())) {
+                // an answer is accepted once; a second command answering the same request is not
+                return notApplied(
+                        supervisor.id(),
+                        "answer-repeated",
+                        directive.command(),
+                        "refused: " + cause.text() + " was answered before")
+                    .then(Mono.<ExecutionControlCommand>empty());
+              }
+              return gated(supervisor, directive, capabilities, recordOnly);
+            });
   }
 
   private Mono<ExecutionControlCommand> gated(

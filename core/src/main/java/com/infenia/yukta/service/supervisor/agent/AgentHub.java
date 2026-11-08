@@ -7,9 +7,11 @@ import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
@@ -24,6 +26,7 @@ import reactor.core.publisher.Sinks;
  * agent that is not connected, or too slow, misses them and catches up from the snapshot.
  */
 @Component
+@SuppressWarnings("PMD.CouplingBetweenObjects")
 public final class AgentHub {
 
   /** Signals remembered per supervisor, for an agent that reconnects. */
@@ -43,8 +46,20 @@ public final class AgentHub {
    *
    * @param cursor the number of the signal, counting up from 1
    * @param signal the signal
+   * @param at when it was sent
    */
-  public record Sequenced(long cursor, Signal signal) {}
+  public record Sequenced(long cursor, Signal signal, java.time.Instant at) {
+
+    /**
+     * A signal numbered now.
+     *
+     * @param cursor its number
+     * @param signal the signal
+     */
+    public Sequenced(final long cursor, final Signal signal) {
+      this(cursor, signal, java.time.Instant.now());
+    }
+  }
 
   /** One supervisor's meeting point. */
   public static final class Channel {
@@ -53,6 +68,7 @@ public final class AgentHub {
     private final Deque<Sequenced> recent = new ArrayDeque<>();
     private final ReentrantLock lock = new ReentrantLock();
     private final AtomicLong sequence = new AtomicLong();
+    private final Set<String> answered = new LinkedHashSet<>();
     // multicast without auto-cancel: the host subscribes again after an engine failure
     private final Sinks.Many<Directive> directiveSink =
         Sinks.many().multicast().onBackpressureBuffer(MAX_WAITING_DIRECTIVES, false);
@@ -134,6 +150,41 @@ public final class AgentHub {
                       case Signal.Delegated delegated -> id.equals(delegated.id());
                       default -> false;
                     });
+      } finally {
+        lock.unlock();
+      }
+    }
+
+    /**
+     * Takes the one answer an open review or delegation may get: refused when the id names no
+     * review or delegation sent to this agent, when the review's time is up, or when it was
+     * answered before.
+     *
+     * @param use what answers it: the verdict, or a command caused by the request; each once
+     * @param id the id of the review or delegation
+     * @param now the time now
+     * @return true the first time, while the request is open
+     */
+    public boolean claimAnswer(final String use, final String id, final java.time.Instant now) {
+      lock.lock();
+      try {
+        final boolean open =
+            recent.stream()
+                .anyMatch(
+                    s ->
+                        switch (s.signal()) {
+                          case Signal.Review review ->
+                              id.equals(review.id()) && !now.isAfter(s.at().plus(review.timeout()));
+                          case Signal.Delegated delegated -> id.equals(delegated.id());
+                          default -> false;
+                        });
+        if (!open || !answered.add(use + ":" + id)) {
+          return false;
+        }
+        while (answered.size() > REMEMBERED) {
+          answered.remove(answered.iterator().next());
+        }
+        return true;
       } finally {
         lock.unlock();
       }

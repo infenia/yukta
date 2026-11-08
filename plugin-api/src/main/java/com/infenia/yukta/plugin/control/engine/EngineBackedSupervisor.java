@@ -23,6 +23,7 @@ import reactor.core.publisher.Sinks;
  * a {@link Directive.Command} is emitted as the supervisor's command. The host then applies the
  * usual scope, capability, rate and dry-run checks to it.
  */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public final class EngineBackedSupervisor
     implements DirectiveSupervisor, ReadsAware, AutoCloseable {
 
@@ -30,6 +31,9 @@ public final class EngineBackedSupervisor
 
   /** Most reviews waiting for the engine at once; more are treated as unanswered. */
   public static final int MAX_OPEN_REVIEWS = 100;
+
+  /** The most executions and input requests a {@code Started} snapshot lists. */
+  public static final int SNAPSHOT_ROWS = 200;
 
   private final String supervisorId;
   private final SupervisorScope owned;
@@ -41,6 +45,10 @@ public final class EngineBackedSupervisor
       Sinks.many().multicast().onBackpressureBuffer(MAX_OPEN_REVIEWS, false);
   private final AtomicLong seq = new AtomicLong();
   private final Consumer<EngineReads> readsSink;
+  private final java.util.concurrent.atomic.AtomicReference<EngineReads> reads =
+      new java.util.concurrent.atomic.AtomicReference<>(EngineReads.NONE);
+  private final java.util.concurrent.atomic.AtomicBoolean startedOnce =
+      new java.util.concurrent.atomic.AtomicBoolean();
 
   /**
    * Creates the supervisor.
@@ -88,10 +96,8 @@ public final class EngineBackedSupervisor
   @Override
   public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
     final Flux<Signal> signals =
-        Flux.merge(
-            Flux.<Signal>just(new Signal.Started("first", "", List.of(), List.of(), List.of())),
-            events.map(this::event),
-            asked.asFlux());
+        // the snapshot comes first; what happens while it is read is in it or comes after it
+        Flux.concat(started(), Flux.merge(events.map(this::event), asked.asFlux()));
     return engine
         .run(signals)
         .flatMap(
@@ -102,6 +108,34 @@ public final class EngineBackedSupervisor
                   case Directive.NoOpinion none -> answer(none);
                   default -> Mono.empty();
                 });
+  }
+
+  /**
+   * The snapshot an engine starts from: what it owns now, the open inputs, what it holds and the
+   * cursor of the newest event, so a level-triggered engine never depends on one missed event.
+   */
+  private Mono<Signal> started() {
+    return Mono.defer(
+        () -> {
+          final String reason = startedOnce.getAndSet(true) ? "resubscribe" : "first";
+          final String cursor = "e" + seq.get();
+          final EngineReads now = reads.get();
+          return Mono.zip(
+                  now.executions(null, SNAPSHOT_ROWS)
+                      .map(EngineReads.RunView::executionId)
+                      .collectList()
+                      .onErrorReturn(List.of()),
+                  now.openInputs(SNAPSHOT_ROWS)
+                      .map(com.infenia.yukta.plugin.input.InputRequest::id)
+                      .collectList()
+                      .onErrorReturn(List.of()),
+                  now.held().collectList().onErrorReturn(List.of()))
+              .map(
+                  all ->
+                      (Signal)
+                          new Signal.Started(
+                              reason, cursor, all.getT1(), all.getT2(), all.getT3()));
+        });
   }
 
   private Signal event(final ExecutionEvent event) {
@@ -152,8 +186,9 @@ public final class EngineBackedSupervisor
   }
 
   @Override
-  public void readsFrom(final EngineReads reads) {
-    readsSink.accept(reads);
+  public void readsFrom(final EngineReads given) {
+    reads.set(given);
+    readsSink.accept(given);
   }
 
   @Override

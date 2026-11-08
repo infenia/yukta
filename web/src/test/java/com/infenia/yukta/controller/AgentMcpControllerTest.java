@@ -54,7 +54,23 @@ class AgentMcpControllerTest {
                 return Map.of();
               }
             })
-        .run(Flux.<Signal>never())
+        .run(
+            Flux.<Signal>just(
+                    new Signal.Review(
+                        "r1",
+                        new com.infenia.yukta.plugin.control.ControlRequest(
+                            new com.infenia.yukta.plugin.control.ExecutionControlCommand
+                                .PauseWorkflowCommand("run1"),
+                            null,
+                            "s",
+                            "w"),
+                        Duration.ofMinutes(1)),
+                    new Signal.Delegated(
+                        "d1",
+                        com.infenia.yukta.plugin.control.DelegationKind.APPROVAL,
+                        "c",
+                        Map.of()))
+                .concatWith(Flux.never()))
         .subscribe(received::add);
     final MockServerWebExchange exchange =
         MockServerWebExchange.from(MockServerHttpRequest.post("/api/agent/v1/mcp"));

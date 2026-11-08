@@ -62,6 +62,11 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
           public Flux<InputRequest> openInputs(final int limit) {
             return reads.get().openInputs(limit);
           }
+
+          @Override
+          public Flux<String> held() {
+            return reads.get().held();
+          }
         };
     final EngineContext context =
         new EngineContext() {

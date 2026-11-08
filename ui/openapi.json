@@ -5021,6 +5021,12 @@
             },
             "type" : "array"
           },
+          "held" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
           "inputs" : {
             "items" : {
               "$ref" : "#/components/schemas/InputRequest"

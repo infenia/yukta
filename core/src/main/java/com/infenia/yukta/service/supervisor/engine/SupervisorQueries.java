@@ -11,6 +11,8 @@ import com.infenia.yukta.service.input.InputRequestQueries;
 import com.infenia.yukta.service.session.SessionService;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.List;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
@@ -52,7 +54,23 @@ public class SupervisorQueries {
    * @return the reads for an engine
    */
   public EngineReads readsFor(final SupervisorScope scope) {
+    return readsFor(scope, List::of);
+  }
+
+  /**
+   * The reads of a supervisor, with its hold ledger.
+   *
+   * @param scope what the supervisor owns
+   * @param held the executions it paused and still holds
+   * @return the reads
+   */
+  public EngineReads readsFor(final SupervisorScope scope, final Supplier<List<String>> held) {
     return new EngineReads() {
+      @Override
+      public Flux<String> held() {
+        return Flux.defer(() -> Flux.fromIterable(held.get()));
+      }
+
       @Override
       public Flux<RunView> executions(final @Nullable String status, final int limit) {
         return SupervisorQueries.this

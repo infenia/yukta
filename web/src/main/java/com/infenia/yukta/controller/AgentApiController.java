@@ -21,6 +21,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -246,7 +247,10 @@ public class AgentApiController {
         .map(
             both ->
                 ApiResponse.success(
-                    200, "Snapshot", new SnapshotView(cursor, both.getT1(), both.getT2())));
+                    200,
+                    "Snapshot",
+                    new SnapshotView(
+                        cursor, both.getT1(), both.getT2(), host.held(supervisor(exchange)))));
   }
 
   /**
@@ -255,14 +259,19 @@ public class AgentApiController {
    * @param cursor where the stream was when it was read
    * @param executions the owned executions
    * @param inputs the open input requests
+   * @param held the executions this supervisor paused and still holds
    */
   public record SnapshotView(
-      long cursor, List<EngineReads.RunView> executions, List<InputRequest> inputs) {
+      long cursor,
+      List<EngineReads.RunView> executions,
+      List<InputRequest> inputs,
+      List<String> held) {
 
     /** Keeps unmodifiable copies of the lists. */
     public SnapshotView {
       executions = List.copyOf(executions);
       inputs = List.copyOf(inputs);
+      held = List.copyOf(held);
     }
   }
 
@@ -328,7 +337,15 @@ public class AgentApiController {
       throw new IllegalArgumentException("A directive needs a key and a command");
     }
     final Cause cause = cause(body.cause());
-    if (!cause.unprompted() && !channel.sent(java.util.Objects.requireNonNull(cause.id()))) {
+    final String causeId = cause.id();
+    if (cause.kind() == Cause.Kind.ANSWERS
+        && !channel.claimAnswer(
+            "command", java.util.Objects.requireNonNull(causeId), Instant.now())) {
+      throw new ConflictException(
+          "cause " + cause.text() + " answers no open request, or it was answered before");
+    }
+    if (cause.kind() == Cause.Kind.EVENT
+        && !channel.sent(java.util.Objects.requireNonNull(causeId))) {
       // the server, not the agent, says what a directive reacts to: an unknown id is initiative
       // in disguise and would skip the initiative list, the reason and its rate limit
       throw new IllegalArgumentException(
@@ -432,6 +449,7 @@ public class AgentApiController {
       throw new IllegalArgumentException(
           "verdict must be ALLOW, DENY, REQUIRE_APPROVAL or NO_OPINION");
     }
+    claim(channel, "verdict", id);
     channel.offer(directive);
     return Mono.just(ApiResponse.success(202, "Verdict accepted", null));
   }
@@ -450,10 +468,19 @@ public class AgentApiController {
       final ServerWebExchange exchange,
       @PathVariable final String id,
       @RequestBody final AnswerBody body) {
-    channel(supervisor(exchange))
-        .offer(
-            new Directive.DelegationAnswer(id, body.answer() == null ? Map.of() : body.answer()));
+    final AgentHub.Channel channel = channel(supervisor(exchange));
+    claim(channel, "answer", id);
+    channel.offer(
+        new Directive.DelegationAnswer(id, body.answer() == null ? Map.of() : body.answer()));
     return Mono.just(ApiResponse.success(202, "Answer accepted", null));
+  }
+
+  /** An answer is taken once, while its request is open; late, unknown or repeated is 409. */
+  private static void claim(final AgentHub.Channel channel, final String use, final String id) {
+    if (!channel.claimAnswer(use, id, Instant.now())) {
+      throw new ConflictException(
+          "No open request " + id + " for this supervisor, or it was answered before");
+    }
   }
 
   private AgentHub.Channel channel(final String supervisor) {

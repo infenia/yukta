@@ -48,6 +48,19 @@ class AgentApiControllerTest {
   private final AgentApiController controller = new AgentApiController(hub, host);
   private final List<Directive> received = new ArrayList<>();
 
+  private static Signal review(final String id) {
+    return new Signal.Review(
+        id,
+        new com.infenia.yukta.plugin.control.ControlRequest(
+            new PauseWorkflowCommand("run1"), null, "s", "w"),
+        Duration.ofMinutes(1));
+  }
+
+  private static Signal delegated(final String id) {
+    return new Signal.Delegated(
+        id, com.infenia.yukta.plugin.control.DelegationKind.APPROVAL, "c", Map.of());
+  }
+
   /** Signals the agent was sent, so directives may name them as their cause. */
   private static final Flux<Signal> SENT =
       Flux.<Signal>just(
@@ -56,8 +69,11 @@ class AgentApiControllerTest {
                   "e5",
                   new com.infenia.yukta.plugin.control.ExecutionEvent.WorkflowStatusChanged(
                       "run1", "s", "w", "RUNNING", Instant.EPOCH)),
-              new Signal.Delegated(
-                  "q1", com.infenia.yukta.plugin.control.DelegationKind.APPROVAL, "c", Map.of()))
+              delegated("q1"),
+              review("r1"),
+              review("r2"),
+              delegated("d1"),
+              delegated("d2"))
           .concatWith(Flux.never());
 
   private static MockServerWebExchange as(final String supervisor) {
@@ -281,6 +297,7 @@ class AgentApiControllerTest {
     final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
     in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
     in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(1)));
+    org.mockito.Mockito.when(host.held("a1")).thenReturn(List.of("run9"));
 
     StepVerifier.create(controller.snapshot(as("a1")))
         .assertNext(
@@ -288,6 +305,7 @@ class AgentApiControllerTest {
               assertThat(r.data().cursor()).isEqualTo(2);
               assertThat(r.data().executions()).isEmpty();
               assertThat(r.data().inputs()).isEmpty();
+              assertThat(r.data().held()).containsExactly("run9");
             })
         .verifyComplete();
     // after cursor 1 only the second signal is replayed, then the live ones
@@ -509,7 +527,7 @@ class AgentApiControllerTest {
   void causeNamingNoSignalSentIsRefusedSoItCannotSkipTheInitiativeLimits() {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
-    for (final String forged : new String[] {"event:e999", "answers:nobody"}) {
+    for (final String forged : new String[] {"event:e999"}) {
       assertThatThrownBy(
               () ->
                   controller.directive(
@@ -518,16 +536,66 @@ class AgentApiControllerTest {
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("names no signal sent");
     }
+    assertThatThrownBy(
+            () ->
+                controller.directive(
+                    as("a1"),
+                    new AgentApiController.DirectiveBody("k", "answers:nobody", null, null, pause)))
+        .isInstanceOf(com.infenia.yukta.service.ConflictException.class);
     assertThat(received).isEmpty();
+  }
+
+  @Test
+  void answerIsTakenOnceAndOnlyForRequestThatWasSent() {
+    running(EngineReads.NONE);
+    final var allow = new AgentApiController.VerdictBody("ALLOW", null);
+    controller.review(as("a1"), "r1", allow).block();
+    assertThatThrownBy(() -> controller.review(as("a1"), "r1", allow))
+        .isInstanceOf(com.infenia.yukta.service.ConflictException.class);
+    assertThatThrownBy(() -> controller.review(as("a1"), "unknown", allow))
+        .isInstanceOf(com.infenia.yukta.service.ConflictException.class);
+    final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
+    controller
+        .directive(
+            as("a1"), new AgentApiController.DirectiveBody("k1", "answers:d1", null, null, pause))
+        .block();
+    assertThatThrownBy(
+            () ->
+                controller.directive(
+                    as("a1"),
+                    new AgentApiController.DirectiveBody("k2", "answers:d1", null, null, pause)))
+        .hasMessageContaining("answered before");
+  }
+
+  @Test
+  void lateVerdictIsRefused() {
+    running(EngineReads.NONE);
+    final AgentHub.Channel open = hub.channel("a1").orElseThrow();
+    assertThat(open.claimAnswer("verdict", "r2", Instant.now().plus(Duration.ofMinutes(2))))
+        .isFalse();
+    assertThat(open.claimAnswer("verdict", "r2", Instant.now())).isTrue();
   }
 
   @Test
   void revokedCredentialEndsTheOpenStream() {
     running(EngineReads.NONE);
     StepVerifier.create(controller.events(as("a1"), 0))
-        .expectNextCount(2)
+        .expectNextCount(6)
         .then(() -> hub.credentialChanged("a1"))
         .thenConsumeWhile(event -> true)
         .verifyComplete();
+  }
+
+  @Test
+  void disablingTheSupervisorEndsTheStreamAndRefusesTheNextCall() {
+    final SupervisorEngine engine = running(EngineReads.NONE);
+    StepVerifier.create(controller.events(as("a1"), 0))
+        .expectNextCount(6)
+        // detaching or disabling the supervisor closes its engine, which closes the channel
+        .then(engine::close)
+        .thenConsumeWhile(event -> true)
+        .verifyComplete();
+    assertThatThrownBy(() -> controller.snapshot(as("a1")))
+        .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
   }
 }

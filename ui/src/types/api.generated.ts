@@ -5280,6 +5280,7 @@ export interface components {
             /** Format: int64 */
             cursor?: number;
             executions?: components["schemas"]["RunView"][];
+            held?: string[];
             inputs?: components["schemas"]["InputRequest"][];
         };
         StartOptions: {
