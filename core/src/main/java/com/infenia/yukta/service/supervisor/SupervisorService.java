@@ -846,6 +846,37 @@ public class SupervisorService {
         .collectMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
+  /**
+   * An ownership validator that compares selectors with the real nodes of the workflows the scopes
+   * name.
+   *
+   * @param scopes the scopes to be compared
+   * @return the validator
+   */
+  /* default */ Mono<OwnershipValidator> validatorFor(final List<SupervisorScope> scopes) {
+    final WorkflowDefinitionStore stored = this.definitions;
+    if (stored == null) {
+      return Mono.just(new OwnershipValidator((session, workflow) -> Optional.empty()));
+    }
+    return Flux.fromIterable(scopes)
+        .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
+        .map(scope -> scope.sessionId() + "/" + scope.workflowId())
+        .distinct()
+        .concatMap(
+            key -> {
+              final int slash = key.indexOf('/');
+              return stored
+                  .find(key.substring(0, slash), key.substring(slash + 1))
+                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+            })
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+        .map(
+            shapes ->
+                new OwnershipValidator(
+                    (session, workflow) ->
+                        Optional.ofNullable(shapes.get(session + "/" + workflow))));
+  }
+
   /** Puts the host back to what the store holds for a attachment when saving it failed. */
   private Mono<Void> restoreAttachment(final String attachmentId) {
     return store
@@ -878,6 +909,32 @@ public class SupervisorService {
    * @return completes when stopped; errors with {@link NotFoundException}
    */
   public Mono<Void> detach(final String attachmentId) {
+    return leaderOnly()
+        .then(
+            Mono.defer(
+                () ->
+                    store
+                        .attachments()
+                        .filter(a -> a.id().equals(attachmentId) && a.locked())
+                        .hasElements()))
+        .flatMap(
+            locked ->
+                locked
+                    ? Mono.error(
+                        new ConflictException(
+                            "Assignment "
+                                + attachmentId
+                                + " is locked; change it through the supervisor's assignments"))
+                    : detachBinding(attachmentId));
+  }
+
+  /**
+   * Detaches an attachment whatever its lock, once the caller's right to unlock it was checked.
+   *
+   * @param attachmentId the attachment id
+   * @return completes when it is gone
+   */
+  /* default */ Mono<Void> detachUnlocked(final String attachmentId) {
     return leaderOnly().then(Mono.defer(() -> detachBinding(attachmentId)));
   }
 

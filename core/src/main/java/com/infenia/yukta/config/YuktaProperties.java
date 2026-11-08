@@ -152,6 +152,10 @@ public record YuktaProperties(
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
    * @param reviewTimeout longest a supervisor may take to answer a review
    * @param maxAttachments most attachments at once, manual and from definitions together
+   * @param turnAround the guard against a supervisor flapping against itself
+   * @param defaultSupervisor the lenient default supervisor
+   * @param lockHolders names of the API keys that may change or remove a locked assignment; empty
+   *     lets any administrator do it, but only by asking to unlock
    */
   public record Supervisor(
       @DefaultValue("false") boolean dryRun,
@@ -160,7 +164,8 @@ public record YuktaProperties(
       @NotNull @DurationMin(nanos = 0) @DefaultValue("5s") Duration reviewTimeout,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
       @Valid @NotNull @DefaultValue TurnAround turnAround,
-      @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor) {}
+      @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor,
+      @NotNull @DefaultValue List<String> lockHolders) {}
 
   /**
    * The lenient default supervisor, which lets people control what no supervisor owns. Turn it off
