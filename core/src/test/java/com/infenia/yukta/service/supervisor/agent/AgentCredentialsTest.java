@@ -9,6 +9,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
@@ -28,6 +29,27 @@ class AgentCredentialsTest {
     assertThat(credentials.authenticate(issued.token())).isEmpty();
     assertThat(credentials.revoke("a1")).isFalse();
     assertThat(credentials.has("a1")).isFalse();
+  }
+
+  @Test
+  void metadataShowsIssueExpiryAddressesAndLastUseButNeverTheSecret() {
+    final Clock clock = Clock.fixed(Instant.parse("2026-11-09T10:00:00Z"), ZoneOffset.UTC);
+    final AgentCredentials credentials = new AgentCredentials(clock);
+    assertThat(credentials.metadata("a1")).isEmpty();
+    final String token =
+        credentials.issue("a1", java.time.Duration.ofHours(2), Set.of("10.0.0.5")).token();
+
+    final AgentCredentials.Metadata fresh = credentials.metadata("a1").orElseThrow();
+    assertThat(fresh.issuedAt()).isEqualTo(clock.instant());
+    assertThat(fresh.expiresAt()).isEqualTo(clock.instant().plusSeconds(7200));
+    assertThat(fresh.addresses()).containsExactly("10.0.0.5");
+    assertThat(fresh.lastUsedAt()).isNull();
+    assertThat(fresh.toString()).doesNotContain(token);
+
+    credentials.authenticate(token, "10.0.0.5");
+    assertThat(credentials.metadata("a1").orElseThrow().lastUsedFrom()).isEqualTo("10.0.0.5");
+    credentials.revoke("a1");
+    assertThat(credentials.metadata("a1")).isEmpty();
   }
 
   @Test

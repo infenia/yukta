@@ -35,7 +35,7 @@ A rule document has `schemaVersion: 1` and a list of rules. A rule with `when.ev
 
 The credential works on the agent API only, and no API key of a person works there. A command may name `target`: `execution:<id>`, `workflow:<id>`, `owned.running` or `held` (the runs this supervisor paused); it is expanded to at most 200 runs, each applied and audited on its own.
 
-**Limits per credential** (system properties): `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, 100 reviews waiting at once (more count as unanswered). An address list ties the credential to those source addresses.
+**Limits per credential** (settings, like every `yukta.*` one): `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, 100 reviews waiting at once (more count as unanswered). An address list ties the credential to those source addresses.
 
 ## Outbound call (`callout`)
 

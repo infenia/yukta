@@ -16,6 +16,9 @@ import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.StandardEnvironment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
@@ -52,14 +55,13 @@ public class AgentCredentialFilter implements WebFilter {
   private final AgentCredentials credentials;
 
   /** Caps the requests of one credential. */
-  private final CallRateLimiter requests =
-      new CallRateLimiter(
-          Integer.getInteger("yukta.agent.requests-per-minute", DEFAULT_REQUESTS_PER_MINUTE));
+  private final CallRateLimiter requests;
 
   /** Caps the wrong credentials one address may try. */
-  private final CallRateLimiter failures =
-      new CallRateLimiter(
-          Integer.getInteger("yukta.agent.failures-per-minute", DEFAULT_FAILURES_PER_MINUTE));
+  private final CallRateLimiter failures;
+
+  /** The largest request body taken. */
+  private final int maxBodyBytes;
 
   /**
    * Creates the filter.
@@ -67,7 +69,29 @@ public class AgentCredentialFilter implements WebFilter {
    * @param credentials the agent credentials
    */
   public AgentCredentialFilter(final AgentCredentials credentials) {
+    this(credentials, new StandardEnvironment());
+  }
+
+  /**
+   * Creates the filter with its limits from the settings ({@code yukta.agent.requests-per-minute},
+   * {@code yukta.agent.failures-per-minute}, {@code yukta.agent.max-body-bytes}).
+   *
+   * @param credentials the agent credentials
+   * @param environment the settings
+   */
+  @Autowired
+  public AgentCredentialFilter(final AgentCredentials credentials, final Environment environment) {
     this.credentials = credentials;
+    this.requests =
+        new CallRateLimiter(
+            environment.getProperty(
+                "yukta.agent.requests-per-minute", Integer.class, DEFAULT_REQUESTS_PER_MINUTE));
+    this.failures =
+        new CallRateLimiter(
+            environment.getProperty(
+                "yukta.agent.failures-per-minute", Integer.class, DEFAULT_FAILURES_PER_MINUTE));
+    this.maxBodyBytes =
+        environment.getProperty("yukta.agent.max-body-bytes", Integer.class, DEFAULT_MAX_BODY);
   }
 
   /**
@@ -105,7 +129,7 @@ public class AgentCredentialFilter implements WebFilter {
       return reject(exchange, HttpStatus.UNAUTHORIZED, "Missing or invalid agent credential");
     }
     if (exchange.getRequest().getHeaders().getContentLength()
-        > Integer.getInteger("yukta.agent.max-body-bytes", DEFAULT_MAX_BODY)) {
+        > maxBodyBytes) {
       return reject(exchange, HttpStatus.CONTENT_TOO_LARGE, "The request body is too large");
     }
     if (!requests.tryAcquire(supervisor.get())) {
