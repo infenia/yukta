@@ -58,9 +58,40 @@ class SupervisedControlTest {
                             return Mono.empty();
                           })));
 
+  private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
+
+  private final ExecutionResumer resumer = mock(ExecutionResumer.class);
+
   private final SupervisedControl control =
-      new SupervisedControl(
-          gateway, dispatcher, mock(ExecutionScheduler.class), mock(ExecutionResumer.class));
+      new SupervisedControl(gateway, dispatcher, scheduler, resumer);
+
+  @Test
+  void drainRefusesStartsAndIsAuditedAsAnOperatorAction() {
+    StepVerifier.create(control.drain(true)).verifyComplete();
+
+    Mockito.verify(scheduler).setDraining(true);
+    Mockito.verify(gateway).recordAdminAction("Drain", "server", true, null);
+    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
+  }
+
+  @Test
+  void undrainAdmitsStartsAgainAndIsAuditedAsAnOperatorAction() {
+    StepVerifier.create(control.drain(false)).verifyComplete();
+
+    Mockito.verify(scheduler).setDraining(false);
+    Mockito.verify(gateway).recordAdminAction("Undrain", "server", true, null);
+    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
+  }
+
+  @Test
+  void recoverContinuesTheAbortedRunAsNewOneAndIsAudited() {
+    Mockito.when(resumer.resume("old")).thenReturn(Mono.just("new"));
+
+    StepVerifier.create(control.recover("old")).expectNext("new").verifyComplete();
+
+    Mockito.verify(gateway).recordAdminAction("Recover", "old", true, null);
+    assertThat(seen).containsExactly("recordAdminAction:OPERATOR");
+  }
 
   @Test
   void everyOperatorEntryReachesTheGatewayAsAnOperator() {

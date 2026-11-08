@@ -22,6 +22,7 @@ import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -96,7 +97,7 @@ class DirectiveDispatcherChannelTest {
 
     assertThat(sunk).extracting(AuditRecord::channel).containsExactly(OPERATOR, ENGINE, SYSTEM);
     assertThat(log.readAll())
-        .extracting(e -> e.payload().get(ExecutionLogEvent.CHANNEL_KEY))
+        .extracting(e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.CHANNEL_KEY))
         .containsExactly(OPERATOR, ENGINE, SYSTEM);
     org.awaitility.Awaitility.await()
         .untilAsserted(

@@ -170,6 +170,23 @@ class ExecutionControlCommandTest {
   }
 
   @Test
+  void startPayloadIsCopiedReadOnlyAndMayHoldNullValues() {
+    final java.util.Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("a", null);
+    final ExecutionControlCommand.StartWorkflowCommand start =
+        new ExecutionControlCommand.StartWorkflowCommand("s", "w", payload, "k");
+    payload.put("b", 1);
+
+    assertThat(start.payload()).containsOnlyKeys("a");
+    assertThat(start.payload()).containsEntry("a", null);
+    assertThatThrownBy(() -> start.payload().put("c", 2))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThat(start.idempotencyKey()).isEqualTo("k");
+    assertThat(new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null).payload())
+        .isEmpty();
+  }
+
+  @Test
   void setBreakpoint_acceptsPayloadAndMetadataFields_andRejectsOthers() {
     assertThat(new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload", "x").field())
         .isEqualTo("payload");

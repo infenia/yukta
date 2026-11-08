@@ -372,13 +372,25 @@ public sealed interface ExecutionControlCommand
   record StartWorkflowCommand(
       String sessionId,
       String workflowId,
-      @Nullable Map<String, Object> payload,
+      Map<String, Object> payload,
       @Nullable String idempotencyKey)
       implements ExecutionControlCommand {
 
-    /** Keeps an unmodifiable copy of the payload. */
+    /** Keeps an unmodifiable copy of the payload; a missing payload is an empty one. */
     public StartWorkflowCommand {
-      payload = payload == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(payload));
+      // Map.copyOf rejects null values, and a start payload may hold them
+      payload =
+          payload == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(payload));
+    }
+
+    /**
+     * The payload, read-only.
+     *
+     * @return an unmodifiable view of the copy kept on construction
+     */
+    @Override
+    public Map<String, Object> payload() {
+      return Collections.unmodifiableMap(payload);
     }
 
     @Override

@@ -3,6 +3,8 @@
 package com.infenia.yukta.plugin.control;
 
 import lombok.experimental.UtilityClass;
+import org.jspecify.annotations.Nullable;
+import reactor.util.context.ContextView;
 
 /** Names the Reactor context key under which the sender of a control command is passed. */
 @UtilityClass
@@ -58,5 +60,15 @@ public class ControlActor {
 
     /** A caller that used a one-time answer token; the actor is {@code token:<tier>}. */
     TOKEN
+  }
+
+  /**
+   * The kind of sender recorded in the Reactor context.
+   *
+   * @param context the Reactor context of the command
+   * @return the kind, or {@code null} when none was set
+   */
+  public static @Nullable Kind kindOf(final ContextView context) {
+    return context.getOrDefault(KIND_KEY, null);
   }
 }
