@@ -15,7 +15,7 @@ import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import com.infenia.yukta.service.input.InputTestSupport;
-import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;

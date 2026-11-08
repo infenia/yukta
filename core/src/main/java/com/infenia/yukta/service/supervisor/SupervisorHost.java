@@ -21,7 +21,6 @@ import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
-import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
 import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
 import com.infenia.yukta.service.supervisor.engine.EngineRunner;
 import com.infenia.yukta.service.supervisor.engine.HoldLedger;
@@ -428,16 +427,12 @@ public class SupervisorHost {
                   supervisor.scope() instanceof SupervisorScope.Section section
                       ? List.copyOf(section.nodes())
                       : null,
-                  commands(supervisor.id(), "flapping-blocked"),
-                  real instanceof CompositeSupervisor composite ? composite.childIds() : null);
+                  commands(supervisor.id(), "flapping-blocked"));
             })
         .toList();
   }
 
   private static String kind(final ExecutionSupervisor real) {
-    if (real instanceof CompositeSupervisor) {
-      return "COMPOSITE";
-    }
     return real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 

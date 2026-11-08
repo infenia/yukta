@@ -226,8 +226,7 @@ class SupervisorsControllerTest {
             null,
             null,
             null,
-            0,
-            null);
+            0);
     when(host.status()).thenReturn(List.of(info));
     when(host.isBuiltIn("rules")).thenReturn(true);
 
@@ -407,7 +406,7 @@ class SupervisorsControllerTest {
   private static SupervisorInfo system(
       final String id, final String scope, final String session, final String workflow) {
     return new SupervisorInfo(
-        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0, null);
+        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0);
   }
 
   @Test

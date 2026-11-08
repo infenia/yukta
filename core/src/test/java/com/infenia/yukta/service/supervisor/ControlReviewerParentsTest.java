@@ -21,17 +21,15 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
-import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
-import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 import reactor.util.context.Context;
@@ -48,9 +46,7 @@ class ControlReviewerParentsTest {
 
   private final AttachedSupervisors attached = new AttachedSupervisors();
 
-  private final SupervisorResolver resolver =
-      new SupervisorResolver(
-          new StaticListableBeanFactory().getBeanProvider(SupervisorFactory.class));
+  private final SupervisorResolver resolver = new SupervisorResolver();
 
   private final ControlReviewer reviewer = new ControlReviewer(providerOf(), Duration.ofSeconds(2));
 

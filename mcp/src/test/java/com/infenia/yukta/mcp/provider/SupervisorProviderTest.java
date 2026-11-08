@@ -59,8 +59,7 @@ class SupervisorProviderTest {
                     "A",
                     "w",
                     List.of("build.*"),
-                    0,
-                    null)));
+                    0)));
     when(service.attachments())
         .thenReturn(
             Flux.just(new SupervisorAttachment("b1", "p", new SupervisorScope.Session("A"), true)));

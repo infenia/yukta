@@ -28,9 +28,9 @@ import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
 import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
@@ -81,9 +81,6 @@ public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
   public static final String AUDIT_RUN = "supervisors";
-
-  /** The type name of composite supervisors. */
-  private static final String COMPOSITE_TYPE = "composite";
 
   /** Default for {@code yukta.supervisor.max-attachments}. */
   public static final int DEFAULT_MAX_ATTACHMENTS = 200;
@@ -531,7 +528,7 @@ public class SupervisorService {
                 .attachments()
                 .filter(
                     attachment ->
-                        attachment.enabled() && usesSupervisor(attachment, supervisor.id()))
+                        attachment.enabled() && attachment.supervisorId().equals(supervisor.id()))
                 // one attachment that no longer starts must not leave the later ones on old
                 // settings
                 .concatMap(
@@ -562,46 +559,15 @@ public class SupervisorService {
         .then();
   }
 
-  /**
-   * Validates a supervisor together with the composites above it, as the tree will be once it is
-   * saved: a child re-saved as a composite can close a cycle or nest too deep for a composite that
-   * lists it, and only the tree with the new supervisor in it shows that.
-   */
+  /** Validates the supervisor as it will be saved. */
   private void validateAsSaved(final Supervisor supervisor) {
-    if (resolver != null) {
-      resolver.tentatively(supervisor);
-    }
     validate(supervisor);
-    if (resolver != null) {
-      for (final String compositeId : resolver.compositesUsing(supervisor.id())) {
-        resolver
-            .supervisor(compositeId)
-            .ifPresent(composite -> factory(composite).validate(composite));
-      }
-    }
   }
 
-  /** Whether the attachment's supervisor is this one or a composite that lists it. */
-  private boolean usesSupervisor(final SupervisorAttachment attachment, final String supervisorId) {
-    return attachment.supervisorId().equals(supervisorId)
-        || resolver != null
-            && resolver.compositesUsing(supervisorId).contains(attachment.supervisorId());
-  }
-
-  /**
-   * Starts a attachment again from its own supervisor, which may be a composite of the saved one.
-   */
+  /** Starts an attachment again with the saved supervisor. */
   private Mono<Void> restart(final SupervisorAttachment attachment, final Supervisor saved) {
-    if (attachment.supervisorId().equals(saved.id())) {
-      start(attachment, saved);
-      return Mono.empty();
-    }
-    return store
-        .supervisors()
-        .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
-        .next()
-        .doOnNext(supervisor -> start(attachment, supervisor))
-        .then();
+    start(attachment, saved);
+    return Mono.empty();
   }
 
   /**
@@ -613,17 +579,6 @@ public class SupervisorService {
    */
   public Mono<Void> deleteSupervisor(final String id) {
     return refreshResolver()
-        .then(
-            Mono.defer(
-                () -> {
-                  final List<String> composites =
-                      resolver == null ? List.of() : resolver.compositesUsing(id);
-                  return composites.isEmpty()
-                      ? Mono.<Void>empty()
-                      : Mono.error(
-                          new ConflictException(
-                              SUPERVISOR_PREFIX + id + " is a child of composite " + composites));
-                }))
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)))
@@ -969,9 +924,9 @@ public class SupervisorService {
   }
 
   /**
-   * The kind of a type: {@code COMPOSITE}, {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found
-   * by making a supervisor from the type's example settings; a type that cannot be made that way
-   * (it needs a model, or other supervisors) is told apart by its name.
+   * The kind of a type: {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found by making a
+   * supervisor from the type's example settings; a type that cannot be made that way (it needs a
+   * model, or other supervisors) is told apart by its name.
    *
    * @param type the supervisor type
    * @return the kind
@@ -994,9 +949,7 @@ public class SupervisorService {
 
   /** The kind of a type whose example cannot be made: told apart by its name. */
   private static String kindByName(final String type) {
-    return COMPOSITE_TYPE.equals(type)
-        ? "COMPOSITE"
-        : type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
+    return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
   /**
