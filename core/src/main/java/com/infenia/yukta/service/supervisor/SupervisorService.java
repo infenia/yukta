@@ -23,8 +23,12 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
+import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks;
+import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -36,6 +40,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -91,6 +96,9 @@ public class SupervisorService {
   private final ExecutionLogStore executionLog;
 
   /** Attachments the last restore started. */
+  /** The stored workflow definitions, to match selectors against real nodes; none without it. */
+  private @Nullable WorkflowDefinitionStore definitions;
+
   private final AtomicInteger restored = new AtomicInteger();
 
   /** Attachments the last restore could not start. */
@@ -437,6 +445,16 @@ public class SupervisorService {
   }
 
   /**
+   * Lets selectors be compared with the real nodes of a workflow when ownership is checked.
+   *
+   * @param workflowDefinitions the stored definitions
+   */
+  @Autowired(required = false)
+  public void setDefinitions(final WorkflowDefinitionStore workflowDefinitions) {
+    this.definitions = workflowDefinitions;
+  }
+
+  /**
    * Attaches a supervisor to a scope. An enabled attachment starts at once.
    *
    * @param attachment the attachment
@@ -489,6 +507,7 @@ public class SupervisorService {
                                     new ConflictException(
                                         "At most " + maxAttachments + " attachments are allowed"))
                                 : Mono.just(supervisor)))
+        .flatMap(supervisor -> requireFree(attachment).thenReturn(supervisor))
         .doOnNext(
             supervisor -> {
               if (attachment.enabled()) {
@@ -506,6 +525,66 @@ public class SupervisorService {
                 true,
                 "AttachSupervisor(" + attachment.id() + ", " + attachment.scope().key() + ")"))
         .thenReturn(attachment);
+  }
+
+  /**
+   * Refuses an enabled attachment whose scope would give a node, a run level or the server to two
+   * supervisors. Another supervisor's disabled attachment owns nothing, and neither does a Global
+   * one.
+   */
+  private Mono<Void> requireFree(final SupervisorAttachment attachment) {
+    if (!attachment.enabled()) {
+      return Mono.empty();
+    }
+    return store
+        .attachments()
+        .filter(other -> other.enabled() && !other.id().equals(attachment.id()))
+        .collectList()
+        .flatMap(
+            others ->
+                shapesOf(attachment, others)
+                    .map(
+                        shapes ->
+                            new OwnershipValidator(
+                                    (session, workflow) ->
+                                        Optional.ofNullable(shapes.get(session + "/" + workflow)))
+                                .conflicts(
+                                    new OwnershipValidator.Claim(
+                                        attachment.supervisorId(), attachment.scope()),
+                                    others.stream()
+                                        .map(
+                                            other ->
+                                                new OwnershipValidator.Claim(
+                                                    other.supervisorId(), other.scope()))
+                                        .toList())))
+        .flatMap(
+            conflicts ->
+                conflicts.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.<Void>error(new OwnershipConflictException(conflicts)));
+  }
+
+  /** The nodes and groups of every workflow the scopes name, so selectors match real nodes. */
+  private Mono<Map<String, WorkflowShape>> shapesOf(
+      final SupervisorAttachment attachment, final List<SupervisorAttachment> others) {
+    final WorkflowDefinitionStore definitions = this.definitions;
+    if (definitions == null) {
+      return Mono.just(Map.of());
+    }
+    return Flux.fromStream(Stream.concat(Stream.of(attachment), others.stream()))
+        .map(SupervisorAttachment::scope)
+        .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
+        .map(scope -> scope.sessionId() + "/" + scope.workflowId())
+        .distinct()
+        .concatMap(
+            key -> {
+              final int slash = key.indexOf('/');
+              return definitions
+                  .find(key.substring(0, slash), key.substring(slash + 1))
+                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+            })
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+        .map(shapes -> (Map<String, WorkflowShape>) shapes);
   }
 
   /** Puts the host back to what the store holds for a attachment when saving it failed. */

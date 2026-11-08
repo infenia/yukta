@@ -155,8 +155,8 @@ class OwnershipValidatorTest {
   }
 
   @Test
-  void globalOverlapsEverythingAndShapesReadTheDeclaredGroup() {
-    assertThat(check(new SupervisorScope.Global(), nodes("lone"))).hasSize(1);
+  void globalOwnsNothingAndShapesReadTheDeclaredGroup() {
+    assertThat(check(new SupervisorScope.Global(), nodes("lone"))).isEmpty();
     assertThat(releaseShape().take("group:ci")).containsExactly("build.test");
     assertThat(releaseShape().take("group:build")).containsExactly("build.compile");
     assertThat(releaseShape().take("lone")).containsExactly("lone");

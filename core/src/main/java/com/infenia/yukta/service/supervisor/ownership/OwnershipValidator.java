@@ -11,9 +11,9 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Finds where two supervisors would own the same unit. The units are a node, the run level of a
- * workflow and the server. A scope is read as: {@code Global} everything, {@code Session} every
- * workflow of the session, {@code Workflow} its run level and all its nodes, {@code Run} the run
- * level only, {@code Section} some nodes, {@code Server} the server.
+ * workflow and the server. A scope is read as: {@code Global} nothing (it only observes), {@code
+ * Session} every workflow of the session, {@code Workflow} its run level and all its nodes, {@code
+ * Run} the run level only, {@code Section} some nodes, {@code Server} the server.
  *
  * <p>A selector is matched against the workflow's real nodes when the shape is known. A selector
  * that takes no node yet (the node does not exist, or the workflow is unknown) is compared with the
@@ -80,7 +80,7 @@ public final class OwnershipValidator {
 
   private Optional<String> overlap(final SupervisorScope a, final SupervisorScope b) {
     if (a instanceof SupervisorScope.Global || b instanceof SupervisorScope.Global) {
-      return Optional.of("everything is");
+      return Optional.empty(); // Global owns nothing: it only observes
     }
     if (a instanceof SupervisorScope.Server || b instanceof SupervisorScope.Server) {
       return serverOverlap(a, b);
