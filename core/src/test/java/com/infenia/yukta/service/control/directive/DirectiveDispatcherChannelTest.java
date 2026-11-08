@@ -35,6 +35,10 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class DirectiveDispatcherChannelTest {
 
+  private static final String OPERATOR = ControlActor.Channel.OPERATOR.name();
+  private static final String ENGINE = ControlActor.Channel.ENGINE.name();
+  private static final String SYSTEM = ControlActor.Channel.SYSTEM.name();
+
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
   private final CommandHandler handler = mock(CommandHandler.class);
@@ -81,28 +85,28 @@ class DirectiveDispatcherChannelTest {
     StepVerifier.create(
             dispatcher
                 .dispatchOrdered(pause)
-                .contextWrite(Context.of(ControlActor.CHANNEL_KEY, "OPERATOR")))
+                .contextWrite(Context.of(ControlActor.CHANNEL_KEY, OPERATOR)))
         .verifyComplete();
     StepVerifier.create(
             dispatcher
                 .dispatchOrdered(pause)
-                .contextWrite(Context.of(ControlActor.CHANNEL_KEY, "ENGINE")))
+                .contextWrite(Context.of(ControlActor.CHANNEL_KEY, ENGINE)))
         .verifyComplete();
     StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
 
     assertThat(sunk)
         .extracting(AuditRecord::channel)
-        .containsExactly("OPERATOR", "ENGINE", "SYSTEM");
+        .containsExactly(OPERATOR, ENGINE, SYSTEM);
     assertThat(log.readAll())
         .extracting(e -> e.payload().get(ExecutionLogEvent.CHANNEL_KEY))
-        .containsExactly("OPERATOR", "ENGINE", "SYSTEM");
+        .containsExactly(OPERATOR, ENGINE, SYSTEM);
     org.awaitility.Awaitility.await()
         .untilAsserted(
             () ->
                 assertThat(events)
                     .filteredOn(ExecutionEvent.ControlOutcome.class::isInstance)
                     .extracting(e -> ((ExecutionEvent.ControlOutcome) e).channel())
-                    .containsExactly("OPERATOR", "ENGINE", "SYSTEM"));
+                    .containsExactly(OPERATOR, ENGINE, SYSTEM));
   }
 
   @Test

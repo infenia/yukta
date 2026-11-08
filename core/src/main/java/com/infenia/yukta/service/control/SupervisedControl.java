@@ -355,7 +355,7 @@ public class SupervisedControl {
    * @param draining true to drain
    * @return completes when applied
    */
-  public Mono<Void> setDraining(final boolean draining) {
+  public Mono<Void> drain(final boolean draining) {
     return operator(
         Mono.fromRunnable(() -> scheduler.setDraining(draining))
             .then(gateway.recordAdminAction(draining ? "Drain" : "Undrain", "server", true, null)));

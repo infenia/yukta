@@ -55,7 +55,7 @@ public final class ControlEntryRules {
   private static final Set<String> DISPATCH = Set.of("dispatchOrdered", "dispatch");
 
   /** A call of a gateway command method. */
-  static final DescribedPredicate<JavaCall<?>> GATEWAY_COMMAND =
+  /* default */ static final DescribedPredicate<JavaCall<?>> GATEWAY_COMMAND =
       DescribedPredicate.describe(
           "a gateway command method",
           call ->
@@ -63,7 +63,7 @@ public final class ControlEntryRules {
                   && COMMANDS.contains(call.getName()));
 
   /** A call that queues a command on the dispatcher. */
-  static final DescribedPredicate<JavaCall<?>> DISPATCHER_CALL =
+  /* default */ static final DescribedPredicate<JavaCall<?>> DISPATCHER_CALL =
       DescribedPredicate.describe(
           "a dispatcher dispatch method",
           call ->

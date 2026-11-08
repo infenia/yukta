@@ -389,14 +389,14 @@ public class ExecutionControlController {
           "Refuses new starts (HTTP 429) while running ones carry on. Poll GET until idle is true,"
               + " then swap the server; DELETE admits starts again. Admin keys only.")
   public Mono<ApiResponse<Map<String, Object>>> drain() {
-    return control.setDraining(true).then(Mono.defer(this::drainStatus));
+    return control.drain(true).then(Mono.defer(this::drainStatus));
   }
 
   /** Admit new starts again after a drain. */
   @DeleteMapping("/admin/drain")
   @Operation(summary = "Stop draining the server")
   public Mono<ApiResponse<Map<String, Object>>> undrain() {
-    return control.setDraining(false).then(Mono.defer(this::drainStatus));
+    return control.drain(false).then(Mono.defer(this::drainStatus));
   }
 
   /** Whether the server drains and whether anything is still running or waiting. */

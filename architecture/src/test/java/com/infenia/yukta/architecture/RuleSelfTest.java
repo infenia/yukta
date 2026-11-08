@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * A rule that silently matches nothing protects nothing. Each rule here must fail on a small class
  * that breaks it and accept a clean one.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 class RuleSelfTest {
 
   private static final String SELF_TEST = "self-test";

@@ -39,6 +39,7 @@ import reactor.util.context.Context;
 
 /** A start is a command: supervisors review it and the audit records it with its channel. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.ExcessiveImports", "PMD.TooManyStaticImports"})
 class DefaultControlBusGatewayStartTest {
 
   private final WorkflowDefinitionStore definitions = mock(WorkflowDefinitionStore.class);

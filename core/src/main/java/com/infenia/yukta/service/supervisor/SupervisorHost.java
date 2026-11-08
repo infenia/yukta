@@ -185,6 +185,7 @@ public class SupervisorHost {
    * @param bufferSize events a supervisor may have waiting
    * @param arbiter orders conflicting commands
    */
+  @SuppressWarnings("PMD.ExcessiveParameterList")
   public SupervisorHost(
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,

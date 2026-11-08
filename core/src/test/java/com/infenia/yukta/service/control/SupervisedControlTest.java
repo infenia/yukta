@@ -23,7 +23,6 @@ import reactor.test.StepVerifier;
 
 /** Every operator entry reaches the gateway on the OPERATOR channel; engines and the system too. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisedControlTest {
 
   /** Gateway calls seen as {@code method:channel}. */
