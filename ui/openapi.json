@@ -117,6 +117,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseContractView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/ContractView",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseCounts" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -2422,6 +2465,24 @@
           }
         },
         "required" : [ "name", "sessionId", "workflows" ],
+        "type" : "object"
+      },
+      "ContractView" : {
+        "properties" : {
+          "operations" : {
+            "additionalProperties" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "type" : "object"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
         "type" : "object"
       },
       "ControlAuditEntry" : {
@@ -7178,6 +7239,25 @@
         "tags" : [ "Workflow Versions API" ]
       }
     },
+    "/api/supervisor-contract" : {
+      "get" : {
+        "operationId" : "get_3",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseContractView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get the supervisor contract version and operations",
+        "tags" : [ "Supervisor contract API" ]
+      }
+    },
     "/api/supervisor-types" : {
       "get" : {
         "operationId" : "list_3",
@@ -8652,6 +8732,9 @@
   }, {
     "description" : "Read part of the output of a node",
     "name" : "Node Output API"
+  }, {
+    "description" : "The version and operations of the contract",
+    "name" : "Supervisor contract API"
   }, {
     "description" : "Workers connected to the control plane",
     "name" : "Workers API"

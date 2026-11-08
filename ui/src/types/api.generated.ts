@@ -1270,6 +1270,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervisor-contract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get the supervisor contract version and operations */
+        get: operations["get_3"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisor-types": {
         parameters: {
             query?: never;
@@ -1978,6 +1995,39 @@ export interface components {
         ApiResponseCatalog: {
             /** @description The response data */
             data?: components["schemas"]["Catalog"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseContractView: {
+            /** @description The response data */
+            data?: components["schemas"]["ContractView"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -3681,6 +3731,13 @@ export interface components {
             workflows: {
                 [key: string]: components["schemas"]["WorkflowDefinitionRequest"];
             };
+        };
+        ContractView: {
+            operations?: {
+                [key: string]: string[];
+            };
+            /** Format: int32 */
+            version?: number;
         };
         ControlAuditEntry: {
             actor?: string;
@@ -6396,6 +6453,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMapStringString"];
+                };
+            };
+        };
+    };
+    get_3: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseContractView"];
                 };
             };
         };
