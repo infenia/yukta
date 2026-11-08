@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.session.store.SessionConfigStore;
@@ -96,6 +97,7 @@ class InternalSessionsTest {
         new SessionService(
             configs,
             mock(ControlBusGateway.class),
+            new SupervisedControl(null, null, null, null),
             mock(WorkflowDefinitionStore.class),
             mock(PreparedWorkflowCache.class),
             mock(WorkflowPreparator.class));

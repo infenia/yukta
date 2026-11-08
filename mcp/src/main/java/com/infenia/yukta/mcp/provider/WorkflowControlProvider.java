@@ -8,9 +8,9 @@ import com.infenia.yukta.mcp.dto.SchedulerLimitsResult;
 import com.infenia.yukta.mcp.dto.WorkflowControlAction;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -34,8 +34,8 @@ public class WorkflowControlProvider {
   /** Gateway for workflow control operations. */
   private final ControlBusGateway controlBus;
 
-  /** Continues runs that a server restart aborted. */
-  private final ExecutionResumer resumer;
+  /** Applies the commands. */
+  private final SupervisedControl control;
 
   /** Applies a command to a whole tree of runs. */
   private final TreeControl treeControl;
@@ -159,7 +159,7 @@ public class WorkflowControlProvider {
   @SuppressWarnings("PMD.LinguisticNaming") // the MCP tool name
   public Mono<SchedulerLimitsResult> setSchedulerLimits(
       final int maxConcurrent, final int maxPerWorkflow) {
-    return controlBus.changeLimits(maxConcurrent, maxPerWorkflow).then(getSchedulerLimits());
+    return control.changeLimits(maxConcurrent, maxPerWorkflow).then(getSchedulerLimits());
   }
 
   /**
@@ -205,7 +205,7 @@ public class WorkflowControlProvider {
         .flatMap(
             ignored ->
                 action == NodeControlAction.RETRY
-                    ? controlBus
+                    ? control
                         .retryNode(executionId, nodeId)
                         .map(
                             newId ->
@@ -255,7 +255,7 @@ public class WorkflowControlProvider {
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
         .flatMap(
             ignored ->
-                controlBus
+                control
                     .addBreakpoint(executionId, nodeId, field, equalsValue)
                     .thenReturn(
                         new ControlActionResult(
@@ -272,7 +272,7 @@ public class WorkflowControlProvider {
       return Mono.error(
           new IllegalArgumentException("workflowId is required for action STOP_ALL."));
     }
-    return controlBus
+    return control
         .stopWorkflow(sessionId, workflowId, reasonOrDefault(reason), mode)
         .map(
             stopped ->
@@ -295,15 +295,13 @@ public class WorkflowControlProvider {
     return switch (action) {
       case RESUME ->
           treeControl
-              .apply(executionId, tree, controlBus::resumeWorkflow)
+              .apply(executionId, tree, control::resumeWorkflow)
               .thenReturn(
                   result(action, executionId, List.of(), "Resume signal sent" + scope + "."));
       case STOP ->
           treeControl
               .apply(
-                  executionId,
-                  tree,
-                  id -> controlBus.stopExecution(id, reasonOrDefault(reason), mode))
+                  executionId, tree, id -> control.stopExecution(id, reasonOrDefault(reason), mode))
               .thenReturn(
                   result(
                       action,
@@ -311,7 +309,7 @@ public class WorkflowControlProvider {
                       List.of(executionId),
                       "Execution stopped" + scope + "."));
       case RESTART ->
-          controlBus
+          control
               .restartWorkflow(executionId)
               .map(
                   newId ->
@@ -321,7 +319,7 @@ public class WorkflowControlProvider {
                           List.of(newId),
                           "Restarted as execution " + newId + "."));
       case RESTART_FROM_NODE ->
-          controlBus
+          control
               .restartFromNode(executionId, fromNodeId)
               .map(
                   newId ->
@@ -331,8 +329,8 @@ public class WorkflowControlProvider {
                           List.of(newId),
                           "Restarted from node " + fromNodeId + " as execution " + newId + "."));
       case RECOVER ->
-          resumer
-              .resume(executionId)
+          control
+              .recover(executionId)
               .map(
                   newId ->
                       result(
@@ -343,7 +341,7 @@ public class WorkflowControlProvider {
       // STOP_ALL is dispatched before the ownership check; PAUSE is the remaining action.
       default ->
           treeControl
-              .apply(executionId, tree, controlBus::pauseWorkflow)
+              .apply(executionId, tree, control::pauseWorkflow)
               .thenReturn(
                   result(action, executionId, List.of(), "Pause signal sent" + scope + "."));
     };
@@ -356,14 +354,14 @@ public class WorkflowControlProvider {
       final Boolean immediate,
       final String reason) {
     return switch (action) {
-      case PAUSE -> controlBus.pauseNode(executionId, nodeId);
-      case RESUME -> controlBus.resumeNode(executionId, nodeId);
+      case PAUSE -> control.pauseNode(executionId, nodeId);
+      case RESUME -> control.resumeNode(executionId, nodeId);
       case STOP ->
-          controlBus.stopNode(
+          control.stopNode(
               executionId, nodeId, Boolean.TRUE.equals(immediate), reasonOrDefault(reason));
-      case STEP -> controlBus.stepNode(executionId, nodeId);
-      case STEP_ENABLE -> controlBus.enableStepMode(executionId, nodeId);
-      case STEP_DISABLE -> controlBus.disableStepMode(executionId, nodeId);
+      case STEP -> control.stepNode(executionId, nodeId);
+      case STEP_ENABLE -> control.enableStepMode(executionId, nodeId);
+      case STEP_DISABLE -> control.disableStepMode(executionId, nodeId);
       default -> executeOtherNodeAction(action, executionId, nodeId);
     };
   }
@@ -371,9 +369,9 @@ public class WorkflowControlProvider {
   private Mono<Void> executeOtherNodeAction(
       final NodeControlAction action, final String executionId, final String nodeId) {
     return switch (action) {
-      case SKIP -> controlBus.skipNode(executionId, nodeId, true);
-      case UNSKIP -> controlBus.skipNode(executionId, nodeId, false);
-      case BREAKPOINT_CLEAR -> controlBus.clearBreakpoint(executionId, nodeId);
+      case SKIP -> control.skipNode(executionId, nodeId, true);
+      case UNSKIP -> control.skipNode(executionId, nodeId, false);
+      case BREAKPOINT_CLEAR -> control.clearBreakpoint(executionId, nodeId);
       // RETRY is answered before this point because it creates a new execution.
       default -> Mono.error(new IllegalStateException(action + " is not a signal"));
     };

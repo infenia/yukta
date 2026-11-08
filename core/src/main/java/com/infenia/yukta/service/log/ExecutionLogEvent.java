@@ -63,6 +63,9 @@ public record ExecutionLogEvent(
   /** See {@link #COMMAND_KEY}. */
   public static final String ACTOR_KEY = "actor";
 
+  /** See {@link #COMMAND_KEY}; the channel the command arrived on. */
+  public static final String CHANNEL_KEY = "channel";
+
   /** See {@link #COMMAND_KEY}. */
   public static final String REASON_KEY = "reason";
 
@@ -428,6 +431,29 @@ public record ExecutionLogEvent(
       final String command,
       @Nullable final String actor,
       @Nullable final String reason) {
+    return control(applied, executionId, logged, command, actor, reason, null);
+  }
+
+  /**
+   * Like the six-argument form, with the channel the command arrived on.
+   *
+   * @param applied true if the command was applied, false if it was rejected
+   * @param executionId the run the command addressed
+   * @param logged the text shown in the status
+   * @param command the command name alone
+   * @param actor who sent it, or null
+   * @param reason why it was rejected, or null
+   * @param channel {@code OPERATOR}, {@code ENGINE} or {@code SYSTEM}, or null
+   * @return the event
+   */
+  public static ExecutionLogEvent control(
+      final boolean applied,
+      final String executionId,
+      final String logged,
+      final String command,
+      @Nullable final String actor,
+      @Nullable final String reason,
+      @Nullable final String channel) {
     final ExecutionLogEvent base = control(applied, executionId, logged, reason);
     final Map<String, Object> payload = new ConcurrentHashMap<>();
     payload.put(COMMAND_KEY, command);
@@ -436,6 +462,9 @@ public record ExecutionLogEvent(
     }
     if (!applied && reason != null) {
       payload.put(REASON_KEY, reason);
+    }
+    if (channel != null) {
+      payload.put(CHANNEL_KEY, channel);
     }
     return new ExecutionLogEvent(
         base.type,

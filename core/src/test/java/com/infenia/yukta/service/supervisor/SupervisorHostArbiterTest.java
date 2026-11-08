@@ -13,6 +13,7 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testsupport.YuktaSettings;
@@ -85,6 +86,7 @@ class SupervisorHostArbiterTest {
             provider,
             new ExecutionEventFeed(),
             dispatcher,
+            new SupervisedControl(null, dispatcher, null, null),
             new InMemoryExecutionLogStore(),
             meters,
             false,

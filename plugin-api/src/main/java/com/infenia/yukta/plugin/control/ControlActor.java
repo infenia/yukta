@@ -19,6 +19,12 @@ public class ControlActor {
   public static final String KIND_KEY = "yukta.control.actor.kind";
 
   /**
+   * Context key of the way a command arrived, a {@link Channel}. Written by the one entry that
+   * applies commands; a command without it is recorded as {@code SYSTEM}.
+   */
+  public static final String CHANNEL_KEY = "yukta.control.channel";
+
+  /**
    * Context key under which the server re-sends a command whose approval request was approved. The
    * value is a server-private grant object, written only by the approval path and checked by
    * identity, so no caller can set it to skip a review: a value the server did not issue is
@@ -27,6 +33,19 @@ public class ControlActor {
    * @since 0.1.0
    */
   public static final String APPROVED_REQUEST = "yukta.control.approved-request";
+
+  /** How a command arrived. */
+  public enum Channel {
+
+    /** A person or client through REST, MCP, CLI or the UI. */
+    OPERATOR,
+
+    /** A directive from a supervisor's engine. */
+    ENGINE,
+
+    /** The server itself: shutdown, timeouts, cancelling children, recovery. */
+    SYSTEM
+  }
 
   /** The kinds of sender. */
   public enum Kind {

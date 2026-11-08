@@ -6,9 +6,9 @@ import com.infenia.yukta.dto.response.WorkflowStartResponse;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.service.control.ExecutionScheduler;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
-import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,11 +52,11 @@ public class ExecutionControlController {
   /** The control bus. */
   private final ControlBusGateway controlBus;
 
+  /** Applies the commands. */
+  private final SupervisedControl control;
+
   /** The access. */
   private final ExecutionAccess access;
-
-  /** Continues runs that a server restart aborted. */
-  private final ExecutionResumer resumer;
 
   /** Applies a command to a whole tree of runs. */
   private final TreeControl treeControl;
@@ -80,7 +80,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Workflow pause signal accepted",
-        () -> treeControl.apply(executionId, tree, controlBus::pauseWorkflow));
+        () -> treeControl.apply(executionId, tree, control::pauseWorkflow));
   }
 
   /** Resume a workflow execution. */
@@ -99,7 +99,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Workflow resume signal accepted",
-        () -> treeControl.apply(executionId, tree, controlBus::resumeWorkflow));
+        () -> treeControl.apply(executionId, tree, control::resumeWorkflow));
   }
 
   /** Continue a run that a server restart aborted, as a new run. */
@@ -116,7 +116,7 @@ public class ExecutionControlController {
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
         .require(sessionId, executionId)
-        .then(Mono.defer(() -> resumer.resume(executionId)))
+        .then(Mono.defer(() -> control.recover(executionId)))
         .map(
             newId ->
                 ApiResponse.success(
@@ -141,7 +141,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Node pause signal accepted",
-        () -> controlBus.pauseNode(executionId, nodeId));
+        () -> control.pauseNode(executionId, nodeId));
   }
 
   /** Resume a node. */
@@ -162,7 +162,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Node resume signal accepted",
-        () -> controlBus.resumeNode(executionId, nodeId));
+        () -> control.resumeNode(executionId, nodeId));
   }
 
   /** Stop a node. */
@@ -190,7 +190,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Node stop signal accepted",
-        () -> controlBus.stopNode(executionId, nodeId, immediate, reason));
+        () -> control.stopNode(executionId, nodeId, immediate, reason));
   }
 
   /** Skip or unskip a node. */
@@ -214,7 +214,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Node skip signal accepted",
-        () -> controlBus.skipNode(executionId, nodeId, skip));
+        () -> control.skipNode(executionId, nodeId, skip));
   }
 
   /** Enable step mode on a node. */
@@ -235,7 +235,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Step mode enable signal accepted",
-        () -> controlBus.enableStepMode(executionId, nodeId));
+        () -> control.enableStepMode(executionId, nodeId));
   }
 
   /** Disable step mode on a node. */
@@ -256,7 +256,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Step mode disable signal accepted",
-        () -> controlBus.disableStepMode(executionId, nodeId));
+        () -> control.disableStepMode(executionId, nodeId));
   }
 
   /** Step a node. */
@@ -277,7 +277,7 @@ public class ExecutionControlController {
         sessionId,
         executionId,
         "Node step signal accepted",
-        () -> controlBus.stepNode(executionId, nodeId));
+        () -> control.stepNode(executionId, nodeId));
   }
 
   /** Retry a failed node. */
@@ -290,7 +290,7 @@ public class ExecutionControlController {
       @Parameter(description = NODE_ID) @PathVariable final String nodeId) {
     return access
         .require(null, executionId)
-        .then(Mono.defer(() -> controlBus.retryNode(executionId, nodeId)))
+        .then(Mono.defer(() -> control.retryNode(executionId, nodeId)))
         .map(
             newId ->
                 ApiResponse.success(200, "Node retry accepted", new WorkflowStartResponse(newId)));
@@ -315,7 +315,7 @@ public class ExecutionControlController {
         null,
         executionId,
         "Breakpoint accepted",
-        () -> controlBus.addBreakpoint(executionId, nodeId, field, equalsValue));
+        () -> control.addBreakpoint(executionId, nodeId, field, equalsValue));
   }
 
   /** Clear a node's breakpoint. */
@@ -328,7 +328,7 @@ public class ExecutionControlController {
         null,
         executionId,
         "Breakpoint cleared",
-        () -> controlBus.clearBreakpoint(executionId, nodeId));
+        () -> control.clearBreakpoint(executionId, nodeId));
   }
 
   /** Change the priority of an execution that waits for a slot. */
@@ -344,7 +344,7 @@ public class ExecutionControlController {
         null,
         executionId,
         "Priority change accepted",
-        () -> controlBus.changePriority(executionId, priority));
+        () -> control.changePriority(executionId, priority));
   }
 
   /** The execution limits in force and the slots in use. */
@@ -372,7 +372,7 @@ public class ExecutionControlController {
     if (maxConcurrent < 0 || maxPerWorkflow < 0) {
       throw new IllegalArgumentException("Limits must be 0 (unlimited) or greater");
     }
-    return controlBus
+    return control
         .changeLimits(maxConcurrent, maxPerWorkflow)
         .thenReturn(
             ApiResponse.success(
@@ -389,16 +389,14 @@ public class ExecutionControlController {
           "Refuses new starts (HTTP 429) while running ones carry on. Poll GET until idle is true,"
               + " then swap the server; DELETE admits starts again. Admin keys only.")
   public Mono<ApiResponse<Map<String, Object>>> drain() {
-    scheduler.setDraining(true);
-    return drainStatus();
+    return control.setDraining(true).then(Mono.defer(this::drainStatus));
   }
 
   /** Admit new starts again after a drain. */
   @DeleteMapping("/admin/drain")
   @Operation(summary = "Stop draining the server")
   public Mono<ApiResponse<Map<String, Object>>> undrain() {
-    scheduler.setDraining(false);
-    return drainStatus();
+    return control.setDraining(false).then(Mono.defer(this::drainStatus));
   }
 
   /** Whether the server drains and whether anything is still running or waiting. */

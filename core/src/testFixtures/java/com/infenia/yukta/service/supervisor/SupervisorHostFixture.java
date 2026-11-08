@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -29,6 +30,7 @@ public final class SupervisorHostFixture {
         supervisors,
         feed,
         dispatcher,
+        new SupervisedControl(null, dispatcher, null, null),
         executionLog,
         meters,
         dryRun,

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control;
 
+import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -17,6 +18,18 @@ import org.jspecify.annotations.Nullable;
 @Slf4j
 @UtilityClass
 public class ControlAudit {
+
+  /**
+   * The channel a command arrived on, from the Reactor context; {@code SYSTEM} when none was set,
+   * because only the entry that applies commands for people and engines writes one.
+   *
+   * @param context the Reactor context of the command
+   * @return {@code OPERATOR}, {@code ENGINE} or {@code SYSTEM}
+   */
+  public static String channel(final reactor.util.context.ContextView context) {
+    final Object channel = context.getOrDefault(ControlActor.CHANNEL_KEY, null);
+    return channel == null ? ControlActor.Channel.SYSTEM.name() : channel.toString();
+  }
 
   /**
    * Record a command.
@@ -39,7 +52,8 @@ public class ControlAudit {
             logged,
             entry.command(),
             entry.actor(),
-            entry.reason()));
+            entry.reason(),
+            entry.channel()));
     if (sink != null) {
       try {
         sink.record(entry);

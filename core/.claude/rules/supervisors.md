@@ -48,3 +48,33 @@ A supervisor implements `ExecutionSupervisor` (plugin-api) and is registered as 
 - **Catalog** (#1996): `SupervisorFactory.describe()` returns a `SupervisorDescriptor` (type, display name, description, `SupervisorCategory`, icon) and `getConfigSchema()` the settings (`ConfigField`s) next to `SupervisorCommonSettings`; `SupervisorSettingsValidator` checks them when a supervisor is saved (`SettingsValidationException` carries the field errors, HTTP 400). REST `GET /api/supervisor-types[/{type}]` (`SupervisorTypesController`), `/api/supervisors`, `/attachments`, `/decisions`, `/validate` (`SupervisorsController`; settings under secret-looking keys leave as `***` through `SupervisorSettingsMask`); MCP `SupervisorProvider`. The UI lives in `ui/src/features/supervisors`; the Control page has only `SupervisorsTile`.
 - **Definition-declared supervisors**: a session (`supervisors`) or workflow (`supervisors`, optional `nodes`, `enabled`) names supervisors; `DefinitionSupervisors` (also the `DefinitionUsage` that stops a used supervisor being deleted) reconciles on save: attaches with source `DEFINITION`, id `def-` + 16 hex of SHA-256(session, workflow, supervisor, sorted nodes), detaches what is no longer declared, never touches `MANUAL` attachments; an attach that fails is logged and left for the next reconcile, it never fails the save. An unknown supervisor is refused with the field `workflows.<w>.supervisors[i].supervisor`.
 - **Generic types** (`plugins/supervisors/guards`, `.../webhook`): `failure-guard`, `stall-watchdog`, `approval-gate` and `webhook` (egress through `EgressPolicy`/`HostAllowList`; replies pass `SupervisorResultMapper`'s allow-list).
+
+### Control entry inventory (S1, #2146)
+`SupervisedControl` (`service.control`) is the only entry that applies a control command or a start for people and engines. It writes `ControlActor.CHANNEL_KEY` (`OPERATOR`, `ENGINE`, `SYSTEM`; none counts as `SYSTEM`) next to the actor and its kind, which `ApiKeyFilter`, `McpEndpointFilter`, `TokenAnswerService` and `SupervisorHost` write. `AuditRecord`, the `CONTROL_*` log payload (`channel`) and `ControlOutcome` carry it. The ArchUnit rules `ControlEntryRules` (module `architecture`) fail the build if a class outside `service.control..` and `service.supervisor..` calls a `ControlBusGateway` command method or `DirectiveDispatcher.dispatchOrdered/dispatch`, or if `service.supervisor..` does.
+
+A start is `StartWorkflowCommand(sessionId, workflowId, payload, idempotencyKey)` (`executionId()` is `start`; the target is the workflow). The gateway reviews it with `ControlReviewer.review` inside the idempotency window, so a repeated `Idempotency-Key` returns the first run without a second review or audit record; a start that needs approval is refused (there is no run to park the request on yet). It is audited under the new run's id. It does not go through `dispatchOrdered` (that refuses it) and publishes no `ControlOutcome`.
+
+| Entry | Calls | Channel | Review today |
+|---|---|---|---|
+| REST `POST /api/workflow/start`, `WebhookController` start | `WorkflowService.start` → `SupervisedControl.startWorkflow` | OPERATOR | yes (`StartWorkflowCommand`) |
+| REST `POST /executions/{id}/pause\|resume` (also `?tree=`), `/priority`, node `pause\|resume\|stop\|skip\|step\|step/enable\|step/disable\|retry\|breakpoint` | `SupervisedControl` | OPERATOR | yes |
+| REST `POST /executions/{id}/stop\|restart`, `POST /workflow/{s}/{w}/stop` | `SupervisedControl` | OPERATOR | yes |
+| REST `POST /executions/{id}/inputs/{r}/answer\|escalate`; one-time token answer | `SupervisedControl.answerInput\|escalateInput` | OPERATOR (kind `KEY` or `TOKEN`) | yes |
+| REST `POST /scheduler/limits` | `SupervisedControl.changeLimits` | OPERATOR | yes (`SetLimitsCommand`) |
+| REST `POST /executions/{id}/recover`, MCP `control_workflow` RECOVER | `SupervisedControl.recover` | OPERATOR | **no** (no command type); audited as admin action `Recover`. S2 (run level) |
+| REST `POST\|DELETE /admin/drain` | `SupervisedControl.setDraining` | OPERATOR | **no** (no command type); audited as `Drain`/`Undrain`. S2 (server unit) |
+| MCP `start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `set_scheduler_limits`, `answer_input`, `escalate_input` | the same methods | OPERATOR | as above |
+| MCP `rollback_workflow` | changes a definition, not a run | n/a | not a control command; stays as is |
+| CLI, UI | call REST | OPERATOR | as above |
+| `SupervisorHost.send` (directives of every supervisor) | `SupervisedControl.engine` → `dispatchOrdered` | ENGINE | yes. A `StartWorkflowCommand` from a supervisor is refused (`dispatchOrdered`); a supervisor without `allowedCommands` (`null` = every command) can name it, so S2 must give starts an owner |
+| Approved parked command | `ParkedCommands` → `dispatchOrdered` with the original channel (copied with the actor) | as sent | already approved |
+| Session or workflow delete stopping live runs | `ActiveRuns.clear` → `stopWorkflowAsSystem` | SYSTEM | yes |
+| Session delete audit | `SupervisedControl.recordAdminAction` | OPERATOR | audit only |
+| Leader loss (`LeaderLoss`: `killLocally`, `cancelRunningExecutions`), shutdown, parent run cancelling its children, run timeouts | engine-internal, never a command | SYSTEM | none by design (a refusal would leave a run executing next to the new leader's) |
+| Restart and recover of a run (`RestartCoordinator`, `ExecutionResumer`, `TakeoverRecovery`) | `RestartCommand`/`RestartFromNodeCommand` reviewed as such; recovery after takeover is SYSTEM | OPERATOR or SYSTEM | restarts yes; takeover recovery none |
+
+Internal starts and their authority. They run through `WorkflowOrchestrator` and never through `startWorkflow`, so they are not reviewed as starts and cannot be reviewed twice:
+- **Sub-workflow** (`SubWorkflowRunner`): a node of an already admitted run starts the child, so it inherits that run's authority; stopping the parent stops the children.
+- **Supervisor workflow** (`SupervisorWorkflowRunner`): started by the engine on a supervisor's signal, in an internal session with reserved slots and a depth limit; the commands it returns go through `SupervisorHost` and `SupervisedControl.engine`.
+- **Restart** (`RestartCoordinator`): reviewed as `RestartCommand`, once; the new run inherits the old one.
+- **Recovery** (`ExecutionResumer`): after a takeover it is SYSTEM and continues runs that were already admitted; operator recovery goes through `SupervisedControl.recover`.

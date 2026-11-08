@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
@@ -94,6 +95,9 @@ public class SupervisorHost {
   /** Applies the commands. */
   private final DirectiveDispatcher dispatcher;
 
+  /** Applies the commands of the supervisors. */
+  private final SupervisedControl control;
+
   /** Records commands that were not applied. */
   private final ExecutionLogStore executionLog;
 
@@ -139,7 +143,8 @@ public class SupervisorHost {
    *
    * @param supervisors the supervisors to run
    * @param feed the execution events
-   * @param dispatcher applies the commands
+   * @param dispatcher finds the target of a command
+   * @param control applies the commands
    * @param executionLog records commands that were not applied
    * @param meters registry for the command counter
    * @param properties the {@code yukta.supervisor} settings
@@ -149,6 +154,7 @@ public class SupervisorHost {
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
       final DirectiveDispatcher dispatcher,
+      final SupervisedControl control,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final YuktaProperties properties) {
@@ -156,6 +162,7 @@ public class SupervisorHost {
         supervisors,
         feed,
         dispatcher,
+        control,
         executionLog,
         meters,
         properties.supervisor().dryRun(),
@@ -169,7 +176,8 @@ public class SupervisorHost {
    *
    * @param supervisors the supervisors to host
    * @param feed the event feed
-   * @param dispatcher sends their commands
+   * @param dispatcher finds the target of a command
+   * @param control sends their commands
    * @param executionLog records what happened to their commands
    * @param meters registry for the metrics
    * @param dryRun whether commands are only recorded
@@ -181,6 +189,7 @@ public class SupervisorHost {
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
       final DirectiveDispatcher dispatcher,
+      final SupervisedControl control,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final boolean dryRun,
@@ -192,6 +201,7 @@ public class SupervisorHost {
     this.supervisors = supervisors;
     this.feed = feed;
     this.dispatcher = dispatcher;
+    this.control = control;
     this.executionLog = executionLog;
     this.meters = meters;
     this.dryRun = dryRun;
@@ -569,8 +579,8 @@ public class SupervisorHost {
   }
 
   private Mono<Void> send(final String supervisorId, final ExecutionControlCommand command) {
-    return dispatcher
-        .dispatchOrdered(command)
+    return control
+        .engine(command)
         .contextWrite(
             Context.of(
                 ControlActor.CONTEXT_KEY,

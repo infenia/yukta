@@ -420,7 +420,11 @@ public class ParkedCommands implements CommandProposals {
   private static Context sender(final ContextView context) {
     Context kept = Context.empty();
     for (final String key :
-        List.of(ControlActor.CONTEXT_KEY, ControlActor.KIND_KEY, CallerIdentity.CONTEXT_KEY)) {
+        List.of(
+            ControlActor.CONTEXT_KEY,
+            ControlActor.KIND_KEY,
+            ControlActor.CHANNEL_KEY,
+            CallerIdentity.CONTEXT_KEY)) {
       final Object value = context.getOrDefault(key, null);
       if (value != null) {
         kept = kept.put(key, value);

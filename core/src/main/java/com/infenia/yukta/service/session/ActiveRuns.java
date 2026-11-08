@@ -4,6 +4,7 @@ package com.infenia.yukta.service.session;
 
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import java.time.Duration;
 import java.util.List;
@@ -28,6 +29,7 @@ class ActiveRuns {
    */
   /* default */ static Mono<Void> clear(
       final ControlBusGateway controlBus,
+      final SupervisedControl control,
       final String sessionId,
       @Nullable final String workflowId,
       final boolean force) {
@@ -43,7 +45,7 @@ class ActiveRuns {
               return Flux.fromIterable(
                       runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
                   .concatMap(
-                      id -> controlBus.stopWorkflow(sessionId, id, "Deleted", StopMode.CANCEL))
+                      id -> control.stopWorkflowAsSystem(sessionId, id, "Deleted", StopMode.CANCEL))
                   .then(awaitEnded(controlBus, sessionId, workflowId));
             });
   }

@@ -162,21 +162,27 @@ public class DirectiveDispatcher {
    *     the command
    */
   public Mono<Void> dispatchOrdered(final ExecutionControlCommand command) {
+    if (command instanceof ExecutionControlCommand.StartWorkflowCommand) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "A start is applied by the gateway, which reviews it; it is not queued on a run"));
+    }
     return Mono.deferContextual(
         context -> {
           final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          final String channel = ControlAudit.channel(context);
           return sequencer
               .sequence(
                   command.executionId(),
                   Mono.defer(
                       () ->
                           !isAddressable(command)
-                              ? gone(command, actor, context)
-                              : audited(command, actor)))
+                              ? gone(command, actor, channel, context)
+                              : audited(command, actor, channel)))
               .doOnCancel(
                   () -> {
                     if (isAddressable(command)) {
-                      cancelled(command, actor);
+                      cancelled(command, actor, channel);
                     }
                   });
         });
@@ -188,7 +194,10 @@ public class DirectiveDispatcher {
    * too: an approval with no outcome would leave the audit with a question and no answer.
    */
   private Mono<Void> gone(
-      final ExecutionControlCommand command, final String actor, final ContextView context) {
+      final ExecutionControlCommand command,
+      final String actor,
+      final String channel,
+      final ContextView context) {
     final NotFoundException notFound =
         new NotFoundException("Execution not found: " + command.executionId());
     if (context.hasKey(ControlActor.APPROVED_REQUEST)) {
@@ -201,7 +210,8 @@ public class DirectiveDispatcher {
               command.getClass().getSimpleName(),
               actor,
               notFound.getMessage(),
-              Instant.now()));
+              Instant.now(),
+              channel));
     }
     return Mono.error(notFound);
   }
@@ -210,17 +220,18 @@ public class DirectiveDispatcher {
    * Asks the supervisors, applies the command and records the outcome, so every command of a known
    * run is traceable.
    */
-  private Mono<Void> audited(final ExecutionControlCommand command, final String actor) {
+  private Mono<Void> audited(
+      final ExecutionControlCommand command, final String actor, final String channel) {
     final String name = command.getClass().getSimpleName();
     return target(command)
         .flatMap(
             run ->
                 Mono.deferContextual(context -> reviewed(command, actor, run, context))
-                    .doOnSuccess(_ -> outcome(command, run, name, actor, null))
+                    .doOnSuccess(_ -> outcome(command, run, name, actor, null, channel))
                     .doOnError(
                         error -> {
                           if (!(error instanceof ControlAwaitingApprovalException)) {
-                            outcome(command, run, name, actor, error.getMessage());
+                            outcome(command, run, name, actor, error.getMessage(), channel);
                           }
                         }))
         .doOnSuccess(
@@ -228,7 +239,8 @@ public class DirectiveDispatcher {
                 ControlAudit.record(
                     executionLog,
                     auditSink,
-                    new AuditRecord(true, command.executionId(), name, actor, null, Instant.now())))
+                    new AuditRecord(
+                        true, command.executionId(), name, actor, null, Instant.now(), channel)))
         .doOnError(
             error -> {
               // a parked command is neither applied nor refused yet; its request is logged
@@ -242,7 +254,8 @@ public class DirectiveDispatcher {
                         name,
                         actor,
                         error.getMessage(),
-                        Instant.now()));
+                        Instant.now(),
+                        channel));
               }
             });
   }
@@ -294,14 +307,15 @@ public class DirectiveDispatcher {
   }
 
   /** A command whose caller went away before it finished is neither applied nor lost. */
-  private void cancelled(final ExecutionControlCommand command, final String actor) {
+  private void cancelled(
+      final ExecutionControlCommand command, final String actor, final String channel) {
     final String name = command.getClass().getSimpleName();
-    outcome(command, owner(command, command.nodeId()), name, actor, CANCELLED_REASON);
+    outcome(command, owner(command, command.nodeId()), name, actor, CANCELLED_REASON, channel);
     ControlAudit.record(
         executionLog,
         auditSink,
         new AuditRecord(
-            false, command.executionId(), name, actor, CANCELLED_REASON, Instant.now()));
+            false, command.executionId(), name, actor, CANCELLED_REASON, Instant.now(), channel));
   }
 
   /**
@@ -313,6 +327,10 @@ public class DirectiveDispatcher {
    * @return the target; its parts are {@code null} when the run or node is not known
    */
   public Mono<CommandTarget> target(final ExecutionControlCommand command) {
+    if (command instanceof ExecutionControlCommand.StartWorkflowCommand start) {
+      // the run does not exist yet: the target is the workflow
+      return Mono.just(new CommandTarget(start.sessionId(), start.workflowId(), null));
+    }
     return requestNode(command)
         .map(node -> owner(command, node))
         .switchIfEmpty(Mono.fromSupplier(() -> owner(command, command.nodeId())));
@@ -354,7 +372,8 @@ public class DirectiveDispatcher {
       final CommandTarget run,
       final String name,
       final String actor,
-      final String reason) {
+      final String reason,
+      final String channel) {
     eventFeed.publish(
         new ExecutionEvent.ControlOutcome(
             command.executionId(),
@@ -365,7 +384,8 @@ public class DirectiveDispatcher {
             reason == null,
             reason,
             Instant.now(),
-            run.nodeId()));
+            run.nodeId(),
+            channel));
   }
 
   /**

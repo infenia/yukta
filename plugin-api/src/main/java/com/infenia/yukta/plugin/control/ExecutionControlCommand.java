@@ -42,10 +42,14 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetLimitsCommand,
         ExecutionControlCommand.SetPriorityCommand,
         ExecutionControlCommand.AnswerInputCommand,
-        ExecutionControlCommand.EscalateInputCommand {
+        ExecutionControlCommand.EscalateInputCommand,
+        ExecutionControlCommand.StartWorkflowCommand {
 
   /** Execution id the commands that belong to no run carry. */
   String SCHEDULER = "scheduler";
+
+  /** Execution id the start of a run carries: the run does not exist yet. */
+  String START = "start";
 
   /**
    * Returns the execution identifier this command targets.
@@ -352,6 +356,29 @@ public sealed interface ExecutionControlCommand
       InputLimits.requireId("requestId", requestId);
       InputLimits.requireText("reason", reason, InputLimits.TEXT_MAX_BYTES);
       InputLimits.optionalText("advice", advice, InputLimits.TEXT_MAX_BYTES);
+    }
+  }
+
+  /**
+   * Start a run. The run does not exist yet, so {@link #executionId()} is {@value #START} and the
+   * target is the session and workflow. It passes {@link ExecutionSupervisor#review} like any
+   * command; the gateway applies it and answers with the new execution id.
+   *
+   * @param sessionId the session of the workflow
+   * @param workflowId the workflow to start
+   * @param payload the start payload (may carry {@code yukta.version})
+   * @param idempotencyKey makes a repeated start return the first run; may be {@code null}
+   */
+  record StartWorkflowCommand(
+      String sessionId,
+      String workflowId,
+      @Nullable java.util.Map<String, Object> payload,
+      @Nullable String idempotencyKey)
+      implements ExecutionControlCommand {
+
+    @Override
+    public String executionId() {
+      return START;
     }
   }
 }

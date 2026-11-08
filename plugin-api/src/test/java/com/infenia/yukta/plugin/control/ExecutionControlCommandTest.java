@@ -135,6 +135,7 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
           case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
+          case ExecutionControlCommand.StartWorkflowCommand c -> "start-" + c.workflowId();
         };
 
     assertThat(kind).isEqualTo("pause-node");

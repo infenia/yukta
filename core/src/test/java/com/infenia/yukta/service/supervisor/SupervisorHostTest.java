@@ -17,6 +17,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
@@ -99,6 +100,7 @@ class SupervisorHostTest {
             providerOf(supervisor("rules", SupervisorHostTest::pauseOnFailure)),
             feed,
             dispatcher,
+            new SupervisedControl(null, dispatcher, null, null),
             log,
             meters,
             YuktaSettings.bind(Map.of("yukta.supervisor.buffer-size", "50")));

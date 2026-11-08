@@ -65,6 +65,7 @@ public class CommandHandler {
       // reach.
       case ExecutionControlCommand.SetLimitsCommand _ -> noProcessor();
       case ExecutionControlCommand.SetPriorityCommand _ -> noProcessor();
+      case ExecutionControlCommand.StartWorkflowCommand _ -> noProcessor();
       case ExecutionControlCommand.AnswerInputCommand c -> answerInput.process(c);
       case ExecutionControlCommand.EscalateInputCommand c -> escalateInput.process(c);
     };
