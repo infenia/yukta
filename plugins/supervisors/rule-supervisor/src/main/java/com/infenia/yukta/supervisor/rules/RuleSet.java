@@ -110,7 +110,33 @@ public record RuleSet(@Nullable Integer schemaVersion, List<Rule> rules) {
       @Nullable String workflowId,
       @JsonProperty("if") @Nullable String condition,
       @Nullable Integer count,
-      @Nullable Integer withinSeconds) {}
+      @Nullable Integer withinSeconds,
+      @Nullable String every) {
+
+    /**
+     * An event rule, without a period.
+     *
+     * @param event the event kind
+     * @param status the status to match
+     * @param module the module to match
+     * @param nodeId the node to match
+     * @param workflowId the workflow to match
+     * @param condition the condition over the facts
+     * @param count how many matches
+     * @param withinSeconds in how many seconds
+     */
+    public When(
+        final @Nullable String event,
+        final @Nullable String status,
+        final @Nullable String module,
+        final @Nullable String nodeId,
+        final @Nullable String workflowId,
+        final @Nullable String condition,
+        final @Nullable Integer count,
+        final @Nullable Integer withinSeconds) {
+      this(event, status, module, nodeId, workflowId, condition, count, withinSeconds, null);
+    }
+  }
 
   /**
    * What a rule does when it fires: send a command, or answer or escalate the input request of the
