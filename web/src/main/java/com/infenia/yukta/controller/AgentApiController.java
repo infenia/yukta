@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.agent.AgentHub;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -53,6 +54,7 @@ public class AgentApiController {
   private static final Set<String> VERDICTS = Set.of("ALLOW", "DENY", "REQUIRE_APPROVAL");
 
   private final AgentHub hub;
+  private final SupervisorHost host;
 
   /**
    * A signal on the stream.
@@ -79,7 +81,9 @@ public class AgentApiController {
    * @param cause {@code event:<id>}, {@code answers:<id>}, {@code tick} or {@code initiative}
    * @param reason why; required for a command nobody prompted
    * @param ifStatus only if the run is in this status
-   * @param command the command: {@code type}, {@code executionId} and its own fields
+   * @param command the command: {@code type}, {@code executionId} (or {@code target}: {@code
+   *     execution:<id>}, {@code workflow:<id>}, {@code owned.running} or {@code held}, at most 200
+   *     executions, each applied and audited alone) and its own fields
    */
   public record DirectiveBody(
       String key,
@@ -219,18 +223,81 @@ public class AgentApiController {
   @Operation(summary = "Send a command")
   public Mono<ApiResponse<Void>> directive(
       final ServerWebExchange exchange, @RequestBody final DirectiveBody body) {
-    final AgentHub.Channel channel = channel(supervisor(exchange));
+    final String supervisor = supervisor(exchange);
+    final AgentHub.Channel channel = channel(supervisor);
     if (body.key() == null || body.key().isBlank() || body.command() == null) {
       throw new IllegalArgumentException("A directive needs a key and a command");
     }
-    final ExecutionControlCommand command = command(body.command());
-    final Directive.Command directive =
-        new Directive.Command(
-            body.key(), command, cause(body.cause()), body.reason(), body.ifStatus());
+    final Cause cause = cause(body.cause());
+    final Map<String, Object> raw = body.command();
+    if (raw.get("executionId") == null && raw.get("target") != null) {
+      return expand(supervisor, channel, raw.get("target").toString())
+          .map(
+              ids -> {
+                for (final String id : ids) {
+                  final Map<String, Object> one = new HashMap<>(raw);
+                  one.remove("target");
+                  one.put("executionId", id);
+                  offer(
+                      channel,
+                      new Directive.Command(
+                          body.key() + "#" + id,
+                          command(one),
+                          cause,
+                          body.reason(),
+                          body.ifStatus()));
+                }
+                return ApiResponse.<Void>success(
+                    202,
+                    "Directive accepted for "
+                        + ids.size()
+                        + " executions"
+                        + (ids.size() >= SupervisorContract.SELECTOR_CAP
+                            ? " (the most allowed)"
+                            : ""),
+                    null);
+              });
+    }
+    offer(
+        channel,
+        new Directive.Command(body.key(), command(raw), cause, body.reason(), body.ifStatus()));
+    return Mono.just(ApiResponse.success(202, "Directive accepted", null));
+  }
+
+  private static void offer(final AgentHub.Channel channel, final Directive.Command directive) {
     if (!channel.offer(directive)) {
       throw new ConflictException("The supervisor is not taking directives");
     }
-    return Mono.just(ApiResponse.success(202, "Directive accepted", null));
+  }
+
+  /** The executions a selector names, at most {@link SupervisorContract#SELECTOR_CAP}. */
+  private Mono<List<String>> expand(
+      final String supervisor, final AgentHub.Channel channel, final String selector) {
+    final int cap = SupervisorContract.SELECTOR_CAP;
+    if (selector.startsWith("execution:") && selector.length() > "execution:".length()) {
+      return Mono.just(List.of(selector.substring("execution:".length())));
+    }
+    if ("held".equals(selector)) {
+      return Mono.just(host.held(supervisor).stream().limit(cap).toList());
+    }
+    if ("owned.running".equals(selector)) {
+      return channel
+          .reads()
+          .executions("RUNNING", cap)
+          .map(EngineReads.RunView::executionId)
+          .collectList();
+    }
+    if (selector.startsWith("workflow:") && selector.length() > "workflow:".length()) {
+      final String workflow = selector.substring("workflow:".length());
+      return channel
+          .reads()
+          .executions(null, cap)
+          .filter(run -> workflow.equals(run.workflowId()))
+          .map(EngineReads.RunView::executionId)
+          .collectList();
+    }
+    throw new IllegalArgumentException(
+        "target must be execution:<id>, workflow:<id>, owned.running or held");
   }
 
   /**

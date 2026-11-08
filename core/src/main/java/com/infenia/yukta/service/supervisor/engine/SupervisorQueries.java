@@ -107,6 +107,23 @@ public class SupervisorQueries {
   }
 
   /**
+   * The status of one execution.
+   *
+   * @param sessionId its session
+   * @param executionId its id
+   * @return the status name, or empty if the run is not in the history
+   */
+  public reactor.core.publisher.Mono<String> statusOf(
+      final String sessionId, final String executionId) {
+    return controlBus
+        .getHistory(sessionId)
+        .flatMapIterable(history -> history)
+        .filter(run -> executionId.equals(run.executionId()))
+        .next()
+        .map(run -> run.status().name());
+  }
+
+  /**
    * The executions of the owned workflows, newest first.
    *
    * @param scope what the supervisor owns

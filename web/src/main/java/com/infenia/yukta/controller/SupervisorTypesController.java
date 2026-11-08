@@ -25,7 +25,7 @@ import reactor.core.publisher.Mono;
 
 /** The catalog of supervisor types, like the plugin catalog. Reading needs a viewer key. */
 @RestController
-@RequestMapping("/api/supervisor-types")
+@RequestMapping({"/api/supervisor-types", "/api/supervisor-engines"})
 @RequiredArgsConstructor
 @Tag(name = "Supervisor types API", description = "The catalog of supervisor types")
 public class SupervisorTypesController {

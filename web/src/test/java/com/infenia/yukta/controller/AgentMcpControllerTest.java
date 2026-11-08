@@ -27,8 +27,10 @@ import tools.jackson.databind.ObjectMapper;
 class AgentMcpControllerTest {
 
   private final AgentHub hub = new AgentHub();
+  private final com.infenia.yukta.service.supervisor.SupervisorHost host =
+      org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.SupervisorHost.class);
   private final AgentMcpController mcp =
-      new AgentMcpController(new AgentApiController(hub), new ObjectMapper());
+      new AgentMcpController(new AgentApiController(hub, host), new ObjectMapper());
   private final List<Directive> received = new ArrayList<>();
 
   private MockServerWebExchange running() {

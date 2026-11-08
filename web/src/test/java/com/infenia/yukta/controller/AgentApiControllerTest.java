@@ -33,7 +33,9 @@ import reactor.test.StepVerifier;
 class AgentApiControllerTest {
 
   private final AgentHub hub = new AgentHub();
-  private final AgentApiController controller = new AgentApiController(hub);
+  private final com.infenia.yukta.service.supervisor.SupervisorHost host =
+      org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.SupervisorHost.class);
+  private final AgentApiController controller = new AgentApiController(hub, host);
   private final List<Directive> received = new ArrayList<>();
 
   private static MockServerWebExchange as(final String supervisor) {
@@ -264,5 +266,90 @@ class AgentApiControllerTest {
         .expectNext(3L)
         .verifyComplete();
     engine.close();
+  }
+
+  private EngineReads three() {
+    return new EngineReads() {
+      @Override
+      public Flux<RunView> executions(final @Nullable String status, final int limit) {
+        return Flux.just(
+                new RunView("s", "r1", "w", "RUNNING", null),
+                new RunView("s", "r2", "x", "RUNNING", null),
+                new RunView("s", "r3", "w", "SUCCESS", null))
+            .filter(run -> status == null || status.equals(run.status()));
+      }
+
+      @Override
+      public Flux<com.infenia.yukta.plugin.input.InputRequest> openInputs(final int limit) {
+        return Flux.empty();
+      }
+    };
+  }
+
+  private Directive.Command sent(final int index) {
+    return (Directive.Command) received.get(index);
+  }
+
+  @Test
+  void aSelectorIsExpandedToTheExecutionsItNamesEachSentAlone() {
+    running(three());
+    final Map<String, Object> pause = Map.of("type", "PauseWorkflow");
+    final java.util.function.Function<String, Map<String, Object>> aim =
+        selector -> {
+          final Map<String, Object> command = new java.util.HashMap<>(pause);
+          command.put("target", selector);
+          return command;
+        };
+
+    controller
+        .directive(
+            as("a1"),
+            new AgentApiController.DirectiveBody(
+                "k", "tick", "busy", "RUNNING", aim.apply("owned.running")))
+        .block();
+    controller
+        .directive(
+            as("a1"),
+            new AgentApiController.DirectiveBody("w", "tick", "r", null, aim.apply("workflow:w")))
+        .block();
+    controller
+        .directive(
+            as("a1"),
+            new AgentApiController.DirectiveBody("e", "tick", "r", null, aim.apply("execution:r9")))
+        .block();
+
+    assertThat(received)
+        .extracting(d -> ((Directive.Command) d).key())
+        .containsExactly("k#r1", "k#r2", "w#r1", "w#r3", "e#r9");
+    assertThat(sent(0).command()).isEqualTo(new PauseWorkflowCommand("r1"));
+    assertThat(sent(0).ifStatus()).isEqualTo("RUNNING");
+  }
+
+  @Test
+  void heldMeansWhatThisSupervisorPausedAndABadSelectorIsRefused() {
+    running(three());
+    org.mockito.Mockito.when(host.held("a1")).thenReturn(List.of("r7", "r8"));
+
+    final var response =
+        controller
+            .directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody(
+                    "h", "tick", "r", null, Map.of("type", "ResumeWorkflow", "target", "held")))
+            .block();
+
+    assertThat(response.message()).contains("2 executions");
+    assertThat(received).hasSize(2);
+    assertThatThrownBy(
+            () ->
+                controller.directive(
+                    as("a1"),
+                    new AgentApiController.DirectiveBody(
+                        "x",
+                        "tick",
+                        "r",
+                        null,
+                        Map.of("type", "PauseWorkflow", "target", "everything"))))
+        .hasMessageContaining("target must be");
   }
 }

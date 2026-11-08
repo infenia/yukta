@@ -23,6 +23,7 @@ import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.Set;
@@ -157,5 +158,96 @@ class SupervisorHostDirectivesTest {
     beans.start();
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("reason-required") == 1);
     beans.stop();
+  }
+
+  private SupervisorQueries statusIs(final String status) {
+    final SupervisorQueries queries = mock(SupervisorQueries.class);
+    when(queries.statusOf("s", "e1")).thenReturn(Mono.just(status));
+    @SuppressWarnings("unchecked")
+    final org.springframework.beans.factory.ObjectProvider<SupervisorQueries> provider =
+        mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(queries);
+    host.setQueries(provider);
+    return queries;
+  }
+
+  @Test
+  void aCommandWhoseIfStatusDoesNotMatchTheRunIsNotApplied() {
+    statusIs("PAUSED");
+    attach(
+        pausing(10),
+        new Directive.Command(
+            "k", new PauseWorkflowCommand("e1"), Cause.event("e1"), null, "RUNNING"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("precondition-failed") == 1);
+    assertThat(count("applied")).isZero();
+  }
+
+  @Test
+  void aCommandWhoseIfStatusMatchesIsAppliedAndPausedRunsAreHeld() {
+    statusIs("running");
+    attach(
+        pausing(10),
+        new Directive.Command(
+            "k", new PauseWorkflowCommand("e1"), Cause.event("e1"), null, "RUNNING"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
+    assertThat(host.held("eng")).containsExactly("e1");
+  }
+
+  @Test
+  void detachingClosesAnEngine() {
+    final boolean[] closed = {false};
+    final class Closing implements DirectiveSupervisor, AutoCloseable {
+      @Override
+      @SuppressWarnings("PMD.ShortMethodName")
+      public String id() {
+        return "unused";
+      }
+
+      @Override
+      public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
+        return Flux.never();
+      }
+
+      @Override
+      public void close() {
+        closed[0] = true;
+      }
+    }
+    host.attach(
+        Fixtures.boundSupervisor(
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Global(), true),
+            new Closing(),
+            false,
+            pausing(10)));
+    assertThat(host.detach("eng")).isTrue();
+    assertThat(closed[0]).isTrue();
+  }
+
+  @Test
+  void anEngineThatFailsToCloseStillDetaches() {
+    final class Failing implements DirectiveSupervisor, AutoCloseable {
+      @Override
+      @SuppressWarnings("PMD.ShortMethodName")
+      public String id() {
+        return "unused";
+      }
+
+      @Override
+      public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
+        return Flux.never();
+      }
+
+      @Override
+      public void close() throws Exception {
+        throw new java.io.IOException("stuck");
+      }
+    }
+    host.attach(
+        Fixtures.boundSupervisor(
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Global(), true),
+            new Failing(),
+            false,
+            pausing(10)));
+    assertThat(host.detach("eng")).isTrue();
   }
 }
