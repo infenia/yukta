@@ -65,6 +65,9 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
   /** Finds the type of a tier; {@code null} when the check is off. */
   private final @Nullable RouteResolver routes;
 
+  /** Tells who reports to whom; nobody does until the supervisors are known. */
+  private EligibleSupervisors hierarchy = EligibleSupervisors.NONE;
+
   /**
    * Creates the authoriser for requests of plugins only.
    *
@@ -107,6 +110,17 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
     this.meters = meters;
     this.proposals = proposals;
     this.routes = routes;
+  }
+
+  /**
+   * Gives the rules the hierarchy of the attached supervisors: a supervisor may approve what
+   * another sent only if it stands above it.
+   *
+   * @param supervisors the attached supervisors
+   */
+  @org.springframework.beans.factory.annotation.Autowired(required = false)
+  public void setHierarchy(final EligibleSupervisors supervisors) {
+    this.hierarchy = supervisors;
   }
 
   @Override
@@ -194,14 +208,12 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
 
   private void checkRank(
       final InputRequest request, final ActorInfo actor, final ActorInfo proposer) {
-    final SupervisorScope proposed = proposer.scope();
-    // the scope check ran before and refused a supervisor without a scope
-    if (proposed == null || !Objects.requireNonNull(actor.scope()).strictlyCovers(proposed)) {
+    if (!hierarchy.outranks(actor.id(), proposer.id())) {
       throw deny(
           request,
           RULE_RANK,
           actor,
-          "does not watch more than supervisor '" + proposer.id() + "', which sent the command");
+          "is not a parent of supervisor '" + proposer.id() + "', which sent the command");
     }
   }
 

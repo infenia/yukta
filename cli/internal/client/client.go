@@ -174,6 +174,30 @@ func APIStatus(err error) (int, bool) {
 	return 0, false
 }
 
+// IsRefusal tells whether err is a supervisor's decision about a command: the server answered 409
+// CONTROLLED_BY_SUPERVISOR or 403 CONTROL_REJECTED (the owner and the reason are in the message).
+func IsRefusal(err error) bool {
+	var ae *apiError
+	if !errors.As(err, &ae) {
+		return false
+	}
+	var env struct {
+		Errors []struct {
+			Field   string `json:"field"`
+			Message string `json:"message"`
+		} `json:"errors"`
+	}
+	if json.Unmarshal([]byte(ae.body), &env) != nil {
+		return false
+	}
+	for _, e := range env.Errors {
+		if e.Field == "code" && (e.Message == "CONTROLLED_BY_SUPERVISOR" || e.Message == "CONTROL_REJECTED") {
+			return true
+		}
+	}
+	return false
+}
+
 // maxRetryWait caps one pause, whatever Retry-After asks for.
 const maxRetryWait = 30 * time.Second
 

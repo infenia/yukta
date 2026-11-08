@@ -8,11 +8,17 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.Cause;
+import com.infenia.yukta.plugin.control.engine.Directive;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
+import com.infenia.yukta.service.runtime.ControlAudit;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.review.AttachedSupervisors;
@@ -20,9 +26,10 @@ import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.review.DryRunRecorder;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
-import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.sessionstore.InternalSessions;
-import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
+import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
+import com.infenia.yukta.service.supervisor.engine.HoldLedger;
+import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -30,10 +37,13 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -66,7 +76,12 @@ import reactor.util.retry.Retry;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 public class SupervisorHost implements DryRunRecorder {
 
   /** Events handed to the supervisor's thread at a time. */
@@ -98,6 +113,9 @@ public class SupervisorHost implements DryRunRecorder {
 
   /** Applies the commands. */
   private final DirectiveDispatcher dispatcher;
+
+  /** Applies the commands of the supervisors. */
+  private final SupervisedControl control;
 
   /** Records commands that were not applied. */
   private final ExecutionLogStore executionLog;
@@ -136,15 +154,25 @@ public class SupervisorHost implements DryRunRecorder {
   /** The supervisors attached at run time. */
   private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
 
+  /** The runs each supervisor paused. */
+  private final HoldLedger holds = new HoldLedger();
+
+  /** Reads the status of a run for {@code ifStatus}, looked up late; null where none is given. */
+  @Nullable private ObjectProvider<SupervisorQueries> queries;
+
+  /** Checks the commands of engines. */
+  private final DirectiveGate directiveGate = new DirectiveGate();
+
   /** Orders the conflicting commands of supervisors. */
-  private final CommandArbiter arbiter;
+  private final TurnAroundGuard guard;
 
   /**
    * Creates the host.
    *
    * @param supervisors the supervisors to run
    * @param feed the execution events
-   * @param dispatcher applies the commands
+   * @param dispatcher finds the target of a command
+   * @param control applies the commands
    * @param executionLog records commands that were not applied
    * @param meters registry for the command counter
    * @param properties the {@code yukta.supervisor} settings
@@ -154,6 +182,7 @@ public class SupervisorHost implements DryRunRecorder {
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
       final DirectiveDispatcher dispatcher,
+      final SupervisedControl control,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final YuktaProperties properties) {
@@ -161,42 +190,47 @@ public class SupervisorHost implements DryRunRecorder {
         supervisors,
         feed,
         dispatcher,
+        control,
         executionLog,
         meters,
         properties.supervisor().dryRun(),
         properties.supervisor().maxCommandsPerSecond(),
         properties.supervisor().bufferSize(),
-        new CommandArbiter(properties.supervisor().arbiter()));
+        new TurnAroundGuard(properties.supervisor().turnAround()));
   }
 
   /**
-   * Creates the host with an arbiter for the commands of its supervisors.
+   * Creates the host with a guard against a supervisor flapping against itself.
    *
    * @param supervisors the supervisors to host
    * @param feed the event feed
-   * @param dispatcher sends their commands
+   * @param dispatcher finds the target of a command
+   * @param control sends their commands
    * @param executionLog records what happened to their commands
    * @param meters registry for the metrics
    * @param dryRun whether commands are only recorded
    * @param maxCommandsPerSecond the command rate limit of one supervisor
    * @param bufferSize events a supervisor may have waiting
-   * @param arbiter orders conflicting commands
+   * @param guard stops a supervisor from turning a target around too often
    */
+  @SuppressWarnings("PMD.ExcessiveParameterList")
   public SupervisorHost(
       final ObjectProvider<ExecutionSupervisor> supervisors,
       final ExecutionEventFeed feed,
       final DirectiveDispatcher dispatcher,
+      final SupervisedControl control,
       final ExecutionLogStore executionLog,
       final MeterRegistry meters,
       final boolean dryRun,
       final int maxCommandsPerSecond,
       final int bufferSize,
-      final CommandArbiter arbiter) {
-    this.arbiter = arbiter;
+      final TurnAroundGuard guard) {
+    this.guard = guard;
     this.bufferSize = bufferSize;
     this.supervisors = supervisors;
     this.feed = feed;
     this.dispatcher = dispatcher;
+    this.control = control;
     this.executionLog = executionLog;
     this.meters = meters;
     this.dryRun = dryRun;
@@ -226,6 +260,30 @@ public class SupervisorHost implements DryRunRecorder {
               + e.getMessage(),
           e);
     }
+  }
+
+  /**
+   * Gives the host the reads for {@code ifStatus}.
+   *
+   * @param supervisorQueries looked up late: the queries need services that need the host
+   */
+  @Autowired
+  public void setQueries(final ObjectProvider<SupervisorQueries> supervisorQueries) {
+    this.queries = supervisorQueries;
+  }
+
+  /**
+   * The runs a supervisor paused and has not resumed.
+   *
+   * @param supervisorId the supervisor id, or the id of an attachment
+   * @return the run ids, oldest first
+   */
+  public List<String> held(final String supervisorId) {
+    final List<String> out = new ArrayList<>(holds.held(supervisorId));
+    attachedSupervisors.stream()
+        .filter(bound -> bound.attachment().supervisorId().equals(supervisorId))
+        .forEach(bound -> out.addAll(holds.held(bound.id())));
+    return out.stream().distinct().toList();
   }
 
   /**
@@ -269,9 +327,28 @@ public class SupervisorHost implements DryRunRecorder {
         subscription.dispose();
       }
       meters.find(COMMANDS_METRIC).tag("id", attachmentId).counters().forEach(meters::remove);
-      return attachedSupervisors.remove(attachmentId) != null;
+      final BoundSupervisor removed = attachedSupervisors.remove(attachmentId);
+      if (removed != null) {
+        close(removed);
+      }
+      return removed != null;
     } finally {
       lock.unlock();
+    }
+  }
+
+  /** Releases what an engine holds when its supervisor is detached. */
+  @SuppressWarnings("PMD.CloseResource") // closing it is the point; the host does not own it
+  private static void close(final BoundSupervisor removed) {
+    if (removed.delegate() instanceof AutoCloseable closeable) {
+      try {
+        closeable.close();
+      } catch (Exception e) { // NOPMD - AutoCloseable.close throws Exception; a detach goes on
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue(SUPERVISOR_KEY, removed.id())
+            .log("A supervisor did not close cleanly");
+      }
     }
   }
 
@@ -336,11 +413,11 @@ public class SupervisorHost implements DryRunRecorder {
   /**
    * Describes the supervisors that run and what they have done since startup.
    *
-   * @return one entry per supervisor, in review order
+   * @return one entry per supervisor, by id
    */
   public List<SupervisorInfo> status() {
     return Stream.concat(
-            supervisors.orderedStream().sorted(Comparator.comparingInt(ExecutionSupervisor::order)),
+            supervisors.orderedStream().sorted(Comparator.comparing(ExecutionSupervisor::id)),
             attachedSupervisors.stream().sorted(Comparator.comparing(BoundSupervisor::id)))
         .map(
             supervisor -> {
@@ -350,7 +427,6 @@ public class SupervisorHost implements DryRunRecorder {
                   supervisor.id(),
                   kind(real),
                   typeName(real.getClass()),
-                  supervisor.order(),
                   dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
                   maxCommandsPerSecond,
                   commands(supervisor.id(), "applied"),
@@ -363,18 +439,12 @@ public class SupervisorHost implements DryRunRecorder {
                   supervisor.scope() instanceof SupervisorScope.Section section
                       ? List.copyOf(section.nodes())
                       : null,
-                  commands(supervisor.id(), "arbitrated"),
-                  commands(supervisor.id(), "coalesced"),
-                  commands(supervisor.id(), "flapping-blocked"),
-                  real instanceof CompositeSupervisor composite ? composite.childIds() : null);
+                  commands(supervisor.id(), "flapping-blocked"));
             })
         .toList();
   }
 
   private static String kind(final ExecutionSupervisor real) {
-    if (real instanceof CompositeSupervisor) {
-      return "COMPOSITE";
-    }
     return real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
@@ -398,7 +468,7 @@ public class SupervisorHost implements DryRunRecorder {
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
         .addKeyValue("dryRun", recordOnly)
         .log("Starting supervisor");
-    return Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
+    return Flux.defer(() -> commandsOf(supervisor, recordOnly))
         .doOnError(
             error ->
                 log.atWarn()
@@ -413,7 +483,6 @@ public class SupervisorHost implements DryRunRecorder {
                         () ->
                             apply(
                                 supervisorId,
-                                supervisor.order(),
                                 supervisor.scope(),
                                 command,
                                 limit,
@@ -431,6 +500,123 @@ public class SupervisorHost implements DryRunRecorder {
                         }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
+  }
+
+  /**
+   * The commands of a supervisor. Those of a {@link DirectiveSupervisor} first pass the {@link
+   * DirectiveGate}: a reason and an {@code initiative} entry for a command nobody prompted, the
+   * initiative rate, and at most one application per idempotency key.
+   */
+  private Flux<ExecutionControlCommand> commandsOf(
+      final ExecutionSupervisor supervisor, final boolean recordOnly) {
+    final Flux<ExecutionEvent> events = withoutOwnOutcomes(supervisor);
+    final ExecutionSupervisor real =
+        supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
+    if (!(real instanceof DirectiveSupervisor directives)) {
+      return supervisor.supervise(events);
+    }
+    final SupervisorCapabilities capabilities =
+        supervisor instanceof BoundSupervisor bound
+            ? bound.capabilities()
+            : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
+    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
+    final Set<String> answered = Collections.newSetFromMap(new BoundedKeys());
+    return directives
+        .directives(events)
+        .concatMap(
+            directive -> {
+              if (!seen.add(directive.key())) {
+                return Mono.empty();
+              }
+              final Cause cause = directive.cause();
+              if (cause.kind() == Cause.Kind.ANSWERS && !answered.add(cause.text())) {
+                // an answer is accepted once; a second command answering the same request is not
+                return notApplied(
+                        supervisor.id(),
+                        "answer-repeated",
+                        directive.command(),
+                        "refused: " + cause.text() + " was answered before")
+                    .then(Mono.<ExecutionControlCommand>empty());
+              }
+              return gated(supervisor, directive, capabilities, recordOnly);
+            });
+  }
+
+  private Mono<ExecutionControlCommand> gated(
+      final ExecutionSupervisor supervisor,
+      final Directive.Command directive,
+      final SupervisorCapabilities capabilities,
+      final boolean recordOnly) {
+    if (supervisor instanceof BoundSupervisor
+        && supervisor.scope() instanceof SupervisorScope.Global) {
+      // an attached Global scope owns nothing (it only observes), so it commands nothing
+      return notApplied(
+              supervisor.id(),
+              "not-owned",
+              directive.command(),
+              "refused: NOT_OWNED (" + directive.cause().text() + ")")
+          .then(Mono.empty());
+    }
+    return dispatcher
+        .target(directive.command())
+        .map(t -> new DirectiveGate.Target(t.sessionId(), t.workflowId(), t.nodeId()))
+        .onErrorReturn(new DirectiveGate.Target(null, null, null))
+        .flatMap(
+            target -> {
+              final DirectiveGate.Decision decision =
+                  directiveGate.check(
+                      supervisor.id(),
+                      directive,
+                      target,
+                      capabilities,
+                      supervisor.scope(),
+                      true,
+                      recordOnly);
+              final DirectiveGate.Rejection rejection = decision.rejection();
+              if (rejection == null) {
+                return preconditionHolds(directive, target)
+                    .flatMap(
+                        holds ->
+                            holds
+                                ? Mono.just(directive.command())
+                                : notApplied(
+                                        supervisor.id(),
+                                        "precondition-failed",
+                                        directive.command(),
+                                        "the run is not in status " + directive.ifStatus())
+                                    .then(Mono.<ExecutionControlCommand>empty()));
+              }
+              return notApplied(
+                      supervisor.id(),
+                      rejection.name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                      directive.command(),
+                      "refused: " + rejection + " (" + directive.cause().text() + ")")
+                  .then(Mono.<ExecutionControlCommand>empty());
+            });
+  }
+
+  /** Whether a command's {@code ifStatus} matches the run's status now; true when it names none. */
+  private Mono<Boolean> preconditionHolds(
+      final Directive.Command directive, final DirectiveGate.Target target) {
+    final SupervisorQueries reads = queries == null ? null : queries.getIfAvailable();
+    if (directive.ifStatus() == null || reads == null || target.sessionId() == null) {
+      return Mono.just(true);
+    }
+    return reads
+        .statusOf(target.sessionId(), directive.command().executionId())
+        .map(directive.ifStatus()::equalsIgnoreCase)
+        .defaultIfEmpty(false)
+        .onErrorReturn(false);
+  }
+
+  /** The keys remembered per supervisor: the newest 1000. */
+  private static final class BoundedKeys extends LinkedHashMap<String, Boolean> {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+      return size() > 1000;
+    }
   }
 
   /**
@@ -488,7 +674,6 @@ public class SupervisorHost implements DryRunRecorder {
 
   private Mono<Void> apply(
       final String supervisorId,
-      final int order,
       final SupervisorScope scope,
       final ExecutionControlCommand command,
       final RateLimit limit,
@@ -507,11 +692,11 @@ public class SupervisorHost implements DryRunRecorder {
       // out of scope is dropped before the rate limit too, and in dry-run, so the record is the
       // same either way
       result =
-          inScope(scope, command)
+          inScope(scope, command, allowed != null)
               .flatMap(
                   inside ->
                       inside
-                          ? arbitrated(supervisorId, order, command, limit, recordOnly)
+                          ? guarded(supervisorId, command, limit, recordOnly)
                           : notApplied(
                               supervisorId,
                               OUT_OF_SCOPE,
@@ -527,33 +712,26 @@ public class SupervisorHost implements DryRunRecorder {
    * is never within a section. A target that cannot be read counts as outside.
    */
   private Mono<Boolean> inScope(
-      final SupervisorScope scope, final ExecutionControlCommand command) {
+      final SupervisorScope scope, final ExecutionControlCommand command, final boolean attached) {
+    // an attached Global scope owns nothing (it only observes); a bean supervisor keeps it all
     return scope instanceof SupervisorScope.Global
-        ? Mono.just(true)
+        ? Mono.just(!attached)
         : dispatcher
             .target(command)
             .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))
             .onErrorReturn(false);
   }
 
-  /** Lets the arbiter decide a command that can conflict, then applies it or records why not. */
-  private Mono<Void> arbitrated(
+  /** Blocks a supervisor that keeps turning a target around, else applies the command. */
+  private Mono<Void> guarded(
       final String supervisorId,
-      final int order,
       final ExecutionControlCommand command,
       final RateLimit limit,
       final boolean recordOnly) {
-    return arbiter
-        .submit(supervisorId, order, command)
-        .flatMap(
-            decision ->
-                decision.verdict() == CommandArbiter.Verdict.SEND
-                    ? limited(supervisorId, command, limit, recordOnly)
-                    : notApplied(
-                        supervisorId,
-                        decision.verdict().name().toLowerCase(Locale.ROOT).replace('_', '-'),
-                        command,
-                        decision.reason()));
+    return guard
+        .check(supervisorId, command)
+        .map(reason -> notApplied(supervisorId, "flapping-blocked", command, reason))
+        .orElseGet(() -> limited(supervisorId, command, limit, recordOnly));
   }
 
   /** Applies a command in scope, or records it in dry-run or over the rate limit. */
@@ -575,8 +753,8 @@ public class SupervisorHost implements DryRunRecorder {
   }
 
   private Mono<Void> send(final String supervisorId, final ExecutionControlCommand command) {
-    return dispatcher
-        .dispatchOrdered(command)
+    return control
+        .engine(command)
         .contextWrite(
             Context.of(
                 ControlActor.CONTEXT_KEY,
@@ -587,6 +765,7 @@ public class SupervisorHost implements DryRunRecorder {
             _ -> {
               count(supervisorId, "applied");
               decided(supervisorId, "applied", command, null);
+              holds.applied(supervisorId, command);
             })
         .onErrorResume(
             ControlAwaitingApprovalException.class,

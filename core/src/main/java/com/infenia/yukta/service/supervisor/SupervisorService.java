@@ -6,6 +6,8 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
+import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
@@ -13,6 +15,10 @@ import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
+import com.infenia.yukta.plugin.control.SupervisorPreset;
+import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
+import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
@@ -22,15 +28,24 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
+import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
+import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
 import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.runtime.ControlAudit;
-import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks;
+import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,8 +53,10 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -61,15 +78,13 @@ import reactor.util.retry.Retry;
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
-  "PMD.GodClass"
+  "PMD.GodClass",
+  "PMD.CyclomaticComplexity"
 })
 public class SupervisorService {
 
   /** Run id under which attaching and detaching is recorded. */
   public static final String AUDIT_RUN = "supervisors";
-
-  /** The type name of composite supervisors. */
-  private static final String COMPOSITE_TYPE = "composite";
 
   /** Default for {@code yukta.supervisor.max-attachments}. */
   public static final int DEFAULT_MAX_ATTACHMENTS = 200;
@@ -79,6 +94,21 @@ public class SupervisorService {
 
   /** Attaches in progress, so the limit holds when several run at once. */
   private final AtomicInteger attaching = new AtomicInteger();
+
+  /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
+  public static final String GROUPS_NOT_YET =
+      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
+          + " such as build.*";
+
+  /** Start of the messages about one supervisor. */
+  private static final String SUPERVISOR_PREFIX = "Supervisor ";
+
+  private static final String NOT_FOUND = "Supervisor not found: ";
+
+  /** Most decisions one replay returns, and how long a replay waits for a timer. */
+  private static final int REPLAY_LIMIT = 100;
+
+  private static final Duration REPLAY_WAIT = Duration.ofSeconds(2);
 
   /** Where supervisors and attachments are kept. */
   private final SupervisorStore store;
@@ -92,6 +122,9 @@ public class SupervisorService {
   /** Records attach and detach. */
   private final ExecutionLogStore executionLog;
 
+  /** The stored workflow definitions, to match selectors against real nodes; none without it. */
+  private @Nullable WorkflowDefinitionStore definitions;
+
   /** Attachments the last restore started. */
   private final AtomicInteger restored = new AtomicInteger();
 
@@ -101,11 +134,19 @@ public class SupervisorService {
   /** Tells whether this server is the leader; null on a single server. */
   @Nullable private LeaderElection election;
 
-  /** Lets composite supervisors find their children; null without the composite factory. */
+  @Nullable private AgentCredentials agentCredentials;
+
+  /** The stored supervisors, for parent lookups; null when there is none. */
   @Nullable private SupervisorResolver resolver;
 
   /** Checks workflow supervisors against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
+
+  /** What engines may read, looked up late: the queries need the service that needs this one. */
+  @Nullable private ObjectProvider<SupervisorQueries> queries;
+
+  /** The newest saved states of each supervisor. */
+  private final SupervisorVersions history = new SupervisorVersions();
 
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
@@ -224,6 +265,58 @@ public class SupervisorService {
         .register(meters);
   }
 
+  /**
+   * One owner per unit, for attachments saved before that rule: the first enabled attachment of a
+   * unit (by id) keeps it, and any other that overlaps is disabled and marked {@code conflict},
+   * with a WARN naming both. A failure to save a mark is logged and does not stop the restore; an
+   * unreadable store is retried by the caller.
+   */
+  private Mono<Void> markConflicts() {
+    final OwnershipValidator validator = new OwnershipValidator((s, w) -> Optional.empty());
+    return store
+        .attachments()
+        .filter(SupervisorAttachment::enabled)
+        .sort(Comparator.comparing(SupervisorAttachment::id))
+        .collectList()
+        .flatMapMany(
+            all -> {
+              final List<OwnershipValidator.Claim> kept = new ArrayList<>();
+              final List<SupervisorAttachment> losers = new ArrayList<>();
+              final List<OwnershipValidator.Claim> claims =
+                  all.stream()
+                      .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
+                      .toList();
+              for (int i = 0; i < all.size(); i++) {
+                final SupervisorAttachment attachment = all.get(i);
+                final var claim = claims.get(i);
+                final var conflicts = validator.conflicts(claim, kept);
+                if (conflicts.isEmpty()) {
+                  kept.add(claim);
+                } else {
+                  log.atWarn()
+                      .addKeyValue("attachment", attachment.id())
+                      .addKeyValue("conflict", conflicts.getFirst().message())
+                      .log("Attachment disabled at start-up: it overlaps one that keeps the unit");
+                  losers.add(attachment.asConflict());
+                }
+              }
+              return Flux.fromIterable(losers);
+            })
+        .concatMap(
+            marked ->
+                store
+                    .saveAttachment(marked)
+                    .onErrorResume(
+                        error -> {
+                          log.atWarn()
+                              .setCause(error)
+                              .addKeyValue("attachment", marked.id())
+                              .log("Could not mark the overlapping attachment");
+                          return Mono.empty();
+                        }))
+        .then();
+  }
+
   /** Starts the enabled attachments that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
@@ -234,7 +327,8 @@ public class SupervisorService {
     restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
-    Flux.defer(() -> refreshResolver().thenMany(store.attachments()))
+    Flux.defer(
+            () -> refreshResolver().then(markConflicts()).thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
         .concatMap(
@@ -284,6 +378,139 @@ public class SupervisorService {
   }
 
   /**
+   * Sets what engines may read.
+   *
+   * @param supervisorQueries the queries
+   */
+  @Autowired
+  public void setQueries(final ObjectProvider<SupervisorQueries> supervisorQueries) {
+    this.queries = supervisorQueries;
+  }
+
+  /**
+   * The saved states of a supervisor, newest first (the newest 20 since the server started).
+   *
+   * @param id the supervisor id
+   * @return the versions; an unknown supervisor is a {@link NotFoundException}
+   */
+  public Mono<List<SupervisorVersions.Version>> versions(final String id) {
+    return store
+        .supervisors()
+        .filter(found -> found.id().equals(id))
+        .next()
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
+        .map(found -> history.list(id));
+  }
+
+  /**
+   * What a command would have been, had the supervisor run on a past run.
+   *
+   * @param command the command type
+   * @param executionId the run it addresses
+   * @param nodeId the node, or {@code null}
+   * @param cause the cause as the audit shows it
+   * @param reason the reason it gave, or {@code null}
+   * @param allowed whether the supervisor's capabilities would let it through
+   */
+  public record ReplayDecision(
+      String command,
+      String executionId,
+      @Nullable String nodeId,
+      String cause,
+      @Nullable String reason,
+      boolean allowed) {}
+
+  /**
+   * Tries a supervisor (its stored settings, or draft settings) on the recorded events of a past
+   * run, in dry run: nothing is sent. Only statuses were recorded, so a rule on logs or input
+   * requests does not fire, and a timed rule sees nothing to read.
+   *
+   * @param id the supervisor id
+   * @param draft draft settings to try instead of the stored ones, or {@code null}
+   * @param executionId the past run
+   * @return what it would have done
+   */
+  public Mono<List<ReplayDecision>> replay(
+      final String id, final @Nullable Map<String, Object> draft, final String executionId) {
+    return store
+        .supervisors()
+        .filter(found -> found.id().equals(id))
+        .next()
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
+        .flatMap(
+            stored -> {
+              final List<ExecutionEvent> events =
+                  ReplayEvents.from(executionLog.forExecution(executionId));
+              if (events.isEmpty()) {
+                return Mono.error(
+                    new NotFoundException("No recorded events for execution " + executionId));
+              }
+              final Supervisor trial =
+                  new Supervisor(
+                      id,
+                      stored.type(),
+                      draft == null ? stored.settings() : draft,
+                      true,
+                      stored.description(),
+                      stored.parents(),
+                      stored.delegation());
+              validateAsSaved(trial);
+              final SupervisorCapabilities caps = capabilities(trial);
+              final ExecutionSupervisor made = create(trial);
+              final Flux<ReplayDecision> out =
+                  made instanceof DirectiveSupervisor directives
+                      ? directives
+                          .directives(Flux.fromIterable(events))
+                          .map(
+                              d ->
+                                  decision(
+                                      d.command(),
+                                      d.cause().text(),
+                                      d.reason(),
+                                      caps.allows(d.command())
+                                          && (!d.cause().unprompted()
+                                              || caps.mayInitiate(d.command()))))
+                      : made.supervise(Flux.fromIterable(events))
+                          .map(c -> decision(c, "event", null, caps.allows(c)));
+              return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
+            });
+  }
+
+  private static ReplayDecision decision(
+      final ExecutionControlCommand command,
+      final String cause,
+      final @Nullable String reason,
+      final boolean allowed) {
+    return new ReplayDecision(
+        command.getClass().getSimpleName(),
+        command.executionId(),
+        command.nodeId(),
+        cause,
+        reason,
+        allowed);
+  }
+
+  /**
+   * Saves an earlier state again, as a new version.
+   *
+   * @param id the supervisor id
+   * @param version the number of the state to restore
+   * @return the supervisor as restored
+   */
+  public Mono<Supervisor> rollback(final String id, final int version) {
+    return Mono.defer(
+        () ->
+            history
+                .find(id, version)
+                .map(found -> saveSupervisor(found.supervisor()))
+                .orElseGet(
+                    () ->
+                        Mono.error(
+                            new NotFoundException(
+                                "Version " + version + " of supervisor " + id + " is not kept"))));
+  }
+
+  /**
    * Creates or replaces a supervisor. Attachments that use it are restarted with the new settings.
    *
    * @param supervisor the supervisor
@@ -298,16 +525,18 @@ public class SupervisorService {
                 () ->
                     workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
         .then(Mono.fromRunnable(() -> validateAsSaved(supervisor)))
+        .then(checkParents(supervisor))
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
+        .doOnSuccess(saved -> history.record(supervisor))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
                 .attachments()
                 .filter(
                     attachment ->
-                        attachment.enabled() && usesSupervisor(attachment, supervisor.id()))
+                        attachment.enabled() && attachment.supervisorId().equals(supervisor.id()))
                 // one attachment that no longer starts must not leave the later ones on old
                 // settings
                 .concatMap(
@@ -326,46 +555,27 @@ public class SupervisorService {
         .thenReturn(supervisor);
   }
 
-  /**
-   * Validates a supervisor together with the composites above it, as the tree will be once it is
-   * saved: a child re-saved as a composite can close a cycle or nest too deep for a composite that
-   * lists it, and only the tree with the new supervisor in it shows that.
-   */
-  private void validateAsSaved(final Supervisor supervisor) {
-    if (resolver != null) {
-      resolver.tentatively(supervisor);
-    }
-    validate(supervisor);
-    if (resolver != null) {
-      for (final String compositeId : resolver.compositesUsing(supervisor.id())) {
-        resolver
-            .supervisor(compositeId)
-            .ifPresent(composite -> factory(composite).validate(composite));
-      }
-    }
-  }
-
-  /** Whether the attachment's supervisor is this one or a composite that lists it. */
-  private boolean usesSupervisor(final SupervisorAttachment attachment, final String supervisorId) {
-    return attachment.supervisorId().equals(supervisorId)
-        || resolver != null
-            && resolver.compositesUsing(supervisorId).contains(attachment.supervisorId());
-  }
-
-  /**
-   * Starts a attachment again from its own supervisor, which may be a composite of the saved one.
-   */
-  private Mono<Void> restart(final SupervisorAttachment attachment, final Supervisor saved) {
-    if (attachment.supervisorId().equals(saved.id())) {
-      start(attachment, saved);
+  /** A supervisor reports only to stored supervisors, in no cycle, at most four levels up. */
+  private Mono<Void> checkParents(final Supervisor supervisor) {
+    if (supervisor.parents().isEmpty()) {
       return Mono.empty();
     }
     return store
         .supervisors()
-        .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
-        .next()
-        .doOnNext(supervisor -> start(attachment, supervisor))
+        .collectMap(Supervisor::id)
+        .doOnNext(stored -> SupervisorHierarchy.validate(supervisor, stored))
         .then();
+  }
+
+  /** Validates the supervisor as it will be saved. */
+  private void validateAsSaved(final Supervisor supervisor) {
+    validate(supervisor);
+  }
+
+  /** Starts an attachment again with the saved supervisor. */
+  private Mono<Void> restart(final SupervisorAttachment attachment, final Supervisor saved) {
+    start(attachment, saved);
+    return Mono.empty();
   }
 
   /**
@@ -377,19 +587,44 @@ public class SupervisorService {
    */
   public Mono<Void> deleteSupervisor(final String id) {
     return refreshResolver()
-        .then(
-            Mono.defer(
-                () -> {
-                  final List<String> composites =
-                      resolver == null ? List.of() : resolver.compositesUsing(id);
-                  return composites.isEmpty()
-                      ? Mono.<Void>empty()
-                      : Mono.error(
-                          new ConflictException(
-                              "Supervisor " + id + " is a child of composite " + composites));
-                }))
+        .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
-        .then(Mono.defer(() -> deleteUnused(id)));
+        .then(Mono.defer(() -> deleteUnused(id)))
+        .doOnSuccess(
+            done -> {
+              history.forget(id);
+              // a supervisor created again under this id must not take the old credential
+              final AgentCredentials agents = agentCredentials;
+              if (agents != null) {
+                agents.revoke(id);
+              }
+            });
+  }
+
+  /**
+   * Lets a deleted supervisor's agent credential be revoked with it.
+   *
+   * @param credentials the agent credentials
+   */
+  @Autowired(required = false)
+  public void setAgentCredentials(final AgentCredentials credentials) {
+    this.agentCredentials = credentials;
+  }
+
+  /** Refuses with 409, naming them, when other supervisors report to this one. */
+  private Mono<Void> childrenCheck(final String id) {
+    return store
+        .supervisors()
+        .collectList()
+        .flatMap(
+            all -> {
+              final List<String> children = SupervisorHierarchy.childrenOf(id, all);
+              return children.isEmpty()
+                  ? Mono.<Void>empty()
+                  : Mono.error(
+                      new ConflictException(
+                          SUPERVISOR_PREFIX + id + " is the parent of " + children));
+            });
   }
 
   /** Refuses with 409, naming them, when sessions or workflows declare the supervisor. */
@@ -405,7 +640,7 @@ public class SupervisorService {
                         ? Mono.<Void>empty()
                         : Mono.error(
                             new ConflictException(
-                                "Supervisor "
+                                SUPERVISOR_PREFIX
                                     + id
                                     + " is declared by "
                                     + String.join(", ", users)
@@ -420,13 +655,12 @@ public class SupervisorService {
         .flatMap(
             used ->
                 used
-                    ? Mono.error(new ConflictException("Supervisor " + id + " is still attached"))
+                    ? Mono.error(
+                        new ConflictException(SUPERVISOR_PREFIX + id + " is still attached"))
                     : store.deleteSupervisor(id))
         .flatMap(
             existed ->
-                existed
-                    ? Mono.<Void>empty()
-                    : Mono.error(new NotFoundException("Supervisor not found: " + id)));
+                existed ? Mono.<Void>empty() : Mono.error(new NotFoundException(NOT_FOUND + id)));
   }
 
   /**
@@ -436,6 +670,22 @@ public class SupervisorService {
    */
   public Flux<SupervisorAttachment> attachments() {
     return store.attachments();
+  }
+
+  /**
+   * Lets selectors be compared with the real nodes of a workflow when ownership is checked.
+   *
+   * @param workflowDefinitions the stored definitions
+   */
+  @Autowired(required = false)
+  public void setDefinitions(final WorkflowDefinitionStore workflowDefinitions) {
+    this.definitions = workflowDefinitions;
+  }
+
+  /** Whether a scope is a section with a {@code group:} selector. */
+  public static boolean usesGroups(final SupervisorScope scope) {
+    return scope instanceof SupervisorScope.Section section
+        && section.nodes().stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX));
   }
 
   /**
@@ -451,6 +701,9 @@ public class SupervisorService {
       SupervisorIds.validate(attachment.id(), "attachment id");
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
+    }
+    if (usesGroups(attachment.scope())) {
+      return Mono.error(new IllegalArgumentException(GROUPS_NOT_YET));
     }
     if (attachment.source() == SupervisorSource.MANUAL
         && attachment.id().startsWith(DefinitionSupervisors.ID_PREFIX)) {
@@ -484,8 +737,7 @@ public class SupervisorService {
         .supervisors()
         .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
         .next()
-        .switchIfEmpty(
-            Mono.error(new NotFoundException("Supervisor not found: " + attachment.supervisorId())))
+        .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + attachment.supervisorId())))
         .flatMap(
             supervisor ->
                 store
@@ -499,6 +751,7 @@ public class SupervisorService {
                                     new ConflictException(
                                         "At most " + maxAttachments + " attachments are allowed"))
                                 : Mono.just(supervisor)))
+        .flatMap(supervisor -> requireFree(attachment).thenReturn(supervisor))
         .doOnNext(
             supervisor -> {
               if (attachment.enabled()) {
@@ -510,7 +763,7 @@ public class SupervisorService {
         .then(
             store
                 .saveAttachment(attachment)
-                .onErrorResume(error -> rollback(attachment.id()).then(Mono.error(error))))
+                .onErrorResume(error -> restoreAttachment(attachment.id()).then(Mono.error(error))))
         .then(
             audited(
                 true,
@@ -518,8 +771,67 @@ public class SupervisorService {
         .thenReturn(attachment);
   }
 
+  /**
+   * Refuses an enabled attachment whose scope would give a node, a run level or the server to two
+   * supervisors. Another supervisor's disabled attachment owns nothing, and neither does a Global
+   * one.
+   */
+  private Mono<Void> requireFree(final SupervisorAttachment attachment) {
+    if (!attachment.enabled()) {
+      return Mono.empty();
+    }
+    return store
+        .attachments()
+        .filter(other -> other.enabled() && !other.id().equals(attachment.id()))
+        .collectList()
+        .flatMap(
+            others ->
+                shapesOf(attachment, others)
+                    .map(
+                        shapes ->
+                            new OwnershipValidator(
+                                    (session, workflow) ->
+                                        Optional.ofNullable(shapes.get(session + "/" + workflow)))
+                                .conflicts(
+                                    new OwnershipValidator.Claim(
+                                        attachment.supervisorId(), attachment.scope()),
+                                    others.stream()
+                                        .map(
+                                            other ->
+                                                new OwnershipValidator.Claim(
+                                                    other.supervisorId(), other.scope()))
+                                        .toList())))
+        .flatMap(
+            conflicts ->
+                conflicts.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.<Void>error(new OwnershipConflictException(conflicts)));
+  }
+
+  /** The nodes and groups of every workflow the scopes name, so selectors match real nodes. */
+  private Mono<Map<String, WorkflowShape>> shapesOf(
+      final SupervisorAttachment attachment, final List<SupervisorAttachment> others) {
+    final WorkflowDefinitionStore definitions = this.definitions;
+    if (definitions == null) {
+      return Mono.just(Map.of());
+    }
+    return Flux.fromStream(Stream.concat(Stream.of(attachment), others.stream()))
+        .map(SupervisorAttachment::scope)
+        .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
+        .map(scope -> scope.sessionId() + "/" + scope.workflowId())
+        .distinct()
+        .concatMap(
+            key -> {
+              final int slash = key.indexOf('/');
+              return definitions
+                  .find(key.substring(0, slash), key.substring(slash + 1))
+                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+            })
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue);
+  }
+
   /** Puts the host back to what the store holds for a attachment when saving it failed. */
-  private Mono<Void> rollback(final String attachmentId) {
+  private Mono<Void> restoreAttachment(final String attachmentId) {
     return store
         .attachments()
         .filter(existing -> existing.id().equals(attachmentId))
@@ -633,9 +945,19 @@ public class SupervisorService {
   }
 
   /**
-   * The kind of a type: {@code COMPOSITE}, {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found
-   * by making a supervisor from the type's example settings; a type that cannot be made that way
-   * (it needs a model, or other supervisors) is told apart by its name.
+   * The presets of a type.
+   *
+   * @param type the type
+   * @return the presets, or empty for an unknown type
+   */
+  public Optional<List<SupervisorPreset>> presets(final String type) {
+    return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::presets);
+  }
+
+  /**
+   * The kind of a type: {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found by making a
+   * supervisor from the type's example settings; a type that cannot be made that way (it needs a
+   * model, or other supervisors) is told apart by its name.
    *
    * @param type the supervisor type
    * @return the kind
@@ -658,9 +980,7 @@ public class SupervisorService {
 
   /** The kind of a type whose example cannot be made: told apart by its name. */
   private static String kindByName(final String type) {
-    return COMPOSITE_TYPE.equals(type)
-        ? "COMPOSITE"
-        : type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
+    return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
   /**
@@ -726,6 +1046,13 @@ public class SupervisorService {
     }
     if (made instanceof AttachmentAware aware) {
       aware.bindTo(attachment.id());
+    }
+    if (made instanceof ReadsAware reading && queries != null) {
+      final SupervisorQueries reads = queries.getIfAvailable();
+      if (reads != null) {
+        reading.readsFrom(
+            reads.readsFor(attachment.scope(), () -> host.held(attachment.supervisorId())));
+      }
     }
     host.attach(
         new BoundSupervisor(

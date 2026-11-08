@@ -18,6 +18,7 @@ import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.sessionstore.InternalSessions;
@@ -107,7 +108,12 @@ class SessionServiceTest {
   void setUp() {
     sessionService =
         new SessionService(
-            configService, controlBus, workflowDefinitionStore, preparedWorkflowCache, preparator);
+            configService,
+            controlBus,
+            new SupervisedControl(controlBus, null, null, null),
+            workflowDefinitionStore,
+            preparedWorkflowCache,
+            preparator);
     lenient().when(preparator.prepareWorkflow(any())).thenReturn(Mono.empty());
   }
 
@@ -1204,6 +1210,7 @@ class SessionServiceTest {
         new SessionService(
             configs,
             mock(ControlBusGateway.class),
+            new SupervisedControl(null, null, null, null),
             mock(WorkflowDefinitionStore.class),
             mock(PreparedWorkflowCache.class),
             mock(WorkflowPreparator.class));

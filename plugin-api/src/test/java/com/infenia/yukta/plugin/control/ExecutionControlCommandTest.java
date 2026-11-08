@@ -135,6 +135,9 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.SetPriorityCommand c -> "priority-" + c.priority();
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
           case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
+          case ExecutionControlCommand.StartWorkflowCommand c -> "start-" + c.workflowId();
+          case ExecutionControlCommand.RecoverCommand c -> "recover-" + c.executionId();
+          case ExecutionControlCommand.DrainCommand c -> "drain-" + c.draining();
         };
 
     assertThat(kind).isEqualTo("pause-node");
@@ -159,6 +162,38 @@ class ExecutionControlCommandTest {
             new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"));
 
     assertThat(all).extracting(ExecutionControlCommand::executionId).containsOnly("e");
+  }
+
+  @Test
+  void recoverNamesTheAbortedRunAndDrainBelongsToNoRun() {
+    assertThat(new ExecutionControlCommand.RecoverCommand("old").executionId()).isEqualTo("old");
+    final var drain = new ExecutionControlCommand.DrainCommand(true);
+    assertThat(drain.executionId()).isEqualTo(ExecutionControlCommand.SCHEDULER);
+    assertThat(drain.draining()).isTrue();
+  }
+
+  @Test
+  void startBelongsToNoRunYet() {
+    final var start = new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null);
+    assertThat(start.executionId()).isEqualTo(ExecutionControlCommand.START);
+    assertThat(start.nodeId()).isNull();
+  }
+
+  @Test
+  void startPayloadIsCopiedReadOnlyAndMayHoldNullValues() {
+    final java.util.Map<String, Object> payload = new java.util.HashMap<>();
+    payload.put("a", null);
+    final ExecutionControlCommand.StartWorkflowCommand start =
+        new ExecutionControlCommand.StartWorkflowCommand("s", "w", payload, "k");
+    payload.put("b", 1);
+
+    assertThat(start.payload()).containsOnlyKeys("a");
+    assertThat(start.payload()).containsEntry("a", null);
+    assertThatThrownBy(() -> start.payload().put("c", 2))
+        .isInstanceOf(UnsupportedOperationException.class);
+    assertThat(start.idempotencyKey()).isEqualTo("k");
+    assertThat(new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null).payload())
+        .isEmpty();
   }
 
   @Test

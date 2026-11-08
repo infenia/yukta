@@ -12,7 +12,6 @@ import org.jspecify.annotations.Nullable;
  * @param id the id in the audit log
  * @param kind {@code CONTROL_PLANE} for a control-plane plugin, otherwise {@code SUPERVISOR}
  * @param type the implementing class
- * @param order the review order, lowest first
  * @param dryRun whether its commands are only recorded
  * @param maxCommandsPerSecond how many commands it may issue per second
  * @param applied commands applied since startup
@@ -25,11 +24,7 @@ import org.jspecify.annotations.Nullable;
  * @param scopeWorkflowId the workflow it is limited to, or {@code null}
  * @param scopeNodes the node selectors of a {@code SECTION} scope (node ids and {@code
  *     <prefix>.*}), or {@code null} for any other scope
- * @param arbitrated conflicting commands the arbiter dropped in favour of another supervisor
- * @param coalesced commands merged into an equal one from another supervisor
  * @param flappingBlocked commands blocked because the supervisor kept turning a target around
- * @param children for a {@code COMPOSITE}, the supervisor ids of its children, otherwise {@code
- *     null}
  */
 @SuppressFBWarnings(
     value = "EI_EXPOSE_REP",
@@ -38,7 +33,6 @@ public record SupervisorInfo(
     String id,
     String kind,
     String type,
-    int order,
     boolean dryRun,
     int maxCommandsPerSecond,
     long applied,
@@ -49,10 +43,7 @@ public record SupervisorInfo(
     @Nullable String scopeSessionId,
     @Nullable String scopeWorkflowId,
     @Nullable List<String> scopeNodes,
-    long arbitrated,
-    long coalesced,
-    long flappingBlocked,
-    @Nullable List<String> children) {
+    long flappingBlocked) {
 
   /**
    * Keeps an immutable copy of the selectors.
@@ -60,7 +51,6 @@ public record SupervisorInfo(
    * @param id the id in the audit log
    * @param kind the kind
    * @param type the implementing class
-   * @param order the review order
    * @param dryRun whether its commands are only recorded
    * @param maxCommandsPerSecond how many commands it may issue per second
    * @param applied commands applied
@@ -71,17 +61,11 @@ public record SupervisorInfo(
    * @param scopeSessionId the session, or {@code null}
    * @param scopeWorkflowId the workflow, or {@code null}
    * @param scopeNodes the selectors of a section, or {@code null}
-   * @param arbitrated commands lost to another supervisor
-   * @param coalesced commands merged into an equal one
    * @param flappingBlocked commands blocked by the flap guard
-   * @param children the child supervisor ids of a composite, or {@code null}
    */
   public SupervisorInfo {
     if (scopeNodes != null) {
       scopeNodes = List.copyOf(scopeNodes);
-    }
-    if (children != null) {
-      children = List.copyOf(children);
     }
   }
 }

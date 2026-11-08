@@ -116,6 +116,14 @@ class SupervisorTypesControllerTest {
   }
 
   @Test
+  void presetsOfKnownTypeAreListedAndUnknownTypeIsNotFound() {
+    StepVerifier.create(controller.presets("demo-control-plane"))
+        .assertNext(r -> assertThat(r.data()).isEmpty())
+        .verifyComplete();
+    StepVerifier.create(controller.presets("nope")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
   void usageListsTheSupervisorsOfTheType() {
     StepVerifier.create(
             store.saveSupervisor(

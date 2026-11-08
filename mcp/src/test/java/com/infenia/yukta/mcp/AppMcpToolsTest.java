@@ -341,7 +341,7 @@ class AppMcpToolsTest {
   void whoami_delegatesToTheHealthProvider() {
     final WhoamiResult who =
         new WhoamiResult(
-            true, "alice", "OPERATOR", null, true, java.util.Map.of("startRuns", true));
+            true, "alice", "OPERATOR", null, true, java.util.Map.of("startRuns", true), null);
     when(systemHealthProvider.whoami()).thenReturn(Mono.just(who));
 
     StepVerifier.create(mcpTools.whoami()).expectNext(who).verifyComplete();

@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.input.route;
 
 import com.infenia.yukta.model.input.Tier;
-import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import java.util.ArrayList;
@@ -23,34 +22,36 @@ import lombok.experimental.UtilityClass;
 public class TierTargets {
 
   /** The selector for supervisors that watch more than a reference supervisor. */
-  public static final String ABOVE = "supervisor:above";
+  public static final String PARENT = "supervisor:parent";
 
   private static final String ANY = "supervisor:*";
 
   private static final String PREFIX = "supervisor:";
 
   /**
-   * The selectors a request in this tier carries: {@code supervisor:above} is replaced by one
-   * {@code supervisor:<id>} for each supervisor above the references; a tier that asks for it and
-   * finds none keeps no such selector.
+   * The selectors a request in this tier carries: {@code supervisor:parent} is replaced by one
+   * {@code supervisor:<id>} for each parent of the askers that watches the request; a tier that
+   * asks for it and finds none keeps no such selector.
    *
    * @param request the request, which says which node it is about
    * @param tier the tier
    * @param bound the attached supervisors
-   * @param references the scopes the supervisors must strictly cover
+   * @param askers the supervisors whose parents are asked
    * @return the selectors, without duplicates
    */
   public static List<String> selectors(
       final InputRequest request,
       final Tier tier,
       final EligibleSupervisors bound,
-      final List<SupervisorScope> references) {
+      final List<String> askers) {
     final Set<String> out = new LinkedHashSet<>();
+    final Set<String> parents = new LinkedHashSet<>();
+    askers.forEach(asker -> parents.addAll(bound.parentsOf(asker)));
     for (final String selector : tier.responders()) {
-      if (ABOVE.equals(selector)) {
+      if (PARENT.equals(selector)) {
         bound.bound().stream()
+            .filter(c -> parents.contains(c.id()))
             .filter(c -> watches(c, request) && bound.mayReceive(c, request))
-            .filter(c -> references.stream().anyMatch(c.scope()::strictlyCovers))
             .forEach(c -> out.add(PREFIX + c.id()));
       } else {
         out.add(selector);

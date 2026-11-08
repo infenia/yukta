@@ -6,9 +6,13 @@ import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
+import com.infenia.yukta.plugin.control.engine.Cause;
+import com.infenia.yukta.plugin.control.engine.Directive;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
+import com.infenia.yukta.plugin.control.engine.EngineReads;
+import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.supervisor.rules.RuleSet.Deny;
@@ -31,6 +35,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,7 +66,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 @SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 @ConditionalOnProperty("yukta.supervisor.rules.file")
-public final class RuleSupervisor implements ExecutionSupervisor {
+public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
 
   /** Identifies this supervisor in the audit log. */
   public static final String SUPERVISOR_ID = "rules";
@@ -122,6 +128,12 @@ public final class RuleSupervisor implements ExecutionSupervisor {
 
   /** The rules that react to events. */
   private final List<EventRule> eventRules = new ArrayList<>();
+
+  /** Rules with an {@code every}, run on a timer. */
+  private final List<EventRule> timedRules = new ArrayList<>();
+
+  /** What the rules may read; nothing until the supervisor is attached. */
+  private final AtomicReference<EngineReads> reads = new AtomicReference<>(EngineReads.NONE);
 
   /** The rules that refuse commands. */
   private final List<DenyRule> denyRules = new ArrayList<>();
@@ -237,6 +249,8 @@ public final class RuleSupervisor implements ExecutionSupervisor {
       denyRules.add(new DenyRule(ruleId, deny));
     } else if (when == null || then == null) {
       throw new IllegalArgumentException("Rule '" + ruleId + "' needs both when and then");
+    } else if (when.every() != null) {
+      timedRules.add(timed(ruleId, when, then));
     } else {
       eventRules.add(new EventRule(ruleId, when, then));
     }
@@ -281,8 +295,97 @@ public final class RuleSupervisor implements ExecutionSupervisor {
   }
 
   @Override
-  public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
-    return events.concatMapIterable(this::react);
+  public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
+    final AtomicLong seq = new AtomicLong();
+    final Flux<Directive.Command> reactions =
+        events.concatMapIterable(
+            event -> {
+              final long n = seq.incrementAndGet();
+              final List<Directive.Command> out = new ArrayList<>();
+              for (final Fired fired : react(event)) {
+                out.add(
+                    new Directive.Command(
+                        fired.rule().ruleId() + ":" + n + ":" + out.size(),
+                        fired.command(),
+                        Cause.event("e" + n),
+                        fired.rule().reason(),
+                        null));
+              }
+              return out;
+            });
+    return Flux.merge(reactions, Flux.merge(timedRules.stream().map(this::ticking).toList()));
+  }
+
+  @Override
+  public void readsFrom(final EngineReads engineReads) {
+    reads.set(engineReads);
+  }
+
+  private static EventRule timed(final String ruleId, final When when, final Then then) {
+    if (when.event() != null || then.command() == null) {
+      throw new IllegalArgumentException(
+          "Rule '" + ruleId + "' has every, so it needs a command and no event");
+    }
+    if (then.reason() == null || then.reason().isBlank()) {
+      throw new IllegalArgumentException(
+          "Rule '" + ruleId + "' has every, so it acts on its own and needs a reason");
+    }
+    period(ruleId, when.every());
+    return new EventRule(ruleId, when, then);
+  }
+
+  /** Reads {@code 30s}, {@code 5m} or {@code 2h}; at least one second. */
+  /* default */ static java.time.Duration period(final String ruleId, final String text) {
+    final java.util.regex.Matcher match =
+        java.util.regex.Pattern.compile("(\\d{1,6})([smh])").matcher(text.strip());
+    if (!match.matches()) {
+      throw new IllegalArgumentException(
+          "Rule '" + ruleId + "' has an every of '" + text + "'; use 30s, 5m or 2h");
+    }
+    final long amount = Long.parseLong(match.group(1));
+    final java.time.Duration period =
+        switch (match.group(2)) {
+          case "s" -> java.time.Duration.ofSeconds(amount);
+          case "m" -> java.time.Duration.ofMinutes(amount);
+          default -> java.time.Duration.ofHours(amount);
+        };
+    if (period.compareTo(java.time.Duration.ofSeconds(1)) < 0) {
+      throw new IllegalArgumentException("Rule '" + ruleId + "' has an every under one second");
+    }
+    return period;
+  }
+
+  /** The commands of a timed rule, one tick at a time, over the runs the supervisor owns. */
+  private Flux<Directive.Command> ticking(final EventRule rule) {
+    return Flux.interval(period(rule.ruleId(), rule.every()))
+        .concatMap(
+            tick ->
+                reads
+                    .get()
+                    .executions(null, ReadCounts.MAX_RUNS)
+                    .collectList()
+                    .flatMapIterable(runs -> fireOnTick(rule, tick, runs)));
+  }
+
+  private List<Directive.Command> fireOnTick(
+      final EventRule rule, final long tick, final List<EngineReads.RunView> runs) {
+    final Map<String, Object> facts = Map.of("read", new ReadCounts(runs));
+    final List<Directive.Command> out = new ArrayList<>();
+    for (final EngineReads.RunView run : runs) {
+      final ExecutionEvent probe =
+          new ExecutionEvent.WorkflowStatusChanged(
+              run.executionId(), run.sessionId(), run.workflowId(), run.status(), clock.instant());
+      if (rule.matches(probe, 0, facts)) {
+        out.add(
+            new Directive.Command(
+                rule.ruleId() + ":tick" + tick + ":" + run.executionId(),
+                rule.command(probe, UUID.randomUUID().toString()),
+                Cause.tick(),
+                rule.reason(),
+                run.status()));
+      }
+    }
+    return out;
   }
 
   @Override
@@ -314,8 +417,10 @@ public final class RuleSupervisor implements ExecutionSupervisor {
         });
   }
 
-  private List<ExecutionControlCommand> react(final ExecutionEvent event) {
-    final List<ExecutionControlCommand> commands = new ArrayList<>();
+  private record Fired(EventRule rule, ExecutionControlCommand command) {}
+
+  private List<Fired> react(final ExecutionEvent event) {
+    final List<Fired> commands = new ArrayList<>();
     for (final EventRule rule : eventRules) {
       final int attempt = attempts.getOrDefault(event.executionId(), 0);
       if (rule.matches(event, attempt) && countReached(rule, event)) {
@@ -323,7 +428,7 @@ public final class RuleSupervisor implements ExecutionSupervisor {
         if (rule.restarts()) {
           attempts.put(newExecutionId, attempt + 1);
         }
-        commands.add(rule.command(event, newExecutionId));
+        commands.add(new Fired(rule, rule.command(event, newExecutionId)));
       }
     }
     return commands;

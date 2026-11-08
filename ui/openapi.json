@@ -31,6 +31,51 @@
         },
         "type" : "object"
       },
+      "AnswerBody" : {
+        "properties" : {
+          "answer" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
+      "AnswerInputCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "confidence" : {
+              "format" : "double",
+              "type" : [ "number", "null" ]
+            },
+            "data" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "decision" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "expectedVersion" : {
+              "format" : "int64",
+              "type" : [ "integer", "null" ]
+            },
+            "rationale" : {
+              "type" : [ "string", "null" ]
+            },
+            "requestId" : {
+              "type" : "string"
+            },
+            "text" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "ApiResponseAttachmentView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -251,6 +296,49 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/InputRequestView",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseIssuedView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/IssuedView",
             "description" : "The response data"
           },
           "error" : {
@@ -565,6 +653,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListInputRequest" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/InputRequest"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListInputRequestView" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -664,6 +798,98 @@
             "description" : "The response data",
             "items" : {
               "$ref" : "#/components/schemas/ModuleRow"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListReplayDecision" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/ReplayDecision"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseListRunView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/RunView"
             },
             "type" : "array"
           },
@@ -887,6 +1113,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListSupervisorPreset" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/SupervisorPreset"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListSupervisorTypeSummary" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -1071,6 +1343,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListVersionView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/VersionView"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListWorkerInfo" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -1172,6 +1490,52 @@
               "$ref" : "#/components/schemas/WorkflowSummary"
             },
             "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseMapStringCapability" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/Capability"
+            },
+            "description" : "The response data",
+            "type" : "object"
           },
           "error" : {
             "description" : "The HTTP status error name",
@@ -1517,6 +1881,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseOwnership" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Ownership",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseProjectPathCheck" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -1565,6 +1972,49 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SchedulerLimits",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSelfView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SelfView",
             "description" : "The response data"
           },
           "error" : {
@@ -1694,6 +2144,92 @@
         "properties" : {
           "data" : {
             "$ref" : "#/components/schemas/SessionDetails",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSignalBatch" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SignalBatch",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseSnapshotView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/SnapshotView",
             "description" : "The response data"
           },
           "error" : {
@@ -2362,6 +2898,20 @@
         },
         "type" : "object"
       },
+      "Capability" : {
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "via" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Catalog" : {
         "properties" : {
           "series" : {
@@ -2509,6 +3059,106 @@
         },
         "type" : "object"
       },
+      "ControlOutcome" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "actor" : {
+              "type" : "string"
+            },
+            "applied" : {
+              "type" : "boolean"
+            },
+            "channel" : {
+              "type" : "string"
+            },
+            "command" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "reason" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "ControlRequest" : {
+        "properties" : {
+          "actor" : {
+            "type" : "string"
+          },
+          "command" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/AnswerInputCommand"
+            }, {
+              "$ref" : "#/components/schemas/DisableStepModeCommand"
+            }, {
+              "$ref" : "#/components/schemas/DrainCommand"
+            }, {
+              "$ref" : "#/components/schemas/EnableStepModeCommand"
+            }, {
+              "$ref" : "#/components/schemas/EscalateInputCommand"
+            }, {
+              "$ref" : "#/components/schemas/PauseNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/PauseWorkflowCommand"
+            }, {
+              "$ref" : "#/components/schemas/RecoverCommand"
+            }, {
+              "$ref" : "#/components/schemas/RestartCommand"
+            }, {
+              "$ref" : "#/components/schemas/RestartFromNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/ResumeNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/ResumeWorkflowCommand"
+            }, {
+              "$ref" : "#/components/schemas/SetBreakpointCommand"
+            }, {
+              "$ref" : "#/components/schemas/SetLimitsCommand"
+            }, {
+              "$ref" : "#/components/schemas/SetPriorityCommand"
+            }, {
+              "$ref" : "#/components/schemas/SkipNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/StartWorkflowCommand"
+            }, {
+              "$ref" : "#/components/schemas/StepNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/StopNodeCommand"
+            }, {
+              "$ref" : "#/components/schemas/StopWorkflowCommand"
+            } ]
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Counts" : {
         "properties" : {
           "failed" : {
@@ -2540,6 +3190,101 @@
           }
         },
         "type" : "object"
+      },
+      "Delegated" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Signal"
+        }, {
+          "properties" : {
+            "delegation" : {
+              "enum" : [ "APPROVAL", "INPUT", "CONSULT" ],
+              "type" : "string"
+            },
+            "fromSupervisor" : {
+              "type" : "string"
+            },
+            "id" : {
+              "type" : "string"
+            },
+            "payload" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "DelegationBody" : {
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "timeoutSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DelegationView" : {
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "timeoutSeconds" : {
+            "format" : "int64",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "DirectiveBody" : {
+        "properties" : {
+          "cause" : {
+            "type" : "string"
+          },
+          "command" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "ifStatus" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "DisableStepModeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "DrainCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "draining" : {
+              "type" : "boolean"
+            }
+          },
+          "type" : "object"
+        } ]
       },
       "Edge" : {
         "description" : "A connection between two nodes",
@@ -2604,6 +3349,21 @@
         },
         "type" : "object"
       },
+      "EnableStepModeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "EnabledBody" : {
         "properties" : {
           "enabled" : {
@@ -2612,6 +3372,84 @@
         },
         "type" : "object"
       },
+      "EscalateInputCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "advice" : {
+              "type" : [ "string", "null" ]
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "reason" : {
+              "type" : "string"
+            },
+            "requestId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Event" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Signal"
+        }, {
+          "properties" : {
+            "cursor" : {
+              "type" : "string"
+            },
+            "event" : {
+              "oneOf" : [ {
+                "$ref" : "#/components/schemas/ControlOutcome"
+              }, {
+                "$ref" : "#/components/schemas/EventsMissed"
+              }, {
+                "$ref" : "#/components/schemas/InputAnswered"
+              }, {
+                "$ref" : "#/components/schemas/InputCancelled"
+              }, {
+                "$ref" : "#/components/schemas/InputEscalated"
+              }, {
+                "$ref" : "#/components/schemas/InputExpired"
+              }, {
+                "$ref" : "#/components/schemas/InputRequested"
+              }, {
+                "$ref" : "#/components/schemas/LogLine"
+              }, {
+                "$ref" : "#/components/schemas/NodeStatusChanged"
+              }, {
+                "$ref" : "#/components/schemas/WorkflowStatusChanged"
+              } ]
+            },
+            "id" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "EventsMissed" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "count" : {
+              "format" : "int64",
+              "type" : "integer"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "ExecutionControlCommand" : { },
+      "ExecutionEvent" : { },
       "ExecutionResults" : {
         "properties" : {
           "complete" : {
@@ -2812,6 +3650,71 @@
         },
         "type" : "object"
       },
+      "InputAnswered" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "decision" : {
+              "type" : "string"
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "requestId" : {
+              "type" : "string"
+            },
+            "responder" : {
+              "$ref" : "#/components/schemas/Responder"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InputCancelled" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "reason" : {
+              "type" : "string"
+            },
+            "requestId" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "InputEscalateRequest" : {
         "description" : "Hands an input request up to the next tier",
         "properties" : {
@@ -2832,12 +3735,190 @@
         "required" : [ "reason" ],
         "type" : "object"
       },
+      "InputEscalated" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "reason" : {
+              "type" : "string"
+            },
+            "request" : {
+              "$ref" : "#/components/schemas/InputRequest"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InputExpired" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "requestId" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "InputOption" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "InputOptionView" : {
         "properties" : {
           "id" : {
             "type" : "string"
           },
           "label" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputRequest" : {
+        "properties" : {
+          "advice" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "deadline" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "spec" : {
+            "$ref" : "#/components/schemas/InputRequestSpec"
+          },
+          "state" : {
+            "enum" : [ "OPEN", "ESCALATED", "ANSWERED", "EXPIRED", "CANCELLED" ],
+            "type" : "string"
+          },
+          "targets" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "tier" : {
+            "type" : "string"
+          },
+          "tierDeadline" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "version" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "votes" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Vote"
+            },
+            "type" : "array"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputRequestSpec" : {
+        "properties" : {
+          "audience" : {
+            "$ref" : "#/components/schemas/Audience"
+          },
+          "context" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "defaultDecision" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "enum" : [ "APPROVAL", "CHOICE", "TEXT", "STRUCTURED", "QUERY" ],
+            "type" : "string"
+          },
+          "onTimeout" : {
+            "enum" : [ "FAIL", "USE_DEFAULT", "ESCALATE" ],
+            "type" : "string"
+          },
+          "options" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InputOption"
+            },
+            "type" : "array"
+          },
+          "prompt" : {
+            "type" : "string"
+          },
+          "requester" : {
+            "type" : "string"
+          },
+          "responseSchema" : {
+            "type" : "string"
+          },
+          "risk" : {
+            "enum" : [ "LOW", "MEDIUM", "HIGH" ],
+            "type" : "string"
+          },
+          "routeName" : {
+            "type" : "string"
+          },
+          "ttl" : {
+            "format" : "duration",
             "type" : "string"
           }
         },
@@ -2925,6 +4006,34 @@
             "type" : "integer"
           },
           "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "InputRequested" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "request" : {
+              "$ref" : "#/components/schemas/InputRequest"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "IssuedView" : {
+        "properties" : {
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "token" : {
             "type" : "string"
           }
         },
@@ -3058,6 +4167,38 @@
           }
         },
         "type" : "object"
+      },
+      "LogLine" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "level" : {
+              "enum" : [ "DEBUG", "INFO", "WARN", "ERROR" ],
+              "type" : "string"
+            },
+            "line" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
       },
       "MetricSample" : {
         "properties" : {
@@ -3193,6 +4334,41 @@
         "required" : [ "nodeId", "type" ],
         "type" : "object"
       },
+      "NodeStatusChanged" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "metadata" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "module" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "status" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "Nodes" : {
         "description" : "How far a run got through its nodes",
         "properties" : {
@@ -3223,6 +4399,56 @@
           }
         },
         "type" : "object"
+      },
+      "Ownership" : {
+        "properties" : {
+          "defaultSupervisor" : {
+            "type" : "boolean"
+          },
+          "nodes" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "type" : "object"
+          },
+          "run" : {
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "PauseNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "PauseWorkflowCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
       },
       "Permissions" : {
         "properties" : {
@@ -3286,6 +4512,98 @@
         "required" : [ "projectPath" ],
         "type" : "object"
       },
+      "RecoverCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "ReplayBody" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          }
+        },
+        "type" : "object"
+      },
+      "ReplayDecision" : {
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "cause" : {
+            "type" : "string"
+          },
+          "command" : {
+            "type" : "string"
+          },
+          "executionId" : {
+            "type" : "string"
+          },
+          "nodeId" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Responder" : {
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "type" : {
+            "enum" : [ "SUPERVISOR", "HUMAN", "EXTERNAL", "SYSTEM" ],
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "RestartCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "newExecutionId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "RestartFromNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "fromNodeId" : {
+              "type" : "string"
+            },
+            "newExecutionId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "ResultEvent" : {
         "properties" : {
           "kind" : {
@@ -3309,6 +4627,73 @@
           },
           "truncated" : {
             "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "ResumeNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "ResumeWorkflowCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Review" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Signal"
+        }, {
+          "properties" : {
+            "id" : {
+              "type" : "string"
+            },
+            "request" : {
+              "$ref" : "#/components/schemas/ControlRequest"
+            },
+            "timeout" : {
+              "format" : "duration",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "RunView" : {
+        "properties" : {
+          "executionId" : {
+            "type" : "string"
+          },
+          "sessionId" : {
+            "type" : "string"
+          },
+          "startTime" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -3338,6 +4723,21 @@
         },
         "type" : "object"
       },
+      "SelfView" : {
+        "properties" : {
+          "connected" : {
+            "type" : "boolean"
+          },
+          "contract" : {
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "supervisor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "Series" : {
         "properties" : {
           "range" : {
@@ -3359,6 +4759,7 @@
       "ServerSentEventLogEntryResponse" : { },
       "ServerSentEventMetricSample" : { },
       "ServerSentEventResultEvent" : { },
+      "ServerSentEventSignalEnvelope" : { },
       "ServerSentEventString" : { },
       "ServerSentEventWorkflowProgress" : { },
       "SessionConfigResponse" : {
@@ -3495,6 +4896,146 @@
         },
         "type" : "object"
       },
+      "SetBreakpointCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "equalsValue" : {
+              "type" : [ "string", "null" ]
+            },
+            "executionId" : {
+              "type" : "string"
+            },
+            "field" : {
+              "type" : [ "string", "null" ]
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SetLimitsCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "maxConcurrent" : {
+              "format" : "int32",
+              "type" : "integer"
+            },
+            "maxPerWorkflow" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SetPriorityCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "priority" : {
+              "format" : "int32",
+              "type" : "integer"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Signal" : { },
+      "SignalBatch" : {
+        "properties" : {
+          "cursor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "signals" : {
+            "items" : {
+              "$ref" : "#/components/schemas/SignalEnvelope"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
+      "SignalEnvelope" : {
+        "properties" : {
+          "cursor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "signal" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Delegated"
+            }, {
+              "$ref" : "#/components/schemas/Event"
+            }, {
+              "$ref" : "#/components/schemas/Review"
+            }, {
+              "$ref" : "#/components/schemas/Started"
+            }, {
+              "$ref" : "#/components/schemas/Tick"
+            } ]
+          }
+        },
+        "type" : "object"
+      },
+      "SkipNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            },
+            "skip" : {
+              "type" : "boolean"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "SnapshotView" : {
+        "properties" : {
+          "cursor" : {
+            "format" : "int64",
+            "type" : "integer"
+          },
+          "executions" : {
+            "items" : {
+              "$ref" : "#/components/schemas/RunView"
+            },
+            "type" : "array"
+          },
+          "held" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "inputs" : {
+            "items" : {
+              "$ref" : "#/components/schemas/InputRequest"
+            },
+            "type" : "array"
+          }
+        },
+        "type" : "object"
+      },
       "StartOptions" : {
         "properties" : {
           "empty" : {
@@ -3510,8 +5051,124 @@
         },
         "type" : "object"
       },
+      "StartWorkflowCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "idempotencyKey" : {
+              "type" : [ "string", "null" ]
+            },
+            "payload" : {
+              "additionalProperties" : { },
+              "type" : "object"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "Started" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Signal"
+        }, {
+          "properties" : {
+            "cursor" : {
+              "type" : "string"
+            },
+            "executions" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "held" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "openInputs" : {
+              "items" : {
+                "type" : "string"
+              },
+              "type" : "array"
+            },
+            "reason" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "StepNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "StopNodeCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "immediate" : {
+              "type" : "boolean"
+            },
+            "nodeId" : {
+              "type" : [ "string", "null" ]
+            },
+            "reason" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "StopWorkflowCommand" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionControlCommand"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "mode" : {
+              "enum" : [ "DRAIN", "CANCEL", "KILL" ],
+              "type" : [ "string", "null" ]
+            },
+            "reason" : {
+              "type" : [ "string", "null" ]
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "SupervisorBody" : {
         "properties" : {
+          "delegation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DelegationBody"
+            },
+            "type" : "object"
+          },
           "description" : {
             "type" : "string"
           },
@@ -3520,6 +5177,12 @@
           },
           "id" : {
             "type" : "string"
+          },
+          "parents" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "settings" : {
             "additionalProperties" : { },
@@ -3561,20 +5224,6 @@
             "format" : "int64",
             "type" : "integer"
           },
-          "arbitrated" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
-          "children" : {
-            "items" : {
-              "type" : "string"
-            },
-            "type" : "array"
-          },
-          "coalesced" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
           "dryRun" : {
             "type" : "boolean"
           },
@@ -3589,10 +5238,6 @@
             "type" : "string"
           },
           "maxCommandsPerSecond" : {
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "order" : {
             "format" : "int32",
             "type" : "integer"
           },
@@ -3625,6 +5270,21 @@
           },
           "type" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "SupervisorPreset" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "settings" : {
+            "additionalProperties" : { },
+            "type" : "object"
           }
         },
         "type" : "object"
@@ -3754,6 +5414,13 @@
             "format" : "int32",
             "type" : "integer"
           },
+          "delegation" : {
+            "additionalProperties" : {
+              "$ref" : "#/components/schemas/DelegationView"
+            },
+            "description" : "How each kind of delegation (APPROVAL, INPUT, CONSULT) is asked of the parents",
+            "type" : "object"
+          },
           "description" : {
             "type" : "string"
           },
@@ -3762,6 +5429,13 @@
           },
           "id" : {
             "type" : "string"
+          },
+          "parents" : {
+            "description" : "The supervisors it reports to, in the order they are asked",
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "rateLimited" : {
             "format" : "int64",
@@ -3865,6 +5539,19 @@
         },
         "type" : "object"
       },
+      "Tick" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/Signal"
+        }, {
+          "properties" : {
+            "at" : {
+              "format" : "date-time",
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "TokenAnswerRequest" : {
         "description" : "An answer sent with the one-time token of a delivery",
         "properties" : {
@@ -3943,6 +5630,52 @@
             "type" : "string"
           },
           "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "VerdictBody" : {
+        "properties" : {
+          "reason" : {
+            "type" : "string"
+          },
+          "verdict" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "VersionView" : {
+        "properties" : {
+          "savedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "supervisor" : {
+            "$ref" : "#/components/schemas/SupervisorView"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "Vote" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "confidence" : {
+            "format" : "double",
+            "type" : "number"
+          },
+          "decision" : {
+            "type" : "string"
+          },
+          "voter" : {
             "type" : "string"
           }
         },
@@ -4432,6 +6165,31 @@
         },
         "type" : "object"
       },
+      "WorkflowStatusChanged" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/ExecutionEvent"
+        }, {
+          "properties" : {
+            "executionId" : {
+              "type" : "string"
+            },
+            "sessionId" : {
+              "type" : "string"
+            },
+            "status" : {
+              "type" : "string"
+            },
+            "timestamp" : {
+              "format" : "date-time",
+              "type" : "string"
+            },
+            "workflowId" : {
+              "type" : "string"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "WorkflowStopResponse" : {
         "description" : "Response object for stopping workflow executions",
         "properties" : {
@@ -4591,10 +6349,316 @@
         "tags" : [ "Execution Control API" ]
       }
     },
+    "/api/agent/v1/delegations/{id}" : {
+      "post" : {
+        "operationId" : "delegation",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AnswerBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Answer a delegation",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/directives" : {
+      "post" : {
+        "operationId" : "directive",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DirectiveBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Send a command",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/events" : {
+      "get" : {
+        "operationId" : "events",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "default" : -1,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "text/event-stream" : {
+                "schema" : {
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServerSentEventSignalEnvelope"
+                  },
+                  "type" : "array"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stream the signals of the supervisor",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/executions" : {
+      "get" : {
+        "operationId" : "executions",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "status",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRunView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the owned executions",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/inputs" : {
+      "get" : {
+        "operationId" : "inputs",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "default" : 50,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListInputRequest"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the open input requests",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/mcp" : {
+      "post" : {
+        "operationId" : "handle",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "additionalProperties" : { },
+                "type" : "object"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "additionalProperties" : { },
+                  "type" : "object"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "tags" : [ "agent-mcp-controller" ]
+      }
+    },
+    "/api/agent/v1/reviews/{id}" : {
+      "post" : {
+        "operationId" : "review",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/VerdictBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Answer a review",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/self" : {
+      "get" : {
+        "operationId" : "self",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSelfView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Who the agent credential is",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/signals" : {
+      "get" : {
+        "operationId" : "next",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int64",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "wait",
+          "required" : false,
+          "schema" : {
+            "default" : 0,
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSignalBatch"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Poll the signals after a cursor",
+        "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/agent/v1/snapshot" : {
+      "get" : {
+        "operationId" : "snapshot_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSnapshotView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The owned state and a cursor to resume the stream from",
+        "tags" : [ "Agent API" ]
+      }
+    },
     "/api/control/audit" : {
       "get" : {
         "description" : "Lists the newest control commands recorded in the execution log (applied or refused), with the actor that sent them",
-        "operationId" : "list_4",
+        "operationId" : "list_5",
         "parameters" : [ {
           "in" : "query",
           "name" : "limit",
@@ -7044,7 +9108,7 @@
     },
     "/api/sessions/{sessionId}/workflows/{workflowId}/rollback" : {
       "post" : {
-        "operationId" : "rollback",
+        "operationId" : "rollback_1",
         "parameters" : [ {
           "description" : "The unique identifier of the session",
           "in" : "path",
@@ -7089,7 +9153,7 @@
     "/api/sessions/{sessionId}/workflows/{workflowId}/versions" : {
       "get" : {
         "description" : "Newest first; the newest 20 saves are kept",
-        "operationId" : "versions",
+        "operationId" : "versions_1",
         "parameters" : [ {
           "description" : "The unique identifier of the session",
           "in" : "path",
@@ -7239,9 +9303,92 @@
         "tags" : [ "Workflow Versions API" ]
       }
     },
+    "/api/supervision" : {
+      "get" : {
+        "operationId" : "supervision",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "session",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "workflow",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "execution",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "in" : "query",
+          "name" : "node",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringCapability"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Who may send which command to a node, a run or the server",
+        "tags" : [ "Supervision API" ]
+      }
+    },
+    "/api/supervision/ownership" : {
+      "get" : {
+        "description" : "The supervisor that carries the run level and each node of a workflow, or 'default' for a unit that nobody owns, and whether the default supervisor is on.",
+        "operationId" : "ownership",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "session",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "workflow",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseOwnership"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Who owns each part of a workflow",
+        "tags" : [ "Supervision API" ]
+      }
+    },
     "/api/supervisor-contract" : {
       "get" : {
-        "operationId" : "get_3",
+        "operationId" : "get_4",
         "responses" : {
           "200" : {
             "content" : {
@@ -7258,9 +9405,109 @@
         "tags" : [ "Supervisor contract API" ]
       }
     },
+    "/api/supervisor-engines" : {
+      "get" : {
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupervisorTypeSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List supervisor types",
+        "tags" : [ "Supervisor types API" ]
+      }
+    },
+    "/api/supervisor-engines/{type}" : {
+      "get" : {
+        "operationId" : "get_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSupervisorTypeDetails"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Get a supervisor type",
+        "tags" : [ "Supervisor types API" ]
+      }
+    },
+    "/api/supervisor-engines/{type}/presets" : {
+      "get" : {
+        "operationId" : "presets",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupervisorPreset"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the presets of a supervisor type",
+        "tags" : [ "Supervisor types API" ]
+      }
+    },
+    "/api/supervisor-engines/{type}/usage" : {
+      "get" : {
+        "operationId" : "usage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListString"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the supervisors of a type",
+        "tags" : [ "Supervisor types API" ]
+      }
+    },
     "/api/supervisor-types" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "list_2",
         "responses" : {
           "200" : {
             "content" : {
@@ -7304,9 +9551,36 @@
         "tags" : [ "Supervisor types API" ]
       }
     },
+    "/api/supervisor-types/{type}/presets" : {
+      "get" : {
+        "operationId" : "presets_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "type",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListSupervisorPreset"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the presets of a supervisor type",
+        "tags" : [ "Supervisor types API" ]
+      }
+    },
     "/api/supervisor-types/{type}/usage" : {
       "get" : {
-        "operationId" : "usage",
+        "operationId" : "usage_1",
         "parameters" : [ {
           "in" : "path",
           "name" : "type",
@@ -7715,10 +9989,179 @@
         "tags" : [ "Supervisors API" ]
       }
     },
+    "/api/supervisors/{id}/credential" : {
+      "delete" : {
+        "operationId" : "revoke",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Revoke the credential of an agent supervisor",
+        "tags" : [ "Agent credentials" ]
+      },
+      "post" : {
+        "operationId" : "issue",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "ttlHours",
+          "required" : false,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        }, {
+          "in" : "query",
+          "name" : "allowedAddresses",
+          "required" : false,
+          "schema" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseIssuedView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Issue or rotate the credential of an agent supervisor",
+        "tags" : [ "Agent credentials" ]
+      }
+    },
+    "/api/supervisors/{id}/replay" : {
+      "post" : {
+        "operationId" : "replay",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReplayBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListReplayDecision"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replay a supervisor over a past run",
+        "tags" : [ "Supervisors API" ]
+      }
+    },
+    "/api/supervisors/{id}/rollback" : {
+      "post" : {
+        "operationId" : "rollback",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSupervisorView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Roll a supervisor back to a saved version",
+        "tags" : [ "Supervisors API" ]
+      }
+    },
+    "/api/supervisors/{id}/versions" : {
+      "get" : {
+        "operationId" : "versions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListVersionView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List the saved versions of a supervisor",
+        "tags" : [ "Supervisors API" ]
+      }
+    },
     "/api/templates" : {
       "get" : {
         "description" : "The bundled examples: id, title, a one-line summary and the plugin types used",
-        "operationId" : "list_2",
+        "operationId" : "list_4",
         "responses" : {
           "200" : {
             "content" : {
@@ -7738,7 +10181,7 @@
     "/api/templates/{id}" : {
       "get" : {
         "description" : "The README (markdown) and the session definition to apply. 404 if unknown",
-        "operationId" : "get_1",
+        "operationId" : "get_3",
         "parameters" : [ {
           "description" : "Template id",
           "in" : "path",
@@ -7767,7 +10210,7 @@
     "/api/workers" : {
       "get" : {
         "description" : "Lists the workers that are connected and keep their lease, ordered by id, with the pools they serve, the plugin types they may run, their capacity and the slots in use at their last heartbeat",
-        "operationId" : "list_1",
+        "operationId" : "list_3",
         "responses" : {
           "200" : {
             "content" : {
@@ -8712,11 +11155,17 @@
     "description" : "Answer an input request with a one-time token",
     "name" : "Input Requests API"
   }, {
+    "description" : "Who may do what to a node, a run or the server",
+    "name" : "Supervision API"
+  }, {
     "description" : "Signed inbound calls that start a workflow",
     "name" : "Webhook API"
   }, {
     "description" : "Endpoints for discovering workflow plugins",
     "name" : "Plugin API"
+  }, {
+    "description" : "The secret an agent uses on /api/agent/v1",
+    "name" : "Agent credentials"
   }, {
     "description" : "List the saved versions and roll back",
     "name" : "Workflow Versions API"
@@ -8729,6 +11178,9 @@
   }, {
     "description" : "Who is calling and what the key may do",
     "name" : "Session API"
+  }, {
+    "description" : "For an application that is the decision maker of a supervisor",
+    "name" : "Agent API"
   }, {
     "description" : "Read part of the output of a node",
     "name" : "Node Output API"

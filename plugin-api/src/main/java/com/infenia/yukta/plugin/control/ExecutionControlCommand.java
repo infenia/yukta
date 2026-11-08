@@ -42,10 +42,16 @@ public sealed interface ExecutionControlCommand
         ExecutionControlCommand.SetLimitsCommand,
         ExecutionControlCommand.SetPriorityCommand,
         ExecutionControlCommand.AnswerInputCommand,
-        ExecutionControlCommand.EscalateInputCommand {
+        ExecutionControlCommand.EscalateInputCommand,
+        ExecutionControlCommand.StartWorkflowCommand,
+        ExecutionControlCommand.RecoverCommand,
+        ExecutionControlCommand.DrainCommand {
 
   /** Execution id the commands that belong to no run carry. */
   String SCHEDULER = "scheduler";
+
+  /** Execution id the start of a run carries: the run does not exist yet. */
+  String START = "start";
 
   /**
    * Returns the execution identifier this command targets.
@@ -352,6 +358,69 @@ public sealed interface ExecutionControlCommand
       InputLimits.requireId("requestId", requestId);
       InputLimits.requireText("reason", reason, InputLimits.TEXT_MAX_BYTES);
       InputLimits.optionalText("advice", advice, InputLimits.TEXT_MAX_BYTES);
+    }
+  }
+
+  /**
+   * Start a run. The run does not exist yet, so {@link #executionId()} is {@value #START} and the
+   * target is the session and workflow. It passes {@link ExecutionSupervisor#review} like any
+   * command; the gateway applies it and answers with the new execution id.
+   *
+   * @param sessionId the session of the workflow
+   * @param workflowId the workflow to start
+   * @param payload the start payload (may carry {@code yukta.version})
+   * @param idempotencyKey makes a repeated start return the first run; may be {@code null}
+   */
+  record StartWorkflowCommand(
+      String sessionId,
+      String workflowId,
+      Map<String, Object> payload,
+      @Nullable String idempotencyKey)
+      implements ExecutionControlCommand {
+
+    /** Keeps an unmodifiable copy of the payload; a missing payload is an empty one. */
+    public StartWorkflowCommand {
+      // Map.copyOf rejects null values, and a start payload may hold them
+      payload =
+          payload == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(payload));
+    }
+
+    /**
+     * The payload, read-only.
+     *
+     * @return an unmodifiable view of the copy kept on construction
+     */
+    @Override
+    public Map<String, Object> payload() {
+      return Collections.unmodifiableMap(payload);
+    }
+
+    @Override
+    public String executionId() {
+      return START;
+    }
+  }
+
+  /**
+   * Continue a run that a server restart aborted, as a new run. It only passes through {@link
+   * ExecutionSupervisor#review}; the server applies it. The run is not live, so it is reviewed as a
+   * server-level command.
+   *
+   * @param executionId the aborted run
+   */
+  record RecoverCommand(String executionId) implements ExecutionControlCommand {}
+
+  /**
+   * Refuse new starts (or admit them again). It belongs to no run, so {@link #executionId()} is
+   * {@value #SCHEDULER}; it only passes through {@link ExecutionSupervisor#review}.
+   *
+   * @param draining true to refuse new starts, false to admit them again
+   */
+  record DrainCommand(boolean draining) implements ExecutionControlCommand {
+
+    @Override
+    public String executionId() {
+      return SCHEDULER;
     }
   }
 }

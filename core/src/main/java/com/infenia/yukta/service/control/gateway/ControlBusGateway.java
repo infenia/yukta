@@ -355,6 +355,19 @@ public interface ControlBusGateway {
    */
   Mono<Void> changePriority(String executionId, int priority);
 
+  /**
+   * Asks the supervisors about a command that belongs to no run queue, runs the action and records
+   * the outcome with the actor and channel.
+   *
+   * @param command what is asked
+   * @param name the name recorded in the audit
+   * @param action what to do once the review allows it
+   * @param <T> the result of the action
+   * @return the result of the action; fails when the review refuses
+   */
+  <T> Mono<T> reviewedAdmin(
+      ExecutionControlCommand command, String name, java.util.function.Supplier<Mono<T>> action);
+
   // --- Observability ---
 
   /**

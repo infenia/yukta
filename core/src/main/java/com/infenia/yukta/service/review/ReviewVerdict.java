@@ -4,6 +4,7 @@ package com.infenia.yukta.service.review;
 
 import com.infenia.yukta.plugin.control.ApprovalNeed;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the supervisors together say about a control command: it may run, it is refused, or it may
@@ -24,6 +25,15 @@ public sealed interface ReviewVerdict {
    * @param reason {@code <supervisor>: <reason>}
    */
   record Denied(String reason) implements ReviewVerdict {}
+
+  /**
+   * People may not send this command for what the supervisor owns, or nobody owns it and the
+   * default supervisor is off.
+   *
+   * @param supervisorId the owner, or {@code null} when nobody owns the unit
+   * @param reason why, for the person
+   */
+  record Controlled(@Nullable String supervisorId, String reason) implements ReviewVerdict {}
 
   /**
    * One or more supervisors want the command approved first, and none refused it.

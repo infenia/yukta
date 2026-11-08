@@ -19,6 +19,7 @@ import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.security.CallerIdentity;
 import com.infenia.yukta.service.ExecutionRejectedException;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.control.gateway.WorkflowService;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
@@ -76,7 +77,11 @@ class WorkflowControllerTest {
     sessionService = mock(SessionService.class);
     client =
         WebTestClient.bindToController(
-                new WorkflowController(workflowService, controlBus, sessionService))
+                new WorkflowController(
+                    workflowService,
+                    controlBus,
+                    new SupervisedControl(controlBus, null, null, null),
+                    sessionService))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }
@@ -148,7 +153,11 @@ class WorkflowControllerTest {
 
   private WebTestClient clientWithKey(final String keyName, final ApiRole role) {
     return WebTestClient.bindToController(
-            new WorkflowController(workflowService, controlBus, sessionService))
+            new WorkflowController(
+                workflowService,
+                controlBus,
+                new SupervisedControl(controlBus, null, null, null),
+                sessionService))
         .controllerAdvice(new GlobalExceptionHandler())
         .webFilter(
             (exchange, chain) ->

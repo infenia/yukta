@@ -45,7 +45,11 @@ class SystemHealthProviderTest {
     registry = mock(PluginRegistry.class);
     sessionService = mock(SessionService.class);
     controlBus = mock(ControlBusGateway.class);
-    provider = new SystemHealthProvider(registry, sessionService, controlBus);
+    final var reviewer =
+        org.mockito.Mockito.mock(com.infenia.yukta.service.review.ControlReviewer.class);
+    org.mockito.Mockito.when(reviewer.summary(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(new com.infenia.yukta.service.review.ControlReviewer.Summary(true, 0));
+    provider = new SystemHealthProvider(registry, sessionService, controlBus, reviewer);
   }
 
   private WorkflowExecutionSummary execution(final String id, final TaskStatus status) {
@@ -320,6 +324,9 @@ class SystemHealthProviderTest {
     org.assertj.core.api.Assertions.assertThat(who.keyName()).isEqualTo("alice");
     org.assertj.core.api.Assertions.assertThat(who.role()).isEqualTo("OPERATOR");
     org.assertj.core.api.Assertions.assertThat(who.sessions()).containsExactly("s1");
+    org.assertj.core.api.Assertions.assertThat(who.supervision())
+        .containsEntry("defaultSupervisor", true)
+        .containsEntry("owners", 0);
     org.assertj.core.api.Assertions.assertThat(who.permissions())
         .containsEntry("startRuns", true)
         .containsEntry("changeLimits", false);

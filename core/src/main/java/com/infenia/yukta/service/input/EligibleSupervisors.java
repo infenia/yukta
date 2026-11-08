@@ -16,6 +16,9 @@ import java.util.List;
 @FunctionalInterface
 public interface EligibleSupervisors {
 
+  /** How many levels of parents are followed. */
+  int MAX_LEVELS = 4;
+
   /** Knows no supervisor. */
   EligibleSupervisors NONE = List::of;
 
@@ -46,5 +49,35 @@ public interface EligibleSupervisors {
    */
   default boolean mayReceive(final Candidate candidate, final InputRequest request) {
     return true;
+  }
+
+  /**
+   * The supervisors a supervisor reports to.
+   *
+   * @param candidateId the id of a bound supervisor
+   * @return the ids of the bound supervisors of its parents; none by default
+   */
+  default List<String> parentsOf(final String candidateId) {
+    return List.of();
+  }
+
+  /**
+   * Whether one supervisor stands above another: it is a parent, or a parent of a parent, up to
+   * four levels.
+   *
+   * @param higherId the id of the supervisor that may stand above
+   * @param lowerId the id of the supervisor below
+   * @return true if it does
+   */
+  default boolean outranks(final String higherId, final String lowerId) {
+    List<String> level = List.of(lowerId);
+    for (int depth = 0; depth < MAX_LEVELS && !level.isEmpty(); depth++) {
+      final List<String> next = level.stream().flatMap(id -> parentsOf(id).stream()).toList();
+      if (next.contains(higherId)) {
+        return true;
+      }
+      level = next;
+    }
+    return false;
   }
 }

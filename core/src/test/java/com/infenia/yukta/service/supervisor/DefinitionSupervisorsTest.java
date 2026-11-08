@@ -35,6 +35,7 @@ import reactor.test.StepVerifier;
 /** Declared supervisors are attached when a definition is saved and follow it afterwards. */
 @NoArgsConstructor
 @SuppressWarnings({
+  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.CouplingBetweenObjects",
@@ -122,6 +123,180 @@ class DefinitionSupervisorsTest {
 
   private static SupervisorRef ref(final String id, final String... nodes) {
     return new SupervisorRef(id, nodes.length == 0 ? null : List.of(nodes), null);
+  }
+
+  private void manual(final String id, final String supervisorId, final SupervisorScope scope) {
+    StepVerifier.create(service.attach(new SupervisorAttachment(id, supervisorId, scope, true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void checkRefusesDeclarationThatTakesWhatAnotherSupervisorOwns() {
+    supervisor("a");
+    supervisor("b");
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a")))))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .singleElement()
+                    .satisfies(
+                        issue -> {
+                          assertThat(issue.field())
+                              .isEqualTo("workflows.w1.supervisors[0].supervisor");
+                          assertThat(issue.message()).contains("workflow w1", "owned by b");
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void checkNamesSessionDeclarationThatTakesWhatAnotherSupervisorOwns() {
+    supervisor("a");
+    supervisor("b");
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+
+    StepVerifier.create(declared.check(session(List.of(ref("a")), workflow("w1"))))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .extracting(Issue::field)
+                    .containsOnly("supervisors[0].supervisor"))
+        .verifyComplete();
+  }
+
+  @Test
+  void checkIgnoresDisabledOtherSessionAndOwnDeclaredAttachments() {
+    supervisor("a");
+    supervisor("b");
+    StepVerifier.create(
+            service.attach(
+                new SupervisorAttachment(
+                    "off", "b", new SupervisorScope.Workflow("w1", SESSION), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    manual("elsewhere", "b", new SupervisorScope.Section("w1", "other", java.util.Set.of("x")));
+    final SessionConfigData data = session(List.of(), workflow("w1", ref("a")));
+    save(data);
+
+    StepVerifier.create(declared.check(data))
+        .assertNext(issues -> assertThat(issues).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void checkComparesSectionsOfAnySessionAndLeavesOtherSessionsDefinitionsAlone() {
+    supervisor("a");
+    supervisor("b");
+    manual("any-a", "a", new SupervisorScope.Section("w1", null, java.util.Set.of("deploy")));
+    manual("any-b", "b", new SupervisorScope.Section("w1", null, java.util.Set.of("build.*")));
+    manual("other-a", "a", new SupervisorScope.Section("w2", "other", java.util.Set.of("x")));
+    manual("other-b", "b", new SupervisorScope.Section("w2", "other", java.util.Set.of("y")));
+    store
+        .saveAttachment(
+            new SupervisorAttachment(
+                "def-other",
+                "a",
+                new SupervisorScope.Workflow("w9", "other"),
+                true,
+                SupervisorSource.DEFINITION,
+                "other",
+                "w9"))
+        .block();
+
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1"))))
+        .assertNext(issues -> assertThat(issues).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void checkReportsStoredAttachmentsThatOverlapEachOther() {
+    // legacy rows: attach would refuse them, so they go straight to the store
+    for (final String id : List.of("s1", "s2", "w1", "w2")) {
+      supervisor(id);
+      final SupervisorScope scope =
+          id.startsWith("s")
+              ? new SupervisorScope.Session(SESSION)
+              : new SupervisorScope.Workflow("w1", SESSION);
+      store.saveAttachment(new SupervisorAttachment(id, id, scope, true)).block();
+    }
+
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1"))))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .extracting(Issue::field)
+                    .contains("supervisors", "workflows.w1.nodes"))
+        .verifyComplete();
+  }
+
+  @Test
+  void attachmentNoDeclarationMadeIsReportedOnTheWholeList() {
+    final SessionConfigData data = session(List.of(ref("a")), workflow("w1", ref("a")));
+
+    assertThat(
+            DefinitionChecks.fieldOf(
+                new SupervisorAttachment(
+                    "x",
+                    "a",
+                    new SupervisorScope.Session(SESSION),
+                    true,
+                    SupervisorSource.DEFINITION,
+                    SESSION,
+                    null),
+                data))
+        .isEqualTo("supervisors");
+    assertThat(
+            DefinitionChecks.fieldOf(
+                new SupervisorAttachment(
+                    "x",
+                    "a",
+                    new SupervisorScope.Workflow("w1", SESSION),
+                    true,
+                    SupervisorSource.DEFINITION,
+                    SESSION,
+                    "w1"),
+                data))
+        .isEqualTo("workflows.w1.supervisors");
+  }
+
+  @Test
+  void checkRefusesTwoDeclarationsOfDifferentSupervisorsOnTheSameNodes() {
+    supervisor("a");
+    supervisor("b");
+
+    StepVerifier.create(
+            declared.check(
+                session(List.of(), workflow("w1", ref("a", "build.*"), ref("b", "build.test")))))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .singleElement()
+                    .satisfies(
+                        issue -> {
+                          assertThat(issue.field())
+                              .isEqualTo("workflows.w1.supervisors[1].supervisor");
+                          assertThat(issue.message()).contains("owned by a");
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void checkRefusesGroupSelectorUntilItCanBeResolved() {
+    supervisor("a");
+
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))
+        .assertNext(
+            issues ->
+                assertThat(issues)
+                    .singleElement()
+                    .satisfies(
+                        issue -> {
+                          assertThat(issue.field()).isEqualTo("workflows.w1.supervisors[0].nodes");
+                          assertThat(issue.message()).isEqualTo(SupervisorService.GROUPS_NOT_YET);
+                        }))
+        .verifyComplete();
   }
 
   @Test

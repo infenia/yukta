@@ -1,0 +1,17 @@
+meta {
+  name: Roll Back
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{base_url}}/api/supervisors/{{supervisorId}}/rollback?version=1
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

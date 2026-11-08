@@ -17,6 +17,9 @@ import org.jspecify.annotations.Nullable;
  * @param authEnabled whether any key is configured
  * @param permissions what the caller may do: startRuns, controlRuns, editSessions, deleteSessions,
  *     changeLimits, sendCommands
+ * @param supervision {@code defaultSupervisor}: whether people control what nobody owns; {@code
+ *     owners}: how many supervisors own something the caller can reach. A refusal naming a
+ *     supervisor is its decision, not an error to retry.
  */
 @SuppressWarnings("PMD.NullAssignment")
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -26,11 +29,13 @@ public record WhoamiResult(
     String role,
     @Nullable List<String> sessions,
     boolean authEnabled,
-    Map<String, Boolean> permissions) {
+    Map<String, Boolean> permissions,
+    @Nullable Map<String, Object> supervision) {
 
   /** Compact constructor to ensure immutability. */
   public WhoamiResult {
     sessions = sessions == null ? null : List.copyOf(sessions);
     permissions = Map.copyOf(permissions);
+    supervision = supervision == null ? null : Map.copyOf(supervision);
   }
 }

@@ -13,14 +13,15 @@ import com.infenia.yukta.model.control.SchedulerLimits;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.runtime.ExecutionScheduler;
+import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.review.ControlRejectedException;
-import com.infenia.yukta.service.runtime.ExecutionScheduler;
-import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
@@ -62,6 +63,8 @@ class ExecutionControlControllerTest {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
     tracker = mock(TaskTrackerService.class);
+    when(controlBus.reviewedAdmin(any(), any(), any()))
+        .thenAnswer(call -> ((java.util.function.Supplier<Mono<?>>) call.getArgument(2)).get());
     final WorkflowProgress running =
         Fixtures.workflowProgress(
             "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null);
@@ -71,8 +74,8 @@ class ExecutionControlControllerTest {
         WebTestClient.bindToController(
                 new ExecutionControlController(
                     controlBus,
+                    new SupervisedControl(controlBus, null, scheduler, resumer),
                     new ExecutionAccess(controlBus),
-                    resumer,
                     new TreeControl(tracker),
                     scheduler))
             .controllerAdvice(new GlobalExceptionHandler())
@@ -364,8 +367,8 @@ class ExecutionControlControllerTest {
         WebTestClient.bindToController(
                 new ExecutionControlController(
                     controlBus,
+                    new SupervisedControl(controlBus, null, limited, resumer),
                     new ExecutionAccess(controlBus),
-                    resumer,
                     new TreeControl(tracker),
                     limited))
             .build();

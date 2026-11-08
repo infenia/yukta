@@ -8,7 +8,6 @@ import com.infenia.yukta.model.input.InputRoute;
 import com.infenia.yukta.model.input.Mode;
 import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
@@ -576,7 +575,7 @@ public class InputBroker {
       return Mono.empty();
     }
     final Tier next = route.tiers().get(at + NEXT);
-    final List<SupervisorScope> references = references(current, by);
+    final List<String> askers = askers(current, by);
     return transition(
             current.id(),
             null,
@@ -592,7 +591,7 @@ public class InputBroker {
                       advice == null ? c.advice() : advice,
                       next.timeout() == null ? null : clock.instant().plus(next.timeout()),
                       List.of());
-              return retarget(moved, TierTargets.selectors(moved, next, directory(), references));
+              return retarget(moved, TierTargets.selectors(moved, next, directory(), askers));
             })
         .flatMap(
             change -> {
@@ -625,18 +624,14 @@ public class InputBroker {
         .then();
   }
 
-  /** The scopes a {@code supervisor:above} tier must strictly cover. */
-  private List<SupervisorScope> references(
-      final InputRequest current, final @Nullable Responder by) {
+  /** The supervisors whose parents a {@code supervisor:parent} tier asks. */
+  private List<String> askers(final InputRequest current, final @Nullable Responder by) {
     final EligibleSupervisors bound = directory();
     if (by != null && by.type() == Responder.Type.SUPERVISOR) {
-      return bound.bound().stream()
-          .filter(c -> c.id().equals(by.id()))
-          .map(EligibleSupervisors.Candidate::scope)
-          .toList();
+      return List.of(by.id());
     }
     return TierTargets.supervisors(current, current.targets(), bound).stream()
-        .map(EligibleSupervisors.Candidate::scope)
+        .map(EligibleSupervisors.Candidate::id)
         .toList();
   }
 

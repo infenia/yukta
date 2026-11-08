@@ -23,6 +23,18 @@ Status (2026-11-08): **proposal**, nothing built. The "today" statements were re
 | D13 | Bulk targets and hold ledger | **In contract v1**: command selectors (`owned.running`, `workflow:<id>`, `node:<ids>`) and `resume held`. |
 | D14 | Timed rules | The `rules` engine **may initiate** through timed rules (`every` with `read.*`), under the same limits. |
 
+## Decisions made while building S2 (2026-11-08)
+
+These settle questions the plan left open. They win over the text above where they differ.
+
+| # | Question | Decision |
+|---|---|---|
+| E1 | What does a legacy `Global` attachment become? | **Nothing owns "everything".** There is no `global` target. The lenient default supervisor (`operator-gateway`) covers whatever nobody owns, and `yukta.supervisor.default.enabled=false` turns it off for production: then each workflow must define its supervisor, and a workflow without one runs with no supervisor and cannot be controlled by operators. A legacy `Global` attachment is migrated to no assignment and a WARN names it; the administrator assigns it. |
+| E2 | Bean and property supervisors (`rule-supervisor` via `yukta.supervisor.rules.file`, control-plane beans) | **They stop reviewing.** They own nothing, so under owner-only review they review nothing. They are replaced by engines in S4. |
+| E3 | `operatorAccess` of migrated supervisors | **`NONE`**, the same as new ones. After the upgrade, a person gets `409 CONTROLLED_BY_SUPERVISOR` on a workflow that has an owner until the administrator lists commands in `operatorAccess`. |
+| E4 | Groups | **Reuse `Node.group`**, the stage a node already declares (or, without one, the part of its id before the first dot). `group:<name>` selects the nodes of that group. No second `groups` map, so versions, diff, export, import, templates and the MCP guide need no change. A node has one group, so "two groups share a node" shows up as a `group:` selector and a prefix or id selector from two supervisors that take the same node. |
+| E5 | UI | S8a waits for the S8 artboards (#2153) to be reviewed; the artboards are produced next, in parallel with the S2 backend. |
+
 ## Principles
 
 1. **Yukta is neutral.** It runs no policy of its own. An engine can be a few rules, a program, an AI agent or a person at a console.
@@ -297,7 +309,7 @@ Replaces the `workflow` supervisor type and its ad hoc result convention. Three 
 - The signal kinds that start it (`Event`, `Tick`, `Review`, `Delegated`, `Started`) are listed in the engine's settings. A run started by a `Tick` is how this engine initiates.
 - It keeps what the supervisor workflow has today: a run per signal with the signal as input, `maxConcurrent`, a timeout, reserved slots outside the normal pool, the depth limit, and no signals from its own session.
 - A workflow can still call any HTTP endpoint, including Yukta's own REST API with a key. Workflows are written by administrators, so this is a trusted-author boundary, not something the engine can prevent; the documentation says so.
-- **To evaluate before building:** whether this adds anything over `rules` plus `http` and a parent that is an AI. The advantage is that the decision logic is visible and editable in the Yukta UI like any workflow; the cost is three nodes and a second way to run supervisor logic. Start with a spike.
+- **Spike result (S9):** it adds something only in two places: the decision logic is a workflow people can read and edit in the UI, and a `SUPERVISOR_DECISION` that fails the run on a command the contract cannot read (the old convention dropped it silently). So the engine stays, as a thin layer on what exists: type `workflow` is the engine; `SUPERVISOR_SIGNAL` (trigger, emits the signal) and `SUPERVISOR_DECISION` (terminal, `OUTCOME_TERMINAL` plus validation) are added; `SUPERVISOR_READ` is not built, because a workflow can call the REST API or the agent API and `rules` already has `read.*`. The save-time rule (exactly one `SUPERVISOR_SIGNAL`, at least one `SUPERVISOR_DECISION`) is not enforced yet, so a workflow with `API_TRIGGER` and `OUTCOME_TERMINAL` still works. The original question was: whether this adds anything over `rules` plus `http` and a parent that is an AI. The advantage is that the decision logic is visible and editable in the Yukta UI like any workflow; the cost is three nodes and a second way to run supervisor logic. Start with a spike.
 
 ### `operator-gateway`: the default supervisor's engine
 
@@ -555,7 +567,7 @@ Two audiences use these interfaces, and they are kept apart:
 |---|---|---|
 | REST control and start routes | Same paths and bodies. New refusals `409 CONTROLLED_BY_SUPERVISOR` and `202 AWAITING_APPROVAL` appear only where an owner exists. Responses gain `via` (the supervisor) and `cause`. | No while nothing is owned (the default supervisor allows what is allowed today) |
 | MCP operator tools (`start_workflow`, `control_workflow`, `control_node`, `set_node_breakpoint`, `set_scheduler_limits`, `answer_input`, ...) | Same names and arguments. The result object gains `via` and, for a refusal, `code`, `supervisor` and `reason`. Descriptions say that a supervisor may refuse. | No |
-| CLI control commands | Same commands. A refusal prints the owner and the reason and exits with a distinct code (`4`). | No |
+| CLI control commands | Same commands. A refusal prints the owner and the reason and exits with a distinct code (`6`). | No |
 | `GET /api/supervisor-types`, `attach_supervisor`, `detach_supervisor`, `yukta supervisors types`, the `supervisors` block of definitions | Replaced by engines, assignments and the `assignments` block | **Yes** (alpha, announced in the migration note) |
 | Dogfood `yk` and `examples/dogfood/supervisor/*.json`, `examples/16`, `examples/17` | Migrated with S7 | Yes, same PR |
 
@@ -625,7 +637,7 @@ A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then 
 | `yukta ownership [--session s --workflow w]` and `yukta supervision …` | Who owns what, and whether a command would be allowed |
 | `yukta supervisor-contract` | The version and operations |
 
-Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `4`, decided in S0). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
+Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `6`, decided in S0; 4 is the server-error code). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
 
 ### Other clients and assets
 

@@ -29,6 +29,7 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputBroker;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
@@ -99,7 +100,13 @@ class TokenAnswerServiceTest {
             clock,
             routes,
             null);
-    service = new TokenAnswerService(broker, tokens, routes, controlBus, new SimpleMeterRegistry());
+    service =
+        new TokenAnswerService(
+            broker,
+            tokens,
+            routes,
+            new SupervisedControl(controlBus, null, null, null),
+            new SimpleMeterRegistry());
     when(controlBus.answerInput(
             anyString(), anyString(), any(), anyString(), any(), any(), any(), any()))
         .thenAnswer(
@@ -217,7 +224,7 @@ class TokenAnswerServiceTest {
             broker,
             new AnswerTokens("test-secret-test-secret-test-secret", clock),
             new RouteResolver(Map.of(), null),
-            controlBus,
+            new SupervisedControl(controlBus, null, null, null),
             new SimpleMeterRegistry());
     StepVerifier.create(restarted.answer(answer))
         .expectErrorMessage(InvalidAnswerTokenException.MESSAGE)

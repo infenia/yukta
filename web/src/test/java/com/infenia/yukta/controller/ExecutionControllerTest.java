@@ -15,6 +15,7 @@ import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -60,7 +61,11 @@ class ExecutionControllerTest {
     client =
         WebTestClient.bindToController(
                 new ExecutionController(
-                    controlBus, new ExecutionAccess(controlBus), new TreeControl(tracker), tracker))
+                    controlBus,
+                    new SupervisedControl(controlBus, null, null, null),
+                    new ExecutionAccess(controlBus),
+                    new TreeControl(tracker),
+                    tracker))
             .controllerAdvice(new GlobalExceptionHandler())
             .build();
   }

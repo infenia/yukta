@@ -318,7 +318,55 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String workflowId,
       final Map<String, Object> payload,
       final String idempotencyKey) {
-    return starter.start(sessionId, workflowId, payload, idempotencyKey);
+    final var command =
+        new ExecutionControlCommand.StartWorkflowCommand(
+            sessionId, workflowId, payload, idempotencyKey);
+    return starter.start(
+        sessionId, workflowId, payload, idempotencyKey, start -> reviewedStart(command, start));
+  }
+
+  /**
+   * Asks the supervisors about a start, runs it and records the outcome under the new run's id. A
+   * start that needs approval is refused: there is no run yet to park the request on.
+   */
+  private Mono<String> reviewedStart(
+      final ExecutionControlCommand.StartWorkflowCommand command, final Mono<String> start) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          final String channel = ControlAudit.channel(context);
+          final ControlRequest request =
+              new ControlRequest(command, actor, command.sessionId(), command.workflowId());
+          final Mono<Void> review = reviewer == null ? Mono.empty() : reviewer.review(request);
+          return review
+              .then(start)
+              .doOnNext(
+                  executionId ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              true,
+                              executionId,
+                              "StartWorkflowCommand",
+                              actor,
+                              null,
+                              Instant.now(),
+                              channel)))
+              .doOnError(
+                  error ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              false,
+                              command.executionId(),
+                              "StartWorkflowCommand",
+                              actor,
+                              error.getMessage(),
+                              Instant.now(),
+                              channel)));
+        });
   }
 
   @Override
@@ -579,6 +627,48 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
             throw new IllegalArgumentException(
                 "Execution " + executionId + " is not waiting for a slot");
           }
+        });
+  }
+
+  @Override
+  public <T> Mono<T> reviewedAdmin(
+      final ExecutionControlCommand command,
+      final String name,
+      final java.util.function.Supplier<Mono<T>> action) {
+    return Mono.deferContextual(
+        context -> {
+          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+          final String channel = ControlAudit.channel(context);
+          final Mono<Void> review =
+              reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
+          return review
+              .then(Mono.defer(action))
+              .doOnSuccess(
+                  _ ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              true,
+                              command.executionId(),
+                              name,
+                              actor,
+                              null,
+                              Instant.now(),
+                              channel)))
+              .doOnError(
+                  error ->
+                      ControlAudit.record(
+                          executionLog,
+                          auditSink,
+                          new AuditRecord(
+                              false,
+                              command.executionId(),
+                              name,
+                              actor,
+                              error.getMessage(),
+                              Instant.now(),
+                              channel)));
         });
   }
 

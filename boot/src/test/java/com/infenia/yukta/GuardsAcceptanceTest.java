@@ -3,14 +3,17 @@
 package com.infenia.yukta;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -38,6 +41,7 @@ class GuardsAcceptanceTest {
   @LocalServerPort private int port;
 
   @Autowired private ControlBusGateway gateway;
+  @Autowired private com.infenia.yukta.service.control.SupervisedControl control;
   @Autowired private WorkflowDefinitionStore definitions;
   @Autowired private TaskTrackerService tracker;
 
@@ -126,33 +130,23 @@ class GuardsAcceptanceTest {
   }
 
   @Test
-  void approvalGateHoldsTheStopAnotherSupervisorSends() throws Exception {
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.RestartCoordinator - ")
+  void approvalGateThatOwnsTheSessionHoldsRestartsFromPeople() throws Exception {
     final String session = "gate-" + UUID.randomUUID();
     final String tag = UUID.randomUUID().toString().substring(0, 8);
     attach(
         "ag-" + tag,
         "approval-gate",
-        "{\"commands\":[\"StopWorkflowCommand\"],\"ttl\":60}",
-        session);
-    attach(
-        "rs-" + tag,
-        "rule-supervisor",
-        "{\"rules\":[{\"id\":\"stop\",\"when\":{\"event\":\"NodeStatusChanged\","
-            + "\"status\":\"RUNNING\",\"module\":\"PROCESS_EXECUTOR\"},"
-            + "\"then\":{\"command\":\"StopWorkflow\"}}]}",
+        "{\"commands\":[\"RestartCommand\"],\"ttl\":60,"
+            + "\"operatorAccess\":[\"RestartCommand\"]}",
         session);
     final String workflowId = workflow(session, false);
-
     final String executionId = gateway.startWorkflow(session, workflowId, Map.of(), null).block();
 
-    // the rule supervisor's stop is parked for approval instead of being applied
-    await()
-        .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(
-                        call("GET", "/api/supervisors/decisions?supervisor=rs-" + tag, "").body())
-                    .contains("StopWorkflowCommand", "awaiting-approval", executionId));
+    // the owner lets people send a restart, and asks for approval before it runs
+    assertThatThrownBy(() -> control.restartWorkflow(executionId).block())
+        .isInstanceOf(ControlAwaitingApprovalException.class);
+    // a stop is never parked for a person
     gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
   }
 

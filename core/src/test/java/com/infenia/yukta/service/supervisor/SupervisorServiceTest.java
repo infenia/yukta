@@ -39,6 +39,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -49,12 +50,14 @@ import reactor.test.scheduler.VirtualTimeScheduler;
 import reactor.util.context.Context;
 
 @SuppressWarnings({
-  "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
-  "PMD.TooManyStaticImports",
-  "PMD.ShortMethodName",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.ExcessiveImports"
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods",
+  "PMD.TooManyStaticImports",
+  "PMD.UnitTestShouldIncludeAssert"
 })
 class SupervisorServiceTest {
 
@@ -289,6 +292,216 @@ class SupervisorServiceTest {
     assertThatCode(failing::restore).doesNotThrowAnyException();
   }
 
+  // --- ownership: one owner per unit, refused when an attachment is saved ---
+
+  private void saveSupervisors(final String... ids) {
+    for (final String id : ids) {
+      StepVerifier.create(service.saveSupervisor(supervisor(id)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+  }
+
+  private void expectConflict(final SupervisorAttachment attachment, final String... mentions) {
+    StepVerifier.create(service.attach(attachment))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOfSatisfying(
+                        com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException
+                            .class,
+                        conflict -> assertThat(conflict.getConflicts()).isNotEmpty())
+                    .hasMessageContainingAll(mentions))
+        .verify();
+  }
+
+  @Test
+  void workflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true),
+        "workflow w",
+        "owned by a");
+  }
+
+  @Test
+  void sessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Session("s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true), "owned by a");
+    expectConflict(attachment("b2", "b", new SupervisorScope.Run("w", "s"), true), "owned by a");
+  }
+
+  @Test
+  void overlappingPrefixesAndIdUnderPrefixAreRefused() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(
+        attachment("b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.test.*")), true),
+        "owned by a");
+    expectConflict(
+        attachment("b2", "b", new SupervisorScope.Section("w", "s", Set.of("build.x")), true),
+        "owned by a");
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "b3", "b", new SupervisorScope.Section("w", "s", Set.of("deploy.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void groupSelectorsAreRefusedUntilTheyCanBeResolved() {
+    saveSupervisors("a");
+
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:ci")), true)))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage(SupervisorService.GROUPS_NOT_YET))
+        .verify();
+  }
+
+  @Test
+  void theRunLevelAndTheNodesCanBeSplitBetweenTwoSupervisors() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Run("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "b1", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void disabledAttachmentOwnsNothingAndSupervisorMayHoldSeveralOfItsOwn() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(
+            service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    // the same supervisor again, and replacing its own attachment, are not conflicts
+    StepVerifier.create(
+            service.attach(attachment("b2", "b", new SupervisorScope.Run("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("b1", "b", new SupervisorScope.Workflow("w", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void onlyOneSupervisorOwnsTheServer() {
+    saveSupervisors("a", "b");
+    StepVerifier.create(service.attach(attachment("a1", "a", new SupervisorScope.Server(), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    expectConflict(attachment("b1", "b", new SupervisorScope.Server(), true), "the server");
+  }
+
+  // --- hierarchy: parents ---
+
+  private static Supervisor withParents(final String id, final String... parents) {
+    return new Supervisor(id, TYPE, Map.of(), false, null, List.of(parents), Map.of());
+  }
+
+  @Test
+  void supervisorMayReportToSeveralStoredParents() {
+    saveSupervisors("p1", "p2");
+
+    StepVerifier.create(service.saveSupervisor(withParents("child", "p1", "p2")))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void missingParentSelfReferenceCycleAndTooManyLevelsAreRefusedAtSave() {
+    saveSupervisors("a");
+    StepVerifier.create(service.saveSupervisor(withParents("x", "ghost")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("y", "y")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("b", "a")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("a", "b")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("c", "b")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("d", "c")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("e", "d")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void parentCannotBeDeletedWhileSupervisorsReportToIt() {
+    saveSupervisors("boss");
+    StepVerifier.create(service.saveSupervisor(withParents("worker", "boss")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(service.deleteSupervisor("boss"))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining("parent of [worker]"))
+        .verify();
+    StepVerifier.create(service.deleteSupervisor("worker")).verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("boss")).verifyComplete();
+  }
+
+  @Test
+  void deletingSupervisorRevokesItsAgentCredential() {
+    final var credentials = new com.infenia.yukta.service.supervisor.agent.AgentCredentials();
+    service.setAgentCredentials(credentials);
+    saveSupervisors("agent");
+    final String token = credentials.issue("agent", null).token();
+
+    StepVerifier.create(service.deleteSupervisor("agent")).verifyComplete();
+
+    // a supervisor saved again under the same id does not inherit the old credential
+    assertThat(credentials.authenticate(token)).isEmpty();
+  }
+
   @Test
   void attachIsLimited() {
     StepVerifier.create(service.saveSupervisor(supervisor("p")))
@@ -424,6 +637,40 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void restoreKeepsTheFirstOwnerOfUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
+    store.saveSupervisor(supervisor("a")).block();
+    store.saveSupervisor(supervisor("b")).block();
+    store
+        .saveAttachment(attachment("m1", "a", new SupervisorScope.Workflow("w", "s"), true))
+        .block();
+    store
+        .saveAttachment(
+            attachment("m2", "b", new SupervisorScope.Section("w", "s", Set.of("build.*")), true))
+        .block();
+    store.saveAttachment(attachment("m3", "b", new SupervisorScope.Run("w2", "s"), true)).block();
+
+    service.restore();
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(store.attachments().collectList().block())
+                    .extracting(
+                        SupervisorAttachment::id,
+                        SupervisorAttachment::enabled,
+                        SupervisorAttachment::conflict)
+                    .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("m1", true, false),
+                        org.assertj.core.groups.Tuple.tuple("m2", false, true),
+                        org.assertj.core.groups.Tuple.tuple("m3", true, false)));
+    // the owner and the free unit start; the conflicting one does not
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(() -> verify(host, times(2)).attach(any(BoundSupervisor.class)));
+  }
+
+  @Test
   void restoreCountsStartedAndFailedBindingsAndSkipsWhenStandby() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     service.setMeterRegistry(meters);
@@ -540,7 +787,9 @@ class SupervisorServiceTest {
         .expectNextCount(1)
         .verifyComplete();
     doReturn(Mono.error(new IllegalStateException("db"))).when(failing).saveAttachment(any());
+    // the attachment count, the ownership check, then the rollback that cannot read
     doReturn(Flux.empty())
+        .doReturn(Flux.empty())
         .doReturn(Flux.error(new IllegalStateException("read")))
         .when(failing)
         .attachments();
@@ -651,5 +900,385 @@ class SupervisorServiceTest {
     service.restore();
 
     verify(host, times(1)).attach(any(BoundSupervisor.class));
+  }
+
+  @Test
+  void everyChangeIsVersionAndRollbackSavesAnEarlierOneAsNewVersion() {
+    final Supervisor first = new Supervisor("v", TYPE, Map.of("level", 1), false);
+    final Supervisor second = new Supervisor("v", TYPE, Map.of("level", 2), false);
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(second)).expectNextCount(1).verifyComplete();
+
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions -> {
+              // the repeat of the same settings is not a version
+              assertThat(versions)
+                  .extracting(SupervisorVersions.Version::version)
+                  .containsExactly(2, 1);
+              assertThat(versions.get(0).supervisor()).isEqualTo(second);
+            })
+        .verifyComplete();
+
+    StepVerifier.create(service.rollback("v", 1)).expectNext(first).verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions ->
+                assertThat(versions)
+                    .extracting(SupervisorVersions.Version::version)
+                    .containsExactly(3, 2, 1))
+        .verifyComplete();
+  }
+
+  @Test
+  void versionThatIsNotKeptAndAnUnknownSupervisorAreNotFound() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.rollback("v", 9)).expectError(NotFoundException.class).verify();
+    StepVerifier.create(service.versions("nope")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
+  void deletingSupervisorForgetsItsVersions() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("v")).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(versions -> assertThat(versions).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void onlyTheNewestTwentyVersionsAreKept() {
+    final SupervisorVersions kept = new SupervisorVersions();
+    for (int i = 0; i < 25; i++) {
+      kept.record(new Supervisor("k", TYPE, Map.of("level", i), false));
+    }
+    assertThat(kept.list("k")).hasSize(SupervisorVersions.KEPT);
+    assertThat(kept.find("k", 25)).isPresent();
+    assertThat(kept.find("k", 5)).isEmpty();
+    assertThat(kept.list("other")).isEmpty();
+  }
+
+  /** Pauses a run when it fails; with the setting "plain" it is a supervisor without causes. */
+  private SupervisorService replaying(final boolean plain) {
+    return replaying(plain, com.infenia.yukta.plugin.control.engine.Cause.tick());
+  }
+
+  private SupervisorService replaying(
+      final boolean plain, final com.infenia.yukta.plugin.control.engine.Cause cause) {
+    final SupervisorFactory pausing =
+        new SupervisorFactory() {
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
+          public String type() {
+            return "pausing";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            if (plain) {
+              return new ExecutionSupervisor() {
+                @Override
+                public String id() {
+                  return "made";
+                }
+
+                @Override
+                public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+                  return events
+                      .filter(e -> e instanceof ExecutionEvent.WorkflowStatusChanged)
+                      .map(e -> new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()));
+                }
+              };
+            }
+            return new com.infenia.yukta.plugin.control.engine.DirectiveSupervisor() {
+              @Override
+              public String id() {
+                return "made";
+              }
+
+              @Override
+              public Flux<com.infenia.yukta.plugin.control.engine.Directive.Command> directives(
+                  final Flux<ExecutionEvent> events) {
+                return events
+                    .filter(
+                        e ->
+                            e instanceof ExecutionEvent.WorkflowStatusChanged changed
+                                && "FAILURE".equals(changed.status()))
+                    .map(
+                        e ->
+                            new com.infenia.yukta.plugin.control.engine.Directive.Command(
+                                "k",
+                                new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
+                                cause,
+                                "failed",
+                                null));
+              }
+            };
+          }
+        };
+    final SupervisorService made =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(pausing), host, log);
+    StepVerifier.create(made.saveSupervisor(new Supervisor("r", "pausing", Map.of(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    log.append(com.infenia.yukta.service.log.ExecutionLogEvent.started("run1", "s", "w", "v1"));
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.finished(
+            "run1", "s", "w", "FAILURE", Map.of("n1", "FAILURE")));
+    return made;
+  }
+
+  @Test
+  void replayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
+    StepVerifier.create(replaying(false).replay("r", null, "run1"))
+        .assertNext(
+            decisions ->
+                assertThat(decisions)
+                    .singleElement()
+                    .satisfies(
+                        d -> {
+                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                          assertThat(d.executionId()).isEqualTo("run1");
+                          assertThat(d.cause()).isEqualTo("tick");
+                          assertThat(d.reason()).isEqualTo("failed");
+                          // a tick is initiative, and the supervisor lists none
+                          assertThat(d.allowed()).isFalse();
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void replayOfPlainSupervisorSeesEveryStatusEvent() {
+    StepVerifier.create(replaying(true).replay("r", Map.of(), "run1"))
+        .assertNext(
+            decisions -> {
+              assertThat(decisions).hasSize(2);
+              assertThat(decisions).allSatisfy(d -> assertThat(d.allowed()).isTrue());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void replayNeedsTheSupervisorAndRecordedRun() {
+    final SupervisorService made = replaying(false);
+    StepVerifier.create(made.replay("nope", null, "run1"))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(made.replay("r", null, "unknown"))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  private static Boolean replayedAllowed(
+      final SupervisorService made,
+      final @org.jspecify.annotations.Nullable Map<String, Object> draft) {
+    return made.replay("r", draft, "run1").block().getFirst().allowed();
+  }
+
+  @Test
+  void replayAllowsInitiativeListedAndRefusesCommandNotAllowed() {
+    assertThat(
+            replayedAllowed(
+                replaying(false),
+                Map.of(
+                    "allowedCommands", List.of("PauseWorkflowCommand"),
+                    "initiative", List.of("PauseWorkflowCommand"))))
+        .isTrue();
+    final SupervisorService reacting =
+        replaying(false, com.infenia.yukta.plugin.control.engine.Cause.event("ev"));
+    assertThat(replayedAllowed(reacting, null)).isTrue();
+    assertThat(replayedAllowed(reacting, Map.of("allowedCommands", List.of("StopWorkflowCommand"))))
+        .isFalse();
+  }
+
+  @Test
+  void resolverLearnsTheStoredSupervisorsWhenOneIsSaved() {
+    final com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver resolver =
+        new com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver();
+    service.setResolver(resolver);
+
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(resolver.supervisor("p")).isPresent();
+  }
+
+  @Test
+  void presetsComeFromTheFactoryOfTheType() {
+    assertThat(service.presets(TYPE)).isPresent();
+    assertThat(service.presets("nope")).isEmpty();
+  }
+
+  @Test
+  void savingSupervisorWhoseAttachmentCannotRestartStillSaves() {
+    attached("b1", new SupervisorScope.Workflow("w", "s"));
+    org.mockito.Mockito.doThrow(new IllegalStateException("host down"))
+        .when(host)
+        .attach(any(BoundSupervisor.class));
+
+    StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, Map.of("level", 2), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(store.supervisors().filter(Supervisor::dryRun).collectList().block()).hasSize(1);
+  }
+
+  @Test
+  void restoreComparesSectionsOfOneWorkflowAndCarriesOnWhenMarkCannotBeSaved() {
+    final SupervisorStore failing = spy(new InMemorySupervisorStore());
+    failing.saveSupervisor(supervisor("a")).block();
+    failing.saveSupervisor(supervisor("b")).block();
+    failing
+        .saveAttachment(
+            attachment("m1", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true))
+        .block();
+    failing
+        .saveAttachment(
+            attachment(
+                "m2", "b", new SupervisorScope.Section("w", "s", Set.of("build.test")), true))
+        .block();
+    doReturn(Mono.error(new IllegalStateException("disk full")))
+        .when(failing)
+        .saveAttachment(org.mockito.ArgumentMatchers.argThat(SupervisorAttachment::conflict));
+    final SupervisorService restoring = new SupervisorService(failing, List.of(factory), host, log);
+
+    restoring.restore();
+
+    // the mark was not saved, so both stay enabled in the store; the restore still starts
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                verify(host, org.mockito.Mockito.atLeastOnce()).attach(any(BoundSupervisor.class)));
+    assertThat(failing.attachments().filter(SupervisorAttachment::conflict).collectList().block())
+        .isEmpty();
+  }
+
+  @Test
+  void selectorsAreComparedWithTheNodesOfStoredWorkflow() {
+    final com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore definitions =
+        new com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore();
+    definitions
+        .save(
+            "s",
+            com.infenia.yukta.testing.Fixtures.workflow(
+                "w",
+                "d",
+                List.of(
+                    com.infenia.yukta.testing.Fixtures.node("build.compile", "T", Map.of()),
+                    com.infenia.yukta.testing.Fixtures.node("deploy", "T", Map.of())),
+                List.of(),
+                List.of()))
+        .block();
+    service.setDefinitions(definitions);
+    saveSupervisors("a", "b", "c");
+    StepVerifier.create(service.attach(attachment("g", "c", new SupervisorScope.Global(), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("other", "c", new SupervisorScope.Session("s2"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "x", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "y", "b", new SupervisorScope.Section("w", "s", Set.of("deploy")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    expectConflict(
+        attachment("z", "b", new SupervisorScope.Section("w", "s", Set.of("build.compile")), true),
+        "owned by a");
+  }
+
+  @Test
+  void supervisorThatReadsGetsTheReadsOfItsScope() {
+    final List<com.infenia.yukta.plugin.control.engine.EngineReads> given =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+    final SupervisorFactory reading =
+        new SupervisorFactory() {
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
+          public String type() {
+            return "reading";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            return new Reader(given);
+          }
+        };
+    final SupervisorService made =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(reading), host, log);
+    final com.infenia.yukta.service.supervisor.engine.SupervisorQueries queries =
+        mock(com.infenia.yukta.service.supervisor.engine.SupervisorQueries.class);
+    when(queries.readsFor(any(), any()))
+        .thenReturn(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
+    @SuppressWarnings("unchecked")
+    final org.springframework.beans.factory.ObjectProvider<
+            com.infenia.yukta.service.supervisor.engine.SupervisorQueries>
+        provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable())
+        .thenReturn(queries, (com.infenia.yukta.service.supervisor.engine.SupervisorQueries) null);
+    StepVerifier.create(made.saveSupervisor(new Supervisor("r", "reading", Map.of(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            made.attach(attachment("zero", "r", new SupervisorScope.Workflow("zero", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    made.setQueries(provider);
+
+    for (final String id : List.of("one", "two")) {
+      StepVerifier.create(
+              made.attach(attachment(id, "r", new SupervisorScope.Workflow(id, "s"), true)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    // without queries nothing is given; then the first start finds them and the second does not
+    assertThat(given).containsExactly(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
+  }
+
+  /** A supervisor that keeps the reads it is given. */
+  private record Reader(List<com.infenia.yukta.plugin.control.engine.EngineReads> given)
+      implements ExecutionSupervisor, com.infenia.yukta.plugin.control.engine.ReadsAware {
+
+    @Override
+    public String id() {
+      return "reader";
+    }
+
+    @Override
+    public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+      return Flux.empty();
+    }
+
+    @Override
+    public void readsFrom(final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
+      given.add(reads);
+    }
   }
 }
