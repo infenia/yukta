@@ -2,7 +2,7 @@
 
 Plan for making supervisors the only way to steer a run, and for splitting a supervisor into two clearly separate parts: the **supervisor** (what it owns, who it reports to, what it may do, how it is secured) and its **decision engine** (a plugin that decides). The rule engine, an HTTP endpoint for an external application, an outbound call and a workflow are all engines. Yukta never knows how an engine decides; it only enforces what the supervisor allows.
 
-Status (2026-11-08): **proposal**, nothing built. The "today" statements were read from the code in the working tree on branch `fix/2043-styled-tooltips` (based on `origin/main`); each names the class it comes from. Items marked *to confirm* are assumptions the first issue must check. The work is not filed; see [Issues](#issues). This version replaces the earlier draft of this file, which kept today's overlapping scopes and supervisor types.
+Status (2026-11-08): **proposal**, nothing built. The "today" statements were read from the code in the working tree on branch `fix/2043-styled-tooltips` (based on `origin/main`); each names the class it comes from. The contract items that were *to confirm* were decided in S0 (see `docs/running/supervisor-contract.mdx` and ADR 0002). The work is not filed; see [Issues](#issues). This version replaces the earlier draft of this file, which kept today's overlapping scopes and supervisor types.
 
 ## Decisions
 
@@ -207,7 +207,7 @@ interface SupervisorEngine extends AutoCloseable {
 | `ReviewVerdict` | `allow`, `deny`, `requireApproval` for a `Review` |
 | `DelegationAnswer` | The answer to a `Delegated` signal |
 | `Delegate` | Pass a question up to the parents, with a kind and a payload |
-| `Notify` | An audited message that changes nothing (*to confirm*) |
+| `Notify` | An audited message that changes nothing (in v1, decided in S0) |
 | `NoOpinion` | Explicitly no answer |
 
 **`EngineContext`** (all an engine can reach): `self()`, the read API (`queries()`), a per-supervisor `state()` store, a logger tagged with the supervisor, and `ticks(period)`. It has no handle to the dispatcher, the gateway, the stores or any core bean. In-JVM engines are plugin modules that may depend on `plugin-api` only; an ArchUnit rule in the `architecture` module enforces it.
@@ -349,7 +349,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 | Node level | pause, resume, stop, skip, retry, step mode, breakpoints |
 | Inputs | answer, escalate |
 | Server | set limits, drain (server owner only) |
-| Other | `notify` (*to confirm*), `delegate` |
+| Other | `notify`, `delegate` |
 
 **Review and delegation:** the answer to a `Review` or `Delegated` signal is `allow`, `deny` or `requireApproval` (or the typed answer), within `yukta.supervisor.review-timeout` (5 s) or the delegation timeout. A refusal is final.
 
@@ -364,7 +364,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 | A credential leaks | Per supervisor, shown once, hashed, rotated, revoked, optional expiry and address list. Ownership and `allowedCommands` limit the damage. Disabling the supervisor cuts it at once. |
 | An engine acts outside what its supervisor owns | Ownership is checked on the server from the command's real target, never from what the engine says. A lookup error counts as not owned. |
 | Two supervisors fight or override each other | The one-owner rule makes it impossible, and is re-checked at every definition save. |
-| An administrator removes the supervisor that protects a workflow | Creating, changing, assigning and detaching supervisors is `ADMIN`, audited under run id `supervisors`. `locked`: only a parent or an administrator holding the lock permission may detach it (*to confirm*). |
+| An administrator removes the supervisor that protects a workflow | Creating, changing, assigning and detaching supervisors is `ADMIN`, audited under run id `supervisors`. `locked`: only a parent or an administrator holding the lock permission may detach it (decided in S0: `locked` is in, built in S2). |
 | Data leaks through the read API | Limited to owned units, paged, redacted, node outputs off by default, reads counted per supervisor. |
 | An engine overloads the server | Rate limit per supervisor, open streams and reviews capped, bounded buffers with `EventsMissed`. |
 | A loop of supervisors | A supervisor never sees its own outcomes; internal sessions are hidden; delegation depth at most 4; workflow-engine depth limit. |
@@ -625,7 +625,7 @@ A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then 
 | `yukta ownership [--session s --workflow w]` and `yukta supervision …` | Who owns what, and whether a command would be allowed |
 | `yukta supervisor-contract` | The version and operations |
 
-Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `4` (proposed)). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
+Existing commands (`workflow stop`, `node pause`, `executions …`, `scheduler`) keep their syntax and print the owner and reason on a refusal (exit code `4`, decided in S0). A reference agent, `yukta supervisor agent --credential-file … --exec ./decide.sh`, bridges the agent API to a local program (signals as JSON lines on its stdin, directives read from its stdout), so a script in any language can be a supervisor without writing an HTTP client.
 
 ### Other clients and assets
 
@@ -682,7 +682,7 @@ The smallest slice that delivers D1 and D2 is **S0, S1 and S2 with S8a and the c
 
 ## Risks
 
-- **Operator lock-out.** An owner whose engine is lost, with `operatorAccess` off, leaves its workflow without a way to act. An administrator can detach it unless it is `locked`; the UI says plainly who owns each unit. Consider an `emergency` stop for the `ADMIN` role that bypasses nothing but is audited (*to confirm*).
+- **Operator lock-out.** An owner whose engine is lost, with `operatorAccess` off, leaves its workflow without a way to act. An administrator can detach it unless it is `locked`; the UI says plainly who owns each unit. Consider an `emergency` stop for the `ADMIN` role that bypasses nothing but is audited (decided in S0: not in v1; revisit in S2 if lock-out is seen).
 - **The default supervisor makes D1 a no-op for unowned workflows.** That is the decision. The plan makes it visible (the Supervision tab) and switchable (`yukta.supervisor.default.enabled`).
 - **Overlap checks on workflow save** add a way for a definition save to fail because of supervisors. The error names the supervisor and the nodes.
 - **Legacy conflicts** after migration need a person to resolve; the `conflict` status is shown on the supervisor and in the Supervision tab.
