@@ -248,7 +248,7 @@ export interface paths {
          * Show the edition
          * @description Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is
          */
-        get: operations["show"];
+        get: operations["show_1"];
         put?: never;
         post?: never;
         delete?: never;
@@ -827,7 +827,7 @@ export interface paths {
         };
         /**
          * Who am I
-         * @description The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.
+         * @description The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash. `supervision` says whether the default supervisor carries what nobody owns and how many supervisors own something the key can reach.
          */
         get: operations["me"];
         put?: never;
@@ -1786,7 +1786,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Show the credential metadata of an agent supervisor (never the secret) */
+        get: operations["show"];
         put?: never;
         /** Issue or rotate the credential of an agent supervisor */
         post: operations["issue"];
@@ -3534,6 +3535,72 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMe: {
+            /** @description The response data */
+            data?: components["schemas"]["Me"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseMetadata: {
+            /** @description The response data */
+            data?: components["schemas"]["Metadata"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseMetricSample: {
             /** @description The response data */
             data?: components["schemas"]["MetricSample"];
@@ -4098,39 +4165,6 @@ export interface components {
         ApiResponseVoid: {
             /** @description The response data */
             data?: unknown;
-            /**
-             * @description The HTTP status error name
-             * @example Bad Request
-             */
-            error?: string;
-            /** @description The list of field validation errors */
-            errors?: components["schemas"]["FieldError"][];
-            /**
-             * @description A human-readable message
-             * @example Operation successful
-             */
-            message?: string;
-            /**
-             * @description The request path
-             * @example /api/files
-             */
-            path?: string;
-            /**
-             * Format: int32
-             * @description The HTTP status code
-             * @example 200
-             */
-            status?: number;
-            /**
-             * Format: date-time
-             * @description The time the response was generated
-             */
-            timestamp?: string;
-        };
-        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
-        ApiResponseWhoami: {
-            /** @description The response data */
-            data?: components["schemas"]["Whoami"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4915,6 +4949,26 @@ export interface components {
             timestamp?: string;
             workflowId?: string;
         };
+        Me: {
+            authEnabled?: boolean;
+            authenticated?: boolean;
+            keyName?: string;
+            permissions?: components["schemas"]["Permissions"];
+            /** @enum {string} */
+            role?: "VIEWER" | "OPERATOR" | "ADMIN";
+            sessions?: string[];
+            supervision?: components["schemas"]["Summary"];
+        };
+        Metadata: {
+            addresses?: string[];
+            /** Format: date-time */
+            expiresAt?: string;
+            /** Format: date-time */
+            issuedAt?: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+            lastUsedFrom?: string;
+        };
         MetricSample: {
             /** Format: int64 */
             time?: number;
@@ -5320,6 +5374,11 @@ export interface components {
             mode?: "DRAIN" | "CANCEL" | "KILL" | null;
             reason?: string | null;
         };
+        Summary: {
+            defaultSupervisor?: boolean;
+            /** Format: int32 */
+            owners?: number;
+        };
         SupervisorBody: {
             delegation?: {
                 [key: string]: components["schemas"]["DelegationBody"];
@@ -5531,15 +5590,6 @@ export interface components {
             message?: string;
             /** @description The node it is about */
             nodeId?: string;
-        };
-        Whoami: {
-            authEnabled?: boolean;
-            authenticated?: boolean;
-            keyName?: string;
-            permissions?: components["schemas"]["Permissions"];
-            /** @enum {string} */
-            role?: "VIEWER" | "OPERATOR" | "ADMIN";
-            sessions?: string[];
         };
         WorkerInfo: {
             /** Format: int32 */
@@ -6151,7 +6201,7 @@ export interface operations {
             };
         };
     };
-    show: {
+    show_1: {
         parameters: {
             query?: never;
             header?: never;
@@ -6949,7 +6999,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "*/*": components["schemas"]["ApiResponseWhoami"];
+                    "*/*": components["schemas"]["ApiResponseMe"];
                 };
             };
         };
@@ -8362,6 +8412,28 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseListAttachmentView"];
+                };
+            };
+        };
+    };
+    show: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseMetadata"];
                 };
             };
         };

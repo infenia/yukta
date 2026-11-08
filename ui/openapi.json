@@ -1710,6 +1710,92 @@
         },
         "type" : "object"
       },
+      "ApiResponseMe" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Me",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "ApiResponseMetadata" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Metadata",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseMetricSample" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -2444,49 +2530,6 @@
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
           "data" : {
-            "description" : "The response data"
-          },
-          "error" : {
-            "description" : "The HTTP status error name",
-            "example" : "Bad Request",
-            "type" : "string"
-          },
-          "errors" : {
-            "description" : "The list of field validation errors",
-            "items" : {
-              "$ref" : "#/components/schemas/FieldError"
-            },
-            "type" : "array"
-          },
-          "message" : {
-            "description" : "A human-readable message",
-            "example" : "Operation successful",
-            "type" : "string"
-          },
-          "path" : {
-            "description" : "The request path",
-            "example" : "/api/files",
-            "type" : "string"
-          },
-          "status" : {
-            "description" : "The HTTP status code",
-            "example" : 200,
-            "format" : "int32",
-            "type" : "integer"
-          },
-          "timestamp" : {
-            "description" : "The time the response was generated",
-            "format" : "date-time",
-            "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "ApiResponseWhoami" : {
-        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
-        "properties" : {
-          "data" : {
-            "$ref" : "#/components/schemas/Whoami",
             "description" : "The response data"
           },
           "error" : {
@@ -4200,6 +4243,63 @@
           "type" : "object"
         } ]
       },
+      "Me" : {
+        "properties" : {
+          "authEnabled" : {
+            "type" : "boolean"
+          },
+          "authenticated" : {
+            "type" : "boolean"
+          },
+          "keyName" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "$ref" : "#/components/schemas/Permissions"
+          },
+          "role" : {
+            "enum" : [ "VIEWER", "OPERATOR", "ADMIN" ],
+            "type" : "string"
+          },
+          "sessions" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
+          },
+          "supervision" : {
+            "$ref" : "#/components/schemas/Summary"
+          }
+        },
+        "type" : "object"
+      },
+      "Metadata" : {
+        "properties" : {
+          "addresses" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array",
+            "uniqueItems" : true
+          },
+          "expiresAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "issuedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "lastUsedAt" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "lastUsedFrom" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "MetricSample" : {
         "properties" : {
           "time" : {
@@ -5161,6 +5261,18 @@
           "type" : "object"
         } ]
       },
+      "Summary" : {
+        "properties" : {
+          "defaultSupervisor" : {
+            "type" : "boolean"
+          },
+          "owners" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "SupervisorBody" : {
         "properties" : {
           "delegation" : {
@@ -5695,33 +5807,6 @@
           "nodeId" : {
             "description" : "The node it is about",
             "type" : "string"
-          }
-        },
-        "type" : "object"
-      },
-      "Whoami" : {
-        "properties" : {
-          "authEnabled" : {
-            "type" : "boolean"
-          },
-          "authenticated" : {
-            "type" : "boolean"
-          },
-          "keyName" : {
-            "type" : "string"
-          },
-          "permissions" : {
-            "$ref" : "#/components/schemas/Permissions"
-          },
-          "role" : {
-            "enum" : [ "VIEWER", "OPERATOR", "ADMIN" ],
-            "type" : "string"
-          },
-          "sessions" : {
-            "items" : {
-              "type" : "string"
-            },
-            "type" : "array"
           }
         },
         "type" : "object"
@@ -6764,7 +6849,7 @@
     "/api/edition" : {
       "get" : {
         "description" : "Returns the edition of this build (COMMUNITY, PLUS or ENTERPRISE), its licence, the optional features it has and, where the licence asks for it, where the source is",
-        "operationId" : "show",
+        "operationId" : "show_1",
         "responses" : {
           "200" : {
             "content" : {
@@ -7992,14 +8077,14 @@
     },
     "/api/me" : {
       "get" : {
-        "description" : "The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash.",
+        "description" : "The name, role and sessions of the API key of this request, and what it may do (start and control runs, edit and delete sessions, change limits, send commands). With no key configured the role is ADMIN and authEnabled is false. Never returns the key or its hash. `supervision` says whether the default supervisor carries what nobody owns and how many supervisors own something the key can reach.",
         "operationId" : "me",
         "responses" : {
           "200" : {
             "content" : {
               "*/*" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/ApiResponseWhoami"
+                  "$ref" : "#/components/schemas/ApiResponseMe"
                 }
               }
             },
@@ -10013,6 +10098,31 @@
           }
         },
         "summary" : "Revoke the credential of an agent supervisor",
+        "tags" : [ "Agent credentials" ]
+      },
+      "get" : {
+        "operationId" : "show",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMetadata"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Show the credential metadata of an agent supervisor (never the secret)",
         "tags" : [ "Agent credentials" ]
       },
       "post" : {

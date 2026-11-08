@@ -47,6 +47,7 @@ com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
 com.infenia.yukta.filter.AgentCredentialFilter
 com.infenia.yukta.filter.ApiKeyFilter
+com.infenia.yukta.filter.ControlViaFilter
 com.infenia.yukta.filter.DeprecatedAliasFilter
 com.infenia.yukta.filter.HostOriginFilter
 com.infenia.yukta.filter.RequestLoggingFilter
@@ -222,6 +223,7 @@ com.infenia.yukta.service.supervisor.agent.AgentEngineConfiguration
 com.infenia.yukta.service.supervisor.agent.AgentHub
 com.infenia.yukta.service.supervisor.engine.SupervisorQueries
 com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver
+com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex
 com.infenia.yukta.service.supervisor.workflow.SupervisorWorkflowRunner
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory
