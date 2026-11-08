@@ -1220,7 +1220,7 @@ class SupervisorServiceTest {
         new SupervisorService(new InMemorySupervisorStore(), List.of(reading), host, log);
     final com.infenia.yukta.service.supervisor.engine.SupervisorQueries queries =
         mock(com.infenia.yukta.service.supervisor.engine.SupervisorQueries.class);
-    when(queries.readsFor(any()))
+    when(queries.readsFor(any(), any()))
         .thenReturn(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
     @SuppressWarnings("unchecked")
     final org.springframework.beans.factory.ObjectProvider<

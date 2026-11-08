@@ -59,4 +59,13 @@ public interface EngineReads {
    * @return the requests
    */
   Flux<InputRequest> openInputs(int limit);
+
+  /**
+   * The executions this supervisor paused and has not resumed or stopped (its hold ledger).
+   *
+   * @return their ids; none by default
+   */
+  default Flux<String> held() {
+    return Flux.empty();
+  }
 }

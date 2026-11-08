@@ -21,7 +21,12 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.CloseResource"})
+@SuppressWarnings({
+  "PMD.TooManyMethods",
+  "PMD.CloseResource",
+  "PMD.CouplingBetweenObjects",
+  "PMD.AvoidDuplicateLiterals"
+})
 class EngineBackedSupervisorTest {
 
   private static final ExecutionControlCommand STOP =
@@ -263,5 +268,52 @@ class EngineBackedSupervisorTest {
         .assertNext(command -> assertThat(command.command()).isEqualTo(STOP))
         .verifyComplete();
     assertThat(sup.id()).isEqualTo("s1");
+  }
+
+  @Test
+  void startedCarriesWhatTheSupervisorOwnsHoldsAndTheCursorThenSaysResubscribe() {
+    final List<Signal.Started> starts = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final var sup =
+        supervisor(
+            engine(
+                signals ->
+                    signals
+                        .ofType(Signal.Started.class)
+                        .doOnNext(starts::add)
+                        .thenMany(Flux.<Directive>never())),
+            false);
+    sup.readsFrom(
+        new EngineReads() {
+          @Override
+          public Flux<RunView> executions(final String status, final int limit) {
+            return Flux.just(new RunView("s", "run1", "w", "RUNNING", null));
+          }
+
+          @Override
+          public Flux<com.infenia.yukta.plugin.input.InputRequest> openInputs(final int limit) {
+            return Flux.error(new IllegalStateException("store down"));
+          }
+
+          @Override
+          public Flux<String> held() {
+            return Flux.just("run1");
+          }
+        });
+    sup.directives(Flux.never()).subscribe();
+    sup.directives(Flux.never()).subscribe();
+
+    assertThat(starts).hasSize(2);
+    assertThat(starts.get(0).reason()).isEqualTo("first");
+    assertThat(starts.get(0).executions()).containsExactly("run1");
+    assertThat(starts.get(0).held()).containsExactly("run1");
+    // a read that fails leaves its part empty instead of failing the start
+    assertThat(starts.get(0).openInputs()).isEmpty();
+    assertThat(starts.get(0).cursor()).isEqualTo("e0");
+    assertThat(starts.get(1).reason()).isEqualTo("resubscribe");
+  }
+
+  @Test
+  void theDefaultReadsHoldNothing() {
+    StepVerifier.create(EngineReads.NONE.held()).verifyComplete();
   }
 }

@@ -105,6 +105,16 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
+  void anAnswerIsAppliedOnceEvenUnderAnotherKey() {
+    attach(
+        pausing(10),
+        command("k1", Cause.answers("r1"), null),
+        command("k2", Cause.answers("r1"), null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("answer-repeated") == 1);
+    assertThat(count("applied")).isEqualTo(1);
+  }
+
+  @Test
   void reactionIsAppliedAndRepeatedKeyOnlyOnce() {
     attach(
         pausing(10), command("k", Cause.event("e1"), null), command("k", Cause.event("e1"), null));

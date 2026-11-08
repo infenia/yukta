@@ -335,4 +335,39 @@ class ControlReviewerOwnerTest {
         new ControlReviewer(providerOf(), YuktaSettings.bind(Map.of()));
     StepVerifier.create(fromSettings.review(RUN_COMMAND)).verifyComplete();
   }
+
+  @Test
+  void aPersonsCommandSaysWhichSupervisorCarriedIt() {
+    own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
+    final var via = new java.util.concurrent.atomic.AtomicReference<String>();
+    StepVerifier.create(
+            reviewer(true)
+                .verdict(RUN_COMMAND, java.util.Set.of())
+                .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
+                .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, via)))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(via.get()).isEqualTo("a-sup");
+
+    final var unowned = new java.util.concurrent.atomic.AtomicReference<String>();
+    StepVerifier.create(
+            reviewer(true)
+                .verdict(SERVER_COMMAND, java.util.Set.of())
+                .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
+                .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, unowned)))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(unowned.get()).isEqualTo(ControlReviewer.DEFAULT_VIA);
+  }
+
+  @Test
+  void theSummaryCountsOwnersInReachAndSaysWhetherTheDefaultIsOn() {
+    own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
+    own("b", new SupervisorScope.Workflow("w", "other"), answering(Decision.ALLOW));
+    own("g", new SupervisorScope.Global(), answering(Decision.ALLOW));
+
+    assertThat(reviewer(true).summary(null)).isEqualTo(new ControlReviewer.Summary(true, 2));
+    assertThat(reviewer(false).summary(java.util.List.of("s")))
+        .isEqualTo(new ControlReviewer.Summary(false, 1));
+  }
 }

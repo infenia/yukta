@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -52,6 +53,9 @@ public class SystemHealthProvider {
   /** Gateway providing per-session execution history. */
   private final ControlBusGateway controlBus;
 
+  /** Says whether the default supervisor is on and who owns what the caller can reach. */
+  private final com.infenia.yukta.service.supervisor.ControlReviewer reviewer;
+
   /**
    * Who is calling and what they may do, from the key the endpoint filter resolved.
    *
@@ -75,8 +79,14 @@ public class SystemHealthProvider {
                       "editSessions", perms.editSessions(),
                       "deleteSessions", perms.deleteSessions(),
                       "changeLimits", perms.changeLimits(),
-                      "sendCommands", perms.sendCommands())));
+                      "sendCommands", perms.sendCommands()),
+                  supervision(who.sessions())));
         });
+  }
+
+  private Map<String, Object> supervision(final java.util.@Nullable List<String> sessions) {
+    final var summary = reviewer.summary(sessions);
+    return Map.of("defaultSupervisor", summary.defaultSupervisor(), "owners", summary.owners());
   }
 
   /**

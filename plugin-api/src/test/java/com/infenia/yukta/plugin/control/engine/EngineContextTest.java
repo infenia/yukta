@@ -110,6 +110,7 @@ class EngineContextTest {
             });
     StepVerifier.create(context.reads().executions(null, 1)).expectNext(run).verifyComplete();
     StepVerifier.create(context.reads().openInputs(1)).verifyComplete();
+    StepVerifier.create(context.reads().held()).verifyComplete();
   }
 
   @Test
