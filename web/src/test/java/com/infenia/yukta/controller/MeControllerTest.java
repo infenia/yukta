@@ -17,11 +17,20 @@ import reactor.util.context.Context;
 @NoArgsConstructor
 class MeControllerTest {
 
+  private final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
+      org.mockito.Mockito.mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
+
+  @org.junit.jupiter.api.BeforeEach
+  void ownersInReach() {
+    org.mockito.Mockito.when(reviewer.summary(org.mockito.ArgumentMatchers.any()))
+        .thenReturn(new com.infenia.yukta.service.supervisor.ControlReviewer.Summary(true, 2));
+  }
+
   @Test
   void me_describesTheKeyOfTheRequest() {
     final var data =
         Objects.requireNonNull(
-                new MeController()
+                new MeController(reviewer)
                     .me()
                     .contextWrite(
                         Context.of(
@@ -34,11 +43,13 @@ class MeControllerTest {
     assertThat(data.role()).isEqualTo(ApiRole.OPERATOR);
     assertThat(data.sessions()).containsExactly("s1");
     assertThat(data.authEnabled()).isTrue();
+    assertThat(data.supervision().owners()).isEqualTo(2);
+    assertThat(data.supervision().defaultSupervisor()).isTrue();
   }
 
   @Test
   void me_withNoKeyConfiguredIsAnAdminWithAuthOff() {
-    final var data = Objects.requireNonNull(new MeController().me().block()).data();
+    final var data = Objects.requireNonNull(new MeController(reviewer).me().block()).data();
 
     assertThat(data.authEnabled()).isFalse();
     assertThat(data.role()).isEqualTo(ApiRole.ADMIN);
