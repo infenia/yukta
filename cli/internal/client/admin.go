@@ -4,6 +4,8 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 )
@@ -25,6 +27,60 @@ func (c *Client) GetSupervisorTypes() (any, error) { return c.getData("/api/supe
 // GetSupervisorType describes one supervisor type with the settings it takes.
 func (c *Client) GetSupervisorType(name string) (any, error) {
 	return c.getData(apiPath("/api/supervisor-types/%s", name))
+}
+
+// GetSupervisorPresets lists the ready-made settings of a supervisor type.
+func (c *Client) GetSupervisorPresets(name string) (any, error) {
+	return c.getData(apiPath("/api/supervisor-types/%s/presets", name))
+}
+
+// GetSupervisorVersions lists the saved versions of a supervisor, newest first.
+func (c *Client) GetSupervisorVersions(id string) (any, error) {
+	return c.getData(apiPath("/api/supervisors/%s/versions", id))
+}
+
+// RollbackSupervisor makes an earlier version of a supervisor current again.
+func (c *Client) RollbackSupervisor(id string, version int) (any, error) {
+	if version < 1 {
+		return nil, fmt.Errorf("version must be at least 1")
+	}
+	return c.dataCall("POST", apiPath("/api/supervisors/%s/rollback", id)+fmt.Sprintf("?version=%d", version), nil)
+}
+
+// ReplaySupervisor tries a supervisor on the recorded events of a past run, in dry run. A non-empty
+// settingsJSON is tried instead of the stored settings.
+func (c *Client) ReplaySupervisor(id, executionID, settingsJSON string) (any, error) {
+	if executionID == "" {
+		return nil, fmt.Errorf("an execution is needed")
+	}
+	body := map[string]any{"executionId": executionID}
+	if settingsJSON != "" {
+		var settings map[string]any
+		if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil {
+			return nil, fmt.Errorf("the settings are not a JSON object: %w", err)
+		}
+		body["settings"] = settings
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	return c.dataCall("POST", apiPath("/api/supervisors/%s/replay", id), raw)
+}
+
+// IssueAgentCredential makes the credential of an http supervisor (the token is shown once); a
+// ttlHours of 0 means no expiry.
+func (c *Client) IssueAgentCredential(id string, ttlHours int) (any, error) {
+	path := apiPath("/api/supervisors/%s/credential", id)
+	if ttlHours > 0 {
+		path += fmt.Sprintf("?ttlHours=%d", ttlHours)
+	}
+	return c.dataCall("POST", path, nil)
+}
+
+// RevokeAgentCredential cuts the credential of an http supervisor at once.
+func (c *Client) RevokeAgentCredential(id string) (any, error) {
+	return c.dataCall("DELETE", apiPath("/api/supervisors/%s/credential", id), nil)
 }
 
 // GetWorkers lists the workers.
