@@ -31,7 +31,7 @@ import {
   toStatusDisplay,
 } from '@/features/workflow/lib/statusMapper';
 import {
-  formatClockTime,
+  formatDateTime,
   formatDuration,
 } from '@/features/workflow/lib/timeFormat';
 import {
@@ -379,7 +379,7 @@ function Runs() {
                       data-label="Started"
                       className={cn(STACKED_CELL, 'text-code-sm')}
                     >
-                      {formatClockTime(run.startTime)}
+                      {formatDateTime(run.startTime)}
                     </TableCell>
                     <TableCell
                       data-label="Duration"

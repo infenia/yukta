@@ -7,7 +7,7 @@ import { Link, useSearchParams } from 'react-router';
 import { cn } from '@/lib/utils';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Button } from '@/components/ui/button';
+import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/ui/input';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
@@ -93,37 +93,13 @@ function PluginDetail({ type }: { type: string }) {
           </div>
         </header>
         {plugin.description && (
-          <p className="text-body-md text-on-surface max-w-prose whitespace-pre-line">
+          <p className="text-body-md text-on-surface whitespace-pre-line">
             {plugin.description}
           </p>
         )}
         <section aria-label="On the canvas">
           <PluginCanvasPreview plugin={plugin} />
         </section>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => copy(example)}
-          >
-            <span
-              aria-hidden="true"
-              className="material-symbols-outlined text-base"
-            >
-              data_object
-            </span>
-            Copy node JSON
-          </Button>
-          {copied && (
-            <span
-              role="status"
-              className="text-label-sm text-on-surface-variant"
-            >
-              {copied === 'copied' ? 'Copied' : 'Copy failed'}
-            </span>
-          )}
-        </div>
         <div role="tablist" className="border-border flex gap-5 border-b">
           {tabs.map(({ key, label, count }) => (
             <button
@@ -149,45 +125,80 @@ function PluginDetail({ type }: { type: string }) {
           ))}
         </div>
         {tab === 'ports' && (
-          <p className="text-body-md text-on-surface-variant">{ports}</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-body-md text-on-surface-variant max-w-prose">
+              A port is a named result this node can send its output to. In a
+              workflow, an edge from a port routes that result to the next node.
+              Nodes with no named port use the <code>default</code> port.
+            </p>
+            <p className="text-body-md text-on-surface">
+              <span className="text-label-md">Output ports: </span>
+              {ports}
+            </p>
+          </div>
         )}
         {tab === 'config' && (
-          <ul className="flex flex-col gap-2">
-            {schema.map((field) => (
-              <li
-                key={field.name}
-                className="border-border bg-card shadow-card rounded-xl border p-3"
-              >
-                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                  <code className="text-code-sm text-on-surface font-semibold">
-                    {field.name}
-                  </code>
-                  <span className="text-body-sm text-on-surface-variant">
-                    {field.type}
-                  </span>
-                  {field.required && (
-                    <span className="text-label-sm text-error">
-                      <span aria-hidden="true">*</span> required
-                    </span>
-                  )}
-                  <span className="text-body-sm text-muted-foreground ml-auto">
-                    default{' '}
-                    <code className="text-code-sm">
-                      {defaultText(field.defaultValue)}
+          <>
+            <p className="text-body-sm text-on-surface-variant max-w-prose">
+              Settings for this node, written in its <code>config</code> object.
+              A field marked <code>default</code> is used when you leave it out;
+              “no default” means you must set it if it is required.
+            </p>
+            <ul className="flex flex-col gap-2">
+              {schema.map((field) => (
+                <li
+                  key={field.name}
+                  className="border-border bg-card shadow-card rounded-xl border p-3"
+                >
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <code className="text-code-sm text-on-surface font-semibold">
+                      {field.name}
                     </code>
-                  </span>
-                </div>
-                {field.description && (
-                  <p className="text-body-sm text-on-surface-variant mt-1">
-                    {field.description}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+                    <span className="text-body-sm text-on-surface-variant">
+                      {field.type}
+                    </span>
+                    {field.required && (
+                      <span className="text-label-sm text-error">
+                        <span aria-hidden="true">*</span> required
+                      </span>
+                    )}
+                    <span className="text-body-sm text-muted-foreground ml-auto">
+                      default{' '}
+                      <code className="text-code-sm">
+                        {defaultText(field.defaultValue)}
+                      </code>
+                    </span>
+                  </div>
+                  {field.description && (
+                    <p className="text-body-sm text-on-surface-variant mt-1">
+                      {field.description}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </>
         )}
         {tab === 'example' && (
           <>
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-body-sm text-on-surface-variant max-w-prose">
+                A minimal node you can paste into a workflow's JSON.
+              </p>
+              <IconButton
+                icon="data_object"
+                label="Copy node JSON"
+                onClick={() => copy(example)}
+              />
+            </div>
+            {copied && (
+              <span
+                role="status"
+                className="text-label-sm text-on-surface-variant"
+              >
+                {copied === 'copied' ? 'Copied' : 'Copy failed'}
+              </span>
+            )}
             <CodeBlock code={example} label="example" />
             {plugin.usagePattern && (
               <section>
