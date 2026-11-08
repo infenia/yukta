@@ -8,9 +8,12 @@ import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.Directive;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.ControlAudit;
@@ -18,7 +21,10 @@ import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
-import com.infenia.yukta.service.supervisor.composite.CompositeSupervisor;
+import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
+import com.infenia.yukta.service.supervisor.engine.EngineRunner;
+import com.infenia.yukta.service.supervisor.engine.HoldLedger;
+import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
@@ -26,9 +32,13 @@ import jakarta.annotation.PreDestroy;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -134,6 +144,15 @@ public class SupervisorHost {
   /** The supervisors attached at run time. */
   private AttachedSupervisors attachedSupervisors = new AttachedSupervisors();
 
+  /** The runs each supervisor paused. */
+  private final HoldLedger holds = new HoldLedger();
+
+  /** Reads the status of a run for {@code ifStatus}, looked up late; null where none is given. */
+  @Nullable private ObjectProvider<SupervisorQueries> queries;
+
+  /** Checks the commands of engines. */
+  private final DirectiveGate directiveGate = new DirectiveGate();
+
   /** Orders the conflicting commands of supervisors. */
   private final TurnAroundGuard guard;
 
@@ -234,6 +253,30 @@ public class SupervisorHost {
   }
 
   /**
+   * Gives the host the reads for {@code ifStatus}.
+   *
+   * @param supervisorQueries looked up late: the queries need services that need the host
+   */
+  @Autowired
+  public void setQueries(final ObjectProvider<SupervisorQueries> supervisorQueries) {
+    this.queries = supervisorQueries;
+  }
+
+  /**
+   * The runs a supervisor paused and has not resumed.
+   *
+   * @param supervisorId the supervisor id, or the id of an attachment
+   * @return the run ids, oldest first
+   */
+  public List<String> held(final String supervisorId) {
+    final List<String> out = new ArrayList<>(holds.held(supervisorId));
+    attachedSupervisors.stream()
+        .filter(bound -> bound.attachment().supervisorId().equals(supervisorId))
+        .forEach(bound -> out.addAll(holds.held(bound.id())));
+    return out.stream().distinct().toList();
+  }
+
+  /**
    * Shares the set of supervisors attached at run time with the reviewer.
    *
    * @param attached the set
@@ -274,9 +317,27 @@ public class SupervisorHost {
         subscription.dispose();
       }
       meters.find(COMMANDS_METRIC).tag("id", attachmentId).counters().forEach(meters::remove);
-      return attachedSupervisors.remove(attachmentId) != null;
+      final BoundSupervisor removed = attachedSupervisors.remove(attachmentId);
+      if (removed != null) {
+        close(removed);
+      }
+      return removed != null;
     } finally {
       lock.unlock();
+    }
+  }
+
+  /** Releases what an engine holds when its supervisor is detached. */
+  private static void close(final BoundSupervisor removed) {
+    if (removed.delegate() instanceof AutoCloseable closeable) {
+      try {
+        closeable.close();
+      } catch (Exception e) {
+        log.atWarn()
+            .setCause(e)
+            .addKeyValue(SUPERVISOR_KEY, removed.id())
+            .log("A supervisor did not close cleanly");
+      }
     }
   }
 
@@ -366,16 +427,12 @@ public class SupervisorHost {
                   supervisor.scope() instanceof SupervisorScope.Section section
                       ? List.copyOf(section.nodes())
                       : null,
-                  commands(supervisor.id(), "flapping-blocked"),
-                  real instanceof CompositeSupervisor composite ? composite.childIds() : null);
+                  commands(supervisor.id(), "flapping-blocked"));
             })
         .toList();
   }
 
   private static String kind(final ExecutionSupervisor real) {
-    if (real instanceof CompositeSupervisor) {
-      return "COMPOSITE";
-    }
     return real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
@@ -399,7 +456,7 @@ public class SupervisorHost {
         .addKeyValue(SUPERVISOR_KEY, supervisorId)
         .addKeyValue("dryRun", recordOnly)
         .log("Starting supervisor");
-    return Flux.defer(() -> supervisor.supervise(withoutOwnOutcomes(supervisor)))
+    return Flux.defer(() -> commandsOf(supervisor, recordOnly))
         .doOnError(
             error ->
                 log.atWarn()
@@ -431,6 +488,99 @@ public class SupervisorHost {
                         }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
+  }
+
+  /**
+   * The commands of a supervisor. Those of a {@link DirectiveSupervisor} first pass the {@link
+   * DirectiveGate}: a reason and an {@code initiative} entry for a command nobody prompted, the
+   * initiative rate, and at most one application per idempotency key.
+   */
+  private Flux<ExecutionControlCommand> commandsOf(
+      final ExecutionSupervisor supervisor, final boolean recordOnly) {
+    final Flux<ExecutionEvent> events = withoutOwnOutcomes(supervisor);
+    final ExecutionSupervisor real =
+        supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
+    if (!(real instanceof DirectiveSupervisor directives)) {
+      return supervisor.supervise(events);
+    }
+    final SupervisorCapabilities capabilities =
+        supervisor instanceof BoundSupervisor bound
+            ? bound.capabilities()
+            : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
+    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
+    return directives
+        .directives(events)
+        .concatMap(
+            directive ->
+                seen.add(directive.key())
+                    ? gated(supervisor, directive, capabilities, recordOnly)
+                    : Mono.empty());
+  }
+
+  private Mono<ExecutionControlCommand> gated(
+      final ExecutionSupervisor supervisor,
+      final Directive.Command directive,
+      final SupervisorCapabilities capabilities,
+      final boolean recordOnly) {
+    return dispatcher
+        .target(directive.command())
+        .map(t -> new EngineRunner.Target(t.sessionId(), t.workflowId(), t.nodeId()))
+        .onErrorReturn(new EngineRunner.Target(null, null, null))
+        .flatMap(
+            target -> {
+              final DirectiveGate.Decision decision =
+                  directiveGate.check(
+                      supervisor.id(),
+                      directive,
+                      target,
+                      capabilities,
+                      supervisor.scope(),
+                      true,
+                      recordOnly);
+              if (decision.rejection() == null) {
+                return preconditionHolds(directive, target)
+                    .flatMap(
+                        holds ->
+                            holds
+                                ? Mono.just(directive.command())
+                                : notApplied(
+                                        supervisor.id(),
+                                        "precondition-failed",
+                                        directive.command(),
+                                        "the run is not in status " + directive.ifStatus())
+                                    .then(Mono.<ExecutionControlCommand>empty()));
+              }
+              return notApplied(
+                      supervisor.id(),
+                      decision.rejection().name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                      directive.command(),
+                      "refused: " + decision.rejection() + " (" + directive.cause().text() + ")")
+                  .then(Mono.<ExecutionControlCommand>empty());
+            });
+  }
+
+  /** Whether a command's {@code ifStatus} matches the run's status now; true when it names none. */
+  private Mono<Boolean> preconditionHolds(
+      final Directive.Command directive, final EngineRunner.Target target) {
+    final SupervisorQueries reads = queries == null ? null : queries.getIfAvailable();
+    if (directive.ifStatus() == null || reads == null || target.sessionId() == null) {
+      return Mono.just(true);
+    }
+    return reads
+        .statusOf(target.sessionId(), directive.command().executionId())
+        .map(directive.ifStatus()::equalsIgnoreCase)
+        .defaultIfEmpty(false)
+        .onErrorReturn(false);
+  }
+
+  /** The keys remembered per supervisor: the newest 1000. */
+  private static final class BoundedKeys extends LinkedHashMap<String, Boolean> {
+    private static final long serialVersionUID = 1L;
+
+    @Override
+    protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+      return size() > 1000;
+    }
   }
 
   /**
@@ -578,6 +728,7 @@ public class SupervisorHost {
             _ -> {
               count(supervisorId, "applied");
               decided(supervisorId, "applied", command, null);
+              holds.applied(supervisorId, command);
             })
         .onErrorResume(
             ControlAwaitingApprovalException.class,

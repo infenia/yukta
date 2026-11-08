@@ -131,7 +131,7 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void checkRefusesADeclarationThatTakesWhatAnotherSupervisorOwns() {
+  void checkRefusesDeclarationThatTakesWhatAnotherSupervisorOwns() {
     supervisor("a");
     supervisor("b");
     manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
@@ -172,7 +172,7 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void checkRefusesAGroupSelectorUntilItCanBeResolved() {
+  void checkRefusesGroupSelectorUntilItCanBeResolved() {
     supervisor("a");
 
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))

@@ -34,7 +34,7 @@ class SupervisorHierarchyTest {
   }
 
   @Test
-  void aMissingParentASelfReferenceAndACycleAreRefused() {
+  void missingParentSelfReferenceAndCycleAreRefused() {
     sup("a");
     assertThatThrownBy(() -> SupervisorHierarchy.validate(sup("b", "ghost"), stored))
         .hasMessageContaining("ghost");
@@ -48,7 +48,7 @@ class SupervisorHierarchyTest {
   }
 
   @Test
-  void aChainOfFourIsFineAndFiveIsRefused() {
+  void chainOfFourIsFineAndFiveIsRefused() {
     sup("l1");
     sup("l2", "l1");
     sup("l3", "l2");
@@ -59,7 +59,7 @@ class SupervisorHierarchyTest {
   }
 
   @Test
-  void childrenOfListsWhoReportsToASupervisor() {
+  void childrenOfListsWhoReportsToSupervisor() {
     sup("p");
     sup("b", "p");
     sup("a", "p");

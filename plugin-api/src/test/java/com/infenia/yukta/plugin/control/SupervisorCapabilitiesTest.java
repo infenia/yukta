@@ -123,6 +123,38 @@ class SupervisorCapabilitiesTest {
   }
 
   @Test
+  void initiativeIsNoneUnlessCommandsAreListedAndTheLimitHasDefault() {
+    final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
+    final SupervisorCapabilities listed =
+        SupervisorCapabilities.from(
+            profile(
+                Map.of(
+                    "initiative",
+                    java.util.List.of("PauseWorkflowCommand"),
+                    "maxInitiativePerMinute",
+                    3)));
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+
+    assertThat(none.initiative()).isEmpty();
+    assertThat(none.mayInitiate(pause)).isFalse();
+    assertThat(none.maxInitiativePerMinute())
+        .isEqualTo(SupervisorContract.DEFAULT_INITIATIVE_PER_MINUTE);
+    assertThat(listed.mayInitiate(pause)).isTrue();
+    assertThat(listed.maxInitiativePerMinute()).isEqualTo(3);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", 0))))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", "ten"))))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 0))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 1).initiative())
+        .isEmpty();
+  }
+
+  @Test
   void channelsAreNamed() {
     assertThat(ControlActor.CHANNEL_KEY).isEqualTo("yukta.control.channel");
     assertThat(ControlActor.Channel.values())

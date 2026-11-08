@@ -14,6 +14,7 @@ import com.infenia.yukta.service.supervisor.SupervisorStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -153,26 +154,34 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   /** The delegation modes as JSON: kind to mode and timeout in milliseconds. */
   private static Map<String, Map<String, Object>> delegationJson(
       final Map<DelegationKind, Delegation> delegation) {
-    final Map<String, Map<String, Object>> json = new java.util.TreeMap<>();
-    delegation.forEach(
-        (kind, d) ->
-            json.put(
-                kind.name(), Map.of("mode", d.mode().name(), "timeoutMs", d.timeout().toMillis())));
-    return json;
+    return delegation.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                e -> e.getKey().name(),
+                e -> delegationEntry(e.getValue()),
+                (a, b) -> a,
+                () -> new java.util.TreeMap<String, Map<String, Object>>()));
+  }
+
+  private static Map<String, Object> delegationEntry(final Delegation d) {
+    return Map.of("mode", d.mode().name(), "timeoutMs", d.timeout().toMillis());
   }
 
   private static Map<DelegationKind, Delegation> delegationOf(
       final Map<String, Map<String, Object>> json) {
-    final Map<DelegationKind, Delegation> delegation =
-        new java.util.EnumMap<>(DelegationKind.class);
-    json.forEach(
-        (kind, d) ->
-            delegation.put(
-                DelegationKind.valueOf(kind),
-                new Delegation(
-                    DelegationMode.valueOf(String.valueOf(d.get("mode"))),
-                    java.time.Duration.ofMillis(((Number) d.get("timeoutMs")).longValue()))));
-    return delegation;
+    return json.entrySet().stream()
+        .collect(
+            Collectors.toMap(
+                e -> DelegationKind.valueOf(e.getKey()),
+                e -> delegationFrom(e.getValue()),
+                (a, b) -> a,
+                () -> new java.util.EnumMap<DelegationKind, Delegation>(DelegationKind.class)));
+  }
+
+  private static Delegation delegationFrom(final Map<String, Object> d) {
+    return new Delegation(
+        DelegationMode.valueOf(String.valueOf(d.get("mode"))),
+        java.time.Duration.ofMillis(((Number) d.get("timeoutMs")).longValue()));
   }
 
   @Override

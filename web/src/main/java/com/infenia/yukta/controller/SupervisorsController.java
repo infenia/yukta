@@ -67,7 +67,10 @@ import reactor.core.publisher.Mono;
   SupervisorInfo.class,
   SupervisorsController.SupervisorBody.class,
   SupervisorsController.AttachmentBody.class,
-  SupervisorsController.EnabledBody.class
+  SupervisorsController.EnabledBody.class,
+  SupervisorsController.VersionView.class,
+  SupervisorsController.ReplayBody.class,
+  SupervisorService.ReplayDecision.class
 })
 public class SupervisorsController {
 
@@ -232,6 +235,79 @@ public class SupervisorsController {
                     : service.saveSupervisor(draft(id, body, settings)))
         .map(saved -> ApiResponse.success(200, "Supervisor saved", shown(saved)));
   }
+
+  /**
+   * The saved states of a supervisor (newest 20 since the server started), newest first.
+   *
+   * @param id the supervisor id
+   * @return the versions, with secret settings hidden; 404 if unknown
+   */
+  @GetMapping("/{id}/versions")
+  @Operation(summary = "List the saved versions of a supervisor")
+  public Mono<ApiResponse<List<VersionView>>> versions(@PathVariable final String id) {
+    return service
+        .versions(id)
+        .map(
+            found ->
+                ApiResponse.success(
+                    200,
+                    "Versions",
+                    found.stream()
+                        .map(v -> new VersionView(v.version(), v.savedAt(), shown(v.supervisor())))
+                        .toList()));
+  }
+
+  /**
+   * Make an earlier version current again; it is saved as a new version and the attachments that
+   * use the supervisor restart with it.
+   *
+   * @param id the supervisor id
+   * @param version the number of the version
+   * @return the supervisor; 404 if the version is no longer kept
+   */
+  @PostMapping("/{id}/rollback")
+  @Operation(summary = "Roll a supervisor back to a saved version")
+  public Mono<ApiResponse<SupervisorView>> rollback(
+      @PathVariable final String id, @RequestParam final int version) {
+    return host.isBuiltIn(id)
+        ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+        : service
+            .rollback(id, version)
+            .map(saved -> ApiResponse.success(200, "Supervisor rolled back", shown(saved)));
+  }
+
+  /**
+   * Try a supervisor on the recorded events of a past run, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, optionally, draft settings to try instead of the stored ones
+   * @return what the supervisor would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/replay")
+  @Operation(summary = "Replay a supervisor over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replay(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return service
+        .replay(id, body.settings(), body.executionId())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
+  }
+
+  /**
+   * A replay request.
+   *
+   * @param executionId the past run
+   * @param settings draft settings to try, or {@code null} for the stored ones
+   */
+  public record ReplayBody(String executionId, @Nullable Map<String, Object> settings) {}
+
+  /**
+   * A saved version.
+   *
+   * @param version the number
+   * @param savedAt when it was saved
+   * @param supervisor the supervisor as saved
+   */
+  public record VersionView(int version, java.time.Instant savedAt, SupervisorView supervisor) {}
 
   /**
    * Delete a supervisor that no attachment uses and no definition declares.

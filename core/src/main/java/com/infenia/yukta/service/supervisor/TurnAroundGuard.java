@@ -9,9 +9,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,11 +24,17 @@ import org.jspecify.annotations.Nullable;
  */
 public final class TurnAroundGuard {
 
+  /** The family of pause and resume commands. */
+  private static final String PAUSE = "pause";
+
+  private static final String RESUME = "resume";
+
   private final Duration period;
   private final int limit;
   private final Duration cooldown;
   private final Clock clock;
-  private final Map<String, Record> records = new HashMap<>();
+  private final Map<String, Record> records = new ConcurrentHashMap<>();
+  private final ReentrantLock lock = new ReentrantLock();
 
   /**
    * Creates the guard from the settings.
@@ -58,12 +65,20 @@ public final class TurnAroundGuard {
    * @param command the command
    * @return the reason it is blocked, empty when it may go
    */
-  public synchronized Optional<String> check(
-      final String supervisorId, final ExecutionControlCommand command) {
+  public Optional<String> check(final String supervisorId, final ExecutionControlCommand command) {
     final Move move = move(command);
     if (move == null) {
       return Optional.empty();
     }
+    lock.lock();
+    try {
+      return blockedBy(supervisorId, move);
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  private Optional<String> blockedBy(final String supervisorId, final Move move) {
     final Instant now = clock.instant();
     records.values().removeIf(r -> r.touched.plus(period).plus(cooldown).isBefore(now));
     final Record own = records.computeIfAbsent(supervisorId + '|' + move.target, _ -> new Record());
@@ -89,12 +104,12 @@ public final class TurnAroundGuard {
   private static @Nullable Move move(final ExecutionControlCommand command) {
     final String run = command.executionId();
     return switch (command) {
-      case ExecutionControlCommand.PauseWorkflowCommand _ -> new Move(run, "pause", "pause");
-      case ExecutionControlCommand.ResumeWorkflowCommand _ -> new Move(run, "pause", "resume");
+      case ExecutionControlCommand.PauseWorkflowCommand _ -> new Move(run, PAUSE, PAUSE);
+      case ExecutionControlCommand.ResumeWorkflowCommand _ -> new Move(run, PAUSE, RESUME);
       case ExecutionControlCommand.PauseNodeCommand c ->
-          new Move(run + '/' + c.nodeId(), "pause", "pause");
+          new Move(run + '/' + c.nodeId(), PAUSE, PAUSE);
       case ExecutionControlCommand.ResumeNodeCommand c ->
-          new Move(run + '/' + c.nodeId(), "pause", "resume");
+          new Move(run + '/' + c.nodeId(), PAUSE, RESUME);
       case ExecutionControlCommand.SkipNodeCommand c ->
           new Move(run + '/' + c.nodeId(), "skip", String.valueOf(c.skip()));
       case ExecutionControlCommand.EnableStepModeCommand c ->
@@ -112,7 +127,7 @@ public final class TurnAroundGuard {
 
   /** What one supervisor did to one target lately. */
   private static final class Record {
-    private final Map<String, String> last = new HashMap<>();
+    private final Map<String, String> last = new ConcurrentHashMap<>();
     private final Deque<Instant> turns = new ArrayDeque<>();
     private Instant blockedUntil = Instant.MIN;
     private Instant touched = Instant.MIN;

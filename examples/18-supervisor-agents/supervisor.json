@@ -1,0 +1,11 @@
+{
+  "id": "cpu-guard",
+  "type": "http",
+  "description": "An outside program pauses runs while the machine is busy and resumes what it paused",
+  "dryRun": false,
+  "settings": {
+    "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
+    "initiative": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
+    "maxInitiativePerMinute": 20
+  }
+}
