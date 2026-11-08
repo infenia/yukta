@@ -26,13 +26,30 @@ import org.jspecify.annotations.Nullable;
  * ]}
  * }</pre>
  *
+ * @param schemaVersion the version of the rule document, {@code 1} (absent counts as 1)
  * @param rules the rules, in order
  */
-public record RuleSet(List<Rule> rules) {
+public record RuleSet(@Nullable Integer schemaVersion, List<Rule> rules) {
 
-  /** Keeps an immutable copy of the rules. */
+  /** The only version of the rule document so far. */
+  public static final int SCHEMA_VERSION = 1;
+
+  /** Keeps an immutable copy of the rules and refuses a version this server does not know. */
   public RuleSet {
+    if (schemaVersion != null && schemaVersion != SCHEMA_VERSION) {
+      throw new IllegalArgumentException(
+          "Unsupported schemaVersion " + schemaVersion + ", this server reads " + SCHEMA_VERSION);
+    }
     rules = rules == null ? List.of() : List.copyOf(rules);
+  }
+
+  /**
+   * Rules of the current version.
+   *
+   * @param rules the rules, in order
+   */
+  public RuleSet(final List<Rule> rules) {
+    this(null, rules);
   }
 
   /**
@@ -93,7 +110,33 @@ public record RuleSet(List<Rule> rules) {
       @Nullable String workflowId,
       @JsonProperty("if") @Nullable String condition,
       @Nullable Integer count,
-      @Nullable Integer withinSeconds) {}
+      @Nullable Integer withinSeconds,
+      @Nullable String every) {
+
+    /**
+     * An event rule, without a period.
+     *
+     * @param event the event kind
+     * @param status the status to match
+     * @param module the module to match
+     * @param nodeId the node to match
+     * @param workflowId the workflow to match
+     * @param condition the condition over the facts
+     * @param count how many matches
+     * @param withinSeconds in how many seconds
+     */
+    public When(
+        final @Nullable String event,
+        final @Nullable String status,
+        final @Nullable String module,
+        final @Nullable String nodeId,
+        final @Nullable String workflowId,
+        final @Nullable String condition,
+        final @Nullable Integer count,
+        final @Nullable Integer withinSeconds) {
+      this(event, status, module, nodeId, workflowId, condition, count, withinSeconds, null);
+    }
+  }
 
   /**
    * What a rule does when it fires: send a command, or answer or escalate the input request of the

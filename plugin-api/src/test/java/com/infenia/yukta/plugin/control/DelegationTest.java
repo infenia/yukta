@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 class DelegationTest {
 
   @Test
-  void aDelegationNeedsAModeAndAPositiveTimeout() {
+  void delegationNeedsModeAndPositiveTimeout() {
     assertThat(Delegation.DEFAULT.mode()).isEqualTo(DelegationMode.ORDERED);
     assertThat(Delegation.DEFAULT.timeout()).isEqualTo(Delegation.DEFAULT_TIMEOUT);
     assertThatThrownBy(() -> new Delegation(DelegationMode.ALL, Duration.ZERO))
@@ -33,7 +33,7 @@ class DelegationTest {
   }
 
   @Test
-  void aSupervisorAsksEachKindTheConfiguredWayElseOrdered() {
+  void supervisorAsksEachKindTheConfiguredWayElseOrdered() {
     final Delegation all = new Delegation(DelegationMode.ALL, Duration.ofSeconds(5));
     final Supervisor supervisor =
         new Supervisor(

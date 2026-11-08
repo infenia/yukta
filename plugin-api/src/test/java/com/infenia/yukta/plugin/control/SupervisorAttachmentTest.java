@@ -44,7 +44,7 @@ class SupervisorAttachmentTest {
   }
 
   @Test
-  void anAttachmentCanBeMarkedAsAConflictAndThenIsDisabled() {
+  void attachmentCanBeMarkedAsConflictAndThenIsDisabled() {
     final SupervisorAttachment declared =
         new SupervisorAttachment(
             "a",

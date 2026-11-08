@@ -98,6 +98,45 @@ class SupervisorsControllerTest {
   }
 
   @Test
+  void versionsAreListedWithSecretsHiddenAndARollbackRestoresOne() {
+    StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u1"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replace("s1", body("s1", Map.of("bearer", "***", "url", "u2"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.versions("s1"))
+        .assertNext(
+            r -> {
+              assertThat(r.data()).hasSize(2);
+              assertThat(r.data().get(0).version()).isEqualTo(2);
+              assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.rollback("s1", 1))
+        .assertNext(r -> assertThat(r.data().settings().get("url")).isEqualTo("u1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayOfAnUnknownRunIsNotFound() {
+    StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replay("s1", new SupervisorsController.ReplayBody("gone", null)))
+        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void aSystemSupervisorCannotBeRolledBack() {
+    when(host.isBuiltIn("sys")).thenReturn(true);
+    StepVerifier.create(controller.rollback("sys", 1))
+        .expectError(ConflictException.class)
+        .verify();
+  }
+
+  @Test
   void createdSupervisorIsListedWithItsCountsAndSecretsHidden() {
     StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u"))))
         .assertNext(
@@ -187,8 +226,7 @@ class SupervisorsControllerTest {
             null,
             null,
             null,
-            0,
-            null);
+            0);
     when(host.status()).thenReturn(List.of(info));
     when(host.isBuiltIn("rules")).thenReturn(true);
 
@@ -368,7 +406,7 @@ class SupervisorsControllerTest {
   private static SupervisorInfo system(
       final String id, final String scope, final String session, final String workflow) {
     return new SupervisorInfo(
-        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0, null);
+        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0);
   }
 
   @Test

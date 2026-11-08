@@ -36,7 +36,6 @@ const CATEGORIES: { key: SupervisorCategory; label: string }[] = [
 const KIND_LABEL = {
   SUPERVISOR: 'Supervisor',
   CONTROL_PLANE: 'Control plane',
-  COMPOSITE: 'Composite',
 } as const;
 
 const defaultText = (value: unknown) =>

@@ -1,0 +1,17 @@
+meta {
+  name: Supervisor Contract
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{base_url}}/api/supervisor-contract
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status code should be 2xx", function() {
+    expect(res.getStatus()).to.be.within(200, 299);
+  });
+}

@@ -69,16 +69,6 @@ public record Supervisor(
     this(id, type, settings, dryRun, description, List.of(), Map.of());
   }
 
-  /**
-   * How a kind of delegation is asked: the configured way, else ordered with the default timeout.
-   *
-   * @param kind the kind
-   * @return the mode and timeout
-   */
-  public Delegation delegationFor(final DelegationKind kind) {
-    return delegation.getOrDefault(kind, Delegation.DEFAULT);
-  }
-
   /** Rejects missing ids and keeps an immutable copy of the settings. */
   public Supervisor {
     Objects.requireNonNull(id, "id");
@@ -88,5 +78,15 @@ public record Supervisor(
     // Map.copyOf rejects null values, and a setting may be null
     settings =
         settings == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(settings));
+  }
+
+  /**
+   * How a kind of delegation is asked: the configured way, else ordered with the default timeout.
+   *
+   * @param kind the kind
+   * @return the mode and timeout
+   */
+  public Delegation delegationFor(final DelegationKind kind) {
+    return delegation.getOrDefault(kind, Delegation.DEFAULT);
   }
 }

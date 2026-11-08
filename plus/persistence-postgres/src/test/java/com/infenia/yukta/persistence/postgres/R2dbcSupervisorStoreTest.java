@@ -113,7 +113,7 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void aConflictMarkIsStoredAndReadBack() {
+  void conflictMarkIsStoredAndReadBack() {
     final SupervisorAttachment marked =
         new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();
 

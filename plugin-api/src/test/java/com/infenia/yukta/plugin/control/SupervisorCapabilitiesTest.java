@@ -123,7 +123,7 @@ class SupervisorCapabilitiesTest {
   }
 
   @Test
-  void initiativeIsNoneUnlessCommandsAreListedAndTheLimitHasADefault() {
+  void initiativeIsNoneUnlessCommandsAreListedAndTheLimitHasDefault() {
     final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
     final SupervisorCapabilities listed =
         SupervisorCapabilities.from(

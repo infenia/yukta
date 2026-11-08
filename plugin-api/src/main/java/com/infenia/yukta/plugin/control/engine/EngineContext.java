@@ -31,4 +31,13 @@ public interface EngineContext {
    * @return the mutable state
    */
   Map<String, Object> state();
+
+  /**
+   * What the engine may read: the executions and open input requests of what its supervisor owns.
+   *
+   * @return the reads; empty until the supervisor is attached
+   */
+  default EngineReads reads() {
+    return EngineReads.NONE;
+  }
 }

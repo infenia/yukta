@@ -8,8 +8,10 @@ import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
-import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorResultMapper;
+import com.infenia.yukta.plugin.control.engine.Cause;
+import com.infenia.yukta.plugin.control.engine.Directive;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import java.net.URI;
 import java.time.Duration;
 import java.util.LinkedHashMap;
@@ -36,7 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Slf4j
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
-public final class WebhookSupervisor implements ExecutionSupervisor, AttachmentAware {
+public final class WebhookSupervisor implements DirectiveSupervisor, AttachmentAware {
 
   /** Most commands taken from one reply. */
   public static final int MAX_COMMANDS = 10;
@@ -63,6 +65,9 @@ public final class WebhookSupervisor implements ExecutionSupervisor, AttachmentA
   private final Egress egress;
 
   private String attachmentId;
+
+  private final java.util.concurrent.atomic.AtomicLong sequence =
+      new java.util.concurrent.atomic.AtomicLong();
 
   /**
    * Creates the supervisor.
@@ -97,13 +102,20 @@ public final class WebhookSupervisor implements ExecutionSupervisor, AttachmentA
   }
 
   @Override
-  public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+  public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
     return events
         .filter(event -> config.events().contains(event.getClass().getSimpleName()))
         .flatMap(
             event ->
                 post(payload("event", "event", eventMap(event)))
                     .flatMapMany(reply -> commands(reply, event.executionId()))
+                    .map(
+                        command -> {
+                          final long n = sequence.incrementAndGet();
+                          // reactive only: a reply answers one event, so it never acts on its own
+                          return new Directive.Command(
+                              supervisorId + ":" + n, command, Cause.event("c" + n), null, null);
+                        })
                     .onErrorResume(
                         error -> {
                           log.atWarn()

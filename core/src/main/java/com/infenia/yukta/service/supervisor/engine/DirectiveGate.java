@@ -11,8 +11,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -23,6 +24,12 @@ import org.jspecify.annotations.Nullable;
  * nothing. The target comes from the command, never from what the engine says about it.
  */
 public final class DirectiveGate {
+
+  private static final Duration WINDOW = Duration.ofMinutes(1);
+
+  private final Clock clock;
+  private final Map<String, Deque<Instant>> initiated = new ConcurrentHashMap<>();
+  private final ReentrantLock lock = new ReentrantLock();
 
   /** Why a command is not applied. */
   public enum Rejection {
@@ -60,11 +67,6 @@ public final class DirectiveGate {
     }
   }
 
-  private static final Duration WINDOW = Duration.ofMinutes(1);
-
-  private final Clock clock;
-  private final Map<String, Deque<Instant>> initiated = new HashMap<>();
-
   /** Creates the gate on the system clock. */
   public DirectiveGate() {
     this(Clock.systemUTC());
@@ -84,39 +86,47 @@ public final class DirectiveGate {
    *
    * @param supervisorId the supervisor
    * @param directive the command and its cause
-   * @param sessionId the session of the target, or {@code null} for the server
-   * @param workflowId the workflow of the target, or {@code null} for the server
-   * @param nodeId the node of the target, or {@code null} for a run level or the server
+   * @param target where the command lands: its session, workflow and node, each {@code null} where
+   *     it does not reach that far (the server, a run level)
    * @param capabilities what the supervisor may send
    * @param scope what the supervisor owns
    * @param enabled whether the supervisor is enabled
    * @param dryRun whether its commands are only recorded
    * @return the decision
    */
-  @SuppressWarnings("PMD.ExcessiveParameterList")
-  public synchronized Decision check(
+  public Decision check(
       final String supervisorId,
       final Directive.Command directive,
-      final @Nullable String sessionId,
-      final @Nullable String workflowId,
-      final @Nullable String nodeId,
+      final EngineRunner.Target target,
       final SupervisorCapabilities capabilities,
       final SupervisorScope scope,
       final boolean enabled,
       final boolean dryRun) {
-    Rejection rejection = null;
-    if (!enabled) {
-      rejection = Rejection.DISABLED;
-    } else if (!capabilities.allows(directive.command())) {
-      rejection = Rejection.NOT_ALLOWED;
-    } else if (!scope.matches(sessionId, workflowId, nodeId)) {
-      rejection = Rejection.NOT_OWNED;
-    } else if (directive.cause().unprompted()) {
+    Rejection rejection = screen(directive, target, capabilities, scope, enabled);
+    if (rejection == null && directive.cause().unprompted()) {
       rejection = initiativeRejection(supervisorId, directive, capabilities, dryRun);
     }
     return rejection == null
         ? new Decision(!dryRun, dryRun, null)
         : new Decision(false, false, rejection);
+  }
+
+  private static @Nullable Rejection screen(
+      final Directive.Command directive,
+      final EngineRunner.Target target,
+      final SupervisorCapabilities capabilities,
+      final SupervisorScope scope,
+      final boolean enabled) {
+    if (!enabled) {
+      return Rejection.DISABLED;
+    }
+    if (!capabilities.allows(directive.command())) {
+      return Rejection.NOT_ALLOWED;
+    }
+    if (!scope.matches(target.sessionId(), target.workflowId(), target.nodeId())) {
+      return Rejection.NOT_OWNED;
+    }
+    return null;
   }
 
   private @Nullable Rejection initiativeRejection(
@@ -130,17 +140,23 @@ public final class DirectiveGate {
     if (!capabilities.mayInitiate(directive.command())) {
       return Rejection.INITIATIVE_NOT_ALLOWED;
     }
-    final Instant now = clock.instant();
-    final Deque<Instant> recent = initiated.computeIfAbsent(supervisorId, _ -> new ArrayDeque<>());
-    while (!recent.isEmpty() && recent.peekFirst().plus(WINDOW).isBefore(now)) {
-      recent.removeFirst();
+    lock.lock();
+    try {
+      final Instant now = clock.instant();
+      final Deque<Instant> recent =
+          initiated.computeIfAbsent(supervisorId, _ -> new ArrayDeque<>());
+      while (!recent.isEmpty() && recent.peekFirst().plus(WINDOW).isBefore(now)) {
+        recent.removeFirst();
+      }
+      if (recent.size() >= capabilities.maxInitiativePerMinute()) {
+        return Rejection.INITIATIVE_RATE_LIMITED;
+      }
+      if (!dryRun) {
+        recent.addLast(now);
+      }
+      return null;
+    } finally {
+      lock.unlock();
     }
-    if (recent.size() >= capabilities.maxInitiativePerMinute()) {
-      return Rejection.INITIATIVE_RATE_LIMITED;
-    }
-    if (!dryRun) {
-      recent.addLast(now);
-    }
-    return null;
   }
 }

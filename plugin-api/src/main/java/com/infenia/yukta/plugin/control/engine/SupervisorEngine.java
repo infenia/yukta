@@ -8,6 +8,7 @@ import reactor.core.publisher.Flux;
  * The decision maker of one supervisor. Signals go in, directives come out. An engine has no handle
  * to the dispatcher, the stores or any core bean: the supervisor checks every directive.
  */
+@FunctionalInterface
 public interface SupervisorEngine extends AutoCloseable {
 
   /**
