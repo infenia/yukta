@@ -1,0 +1,19 @@
+{
+  "id": "example-08-ack-advice",
+  "type": "rule-supervisor",
+  "dryRun": false,
+  "settings": {
+    "rules": [
+      {
+        "id": "advise-the-on-call",
+        "when": { "event": "InputRequested" },
+        "then": {
+          "escalate": {
+            "reason": "the automatic fix did not work",
+            "advice": "The service is still down after 3 restarts: check the last deploy before you acknowledge."
+          }
+        }
+      }
+    ]
+  }
+}

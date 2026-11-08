@@ -44,6 +44,13 @@ apply_session() {
   echo "applied session $(jq -r .sessionId "$1") from $(basename "$(dirname "$1")")/$(basename "$1")"
 }
 
+# apply_supervisor FILE: creates (or replaces) the supervisor described by FILE (PUT is an upsert, so re-runs work).
+# Create it before applying a session that declares it: a declared supervisor must already exist.
+apply_supervisor() {
+  api PUT "/api/supervisors/$(jq -r .id "$1")" "$(cat "$1")" >/dev/null
+  echo "applied supervisor $(jq -r .id "$1") from $(basename "$(dirname "$1")")/$(basename "$1")"
+}
+
 # run_workflow DIR WORKFLOW EXPECT_STATUS EXPECT_TEXT [PAYLOAD_FILE]
 #   Applies DIR/session.json, starts WORKFLOW (with PAYLOAD_FILE if given), waits for
 #   a terminal status, prints the logs, and fails unless the status equals EXPECT_STATUS

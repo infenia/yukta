@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Use case: score a pull request with fixed rules, auto-merge or auto-block clear cases, ask a human
 # reviewer for borderline ones, and make sure no secret reaches the notification.
+# A rule supervisor attached to the reviewer step adds advice to every request that reaches it.
 # This script plays the reviewer: it waits for the pending approval, then sends the signal.
 set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
@@ -11,6 +12,7 @@ for p in VALIDATE WAIT_FOR_SIGNAL CONTENT_FILTER FILE_WRITE; do require_plugin "
 SID=$(jq -r .sessionId session.json)
 OUT=/tmp/yukta-example-pr-risk-gate
 rm -rf "$OUT"; mkdir -p "$OUT"
+SUPERVISED="$OUT/supervised.json"
 
 # --- helpers (local to this example) -------------------------------------------------------
 # start_run PAYLOAD_FILE -> EID
@@ -31,14 +33,14 @@ wait_done() {
 wait_approval() {
   local i
   for ((i = 0; i < 30; i++)); do
-    api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
+    api GET "/api/sessions/$SID/inputs?state=OPEN,ESCALATED" | jq -e --arg e "$EID" --arg n "$1" '.data[] | select(.executionId == $e and .nodeId == $n)' >/dev/null && return 0
     sleep 1
   done
   echo "    FAIL: node $1 never started waiting"; exit 1
 }
 signal() {  # NODE NAME DECISION: answer the open input request of NODE
   local row
-  row=$(api GET "/api/sessions/$SID/inputs?state=OPEN" | jq -c --arg e "$EID" --arg n "$1" '[.data[] | select(.executionId == $e and .nodeId == $n)][0]')
+  row=$(api GET "/api/sessions/$SID/inputs?state=OPEN,ESCALATED" | jq -c --arg e "$EID" --arg n "$1" '[.data[] | select(.executionId == $e and .nodeId == $n)][0]')
   api POST "/api/executions/$EID/inputs/$(jq -r .id <<<"$row")/answer" "$(jq -n --arg d "$3" --argjson v "$(jq .version <<<"$row")" '{decision: $d, expectedVersion: $v}')" >/dev/null
 }
 # expect NAME TEXT...  (status must be SUCCESS and every TEXT must be in the logs)
@@ -52,7 +54,10 @@ expect() {
 node_reached() { api GET "/api/executions/$EID" | jq -e --arg n "$1" '.data.tasks[] | select(.nodeId == $n and .metadata.reached == true)' >/dev/null; }
 # --------------------------------------------------------------------------------------------
 
-apply_session session.json
+# The supervisor must exist before a session declares it. session.json stays a plain template; the declaration is added here.
+apply_supervisor supervisor.json
+jq '.workflows.pr.supervisors = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json >"$SUPERVISED"
+apply_session "$SUPERVISED"
 
 echo "--> low risk (score 100): no human involved"
 start_run low-risk.json; wait_done
@@ -69,6 +74,9 @@ grep -qF "score=" <<<"$LOGS" && { echo "    FAIL invalid: it was scored"; exit 1
 
 echo "--> borderline (score 60): reviewer approves"
 start_run borderline.json; wait_approval reviewer
+advice=$(api GET "/api/sessions/$SID/inputs?state=ESCALATED" | jq -r --arg e "$EID" '[.data[] | select(.executionId == $e and .nodeId == "reviewer")][0].advice // ""')
+[[ $advice == *"migrations/"* ]] || { echo "    FAIL supervisor: no advice on the reviewer's request (got '$advice')"; exit 1; }
+echo "    PASS supervisor advice: $advice"
 signal reviewer reviewer approve; wait_done
 expect human-approve "PR PR-1003: MERGED by reviewer"
 
@@ -86,11 +94,11 @@ node_reached rejected-stop || { echo "    FAIL reject: rejected-stop not reached
 [[ $(wc -l <"$OUT/outbox.log") == "$before" ]] || { echo "    FAIL reject: a notification was sent"; exit 1; }
 
 echo "--> borderline: nobody answers (wait shortened to 2 s for the test)"
-jq '.workflows.pr.nodes |= map(if .nodeId == "reviewer" then .config.timeoutSeconds = 2 else . end)' session.json >"$OUT/fast.json"
+jq '.workflows.pr.nodes |= map(if .nodeId == "reviewer" then .config.timeoutSeconds = 2 else . end)' "$SUPERVISED" >"$OUT/fast.json"
 api POST /api/sessions "$(cat "$OUT/fast.json")" >/dev/null
 start_run borderline.json; wait_done
 expect timeout "PR PR-1003: ESCALATED by timeout"
-api POST /api/sessions "$(cat session.json)" >/dev/null
+api POST /api/sessions "$(cat "$SUPERVISED")" >/dev/null
 
 echo "--> the notification outbox holds decisions and no secrets"
 for want in "PR-1001: MERGED" "PR-1002: BLOCKED" "PR-1003: MERGED by reviewer" "PR-1003: BLOCKED by reviewer" "ESCALATED"; do
