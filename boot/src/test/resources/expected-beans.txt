@@ -163,7 +163,7 @@ com.infenia.yukta.service.input.token.AnswerTokens
 com.infenia.yukta.service.input.token.TokenAnswerService
 com.infenia.yukta.service.leader.LeaderLoss
 com.infenia.yukta.service.leader.SingleServerLeader
-com.infenia.yukta.service.leader.TakeoverRecovery
+com.infenia.yukta.service.orchestrator.TakeoverRecovery
 com.infenia.yukta.service.log.ExecutionRecovery
 com.infenia.yukta.service.log.InMemoryExecutionLogStore
 com.infenia.yukta.service.log.LogStoreSubscriber
