@@ -2729,8 +2729,7 @@ class DefaultControlBusGatewayTest {
   @Test
   void setLimits_negativeValuesAreRefusedNotTakenForUnlimited() {
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
 
     StepVerifier.create(gatewayWith(real).changeLimits(-1, 0))
         .expectErrorMessage("Limits cannot be negative; use 0 for no limit")
@@ -2747,8 +2746,7 @@ class DefaultControlBusGatewayTest {
     final WorkflowDefinition definition = Fixtures.workflow(workflowId, "d", List.of(), List.of());
     final PreparedWorkflow preparedWorkflow = mock(PreparedWorkflow.class);
     final ExecutionScheduler real =
-        ExecutionSchedulerFixture.create(
-            1, 0, 10, ExecutionScheduler.OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, java.time.Duration.ofSeconds(1));
     when(workflowDefinitionStore.find(sessionId, workflowId)).thenReturn(Mono.just(definition));
     when(preparedWorkflowCache.get(eq(sessionId), eq(workflowId), any(WorkflowDefinition.class)))
         .thenReturn(Optional.empty());

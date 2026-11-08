@@ -70,8 +70,7 @@ class ExecutionRecoveryTest {
   @Test
   void limitsEventThatCannotBeRead_leavesTheConfiguredLimitsAlone() {
     final ExecutionScheduler scheduler =
-        ExecutionSchedulerFixture.create(
-            9, 9, 10, ExecutionScheduler.OnLimit.REJECT, Duration.ZERO);
+        ExecutionSchedulerFixture.create(9, 9, 10, OnLimit.REJECT, Duration.ZERO);
     store.append(
         new ExecutionLogEvent(
             ExecutionLogEvent.Type.LIMITS_CHANGED,

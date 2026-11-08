@@ -84,17 +84,20 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
   /* default */ record Gate(
       String key, @Nullable String value, String provider, Edition edition, String hint) {
 
+    private static @Nullable String strip(@Nullable final String s) {
+      return s == null ? null : s.strip();
+    }
+
     /* default */ boolean isUsed(final Environment environment) {
       final String actual = environment.getProperty(key);
       final boolean used;
       if (value != null) {
         // like @ConditionalOnProperty: case does not matter, and neither do stray blanks
-        used = value.equalsIgnoreCase(StringUtils.trimWhitespace(actual));
+        used = value.equalsIgnoreCase(strip(actual));
       } else if (StringUtils.hasText(actual)) {
         used =
             !key.endsWith(".dir")
-                || !POSTGRES_TYPE.equalsIgnoreCase(
-                    StringUtils.trimWhitespace(environment.getProperty(storeType())));
+                || !POSTGRES_TYPE.equalsIgnoreCase(strip(environment.getProperty(storeType())));
       } else {
         used = false;
       }
