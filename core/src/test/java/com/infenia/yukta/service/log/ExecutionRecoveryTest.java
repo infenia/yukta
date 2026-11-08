@@ -114,7 +114,7 @@ class ExecutionRecoveryTest {
     startup.afterSingletonsInstantiated();
 
     try (var left = java.nio.file.Files.list(dir)) {
-      assertThat(left.map(path -> path.getFileName().toString()).toList())
+      assertThat(left.map(path -> dir.relativize(path).toString()).toList())
           .containsExactly("e-done");
     }
   }

@@ -275,7 +275,7 @@ public class FileNodeCheckpointStore implements NodeCheckpointStore, ByteCounted
     }
     try (var children = Files.list(root)) {
       children
-          .map(child -> child.getFileName().toString())
+          .map(child -> root.relativize(child).toString())
           .filter(name -> name.startsWith("e-"))
           .map(name -> URLDecoder.decode(name.substring(2), StandardCharsets.UTF_8))
           .filter(executionId -> !kept.contains(executionId))
