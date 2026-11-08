@@ -14,14 +14,20 @@ import java.util.HexFormat;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 
 /**
  * The credential of an agent, one per supervisor: shown once, kept only as a SHA-256 hash, replaced
- * by issuing again (rotation), cut at once by revoking. It works on the agent API only. In memory:
- * after a restart the credential must be issued again.
+ * by issuing again (rotation), cut at once by revoking. It works on the agent API only. With an
+ * {@link AgentCredentialStore} (PostgreSQL in the Plus edition) the hashes survive a restart.
  */
+@Slf4j
 @Component
 public final class AgentCredentials {
 
@@ -45,6 +51,9 @@ public final class AgentCredentials {
   private final Map<String, Entry> byHash = new ConcurrentHashMap<>();
   private final Map<String, String> hashOf = new ConcurrentHashMap<>();
 
+  /** Keeps the hashes across a restart; null where a module provides none. */
+  @Nullable private AgentCredentialStore store;
+
   /** Creates the store with the system clock. */
   public AgentCredentials() {
     this(Clock.systemUTC());
@@ -60,6 +69,58 @@ public final class AgentCredentials {
   }
 
   /**
+   * Sets where the credentials are kept.
+   *
+   * @param credentialStore the store
+   */
+  @Autowired(required = false)
+  public void setStore(final AgentCredentialStore credentialStore) {
+    this.store = credentialStore;
+  }
+
+  /** Loads the stored credentials once the application is up. */
+  @EventListener(ApplicationReadyEvent.class)
+  public void restoreOnReady() {
+    restore().subscribe();
+  }
+
+  /* default */ Mono<Void> restore() {
+    final AgentCredentialStore kept = store;
+    return kept == null
+        ? Mono.empty()
+        : kept.all()
+            .filter(c -> c.expiresAt() == null || c.expiresAt().isAfter(clock.instant()))
+            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt()))
+            .then()
+            .onErrorResume(
+                error -> {
+                  log.atWarn().setCause(error).log("Could not load the agent credentials");
+                  return Mono.empty();
+                });
+  }
+
+  private void remember(
+      final String supervisorId, final String hash, final @Nullable Instant expires) {
+    final String earlier = hashOf.put(supervisorId, hash);
+    if (earlier != null) {
+      byHash.remove(earlier);
+    }
+    byHash.put(hash, new Entry(supervisorId, expires));
+  }
+
+  private void persist(final Mono<Void> write, final String supervisorId) {
+    write
+        .doOnError(
+            error ->
+                log.atWarn()
+                    .setCause(error)
+                    .addKeyValue("supervisor", supervisorId)
+                    .log("Could not store an agent credential"))
+        .onErrorResume(error -> Mono.empty())
+        .subscribe();
+  }
+
+  /**
    * Makes a credential for a supervisor; an earlier one stops working.
    *
    * @param supervisorId the supervisor
@@ -72,11 +133,11 @@ public final class AgentCredentials {
     final String token = PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     final Instant expires = ttl == null ? null : clock.instant().plus(ttl);
     final String hash = hash(token);
-    final String earlier = hashOf.put(supervisorId, hash);
-    if (earlier != null) {
-      byHash.remove(earlier);
+    remember(supervisorId, hash, expires);
+    if (store != null) {
+      persist(
+          store.save(new AgentCredentialStore.Stored(supervisorId, hash, expires)), supervisorId);
     }
-    byHash.put(hash, new Entry(supervisorId, expires));
     return new Issued(token, expires);
   }
 
@@ -103,6 +164,9 @@ public final class AgentCredentials {
    */
   public boolean revoke(final String supervisorId) {
     final String hash = hashOf.remove(supervisorId);
+    if (store != null && hash != null) {
+      persist(store.delete(supervisorId), supervisorId);
+    }
     return hash != null && byHash.remove(hash) != null;
   }
 

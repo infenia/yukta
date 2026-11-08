@@ -70,4 +70,80 @@ class AgentCredentialsTest {
     assertThat(credentials.authenticate(null)).isEmpty();
     assertThat(credentials.authenticate(AgentCredentials.PREFIX + "unknown")).isEmpty();
   }
+
+  /** A store in a map, with the writes visible. */
+  private static final class MapStore implements AgentCredentialStore {
+    private final java.util.Map<String, Stored> rows =
+        new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Override
+    public reactor.core.publisher.Flux<Stored> all() {
+      return reactor.core.publisher.Flux.fromIterable(rows.values());
+    }
+
+    @Override
+    public reactor.core.publisher.Mono<Void> save(final Stored credential) {
+      rows.put(credential.supervisorId(), credential);
+      return reactor.core.publisher.Mono.empty();
+    }
+
+    @Override
+    public reactor.core.publisher.Mono<Void> delete(final String supervisorId) {
+      rows.remove(supervisorId);
+      return reactor.core.publisher.Mono.empty();
+    }
+  }
+
+  @Test
+  void aStoredCredentialSurvivesARestartUntilItIsRevoked() {
+    final MapStore store = new MapStore();
+    final AgentCredentials first = new AgentCredentials();
+    first.setStore(store);
+    final String token = first.issue("a1", null).token();
+    assertThat(store.rows).containsKey("a1");
+
+    final AgentCredentials restarted = new AgentCredentials();
+    restarted.setStore(store);
+    assertThat(restarted.authenticate(token)).isEmpty();
+    restarted.restoreOnReady();
+    assertThat(restarted.authenticate(token)).contains("a1");
+
+    assertThat(restarted.revoke("a1")).isTrue();
+    assertThat(store.rows).isEmpty();
+  }
+
+  @Test
+  void anExpiredStoredCredentialIsNotLoadedAndAFailingStoreDoesNotBreakIssuing() {
+    final MapStore store = new MapStore();
+    store.rows.put(
+        "old", new AgentCredentialStore.Stored("old", "h", Instant.parse("2020-01-01T00:00:00Z")));
+    final AgentCredentials credentials = new AgentCredentials();
+    credentials.setStore(store);
+    credentials.restoreOnReady();
+    assertThat(credentials.has("old")).isFalse();
+
+    final AgentCredentialStore broken =
+        new AgentCredentialStore() {
+          @Override
+          public reactor.core.publisher.Flux<Stored> all() {
+            return reactor.core.publisher.Flux.error(new IllegalStateException("down"));
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<Void> save(final Stored credential) {
+            return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+          }
+
+          @Override
+          public reactor.core.publisher.Mono<Void> delete(final String supervisorId) {
+            return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+          }
+        };
+    final AgentCredentials offline = new AgentCredentials();
+    offline.setStore(broken);
+    offline.restoreOnReady();
+    final String token = offline.issue("a", null).token();
+    assertThat(offline.authenticate(token)).contains("a");
+    assertThat(offline.revoke("a")).isTrue();
+  }
 }
