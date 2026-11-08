@@ -22,7 +22,6 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.session.InternalSessions;
 import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
-import com.infenia.yukta.service.supervisor.engine.EngineRunner;
 import com.infenia.yukta.service.supervisor.engine.HoldLedger;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import io.micrometer.core.instrument.Counter;
@@ -522,10 +521,20 @@ public class SupervisorHost {
       final Directive.Command directive,
       final SupervisorCapabilities capabilities,
       final boolean recordOnly) {
+    if (supervisor instanceof BoundSupervisor
+        && supervisor.scope() instanceof SupervisorScope.Global) {
+      // an attached Global scope owns nothing (it only observes), so it commands nothing
+      return notApplied(
+              supervisor.id(),
+              "not-owned",
+              directive.command(),
+              "refused: NOT_OWNED (" + directive.cause().text() + ")")
+          .then(Mono.empty());
+    }
     return dispatcher
         .target(directive.command())
-        .map(t -> new EngineRunner.Target(t.sessionId(), t.workflowId(), t.nodeId()))
-        .onErrorReturn(new EngineRunner.Target(null, null, null))
+        .map(t -> new DirectiveGate.Target(t.sessionId(), t.workflowId(), t.nodeId()))
+        .onErrorReturn(new DirectiveGate.Target(null, null, null))
         .flatMap(
             target -> {
               final DirectiveGate.Decision decision =
@@ -561,7 +570,7 @@ public class SupervisorHost {
 
   /** Whether a command's {@code ifStatus} matches the run's status now; true when it names none. */
   private Mono<Boolean> preconditionHolds(
-      final Directive.Command directive, final EngineRunner.Target target) {
+      final Directive.Command directive, final DirectiveGate.Target target) {
     final SupervisorQueries reads = queries == null ? null : queries.getIfAvailable();
     if (directive.ifStatus() == null || reads == null || target.sessionId() == null) {
       return Mono.just(true);
@@ -656,7 +665,7 @@ public class SupervisorHost {
       // out of scope is dropped before the rate limit too, and in dry-run, so the record is the
       // same either way
       result =
-          inScope(scope, command)
+          inScope(scope, command, allowed != null)
               .flatMap(
                   inside ->
                       inside
@@ -676,9 +685,12 @@ public class SupervisorHost {
    * is never within a section. A target that cannot be read counts as outside.
    */
   private Mono<Boolean> inScope(
-      final SupervisorScope scope, final ExecutionControlCommand command) {
+      final SupervisorScope scope,
+      final ExecutionControlCommand command,
+      final boolean attached) {
+    // an attached Global scope owns nothing (it only observes); a bean supervisor keeps it all
     return scope instanceof SupervisorScope.Global
-        ? Mono.just(true)
+        ? Mono.just(!attached)
         : dispatcher
             .target(command)
             .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))

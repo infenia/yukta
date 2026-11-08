@@ -23,6 +23,9 @@ public final class AgentHub {
   /** Signals remembered per supervisor, for an agent that reconnects. */
   public static final int REMEMBERED = 1000;
 
+  /** Directives an agent may post before the supervisor takes them; more are refused. */
+  public static final int MAX_WAITING_DIRECTIVES = 256;
+
   /**
    * A signal with its place in the stream.
    *
@@ -38,7 +41,9 @@ public final class AgentHub {
     private final java.util.ArrayDeque<Sequenced> recent = new java.util.ArrayDeque<>();
     private final java.util.concurrent.atomic.AtomicLong sequence =
         new java.util.concurrent.atomic.AtomicLong();
-    private final Sinks.Many<Directive> directives = Sinks.many().unicast().onBackpressureBuffer();
+    // multicast without auto-cancel: the host subscribes again after an engine failure
+    private final Sinks.Many<Directive> directives =
+        Sinks.many().multicast().onBackpressureBuffer(MAX_WAITING_DIRECTIVES, false);
     private final Supplier<EngineReads> reads;
 
     private Channel(final Supplier<EngineReads> reads) {
@@ -96,6 +101,28 @@ public final class AgentHub {
     }
 
     /**
+     * Whether a signal with this id was sent to the agent and is still remembered, so a directive
+     * may name it as its cause ({@code event:<id>}, {@code answers:<id>}).
+     *
+     * @param id the id of an event, review or delegation signal
+     * @return true if the agent was sent it
+     */
+    public boolean sent(final String id) {
+      synchronized (recent) {
+        return recent.stream()
+            .map(Sequenced::signal)
+            .anyMatch(
+                signal ->
+                    switch (signal) {
+                      case Signal.Event event -> id.equals(event.id());
+                      case Signal.Review review -> id.equals(review.id());
+                      case Signal.Delegated delegated -> id.equals(delegated.id());
+                      default -> false;
+                    });
+      }
+    }
+
+    /**
      * What the agent may read.
      *
      * @return the reads of the supervisor
@@ -126,6 +153,26 @@ public final class AgentHub {
   }
 
   private final Map<String, Channel> channels = new ConcurrentHashMap<>();
+
+  private final Sinks.Many<String> credentialChanges = Sinks.many().multicast().directBestEffort();
+
+  /**
+   * Says that a supervisor's credential was revoked or replaced, so open agent streams end.
+   *
+   * @param supervisorId the supervisor
+   */
+  public synchronized void credentialChanged(final String supervisorId) {
+    credentialChanges.tryEmitNext(supervisorId);
+  }
+
+  /**
+   * The supervisors whose credential was revoked or replaced from now on.
+   *
+   * @return their ids
+   */
+  public reactor.core.publisher.Flux<String> credentialChanges() {
+    return credentialChanges.asFlux();
+  }
 
   /**
    * Opens the channel of a supervisor, replacing an earlier one.

@@ -21,6 +21,7 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -46,6 +47,12 @@ import reactor.util.context.ContextView;
 class SupervisorHostCapabilitiesTest {
 
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
+
+  {
+    // the supervisors own session A; every command targets a run in it
+    when(dispatcher.target(any()))
+        .thenReturn(Mono.just(new CommandTarget("A", "w", null)));
+  }
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
 
@@ -79,7 +86,7 @@ class SupervisorHostCapabilitiesTest {
       final SupervisorCapabilities capabilities, final ExecutionControlCommand... commands) {
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Session("A"), true),
             emitting(commands),
             false,
             capabilities));
@@ -150,7 +157,7 @@ class SupervisorHostCapabilitiesTest {
   void boundSupervisorMadeWithoutCapabilitiesMaySendAnythingButNeverAnswers() {
     final BoundSupervisor bound =
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("guard", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("guard", "p", new SupervisorScope.Session("A"), true),
             emitting(),
             false);
 

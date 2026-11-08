@@ -473,6 +473,19 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void deletingASupervisorRevokesItsAgentCredential() {
+    final var credentials = new com.infenia.yukta.service.supervisor.agent.AgentCredentials();
+    service.setAgentCredentials(credentials);
+    saveSupervisors("agent");
+    final String token = credentials.issue("agent", null).token();
+
+    StepVerifier.create(service.deleteSupervisor("agent")).verifyComplete();
+
+    // a supervisor saved again under the same id does not inherit the old credential
+    org.assertj.core.api.Assertions.assertThat(credentials.authenticate(token)).isEmpty();
+  }
+
+  @Test
   void attachIsLimited() {
     StepVerifier.create(service.saveSupervisor(supervisor("p")))
         .expectNextCount(1)

@@ -37,10 +37,13 @@ class HoldLedgerTest {
   }
 
   @Test
-  void aSupervisorHoldsAtMostAThousandRuns() {
+  void aSupervisorHoldsAtMostAThousandRunsAndTheNewestPauseIsKept() {
     for (int i = 0; i < HoldLedger.MAX_PER_SUPERVISOR + 5; i++) {
       ledger.applied("s", new PauseWorkflowCommand("r" + i));
     }
-    assertThat(ledger.held("s")).hasSize(HoldLedger.MAX_PER_SUPERVISOR);
+    assertThat(ledger.held("s"))
+        .hasSize(HoldLedger.MAX_PER_SUPERVISOR)
+        .doesNotContain("r0")
+        .contains("r" + (HoldLedger.MAX_PER_SUPERVISOR + 4));
   }
 }

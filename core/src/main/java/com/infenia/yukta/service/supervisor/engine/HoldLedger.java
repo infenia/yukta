@@ -33,8 +33,12 @@ public final class HoldLedger {
         final Set<String> mine =
             held.computeIfAbsent(
                 supervisorId, id -> Collections.synchronizedSet(new LinkedHashSet<>()));
-        if (mine.size() < MAX_PER_SUPERVISOR) {
+        synchronized (mine) {
           mine.add(pause.executionId());
+          // ponytail: no end-of-run hook; the oldest entry (most likely a finished run) goes first
+          if (mine.size() > MAX_PER_SUPERVISOR) {
+            mine.remove(mine.iterator().next());
+          }
         }
       }
       case ExecutionControlCommand.ResumeWorkflowCommand resume ->

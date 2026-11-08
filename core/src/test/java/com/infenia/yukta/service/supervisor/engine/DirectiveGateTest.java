@@ -65,7 +65,7 @@ class DirectiveGateTest {
       final boolean enabled,
       final boolean dry) {
     return gate.check(
-        "sup", command, new EngineRunner.Target(session, "w", null), caps, OWNS, enabled, dry);
+        "sup", command, new DirectiveGate.Target(session, "w", null), caps, OWNS, enabled, dry);
   }
 
   @Test

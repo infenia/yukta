@@ -28,6 +28,7 @@ import com.infenia.yukta.service.control.ControlAudit;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
@@ -123,7 +124,9 @@ public class SupervisorService {
   /** Tells whether this server is the leader; null on a single server. */
   @Nullable private LeaderElection election;
 
-  /** Lets composite supervisors find their children; null without the composite factory. */
+  @Nullable private AgentCredentials agentCredentials;
+
+  /** The stored supervisors, for parent lookups; null when there is none. */
   @Nullable private SupervisorResolver resolver;
 
   /** Checks workflow supervisors against the stores; null where there are none. */
@@ -582,7 +585,25 @@ public class SupervisorService {
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)))
-        .doOnSuccess(done -> versions.forget(id));
+        .doOnSuccess(
+            done -> {
+              versions.forget(id);
+              // a supervisor created again under this id must not take the old credential
+              final AgentCredentials agents = agentCredentials;
+              if (agents != null) {
+                agents.revoke(id);
+              }
+            });
+  }
+
+  /**
+   * Lets a deleted supervisor's agent credential be revoked with it.
+   *
+   * @param credentials the agent credentials
+   */
+  @Autowired(required = false)
+  public void setAgentCredentials(final AgentCredentials credentials) {
+    this.agentCredentials = credentials;
   }
 
   /** Refuses with 409, naming them, when other supervisors report to this one. */

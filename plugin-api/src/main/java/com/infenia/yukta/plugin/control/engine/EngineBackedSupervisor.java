@@ -37,7 +37,7 @@ public final class EngineBackedSupervisor
   private final boolean reviews;
   private final Duration reviewTimeout;
   private final Map<String, Sinks.One<Decision>> pending = new ConcurrentHashMap<>();
-  private final Sinks.Many<Signal> asked = Sinks.many().multicast().onBackpressureBuffer();
+  private final Sinks.Many<Signal> asked = Sinks.many().multicast().onBackpressureBuffer(MAX_OPEN_REVIEWS, false);
   private final AtomicLong seq = new AtomicLong();
   private final Consumer<EngineReads> readsSink;
 
@@ -140,14 +140,15 @@ public final class EngineBackedSupervisor
       return Mono.just(Decision.ALLOW);
     }
     if (pending.size() >= MAX_OPEN_REVIEWS) {
-      return Mono.just(Decision.ALLOW);
+      // an error, not an answer: the reviewer refuses it (a stop is still let through)
+      return Mono.error(new IllegalStateException("too many open reviews"));
     }
     final String reviewId = "r" + seq.incrementAndGet();
     final Sinks.One<Decision> sink = Sinks.one();
     pending.put(reviewId, sink);
     asked.tryEmitNext(new Signal.Review(reviewId, request, reviewTimeout));
     return sink.asMono()
-        .timeout(reviewTimeout, Mono.just(Decision.ALLOW))
+        .timeout(reviewTimeout)
         .doFinally(done -> pending.remove(reviewId));
   }
 

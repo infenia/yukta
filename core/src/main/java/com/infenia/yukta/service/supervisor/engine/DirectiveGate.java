@@ -48,6 +48,16 @@ public final class DirectiveGate {
   }
 
   /**
+   * What a command acts on, looked up by the server from the command itself.
+   *
+   * @param sessionId the session, or null when the lookup failed
+   * @param workflowId the workflow, or null
+   * @param nodeId the node, or null for a run-level command
+   */
+  public record Target(
+      @Nullable String sessionId, @Nullable String workflowId, @Nullable String nodeId) {}
+
+  /**
    * The verdict on a command.
    *
    * @param accepted whether it goes on to be applied
@@ -97,7 +107,7 @@ public final class DirectiveGate {
   public Decision check(
       final String supervisorId,
       final Directive.Command directive,
-      final EngineRunner.Target target,
+      final DirectiveGate.Target target,
       final SupervisorCapabilities capabilities,
       final SupervisorScope scope,
       final boolean enabled,
@@ -113,7 +123,7 @@ public final class DirectiveGate {
 
   private static @Nullable Rejection screen(
       final Directive.Command directive,
-      final EngineRunner.Target target,
+      final DirectiveGate.Target target,
       final SupervisorCapabilities capabilities,
       final SupervisorScope scope,
       final boolean enabled) {

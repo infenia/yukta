@@ -72,7 +72,7 @@ class SupervisorHostDirectivesTest {
         };
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("eng", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),
             supervisor,
             false,
             capabilities));
@@ -215,7 +215,7 @@ class SupervisorHostDirectivesTest {
     }
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("eng", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),
             new Closing(),
             false,
             pausing(10)));
@@ -244,7 +244,7 @@ class SupervisorHostDirectivesTest {
     }
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("eng", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),
             new Failing(),
             false,
             pausing(10)));

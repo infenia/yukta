@@ -55,6 +55,8 @@ public final class AgentCredentials {
   /** Keeps the hashes across a restart; null where a module provides none. */
   @Nullable private AgentCredentialStore store;
 
+  @Nullable private AgentHub hub;
+
   /** Creates the store with the system clock. */
   public AgentCredentials() {
     this(Clock.systemUTC());
@@ -67,6 +69,16 @@ public final class AgentCredentials {
    */
   public AgentCredentials(final Clock clock) {
     this.clock = clock;
+  }
+
+  /**
+   * Lets a revoke or rotation end the open streams of the old credential.
+   *
+   * @param agentHub the hub
+   */
+  @Autowired(required = false)
+  public void setHub(final AgentHub agentHub) {
+    this.hub = agentHub;
   }
 
   /**
@@ -108,6 +120,7 @@ public final class AgentCredentials {
     final String earlier = hashOf.put(supervisorId, hash);
     if (earlier != null) {
       byHash.remove(earlier);
+      changed(supervisorId);
     }
     byHash.put(hash, new Entry(supervisorId, expires, addresses));
   }
@@ -201,7 +214,17 @@ public final class AgentCredentials {
     if (store != null && hash != null) {
       persist(store.delete(supervisorId), supervisorId);
     }
+    if (hash != null) {
+      changed(supervisorId);
+    }
     return hash != null && byHash.remove(hash) != null;
+  }
+
+  private void changed(final String supervisorId) {
+    final AgentHub agents = hub;
+    if (agents != null) {
+      agents.credentialChanged(supervisorId);
+    }
   }
 
   /**

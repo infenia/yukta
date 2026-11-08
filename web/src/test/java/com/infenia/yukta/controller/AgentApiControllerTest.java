@@ -45,8 +45,20 @@ class AgentApiControllerTest {
     return exchange;
   }
 
+  /** Signals the agent was sent, so directives may name them as their cause. */
+  private static final Flux<Signal> SENT =
+      Flux.<Signal>just(
+              new Signal.Event(
+                  "e5",
+                  "e5",
+                  new com.infenia.yukta.plugin.control.ExecutionEvent.WorkflowStatusChanged(
+                      "run1", "s", "w", "RUNNING", Instant.EPOCH)),
+              new Signal.Delegated(
+                  "q1", com.infenia.yukta.plugin.control.DelegationKind.APPROVAL, "c", Map.of()))
+          .concatWith(Flux.never());
+
   private SupervisorEngine running(final EngineReads reads) {
-    return running(reads, Flux.never());
+    return running(reads, SENT);
   }
 
   private SupervisorEngine running(final EngineReads reads, final Flux<Signal> signals) {
@@ -428,5 +440,30 @@ class AgentApiControllerTest {
             })
         .verifyComplete();
     engine.close();
+  }
+
+  @Test
+  void aCauseNamingNoSignalSentIsRefusedSoItCannotSkipTheInitiativeLimits() {
+    running(EngineReads.NONE);
+    final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
+    for (final String forged : new String[] {"event:e999", "answers:nobody"}) {
+      assertThatThrownBy(
+              () ->
+                  controller.directive(
+                      as("a1"), new AgentApiController.DirectiveBody("k", forged, null, null, pause)))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("names no signal sent");
+    }
+    assertThat(received).isEmpty();
+  }
+
+  @Test
+  void aRevokedCredentialEndsTheOpenStream() {
+    running(EngineReads.NONE);
+    StepVerifier.create(controller.events(as("a1"), 0))
+        .expectNextCount(2)
+        .then(() -> hub.credentialChanged("a1"))
+        .thenConsumeWhile(event -> true)
+        .verifyComplete();
   }
 }

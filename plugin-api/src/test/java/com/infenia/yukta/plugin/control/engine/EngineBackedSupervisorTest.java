@@ -14,6 +14,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -83,7 +84,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void noOpinionAndSilenceAllow() {
+  void noOpinionAllowsAndSilenceIsATimeoutForTheReviewer() {
     final var asked =
         supervisor(
             engine(
@@ -97,7 +98,8 @@ class EngineBackedSupervisorTest {
     final var silent =
         supervisor(engine(signals -> signals.thenMany(Flux.<Directive>never())), true);
     silent.supervise(Flux.never()).subscribe();
-    assertThat(silent.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.ALLOW);
+    // the reviewer turns the timeout into a refusal (a stop is still let through)
+    StepVerifier.create(silent.review(REQUEST)).expectError(TimeoutException.class).verify();
   }
 
   @Test
@@ -181,7 +183,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void reviewsBeyondTheCapAreTreatedAsUnanswered() {
+  void reviewsBeyondTheCapFailSoTheReviewerRefusesThem() {
     final var sup =
         new EngineBackedSupervisor(
             "s1",
@@ -194,12 +196,14 @@ class EngineBackedSupervisorTest {
     for (int i = 0; i < EngineBackedSupervisor.MAX_OPEN_REVIEWS; i++) {
       sup.review(REQUEST).subscribe();
     }
-    // the next one is not even asked
-    assertThat(sup.review(REQUEST).block(Duration.ofSeconds(2))).isEqualTo(Decision.ALLOW);
+    // the next one is not even asked, and never let through unreviewed
+    StepVerifier.create(sup.review(REQUEST))
+        .expectErrorMessage("too many open reviews")
+        .verify(Duration.ofSeconds(2));
   }
 
   @Test
-  void anEngineThatDisconnectsMidReviewLeavesTheReviewToTimeOutAsSilence() {
+  void anEngineThatDisconnectsMidReviewLeavesTheReviewToTimeOut() {
     final var sup =
         supervisor(
             engine(
@@ -210,7 +214,32 @@ class EngineBackedSupervisorTest {
                         .flatMap(r -> Flux.<Directive>error(new IllegalStateException("gone")))),
             true);
     sup.supervise(Flux.never()).subscribe(d -> {}, e -> {});
-    // the engine failed after it saw the review; nobody answers, and the review is allowed
-    assertThat(sup.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.ALLOW);
+    // the engine failed after it saw the review; nobody answers, and the review times out
+    StepVerifier.create(sup.review(REQUEST))
+        .expectError(TimeoutException.class)
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void reviewsReachAnEngineThatWasRestarted() {
+    final int[] runs = {0};
+    final var sup =
+        supervisor(
+            engine(
+                signals ->
+                    runs[0]++ == 0
+                        ? Flux.<Directive>error(new IllegalStateException("first run fails"))
+                        : signals
+                            .ofType(Signal.Review.class)
+                            .map(
+                                r ->
+                                    (Directive)
+                                        new Directive.ReviewVerdict(
+                                            r.id(), Directive.Verdict.DENY, "no"))),
+            true);
+    sup.directives(Flux.never()).subscribe(d -> {}, e -> {});
+    // the host resubscribes after a failure; the review signals must still arrive
+    sup.directives(Flux.never()).subscribe();
+    assertThat(sup.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.deny("no"));
   }
 }

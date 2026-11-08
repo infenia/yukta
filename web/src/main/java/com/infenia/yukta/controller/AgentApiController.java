@@ -139,10 +139,14 @@ public class AgentApiController {
   @Operation(summary = "Stream the signals of the supervisor")
   public Flux<ServerSentEvent<SignalEnvelope>> events(
       final ServerWebExchange exchange, @RequestParam(defaultValue = "-1") final long after) {
+    final String id = supervisor(exchange);
+    final AgentHub.Channel channel = channel(id);
     final Flux<SignalEnvelope> envelopes =
-        channel(supervisor(exchange))
-            .signalsAfter(after < 0 ? channel(supervisor(exchange)).cursor() : after)
-            .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()));
+        channel
+            .signalsAfter(after < 0 ? channel.cursor() : after)
+            .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()))
+            // a revoked or rotated credential ends the stream at once
+            .takeUntilOther(hub.credentialChanges().filter(id::equals));
     return SseStreams.events(envelopes, null, SseStreams.HEARTBEAT);
   }
 
@@ -273,6 +277,12 @@ public class AgentApiController {
       throw new IllegalArgumentException("A directive needs a key and a command");
     }
     final Cause cause = cause(body.cause());
+    if (!cause.unprompted() && !channel.sent(java.util.Objects.requireNonNull(cause.id()))) {
+      // the server, not the agent, says what a directive reacts to: an unknown id is initiative
+      // in disguise and would skip the initiative list, the reason and its rate limit
+      throw new IllegalArgumentException(
+          "cause " + cause.text() + " names no signal sent to this supervisor");
+    }
     final Map<String, Object> raw = body.command();
     if (raw.get("executionId") == null && raw.get("target") != null) {
       return expand(supervisor, channel, raw.get("target").toString())

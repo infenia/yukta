@@ -18,6 +18,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -47,6 +48,12 @@ class AttachedSupervisorTest {
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
 
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
+
+  {
+    // the supervisors own session A; every command targets a run in it
+    when(dispatcher.target(any()))
+        .thenReturn(Mono.just(new CommandTarget("A", "w", null)));
+  }
 
   private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
 
@@ -104,7 +111,7 @@ class AttachedSupervisorTest {
   void detachAllStopsEveryAttachedSupervisor() {
     host.setAttachedSupervisors(attached);
     host.attach(bound("b1", new SupervisorScope.Session("A"), false));
-    host.attach(bound("b2", new SupervisorScope.Global(), false));
+    host.attach(bound("b2", new SupervisorScope.Session("A"), false));
 
     host.detachAll();
 
@@ -154,7 +161,7 @@ class AttachedSupervisorTest {
   void detachingRemovesTheCommandCountersOfTheBinding() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     host.setAttachedSupervisors(attached);
-    host.attach(bound("b1", new SupervisorScope.Global(), false));
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
     publishUntilSeen("r1", "A");
     await()
         .atMost(3, TimeUnit.SECONDS)
@@ -171,7 +178,7 @@ class AttachedSupervisorTest {
   @Test
   void attachedDryRunSupervisorOnlyRecords() {
     host.setAttachedSupervisors(attached);
-    host.attach(bound("b1", new SupervisorScope.Global(), true));
+    host.attach(bound("b1", new SupervisorScope.Session("A"), true));
 
     publishUntilSeen("e1", "A");
 
@@ -194,7 +201,7 @@ class AttachedSupervisorTest {
             10,
             1000);
     try {
-      recordingHost.attach(bound("b1", new SupervisorScope.Global(), false));
+      recordingHost.attach(bound("b1", new SupervisorScope.Session("A"), false));
 
       assertThat(recordingHost.status().getFirst().dryRun()).isTrue();
     } finally {
@@ -205,7 +212,7 @@ class AttachedSupervisorTest {
   @Test
   void stopEndsAttachedSupervisorsToo() {
     host.setAttachedSupervisors(attached);
-    host.attach(bound("b1", new SupervisorScope.Global(), false));
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
     host.stop();
 
     assertThat(host.detach("b1")).isTrue();
@@ -247,8 +254,8 @@ class AttachedSupervisorTest {
   void decisionsRecordWhatBecameOfEachCommandNewestFirst() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     host.setAttachedSupervisors(attached);
-    host.attach(bound("live", new SupervisorScope.Global(), false));
-    host.attach(bound("dry", new SupervisorScope.Global(), true));
+    host.attach(bound("live", new SupervisorScope.Session("A"), false));
+    host.attach(bound("dry", new SupervisorScope.Session("A"), true));
 
     publishUntilSeen("e1", "A");
 
@@ -290,7 +297,7 @@ class AttachedSupervisorTest {
     host.setAttachedSupervisors(attached);
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("chatty", "p", new SupervisorScope.Global(), true),
+            new SupervisorAttachment("chatty", "p", new SupervisorScope.Session("A"), true),
             chatty,
             true));
 
@@ -311,7 +318,7 @@ class AttachedSupervisorTest {
     when(dispatcher.dispatchOrdered(any()))
         .thenReturn(Mono.error(new ControlRejectedException("no")));
     host.setAttachedSupervisors(attached);
-    host.attach(bound("b1", new SupervisorScope.Global(), false));
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
 
     publishUntilSeen("e1", "A");
 
