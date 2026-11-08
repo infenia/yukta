@@ -125,6 +125,9 @@ public class SupervisorService {
   /** Checks workflow supervisors against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
 
+  /** The newest saved states of each supervisor. */
+  private final SupervisorVersions versions = new SupervisorVersions();
+
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
 
@@ -355,6 +358,41 @@ public class SupervisorService {
   }
 
   /**
+   * The saved states of a supervisor, newest first (the newest 20 since the server started).
+   *
+   * @param id the supervisor id
+   * @return the versions; an unknown supervisor is a {@link NotFoundException}
+   */
+  public Mono<List<SupervisorVersions.Version>> versions(final String id) {
+    return store
+        .supervisors()
+        .filter(found -> found.id().equals(id))
+        .next()
+        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
+        .map(found -> versions.list(id));
+  }
+
+  /**
+   * Saves an earlier state again, as a new version.
+   *
+   * @param id the supervisor id
+   * @param version the number of the state to restore
+   * @return the supervisor as restored
+   */
+  public Mono<Supervisor> rollback(final String id, final int version) {
+    return Mono.defer(
+        () ->
+            versions
+                .find(id, version)
+                .map(found -> saveSupervisor(found.supervisor()))
+                .orElseGet(
+                    () ->
+                        Mono.error(
+                            new NotFoundException(
+                                "Version " + version + " of supervisor " + id + " is not kept"))));
+  }
+
+  /**
    * Creates or replaces a supervisor. Attachments that use it are restarted with the new settings.
    *
    * @param supervisor the supervisor
@@ -373,6 +411,7 @@ public class SupervisorService {
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
+        .doOnSuccess(saved -> versions.record(supervisor))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
@@ -474,7 +513,8 @@ public class SupervisorService {
                 }))
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
-        .then(Mono.defer(() -> deleteUnused(id)));
+        .then(Mono.defer(() -> deleteUnused(id)))
+        .doOnSuccess(done -> versions.forget(id));
   }
 
   /** Refuses with 409, naming them, when other supervisors report to this one. */

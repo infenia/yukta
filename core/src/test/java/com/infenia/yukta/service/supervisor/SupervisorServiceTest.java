@@ -875,4 +875,68 @@ class SupervisorServiceTest {
 
     verify(host, times(1)).attach(any(BoundSupervisor.class));
   }
+
+  @Test
+  void everyChangeIsAVersionAndARollbackSavesAnEarlierOneAsANewVersion() {
+    final Supervisor first = new Supervisor("v", TYPE, Map.of("level", 1), false);
+    final Supervisor second = new Supervisor("v", TYPE, Map.of("level", 2), false);
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(second)).expectNextCount(1).verifyComplete();
+
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions -> {
+              // the repeat of the same settings is not a version
+              assertThat(versions)
+                  .extracting(SupervisorVersions.Version::version)
+                  .containsExactly(2, 1);
+              assertThat(versions.get(0).supervisor()).isEqualTo(second);
+            })
+        .verifyComplete();
+
+    StepVerifier.create(service.rollback("v", 1)).expectNext(first).verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions ->
+                assertThat(versions)
+                    .extracting(SupervisorVersions.Version::version)
+                    .containsExactly(3, 2, 1))
+        .verifyComplete();
+  }
+
+  @Test
+  void aVersionThatIsNotKeptAndAnUnknownSupervisorAreNotFound() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.rollback("v", 9)).expectError(NotFoundException.class).verify();
+    StepVerifier.create(service.versions("nope")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
+  void deletingASupervisorForgetsItsVersions() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("v")).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(versions -> assertThat(versions).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void onlyTheNewestTwentyVersionsAreKept() {
+    final SupervisorVersions kept = new SupervisorVersions();
+    for (int i = 0; i < 25; i++) {
+      kept.record(new Supervisor("k", TYPE, Map.of("level", i), false));
+    }
+    assertThat(kept.list("k")).hasSize(SupervisorVersions.KEPT);
+    assertThat(kept.find("k", 25)).isPresent();
+    assertThat(kept.find("k", 5)).isEmpty();
+    assertThat(kept.list("other")).isEmpty();
+  }
 }

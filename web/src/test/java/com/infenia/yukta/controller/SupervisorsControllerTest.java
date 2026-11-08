@@ -98,6 +98,35 @@ class SupervisorsControllerTest {
   }
 
   @Test
+  void versionsAreListedWithSecretsHiddenAndARollbackRestoresOne() {
+    StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u1"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replace("s1", body("s1", Map.of("bearer", "***", "url", "u2"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.versions("s1"))
+        .assertNext(
+            r -> {
+              assertThat(r.data()).hasSize(2);
+              assertThat(r.data().get(0).version()).isEqualTo(2);
+              assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.rollback("s1", 1))
+        .assertNext(r -> assertThat(r.data().settings().get("url")).isEqualTo("u1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void aSystemSupervisorCannotBeRolledBack() {
+    when(host.isBuiltIn("sys")).thenReturn(true);
+    StepVerifier.create(controller.rollback("sys", 1))
+        .expectError(ConflictException.class)
+        .verify();
+  }
+
+  @Test
   void createdSupervisorIsListedWithItsCountsAndSecretsHidden() {
     StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u"))))
         .assertNext(

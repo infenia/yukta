@@ -26,13 +26,30 @@ import org.jspecify.annotations.Nullable;
  * ]}
  * }</pre>
  *
+ * @param schemaVersion the version of the rule document, {@code 1} (absent counts as 1)
  * @param rules the rules, in order
  */
-public record RuleSet(List<Rule> rules) {
+public record RuleSet(@Nullable Integer schemaVersion, List<Rule> rules) {
 
-  /** Keeps an immutable copy of the rules. */
+  /** The only version of the rule document so far. */
+  public static final int SCHEMA_VERSION = 1;
+
+  /** Keeps an immutable copy of the rules and refuses a version this server does not know. */
   public RuleSet {
+    if (schemaVersion != null && schemaVersion != SCHEMA_VERSION) {
+      throw new IllegalArgumentException(
+          "Unsupported schemaVersion " + schemaVersion + ", this server reads " + SCHEMA_VERSION);
+    }
     rules = rules == null ? List.of() : List.copyOf(rules);
+  }
+
+  /**
+   * Rules of the current version.
+   *
+   * @param rules the rules, in order
+   */
+  public RuleSet(final List<Rule> rules) {
+    this(null, rules);
   }
 
   /**
