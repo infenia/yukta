@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.store.NodeCheckpointStore;
 import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.store.FileNodeCheckpointStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -32,7 +33,8 @@ import org.springframework.stereotype.Component;
 @SuppressWarnings({
   "PMD.UseConcurrentHashMap",
   "PMD.AvoidInstantiatingObjectsInLoops",
-  "PMD.AvoidCatchingGenericException"
+  "PMD.AvoidCatchingGenericException",
+  "PMD.TooManyMethods"
 })
 public class ExecutionRecovery implements SmartInitializingSingleton {
 
@@ -120,7 +122,7 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
     // With several servers a standby must not mark a living leader's runs aborted: recovery then
     // happens on takeover (TakeoverRecovery).
     if (election == null || !election.recoversOnTakeover()) {
-      recover();
+      recover(true);
     }
   }
 
@@ -130,6 +132,14 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
    * @return the ids of the runs that were interrupted and are now marked aborted
    */
   public List<String> recover() {
+    return recover(false);
+  }
+
+  /**
+   * As {@link #recover()}; at start-up it also removes the durable output of runs that are no
+   * longer in the log (an earlier process, or a log trimmed since), which nothing else would.
+   */
+  private List<String> recover(final boolean startup) {
     final List<ExecutionLogEvent> all = store.readAll();
     final List<ExecutionLogEvent> scheduler =
         all.stream().filter(e -> ExecutionLogEvent.SCHEDULER.equals(e.executionId())).toList();
@@ -177,6 +187,9 @@ public class ExecutionRecovery implements SmartInitializingSingleton {
       }
     }
     store.replaceAll(kept);
+    if (startup && checkpoints instanceof FileNodeCheckpointStore files) {
+      files.removeNotIn(keep);
+    }
     log.atInfo()
         .addKeyValue("restored", runs.size() - skip)
         .addKeyValue("aborted", abortedIds.size())
