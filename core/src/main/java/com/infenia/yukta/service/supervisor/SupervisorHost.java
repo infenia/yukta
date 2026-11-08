@@ -564,7 +564,8 @@ public class SupervisorHost implements DryRunRecorder {
     final Set<String> seen = Collections.newSetFromMap(new BoundedKeys<>());
     // the request an answer is for, and the base key of the directive that answered it: the runs
     // of one selector share that key (<key>#<execution>) and together are one answer
-    final Map<String, String> answered = new BoundedKeys<>();
+    // read and written only by this supervisor's one subscription
+    final Map<String, String> answered = new BoundedKeys<>(); // NOPMD - UseConcurrentHashMap
     return directives
         .directives(events)
         .concatMap(

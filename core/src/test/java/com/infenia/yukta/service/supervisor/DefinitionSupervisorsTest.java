@@ -136,7 +136,7 @@ class DefinitionSupervisorsTest {
   void checkRefusesDeclarationThatTakesWhatAnotherSupervisorOwns() {
     supervisor("a");
     supervisor("b");
-    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a")))))
         .assertNext(
@@ -156,7 +156,7 @@ class DefinitionSupervisorsTest {
   void checkNamesSessionDeclarationThatTakesWhatAnotherSupervisorOwns() {
     supervisor("a");
     supervisor("b");
-    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(ref("a")), workflow("w1"))))
         .assertNext(
@@ -177,7 +177,7 @@ class DefinitionSupervisorsTest {
                     "off", "b", new SupervisorScope.Workflow("w1", SESSION), false)))
         .expectNextCount(1)
         .verifyComplete();
-    manual("elsewhere", "b", new SupervisorScope.Section("w1", "other", java.util.Set.of("x")));
+    manual("elsewhere", "b", new SupervisorScope.Section("w1", "other", Set.of("x")));
     final SessionConfigData data = session(List.of(), workflow("w1", ref("a")));
     save(data);
 
@@ -190,10 +190,10 @@ class DefinitionSupervisorsTest {
   void checkComparesSectionsOfAnySessionAndLeavesOtherSessionsDefinitionsAlone() {
     supervisor("a");
     supervisor("b");
-    manual("any-a", "a", new SupervisorScope.Section("w1", null, java.util.Set.of("deploy")));
-    manual("any-b", "b", new SupervisorScope.Section("w1", null, java.util.Set.of("build.*")));
-    manual("other-a", "a", new SupervisorScope.Section("w2", "other", java.util.Set.of("x")));
-    manual("other-b", "b", new SupervisorScope.Section("w2", "other", java.util.Set.of("y")));
+    manual("any-a", "a", new SupervisorScope.Section("w1", null, Set.of("deploy")));
+    manual("any-b", "b", new SupervisorScope.Section("w1", null, Set.of("build.*")));
+    manual("other-a", "a", new SupervisorScope.Section("w2", "other", Set.of("x")));
+    manual("other-b", "b", new SupervisorScope.Section("w2", "other", Set.of("y")));
     store
         .saveAttachment(
             new SupervisorAttachment(
@@ -284,7 +284,7 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void groupSelectorMustNameAGroupOfTheWorkflow() {
+  void groupSelectorMustNameGroupOfTheWorkflow() {
     supervisor("a");
 
     // build.compile and build.test make the group build; there is no group ci
@@ -533,7 +533,7 @@ class DefinitionSupervisorsTest {
   }
 
   @Test
-  void requireWithTheSessionRefusesAVersionThatTakesWhatAnotherSupervisorOwns() {
+  void requireWithTheSessionRefusesVersionThatTakesWhatAnotherSupervisorOwns() {
     supervisor("guard");
     supervisor("other");
     definitions.save(SESSION, workflow("w1")).block();

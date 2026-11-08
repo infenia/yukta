@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class RuleSetVersionTest {
 
   @Test
-  void aDocumentWithoutAVersionIsVersionOne() {
+  void documentWithoutVersionIsVersionOne() {
     assertThat(RuleSupervisor.read("{\"rules\": []}").schemaVersion()).isNull();
   }
 

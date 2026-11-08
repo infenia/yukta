@@ -38,6 +38,7 @@ import reactor.core.publisher.Mono;
 /** Commands of an engine pass the directive gate before they are applied. */
 @SuppressWarnings({
   "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
   "PMD.TooManyMethods",
   "PMD.TooManyStaticImports",
   "PMD.UnitTestShouldIncludeAssert"
@@ -111,7 +112,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void oneAnswerSentToTheRunsOfASelectorIsAppliedToEachOfThem() {
+  void oneAnswerSentToTheRunsOfSelectorIsAppliedToEachOfThem() {
     // the agent API sends a selector as <key>#<execution>: together they are one answer
     attach(
         pausing(10),
@@ -226,7 +227,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aRunResumedBySomeoneElseOrEndedIsNoLongerHeld() {
+  void runResumedBySomeoneElseOrEndedIsNoLongerHeld() {
     host.start();
     attach(
         pausing(10),

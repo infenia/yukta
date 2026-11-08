@@ -9,12 +9,13 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
+@SuppressWarnings({"PMD.AvoidUsingHardCodedIP"})
 class R2dbcAgentCredentialStoreTest extends PostgresTestSupport {
 
   private final R2dbcAgentCredentialStore store = new R2dbcAgentCredentialStore(db);
 
   @Test
-  void aCredentialIsStoredReplacedAndDeleted() {
+  void credentialIsStoredReplacedAndDeleted() {
     final Instant expires = Instant.parse("2030-01-01T00:00:00Z");
     StepVerifier.create(store.save(new Stored("a", "h1", null))).verifyComplete();
     StepVerifier.create(store.save(new Stored("b", "h2", expires))).verifyComplete();
@@ -32,7 +33,7 @@ class R2dbcAgentCredentialStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void theAddressesAComputerMayUseSurviveStoring() {
+  void theAddressesComputerMayUseSurviveStoring() {
     final Stored tied = new Stored("c", "h", null, java.util.Set.of("10.0.0.1", "10.0.0.2"));
     StepVerifier.create(store.save(tied)).verifyComplete();
     StepVerifier.create(store.all()).expectNext(tied).verifyComplete();

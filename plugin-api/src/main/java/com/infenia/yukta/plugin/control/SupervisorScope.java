@@ -97,13 +97,6 @@ public sealed interface SupervisorScope {
   }
 
   /**
-   * Tells whether this scope contains another: every run and node the other matches, this one
-   * matches too. A scope covers itself.
-   *
-   * @param other the other scope
-   * @return true if this scope covers the other
-   */
-  /**
    * Whether this scope owns what a command acts on, the way the server enforces ownership: a
    * server-level command belongs only to a {@link Server} scope, a {@link Server} scope owns
    * nothing else, a {@link Global} scope owns nothing, and a command whose run could not be looked
@@ -132,6 +125,13 @@ public sealed interface SupervisorScope {
     return matches(runSessionId, runWorkflowId, nodeId);
   }
 
+  /**
+   * Tells whether this scope contains another: every run and node the other matches, this one
+   * matches too. A scope covers itself.
+   *
+   * @param other the other scope
+   * @return true if this scope covers the other
+   */
   boolean covers(SupervisorScope other);
 
   /**
@@ -422,6 +422,8 @@ public sealed interface SupervisorScope {
    *     session
    * @param nodes the selectors, 1 to {@value #MAX_SELECTORS}, each non-blank, without a comma and
    *     at most {@value #MAX_SELECTOR_LENGTH} characters
+   * @param groupMembers the nodes its {@code group:} selectors stand for in the workflow as it is
+   *     now, resolved by the server; empty until then, never stored and not in {@link #key()}
    */
   record Section(
       String workflowId, @Nullable String sessionId, Set<String> nodes, Set<String> groupMembers)
@@ -440,13 +442,6 @@ public sealed interface SupervisorScope {
     private static final String PREFIX_SUFFIX = ".*";
 
     /**
-     * Checks the parts and keeps an unmodifiable copy of the selectors, in their order.
-     *
-     * @param workflowId the workflow
-     * @param sessionId the session, or {@code null}
-     * @param nodes the selectors
-     */
-    /**
      * A section as written: its {@code group:} selectors match nothing until the server resolves
      * them ({@link #withGroupMembers}).
      *
@@ -459,6 +454,14 @@ public sealed interface SupervisorScope {
       this(workflowId, sessionId, nodes, Set.of());
     }
 
+    /**
+     * Checks the parts and keeps an unmodifiable copy of the selectors, in their order.
+     *
+     * @param workflowId the workflow
+     * @param sessionId the session, or {@code null}
+     * @param nodes the selectors
+     * @param groupMembers the nodes the {@code group:} selectors stand for, resolved by the server
+     */
     public Section {
       Objects.requireNonNull(workflowId, "workflowId");
       Objects.requireNonNull(nodes, "nodes");

@@ -47,6 +47,7 @@ public class MeController {
       ControlReviewer.Summary supervision) {
 
     /** Copies the sessions. */
+    @SuppressWarnings("PMD.NullAssignment") // null means every session
     public Me {
       sessions = sessions == null ? null : List.copyOf(sessions);
     }

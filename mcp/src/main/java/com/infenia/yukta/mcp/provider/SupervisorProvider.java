@@ -37,6 +37,7 @@ import reactor.core.publisher.Mono;
 /** Lists, saves, attaches and detaches supervisors, and describes their types, for MCP tools. */
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 public class SupervisorProvider {
 
   /** What a secret is shown as; sending it back would overwrite the secret, so it is refused. */

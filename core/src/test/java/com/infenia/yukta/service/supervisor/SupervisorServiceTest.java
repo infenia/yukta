@@ -405,8 +405,7 @@ class SupervisorServiceTest {
                     "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:build")), true)))
         .expectNextCount(1)
         .verifyComplete();
-    final org.mockito.ArgumentCaptor<BoundSupervisor> bound =
-        org.mockito.ArgumentCaptor.forClass(BoundSupervisor.class);
+    final ArgumentCaptor<BoundSupervisor> bound = ArgumentCaptor.forClass(BoundSupervisor.class);
     verify(host, org.mockito.Mockito.atLeastOnce()).attach(bound.capture());
     // the bound supervisor owns build.compile, the one node of group build, and not deploy
     assertThat(bound.getValue().scope().matches("s", "w", "build.compile")).isTrue();
@@ -1205,12 +1204,12 @@ class SupervisorServiceTest {
     definitions
         .save(
             "s",
-            com.infenia.yukta.testing.Fixtures.workflow(
+            Fixtures.workflow(
                 "w",
                 "d",
                 List.of(
-                    com.infenia.yukta.testing.Fixtures.node("build.compile", "T", Map.of()),
-                    com.infenia.yukta.testing.Fixtures.node("deploy", "T", Map.of())),
+                    Fixtures.node("build.compile", "T", Map.of()),
+                    Fixtures.node("deploy", "T", Map.of())),
                 List.of(),
                 List.of()))
         .block();

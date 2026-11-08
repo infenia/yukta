@@ -265,12 +265,6 @@ public final class AgentCredentials {
   }
 
   /**
-   * Whether a supervisor has a credential.
-   *
-   * @param supervisorId the supervisor
-   * @return true if it has one
-   */
-  /**
    * What may be shown about a supervisor's credential.
    *
    * @param supervisorId the supervisor
@@ -292,6 +286,12 @@ public final class AgentCredentials {
             use == null ? null : use.from()));
   }
 
+  /**
+   * Whether a supervisor has a credential.
+   *
+   * @param supervisorId the supervisor
+   * @return true if it has one
+   */
   public boolean has(final String supervisorId) {
     return hashOf.containsKey(supervisorId);
   }

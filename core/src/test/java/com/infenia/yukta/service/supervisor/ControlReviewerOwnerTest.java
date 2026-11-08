@@ -36,7 +36,7 @@ import reactor.util.context.Context;
 
 /** Production review: the owner only, and only for what people send. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 class ControlReviewerOwnerTest {
 
   private static final String PAUSE = "PauseWorkflowCommand";
@@ -343,12 +343,12 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void aPersonsCommandSaysWhichSupervisorCarriedIt() {
+  void personsCommandSaysWhichSupervisorCarriedIt() {
     own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
     final var via = new java.util.concurrent.atomic.AtomicReference<String>();
     StepVerifier.create(
             reviewer(true)
-                .verdict(RUN_COMMAND, java.util.Set.of())
+                .verdict(RUN_COMMAND, Set.of())
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
                 .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, via)))
         .expectNextCount(1)
@@ -358,7 +358,7 @@ class ControlReviewerOwnerTest {
     final var unowned = new java.util.concurrent.atomic.AtomicReference<String>();
     StepVerifier.create(
             reviewer(true)
-                .verdict(SERVER_COMMAND, java.util.Set.of())
+                .verdict(SERVER_COMMAND, Set.of())
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
                 .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, unowned)))
         .expectNextCount(1)
@@ -373,7 +373,7 @@ class ControlReviewerOwnerTest {
     own("g", new SupervisorScope.Global(), answering(Decision.ALLOW));
 
     assertThat(reviewer(true).summary(null)).isEqualTo(new ControlReviewer.Summary(true, 2));
-    assertThat(reviewer(false).summary(java.util.List.of("s")))
+    assertThat(reviewer(false).summary(List.of("s")))
         .isEqualTo(new ControlReviewer.Summary(false, 1));
   }
 }

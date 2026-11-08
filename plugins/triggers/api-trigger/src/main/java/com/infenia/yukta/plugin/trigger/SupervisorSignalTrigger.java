@@ -30,6 +30,10 @@ public final class SupervisorSignalTrigger implements TriggerPlugin {
   private static final Set<String> KINDS =
       Set.of("EVENT", "TICK", "REVIEW", "DELEGATED", "STARTED");
 
+  /** The refusal of a signal kind that is not one of {@link #KINDS}. */
+  private static final String KINDS_MESSAGE =
+      "signals must be a comma-separated list of " + new java.util.TreeSet<>(KINDS);
+
   @Override
   public PluginDescriptor describe() {
     return new PluginDescriptor(
@@ -65,8 +69,7 @@ public final class SupervisorSignalTrigger implements TriggerPlugin {
           }
           for (final String kind : listed.toString().split(",")) {
             if (!KINDS.contains(kind.strip().toUpperCase(java.util.Locale.ROOT))) {
-              throw new IllegalArgumentException(
-                  "signals must be a comma-separated list of " + new java.util.TreeSet<>(KINDS));
+              throw new IllegalArgumentException(KINDS_MESSAGE);
             }
           }
         });

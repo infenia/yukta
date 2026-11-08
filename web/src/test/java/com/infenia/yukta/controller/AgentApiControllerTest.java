@@ -35,6 +35,8 @@ import reactor.test.StepVerifier;
   "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.CloseResource",
+  "PMD.CouplingBetweenObjects",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
   "PMD.ShortMethodName",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",

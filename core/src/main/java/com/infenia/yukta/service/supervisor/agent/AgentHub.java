@@ -67,6 +67,7 @@ public final class AgentHub {
   }
 
   /** One supervisor's meeting point. */
+  @SuppressWarnings("PMD.TooManyMethods")
   public static final class Channel {
 
     private final Sinks.Many<Sequenced> signalSink = Sinks.many().multicast().directBestEffort();
@@ -99,6 +100,18 @@ public final class AgentHub {
      */
     public long cursor() {
       return sequence.get();
+    }
+
+    /** A gap of {@code count} signals, reported under the cursor just before the next one. */
+    private static Sequenced missed(final long cursor, final long count) {
+      final java.time.Instant now = java.time.Instant.now();
+      return new Sequenced(
+          cursor,
+          new Signal.Event(
+              "missed-" + cursor,
+              String.valueOf(cursor),
+              new ExecutionEvent.EventsMissed(count, now)),
+          now);
     }
 
     /**
@@ -159,18 +172,12 @@ public final class AgentHub {
           });
     }
 
-    /** A gap of {@code count} signals, reported under the cursor just before the next one. */
-    private static Sequenced missed(final long cursor, final long count) {
-      final java.time.Instant now = java.time.Instant.now();
-      return new Sequenced(
-          cursor,
-          new Signal.Event(
-              "missed-" + cursor,
-              String.valueOf(cursor),
-              new ExecutionEvent.EventsMissed(count, now)),
-          now);
-    }
-
+    /**
+     * Hands a directive from the agent to the supervisor.
+     *
+     * @param directive the directive
+     * @return true if the supervisor took it
+     */
     public boolean offer(final Directive directive) {
       return directiveSink.tryEmitNext(directive).isSuccess();
     }

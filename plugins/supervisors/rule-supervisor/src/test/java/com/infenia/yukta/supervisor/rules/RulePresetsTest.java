@@ -8,10 +8,11 @@ import com.infenia.yukta.plugin.control.SupervisorPreset;
 import java.time.Clock;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops"})
 class RulePresetsTest {
 
   @Test
-  void everyPresetIsARuleDocumentThatLoads() {
+  void everyPresetIsRuleDocumentThatLoads() {
     assertThat(RulePresets.ALL)
         .extracting(SupervisorPreset::name)
         .containsExactly("failure-guard", "approval-gate", "too-many-running");

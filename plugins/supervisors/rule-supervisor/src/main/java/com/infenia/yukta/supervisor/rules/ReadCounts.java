@@ -15,9 +15,10 @@ final class ReadCounts extends HashMap<String, Object> {
   private static final long serialVersionUID = 1L;
 
   /** Most executions one tick looks at. */
-  static final int MAX_RUNS = 200;
+  /* default */ static final int MAX_RUNS = 200;
 
-  ReadCounts(final List<EngineReads.RunView> runs) {
+  /* default */ ReadCounts(final List<EngineReads.RunView> runs) {
+    super();
     for (final EngineReads.RunView run : runs) {
       merge(run.status(), 1L, (a, b) -> (Long) a + (Long) b);
     }

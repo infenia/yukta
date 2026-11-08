@@ -21,6 +21,14 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** The program decides; the server only checks that it may run and what it says. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CloseResource",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
+  "PMD.LambdaCanBeMethodReference",
+  "PMD.ShortMethodName",
+  "PMD.UseTryWithResources"
+})
 class ProcessEngineFactoryTest {
 
   private static final EngineContext CONTEXT =
@@ -72,7 +80,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramReadsSignalsAndAnswersWithDirectives() {
+  void programReadsSignalsAndAnswersWithDirectives() {
     // answers every line it reads with a pause, and a junk line the server must drop
     final SupervisorEngine engine =
         factory.create(
@@ -97,7 +105,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramThatExitsFailsTheEngineSoItIsStartedAgain() {
+  void programThatExitsFailsTheEngineSoItIsStartedAgain() {
     final SupervisorEngine engine = factory.create(sh("exit 0"), CONTEXT);
     StepVerifier.create(engine.run(Flux.never()))
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("ended"))
@@ -105,7 +113,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramThatCannotStartFailsTheEngine() {
+  void programThatCannotStartFailsTheEngine() {
     final ProcessEngineFactory open = new ProcessEngineFactory(Set.of("/no/such/program"), false);
     final SupervisorEngine engine =
         open.create(new EngineConfig(Map.of("command", "/no/such/program")), CONTEXT);

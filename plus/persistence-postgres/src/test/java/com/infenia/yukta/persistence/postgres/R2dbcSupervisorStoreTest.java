@@ -19,6 +19,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods"})
 class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
   private final R2dbcSupervisorStore store = new R2dbcSupervisorStore(db, new ObjectMapper());
@@ -100,7 +101,7 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
             Map.of(),
             false,
             null,
-            java.util.List.of("p1", "p2"),
+            List.of("p1", "p2"),
             Map.of(
                 com.infenia.yukta.plugin.control.DelegationKind.APPROVAL,
                 new com.infenia.yukta.plugin.control.Delegation(

@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 /** Rules with an {@code every} look at the owned runs on a timer. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LooseCoupling"})
 class TimedRulesTest {
 
   private static final String TIMED =
@@ -52,7 +53,7 @@ class TimedRulesTest {
   }
 
   @Test
-  void aTimedRuleActsOnEveryRunItMatchesWhenTheReadConditionHolds() {
+  void timedRuleActsOnEveryRunItMatchesWhenTheReadConditionHolds() {
     final RuleSupervisor supervisor = supervisor(TIMED);
     supervisor.readsFrom(runs("RUNNING", "RUNNING", "SUCCESS"));
 
@@ -73,7 +74,7 @@ class TimedRulesTest {
   }
 
   @Test
-  void aTimedRuleStaysQuietWhenTheConditionDoesNotHold() {
+  void timedRuleStaysQuietWhenTheConditionDoesNotHold() {
     final RuleSupervisor supervisor = supervisor(TIMED);
     supervisor.readsFrom(runs("RUNNING", "SUCCESS"));
 
@@ -87,7 +88,7 @@ class TimedRulesTest {
   }
 
   @Test
-  void aReactionCarriesTheEventItAnswers() {
+  void reactionCarriesTheEventItAnswers() {
     final RuleSupervisor supervisor =
         supervisor(
             """
@@ -107,7 +108,7 @@ class TimedRulesTest {
   }
 
   @Test
-  void aTimedRuleNeedsACommandAReasonAndAPeriod() {
+  void timedRuleNeedsCommandReasonAndPeriod() {
     assertThatThrownBy(
             () ->
                 supervisor(
@@ -150,7 +151,7 @@ class TimedRulesTest {
   }
 
   @Test
-  void theReadCountsAnswerZeroForAStatusNobodyHas() {
+  void theReadCountsAnswerZeroForStatusNobodyHas() {
     final ReadCounts counts = new ReadCounts(List.of());
     assertThat(counts.get("FAILURE")).isEqualTo(0L);
     assertThat(counts.containsKey("FAILURE")).isTrue();

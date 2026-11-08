@@ -13,6 +13,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 /** A group selector matches the nodes of its group in the stored workflow of its session. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals"})
 class NodeGroupIndexTest {
 
   private final NodeGroupIndex index = new NodeGroupIndex();

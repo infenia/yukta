@@ -96,7 +96,7 @@ class DirectiveGateTest {
   }
 
   @Test
-  void aFailedLookupIsNotOwnedAndTheServerOwnerCarriesOnlyServerCommands() {
+  void failedLookupIsNotOwnedAndTheServerOwnerCarriesOnlyServerCommands() {
     final SupervisorScope server = new SupervisorScope.Server();
     final DirectiveGate.Target unknown = new DirectiveGate.Target(null, null, null);
     // a run that could not be looked up is nobody's, not the server owner's

@@ -64,7 +64,14 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.TooManyMethods",
+  "PMD.GodClass",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops"
+})
 @ConditionalOnProperty("yukta.supervisor.rules.file")
 public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
 

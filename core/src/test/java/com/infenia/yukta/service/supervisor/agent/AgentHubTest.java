@@ -58,7 +58,7 @@ class AgentHubTest {
   }
 
   @Test
-  void aCursorOlderThanWhatIsRememberedStartsWithEventsMissed() {
+  void cursorOlderThanWhatIsRememberedStartsWithEventsMissed() {
     final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
     for (int i = 0; i < AgentHub.REMEMBERED + 5; i++) {
       channel.signal(tick(i));
@@ -71,7 +71,7 @@ class AgentHubTest {
   }
 
   @Test
-  void aReaderThatFallsBehindIsToldHowManySignalsItMissed() {
+  void readerThatFallsBehindIsToldHowManySignalsItMissed() {
     final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
     final int sent = AgentHub.LIVE_BUFFER * 3;
 

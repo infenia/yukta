@@ -13,7 +13,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
-@SuppressWarnings("PMD.AvoidUsingHardCodedIP")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidUsingHardCodedIP", "PMD.TooManyMethods"})
 class AgentCredentialsTest {
 
   @Test
@@ -36,8 +36,7 @@ class AgentCredentialsTest {
     final Clock clock = Clock.fixed(Instant.parse("2026-11-09T10:00:00Z"), ZoneOffset.UTC);
     final AgentCredentials credentials = new AgentCredentials(clock);
     assertThat(credentials.metadata("a1")).isEmpty();
-    final String token =
-        credentials.issue("a1", java.time.Duration.ofHours(2), Set.of("10.0.0.5")).token();
+    final String token = credentials.issue("a1", Duration.ofHours(2), Set.of("10.0.0.5")).token();
 
     final AgentCredentials.Metadata fresh = credentials.metadata("a1").orElseThrow();
     assertThat(fresh.issuedAt()).isEqualTo(clock.instant());
@@ -175,8 +174,7 @@ class AgentCredentialsTest {
   @Test
   void credentialTiedToAddressesWorksOnlyFromThem() {
     final AgentCredentials credentials = new AgentCredentials();
-    final String token =
-        credentials.issue("a1", null, java.util.Set.of("10.0.0.5", "10.0.0.6")).token();
+    final String token = credentials.issue("a1", null, Set.of("10.0.0.5", "10.0.0.6")).token();
 
     assertThat(credentials.authenticate(token, "10.0.0.5")).contains("a1");
     assertThat(credentials.authenticate(token, "10.0.0.6")).contains("a1");

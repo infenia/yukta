@@ -23,7 +23,12 @@ import org.jspecify.annotations.Nullable;
  * ({@code answers}, {@code answer}). Anything else is refused.
  */
 @UtilityClass
+@SuppressWarnings("PMD.TooManyMethods") // small readers, one per directive kind
 public class DirectiveJson {
+
+  private static final String ANSWERS = "answers";
+  private static final String EVENT_PREFIX = "event:";
+  private static final String ANSWERS_PREFIX = "answers:";
 
   private static final Set<String> VERDICTS = Set.of("ALLOW", "DENY", "REQUIRE_APPROVAL");
 
@@ -45,20 +50,25 @@ public class DirectiveJson {
     final String type = text(line, "type");
     return switch (type == null ? "" : type) {
       case "command" -> command(line);
-      case "verdict" -> {
-        final String verdict = upper(text(line, "verdict"));
-        yield verdict != null && VERDICTS.contains(verdict)
-            ? new Directive.ReviewVerdict(
-                required(line, "answers"), Directive.Verdict.valueOf(verdict), text(line, "reason"))
-            : null;
-      }
-      case "noOpinion" -> new Directive.NoOpinion(required(line, "answers"));
-      case "delegationAnswer" ->
-          line.get("answer") instanceof Map<?, ?> answer
-              ? new Directive.DelegationAnswer(required(line, "answers"), copy(answer))
-              : null;
+      case "verdict" -> verdict(line);
+      case "noOpinion" -> new Directive.NoOpinion(required(line, ANSWERS));
+      case "delegationAnswer" -> delegationAnswer(line);
       default -> null;
     };
+  }
+
+  private static @Nullable Directive verdict(final Map<String, Object> line) {
+    final String verdict = upper(text(line, "verdict"));
+    return verdict != null && VERDICTS.contains(verdict)
+        ? new Directive.ReviewVerdict(
+            required(line, ANSWERS), Directive.Verdict.valueOf(verdict), text(line, "reason"))
+        : null;
+  }
+
+  private static @Nullable Directive delegationAnswer(final Map<String, Object> line) {
+    return line.get("answer") instanceof Map<?, ?> answer
+        ? new Directive.DelegationAnswer(required(line, ANSWERS), copy(answer))
+        : null;
   }
 
   private static @Nullable Directive command(final Map<String, Object> line) {
@@ -87,17 +97,22 @@ public class DirectiveJson {
   }
 
   private static Cause cause(final @Nullable String text) {
-    if (text == null || "initiative".equals(text)) {
+    if (text == null) {
       return Cause.initiative();
     }
-    if ("tick".equals(text)) {
-      return Cause.tick();
+    return switch (text) {
+      case "initiative" -> Cause.initiative();
+      case "tick" -> Cause.tick();
+      default -> prefixed(text);
+    };
+  }
+
+  private static Cause prefixed(final String text) {
+    if (text.startsWith(EVENT_PREFIX)) {
+      return Cause.event(text.substring(EVENT_PREFIX.length()));
     }
-    if (text.startsWith("event:")) {
-      return Cause.event(text.substring("event:".length()));
-    }
-    if (text.startsWith("answers:")) {
-      return Cause.answers(text.substring("answers:".length()));
+    if (text.startsWith(ANSWERS_PREFIX)) {
+      return Cause.answers(text.substring(ANSWERS_PREFIX.length()));
     }
     throw new IllegalArgumentException("not a cause: " + text);
   }
@@ -119,7 +134,7 @@ public class DirectiveJson {
   }
 
   private static Map<String, Object> copy(final Map<?, ?> raw) {
-    final Map<String, Object> out = new java.util.LinkedHashMap<>();
+    final Map<String, Object> out = new java.util.LinkedHashMap<>(); // NOPMD - local, one thread
     raw.forEach((k, v) -> out.put(String.valueOf(k), v));
     return out;
   }

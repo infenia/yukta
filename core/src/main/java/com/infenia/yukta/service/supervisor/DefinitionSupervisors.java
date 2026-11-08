@@ -56,7 +56,6 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
@@ -242,8 +241,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
     return Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
         .flatMap(
             stored -> {
-              final Map<String, WorkflowDefinition> workflows =
-                  new java.util.LinkedHashMap<>(stored.getT2());
+              final Map<String, WorkflowDefinition> workflows = new LinkedHashMap<>(stored.getT2());
               workflows.put(workflow.workflowId(), workflow);
               return checks.check(sessionId, stored.getT1(), workflows, workflow);
             })

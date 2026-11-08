@@ -11,10 +11,15 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.UseConcurrentHashMap"
+})
 class DirectiveJsonTest {
 
   @Test
-  void aCommandLineBecomesACommandDirective() {
+  void commandLineBecomesCommandDirective() {
     assertThat(
             DirectiveJson.read(
                 Map.of(

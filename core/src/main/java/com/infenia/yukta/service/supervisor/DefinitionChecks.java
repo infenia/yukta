@@ -111,27 +111,6 @@ public final class DefinitionChecks {
   }
 
   /**
-   * Refuses a workflow whose declared supervisors do not check out, as a save does. A rollback
-   * restores an old revision, which may name a supervisor deleted since or a node that is gone.
-   *
-   * @param workflow the definition about to be saved
-   * @return completes when it checks out; errors with {@link SettingsValidationException}
-   */
-  public Mono<Void> require(final WorkflowDefinition workflow) {
-    return check(workflow)
-        .flatMap(
-            issues ->
-                issues.isEmpty()
-                    ? Mono.<Void>empty()
-                    : Mono.error(new SettingsValidationException(issues)));
-  }
-
-  /**
-   * Where the saved definitions would give one node, run level or the server to two supervisors:
-   * what the session declares against the attachments others made by hand (or from other sessions),
-   * and those attachments against the nodes and groups of the new definitions.
-   */
-  /**
    * Checks one workflow as part of its session, for a save that changes only that workflow (a
    * rollback to a saved version): the references, then ownership across the whole session with this
    * version in place, as a session save does.
@@ -155,6 +134,27 @@ public final class DefinitionChecks {
                     : Mono.just(issues));
   }
 
+  /**
+   * Refuses a workflow whose declared supervisors do not check out, as a save does. A rollback
+   * restores an old revision, which may name a supervisor deleted since or a node that is gone.
+   *
+   * @param workflow the definition about to be saved
+   * @return completes when it checks out; errors with {@link SettingsValidationException}
+   */
+  public Mono<Void> require(final WorkflowDefinition workflow) {
+    return check(workflow)
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.error(new SettingsValidationException(issues)));
+  }
+
+  /**
+   * Where the saved definitions would give one node, run level or the server to two supervisors:
+   * what the session declares against the attachments others made by hand (or from other sessions),
+   * and those attachments against the nodes and groups of the new definitions.
+   */
   private Mono<List<Issue>> ownershipIssues(
       final String sessionId,
       final List<SupervisorRef> sessionRefs,
