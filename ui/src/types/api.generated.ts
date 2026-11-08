@@ -163,6 +163,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll the signals after a cursor */
+        get: operations["next"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/snapshot": {
         parameters: {
             query?: never;
@@ -1439,6 +1456,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervision/ownership": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Who owns each part of a workflow
+         * @description The supervisor that carries the run level and each node of a workflow, or 'default' for a unit that nobody owns, and whether the default supervisor is on.
+         */
+        get: operations["ownership"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisor-contract": {
         parameters: {
             query?: never;
@@ -2285,6 +2322,20 @@ export interface components {
             answer?: {
                 [key: string]: unknown;
             };
+        };
+        AnswerInputCommand: components["schemas"]["ExecutionControlCommand"] & {
+            /** Format: double */
+            confidence?: number | null;
+            data?: {
+                [key: string]: unknown;
+            };
+            decision?: string;
+            executionId?: string;
+            /** Format: int64 */
+            expectedVersion?: number | null;
+            rationale?: string | null;
+            requestId?: string;
+            text?: string | null;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseAttachmentView: {
@@ -3615,6 +3666,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseOwnership: {
+            /** @description The response data */
+            data?: components["schemas"]["Ownership"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseProjectPathCheck: {
             /** @description The response data */
             data?: components["schemas"]["ProjectPathCheck"];
@@ -3783,6 +3867,39 @@ export interface components {
         ApiResponseSessionDetails: {
             /** @description The response data */
             data?: components["schemas"]["SessionDetails"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSignalBatch: {
+            /** @description The response data */
+            data?: components["schemas"]["SignalBatch"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4380,6 +4497,26 @@ export interface components {
             /** Format: date-time */
             time?: string;
         };
+        ControlOutcome: components["schemas"]["ExecutionEvent"] & {
+            actor?: string;
+            applied?: boolean;
+            channel?: string;
+            command?: string;
+            executionId?: string;
+            nodeId?: string;
+            reason?: string;
+            sessionId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
+        };
+        ControlRequest: {
+            actor?: string;
+            command?: components["schemas"]["AnswerInputCommand"] | components["schemas"]["DisableStepModeCommand"] | components["schemas"]["DrainCommand"] | components["schemas"]["EnableStepModeCommand"] | components["schemas"]["EscalateInputCommand"] | components["schemas"]["PauseNodeCommand"] | components["schemas"]["PauseWorkflowCommand"] | components["schemas"]["RecoverCommand"] | components["schemas"]["RestartCommand"] | components["schemas"]["RestartFromNodeCommand"] | components["schemas"]["ResumeNodeCommand"] | components["schemas"]["ResumeWorkflowCommand"] | components["schemas"]["SetBreakpointCommand"] | components["schemas"]["SetLimitsCommand"] | components["schemas"]["SetPriorityCommand"] | components["schemas"]["SkipNodeCommand"] | components["schemas"]["StartWorkflowCommand"] | components["schemas"]["StepNodeCommand"] | components["schemas"]["StopNodeCommand"] | components["schemas"]["StopWorkflowCommand"];
+            nodeId?: string;
+            sessionId?: string;
+            workflowId?: string;
+        };
         Counts: {
             /** Format: int32 */
             failed?: number;
@@ -4393,6 +4530,15 @@ export interface components {
             note?: string | null;
             /** Format: date-time */
             savedAt?: string;
+        };
+        Delegated: components["schemas"]["Signal"] & {
+            /** @enum {string} */
+            delegation?: "APPROVAL" | "INPUT" | "CONSULT";
+            fromSupervisor?: string;
+            id?: string;
+            payload?: {
+                [key: string]: unknown;
+            };
         };
         DelegationBody: {
             mode?: string;
@@ -4412,6 +4558,13 @@ export interface components {
             ifStatus?: string;
             key?: string;
             reason?: string;
+        };
+        DisableStepModeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+        };
+        DrainCommand: components["schemas"]["ExecutionControlCommand"] & {
+            draining?: boolean;
         };
         /** @description A connection between two nodes */
         Edge: {
@@ -4438,9 +4591,32 @@ export interface components {
             license?: string;
             source?: string;
         };
+        EnableStepModeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+        };
         EnabledBody: {
             enabled?: boolean;
         };
+        EscalateInputCommand: components["schemas"]["ExecutionControlCommand"] & {
+            advice?: string | null;
+            executionId?: string;
+            reason?: string;
+            requestId?: string;
+        };
+        Event: components["schemas"]["Signal"] & {
+            cursor?: string;
+            event?: components["schemas"]["ControlOutcome"] | components["schemas"]["EventsMissed"] | components["schemas"]["InputAnswered"] | components["schemas"]["InputCancelled"] | components["schemas"]["InputEscalated"] | components["schemas"]["InputExpired"] | components["schemas"]["InputRequested"] | components["schemas"]["LogLine"] | components["schemas"]["NodeStatusChanged"] | components["schemas"]["WorkflowStatusChanged"];
+            id?: string;
+        };
+        EventsMissed: components["schemas"]["ExecutionEvent"] & {
+            /** Format: int64 */
+            count?: number;
+            /** Format: date-time */
+            timestamp?: string;
+        };
+        ExecutionControlCommand: unknown;
+        ExecutionEvent: unknown;
         ExecutionResults: {
             complete?: boolean;
             events?: components["schemas"]["ResultEvent"][];
@@ -4532,6 +4708,27 @@ export interface components {
             responderType?: string;
             text?: string;
         };
+        InputAnswered: components["schemas"]["ExecutionEvent"] & {
+            decision?: string;
+            executionId?: string;
+            nodeId?: string;
+            requestId?: string;
+            responder?: components["schemas"]["Responder"];
+            sessionId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
+        };
+        InputCancelled: components["schemas"]["ExecutionEvent"] & {
+            executionId?: string;
+            nodeId?: string;
+            reason?: string;
+            requestId?: string;
+            sessionId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
+        };
         /** @description Hands an input request up to the next tier */
         InputEscalateRequest: {
             /** @description What the caller suggests to whoever answers next */
@@ -4541,6 +4738,21 @@ export interface components {
              * @example Needs a person who owns the budget
              */
             reason: string;
+        };
+        InputEscalated: components["schemas"]["ExecutionEvent"] & {
+            reason?: string;
+            request?: components["schemas"]["InputRequest"];
+            /** Format: date-time */
+            timestamp?: string;
+        };
+        InputExpired: components["schemas"]["ExecutionEvent"] & {
+            executionId?: string;
+            nodeId?: string;
+            requestId?: string;
+            sessionId?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
         };
         InputOption: {
             id?: string;
@@ -4632,6 +4844,11 @@ export interface components {
             version?: number;
             workflowId?: string;
         };
+        InputRequested: components["schemas"]["ExecutionEvent"] & {
+            request?: components["schemas"]["InputRequest"];
+            /** Format: date-time */
+            timestamp?: string;
+        };
         IssuedView: {
             /** Format: date-time */
             expiresAt?: string;
@@ -4685,6 +4902,17 @@ export interface components {
             sessionId?: string;
             /** Format: int64 */
             startedAt?: number;
+            workflowId?: string;
+        };
+        LogLine: components["schemas"]["ExecutionEvent"] & {
+            executionId?: string;
+            /** @enum {string} */
+            level?: "DEBUG" | "INFO" | "WARN" | "ERROR";
+            line?: string;
+            nodeId?: string;
+            sessionId?: string;
+            /** Format: date-time */
+            timestamp?: string;
             workflowId?: string;
         };
         MetricSample: {
@@ -4748,6 +4976,19 @@ export interface components {
             /** @description Plugin type */
             type: string;
         };
+        NodeStatusChanged: components["schemas"]["ExecutionEvent"] & {
+            executionId?: string;
+            metadata?: {
+                [key: string]: unknown;
+            };
+            module?: string;
+            nodeId?: string;
+            sessionId?: string;
+            status?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
+        };
         /** @description How far a run got through its nodes */
         Nodes: {
             /**
@@ -4766,6 +5007,22 @@ export interface components {
         NoteRequest: {
             note?: string;
             version?: string;
+        };
+        Ownership: {
+            defaultSupervisor?: boolean;
+            nodes?: {
+                [key: string]: string;
+            };
+            run?: string;
+            sessionId?: string;
+            workflowId?: string;
+        };
+        PauseNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+        };
+        PauseWorkflowCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
         };
         Permissions: {
             changeLimits?: boolean;
@@ -4794,6 +5051,9 @@ export interface components {
              */
             projectPath: string;
         };
+        RecoverCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+        };
         ReplayBody: {
             executionId?: string;
             settings?: {
@@ -4808,6 +5068,20 @@ export interface components {
             nodeId?: string;
             reason?: string;
         };
+        Responder: {
+            id?: string;
+            /** @enum {string} */
+            type?: "SUPERVISOR" | "HUMAN" | "EXTERNAL" | "SYSTEM";
+        };
+        RestartCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            newExecutionId?: string;
+        };
+        RestartFromNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            fromNodeId?: string;
+            newExecutionId?: string;
+        };
         ResultEvent: {
             /** @enum {string} */
             kind?: "RESULT" | "NODE_END" | "EXECUTION_END";
@@ -4819,6 +5093,19 @@ export interface components {
             /** Format: date-time */
             timestamp?: string;
             truncated?: boolean;
+        };
+        ResumeNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+        };
+        ResumeWorkflowCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+        };
+        Review: components["schemas"]["Signal"] & {
+            id?: string;
+            request?: components["schemas"]["ControlRequest"];
+            /** Format: duration */
+            timeout?: string;
         };
         RunView: {
             executionId?: string;
@@ -4955,6 +5242,40 @@ export interface components {
              */
             workflowCount?: number;
         };
+        SetBreakpointCommand: components["schemas"]["ExecutionControlCommand"] & {
+            equalsValue?: string | null;
+            executionId?: string;
+            field?: string | null;
+            nodeId?: string | null;
+        };
+        SetLimitsCommand: components["schemas"]["ExecutionControlCommand"] & {
+            /** Format: int32 */
+            maxConcurrent?: number;
+            /** Format: int32 */
+            maxPerWorkflow?: number;
+        };
+        SetPriorityCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            /** Format: int32 */
+            priority?: number;
+        };
+        Signal: unknown;
+        SignalBatch: {
+            /** Format: int64 */
+            cursor?: number;
+            signals?: components["schemas"]["SignalEnvelope"][];
+        };
+        SignalEnvelope: {
+            /** Format: int64 */
+            cursor?: number;
+            kind?: string;
+            signal?: components["schemas"]["Delegated"] | components["schemas"]["Event"] | components["schemas"]["Review"] | components["schemas"]["Started"] | components["schemas"]["Tick"];
+        };
+        SkipNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+            skip?: boolean;
+        };
         SnapshotView: {
             /** Format: int64 */
             cursor?: number;
@@ -4966,6 +5287,37 @@ export interface components {
             /** Format: int32 */
             priority?: number;
             version?: string;
+        };
+        StartWorkflowCommand: components["schemas"]["ExecutionControlCommand"] & {
+            idempotencyKey?: string | null;
+            payload?: {
+                [key: string]: unknown;
+            };
+            sessionId?: string;
+            workflowId?: string;
+        };
+        Started: components["schemas"]["Signal"] & {
+            cursor?: string;
+            executions?: string[];
+            held?: string[];
+            openInputs?: string[];
+            reason?: string;
+        };
+        StepNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            nodeId?: string | null;
+        };
+        StopNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            immediate?: boolean;
+            nodeId?: string | null;
+            reason?: string | null;
+        };
+        StopWorkflowCommand: components["schemas"]["ExecutionControlCommand"] & {
+            executionId?: string;
+            /** @enum {string|null} */
+            mode?: "DRAIN" | "CANCEL" | "KILL" | null;
+            reason?: string | null;
         };
         SupervisorBody: {
             delegation?: {
@@ -5117,6 +5469,10 @@ export interface components {
             pluginTypes?: string[];
             summary?: string;
             title?: string;
+        };
+        Tick: components["schemas"]["Signal"] & {
+            /** Format: date-time */
+            at?: string;
         };
         /** @description An answer sent with the one-time token of a delivery */
         TokenAnswerRequest: {
@@ -5374,6 +5730,14 @@ export interface components {
              * @example 550e8400-e29b-41d4-a716-446655440000
              */
             executionId?: string;
+        };
+        WorkflowStatusChanged: components["schemas"]["ExecutionEvent"] & {
+            executionId?: string;
+            sessionId?: string;
+            status?: string;
+            /** Format: date-time */
+            timestamp?: string;
+            workflowId?: string;
         };
         /** @description Response object for stopping workflow executions */
         WorkflowStopResponse: {
@@ -5684,6 +6048,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSelfView"];
+                };
+            };
+        };
+    };
+    next: {
+        parameters: {
+            query?: {
+                after?: number;
+                wait?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSignalBatch"];
                 };
             };
         };
@@ -7459,6 +7846,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseMapStringCapability"];
+                };
+            };
+        };
+    };
+    ownership: {
+        parameters: {
+            query: {
+                session: string;
+                workflow: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseOwnership"];
                 };
             };
         };

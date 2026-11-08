@@ -106,7 +106,7 @@ public class AgentCredentialFilter implements WebFilter {
     }
     if (exchange.getRequest().getHeaders().getContentLength()
         > Integer.getInteger("yukta.agent.max-body-bytes", DEFAULT_MAX_BODY)) {
-      return reject(exchange, HttpStatus.PAYLOAD_TOO_LARGE, "The request body is too large");
+      return reject(exchange, HttpStatus.CONTENT_TOO_LARGE, "The request body is too large");
     }
     if (!requests.tryAcquire(supervisor.get())) {
       exchange.getResponse().getHeaders().set(HttpHeaders.RETRY_AFTER, "60");

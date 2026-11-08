@@ -138,6 +138,6 @@ class AgentCredentialFilterTest {
                 .header("Content-Length", "1000000")
                 .build());
     filter.filter(exchange, chain).block();
-    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
   }
 }
