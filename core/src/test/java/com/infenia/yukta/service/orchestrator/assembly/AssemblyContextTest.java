@@ -7,7 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.service.control.ExecutionControl;
+import com.infenia.yukta.service.runtime.ExecutionControl;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;

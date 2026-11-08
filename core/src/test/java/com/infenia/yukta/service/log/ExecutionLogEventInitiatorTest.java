@@ -4,8 +4,8 @@ package com.infenia.yukta.service.log;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.service.control.ExecutionScheduler;
 import com.infenia.yukta.service.control.StartOptions;
+import com.infenia.yukta.service.runtime.ExecutionScheduler;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

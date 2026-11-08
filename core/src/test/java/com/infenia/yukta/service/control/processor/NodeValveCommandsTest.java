@@ -14,10 +14,10 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseNodeCommand
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.ResumeNodeCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StepNodeCommand;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
-import com.infenia.yukta.service.control.valve.ReactiveControlValve;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
+import com.infenia.yukta.service.runtime.valve.ReactiveControlValve;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;

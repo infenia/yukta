@@ -20,8 +20,8 @@ import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.gateway.ResultCollector;
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.ExecutionScheduler;
-import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
+import com.infenia.yukta.service.runtime.ExecutionScheduler;
+import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.workflow.store.PreparedWorkflowCache;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
@@ -173,7 +173,7 @@ class SubWorkflowRunnerTest {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(
-            Mono.error(new com.infenia.yukta.service.control.QueueTimeoutException("no slot")));
+            Mono.error(new com.infenia.yukta.service.runtime.QueueTimeoutException("no slot")));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .verifyErrorSatisfies(

@@ -7,13 +7,13 @@ import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.model.control.OnLimit;
 import com.infenia.yukta.model.execution.TaskStatus;
-import com.infenia.yukta.service.control.ExecutionScheduler;
-import com.infenia.yukta.service.control.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.control.StartOptions;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.DefaultTaskTrackerService;
 import com.infenia.yukta.service.orchestrator.tracker.TrackerFactory;
+import com.infenia.yukta.service.runtime.ExecutionScheduler;
+import com.infenia.yukta.service.runtime.ExecutionSchedulerFixture;
 import com.infenia.yukta.service.streaming.StatusHistoryCache;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.time.Duration;

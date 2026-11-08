@@ -730,7 +730,7 @@ class GlobalExceptionHandlerTest {
   @Test
   void testHandleExecutionRejectedIsTooManyRequests() {
     final var exception =
-        new com.infenia.yukta.service.control.ExecutionRejectedException("Execution limit reached");
+        new com.infenia.yukta.service.ExecutionRejectedException("Execution limit reached");
     final ServerHttpRequest request = mock(ServerHttpRequest.class);
     when(request.getPath()).thenReturn(RequestPath.parse("/workflow/start", "/"));
 

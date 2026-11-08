@@ -6,7 +6,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartFromNodeCommand;
 import com.infenia.yukta.service.archive.ExecutionArchive;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;

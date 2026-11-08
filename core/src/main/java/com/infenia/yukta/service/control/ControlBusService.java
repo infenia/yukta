@@ -6,7 +6,7 @@ import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.runtime.store.ActivePluginRegistry;
 import jakarta.validation.constraints.NotBlank;
 import java.util.function.Function;
 import lombok.extern.slf4j.Slf4j;
