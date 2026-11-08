@@ -14,6 +14,7 @@ import java.util.Map;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.context.properties.bind.Name;
 import org.springframework.validation.annotation.Validated;
 
 /**
@@ -158,7 +159,17 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DurationMin(nanos = 0) @DefaultValue("5s") Duration reviewTimeout,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
-      @Valid @NotNull @DefaultValue Arbiter arbiter) {}
+      @Valid @NotNull @DefaultValue Arbiter arbiter,
+      @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor) {}
+
+  /**
+   * The lenient default supervisor, which lets people control what no supervisor owns. Turn it off
+   * in production so that every workflow must name its supervisor; an unowned workflow then runs
+   * without one and people cannot control it.
+   *
+   * @param enabled whether people may control units that nobody owns
+   */
+  public record DefaultSupervisor(@DefaultValue("true") boolean enabled) {}
 
   /**
    * How commands of supervisors that act on the same target are ordered.

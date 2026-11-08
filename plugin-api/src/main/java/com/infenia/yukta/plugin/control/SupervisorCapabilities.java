@@ -23,10 +23,18 @@ import org.jspecify.annotations.Nullable;
  *     always worked
  * @param canAnswer whether it may answer input requests at all
  * @param maxRisk the highest risk of a request it may answer
+ * @param operatorAccess the command types that people may send through it (it reviews them); empty
+ *     means none, so a person cannot control what it owns
  * @since 0.1.0-alpha.4
  */
 public record SupervisorCapabilities(
-    @Nullable Set<String> allowedCommands, boolean canAnswer, InputRisk maxRisk) {
+    @Nullable Set<String> allowedCommands,
+    boolean canAnswer,
+    InputRisk maxRisk,
+    Set<String> operatorAccess) {
+
+  /** Setting: command types that people may send through the supervisor. */
+  public static final String OPERATOR_ACCESS = "operatorAccess";
 
   /** Setting: list of command names the supervisor may send. */
   public static final String ALLOWED_COMMANDS = "allowedCommands";
@@ -66,6 +74,31 @@ public record SupervisorCapabilities(
   public SupervisorCapabilities {
     allowedCommands = allowedCommands == null ? null : Set.copyOf(allowedCommands);
     Objects.requireNonNull(maxRisk, "maxRisk");
+    operatorAccess = operatorAccess == null ? Set.of() : Set.copyOf(operatorAccess);
+  }
+
+  /**
+   * Capabilities that let no person send a command through the supervisor.
+   *
+   * @param allowedCommands the command names, or {@code null} for every command
+   * @param canAnswer whether it may answer input requests
+   * @param maxRisk the highest risk it may answer
+   */
+  public SupervisorCapabilities(
+      final @Nullable Set<String> allowedCommands,
+      final boolean canAnswer,
+      final InputRisk maxRisk) {
+    this(allowedCommands, canAnswer, maxRisk, Set.of());
+  }
+
+  /**
+   * Whether a person may send a command through the supervisor.
+   *
+   * @param command the command
+   * @return true if its type is listed in {@code operatorAccess}
+   */
+  public boolean allowsOperator(final ExecutionControlCommand command) {
+    return operatorAccess.contains(command.getClass().getSimpleName());
   }
 
   /**
@@ -96,7 +129,13 @@ public record SupervisorCapabilities(
     return new SupervisorCapabilities(
         commands(settings.get(ALLOWED_COMMANDS), defaultAllowed),
         flag(settings.get(CAN_ANSWER)),
-        risk(settings.get(MAX_RISK)));
+        risk(settings.get(MAX_RISK)),
+        operators(settings.get(OPERATOR_ACCESS)));
+  }
+
+  private static Set<String> operators(final @Nullable Object value) {
+    final Set<String> listed = commands(value, Set.of());
+    return listed == null ? Set.of() : listed;
   }
 
   /**

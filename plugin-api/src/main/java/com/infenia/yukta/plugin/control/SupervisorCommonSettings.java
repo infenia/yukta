@@ -26,6 +26,14 @@ public class SupervisorCommonSettings {
               null,
               SupervisorCapabilities.commandNames(),
               "Command types the supervisor may send; unset takes the type's default"),
+          new ConfigField(
+              SupervisorCapabilities.OPERATOR_ACCESS,
+              Type.LIST,
+              false,
+              null,
+              SupervisorCapabilities.commandNames(),
+              "Command types that people may send through it, which it then reviews; none by"
+                  + " default, so people cannot control what it owns"),
           ConfigField.optional(
               SupervisorCapabilities.CAN_ANSWER,
               Type.BOOLEAN,

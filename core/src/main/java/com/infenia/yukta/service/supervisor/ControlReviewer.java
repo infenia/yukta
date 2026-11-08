@@ -9,20 +9,20 @@ import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** Asks every {@link ExecutionSupervisor} whether a control command may run. */
@@ -30,14 +30,14 @@ import reactor.core.publisher.Mono;
 @Component
 public class ControlReviewer {
 
-  /** The registered supervisors; looked up per review so late registrations count. */
-  private final ObjectProvider<ExecutionSupervisor> supervisors;
-
   /** The supervisors attached at run time; set by Spring, empty without it. */
   private AttachedSupervisors attached = new AttachedSupervisors();
 
   /** Finds the host, to record what a dry-run supervisor would have refused. */
   private @Nullable ObjectProvider<SupervisorHost> hostLookup;
+
+  /** Whether people may control what nobody owns ({@code yukta.supervisor.default.enabled}). */
+  private boolean defaultEnabled = true;
 
   /** Whether every supervisor only records ({@code yukta.supervisor.dry-run}). */
   private boolean dryRun;
@@ -48,7 +48,8 @@ public class ControlReviewer {
   /**
    * Create the reviewer.
    *
-   * @param supervisors the registered supervisors
+   * @param supervisors bean supervisors; they own nothing, so they are no longer asked (kept so
+   *     callers need no change)
    * @param properties the settings; {@code yukta.supervisor.review-timeout} is the longest a
    *     supervisor may take to answer
    */
@@ -61,12 +62,12 @@ public class ControlReviewer {
   /**
    * Create the reviewer.
    *
-   * @param supervisors the registered supervisors
+   * @param supervisors bean supervisors; they own nothing, so they are no longer asked (kept so
+   *     callers need no change)
    * @param timeout longest a supervisor may take to answer
    */
   public ControlReviewer(
       final ObjectProvider<ExecutionSupervisor> supervisors, final Duration timeout) {
-    this.supervisors = supervisors;
     this.timeout = timeout;
   }
 
@@ -92,6 +93,7 @@ public class ControlReviewer {
       final ObjectProvider<SupervisorHost> host, final YuktaProperties properties) {
     this.hostLookup = host;
     this.dryRun = properties.supervisor().dryRun();
+    this.defaultEnabled = properties.supervisor().defaultSupervisor().enabled();
   }
 
   /**
@@ -113,6 +115,10 @@ public class ControlReviewer {
                   case ReviewVerdict.Allowed _ -> Mono.<Void>empty();
                   case ReviewVerdict.Denied denied ->
                       Mono.<Void>error(new ControlRejectedException(denied.reason()));
+                  case ReviewVerdict.Controlled controlled ->
+                      Mono.<Void>error(
+                          new ControlledBySupervisorException(
+                              controlled.supervisorId(), controlled.reason()));
                   case ReviewVerdict.NeedsApproval needs ->
                       Mono.<Void>error(
                           new ControlRejectedException(
@@ -141,27 +147,60 @@ public class ControlReviewer {
         context -> {
           final boolean byPerson =
               context.getOrDefault(ControlActor.KIND_KEY, null) != ControlActor.Kind.SUPERVISOR;
-          return Flux.fromStream(
-                  () ->
-                      Stream.concat(supervisors.stream(), attached.stream())
-                          .filter(
-                              supervisor ->
-                                  supervisor
-                                      .scope()
-                                      .matches(
-                                          request.sessionId(),
-                                          request.workflowId(),
-                                          request.nodeId()))
-                          .sorted(Comparator.comparingInt(ExecutionSupervisor::order)))
-              .concatMap(
-                  supervisor ->
-                      decide(supervisor, request)
-                          .map(decision -> new Vote(supervisor.id(), decision)))
+          final Optional<BoundSupervisor> owner = owner(request);
+          final boolean operator =
+              ControlActor.Channel.OPERATOR
+                  .name()
+                  .equals(context.getOrDefault(ControlActor.CHANNEL_KEY, null));
+          if (!operator) {
+            // an engine's own command was scope-checked by the host, and the server's own
+            // housekeeping is never reviewed
+            return Mono.just(ReviewVerdict.ALLOWED);
+          }
+          if (owner.isEmpty()) {
+            return Mono.just(
+                defaultEnabled
+                    ? ReviewVerdict.ALLOWED
+                    : new ReviewVerdict.Controlled(
+                        null, "Nothing owns this and the default supervisor is off"));
+          }
+          final BoundSupervisor bound = owner.get();
+          if (!bound.capabilities().allowsOperator(request.command())) {
+            final String name = bound.attachment().supervisorId();
+            return Mono.just(
+                new ReviewVerdict.Controlled(
+                    name, name + " controls this. People cannot do this directly."));
+          }
+          return decide(bound, request)
+              .map(decision -> new Vote(bound.id(), decision))
               .filter(vote -> !vote.decision().allowed() && !vote.satisfiedBy(satisfied))
-              .takeUntil(vote -> !vote.decision().requiresApproval())
-              .collectList()
-              .map(votes -> combine(request, votes, byPerson));
+              .map(vote -> combine(request, List.of(vote), byPerson))
+              .defaultIfEmpty(ReviewVerdict.ALLOWED);
         });
+  }
+
+  /**
+   * The one supervisor that owns what a command is about: the attached supervisor whose scope takes
+   * the command's node (or its run level, or the server). Global scope owns nothing. If saved data
+   * ever has two owners, the one with the lowest id answers, and the choice is stable.
+   */
+  private Optional<BoundSupervisor> owner(final ControlRequest request) {
+    final List<BoundSupervisor> owners =
+        attached.stream()
+            .filter(bound -> !(bound.scope() instanceof SupervisorScope.Global))
+            .filter(
+                bound ->
+                    bound
+                        .scope()
+                        .matches(request.sessionId(), request.workflowId(), request.nodeId()))
+            .sorted(Comparator.comparing(BoundSupervisor::id))
+            .toList();
+    if (owners.size() > 1) {
+      log.atWarn()
+          .addKeyValue("owners", owners.stream().map(BoundSupervisor::id).toList())
+          .log("More than one supervisor owns the same unit; the first answers");
+    }
+    return owners.stream().findFirst();
   }
 
   /** One supervisor's answer, within the time limit; an error or nothing answers as a timeout. */
