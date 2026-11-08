@@ -37,6 +37,7 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 			func(args []string) (any, error) { return c.DeleteSupervisor(args[0]) }),
 		replayCmd(c),
 		credentialCmd(c),
+		agentCmd(c),
 	)
 	return cmd
 }
