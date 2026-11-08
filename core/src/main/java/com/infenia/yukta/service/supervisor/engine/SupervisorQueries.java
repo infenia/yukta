@@ -74,7 +74,7 @@ public class SupervisorQueries {
       @Override
       public Flux<RunView> executions(final @Nullable String status, final int limit) {
         return SupervisorQueries.this
-            .executions(scope, status == null ? null : TaskStatus.valueOf(status), limit)
+            .executions(scope, status == null ? null : statusNamed(status), limit)
             .map(
                 run ->
                     new RunView(
@@ -108,6 +108,16 @@ public class SupervisorQueries {
       String status,
       @Nullable Instant startTime) {}
 
+  /** A run status by name, in any case; an unknown name is a bad request that lists the names. */
+  private static TaskStatus statusNamed(final String status) {
+    try {
+      return TaskStatus.valueOf(status.strip().toUpperCase(java.util.Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "Unknown status '" + status + "'; use one of " + List.of(TaskStatus.values()), e);
+    }
+  }
+
   /**
    * Whether the owner of a scope may see a workflow: it owns the run level or a node of it.
    *
@@ -118,6 +128,9 @@ public class SupervisorQueries {
    */
   public static boolean sees(
       final SupervisorScope scope, final String sessionId, final String workflowId) {
+    if (scope instanceof SupervisorScope.Global) {
+      return false; // Global owns nothing, so it reads nothing
+    }
     return scope.matches(sessionId, workflowId)
         || scope instanceof SupervisorScope.Section section
             && workflowId.equals(section.workflowId())
@@ -183,7 +196,9 @@ public class SupervisorQueries {
     return inputs
         .list(null, null, null, InputRequestQueries.WAITING)
         .filter(
-            request -> scope.matches(request.sessionId(), request.workflowId(), request.nodeId()))
+            request ->
+                !(scope instanceof SupervisorScope.Global)
+                    && scope.matches(request.sessionId(), request.workflowId(), request.nodeId()))
         .take(Math.clamp(limit, 1, MAX_ROWS));
   }
 }

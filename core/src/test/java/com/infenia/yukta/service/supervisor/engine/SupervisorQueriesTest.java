@@ -94,6 +94,28 @@ class SupervisorQueriesTest {
   }
 
   @Test
+  void globalScopeOwnsNothingSoItReadsNothing() {
+    history();
+    final InputRequest open = request("s", "w", "n1");
+    when(inputs.list(any(), any(), any(), any())).thenReturn(Flux.just(open));
+    final EngineReads reads = queries.readsFor(new SupervisorScope.Global());
+
+    assertThat(reads.executions(null, 10).collectList().block()).isEmpty();
+    assertThat(reads.openInputs(10).collectList().block()).isEmpty();
+  }
+
+  @Test
+  void statusIsReadInAnyCaseAndAnUnknownOneNamesTheChoices() {
+    history();
+    final EngineReads reads = queries.readsFor(new SupervisorScope.Workflow("w", "s"));
+
+    assertThat(reads.executions("running", 10).collectList().block()).hasSize(2);
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> reads.executions("nope", 10))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("RUNNING");
+  }
+
+  @Test
   void nothingIsReadBeforeTheSupervisorIsAttached() {
     assertThat(EngineReads.NONE.executions(null, 5).collectList().block()).isEmpty();
     assertThat(EngineReads.NONE.openInputs(5).collectList().block()).isEmpty();

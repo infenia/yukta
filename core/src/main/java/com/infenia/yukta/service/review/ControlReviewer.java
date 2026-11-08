@@ -377,18 +377,23 @@ public class ControlReviewer {
 
   /**
    * The one supervisor that owns what a command is about: the attached supervisor whose scope takes
-   * the command's node (or its run level, or the server). Global scope owns nothing. If saved data
-   * ever has two owners, the one with the lowest id answers, and the choice is stable.
+   * the command's node (or its run level, or the server for a server-level command), by {@link
+   * SupervisorScope#owns}. Global scope owns nothing, and neither does any scope when the run could
+   * not be looked up. If saved data ever has two owners, the one with the lowest id answers, and
+   * the choice is stable.
    */
   private Optional<BoundSupervisor> owner(final ControlRequest request) {
     final List<BoundSupervisor> owners =
         attached.stream()
-            .filter(bound -> !(bound.scope() instanceof SupervisorScope.Global))
             .filter(
                 bound ->
                     bound
                         .scope()
-                        .matches(request.sessionId(), request.workflowId(), request.nodeId()))
+                        .owns(
+                            request.command(),
+                            request.sessionId(),
+                            request.workflowId(),
+                            request.nodeId()))
             .sorted(Comparator.comparing(BoundSupervisor::id))
             .toList();
     if (owners.size() > OWNERS_PER_UNIT) {

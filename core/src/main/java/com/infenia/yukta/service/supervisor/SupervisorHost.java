@@ -519,8 +519,10 @@ public class SupervisorHost implements DryRunRecorder {
         supervisor instanceof BoundSupervisor bound
             ? bound.capabilities()
             : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
-    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
-    final Set<String> answered = Collections.newSetFromMap(new BoundedKeys());
+    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys<>());
+    // the request an answer is for, and the base key of the directive that answered it: the runs
+    // of one selector share that key (<key>#<execution>) and together are one answer
+    final Map<String, String> answered = new BoundedKeys<>();
     return directives
         .directives(events)
         .concatMap(
@@ -529,7 +531,8 @@ public class SupervisorHost implements DryRunRecorder {
                 return Mono.empty();
               }
               final Cause cause = directive.cause();
-              if (cause.kind() == Cause.Kind.ANSWERS && !answered.add(cause.text())) {
+              if (cause.kind() == Cause.Kind.ANSWERS
+                  && answeredBefore(answered, cause.text(), baseKey(directive.key()))) {
                 // an answer is accepted once; a second command answering the same request is not
                 return notApplied(
                         supervisor.id(),
@@ -609,12 +612,25 @@ public class SupervisorHost implements DryRunRecorder {
         .onErrorReturn(false);
   }
 
+  /** Whether another directive (by base key) already answered this request; records the first. */
+  private static boolean answeredBefore(
+      final Map<String, String> answered, final String request, final String base) {
+    final String first = answered.putIfAbsent(request, base);
+    return first != null && !first.equals(base);
+  }
+
+  /** The key a directive was sent under, without the {@code #<execution>} of a selector. */
+  private static String baseKey(final String key) {
+    final int hash = key.lastIndexOf('#');
+    return hash < 0 ? key : key.substring(0, hash);
+  }
+
   /** The keys remembered per supervisor: the newest 1000. */
-  private static final class BoundedKeys extends LinkedHashMap<String, Boolean> {
+  private static final class BoundedKeys<V> extends LinkedHashMap<String, V> {
     private static final long serialVersionUID = 1L;
 
     @Override
-    protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+    protected boolean removeEldestEntry(final Map.Entry<String, V> eldest) {
       return size() > 1000;
     }
   }
@@ -718,7 +734,7 @@ public class SupervisorHost implements DryRunRecorder {
         ? Mono.just(!attached)
         : dispatcher
             .target(command)
-            .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))
+            .map(t -> scope.owns(command, t.sessionId(), t.workflowId(), t.nodeId()))
             .onErrorReturn(false);
   }
 

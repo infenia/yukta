@@ -524,6 +524,20 @@ class AgentApiControllerTest {
   }
 
   @Test
+  void pollWithNoWaitStillReturnsTheStoredSignals() {
+    final reactor.core.publisher.Sinks.Many<Signal> in =
+        reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
+    final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
+    in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
+
+    // wait=0 is the default of the MCP next_signals tool: what is stored must come back
+    StepVerifier.create(controller.next(as("a1"), 0, 0))
+        .assertNext(r -> assertThat(r.data().signals()).hasSize(1))
+        .verifyComplete();
+    engine.close();
+  }
+
+  @Test
   void causeNamingNoSignalSentIsRefusedSoItCannotSkipTheInitiativeLimits() {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");

@@ -204,9 +204,11 @@ public class AgentApiController {
     return channel(supervisor(exchange))
         .signalsAfter(after)
         .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()))
-        .buffer(Duration.ofMillis(POLL_WINDOW_MILLIS))
+        // the window starts at the first signal, so stored signals come back at once even with
+        // no wait, and a burst is gathered into one batch
+        .bufferTimeout(MAX_BATCH, Duration.ofMillis(POLL_WINDOW_MILLIS))
         .next()
-        .timeout(wait, Mono.just(List.of()))
+        .timeout(wait.plusMillis(2 * POLL_WINDOW_MILLIS), Mono.just(List.of()))
         .map(
             batch -> {
               final List<SignalEnvelope> some = batch.stream().limit(MAX_BATCH).toList();

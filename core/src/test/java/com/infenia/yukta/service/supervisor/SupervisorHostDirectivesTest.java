@@ -116,6 +116,21 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
+  void oneAnswerSentToTheRunsOfASelectorIsAppliedToEachOfThem() {
+    // the agent API sends a selector as <key>#<execution>: together they are one answer
+    attach(
+        pausing(10),
+        new Directive.Command(
+            "k#e1", new PauseWorkflowCommand("e1"), Cause.answers("r1"), null, null),
+        new Directive.Command(
+            "k#e2", new PauseWorkflowCommand("e2"), Cause.answers("r1"), null, null),
+        new Directive.Command(
+            "other#e3", new PauseWorkflowCommand("e3"), Cause.answers("r1"), null, null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("answer-repeated") == 1);
+    assertThat(count("applied")).isEqualTo(2);
+  }
+
+  @Test
   void reactionIsAppliedAndRepeatedKeyOnlyOnce() {
     attach(
         pausing(10), command("k", Cause.event("e1"), null), command("k", Cause.event("e1"), null));

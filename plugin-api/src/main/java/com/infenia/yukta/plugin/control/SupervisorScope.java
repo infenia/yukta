@@ -103,6 +103,35 @@ public sealed interface SupervisorScope {
    * @param other the other scope
    * @return true if this scope covers the other
    */
+  /**
+   * Whether this scope owns what a command acts on, the way the server enforces ownership: a
+   * server-level command belongs only to a {@link Server} scope, a {@link Server} scope owns nothing
+   * else, a {@link Global} scope owns nothing, and a command whose run could not be looked up (no
+   * session and no workflow) is owned by nobody.
+   *
+   * @param command the command
+   * @param runSessionId the session of its run, or {@code null} when unknown
+   * @param runWorkflowId the workflow of its run, or {@code null} when unknown
+   * @param nodeId its node, or {@code null} for a run-level command
+   * @return true if this scope owns it
+   */
+  default boolean owns(
+      final ExecutionControlCommand command,
+      final @Nullable String runSessionId,
+      final @Nullable String runWorkflowId,
+      final @Nullable String nodeId) {
+    if (command.serverLevel()) {
+      return this instanceof Server;
+    }
+    if (this instanceof Server || this instanceof Global) {
+      return false;
+    }
+    if (runSessionId == null && runWorkflowId == null) {
+      return false;
+    }
+    return matches(runSessionId, runWorkflowId, nodeId);
+  }
+
   boolean covers(SupervisorScope other);
 
   /**

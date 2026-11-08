@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.agent;
 
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
@@ -19,6 +20,7 @@ import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
+import reactor.util.concurrent.Queues;
 
 /**
  * Connects the {@code http} engines to the agent API: for each supervisor, the signals an agent
@@ -34,6 +36,9 @@ public final class AgentHub {
 
   /** Directives an agent may post before the supervisor takes them; more are refused. */
   public static final int MAX_WAITING_DIRECTIVES = 256;
+
+  /** Signals a reader may fall behind by before it gets {@code EventsMissed} instead. */
+  public static final int LIVE_BUFFER = 1024;
 
   private final Map<String, Channel> channels = new ConcurrentHashMap<>();
 
@@ -107,25 +112,63 @@ public final class AgentHub {
     public Flux<Sequenced> signalsAfter(final long after) {
       return Flux.defer(
           () -> {
+            // listen first, then read what is remembered: a signal sent in between is in one of
+            // the two, and the cursor drops the copy
+            final Sinks.Many<Sequenced> live =
+                Sinks.many().unicast().onBackpressureBuffer(Queues.<Sequenced>get(LIVE_BUFFER).get());
+            final reactor.core.Disposable listening =
+                signalSink
+                    .asFlux()
+                    .subscribe(
+                        // a reader too far behind drops the overflow; the jump in the cursor of the
+                        // next signal it gets says how many
+                        live::tryEmitNext,
+                        live::tryEmitError,
+                        live::tryEmitComplete);
             final List<Sequenced> past;
+            final long oldest;
+            final long current;
             lock.lock();
             try {
               past = recent.stream().filter(s -> s.cursor() > after).toList();
+              current = sequence.get();
+              oldest = recent.isEmpty() ? current + 1 : recent.peekFirst().cursor();
             } finally {
               lock.unlock();
             }
-            final long last = past.isEmpty() ? after : past.getLast().cursor();
-            return Flux.concat(
-                Flux.fromIterable(past), signalSink.asFlux().filter(s -> s.cursor() > last));
+            // a negative cursor means "from now on"
+            final long start = after < 0 ? current : after;
+            final long last = past.isEmpty() ? start : past.getLast().cursor();
+            // signals between the cursor and the oldest one remembered are gone
+            final long forgotten = Math.max(0, Math.min(oldest, current + 1) - after - 1);
+            final Flux<Sequenced> gap =
+                after >= 0 && forgotten > 0 && !past.isEmpty()
+                    ? Flux.just(missed(after, forgotten))
+                    : Flux.empty();
+            final AtomicLong seen = new AtomicLong(last);
+            final Flux<Sequenced> fresh =
+                live.asFlux()
+                    .filter(s -> s.cursor() > seen.get())
+                    .concatMapIterable(
+                        s -> {
+                          final long lost = s.cursor() - seen.getAndSet(s.cursor()) - 1;
+                          return lost > 0 ? List.of(missed(s.cursor() - 1, lost), s) : List.of(s);
+                        });
+            return Flux.concat(gap, Flux.fromIterable(past), fresh)
+                .doFinally(_ -> listening.dispose());
           });
     }
 
-    /**
-     * Hands a directive from the agent to the supervisor.
-     *
-     * @param directive the directive
-     * @return true if the supervisor took it
-     */
+    /** A gap of {@code count} signals, reported under the cursor just before the next one. */
+    private static Sequenced missed(final long cursor, final long count) {
+      final java.time.Instant now = java.time.Instant.now();
+      return new Sequenced(
+          cursor,
+          new Signal.Event(
+              "missed-" + cursor, String.valueOf(cursor), new ExecutionEvent.EventsMissed(count, now)),
+          now);
+    }
+
     public boolean offer(final Directive directive) {
       return directiveSink.tryEmitNext(directive).isSuccess();
     }

@@ -53,6 +53,28 @@ class SupervisorScopeTest {
   }
 
   @Test
+  void ownsKeepsServerCommandsForTheServerAndAnUnknownRunForNobody() {
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+    final ExecutionControlCommand limits = new ExecutionControlCommand.SetLimitsCommand(1, 1);
+    final SupervisorScope workflow = new SupervisorScope.Workflow("w", "s");
+
+    assertThat(workflow.owns(pause, "s", "w", null)).isTrue();
+    assertThat(workflow.owns(pause, null, null, null)).isFalse();
+    assertThat(workflow.owns(limits, null, null, null)).isFalse();
+    assertThat(new SupervisorScope.Server().owns(limits, null, null, null)).isTrue();
+    assertThat(new SupervisorScope.Server().owns(pause, null, null, null)).isFalse();
+    assertThat(
+            new SupervisorScope.Server()
+                .owns(new ExecutionControlCommand.DrainCommand(true), null, null, null))
+        .isTrue();
+    assertThat(
+            new SupervisorScope.Server()
+                .owns(new ExecutionControlCommand.RecoverCommand("e"), "s", "w", null))
+        .isTrue();
+    assertThat(new SupervisorScope.Global().owns(pause, "s", "w", null)).isFalse();
+  }
+
+  @Test
   void serverMatchesOnlyCommandsThatBelongToNoRun() {
     final SupervisorScope server = new SupervisorScope.Server();
 

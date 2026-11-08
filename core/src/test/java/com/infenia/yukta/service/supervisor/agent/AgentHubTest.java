@@ -4,6 +4,7 @@ package com.infenia.yukta.service.supervisor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
 import java.time.Duration;
@@ -54,6 +55,57 @@ class AgentHubTest {
         .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void aCursorOlderThanWhatIsRememberedStartsWithEventsMissed() {
+    final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
+    for (int i = 0; i < AgentHub.REMEMBERED + 5; i++) {
+      channel.signal(tick(i));
+    }
+
+    StepVerifier.create(channel.signalsAfter(0).take(2))
+        .assertNext(s -> assertThat(missed(s)).isEqualTo(5))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(6))
+        .verifyComplete();
+  }
+
+  @Test
+  void aReaderThatFallsBehindIsToldHowManySignalsItMissed() {
+    final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
+    final int sent = AgentHub.LIVE_BUFFER * 3;
+
+    StepVerifier.create(channel.signalsAfter(-1), 0)
+        .then(
+            () -> {
+              for (int i = 0; i < sent; i++) {
+                channel.signal(tick(i));
+              }
+            })
+        .thenRequest(Long.MAX_VALUE)
+        .then(
+            () -> {
+              channel.signal(tick(sent));
+              channel.complete();
+            })
+        .recordWith(java.util.ArrayList::new)
+        .thenConsumeWhile(s -> true)
+        .consumeRecordedWith(
+            all -> {
+              final long gaps = all.stream().mapToLong(AgentHubTest::missed).filter(n -> n > 0).sum();
+              final long delivered = all.stream().filter(s -> missed(s) < 0).count();
+              // nothing vanishes without a word: each signal is delivered or counted as missed
+              assertThat(gaps).isPositive();
+              assertThat(delivered + gaps).isEqualTo(sent + 1);
+            })
+        .verifyComplete();
+  }
+
+  private static long missed(final AgentHub.Sequenced sequenced) {
+    return sequenced.signal() instanceof Signal.Event event
+            && event.event() instanceof ExecutionEvent.EventsMissed gap
+        ? gap.count()
+        : -1;
   }
 
   @Test

@@ -74,6 +74,17 @@ public sealed interface ExecutionControlCommand
   }
 
   /**
+   * Whether the command belongs to the server unit rather than to a run: scheduler limits, drain,
+   * and the recovery of a run that is no longer live. Only the supervisor that owns the server unit
+   * carries these, and it carries nothing else.
+   *
+   * @return true for a server-level command
+   */
+  default boolean serverLevel() {
+    return false;
+  }
+
+  /**
    * Pause all nodes in an execution via global backpressure.
    *
    * <p>Execution continues to process inflight work but no new elements are pulled from input
@@ -263,6 +274,11 @@ public sealed interface ExecutionControlCommand
     public String executionId() {
       return SCHEDULER;
     }
+
+    @Override
+    public boolean serverLevel() {
+      return true;
+    }
   }
 
   /**
@@ -408,7 +424,13 @@ public sealed interface ExecutionControlCommand
    *
    * @param executionId the aborted run
    */
-  record RecoverCommand(String executionId) implements ExecutionControlCommand {}
+  record RecoverCommand(String executionId) implements ExecutionControlCommand {
+
+    @Override
+    public boolean serverLevel() {
+      return true;
+    }
+  }
 
   /**
    * Refuse new starts (or admit them again). It belongs to no run, so {@link #executionId()} is
@@ -421,6 +443,11 @@ public sealed interface ExecutionControlCommand
     @Override
     public String executionId() {
       return SCHEDULER;
+    }
+
+    @Override
+    public boolean serverLevel() {
+      return true;
     }
   }
 }
