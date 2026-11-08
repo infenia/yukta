@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.session;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.Collections;
@@ -28,7 +29,7 @@ public record SessionConfigResponse(
     Map<String, String> tags,
     String projectPath,
     Map<String, WorkflowDefinition> workflows,
-    List<SupervisorRef> supervisors) {
+    @JsonProperty("assignments") List<SupervisorRef> supervisors) {
   /** Compact constructor for defensive copying and immutability. */
   public SessionConfigResponse {
     tags = tags == null ? Map.of() : Map.copyOf(tags);

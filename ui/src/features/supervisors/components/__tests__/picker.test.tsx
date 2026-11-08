@@ -153,7 +153,7 @@ describe('SupervisorPicker', () => {
   });
 
   it('shows what the server said about the refs', () => {
-    renderPicker({ errors: ['supervisors[0].supervisor: no supervisor'] });
+    renderPicker({ errors: ['assignments[0].supervisor: no supervisor'] });
     expect(screen.getByRole('alert')).toHaveTextContent('no supervisor');
   });
 

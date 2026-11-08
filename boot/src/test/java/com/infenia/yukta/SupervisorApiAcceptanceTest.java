@@ -160,7 +160,7 @@ class SupervisorApiAcceptanceTest {
     final HttpResponse<String> unknown =
         call("POST", "/api/sessions", session(sessionId, "[{\"supervisor\":\"nope\"}]", "[]"));
     assertThat(unknown.statusCode()).isEqualTo(400);
-    assertThat(unknown.body()).contains("supervisors[0].supervisor");
+    assertThat(unknown.body()).contains("assignments[0].supervisor");
 
     assertThat(call("POST", "/api/sessions", session(sessionId, "[]", "[]")).statusCode())
         .isEqualTo(200);

@@ -45,7 +45,7 @@ const session = (): SessionDraft => ({
         { nodeId: 'end', type: 'X', config: {} },
       ],
       edges: [],
-      supervisors: [{ supervisor: 'guard' }],
+      assignments: [{ supervisor: 'guard' }],
     },
   },
 });
@@ -81,7 +81,7 @@ const server = setupServer(
           message: 'Invalid supervisors',
           errors: [
             {
-              field: 'workflows.wf.supervisors[0].supervisor',
+              field: 'workflows.wf.assignments[0].supervisor',
               message: "no supervisor 'guard'",
             },
             { field: 'name', message: 'other' },
@@ -128,7 +128,7 @@ describe('the supervisors of a workflow in the editor', () => {
     await user.click(screen.getByRole('button', { name: 'Save version' }));
 
     await waitFor(() => expect(saved).toHaveLength(1));
-    expect(saved[0].workflows.wf.supervisors).toEqual([
+    expect(saved[0].workflows.wf.assignments).toEqual([
       { supervisor: 'watch', nodes: ['build.a'] },
     ]);
   });
@@ -138,14 +138,14 @@ describe('the supervisors of a workflow in the editor', () => {
       valid: true,
       message: null,
       outputPorts: {},
-      problems: ['supervisors[0].supervisor: no supervisor', 'something else'],
+      problems: ['assignments[0].supervisor: no supervisor', 'something else'],
     };
     const user = userEvent.setup();
     renderEditor();
     await screen.findByText(/Supervisors \(1\)/);
     await user.click(screen.getByRole('button', { name: 'Validate' }));
     const alerts = await screen.findAllByText(
-      'supervisors[0].supervisor: no supervisor'
+      'assignments[0].supervisor: no supervisor'
     );
     expect(alerts.length).toBeGreaterThan(0);
     expect(screen.queryByText('something else')).toBeNull();
@@ -154,14 +154,14 @@ describe('the supervisors of a workflow in the editor', () => {
     await user.click(screen.getByRole('button', { name: 'Save version' }));
     expect(
       await screen.findByText(
-        "workflows.wf.supervisors[0].supervisor: no supervisor 'guard'"
+        "workflows.wf.assignments[0].supervisor: no supervisor 'guard'"
       )
     ).toBeInTheDocument();
   });
 
   it('starts a new workflow with the supervisors the dialog picked', async () => {
     renderEditor('/sessions/s1/workflow/fresh/edit', {
-      usr: { supervisors: [{ supervisor: 'watch' }] },
+      usr: { assignments: [{ supervisor: 'watch' }] },
       key: 'k',
       idx: 0,
     });
