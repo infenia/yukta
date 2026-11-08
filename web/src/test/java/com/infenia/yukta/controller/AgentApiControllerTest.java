@@ -220,7 +220,8 @@ class AgentApiControllerTest {
   void aSupervisorWithoutAnEngineIsNotFoundAndTheStreamNeedsOne() {
     assertThatThrownBy(() -> controller.inputs(as("ghost"), 5))
         .isInstanceOf(NotFoundException.class);
-    assertThatThrownBy(() -> controller.events(as("ghost"))).isInstanceOf(NotFoundException.class);
+    assertThatThrownBy(() -> controller.events(as("ghost"), -1))
+        .isInstanceOf(NotFoundException.class);
     assertThatThrownBy(
             () ->
                 controller.self(
@@ -233,9 +234,34 @@ class AgentApiControllerTest {
     final reactor.core.publisher.Sinks.Many<Signal> in =
         reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
     final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
-    StepVerifier.create(controller.events(as("a1")).map(e -> e.data().kind()).take(1))
+    StepVerifier.create(controller.events(as("a1"), -1).map(e -> e.data().kind()).take(1))
         .then(() -> in.tryEmitNext(new Signal.Tick(Instant.EPOCH)))
         .expectNext("TICK")
+        .verifyComplete();
+    engine.close();
+  }
+
+  @Test
+  void aSnapshotGivesTheCursorToResumeFrom() {
+    final reactor.core.publisher.Sinks.Many<Signal> in =
+        reactor.core.publisher.Sinks.many().multicast().onBackpressureBuffer();
+    final SupervisorEngine engine = running(EngineReads.NONE, in.asFlux());
+    in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
+    in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(1)));
+
+    StepVerifier.create(controller.snapshot(as("a1")))
+        .assertNext(
+            r -> {
+              assertThat(r.data().cursor()).isEqualTo(2);
+              assertThat(r.data().executions()).isEmpty();
+              assertThat(r.data().inputs()).isEmpty();
+            })
+        .verifyComplete();
+    // after cursor 1 only the second signal is replayed, then the live ones
+    StepVerifier.create(controller.events(as("a1"), 1).map(e -> e.data().cursor()).take(2))
+        .expectNext(2L)
+        .then(() -> in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(2))))
+        .expectNext(3L)
         .verifyComplete();
     engine.close();
   }

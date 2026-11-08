@@ -57,10 +57,11 @@ public class AgentApiController {
   /**
    * A signal on the stream.
    *
+   * @param cursor where the stream is; resume with {@code after=<cursor>}
    * @param kind the signal kind
    * @param signal the signal
    */
-  public record SignalEnvelope(String kind, Signal signal) {}
+  public record SignalEnvelope(long cursor, String kind, Signal signal) {}
 
   /**
    * Who the credential is.
@@ -127,12 +128,45 @@ public class AgentApiController {
    */
   @GetMapping(path = "/events", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
   @Operation(summary = "Stream the signals of the supervisor")
-  public Flux<ServerSentEvent<SignalEnvelope>> events(final ServerWebExchange exchange) {
-    return SseStreams.events(
-        channel(supervisor(exchange)).signals().map(s -> new SignalEnvelope(s.kind().name(), s)),
-        null,
-        SseStreams.HEARTBEAT);
+  public Flux<ServerSentEvent<SignalEnvelope>> events(
+      final ServerWebExchange exchange, @RequestParam(defaultValue = "-1") final long after) {
+    final Flux<SignalEnvelope> envelopes =
+        channel(supervisor(exchange))
+            .signalsAfter(after < 0 ? channel(supervisor(exchange)).cursor() : after)
+            .map(s -> new SignalEnvelope(s.cursor(), s.signal().kind().name(), s.signal()));
+    return SseStreams.events(envelopes, null, SseStreams.HEARTBEAT);
   }
+
+  /**
+   * The owned state with a cursor: read it, then stream {@code events?after=<cursor>} and nothing
+   * is missed that is still remembered (the newest {@value AgentHub#REMEMBERED} signals).
+   *
+   * @param exchange the request
+   * @return the cursor, the executions and the open input requests
+   */
+  @GetMapping("/snapshot")
+  @Operation(summary = "The owned state and a cursor to resume the stream from")
+  public Mono<ApiResponse<SnapshotView>> snapshot(final ServerWebExchange exchange) {
+    final AgentHub.Channel channel = channel(supervisor(exchange));
+    final long cursor = channel.cursor();
+    return Mono.zip(
+            channel.reads().executions(null, SupervisorContract.SELECTOR_CAP).collectList(),
+            channel.reads().openInputs(SupervisorContract.SELECTOR_CAP).collectList())
+        .map(
+            both ->
+                ApiResponse.success(
+                    200, "Snapshot", new SnapshotView(cursor, both.getT1(), both.getT2())));
+  }
+
+  /**
+   * The owned state at a cursor.
+   *
+   * @param cursor where the stream was when it was read
+   * @param executions the owned executions
+   * @param inputs the open input requests
+   */
+  public record SnapshotView(
+      long cursor, List<EngineReads.RunView> executions, List<InputRequest> inputs) {}
 
   /**
    * The executions the supervisor owns.

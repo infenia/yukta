@@ -20,10 +20,24 @@ import reactor.core.publisher.Sinks;
 @Component
 public final class AgentHub {
 
+  /** Signals remembered per supervisor, for an agent that reconnects. */
+  public static final int REMEMBERED = 1000;
+
+  /**
+   * A signal with its place in the stream.
+   *
+   * @param cursor the number of the signal, counting up from 1
+   * @param signal the signal
+   */
+  public record Sequenced(long cursor, Signal signal) {}
+
   /** One supervisor's meeting point. */
   public static final class Channel {
 
-    private final Sinks.Many<Signal> signals = Sinks.many().multicast().directBestEffort();
+    private final Sinks.Many<Sequenced> signals = Sinks.many().multicast().directBestEffort();
+    private final java.util.ArrayDeque<Sequenced> recent = new java.util.ArrayDeque<>();
+    private final java.util.concurrent.atomic.AtomicLong sequence =
+        new java.util.concurrent.atomic.AtomicLong();
     private final Sinks.Many<Directive> directives = Sinks.many().unicast().onBackpressureBuffer();
     private final Supplier<EngineReads> reads;
 
@@ -37,7 +51,38 @@ public final class AgentHub {
      * @return the signals sent since it subscribed
      */
     public reactor.core.publisher.Flux<Signal> signals() {
-      return signals.asFlux();
+      return signals.asFlux().map(Sequenced::signal);
+    }
+
+    /**
+     * Where the stream is: the number of the newest signal, to resume after.
+     *
+     * @return the cursor; 0 before the first signal
+     */
+    public long cursor() {
+      return sequence.get();
+    }
+
+    /**
+     * The signals after a cursor: those still remembered (the newest {@value #REMEMBERED}), then
+     * the live ones. A cursor older than what is remembered misses the gap, so read the executions
+     * again.
+     *
+     * @param after the cursor of the last signal the agent saw
+     * @return the signals with their cursors
+     */
+    public reactor.core.publisher.Flux<Sequenced> signalsAfter(final long after) {
+      return reactor.core.publisher.Flux.defer(
+          () -> {
+            final java.util.List<Sequenced> past;
+            synchronized (recent) {
+              past = recent.stream().filter(s -> s.cursor() > after).toList();
+            }
+            final long last = past.isEmpty() ? after : past.get(past.size() - 1).cursor();
+            return reactor.core.publisher.Flux.concat(
+                reactor.core.publisher.Flux.fromIterable(past),
+                signals.asFlux().filter(s -> s.cursor() > last));
+          });
     }
 
     /**
@@ -60,7 +105,14 @@ public final class AgentHub {
     }
 
     /* default */ void signal(final Signal signal) {
-      signals.tryEmitNext(signal);
+      synchronized (recent) {
+        final Sequenced next = new Sequenced(sequence.incrementAndGet(), signal);
+        recent.addLast(next);
+        while (recent.size() > REMEMBERED) {
+          recent.removeFirst();
+        }
+        signals.tryEmitNext(next);
+      }
     }
 
     /* default */ reactor.core.publisher.Flux<Directive> directives() {
