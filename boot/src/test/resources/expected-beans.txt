@@ -236,5 +236,6 @@ com.infenia.yukta.startup.InMemoryStateNotice
 com.infenia.yukta.supervisor.guards.ApprovalGateFactory
 com.infenia.yukta.supervisor.guards.FailureGuardFactory
 com.infenia.yukta.supervisor.guards.StallWatchdogFactory
+com.infenia.yukta.supervisor.process.ProcessEngineConfiguration
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory
 com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory
