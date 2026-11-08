@@ -28,12 +28,11 @@ class ExecutionSupervisorTest {
   }
 
   @Test
-  void defaults_orderIsZero_andEveryCommandIsAllowed() {
+  void defaults_scopeIsGlobal_andEveryCommandIsAllowed() {
     final ExecutionSupervisor supervisor = new Observer();
     final ControlRequest request =
         new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e"), null, null, null);
 
-    assertThat(supervisor.order()).isZero();
     assertThat(supervisor.scope()).isEqualTo(new SupervisorScope.Global());
     assertThat(supervisor.review(request).block()).isEqualTo(Decision.ALLOW);
   }

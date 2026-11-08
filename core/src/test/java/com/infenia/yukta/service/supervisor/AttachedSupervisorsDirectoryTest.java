@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.control.ExecutionControl;
@@ -13,11 +15,14 @@ import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import com.infenia.yukta.service.input.InputTestSupport;
+import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 /** The directory lists the attached supervisors with their scope. */
 @NoArgsConstructor
@@ -60,11 +65,17 @@ class AttachedSupervisorsDirectoryTest {
   }
 
   @Test
-  void requestFromSupervisorRunGoesOnlyToHigherRank() {
+  void requestFromSupervisorRunGoesOnlyToItsParents() {
     final AttachedSupervisors attached = mock(AttachedSupervisors.class);
-    when(attached.stream())
-        .thenAnswer(
-            _ -> Stream.of(attached("sec", "workflow:s/w//a.*"), attached("wf", "workflow:s/w")));
+    final BoundSupervisor secBound = attached("sec", "workflow:s/w//a.*");
+    final BoundSupervisor wfBound = attached("wf", "workflow:s/w");
+    final SupervisorAttachment secAttachment =
+        new SupervisorAttachment("sec", "sec-profile", secBound.scope(), true);
+    final SupervisorAttachment wfAttachment =
+        new SupervisorAttachment("wf", "wf-profile", wfBound.scope(), true);
+    when(secBound.attachment()).thenReturn(secAttachment);
+    when(wfBound.attachment()).thenReturn(wfAttachment);
+    when(attached.stream()).thenAnswer(_ -> Stream.of(secBound, wfBound));
     final var directory =
         new AttachedSupervisorsDirectory(
             attached,
@@ -75,6 +86,18 @@ class AttachedSupervisorsDirectoryTest {
                     DefaultAnswerAuthorizer.STARTER_KEY,
                     "sec")));
 
+    final Supervisor profile =
+        new Supervisor("sec-profile", "t", Map.of(), false, null, List.of("wf-profile"), Map.of());
+    final SupervisorResolver resolver = mock(SupervisorResolver.class);
+    when(resolver.supervisor("sec-profile")).thenReturn(Optional.of(profile));
+    when(resolver.supervisor("wf-profile")).thenReturn(Optional.empty());
+    final ObjectProvider<SupervisorResolver> provider = mock(ObjectProvider.class);
+    when(provider.getIfAvailable()).thenReturn(resolver);
+    directory.setResolver(provider);
+
+    assertThat(directory.parentsOf("sec")).containsExactly("wf");
+    assertThat(directory.parentsOf("wf")).isEmpty();
+    assertThat(directory.parentsOf("nobody")).isEmpty();
     assertThat(directory.mayReceive(candidate("wf", "workflow:s/w"), REQUEST)).isTrue();
     assertThat(directory.mayReceive(candidate("sec", "workflow:s/w//a.*"), REQUEST)).isFalse();
     assertThat(directory.mayReceive(candidate("narrow", "workflow:s/w//a.b"), REQUEST)).isFalse();

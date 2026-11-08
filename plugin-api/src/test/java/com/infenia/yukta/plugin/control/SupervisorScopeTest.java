@@ -53,6 +53,34 @@ class SupervisorScopeTest {
   }
 
   @Test
+  void serverMatchesOnlyCommandsThatBelongToNoRun() {
+    final SupervisorScope server = new SupervisorScope.Server();
+
+    assertThat(server.kind()).isEqualTo(SupervisorScope.Kind.SERVER);
+    assertThat(server.sessionId()).isNull();
+    assertThat(server.workflowId()).isNull();
+    assertThat(server.matches(null, null)).isTrue();
+    assertThat(server.matches("A", "w")).isFalse();
+    assertThat(server.matches("A", null)).isFalse();
+    assertThat(server.matches(null, "w")).isFalse();
+  }
+
+  @Test
+  void serverCoversOnlyAnotherServer() {
+    final SupervisorScope server = new SupervisorScope.Server();
+
+    assertThat(server.covers(new SupervisorScope.Server())).isTrue();
+    assertThat(server.covers(new SupervisorScope.Global())).isFalse();
+    assertThat(server.covers(new SupervisorScope.Session("A"))).isFalse();
+  }
+
+  @Test
+  void serverIsWrittenAndReadAsServer() {
+    assertThat(new SupervisorScope.Server().key()).isEqualTo("server");
+    assertThat(SupervisorScope.parse(" server ")).isEqualTo(new SupervisorScope.Server());
+  }
+
+  @Test
   void workflowMatchesItsWorkflowAndOptionallyItsSession() {
     assertThat(new SupervisorScope.Workflow("w", null).matches("any", "w")).isTrue();
     assertThat(new SupervisorScope.Workflow("w", null).matches("any", "x")).isFalse();

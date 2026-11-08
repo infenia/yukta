@@ -1,0 +1,32 @@
+---
+title: "Writing a supervisor"
+sidebarTitle: "Writing a supervisor"
+description: "Make a program, a script or an AI agent the decision maker of a Yukta supervisor: the loop, a minimal example in Python and Go, and how to test it safely."
+keywords: ["supervisor", "agent", "http engine", "reference agent", "dry run"]
+---
+
+<Info>
+  **In plain terms:** you do not need Java to decide for a supervisor. Make a supervisor of type `http`, give it a credential, and write any program that reads what happens and sends commands back. Yukta checks every command, so a bug in your program cannot touch what the supervisor does not own.
+</Info>
+
+## The loop
+
+1. Save a supervisor of type `http` with the commands it may send (`allowedCommands`) and, for commands it sends on its own, `initiative` and `maxInitiativePerMinute`. Attach it to the narrowest scope that does the job. Start with `"dryRun": true`.
+2. Make its credential: `yukta supervisors credential create <id>` (shown once).
+3. Your program reads `GET /api/agent/v1/snapshot` (the owned state and a cursor), follows `GET /api/agent/v1/events?after=<cursor>` (or polls `GET /signals`), and decides.
+4. It sends `POST /api/agent/v1/directives` with a fresh `key`, a `cause`, a `reason` and the `command`. A key is applied once, so a retry is safe.
+5. Read `yukta supervisors decisions --supervisor <id>` to see what was applied, refused or only recorded. When it does what you want, turn dry run off.
+
+## Examples
+
+`examples/18-supervisor-agents` holds the same small supervisor three ways, each about 60 lines with no dependencies: `agent.py` (Python), `go/main.go` (Go) and `cpu_guard.sh` (a script run by `yukta supervisors agent`, which bridges the API to your program's standard input and output). Each pauses a run when a node of it fails and has no opinion about reviews.
+
+## Rules your program lives by
+
+* **A refusal is an answer.** Do not retry a command the supervisor refused; change what you send.
+* **Initiative needs a reason.** A command that nothing prompted (cause `initiative` or `tick`) needs a `reason`, an entry in the supervisor's `initiative` list and stays under its per-minute limit.
+* **Read, then act.** Use `ifStatus` when your decision depends on a status.
+* **Answer reviews in time.** A review that is not answered within its timeout counts as no opinion.
+* **Keep the credential secret.** Rotate it by making a new one; revoke it to cut your program off at once.
+
+For an AI agent the same operations are MCP tools at `POST /api/agent/v1/mcp`, and the `yukta-supervisor` skill teaches the loop.

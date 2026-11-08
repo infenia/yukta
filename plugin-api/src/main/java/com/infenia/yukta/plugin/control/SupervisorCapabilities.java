@@ -23,10 +23,29 @@ import org.jspecify.annotations.Nullable;
  *     always worked
  * @param canAnswer whether it may answer input requests at all
  * @param maxRisk the highest risk of a request it may answer
+ * @param operatorAccess the command types that people may send through it (it reviews them); empty
+ *     means none, so a person cannot control what it owns
+ * @param initiative the command types it may send with no triggering signal (a tick or its own
+ *     initiative), a subset of {@code allowedCommands}; empty means none
+ * @param maxInitiativePerMinute how many such commands it may send per minute
  * @since 0.1.0-alpha.4
  */
 public record SupervisorCapabilities(
-    @Nullable Set<String> allowedCommands, boolean canAnswer, InputRisk maxRisk) {
+    @Nullable Set<String> allowedCommands,
+    boolean canAnswer,
+    InputRisk maxRisk,
+    Set<String> operatorAccess,
+    Set<String> initiative,
+    int maxInitiativePerMinute) {
+
+  /** Setting: command types the supervisor may send with no triggering signal. */
+  public static final String INITIATIVE = "initiative";
+
+  /** Setting: how many commands without a triggering signal per minute. */
+  public static final String MAX_INITIATIVE_PER_MINUTE = "maxInitiativePerMinute";
+
+  /** Setting: command types that people may send through the supervisor. */
+  public static final String OPERATOR_ACCESS = "operatorAccess";
 
   /** Setting: list of command names the supervisor may send. */
   public static final String ALLOWED_COMMANDS = "allowedCommands";
@@ -39,6 +58,9 @@ public record SupervisorCapabilities(
 
   /** Setting: whether the supervisor sees the events of internal sessions its scope names. */
   public static final String OBSERVE_INTERNAL = "observeInternal";
+
+  /** The fewest commands without a triggering signal a minute that may be allowed. */
+  private static final int LEAST_INITIATIVE_PER_MINUTE = 1;
 
   /** The names of the command types, which an {@code allowedCommands} setting must come from. */
   private static final Set<String> KNOWN_COMMANDS =
@@ -66,6 +88,67 @@ public record SupervisorCapabilities(
   public SupervisorCapabilities {
     allowedCommands = allowedCommands == null ? null : Set.copyOf(allowedCommands);
     Objects.requireNonNull(maxRisk, "maxRisk");
+    operatorAccess = operatorAccess == null ? Set.of() : Set.copyOf(operatorAccess);
+    initiative = initiative == null ? Set.of() : Set.copyOf(initiative);
+    if (maxInitiativePerMinute < LEAST_INITIATIVE_PER_MINUTE) {
+      throw new IllegalArgumentException(MAX_INITIATIVE_PER_MINUTE + " must be at least 1");
+    }
+  }
+
+  /**
+   * Capabilities with the people-access list and no initiative.
+   *
+   * @param allowedCommands the command names, or {@code null} for every command
+   * @param canAnswer whether it may answer input requests
+   * @param maxRisk the highest risk it may answer
+   * @param operatorAccess the command types people may send through it
+   */
+  public SupervisorCapabilities(
+      final @Nullable Set<String> allowedCommands,
+      final boolean canAnswer,
+      final InputRisk maxRisk,
+      final @Nullable Set<String> operatorAccess) {
+    this(
+        allowedCommands,
+        canAnswer,
+        maxRisk,
+        operatorAccess,
+        Set.of(),
+        SupervisorContract.DEFAULT_INITIATIVE_PER_MINUTE);
+  }
+
+  /**
+   * Capabilities that let no person send a command through the supervisor.
+   *
+   * @param allowedCommands the command names, or {@code null} for every command
+   * @param canAnswer whether it may answer input requests
+   * @param maxRisk the highest risk it may answer
+   */
+  public SupervisorCapabilities(
+      final @Nullable Set<String> allowedCommands,
+      final boolean canAnswer,
+      final InputRisk maxRisk) {
+    this(allowedCommands, canAnswer, maxRisk, Set.of());
+  }
+
+  /**
+   * Whether the supervisor may send a command with no triggering signal.
+   *
+   * @param command the command
+   * @return true if its type is in {@code initiative}
+   */
+  public boolean mayInitiate(final ExecutionControlCommand command) {
+    return initiative.contains(command.getClass().getSimpleName());
+  }
+
+  /**
+   * Whether a person may send a command through the supervisor.
+   *
+   * @param command the command
+   * @return true if its type is listed in {@code operatorAccess}
+   */
+  public boolean allowsOperator(final ExecutionControlCommand command) {
+    return operatorAccess.contains(command.getClass().getSimpleName());
   }
 
   /**
@@ -96,7 +179,25 @@ public record SupervisorCapabilities(
     return new SupervisorCapabilities(
         commands(settings.get(ALLOWED_COMMANDS), defaultAllowed),
         flag(settings.get(CAN_ANSWER)),
-        risk(settings.get(MAX_RISK)));
+        risk(settings.get(MAX_RISK)),
+        operators(settings.get(OPERATOR_ACCESS)),
+        operators(settings.get(INITIATIVE)),
+        perMinute(settings.get(MAX_INITIATIVE_PER_MINUTE)));
+  }
+
+  private static int perMinute(final @Nullable Object value) {
+    if (value == null) {
+      return SupervisorContract.DEFAULT_INITIATIVE_PER_MINUTE;
+    }
+    if (value instanceof final Number number && number.intValue() >= 1) {
+      return number.intValue();
+    }
+    throw new IllegalArgumentException(
+        MAX_INITIATIVE_PER_MINUTE + " must be a number of at least 1");
+  }
+
+  private static Set<String> operators(final @Nullable Object value) {
+    return Objects.requireNonNullElse(commands(value, Set.of()), Set.of());
   }
 
   /**

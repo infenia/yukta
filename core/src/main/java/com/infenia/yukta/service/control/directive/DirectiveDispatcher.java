@@ -20,6 +20,7 @@ import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.supervisor.ControlRejectedException;
 import com.infenia.yukta.service.supervisor.ControlReviewer;
+import com.infenia.yukta.service.supervisor.ControlledBySupervisorException;
 import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
 import com.infenia.yukta.service.supervisor.ReviewVerdict;
 import jakarta.annotation.PostConstruct;
@@ -284,6 +285,10 @@ public class DirectiveDispatcher {
                   case ReviewVerdict.Allowed _ -> dispatch(command);
                   case ReviewVerdict.Denied denied ->
                       Mono.<Void>error(new ControlRejectedException(denied.reason()));
+                  case ReviewVerdict.Controlled controlled ->
+                      Mono.<Void>error(
+                          new ControlledBySupervisorException(
+                              controlled.supervisorId(), controlled.reason()));
                   case ReviewVerdict.NeedsApproval needs ->
                       parked(gate, command, run, context, needs);
                 });

@@ -3,7 +3,6 @@
 package com.infenia.yukta.controller;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,8 +36,6 @@ import reactor.core.publisher.Mono;
 /** Tests for the behaviour described by {@link ExecutionControlController}. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.ExcessiveImports",
-  "PMD.TooManyStaticImports",
   "PMD.TooManyMethods",
   "PMD.UnitTestShouldIncludeAssert",
   "PMD.AvoidDuplicateLiterals"
@@ -66,7 +63,8 @@ class ExecutionControlControllerTest {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
     tracker = mock(TaskTrackerService.class);
-    when(controlBus.recordAdminAction(any(), any(), anyBoolean(), any())).thenReturn(Mono.empty());
+    when(controlBus.reviewedAdmin(any(), any(), any()))
+        .thenAnswer(call -> ((java.util.function.Supplier<Mono<?>>) call.getArgument(2)).get());
     final WorkflowProgress running =
         Fixtures.workflowProgress(
             "e1", "s1", "wf", TaskStatus.RUNNING, List.of(), Instant.now(), null, null);

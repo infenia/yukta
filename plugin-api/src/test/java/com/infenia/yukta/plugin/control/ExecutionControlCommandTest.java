@@ -136,6 +136,8 @@ class ExecutionControlCommandTest {
           case ExecutionControlCommand.AnswerInputCommand c -> "answer-" + c.requestId();
           case ExecutionControlCommand.EscalateInputCommand c -> "escalate-" + c.requestId();
           case ExecutionControlCommand.StartWorkflowCommand c -> "start-" + c.workflowId();
+          case ExecutionControlCommand.RecoverCommand c -> "recover-" + c.executionId();
+          case ExecutionControlCommand.DrainCommand c -> "drain-" + c.draining();
         };
 
     assertThat(kind).isEqualTo("pause-node");
@@ -160,6 +162,14 @@ class ExecutionControlCommandTest {
             new ExecutionControlCommand.SetBreakpointCommand("e", "n", "payload.x", "1"));
 
     assertThat(all).extracting(ExecutionControlCommand::executionId).containsOnly("e");
+  }
+
+  @Test
+  void recoverNamesTheAbortedRunAndDrainBelongsToNoRun() {
+    assertThat(new ExecutionControlCommand.RecoverCommand("old").executionId()).isEqualTo("old");
+    final var drain = new ExecutionControlCommand.DrainCommand(true);
+    assertThat(drain.executionId()).isEqualTo(ExecutionControlCommand.SCHEDULER);
+    assertThat(drain.draining()).isTrue();
   }
 
   @Test

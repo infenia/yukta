@@ -324,24 +324,17 @@ Guards against loops and deadlocks:
 
 Not yet there: the request is passed to the workflow only as part of the event.
 
-## When supervisors disagree
+## One owner per unit, and a supervisor that flaps
 
-Supervisors run in parallel and do not see each other, so two of them can pause and resume one run in turn. The **command arbiter** settles that. A stop, and any command that cannot conflict, is sent at once. These can conflict, and wait for a short window per target (a run, or a node of a run): pause and resume, skip and unskip, step mode on and off, and two different priorities. When the window closes:
-
-- the supervisor with the lowest `order` wins, and its side is sent once; the same command from other supervisors is `coalesced`;
-- the supervisors on the other side get `arbitrated`;
-- a stop seen on the run in the last second cancels a pause or resume for it (`arbitrated`);
-- a supervisor that turns one target around more than `flap-limit` times in `flap-period` is blocked from conflicting commands on it for `flap-cooldown` (`flapping-blocked`).
-
-Each outcome is in the decision list, the control audit and `yukta.supervisor.commands{id,outcome}`. A window of `0` turns the arbiter off and keeps the old behaviour. While it is on, a conflicting command waits for its window, so a supervisor sees about `window` of delay on those commands.
+Two supervisors never fight over a node: a node, the run level of a workflow and the server each have **one owner**, and a save that would give one unit to two supervisors is refused (`409 OWNERSHIP_CONFLICT`, naming the other supervisor). See the [supervisor contract](/running/supervisor-contract). What is left to guard is one supervisor flapping against itself: a supervisor that turns one target around (pause then resume, skip then unskip, step on then off, priority) more than `limit` times in `period` is blocked from turning that target around for `cooldown` (`flapping-blocked` in the decision list, the control audit and `yukta.supervisor.commands{id,outcome}`).
 
 | Setting | Default | Meaning |
 |---|---|---|
 | `yukta.supervisor.max-attachments` | `200` | Most attachments at once |
-| `yukta.supervisor.arbiter.window` | `500ms` | How long conflicting commands wait for each other; `0` turns it off |
-| `yukta.supervisor.arbiter.flap-period` | `60s` | The period in which turn-arounds are counted |
-| `yukta.supervisor.arbiter.flap-limit` | `4` | Most turn-arounds of one target by one supervisor in the period |
-| `yukta.supervisor.arbiter.flap-cooldown` | `5m` | How long a supervisor over the limit is blocked |
+| `yukta.supervisor.turn-around.period` | `60s` | The period in which turn-arounds are counted |
+| `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target by one supervisor in the period |
+| `yukta.supervisor.turn-around.cooldown` | `5m` | How long a supervisor over the limit is blocked |
+| `yukta.supervisor.default.enabled` | `true` | Lets people control what no supervisor owns. Turn it off in production so that every workflow must name its supervisor |
 
 ## Composite supervisors
 
@@ -349,7 +342,7 @@ A supervisor of type `composite` runs other supervisors as one: one id, one scop
 
 | Setting | Meaning |
 |---|---|
-| `mode` | `CHAIN` (first child with a non-empty decision wins), `FIRST_MATCH` (stops at the first child that returns any decision), `PARALLEL` (all command streams merged; the arbiter settles conflicts), `QUORUM` (a command is sent when `quorum` children send an equal one within `window`) |
+| `mode` | `CHAIN` (first child with a non-empty decision wins), `FIRST_MATCH` (stops at the first child that returns any decision), `PARALLEL` (all command streams merged), `QUORUM` (a command is sent when `quorum` children send an equal one within `window`) |
 | `children` | Supervisor ids, 1 to 10 |
 | `review` | `ALL` (default; the first denial wins and names the child), `ANY`, `MAJORITY` |
 | `quorum` | For `QUORUM`, 2 to the number of children; default a majority |

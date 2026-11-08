@@ -17,6 +17,8 @@ import org.jspecify.annotations.Nullable;
  * @param originSessionId for {@link SupervisorSource#DEFINITION}, the session that declared it
  * @param originWorkflowId for {@link SupervisorSource#DEFINITION}, the workflow that declared it,
  *     if any
+ * @param conflict true when start-up found it owning a unit that another attachment owns and
+ *     disabled it; the administrator resolves it
  */
 public record SupervisorAttachment(
     String id,
@@ -25,7 +27,8 @@ public record SupervisorAttachment(
     boolean enabled,
     SupervisorSource source,
     @Nullable String originSessionId,
-    @Nullable String originWorkflowId) {
+    @Nullable String originWorkflowId,
+    boolean conflict) {
 
   /** Rejects missing parts. */
   public SupervisorAttachment {
@@ -48,6 +51,38 @@ public record SupervisorAttachment(
       final String supervisorId,
       final SupervisorScope scope,
       final boolean enabled) {
-    this(id, supervisorId, scope, enabled, SupervisorSource.MANUAL, null, null);
+    this(id, supervisorId, scope, enabled, SupervisorSource.MANUAL, null, null, false);
+  }
+
+  /**
+   * An attachment with no conflict.
+   *
+   * @param id the attachment id
+   * @param supervisorId the supervisor to run
+   * @param scope the runs to supervise
+   * @param enabled whether the supervisor runs
+   * @param source who made it
+   * @param originSessionId the session that declared it, or {@code null}
+   * @param originWorkflowId the workflow that declared it, or {@code null}
+   */
+  public SupervisorAttachment(
+      final String id,
+      final String supervisorId,
+      final SupervisorScope scope,
+      final boolean enabled,
+      final SupervisorSource source,
+      @Nullable final String originSessionId,
+      @Nullable final String originWorkflowId) {
+    this(id, supervisorId, scope, enabled, source, originSessionId, originWorkflowId, false);
+  }
+
+  /**
+   * The same attachment, disabled because it overlaps another one.
+   *
+   * @return the attachment with {@code enabled} false and {@code conflict} true
+   */
+  public SupervisorAttachment asConflict() {
+    return new SupervisorAttachment(
+        id, supervisorId, scope, false, source, originSessionId, originWorkflowId, true);
   }
 }
