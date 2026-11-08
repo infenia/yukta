@@ -243,10 +243,15 @@ public final class AgentCredentials {
   }
 
   private static String hash(final String token) {
+    return hash("SHA-256", token);
+  }
+
+  /** The hex of the hash of a text; every Java runtime has SHA-256, so that name never fails. */
+  /* default */ static String hash(final String algorithm, final String token) {
     try {
       return HexFormat.of()
           .formatHex(
-              MessageDigest.getInstance("SHA-256").digest(token.getBytes(StandardCharsets.UTF_8)));
+              MessageDigest.getInstance(algorithm).digest(token.getBytes(StandardCharsets.UTF_8)));
     } catch (final NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is part of every Java runtime", e);
     }

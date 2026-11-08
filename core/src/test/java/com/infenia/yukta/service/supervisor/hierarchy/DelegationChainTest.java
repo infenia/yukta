@@ -177,4 +177,19 @@ class DelegationChainTest {
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(Delegation.DEFAULT.mode()).isEqualTo(DelegationMode.ORDERED);
   }
+
+  @Test
+  void refusalWithoutReasonSaysRefused() {
+    StepVerifier.create(
+            DelegationChain.resolve(
+                mode(DelegationMode.ORDERED),
+                List.of("a"),
+                id -> Mono.just(new Reply(DelegationChain.Answer.DENY, null))))
+        .assertNext(
+            o -> {
+              assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
+              assertThat(o.reason()).isEqualTo("refused");
+            })
+        .verifyComplete();
+  }
 }

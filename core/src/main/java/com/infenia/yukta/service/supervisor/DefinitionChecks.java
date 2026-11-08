@@ -186,7 +186,7 @@ public final class DefinitionChecks {
   }
 
   /** The field of a declaration, such as {@code workflows.build.supervisors[0].supervisor}. */
-  private static String fieldOf(
+  /* default */ static String fieldOf(
       final SupervisorAttachment attachment, final SessionConfigData data) {
     final String workflowId = attachment.originWorkflowId();
     final List<SupervisorRef> refs =

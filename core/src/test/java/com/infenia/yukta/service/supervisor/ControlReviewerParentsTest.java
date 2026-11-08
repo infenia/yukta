@@ -217,4 +217,33 @@ class ControlReviewerParentsTest {
         .verifyComplete();
     verify(sibling, never()).review(org.mockito.ArgumentMatchers.any());
   }
+
+  @Test
+  void parentThatItselfNeedsApprovalHasNoOpinionSoPersonDecides() {
+    final Supervisor child = shell("child", Map.of(), "boss");
+    known(child, shell("boss", Map.of()));
+    owner(needing(InputRisk.LOW), child);
+    parent("boss", needing(InputRisk.LOW));
+
+    StepVerifier.create(verdict())
+        .assertNext(
+            v ->
+                assertThat(v)
+                    .isInstanceOfSatisfying(
+                        ReviewVerdict.NeedsApproval.class,
+                        n -> assertThat(n.reason()).contains("asked [boss:NO_OPINION]")))
+        .verifyComplete();
+  }
+
+  @Test
+  void ownerTheResolverDoesNotKnowKeepsItsNeedForPerson() {
+    owner(needing(InputRisk.LOW), shell("unknown", Map.of(), "boss"));
+    final ExecutionSupervisor boss = answering(Decision.ALLOW);
+    parent("boss", boss);
+
+    StepVerifier.create(verdict())
+        .assertNext(v -> assertThat(v).isInstanceOf(ReviewVerdict.NeedsApproval.class))
+        .verifyComplete();
+    verify(boss, never()).review(org.mockito.ArgumentMatchers.any());
+  }
 }

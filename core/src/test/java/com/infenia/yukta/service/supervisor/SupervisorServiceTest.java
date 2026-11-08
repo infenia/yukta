@@ -293,9 +293,10 @@ class SupervisorServiceTest {
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
-                    .isInstanceOf(
+                    .isInstanceOfSatisfying(
                         com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException
-                            .class)
+                            .class,
+                        conflict -> assertThat(conflict.getConflicts()).isNotEmpty())
                     .hasMessageContainingAll(mentions))
         .verify();
   }
@@ -953,6 +954,11 @@ class SupervisorServiceTest {
 
   /** Pauses a run when it fails; with the setting "plain" it is a supervisor without causes. */
   private SupervisorService replaying(final boolean plain) {
+    return replaying(plain, com.infenia.yukta.plugin.control.engine.Cause.tick());
+  }
+
+  private SupervisorService replaying(
+      final boolean plain, final com.infenia.yukta.plugin.control.engine.Cause cause) {
     final SupervisorFactory pausing =
         new SupervisorFactory() {
           @Override
@@ -1001,7 +1007,7 @@ class SupervisorServiceTest {
                             new com.infenia.yukta.plugin.control.engine.Directive.Command(
                                 "k",
                                 new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
-                                com.infenia.yukta.plugin.control.engine.Cause.tick(),
+                                cause,
                                 "failed",
                                 null));
               }
@@ -1059,5 +1065,206 @@ class SupervisorServiceTest {
     StepVerifier.create(made.replay("r", null, "unknown"))
         .expectError(NotFoundException.class)
         .verify();
+  }
+
+  private static Boolean replayedAllowed(
+      final SupervisorService made,
+      final @org.jspecify.annotations.Nullable Map<String, Object> draft) {
+    return made.replay("r", draft, "run1").block().getFirst().allowed();
+  }
+
+  @Test
+  void replayAllowsInitiativeListedAndRefusesCommandNotAllowed() {
+    assertThat(
+            replayedAllowed(
+                replaying(false),
+                Map.of(
+                    "allowedCommands", List.of("PauseWorkflowCommand"),
+                    "initiative", List.of("PauseWorkflowCommand"))))
+        .isTrue();
+    final SupervisorService reacting =
+        replaying(false, com.infenia.yukta.plugin.control.engine.Cause.event("ev"));
+    assertThat(replayedAllowed(reacting, null)).isTrue();
+    assertThat(replayedAllowed(reacting, Map.of("allowedCommands", List.of("StopWorkflowCommand"))))
+        .isFalse();
+  }
+
+  @Test
+  void resolverLearnsTheStoredSupervisorsWhenOneIsSaved() {
+    final com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver resolver =
+        new com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver();
+    service.setResolver(resolver);
+
+    StepVerifier.create(service.saveSupervisor(supervisor("p")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(resolver.supervisor("p")).isPresent();
+  }
+
+  @Test
+  void presetsComeFromTheFactoryOfTheType() {
+    assertThat(service.presets(TYPE)).isPresent();
+    assertThat(service.presets("nope")).isEmpty();
+  }
+
+  @Test
+  void savingSupervisorWhoseAttachmentCannotRestartStillSaves() {
+    attached("b1", new SupervisorScope.Workflow("w", "s"));
+    org.mockito.Mockito.doThrow(new IllegalStateException("host down"))
+        .when(host)
+        .attach(any(BoundSupervisor.class));
+
+    StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, Map.of("level", 2), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    assertThat(store.supervisors().filter(Supervisor::dryRun).collectList().block()).hasSize(1);
+  }
+
+  @Test
+  void restoreComparesSectionsOfOneWorkflowAndCarriesOnWhenMarkCannotBeSaved() {
+    final SupervisorStore failing = spy(new InMemorySupervisorStore());
+    failing.saveSupervisor(supervisor("a")).block();
+    failing.saveSupervisor(supervisor("b")).block();
+    failing
+        .saveAttachment(
+            attachment("m1", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true))
+        .block();
+    failing
+        .saveAttachment(
+            attachment(
+                "m2", "b", new SupervisorScope.Section("w", "s", Set.of("build.test")), true))
+        .block();
+    doReturn(Mono.error(new IllegalStateException("disk full")))
+        .when(failing)
+        .saveAttachment(org.mockito.ArgumentMatchers.argThat(SupervisorAttachment::conflict));
+    final SupervisorService restoring = new SupervisorService(failing, List.of(factory), host, log);
+
+    restoring.restore();
+
+    // the mark was not saved, so both stay enabled in the store; the restore still starts
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                verify(host, org.mockito.Mockito.atLeastOnce()).attach(any(BoundSupervisor.class)));
+    assertThat(failing.attachments().filter(SupervisorAttachment::conflict).collectList().block())
+        .isEmpty();
+  }
+
+  @Test
+  void selectorsAreComparedWithTheNodesOfStoredWorkflow() {
+    final com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore definitions =
+        new com.infenia.yukta.service.workflow.store.InMemoryWorkflowDefinitionStore();
+    definitions
+        .save(
+            "s",
+            com.infenia.yukta.testing.Fixtures.workflow(
+                "w",
+                "d",
+                List.of(
+                    com.infenia.yukta.testing.Fixtures.node("build.compile", "T", Map.of()),
+                    com.infenia.yukta.testing.Fixtures.node("deploy", "T", Map.of())),
+                List.of(),
+                List.of()))
+        .block();
+    service.setDefinitions(definitions);
+    saveSupervisors("a", "b", "c");
+    StepVerifier.create(service.attach(attachment("g", "c", new SupervisorScope.Global(), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(attachment("other", "c", new SupervisorScope.Session("s2"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "x", "a", new SupervisorScope.Section("w", "s", Set.of("build.*")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "y", "b", new SupervisorScope.Section("w", "s", Set.of("deploy")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    expectConflict(
+        attachment("z", "b", new SupervisorScope.Section("w", "s", Set.of("build.compile")), true),
+        "owned by a");
+  }
+
+  @Test
+  void supervisorThatReadsGetsTheReadsOfItsScope() {
+    final List<com.infenia.yukta.plugin.control.engine.EngineReads> given =
+        new java.util.concurrent.CopyOnWriteArrayList<>();
+    final SupervisorFactory reading =
+        new SupervisorFactory() {
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
+          public String type() {
+            return "reading";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            return new Reader(given);
+          }
+        };
+    final SupervisorService made =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(reading), host, log);
+    final com.infenia.yukta.service.supervisor.engine.SupervisorQueries queries =
+        mock(com.infenia.yukta.service.supervisor.engine.SupervisorQueries.class);
+    when(queries.readsFor(any()))
+        .thenReturn(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
+    @SuppressWarnings("unchecked")
+    final org.springframework.beans.factory.ObjectProvider<
+            com.infenia.yukta.service.supervisor.engine.SupervisorQueries>
+        provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable())
+        .thenReturn(queries, (com.infenia.yukta.service.supervisor.engine.SupervisorQueries) null);
+    StepVerifier.create(made.saveSupervisor(new Supervisor("r", "reading", Map.of(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(
+            made.attach(attachment("zero", "r", new SupervisorScope.Workflow("zero", "s"), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    made.setQueries(provider);
+
+    for (final String id : List.of("one", "two")) {
+      StepVerifier.create(
+              made.attach(attachment(id, "r", new SupervisorScope.Workflow(id, "s"), true)))
+          .expectNextCount(1)
+          .verifyComplete();
+    }
+
+    // without queries nothing is given; then the first start finds them and the second does not
+    assertThat(given).containsExactly(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
+  }
+
+  /** A supervisor that keeps the reads it is given. */
+  private record Reader(List<com.infenia.yukta.plugin.control.engine.EngineReads> given)
+      implements ExecutionSupervisor, com.infenia.yukta.plugin.control.engine.ReadsAware {
+
+    @Override
+    public String id() {
+      return "reader";
+    }
+
+    @Override
+    public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+      return Flux.empty();
+    }
+
+    @Override
+    public void readsFrom(final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
+      given.add(reads);
+    }
   }
 }

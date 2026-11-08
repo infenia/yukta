@@ -61,6 +61,13 @@ class SupervisorHostDirectivesTest {
   }
 
   private void attach(final SupervisorCapabilities capabilities, final Directive.Command... all) {
+    attach(new SupervisorScope.Workflow("w", "s"), capabilities, all);
+  }
+
+  private void attach(
+      final SupervisorScope scope,
+      final SupervisorCapabilities capabilities,
+      final Directive.Command... all) {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     when(dispatcher.target(any())).thenReturn(Mono.just(new CommandTarget("s", "w", null)));
     final DirectiveSupervisor supervisor =
@@ -78,10 +85,7 @@ class SupervisorHostDirectivesTest {
         };
     host.attach(
         Fixtures.boundSupervisor(
-            new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", "s"), true),
-            supervisor,
-            false,
-            capabilities));
+            new SupervisorAttachment("eng", "p", scope, true), supervisor, false, capabilities));
   }
 
   private long count(final String outcome) {
@@ -197,6 +201,65 @@ class SupervisorHostDirectivesTest {
             "k", new PauseWorkflowCommand("e1"), Cause.event("e1"), null, "RUNNING"));
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
     assertThat(host.held("eng")).containsExactly("e1");
+    assertThat(host.held("p")).containsExactly("e1");
+  }
+
+  @Test
+  void ifStatusIsNotCheckedWithoutQueries() {
+    attach(
+        pausing(10),
+        new Directive.Command(
+            "k", new PauseWorkflowCommand("e1"), Cause.event("e1"), null, "RUNNING"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
+  }
+
+  @Test
+  void ifStatusIsNotCheckedForCommandOutsideAnySession() {
+    final SupervisorQueries queries = statusIs("PAUSED");
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    when(dispatcher.target(any())).thenReturn(Mono.just(new CommandTarget(null, "w", null)));
+    final DirectiveSupervisor supervisor =
+        new DirectiveSupervisor() {
+          @Override
+          @SuppressWarnings("PMD.ShortMethodName")
+          public String id() {
+            return "unused";
+          }
+
+          @Override
+          public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
+            return Flux.just(
+                    new Directive.Command(
+                        "k", new PauseWorkflowCommand("e1"), Cause.event("e1"), null, "RUNNING"))
+                .concatWith(events.then(Mono.empty()));
+          }
+        };
+    host.attach(
+        Fixtures.boundSupervisor(
+            new SupervisorAttachment("eng", "p", new SupervisorScope.Workflow("w", null), true),
+            supervisor,
+            false,
+            pausing(10)));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
+    verify(queries, org.mockito.Mockito.never()).statusOf(any(), any());
+  }
+
+  @Test
+  void attachedGlobalEngineOwnsNothing() {
+    attach(new SupervisorScope.Global(), pausing(10), command("k", Cause.event("e1"), null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("not-owned") == 1);
+    verify(dispatcher, org.mockito.Mockito.never()).dispatchOrdered(any());
+  }
+
+  @Test
+  void keyIsForgottenAfterThousandNewerOnes() {
+    final Directive.Command[] all = new Directive.Command[1002];
+    for (int i = 0; i <= 1000; i++) {
+      all[i] = command("k" + i, Cause.event("e1"), null);
+    }
+    all[1001] = command("k0", Cause.event("e1"), null);
+    attach(new SupervisorScope.Global(), pausing(10), all);
+    await().atMost(10, TimeUnit.SECONDS).until(() -> count("not-owned") == 1002);
   }
 
   @Test

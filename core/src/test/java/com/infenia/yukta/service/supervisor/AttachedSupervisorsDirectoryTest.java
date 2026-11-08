@@ -142,4 +142,34 @@ class AttachedSupervisorsDirectoryTest {
         .isTrue();
     assertThat(EligibleSupervisors.NONE.mayReceive(candidate, REQUEST)).isTrue();
   }
+
+  @Test
+  void withoutResolverNobodyHasParents() {
+    final AttachedSupervisors attached = mock(AttachedSupervisors.class);
+    final AttachedSupervisorsDirectory directory = new AttachedSupervisorsDirectory(attached);
+    assertThat(directory.parentsOf("sec")).isEmpty();
+
+    final ObjectProvider<SupervisorResolver> provider = mock(ObjectProvider.class);
+    directory.setResolver(provider);
+    assertThat(directory.parentsOf("sec")).isEmpty();
+  }
+
+  @Test
+  void outranksFollowsParentsUpToFourLevels() {
+    final EligibleSupervisors endless =
+        new EligibleSupervisors() {
+          @Override
+          public List<Candidate> bound() {
+            return List.of();
+          }
+
+          @Override
+          public List<String> parentsOf(final String candidateId) {
+            return List.of(candidateId + "^");
+          }
+        };
+
+    assertThat(endless.outranks("a^^^^", "a")).isTrue();
+    assertThat(endless.outranks("a^^^^^", "a")).isFalse();
+  }
 }

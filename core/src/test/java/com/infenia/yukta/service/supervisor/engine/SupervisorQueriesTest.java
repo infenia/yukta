@@ -107,4 +107,12 @@ class SupervisorQueriesTest {
     when(request.nodeId()).thenReturn(node);
     return request;
   }
+
+  @Test
+  void statusOfReadsTheRunFromTheHistory() {
+    history();
+
+    assertThat(queries.statusOf("s", "done").block()).isEqualTo("SUCCESS");
+    assertThat(queries.statusOf("s", "missing").blockOptional()).isEmpty();
+  }
 }

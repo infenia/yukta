@@ -114,7 +114,9 @@ class CommandHandlerTest {
     final ExecutionControlCommand[] commands = {
       new SetLimitsCommand(1, 1),
       new SetPriorityCommand(EXECUTION_ID, 5),
-      new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null)
+      new ExecutionControlCommand.StartWorkflowCommand("s", "w", null, null),
+      new ExecutionControlCommand.RecoverCommand(EXECUTION_ID),
+      new ExecutionControlCommand.DrainCommand(true)
     };
 
     for (final ExecutionControlCommand command : commands) {

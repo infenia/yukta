@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -43,5 +44,40 @@ class ReplayEventsTest {
   void controlEntriesAreNotEvents() {
     assertThat(ReplayEvents.from(List.of(ExecutionLogEvent.control(true, "e", "Pause", "reason"))))
         .isEmpty();
+  }
+
+  @Test
+  void finishedNodeAndAbortedRunBecomeEvents() {
+    final ExecutionLogEvent started = ExecutionLogEvent.started("e", "s", "w", "v");
+    final List<ExecutionEvent> events =
+        ReplayEvents.from(
+            List.of(
+                ExecutionLogEvent.nodeFinished("e", "s", "w", "a"),
+                withoutStatus(ExecutionLogEvent.nodeFinished("e", "s", "w", "b")),
+                ExecutionLogEvent.aborted(started, Map.of("c", "SUCCESS")),
+                withoutStatus(ExecutionLogEvent.finished("e", "s", "w", "SUCCESS", Map.of()))));
+
+    assertThat(events)
+        .extracting(
+            event ->
+                event instanceof ExecutionEvent.NodeStatusChanged node
+                    ? node.nodeId() + "=" + node.status()
+                    : "run=" + ((ExecutionEvent.WorkflowStatusChanged) event).status())
+        .containsExactly("a=SUCCESS", "b=SUCCESS", "c=SUCCESS", "run=ABORTED", "run=FAILURE");
+  }
+
+  private static ExecutionLogEvent withoutStatus(final ExecutionLogEvent event) {
+    return new ExecutionLogEvent(
+        event.type(),
+        event.executionId(),
+        event.sessionId(),
+        event.workflowId(),
+        null,
+        null,
+        event.nodeStatuses(),
+        event.nodeId(),
+        null,
+        Instant.now(),
+        null);
   }
 }

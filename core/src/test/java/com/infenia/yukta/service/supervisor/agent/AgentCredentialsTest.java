@@ -3,12 +3,14 @@
 package com.infenia.yukta.service.supervisor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
+import reactor.test.StepVerifier;
 
 @SuppressWarnings("PMD.AvoidUsingHardCodedIP")
 class AgentCredentialsTest {
@@ -162,5 +164,55 @@ class AgentCredentialsTest {
     // without addresses it works from anywhere
     final String open = credentials.issue("a2", null).token();
     assertThat(credentials.authenticate(open, "203.0.113.1")).contains("a2");
+  }
+
+  @Test
+  void revokingAndRotatingEndTheAgentStreams() {
+    final AgentHub hub = new AgentHub();
+    final AgentCredentials credentials = new AgentCredentials();
+    credentials.setHub(hub);
+
+    StepVerifier.create(hub.credentialChanges())
+        .then(
+            () -> {
+              credentials.issue("a1", null);
+              credentials.issue("a1", null);
+              credentials.revoke("a1");
+            })
+        .expectNext("a1", "a1")
+        .thenCancel()
+        .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void withoutStoreRestoreDoesNothingAndUnknownRevokeTouchesNoStore() {
+    StepVerifier.create(new AgentCredentials().restore()).verifyComplete();
+
+    final MapStore store = new MapStore();
+    store.rows.put("other", new AgentCredentialStore.Stored("other", "h", null));
+    final AgentCredentials credentials = new AgentCredentials();
+    credentials.setStore(store);
+    assertThat(credentials.revoke("a1")).isFalse();
+    assertThat(store.rows).containsKey("other");
+  }
+
+  @Test
+  void twoStoredRowsWithOneHashAreCutOnce() {
+    final MapStore store = new MapStore();
+    store.rows.put("x", new AgentCredentialStore.Stored("x", "same", null));
+    store.rows.put("y", new AgentCredentialStore.Stored("y", "same", null));
+    final AgentCredentials credentials = new AgentCredentials();
+    credentials.setStore(store);
+    StepVerifier.create(credentials.restore()).verifyComplete();
+
+    // the first revoke removes the shared hash, so the second finds nothing left to cut
+    assertThat(credentials.revoke("x")).isTrue();
+    assertThat(credentials.revoke("y")).isFalse();
+  }
+
+  @Test
+  void unknownHashAlgorithmIsIllegalState() {
+    assertThatThrownBy(() -> AgentCredentials.hash("no-such-digest", "t"))
+        .isInstanceOf(IllegalStateException.class);
   }
 }

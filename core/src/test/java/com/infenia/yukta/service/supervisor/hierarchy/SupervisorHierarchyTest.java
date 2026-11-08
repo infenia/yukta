@@ -68,4 +68,11 @@ class SupervisorHierarchyTest {
     assertThat(SupervisorHierarchy.childrenOf("p", stored.values())).containsExactly("a", "b");
     assertThat(SupervisorHierarchy.childrenOf("z", stored.values())).isEmpty();
   }
+
+  @Test
+  void ancestorThatIsNoLongerStoredEndsTheChain() {
+    sup("a", "gone");
+    assertThatCode(() -> SupervisorHierarchy.validate(sup("b", "a"), stored))
+        .doesNotThrowAnyException();
+  }
 }

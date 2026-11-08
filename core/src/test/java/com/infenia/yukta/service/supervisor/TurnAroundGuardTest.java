@@ -122,6 +122,12 @@ class TurnAroundGuardTest {
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () -> new YuktaProperties.TurnAround(PERIOD, 1, Duration.ofSeconds(-1)))
         .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new YuktaProperties.TurnAround(Duration.ofSeconds(-1), 1, COOLDOWN))
+        .isInstanceOf(IllegalArgumentException.class);
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new YuktaProperties.TurnAround(PERIOD, 1, Duration.ZERO))
+        .isInstanceOf(IllegalArgumentException.class);
     assertThat(Clock.systemUTC()).isNotNull();
     assertThat(
             new TurnAroundGuard(new YuktaProperties.TurnAround(PERIOD, 1, COOLDOWN))

@@ -48,10 +48,11 @@ class DirectiveDispatcherSupervisorTest {
   private CommandHandler processor;
   private ExecutionSupervisor supervisor;
   private DirectiveDispatcher dispatcher;
+  private ExecutionControlStore registry;
 
   @BeforeEach
   void setUp() {
-    final ExecutionControlStore registry = new InMemoryExecutionControlStore();
+    registry = new InMemoryExecutionControlStore();
     registry.save(
         new ExecutionControl(
             "s",
@@ -107,6 +108,37 @@ class DirectiveDispatcherSupervisorTest {
         .isInstanceOfSatisfying(
             ExecutionEvent.ControlOutcome.class,
             outcome -> assertThat(outcome.applied()).isFalse());
+  }
+
+  @Test
+  void dispatchOrderedOfControlledUnitIsRefusedNamingTheOwner() {
+    final com.infenia.yukta.service.supervisor.ControlReviewer reviewer =
+        mock(com.infenia.yukta.service.supervisor.ControlReviewer.class);
+    when(reviewer.verdict(any(), any()))
+        .thenReturn(
+            Mono.just(
+                new com.infenia.yukta.service.supervisor.ReviewVerdict.Controlled(
+                    "owner", "owner controls this")));
+    final DirectiveDispatcher controlled =
+        new DirectiveDispatcher(
+            processor,
+            registry,
+            mock(ControlBusService.class),
+            ExecutionArchiveFixture.create(),
+            log,
+            reviewer,
+            feed);
+
+    StepVerifier.create(controlled.dispatchOrdered(PAUSE))
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOfSatisfying(
+                        com.infenia.yukta.service.supervisor.ControlledBySupervisorException.class,
+                        e -> assertThat(e.getSupervisorId()).isEqualTo("owner"))
+                    .hasMessage("owner controls this"))
+        .verify();
+    verify(processor, never()).handle(any());
   }
 
   @Test

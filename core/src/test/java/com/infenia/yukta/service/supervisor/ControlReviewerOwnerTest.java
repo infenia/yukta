@@ -134,7 +134,12 @@ class ControlReviewerOwnerTest {
             reviewer(true)
                 .review(RUN_COMMAND)
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR)))
-        .expectError(ControlledBySupervisorException.class)
+        .expectErrorSatisfies(
+            error ->
+                assertThat(error)
+                    .isInstanceOfSatisfying(
+                        ControlledBySupervisorException.class,
+                        controlled -> assertThat(controlled.getSupervisorId()).isEqualTo("a-sup")))
         .verify();
   }
 
@@ -262,5 +267,72 @@ class ControlReviewerOwnerTest {
           .assertNext(v -> assertThat(v).isInstanceOf(ReviewVerdict.Controlled.class))
           .verifyComplete();
     }
+  }
+
+  @Test
+  void capabilitySaysWhoCarriesCommandAndWhetherPeopleMaySendIt() {
+    final ExecutionControlCommand pause = RUN_COMMAND.command();
+    final ControlReviewer open = reviewer(true);
+    assertThat(open.defaultSupervisorEnabled()).isTrue();
+    assertThat(open.capability("s", "w", null, pause))
+        .isEqualTo(new ControlReviewer.Capability(true, ControlReviewer.DEFAULT_VIA, null));
+    final ControlReviewer closed = reviewer(false);
+    assertThat(closed.defaultSupervisorEnabled()).isFalse();
+    assertThat(closed.capability("s", "w", null, pause).allowed()).isFalse();
+
+    own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
+    assertThat(open.capability("s", "w", null, pause))
+        .isEqualTo(
+            new ControlReviewer.Capability(
+                false, "a-sup", "a-sup controls this. People cannot do this directly."));
+
+    attached.remove("a");
+    own("b", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW), PAUSE);
+    assertThat(open.capability("s", "w", null, pause))
+        .isEqualTo(new ControlReviewer.Capability(true, "b-sup", null));
+  }
+
+  @Test
+  void ownerThatAnswersNothingRefusesLikeTimeout() {
+    final ExecutionSupervisor silent = Mockito.mock(ExecutionSupervisor.class);
+    Mockito.when(silent.review(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
+    own("a", new SupervisorScope.Workflow("w", "s"), silent, PAUSE);
+
+    StepVerifier.create(
+            reviewer(true)
+                .verdict(RUN_COMMAND, Set.of())
+                .contextWrite(
+                    contextOf(ControlActor.Channel.OPERATOR)
+                        .put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR)))
+        .assertNext(
+            v ->
+                assertThat(v)
+                    .isInstanceOfSatisfying(
+                        ReviewVerdict.Denied.class,
+                        d -> assertThat(d.reason()).contains("review returned nothing")))
+        .verifyComplete();
+  }
+
+  @Test
+  void ownerNeedForApprovalStaysWithoutHierarchy() {
+    own(
+        "a",
+        new SupervisorScope.Workflow("w", "s"),
+        answering(
+            Decision.requireApproval(
+                "look",
+                new com.infenia.yukta.plugin.control.ApprovalNeed(InputRisk.LOW, null, null))),
+        PAUSE);
+
+    StepVerifier.create(verdict(reviewer(true), RUN_COMMAND, ControlActor.Channel.OPERATOR))
+        .assertNext(v -> assertThat(v).isInstanceOf(ReviewVerdict.NeedsApproval.class))
+        .verifyComplete();
+  }
+
+  @Test
+  void reviewerReadsItsTimeoutFromTheSettings() {
+    final ControlReviewer fromSettings =
+        new ControlReviewer(providerOf(), YuktaSettings.bind(Map.of()));
+    StepVerifier.create(fromSettings.review(RUN_COMMAND)).verifyComplete();
   }
 }
