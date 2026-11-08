@@ -14,6 +14,7 @@ import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -24,6 +25,7 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.supervisor.composite.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
@@ -124,6 +126,9 @@ public class SupervisorService {
 
   /** Checks workflow supervisors against the stores; null where there are none. */
   @Nullable private WorkflowSupervisorChecks workflowChecks;
+
+  /** What engines may read; null where a module provides none. */
+  @Nullable private SupervisorQueries queries;
 
   /** The newest saved states of each supervisor. */
   private final SupervisorVersions versions = new SupervisorVersions();
@@ -355,6 +360,16 @@ public class SupervisorService {
    */
   public Flux<Supervisor> supervisors() {
     return store.supervisors();
+  }
+
+  /**
+   * Sets what engines may read.
+   *
+   * @param supervisorQueries the queries
+   */
+  @Autowired(required = false)
+  public void setQueries(final SupervisorQueries supervisorQueries) {
+    this.queries = supervisorQueries;
   }
 
   /**
@@ -939,6 +954,9 @@ public class SupervisorService {
     }
     if (made instanceof AttachmentAware aware) {
       aware.bindTo(attachment.id());
+    }
+    if (made instanceof ReadsAware reading && queries != null) {
+      reading.readsFrom(queries.readsFor(attachment.scope()));
     }
     host.attach(
         new BoundSupervisor(

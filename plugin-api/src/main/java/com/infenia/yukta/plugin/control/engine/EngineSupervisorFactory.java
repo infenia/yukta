@@ -9,12 +9,14 @@ import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.input.InputRequest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import reactor.core.publisher.Flux;
 
 /**
@@ -47,6 +49,19 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
   @Override
   public ExecutionSupervisor create(final Supervisor profile) {
     final Map<String, Object> state = new ConcurrentHashMap<>();
+    final AtomicReference<EngineReads> reads = new AtomicReference<>(EngineReads.NONE);
+    final EngineReads delegating =
+        new EngineReads() {
+          @Override
+          public Flux<RunView> executions(final String status, final int limit) {
+            return reads.get().executions(status, limit);
+          }
+
+          @Override
+          public Flux<InputRequest> openInputs(final int limit) {
+            return reads.get().openInputs(limit);
+          }
+        };
     final EngineContext context =
         new EngineContext() {
           @Override
@@ -63,12 +78,19 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
           public Map<String, Object> state() {
             return state;
           }
+
+          @Override
+          public EngineReads reads() {
+            return delegating;
+          }
         };
     return new EngineBackedSupervisor(
         profile.id(),
         new SupervisorScope.Global(),
         engines.create(new EngineConfig(profile.settings()), context),
-        engines.describe().drivers().contains(Signal.Kind.REVIEW));
+        engines.describe().drivers().contains(Signal.Kind.REVIEW),
+        Duration.ofSeconds(10),
+        reads::set);
   }
 
   @Override

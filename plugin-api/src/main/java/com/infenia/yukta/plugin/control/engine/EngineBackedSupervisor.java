@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -22,7 +23,8 @@ import reactor.core.publisher.Sinks;
  * a {@link Directive.Command} is emitted as the supervisor's command. The host then applies the
  * usual scope, capability, rate and dry-run checks to it.
  */
-public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCloseable {
+public final class EngineBackedSupervisor
+    implements DirectiveSupervisor, ReadsAware, AutoCloseable {
 
   private static final Duration REVIEW_TIMEOUT = Duration.ofSeconds(10);
 
@@ -34,6 +36,7 @@ public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCl
   private final Map<String, Sinks.One<Decision>> pending = new ConcurrentHashMap<>();
   private final Sinks.Many<Signal> asked = Sinks.many().multicast().onBackpressureBuffer();
   private final AtomicLong seq = new AtomicLong();
+  private final Consumer<EngineReads> readsSink;
 
   /**
    * Creates the supervisor.
@@ -49,7 +52,7 @@ public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCl
       final SupervisorScope scope,
       final SupervisorEngine engine,
       final boolean reviews) {
-    this(id, scope, engine, reviews, REVIEW_TIMEOUT);
+    this(id, scope, engine, reviews, REVIEW_TIMEOUT, reads -> {});
   }
 
   EngineBackedSupervisor(
@@ -57,12 +60,14 @@ public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCl
       final SupervisorScope scope,
       final SupervisorEngine engine,
       final boolean reviews,
-      final Duration reviewTimeout) {
+      final Duration reviewTimeout,
+      final Consumer<EngineReads> readsSink) {
     this.id = id;
     this.scope = scope;
     this.engine = engine;
     this.reviews = reviews;
     this.reviewTimeout = reviewTimeout;
+    this.readsSink = readsSink;
   }
 
   @Override
@@ -138,6 +143,11 @@ public final class EngineBackedSupervisor implements DirectiveSupervisor, AutoCl
     return sink.asMono()
         .timeout(reviewTimeout, Mono.just(Decision.ALLOW))
         .doFinally(done -> pending.remove(reviewId));
+  }
+
+  @Override
+  public void readsFrom(final EngineReads reads) {
+    readsSink.accept(reads);
   }
 
   @Override

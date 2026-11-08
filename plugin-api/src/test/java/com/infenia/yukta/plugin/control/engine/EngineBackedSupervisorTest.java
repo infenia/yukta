@@ -33,7 +33,7 @@ class EngineBackedSupervisorTest {
   private static EngineBackedSupervisor supervisor(
       final SupervisorEngine engine, final boolean reviews) {
     return new EngineBackedSupervisor(
-        "s1", new SupervisorScope.Global(), engine, reviews, Duration.ofMillis(200));
+        "s1", new SupervisorScope.Global(), engine, reviews, Duration.ofMillis(200), reads -> {});
   }
 
   @Test
@@ -107,6 +107,21 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
+  void anEngineReadsWhatItWasGivenAfterTheSupervisorIsAttached() {
+    final EngineReads[] given = {null};
+    final var sup =
+        new EngineBackedSupervisor(
+            "s1",
+            new SupervisorScope.Global(),
+            engine(signals -> Flux.never()),
+            false,
+            Duration.ofMillis(10),
+            reads -> given[0] = reads);
+    sup.readsFrom(EngineReads.NONE);
+    assertThat(given[0]).isSameAs(EngineReads.NONE);
+  }
+
+  @Test
   void theFactoryMakesTheSupervisorFromTheEngine() {
     final boolean[] closed = {false};
     final SupervisorEngineFactory engines =
@@ -157,6 +172,8 @@ class EngineBackedSupervisorTest {
     factory.validate(new Supervisor("a", "t", Map.of(), false));
     final var sup = factory.create(new Supervisor("a", "t", Map.of(), false));
     StepVerifier.create(sup.supervise(Flux.never()).take(1)).expectNext(STOP).verifyComplete();
+    assertThat(factory.create(new Supervisor("b", "t", Map.of(), false)))
+        .isInstanceOf(ReadsAware.class);
     ((EngineBackedSupervisor) sup).close();
     assertThat(closed[0]).isTrue();
     final Sinks.Many<String> unused = Sinks.many().unicast().onBackpressureBuffer();
