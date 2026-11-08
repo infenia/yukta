@@ -16,6 +16,8 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.AttachedSupervisors;
+import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;

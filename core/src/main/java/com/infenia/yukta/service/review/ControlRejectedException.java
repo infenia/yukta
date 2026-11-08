@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor;
+package com.infenia.yukta.service.review;
 
 /** A supervisor refused a control command. */
 public class ControlRejectedException extends IllegalStateException {

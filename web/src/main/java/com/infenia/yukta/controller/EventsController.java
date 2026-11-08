@@ -4,7 +4,7 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;

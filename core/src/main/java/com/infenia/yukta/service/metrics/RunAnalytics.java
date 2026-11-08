@@ -6,7 +6,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

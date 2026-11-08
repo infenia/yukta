@@ -13,6 +13,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ControlActor;
+import com.infenia.yukta.plugin.control.ControlDecision;
+import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -20,6 +22,9 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
+import com.infenia.yukta.service.review.ControlRejectedException;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
@@ -503,7 +508,7 @@ class SupervisorHostTest {
 
   @Test
   void status_describesEachSupervisorWithItsCommandCounts() {
-    final var plane = new ControlReviewerTest.NamedPlane();
+    final var plane = new NamedPlane();
     final ExecutionSupervisor plain = supervisor("rules", SupervisorHostTest::pauseOnFailure);
     host =
         SupervisorHostFixture.create(
@@ -565,5 +570,23 @@ class SupervisorHostTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("key:admin")
         .hasMessageContaining("SupervisorHostTest");
+  }
+
+  /** A control plane with a class name, as real ones have. */
+  private static final class NamedPlane implements ControlPlanePlugin {
+    @Override
+    public String id() {
+      return "plane";
+    }
+
+    @Override
+    public int order() {
+      return 5;
+    }
+
+    @Override
+    public Mono<ControlDecision> decide(final ExecutionEvent event) {
+      return Mono.just(ControlDecision.none(ControlDecision.Source.MODEL));
+    }
   }
 }

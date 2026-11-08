@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor;
+package com.infenia.yukta.service.review;
 
 import java.util.Map;
 import java.util.Optional;
@@ -10,9 +10,9 @@ import lombok.NoArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
- * The supervisors attached at run time, by attachment id. {@link SupervisorHost} runs them and
- * {@link ControlReviewer} asks them to review commands; this holder lets both see the same set
- * without depending on each other.
+ * The supervisors attached at run time, by attachment id. the supervisor host runs them and {@link
+ * ControlReviewer} asks them to review commands; this holder lets both see the same set without
+ * depending on each other.
  */
 @Component
 @NoArgsConstructor
@@ -27,7 +27,7 @@ public class AttachedSupervisors {
    * @param supervisor the supervisor
    * @return the one it replaced, or null
    */
-  /* default */ BoundSupervisor put(final BoundSupervisor supervisor) {
+  public BoundSupervisor put(final BoundSupervisor supervisor) {
     return attached.put(supervisor.id(), supervisor);
   }
 
@@ -37,7 +37,7 @@ public class AttachedSupervisors {
    * @param attachmentId the attachment id
    * @return the supervisor, or null if none was attached
    */
-  /* default */ BoundSupervisor remove(final String attachmentId) {
+  public BoundSupervisor remove(final String attachmentId) {
     return attached.remove(attachmentId);
   }
 

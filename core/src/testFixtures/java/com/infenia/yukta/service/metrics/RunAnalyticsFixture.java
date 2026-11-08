@@ -3,7 +3,7 @@
 package com.infenia.yukta.service.metrics;
 
 import com.infenia.yukta.service.log.ExecutionLogStore;
-import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import java.time.Clock;
 import org.springframework.beans.factory.ObjectProvider;
 

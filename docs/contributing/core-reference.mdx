@@ -221,7 +221,8 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `service.control` | Scheduler, per-run control handles, start facade | `ExecutionScheduler` `WorkflowService` `ExecutionControl` `ControlBusService` | ADM, CTL |
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
-| `service.supervisor` | Supervisor host, reviewer hook, event feed | `SupervisorHost` `ControlReviewer` `ExecutionEventFeed` | CTL-06, CTL-07 |
+| `service.supervisor` | Supervisor host, service and definitions | `SupervisorHost` `SupervisorService` `DefinitionSupervisors` | CTL-06, CTL-07 |
+| `service.review` | Reviewer hook, event feed and attached-supervisor contracts the lower layers use | `ControlReviewer` `ExecutionEventFeed` `AttachedSupervisors` `BoundSupervisor` `ReviewVerdict` | CTL-06, CTL-07 |
 | `service.log / archive / store` | Execution log, archive, node checkpoint stores | `ExecutionLogStore` `JsonlExecutionLogStore` (plus) `ExecutionArchive` `FileNodeCheckpointStore` | DUR |
 | `service.workflow / workflow.store` | Definitions, versions, diff, topological sort, prepared-workflow cache | `TopologicalSortService` `WorkflowDefinitionStore` `FileWorkflowDefinitionStore` (plus) `PreparedWorkflowCache` `WorkflowDiff` | DEF-01 |
 | `service.session` | Session config and its stores | `SessionService` `FileSessionConfigStore` (plus) `InMemorySessionConfigStore` | DUR-05 |
