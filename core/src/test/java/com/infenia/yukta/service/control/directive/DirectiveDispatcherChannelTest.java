@@ -94,9 +94,7 @@ class DirectiveDispatcherChannelTest {
         .verifyComplete();
     StepVerifier.create(dispatcher.dispatchOrdered(pause)).verifyComplete();
 
-    assertThat(sunk)
-        .extracting(AuditRecord::channel)
-        .containsExactly(OPERATOR, ENGINE, SYSTEM);
+    assertThat(sunk).extracting(AuditRecord::channel).containsExactly(OPERATOR, ENGINE, SYSTEM);
     assertThat(log.readAll())
         .extracting(e -> e.payload().get(ExecutionLogEvent.CHANNEL_KEY))
         .containsExactly(OPERATOR, ENGINE, SYSTEM);

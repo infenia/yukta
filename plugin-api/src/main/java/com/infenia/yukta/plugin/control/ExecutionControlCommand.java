@@ -369,12 +369,20 @@ public sealed interface ExecutionControlCommand
    * @param payload the start payload (may carry {@code yukta.version})
    * @param idempotencyKey makes a repeated start return the first run; may be {@code null}
    */
+  @SuppressFBWarnings(
+      value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"},
+      justification = "the compact constructor stores an unmodifiable copy")
   record StartWorkflowCommand(
       String sessionId,
       String workflowId,
-      @Nullable java.util.Map<String, Object> payload,
+      @Nullable Map<String, Object> payload,
       @Nullable String idempotencyKey)
       implements ExecutionControlCommand {
+
+    /** Keeps an unmodifiable copy of the payload. */
+    public StartWorkflowCommand {
+      payload = payload == null ? null : Collections.unmodifiableMap(new LinkedHashMap<>(payload));
+    }
 
     @Override
     public String executionId() {
