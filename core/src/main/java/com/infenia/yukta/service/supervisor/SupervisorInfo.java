@@ -25,8 +25,6 @@ import org.jspecify.annotations.Nullable;
  * @param scopeNodes the node selectors of a {@code SECTION} scope (node ids and {@code
  *     <prefix>.*}), or {@code null} for any other scope
  * @param flappingBlocked commands blocked because the supervisor kept turning a target around
- * @param children for a {@code COMPOSITE}, the supervisor ids of its children, otherwise {@code
- *     null}
  */
 @SuppressFBWarnings(
     value = "EI_EXPOSE_REP",
@@ -45,8 +43,7 @@ public record SupervisorInfo(
     @Nullable String scopeSessionId,
     @Nullable String scopeWorkflowId,
     @Nullable List<String> scopeNodes,
-    long flappingBlocked,
-    @Nullable List<String> children) {
+    long flappingBlocked) {
 
   /**
    * Keeps an immutable copy of the selectors.
@@ -65,14 +62,10 @@ public record SupervisorInfo(
    * @param scopeWorkflowId the workflow, or {@code null}
    * @param scopeNodes the selectors of a section, or {@code null}
    * @param flappingBlocked commands blocked by the flap guard
-   * @param children the child supervisor ids of a composite, or {@code null}
    */
   public SupervisorInfo {
     if (scopeNodes != null) {
       scopeNodes = List.copyOf(scopeNodes);
-    }
-    if (children != null) {
-      children = List.copyOf(children);
     }
   }
 }

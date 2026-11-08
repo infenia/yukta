@@ -404,3 +404,7 @@ Old folder names → New controller-based names:
 - `Control Bus/` + `Observability/` → `ControlBusController/`
 - `Plugins/` → `PluginController/`
 - `Streaming/` → `Streaming/` (unchanged)
+
+## Supervisors
+
+`SupervisorController` has the management requests (engines, presets, versions, rollback, replay, credentials, supervision, contract; they need an `ADMIN` key where the server has keys). `AgentApi` calls `/api/agent/v1` the way an application that is a supervisor does: set `agent_token` in the environment to the credential from `Create Credential` and `supervisorId` to its supervisor. A human API key does not work on `AgentApi`.

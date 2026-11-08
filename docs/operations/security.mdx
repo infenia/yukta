@@ -176,6 +176,10 @@ A node, an AI agent or a supervisor can ask for a decision and wait for the answ
 - A `HIGH` request is answered with a token only in a tier made for people; the authoriser checks this itself, besides the token service.
 - Prompts and context are redacted before they are stored, put on the event feed, logged or sent to a webhook, and the execution log records who answered, handed up, expired or cancelled each request.
 
+## Agent credentials
+
+A supervisor of type `http` is operated by an application with its own credential (`POST /api/supervisors/{id}/credential`, ADMIN). It is shown once, kept only as a SHA-256 hash, can expire, can be tied to source addresses, and is cut at once by `DELETE` or by disabling the supervisor. It works only on `/api/agent/v1` and no API key of a person does. Limits per credential: `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per address), `yukta.agent.max-body-bytes` (65536). What a leaked credential can do is limited by what the supervisor owns, its `allowedCommands`, its initiative list and rate, and `dryRun`. Attach an `http` supervisor to the narrowest scope that does its job: a `Global` attachment observes every event and can read every execution, which is more than most agents need. A supervisor of type `process` runs a program with an empty environment and only if its executable is in `yukta.process.allowed-commands`.
+
 ## Process execution
 
 `PROCESS_EXECUTOR` refuses every command until you configure it.

@@ -54,7 +54,7 @@ class TurnAroundGuardTest {
   }
 
   @Test
-  void aTargetTurnedAroundMoreThanTheLimitBlocksTheSupervisorForTheCooldown() {
+  void targetTurnedAroundMoreThanTheLimitBlocksTheSupervisorForTheCooldown() {
     assertThat(guard.check("a", pause("e1"))).isEmpty();
     assertThat(guard.check("a", resume("e1"))).isEmpty(); // turn 1
     assertThat(guard.check("a", pause("e1"))).isEmpty(); // turn 2

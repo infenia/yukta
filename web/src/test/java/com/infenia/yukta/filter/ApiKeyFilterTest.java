@@ -103,6 +103,15 @@ class ApiKeyFilterTest {
   }
 
   @Test
+  void testTheAgentPathIsLeftToTheAgentFilterWhateverTheHumanKey() {
+    // an unknown key and a viewer key alike pass this filter: AgentCredentialFilter decides there
+    assertThat(statusOf("none", MockServerHttpRequest.get("/api/agent/v1/self")))
+        .isEqualTo(HttpStatus.OK);
+    assertThat(statusOf("v-key", MockServerHttpRequest.post("/api/agent/v1/directives")))
+        .isEqualTo(HttpStatus.OK);
+  }
+
+  @Test
   void testViewerMayOnlyRead() {
     assertThat(statusOf("v-key", MockServerHttpRequest.get("/api/executions")))
         .isEqualTo(HttpStatus.OK);

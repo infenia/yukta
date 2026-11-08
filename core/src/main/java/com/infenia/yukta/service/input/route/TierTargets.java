@@ -3,7 +3,6 @@
 package com.infenia.yukta.service.input.route;
 
 import com.infenia.yukta.model.input.Tier;
-import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import java.util.ArrayList;
@@ -23,7 +22,7 @@ import lombok.experimental.UtilityClass;
 public class TierTargets {
 
   /** The selector for supervisors that watch more than a reference supervisor. */
-  public static final String ABOVE = "supervisor:above";
+  public static final String PARENT = "supervisor:parent";
 
   private static final String ANY = "supervisor:*";
 
@@ -44,13 +43,15 @@ public class TierTargets {
       final InputRequest request,
       final Tier tier,
       final EligibleSupervisors bound,
-      final List<SupervisorScope> references) {
+      final List<String> askers) {
     final Set<String> out = new LinkedHashSet<>();
     for (final String selector : tier.responders()) {
-      if (ABOVE.equals(selector)) {
+      if (PARENT.equals(selector)) {
+        final Set<String> parents = new LinkedHashSet<>();
+        askers.forEach(asker -> parents.addAll(bound.parentsOf(asker)));
         bound.bound().stream()
+            .filter(c -> parents.contains(c.id()))
             .filter(c -> watches(c, request) && bound.mayReceive(c, request))
-            .filter(c -> references.stream().anyMatch(c.scope()::strictlyCovers))
             .forEach(c -> out.add(PREFIX + c.id()));
       } else {
         out.add(selector);

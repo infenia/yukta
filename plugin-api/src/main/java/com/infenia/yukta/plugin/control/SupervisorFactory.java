@@ -93,4 +93,13 @@ public interface SupervisorFactory {
    * @return the fields
    */
   List<ConfigField> getConfigSchema();
+
+  /**
+   * Ready-made settings for this type.
+   *
+   * @return the presets; none by default
+   */
+  default List<SupervisorPreset> presets() {
+    return List.of();
+  }
 }

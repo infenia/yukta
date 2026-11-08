@@ -299,7 +299,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aWorkflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
+  void workflowAndItsNodesCannotBeOwnedBySeparateSupervisors() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), true)))
@@ -313,7 +313,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aSessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
+  void sessionAndAnythingInsideItCannotBeOwnedBySeparateSupervisors() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Session("s"), true)))
@@ -326,7 +326,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void overlappingPrefixesAndAnIdUnderAPrefixAreRefused() {
+  void overlappingPrefixesAndIdUnderPrefixAreRefused() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(
@@ -382,7 +382,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void aDisabledAttachmentOwnsNothingAndASupervisorMayHoldSeveralOfItsOwn() {
+  void disabledAttachmentOwnsNothingAndSupervisorMayHoldSeveralOfItsOwn() {
     saveSupervisors("a", "b");
     StepVerifier.create(
             service.attach(attachment("a1", "a", new SupervisorScope.Workflow("w", "s"), false)))
@@ -411,6 +411,65 @@ class SupervisorServiceTest {
         .verifyComplete();
 
     expectConflict(attachment("b1", "b", new SupervisorScope.Server(), true), "the server");
+  }
+
+  // --- hierarchy: parents ---
+
+  private static Supervisor withParents(final String id, final String... parents) {
+    return new Supervisor(id, TYPE, Map.of(), false, null, List.of(parents), Map.of());
+  }
+
+  @Test
+  void supervisorMayReportToSeveralStoredParents() {
+    saveSupervisors("p1", "p2");
+
+    StepVerifier.create(service.saveSupervisor(withParents("child", "p1", "p2")))
+        .expectNextCount(1)
+        .verifyComplete();
+  }
+
+  @Test
+  void missingParentSelfReferenceCycleAndTooManyLevelsAreRefusedAtSave() {
+    saveSupervisors("a");
+    StepVerifier.create(service.saveSupervisor(withParents("x", "ghost")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("y", "y")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("b", "a")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("a", "b")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(service.saveSupervisor(withParents("c", "b")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("d", "c")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.saveSupervisor(withParents("e", "d")))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void parentCannotBeDeletedWhileSupervisorsReportToIt() {
+    saveSupervisors("boss");
+    StepVerifier.create(service.saveSupervisor(withParents("worker", "boss")))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    StepVerifier.create(service.deleteSupervisor("boss"))
+        .expectErrorSatisfies(
+            error ->
+                org.assertj.core.api.Assertions.assertThat(error)
+                    .isInstanceOf(ConflictException.class)
+                    .hasMessageContaining("parent of [worker]"))
+        .verify();
+    StepVerifier.create(service.deleteSupervisor("worker")).verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("boss")).verifyComplete();
   }
 
   @Test
@@ -548,7 +607,7 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void restoreKeepsTheFirstOwnerOfAUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
+  void restoreKeepsTheFirstOwnerOfUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
     store.saveSupervisor(supervisor("a")).block();
     store.saveSupervisor(supervisor("b")).block();
     store
@@ -815,5 +874,179 @@ class SupervisorServiceTest {
     service.restore();
 
     verify(host, times(1)).attach(any(BoundSupervisor.class));
+  }
+
+  @Test
+  void everyChangeIsAVersionAndARollbackSavesAnEarlierOneAsANewVersion() {
+    final Supervisor first = new Supervisor("v", TYPE, Map.of("level", 1), false);
+    final Supervisor second = new Supervisor("v", TYPE, Map.of("level", 2), false);
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(first)).expectNextCount(1).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(second)).expectNextCount(1).verifyComplete();
+
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions -> {
+              // the repeat of the same settings is not a version
+              assertThat(versions)
+                  .extracting(SupervisorVersions.Version::version)
+                  .containsExactly(2, 1);
+              assertThat(versions.get(0).supervisor()).isEqualTo(second);
+            })
+        .verifyComplete();
+
+    StepVerifier.create(service.rollback("v", 1)).expectNext(first).verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(
+            versions ->
+                assertThat(versions)
+                    .extracting(SupervisorVersions.Version::version)
+                    .containsExactly(3, 2, 1))
+        .verifyComplete();
+  }
+
+  @Test
+  void aVersionThatIsNotKeptAndAnUnknownSupervisorAreNotFound() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.rollback("v", 9)).expectError(NotFoundException.class).verify();
+    StepVerifier.create(service.versions("nope")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
+  void deletingASupervisorForgetsItsVersions() {
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.deleteSupervisor("v")).verifyComplete();
+    StepVerifier.create(service.saveSupervisor(supervisor("v")))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(service.versions("v"))
+        .assertNext(versions -> assertThat(versions).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void onlyTheNewestTwentyVersionsAreKept() {
+    final SupervisorVersions kept = new SupervisorVersions();
+    for (int i = 0; i < 25; i++) {
+      kept.record(new Supervisor("k", TYPE, Map.of("level", i), false));
+    }
+    assertThat(kept.list("k")).hasSize(SupervisorVersions.KEPT);
+    assertThat(kept.find("k", 25)).isPresent();
+    assertThat(kept.find("k", 5)).isEmpty();
+    assertThat(kept.list("other")).isEmpty();
+  }
+
+  /** Pauses a run when it fails; with the setting "plain" it is a supervisor without causes. */
+  private SupervisorService replaying(final boolean plain) {
+    final SupervisorFactory pausing =
+        new SupervisorFactory() {
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of();
+          }
+
+          @Override
+          public String type() {
+            return "pausing";
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            if (plain) {
+              return new ExecutionSupervisor() {
+                @Override
+                public String id() {
+                  return "made";
+                }
+
+                @Override
+                public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+                  return events
+                      .filter(e -> e instanceof ExecutionEvent.WorkflowStatusChanged)
+                      .map(e -> new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()));
+                }
+              };
+            }
+            return new com.infenia.yukta.plugin.control.engine.DirectiveSupervisor() {
+              @Override
+              public String id() {
+                return "made";
+              }
+
+              @Override
+              public Flux<com.infenia.yukta.plugin.control.engine.Directive.Command> directives(
+                  final Flux<ExecutionEvent> events) {
+                return events
+                    .filter(
+                        e ->
+                            e instanceof ExecutionEvent.WorkflowStatusChanged changed
+                                && "FAILURE".equals(changed.status()))
+                    .map(
+                        e ->
+                            new com.infenia.yukta.plugin.control.engine.Directive.Command(
+                                "k",
+                                new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
+                                com.infenia.yukta.plugin.control.engine.Cause.tick(),
+                                "failed",
+                                null));
+              }
+            };
+          }
+        };
+    final SupervisorService made =
+        new SupervisorService(new InMemorySupervisorStore(), List.of(pausing), host, log);
+    StepVerifier.create(made.saveSupervisor(new Supervisor("r", "pausing", Map.of(), false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    log.append(com.infenia.yukta.service.log.ExecutionLogEvent.started("run1", "s", "w", "v1"));
+    log.append(
+        com.infenia.yukta.service.log.ExecutionLogEvent.finished(
+            "run1", "s", "w", "FAILURE", Map.of("n1", "FAILURE")));
+    return made;
+  }
+
+  @Test
+  void aReplayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
+    StepVerifier.create(replaying(false).replay("r", null, "run1"))
+        .assertNext(
+            decisions ->
+                assertThat(decisions)
+                    .singleElement()
+                    .satisfies(
+                        d -> {
+                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                          assertThat(d.executionId()).isEqualTo("run1");
+                          assertThat(d.cause()).isEqualTo("tick");
+                          assertThat(d.reason()).isEqualTo("failed");
+                          // a tick is initiative, and the supervisor lists none
+                          assertThat(d.allowed()).isFalse();
+                        }))
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayOfAPlainSupervisorSeesEveryStatusEvent() {
+    StepVerifier.create(replaying(true).replay("r", Map.of(), "run1"))
+        .assertNext(
+            decisions -> {
+              assertThat(decisions).hasSize(2);
+              assertThat(decisions).allSatisfy(d -> assertThat(d.allowed()).isTrue());
+            })
+        .verifyComplete();
+  }
+
+  @Test
+  void aReplayNeedsTheSupervisorAndARecordedRun() {
+    final SupervisorService made = replaying(false);
+    StepVerifier.create(made.replay("nope", null, "run1"))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(made.replay("r", null, "unknown"))
+        .expectError(NotFoundException.class)
+        .verify();
   }
 }
