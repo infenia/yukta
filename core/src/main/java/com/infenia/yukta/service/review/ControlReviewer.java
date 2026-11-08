@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor;
+package com.infenia.yukta.service.review;
 
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ApprovalNeed;
@@ -37,7 +37,7 @@ public class ControlReviewer {
   private AttachedSupervisors attached = new AttachedSupervisors();
 
   /** Finds the host, to record what a dry-run supervisor would have refused. */
-  private @Nullable ObjectProvider<SupervisorHost> hostLookup;
+  private @Nullable ObjectProvider<DryRunRecorder> hostLookup;
 
   /** Whether every supervisor only records ({@code yukta.supervisor.dry-run}). */
   private boolean dryRun;
@@ -89,7 +89,7 @@ public class ControlReviewer {
    */
   @Autowired
   public void setDryRun(
-      final ObjectProvider<SupervisorHost> host, final YuktaProperties properties) {
+      final ObjectProvider<DryRunRecorder> host, final YuktaProperties properties) {
     this.hostLookup = host;
     this.dryRun = properties.supervisor().dryRun();
   }
@@ -257,7 +257,7 @@ public class ControlReviewer {
       return decision;
     }
     if (hostLookup != null) {
-      final SupervisorHost host = hostLookup.getIfAvailable();
+      final DryRunRecorder host = hostLookup.getIfAvailable();
       if (host != null) {
         host.wouldHaveRefused(
             supervisor.id(),

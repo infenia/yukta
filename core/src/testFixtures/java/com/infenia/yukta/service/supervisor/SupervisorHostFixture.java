@@ -5,6 +5,7 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.ObjectProvider;
 

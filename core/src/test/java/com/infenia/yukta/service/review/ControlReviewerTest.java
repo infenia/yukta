@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor;
+package com.infenia.yukta.service.review;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.infenia.yukta.plugin.control.ControlDecision;
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -93,24 +91,6 @@ class ControlReviewerTest {
     }
   }
 
-  /** A control plane with a class name, as real ones have. */
-  /* default */ static final class NamedPlane implements ControlPlanePlugin {
-    @Override
-    public String id() {
-      return "plane";
-    }
-
-    @Override
-    public int order() {
-      return 5;
-    }
-
-    @Override
-    public Mono<ControlDecision> decide(final ExecutionEvent event) {
-      return Mono.just(ControlDecision.none(ControlDecision.Source.MODEL));
-    }
-  }
-
   @Test
   void settingsBuildReviewerThatStillRefusesWhenNotDryRun() {
     final ControlReviewer reviewer =
@@ -131,7 +111,7 @@ class ControlReviewerTest {
         ControlReviewerFixture.create(
             providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())));
     reviewer.setDryRun(
-        new StaticListableBeanFactory().getBeanProvider(SupervisorHost.class),
+        new StaticListableBeanFactory().getBeanProvider(DryRunRecorder.class),
         YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
     final ControlRequest request =
         new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e1"), null, "A", "w1");

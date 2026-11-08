@@ -15,6 +15,7 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;

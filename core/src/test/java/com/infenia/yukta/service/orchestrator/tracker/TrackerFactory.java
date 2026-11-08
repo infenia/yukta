@@ -44,7 +44,7 @@ public final class TrackerFactory {
         log,
         meters,
         observations,
-        new com.infenia.yukta.service.supervisor.ExecutionEventFeed());
+        new com.infenia.yukta.service.review.ExecutionEventFeed());
   }
 
   /** A tracker with every part given. */
@@ -54,7 +54,7 @@ public final class TrackerFactory {
       final ExecutionLogStore log,
       final MeterRegistry meters,
       final ObservationRegistry observations,
-      final com.infenia.yukta.service.supervisor.ExecutionEventFeed feed) {
+      final com.infenia.yukta.service.review.ExecutionEventFeed feed) {
     return new DefaultTaskTrackerService(
         new TrackerProperties(null, 0, cleanupTtl), cache, log, meters, observations, feed);
   }
@@ -69,7 +69,7 @@ public final class TrackerFactory {
             new InMemoryExecutionLogStore(),
             new SimpleMeterRegistry(),
             ObservationRegistry.NOOP,
-            new com.infenia.yukta.service.supervisor.ExecutionEventFeed());
+            new com.infenia.yukta.service.review.ExecutionEventFeed());
     tracker.useClock(clock);
     return tracker;
   }

@@ -15,7 +15,7 @@ import com.infenia.yukta.service.metrics.MetricsSampler;
 import com.infenia.yukta.service.metrics.RunAnalytics;
 import com.infenia.yukta.service.metrics.RunAnalyticsFixture;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.supervisor.ExecutionEventFeed;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.time.Instant;

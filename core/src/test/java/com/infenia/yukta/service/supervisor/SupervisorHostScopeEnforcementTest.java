@@ -23,6 +23,7 @@ import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.concurrent.TimeUnit;

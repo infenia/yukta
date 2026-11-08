@@ -13,7 +13,7 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.supervisor.ControlRejectedException;
+import com.infenia.yukta.service.review.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;

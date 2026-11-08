@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.service.supervisor;
+package com.infenia.yukta.service.review;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -231,11 +231,11 @@ class ControlReviewerApprovalTest {
   void dryRunNeedIsRecordedNotEnforced() {
     final ControlReviewer reviewer =
         new ControlReviewer(providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200));
-    final SupervisorHost host = mock(SupervisorHost.class);
+    final DryRunRecorder host = mock(DryRunRecorder.class);
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
     beans.addBean("host", host);
     reviewer.setDryRun(
-        beans.getBeanProvider(SupervisorHost.class),
+        beans.getBeanProvider(DryRunRecorder.class),
         YuktaSettings.bind(Map.of("yukta.supervisor.dry-run", "true")));
     StepVerifier.create(reviewer.verdict(PAUSE, Set.of()))
         .expectNext(ReviewVerdict.ALLOWED)

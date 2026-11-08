@@ -13,7 +13,7 @@ import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.input.InputRisk;
-import com.infenia.yukta.service.supervisor.BoundSupervisor;
+import com.infenia.yukta.service.review.BoundSupervisor;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
