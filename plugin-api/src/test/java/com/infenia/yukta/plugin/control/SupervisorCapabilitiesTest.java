@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class SupervisorCapabilitiesTest {
 
   private static Supervisor profile(final Map<String, Object> settings) {
@@ -129,10 +129,7 @@ class SupervisorCapabilitiesTest {
         SupervisorCapabilities.from(
             profile(
                 Map.of(
-                    "initiative",
-                    java.util.List.of("PauseWorkflowCommand"),
-                    "maxInitiativePerMinute",
-                    3)));
+                    "initiative", List.of("PauseWorkflowCommand"), "maxInitiativePerMinute", 3)));
     final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
 
     assertThat(none.initiative()).isEmpty();
@@ -141,14 +138,13 @@ class SupervisorCapabilitiesTest {
         .isEqualTo(SupervisorContract.DEFAULT_INITIATIVE_PER_MINUTE);
     assertThat(listed.mayInitiate(pause)).isTrue();
     assertThat(listed.maxInitiativePerMinute()).isEqualTo(3);
-    org.assertj.core.api.Assertions.assertThatThrownBy(
+    assertThatThrownBy(
             () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", 0))))
         .isInstanceOf(IllegalArgumentException.class);
-    org.assertj.core.api.Assertions.assertThatThrownBy(
+    assertThatThrownBy(
             () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", "ten"))))
         .isInstanceOf(IllegalArgumentException.class);
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 0))
+    assertThatThrownBy(() -> new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 0))
         .isInstanceOf(IllegalArgumentException.class);
     assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 1).initiative())
         .isEmpty();

@@ -31,8 +31,8 @@ public final class EngineBackedSupervisor
   /** Most reviews waiting for the engine at once; more are treated as unanswered. */
   public static final int MAX_OPEN_REVIEWS = 100;
 
-  private final String id;
-  private final SupervisorScope scope;
+  private final String supervisorId;
+  private final SupervisorScope owned;
   private final SupervisorEngine engine;
   private final boolean reviews;
   private final Duration reviewTimeout;
@@ -59,15 +59,15 @@ public final class EngineBackedSupervisor
     this(id, scope, engine, reviews, REVIEW_TIMEOUT, reads -> {});
   }
 
-  EngineBackedSupervisor(
+  /* default */ EngineBackedSupervisor(
       final String id,
       final SupervisorScope scope,
       final SupervisorEngine engine,
       final boolean reviews,
       final Duration reviewTimeout,
       final Consumer<EngineReads> readsSink) {
-    this.id = id;
-    this.scope = scope;
+    this.supervisorId = id;
+    this.owned = scope;
     this.engine = engine;
     this.reviews = reviews;
     this.reviewTimeout = reviewTimeout;
@@ -77,12 +77,12 @@ public final class EngineBackedSupervisor
   @Override
   @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
-    return id;
+    return supervisorId;
   }
 
   @Override
   public SupervisorScope scope() {
-    return scope;
+    return owned;
   }
 
   @Override

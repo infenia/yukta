@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputRequest;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -75,6 +76,9 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
           }
 
           @Override
+          @SuppressFBWarnings(
+              value = "EI_EXPOSE_REP",
+              justification = "the engine's own state store, which it is meant to change")
           public Map<String, Object> state() {
             return state;
           }

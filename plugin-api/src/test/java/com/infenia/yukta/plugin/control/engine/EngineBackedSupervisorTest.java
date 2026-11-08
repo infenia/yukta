@@ -21,6 +21,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CloseResource"})
 class EngineBackedSupervisorTest {
 
   private static final ExecutionControlCommand STOP =
@@ -63,7 +64,8 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void aReviewWaitsForTheVerdict() {
+  @SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+  void reviewWaitsForTheVerdict() {
     for (final Directive.Verdict verdict : Directive.Verdict.values()) {
       final var sup =
           supervisor(
@@ -84,7 +86,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void noOpinionAllowsAndSilenceIsATimeoutForTheReviewer() {
+  void noOpinionAllowsAndSilenceTimesOutForTheReviewer() {
     final var asked =
         supervisor(
             engine(
@@ -222,12 +224,12 @@ class EngineBackedSupervisorTest {
 
   @Test
   void reviewsReachAnEngineThatWasRestarted() {
-    final int[] runs = {0};
+    final var runs = new java.util.concurrent.atomic.AtomicInteger();
     final var sup =
         supervisor(
             engine(
                 signals ->
-                    runs[0]++ == 0
+                    runs.getAndIncrement() == 0
                         ? Flux.<Directive>error(new IllegalStateException("first run fails"))
                         : signals
                             .ofType(Signal.Review.class)
@@ -241,5 +243,25 @@ class EngineBackedSupervisorTest {
     // the host resubscribes after a failure; the review signals must still arrive
     sup.directives(Flux.never()).subscribe();
     assertThat(sup.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.deny("no"));
+  }
+
+  @Test
+  void answersToNoOpenReviewAndOtherDirectivesChangeNothing() {
+    final var sup =
+        new EngineBackedSupervisor(
+            "s1",
+            new SupervisorScope.Global(),
+            engine(
+                signals ->
+                    Flux.<Directive>just(
+                        new Directive.ReviewVerdict("gone", Directive.Verdict.DENY, null),
+                        new Directive.NoOpinion("gone"),
+                        new Directive.Notify("hello", Cause.tick(), "why"),
+                        new Directive.Command("k", STOP, Cause.tick(), "why", null))),
+            false);
+    StepVerifier.create(sup.directives(Flux.never()).take(1))
+        .assertNext(command -> assertThat(command.command()).isEqualTo(STOP))
+        .verifyComplete();
+    assertThat(sup.id()).isEqualTo("s1");
   }
 }

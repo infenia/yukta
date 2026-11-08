@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control.engine;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 
 /**
@@ -9,6 +10,9 @@ import java.util.Map;
  *
  * @param settings the settings the factory's schema describes
  */
+@SuppressFBWarnings(
+    value = "EI_EXPOSE_REP",
+    justification = "the compact constructor stores an unmodifiable copy")
 public record EngineConfig(Map<String, Object> settings) {
 
   /** Keeps an unmodifiable copy; a setting may be null. */

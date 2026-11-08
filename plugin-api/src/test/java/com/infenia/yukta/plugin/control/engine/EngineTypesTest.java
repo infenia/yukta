@@ -89,6 +89,7 @@ class EngineTypesTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.CloseResource")
   void anEnginePassesSignalsToDirectivesAndClosesWithoutFuss() {
     final SupervisorEngine engine = signals -> signals.map(s -> new Directive.NoOpinion("r"));
     StepVerifier.create(engine.run(Flux.just(new Signal.Tick(Instant.EPOCH))))
