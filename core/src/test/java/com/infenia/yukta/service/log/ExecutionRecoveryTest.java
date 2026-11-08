@@ -90,7 +90,9 @@ class ExecutionRecoveryTest {
     recovery.recover();
 
     assertThat(scheduler.perWorkflowLimit()).isEqualTo(9);
+  }
 
+  @Test
   void startupRemovesTheDurableOutputOfRunsThatAreNoLongerInTheLog(
       @org.junit.jupiter.api.io.TempDir final java.nio.file.Path dir) throws java.io.IOException {
     final var files =
