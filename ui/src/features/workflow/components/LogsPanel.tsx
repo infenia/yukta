@@ -425,28 +425,26 @@ export function LogsPanel({
                   className="text-body-sm h-7 w-full pl-8"
                 />
               </div>
-              <Tip label="Keep the newest line in view">
+              <Tip label="Follow: keep the newest line in view">
                 <button
                   type="button"
                   role="switch"
                   aria-checked={autoScroll}
-                  aria-label="Toggle auto-scroll"
+                  aria-label="Follow new lines"
                   onClick={() => setAutoScroll((value) => !value)}
                   className={cn(
-                    'text-label-sm inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 transition-colors',
+                    'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
                     autoScroll
-                      ? 'border-primary/30 bg-primary/10 text-primary'
-                      : 'text-on-surface-variant hover:bg-muted border-border'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                   )}
                 >
                   <span
-                    aria-hidden
-                    className={cn(
-                      'size-1.5 rounded-full',
-                      autoScroll ? 'bg-primary' : 'bg-outline'
-                    )}
-                  />
-                  Follow
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-base"
+                  >
+                    vertical_align_bottom
+                  </span>
                 </button>
               </Tip>
               {/* The result shows inside the button: a status beside it would shift the toolbar */}
@@ -623,13 +621,21 @@ export function LogsPanel({
             )}
           </div>
           {!autoScroll && visibleEntries.length > 0 && (
-            <button
-              type="button"
-              onClick={jumpToLatest}
-              className="bg-primary text-label-sm text-on-primary absolute right-4 bottom-3 rounded-lg px-3 py-1"
-            >
-              Jump to latest
-            </button>
+            <Tip label="Jump to latest">
+              <button
+                type="button"
+                onClick={jumpToLatest}
+                aria-label="Jump to latest"
+                className="bg-primary text-on-primary focus-visible:ring-ring shadow-raised absolute right-4 bottom-3 flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+              >
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined text-lg"
+                >
+                  keyboard_double_arrow_down
+                </span>
+              </button>
+            </Tip>
           )}
         </div>
       )}
