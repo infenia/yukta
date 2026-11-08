@@ -12,7 +12,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.core.Plugin;
-import com.infenia.yukta.service.control.store.ActivePluginRegistry;
+import com.infenia.yukta.service.runtime.store.ActivePluginRegistry;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicBoolean;

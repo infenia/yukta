@@ -3,11 +3,11 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.plugin.input.InputRequest;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import com.infenia.yukta.service.review.AttachedSupervisors;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;

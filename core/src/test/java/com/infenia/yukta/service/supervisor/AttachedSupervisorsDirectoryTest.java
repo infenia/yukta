@@ -8,13 +8,13 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRequest;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.input.EligibleSupervisors;
 import com.infenia.yukta.service.input.InputTestSupport;
 import com.infenia.yukta.service.review.AttachedSupervisors;
 import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;

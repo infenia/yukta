@@ -218,7 +218,8 @@ Base package `com.infenia.yukta` under `core/src/main/java`. Use this to find wh
 | `…orchestrator.assembly / strategy` | One assembler per node kind; shared stream helpers | `TriggerNodeAssemblerStrategy` `ProcessorNodeAssemblerStrategy` `TerminalNodeAssemblerStrategy` | ENG-02 |
 | `…orchestrator.stream` | Node runtime: policies, activity/clocks, broadcast, failure ledger | `NodePolicies` `NodeActivity` `NodeTimeouts` `NodeBroadcast` `FailureLedger` `StreamTopologyDecorator` | ENG-01…05 |
 | `…orchestrator.tracker` | Event queue, per-run state, telemetry, history, streams | `DefaultTaskTrackerService` `WorkflowState` `TrackerEventApplier` `RunTelemetry` `ExecutionHistory` `ExecutionStreams` | OBS, ENG-06 |
-| `service.control` | Scheduler, per-run control handles, start facade | `ExecutionScheduler` `WorkflowService` `ExecutionControl` `ControlBusService` | ADM, CTL |
+| `service.runtime` (`…valve / store / factory`) | Scheduler, per-run control handles, valve, control stores and factory; the lowest layer | `ExecutionScheduler` `ExecutionControl` `ReactiveControlValve` `ExecutionControlStore` `ActivePluginRegistry` | ADM, CTL |
+| `service.control` | Start facade and control bus | `WorkflowService` `ControlBusService` | ADM, CTL |
 | `…control.gateway` | The facade REST and MCP call; split by concern | `ControlBusGateway` `DefaultControlBusGateway` `WorkflowStarter` `NodeCommands` `RestartCoordinator` `ExecutionQueries` `StartIdempotency` | ADM-02, CTL |
 | `…control.processor / valve / directive / store` | One processor per command; the valve; plugin-level directives; control handle stores | `ReactiveControlValve` `DirectiveDispatcher` `InMemoryExecutionControlStore` | CTL |
 | `service.supervisor` | Supervisor host, service and definitions | `SupervisorHost` `SupervisorService` `DefinitionSupervisors` | CTL-06, CTL-07 |

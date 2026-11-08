@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.leader;
 
-import com.infenia.yukta.service.control.ExecutionRejectedException;
+import com.infenia.yukta.service.ExecutionRejectedException;
 
 /** A start was sent to a standby; the caller should retry on the leader (HTTP 503). */
 public class NotLeaderException extends ExecutionRejectedException {

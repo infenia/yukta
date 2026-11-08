@@ -13,7 +13,7 @@ import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.security.ApiRole;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.List;
 import java.util.Map;

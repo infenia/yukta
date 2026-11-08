@@ -6,8 +6,8 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 

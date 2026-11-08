@@ -12,10 +12,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.gateway.SubWorkflowGateway;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.input.DefaultAnswerAuthorizer;
 import com.infenia.yukta.service.orchestrator.SubWorkflowRunner;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
 import java.util.List;

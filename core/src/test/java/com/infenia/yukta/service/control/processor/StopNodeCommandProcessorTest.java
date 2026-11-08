@@ -7,9 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.model.execution.ControlState;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand.StopNodeCommand;
-import com.infenia.yukta.service.control.ExecutionControl;
-import com.infenia.yukta.service.control.store.ExecutionControlStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
+import com.infenia.yukta.service.runtime.ExecutionControl;
+import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import java.util.Map;
 import java.util.Optional;
 import lombok.NoArgsConstructor;
