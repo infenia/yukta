@@ -548,6 +548,44 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void restoreKeepsTheFirstOwnerOfAUnitAndMarksTheOverlappingAttachmentsAsConflicts() {
+    store.saveSupervisor(supervisor("a")).block();
+    store.saveSupervisor(supervisor("b")).block();
+    store
+        .saveAttachment(attachment("m1", "a", new SupervisorScope.Workflow("w", "s"), true))
+        .block();
+    store
+        .saveAttachment(
+            attachment(
+                "m2",
+                "b",
+                new SupervisorScope.Section("w", "s", java.util.Set.of("build.*")),
+                true))
+        .block();
+    store.saveAttachment(attachment("m3", "b", new SupervisorScope.Run("w2", "s"), true)).block();
+
+    service.restore();
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(store.attachments().collectList().block())
+                    .extracting(
+                        SupervisorAttachment::id,
+                        SupervisorAttachment::enabled,
+                        SupervisorAttachment::conflict)
+                    .containsExactlyInAnyOrder(
+                        org.assertj.core.groups.Tuple.tuple("m1", true, false),
+                        org.assertj.core.groups.Tuple.tuple("m2", false, true),
+                        org.assertj.core.groups.Tuple.tuple("m3", true, false)));
+    // the owner and the free unit start; the conflicting one does not
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(() -> verify(host, times(2)).attach(any(BoundSupervisor.class)));
+  }
+
+  @Test
   void restoreCountsStartedAndFailedBindingsAndSkipsWhenStandby() {
     final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     service.setMeterRegistry(meters);

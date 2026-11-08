@@ -142,7 +142,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
     return client
         .sql(
             "SELECT id, supervisor_id, scope, enabled, source, origin_session_id,"
-                + " origin_workflow_id FROM supervisor_attachment ORDER BY id")
+                + " origin_workflow_id, conflict FROM supervisor_attachment ORDER BY id")
         .map(
             row ->
                 new SupervisorAttachment(
@@ -152,7 +152,8 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                     Boolean.TRUE.equals(row.get("enabled", Boolean.class)),
                     SupervisorSource.valueOf(row.get("source", String.class)),
                     row.get("origin_session_id", String.class),
-                    row.get("origin_workflow_id", String.class)))
+                    row.get("origin_workflow_id", String.class),
+                    Boolean.TRUE.equals(row.get("conflict", Boolean.class))))
         .all();
   }
 
@@ -162,13 +163,14 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .sql(
             """
             INSERT INTO supervisor_attachment (id, supervisor_id, scope, enabled, source,
-              origin_session_id, origin_workflow_id, updated_at)
+              origin_session_id, origin_workflow_id, conflict, updated_at)
             VALUES (:id, :supervisor, :scope, :enabled, :source, :originSession,
-              :originWorkflow, now())
+              :originWorkflow, :conflict, now())
             ON CONFLICT (id) DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id,
               scope = EXCLUDED.scope, enabled = EXCLUDED.enabled, source = EXCLUDED.source,
               origin_session_id = EXCLUDED.origin_session_id,
-              origin_workflow_id = EXCLUDED.origin_workflow_id, updated_at = now()
+              origin_workflow_id = EXCLUDED.origin_workflow_id, conflict = EXCLUDED.conflict,
+              updated_at = now()
             """)
         .bind("id", binding.id())
         .bind("supervisor", binding.supervisorId())
@@ -177,6 +179,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .bind("source", binding.source().name())
         .bind("originSession", nullable(binding.originSessionId()))
         .bind("originWorkflow", nullable(binding.originWorkflowId()))
+        .bind("conflict", binding.conflict())
         .fetch()
         .rowsUpdated()
         .then();

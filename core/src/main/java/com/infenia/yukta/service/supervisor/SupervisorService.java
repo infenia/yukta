@@ -34,6 +34,8 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -231,6 +233,54 @@ public class SupervisorService {
         .register(meters);
   }
 
+  /**
+   * One owner per unit, for attachments saved before that rule: the first enabled attachment of a
+   * unit (by id) keeps it, and any other that overlaps is disabled and marked {@code conflict},
+   * with a WARN naming both. A failure to save a mark is logged and does not stop the restore; an
+   * unreadable store is retried by the caller.
+   */
+  private Mono<Void> markConflicts() {
+    final OwnershipValidator validator = new OwnershipValidator((s, w) -> Optional.empty());
+    return store
+        .attachments()
+        .filter(SupervisorAttachment::enabled)
+        .sort(Comparator.comparing(SupervisorAttachment::id))
+        .collectList()
+        .flatMapMany(
+            all -> {
+              final List<OwnershipValidator.Claim> kept = new ArrayList<>();
+              final List<SupervisorAttachment> losers = new ArrayList<>();
+              for (final SupervisorAttachment attachment : all) {
+                final var claim =
+                    new OwnershipValidator.Claim(attachment.supervisorId(), attachment.scope());
+                final var conflicts = validator.conflicts(claim, kept);
+                if (conflicts.isEmpty()) {
+                  kept.add(claim);
+                } else {
+                  log.atWarn()
+                      .addKeyValue("attachment", attachment.id())
+                      .addKeyValue("conflict", conflicts.getFirst().message())
+                      .log("Attachment disabled at start-up: it overlaps one that keeps the unit");
+                  losers.add(attachment.asConflict());
+                }
+              }
+              return Flux.fromIterable(losers);
+            })
+        .concatMap(
+            marked ->
+                store
+                    .saveAttachment(marked)
+                    .onErrorResume(
+                        error -> {
+                          log.atWarn()
+                              .setCause(error)
+                              .addKeyValue("attachment", marked.id())
+                              .log("Could not mark the overlapping attachment");
+                          return Mono.empty();
+                        }))
+        .then();
+  }
+
   /** Starts the enabled attachments that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
@@ -241,7 +291,8 @@ public class SupervisorService {
     restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
-    Flux.defer(() -> refreshResolver().thenMany(store.attachments()))
+    Flux.defer(
+            () -> refreshResolver().then(markConflicts()).thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
         .concatMap(
