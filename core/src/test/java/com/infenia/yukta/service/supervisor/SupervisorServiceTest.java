@@ -69,12 +69,7 @@ class SupervisorServiceTest {
 
   private final SupervisorStore store = new InMemorySupervisorStore();
 
-  private final SupervisorHost host = mock(SupervisorHost.class);
-
-  {
-    // a restore loads the hold ledger first
-    lenient().when(host.loadHolds(any())).thenReturn(Mono.empty());
-  }
+  private final SupervisorHost host = loadingNoHolds();
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
 
@@ -216,8 +211,8 @@ class SupervisorServiceTest {
 
     attached("b1", new SupervisorScope.Global());
 
-    final org.mockito.ArgumentCaptor<com.infenia.yukta.security.AuditRecord> records =
-        org.mockito.ArgumentCaptor.forClass(com.infenia.yukta.security.AuditRecord.class);
+    final ArgumentCaptor<com.infenia.yukta.security.AuditRecord> records =
+        ArgumentCaptor.forClass(com.infenia.yukta.security.AuditRecord.class);
     verify(sink, times(2)).record(records.capture());
     assertThat(records.getAllValues())
         .extracting(com.infenia.yukta.security.AuditRecord::command)
@@ -1329,5 +1324,12 @@ class SupervisorServiceTest {
     public void readsFrom(final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
       given.add(reads);
     }
+  }
+
+  /** A host mock whose hold ledger loads nothing, as a restore loads it first. */
+  private static SupervisorHost loadingNoHolds() {
+    final SupervisorHost mocked = mock(SupervisorHost.class);
+    lenient().when(mocked.loadHolds(any())).thenReturn(Mono.empty());
+    return mocked;
   }
 }

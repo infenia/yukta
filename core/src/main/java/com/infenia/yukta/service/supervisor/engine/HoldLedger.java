@@ -24,7 +24,8 @@ public final class HoldLedger {
 
   private final Map<String, SequencedSet<String>> bySupervisor = new HashMap<>(); // NOPMD - locked
   private final ReentrantLock lock = new ReentrantLock();
-  private volatile Consumer<Change> listener = change -> {};
+  // set and read under the lock
+  private Consumer<Change> listener = change -> {};
 
   /**
    * A change to the ledger.
@@ -41,7 +42,12 @@ public final class HoldLedger {
    * @param changes the listener
    */
   public void onChange(final Consumer<Change> changes) {
-    this.listener = changes;
+    lock.lock();
+    try {
+      this.listener = changes;
+    } finally {
+      lock.unlock();
+    }
   }
 
   /**

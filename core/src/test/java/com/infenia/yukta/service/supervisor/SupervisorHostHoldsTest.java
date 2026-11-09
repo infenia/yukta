@@ -29,19 +29,20 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** The hold ledger kept in the store: written behind the host and loaded after a restart. */
+@SuppressWarnings({"PMD.TooManyStaticImports", "PMD.AvoidDuplicateLiterals", "PMD.ShortMethodName"})
 class SupervisorHostHoldsTest {
 
   private final ExecutionEventFeed feed = new ExecutionEventFeed();
   private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
-  private SupervisorHost host;
+  private SupervisorHost started;
 
   @AfterEach
   void tearDown() {
-    host.stop();
+    started.stop();
   }
 
-  private SupervisorHost host(final ExecutionSupervisor supervisor) {
-    host =
+  private SupervisorHost newHost(final ExecutionSupervisor supervisor) {
+    started =
         SupervisorHostFixture.create(
             providerOf(supervisor),
             feed,
@@ -51,7 +52,7 @@ class SupervisorHostHoldsTest {
             false,
             100,
             10_000);
-    return host;
+    return started;
   }
 
   private static ExecutionSupervisor pausingOnFailure() {
@@ -90,8 +91,8 @@ class SupervisorHostHoldsTest {
           }
         };
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
-    host(pausingOnFailure()).keepHoldsIn(store);
-    host.start();
+    newHost(pausingOnFailure()).keepHoldsIn(store);
+    started.start();
 
     await()
         .atMost(3, TimeUnit.SECONDS)
@@ -127,11 +128,11 @@ class SupervisorHostHoldsTest {
     when(queries.statusOf("sess", "ended")).thenReturn(Mono.just("SUCCESS"));
     final ObjectProvider<SupervisorQueries> provider = mock(ObjectProvider.class);
     when(provider.getIfAvailable()).thenReturn(queries);
-    host(pausingOnFailure()).setQueries(provider);
+    newHost(pausingOnFailure()).setQueries(provider);
 
-    host.loadHolds(store).block();
+    started.loadHolds(store).block();
 
-    assertThat(host.held("s")).containsExactly("going");
+    assertThat(started.held("s")).containsExactly("going");
     assertThat(store.holds().collectList().block()).containsExactly(new Hold("s", "going"));
   }
 
@@ -140,8 +141,8 @@ class SupervisorHostHoldsTest {
     final InMemorySupervisorStore store = new InMemorySupervisorStore();
     store.saveHold(new Hold("s", "a")).block();
 
-    host(pausingOnFailure()).loadHolds(store).block();
+    newHost(pausingOnFailure()).loadHolds(store).block();
 
-    assertThat(host.held("s")).containsExactly("a");
+    assertThat(started.held("s")).containsExactly("a");
   }
 }

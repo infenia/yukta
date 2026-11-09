@@ -20,6 +20,7 @@ import reactor.core.publisher.Mono;
 
 /** Keeps supervisors and attachments in memory; they are gone after a restart. */
 @NoArgsConstructor
+@SuppressWarnings("PMD.TooManyMethods") // the methods of SupervisorStore
 public class InMemorySupervisorStore implements SupervisorStore {
 
   /** Supervisors by id. */
@@ -32,10 +33,10 @@ public class InMemorySupervisorStore implements SupervisorStore {
   private final Map<String, SupervisorAttachment> bindingById = new ConcurrentHashMap<>();
 
   /** The saved states of each supervisor. */
-  private final SupervisorVersions versions = new SupervisorVersions();
+  private final SupervisorVersions history = new SupervisorVersions();
 
   /** The hold ledger, in insertion order. */
-  private final Set<Hold> holds = Collections.synchronizedSet(new LinkedHashSet<>());
+  private final Set<Hold> ledger = Collections.synchronizedSet(new LinkedHashSet<>());
 
   @Override
   public Flux<Supervisor> supervisors() {
@@ -89,34 +90,34 @@ public class InMemorySupervisorStore implements SupervisorStore {
   @Override
   public Mono<Void> saveVersion(
       final Supervisor supervisor, final Instant savedAt, final int keep) {
-    return Mono.fromRunnable(() -> versions.record(supervisor, savedAt, keep));
+    return Mono.fromRunnable(() -> history.record(supervisor, savedAt, keep));
   }
 
   @Override
   public Flux<SupervisorVersions.Version> versions(final String id) {
-    return Flux.defer(() -> Flux.fromIterable(versions.list(id)));
+    return Flux.defer(() -> Flux.fromIterable(history.list(id)));
   }
 
   @Override
   public Mono<Void> deleteVersions(final String id) {
-    return Mono.fromRunnable(() -> versions.forget(id));
+    return Mono.fromRunnable(() -> history.forget(id));
   }
 
   @Override
   public Flux<Hold> holds() {
-    return Flux.defer(() -> Flux.fromIterable(List.copyOf(holds)));
+    return Flux.defer(() -> Flux.fromIterable(List.copyOf(ledger)));
   }
 
   @Override
   public Mono<Void> saveHold(final Hold hold) {
-    return Mono.fromRunnable(() -> holds.add(hold));
+    return Mono.fromRunnable(() -> ledger.add(hold));
   }
 
   @Override
   public Mono<Void> deleteHold(final @Nullable String holder, final String executionId) {
     return Mono.fromRunnable(
         () ->
-            holds.removeIf(
+            ledger.removeIf(
                 hold ->
                     hold.executionId().equals(executionId)
                         && (holder == null || hold.holder().equals(holder))));

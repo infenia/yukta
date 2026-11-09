@@ -15,6 +15,7 @@ import reactor.core.publisher.Mono;
  * Keeps supervisor supervisors and attachments, so those attached at run time can come back after a
  * restart when the store is durable. The default keeps them in memory only.
  */
+@SuppressWarnings("PMD.TooManyMethods") // one store for supervisors and what belongs to them
 public interface SupervisorStore {
 
   /**
