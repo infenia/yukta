@@ -8,6 +8,7 @@ import { formatDateTime } from '@/features/workflow/lib/timeFormat';
 import { useSupervisorDecisions } from '../hooks/useSupervisorTypes';
 import { groupDecisions, type DecisionGroup } from '../lib/activity';
 import type { Decision } from '../types';
+import { StaleNotice } from './StaleNotice';
 
 const CAUSES: Record<string, { label: string; icon: string }> = {
   event: { label: 'event', icon: 'notifications' },
@@ -149,8 +150,8 @@ function Filter({
  * always with its reason, and a command for several targets with a result per target.
  */
 export function Activity({ supervisor }: { supervisor?: string }) {
-  const { data, isPending, error, refetch } =
-    useSupervisorDecisions(supervisor);
+  const decisions = useSupervisorDecisions(supervisor);
+  const { data, isPending, error, refetch } = decisions;
   const [filters, setFilters] = useState({
     supervisorId: '',
     cause: '',
@@ -158,14 +159,15 @@ export function Activity({ supervisor }: { supervisor?: string }) {
     workflowId: '',
   });
   if (isPending) return <StateMessage tone="loading" title="Loading…" />;
-  if (error) {
+  // pending is handled above, so no data means the first fetch failed
+  if (!data) {
     return (
       <StateMessage
         tone="error"
         title="Failed to load the activity."
         onRetry={() => void refetch()}
       >
-        {error.message}
+        {error?.message}
       </StateMessage>
     );
   }
@@ -185,6 +187,7 @@ export function Activity({ supervisor }: { supervisor?: string }) {
   );
   return (
     <div className="flex flex-col gap-3">
+      <StaleNotice query={decisions} />
       <p className="text-body-md text-muted-foreground max-w-prose">
         What {supervisor ?? 'every supervisor'} did since the server started:
         the cause, the target, the command and its outcome. “On its own” always

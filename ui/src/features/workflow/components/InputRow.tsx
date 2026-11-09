@@ -13,6 +13,7 @@ import { useMe } from '@/lib/identity';
 import {
   answerInput,
   escalateInput,
+  OPEN_STATES,
   type AnswerBody,
   type InputRequest,
   type InputRisk,
@@ -65,6 +66,51 @@ function PlainText({ label, text }: { label: string; text: string }) {
       </summary>
       <CodeBlock code={text} label={label} />
     </details>
+  );
+}
+
+/**
+ * How the request came here, as a sentence: "Asked guard (asked for approval), then lead
+ * (silent), now you." A request that has ended has no "now".
+ */
+export function ApprovalChain({
+  request,
+  you,
+}: {
+  request: InputRequest;
+  you: boolean;
+}) {
+  const live = OPEN_STATES.includes(request.state);
+  const steps = request.asked ?? [];
+  if (steps.length === 0) return null;
+  return (
+    <p
+      aria-label="Approval chain"
+      className="text-body-sm text-on-surface-variant"
+    >
+      Asked{' '}
+      {steps.map((step, i) => (
+        <span key={i}>
+          {i > 0 && ', then '}
+          <b className="text-on-surface">{step.who}</b> (
+          {step.said.replace('-', ' ')}
+          {step.reason ? `: ${step.reason}` : ''})
+        </span>
+      ))}
+      {live && (
+        <>
+          , now{' '}
+          {you ? (
+            <b className="text-on-surface">you</b>
+          ) : (
+            <>
+              tier <b className="text-on-surface">{request.tier}</b>
+            </>
+          )}
+        </>
+      )}
+      .
+    </p>
   );
 }
 
@@ -237,6 +283,7 @@ export function InputRow({ request }: { request: InputRequest }) {
         {request.deadline && <Countdown deadline={request.deadline} />}
       </div>
       <PlainText label="prompt" text={request.prompt} />
+      <ApprovalChain request={request} you={canAct} />
       {Object.keys(request.context).length > 0 && (
         <Fold title="Context" code={JSON.stringify(request.context, null, 2)} />
       )}
