@@ -15,6 +15,7 @@
 //   yk report [file [--yes]]                 failures captured (a non-success RESULT, a yk crash) and filed as GitHub issues once you approve (failures.ts)
 //   yk detail <session> <execution> [--grep P] [--tail N] [--head N]  the full output of the stage that failed a run (the MORE line says so)
 //   yk bench [--runs N] [--max-ratio R] [--check] [args]  the same Gradle work direct and through yk: wall times and ratio (exit 1 above R and +3 s)
+//   yk new engine <name>                     a supervisor engine module (plugins/supervisors/<name>-engine) that compiles and is tested, registered in Gradle and boot (scaffold.ts)
 //   yk tool [--detach] [-C dir] <cmd...>     run any other command once, e.g. -C ui pnpm lint | -C cli go test ./...
 //   (check, gradle, tool) --detach --notify  also post the RESULT into the Claude Code session that started the run when it ends (YUKTA_NOTIFY=off: never)
 //   yk ticket run <issue> [--detach [--notify]] | status|resume|stop <issue|execution>  an issue with acceptance criteria to a tested change (examples/dogfood)
@@ -782,6 +783,8 @@ async function dispatch(argv: string[]): Promise<number> {
       return (await import('./ticket/yk-ticket.ts')).cmdTicket(rest, { ykPath: YK })
     case 'plan':
       return planMain(rest)
+    case 'new':
+      return (await import('./scaffold.ts')).cmdNew(rest, REPO_ROOT)
     case 'heal':
       return healReport(rest)
     case 'report':

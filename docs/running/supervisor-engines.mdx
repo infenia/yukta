@@ -70,7 +70,7 @@ A line that is not a directive is dropped. If the program exits, Yukta starts it
 
 ## Write an engine
 
-An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
+`yk new engine <name>` creates the module for you (build file, factory, configuration, a passing test) and adds it to `settings.gradle.kts` and `boot/build.gradle.kts`; add its bean to `boot/src/test/resources/expected-beans.txt`. An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
 
 ## Moving from earlier versions
 
