@@ -35,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  * model API key included.
  */
 @Slf4j
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 public class R2dbcSupervisorStore implements SupervisorStore {
 
   /** The stored settings of a profile. */

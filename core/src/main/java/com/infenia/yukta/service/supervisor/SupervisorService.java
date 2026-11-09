@@ -111,6 +111,9 @@ public class SupervisorService {
 
   private static final String NOT_FOUND = "Supervisor not found: ";
 
+  /** Log key that names the supervisor a message is about. */
+  private static final String SUPERVISOR_KEY = "supervisor";
+
   /** Most decisions one replay returns, and how long a replay waits for a timer. */
   private static final int REPLAY_LIMIT = 100;
 
@@ -354,7 +357,7 @@ public class SupervisorService {
                       .findFirst();
               if (adoption.isEmpty()) {
                 log.atWarn()
-                    .addKeyValue("supervisor", legacy.id())
+                    .addKeyValue(SUPERVISOR_KEY, legacy.id())
                     .addKeyValue("type", legacy.type())
                     .log(
                         "No engine replaces this retired supervisor type; it does not start until"
@@ -367,7 +370,7 @@ public class SupervisorService {
                   .doOnSuccess(
                       done ->
                           log.atInfo()
-                              .addKeyValue("supervisor", legacy.id())
+                              .addKeyValue(SUPERVISOR_KEY, legacy.id())
                               .addKeyValue("from", legacy.type())
                               .addKeyValue("to", converted.type())
                               .addKeyValue("notes", adoption.get().notes())
@@ -392,7 +395,7 @@ public class SupervisorService {
     } catch (IllegalArgumentException e) {
       log.atWarn()
           .setCause(e)
-          .addKeyValue("supervisor", legacy.id())
+          .addKeyValue(SUPERVISOR_KEY, legacy.id())
           .addKeyValue("type", legacy.type())
           .log("The retired supervisor's settings could not be converted");
       return Optional.empty();
@@ -624,7 +627,7 @@ public class SupervisorService {
                             error -> {
                               log.atWarn()
                                   .setCause(error)
-                                  .addKeyValue("supervisor", supervisor.id())
+                                  .addKeyValue(SUPERVISOR_KEY, supervisor.id())
                                   .log("Could not keep a version of the saved supervisor");
                               return Mono.empty();
                             })))
