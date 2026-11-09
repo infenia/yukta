@@ -605,6 +605,23 @@
   transition: background 300ms ease;
 }
 
+/* Indeterminate progress: a soft ring that swells and fades, no spinning */
+.node-pulse {
+  animation: node-pulse 2s var(--ease-out-soft) infinite;
+}
+
+@keyframes node-pulse {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.97);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.04);
+  }
+}
+
 /* Status badge: finished states pop in once, a failure shakes once */
 .yukta-node[data-status='completed'] .node-badge,
 .yukta-node[data-status='failed'] .node-badge {
@@ -635,11 +652,24 @@
 
 /* A closed stage reads as a pile of cards */
 .stage-stack {
-  filter: drop-shadow(6px 0 0 var(--border)) drop-shadow(12px 0 0 var(--muted));
+  filter: drop-shadow(3px 0 0 var(--border)) drop-shadow(6px 0 0 var(--muted));
 }
 
 .react-flow__node {
   animation: node-in 220ms var(--ease-out-soft) both;
+  /* nodes glide to their new place when a group opens or closes */
+  transition: transform 320ms var(--ease-out-soft);
+}
+
+.react-flow__node-stageFrame {
+  animation: frame-open 320ms var(--ease-out-soft) both;
+}
+
+@keyframes frame-open {
+  from {
+    opacity: 0;
+    scale: 0.94;
+  }
 }
 
 @keyframes node-in {

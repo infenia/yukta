@@ -72,8 +72,14 @@ function ToggleButton({
         aria-label={label}
         onClick={() => onToggle?.(stage)}
       >
-        <span aria-hidden="true" className="material-symbols-outlined text-xl">
-          {open ? 'unfold_less' : 'unfold_more'}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'material-symbols-outlined text-xl transition-transform duration-300',
+            open && 'rotate-180'
+          )}
+        >
+          unfold_more
         </span>
       </button>
     </Tip>

@@ -80,7 +80,7 @@ describe('WorkflowNodeCard', () => {
     });
     expect(
       screen.getAllByTestId('port-label').map((label) => label.textContent)
-    ).toEqual(['arrow_forwarddefault', 'invalid']);
+    ).toEqual(['default', 'invalid']);
   });
 
   it('shows no port label for a single output', () => {
@@ -187,7 +187,7 @@ describe('WorkflowNodeCard', () => {
     );
   });
 
-  it('does not repeat the plugin name for default ids', () => {
+  it('titles the card with the node id and subtitles it with the plugin type', () => {
     renderCard({
       node: createMockGraphNode({
         nodeId: 'HTTP_REQUEST-1',
@@ -197,9 +197,9 @@ describe('WorkflowNodeCard', () => {
       status: 'pending',
     });
 
-    expect(
-      screen.getByTestId('workflow-node-HTTP_REQUEST-1')
-    ).not.toHaveTextContent('HTTP_REQUEST-1');
+    const card = screen.getByTestId('workflow-node-HTTP_REQUEST-1');
+    expect(card.querySelectorAll('p')[0]).toHaveTextContent('HTTP_REQUEST-1');
+    expect(card.querySelectorAll('p')[1]).toHaveTextContent('Http Request');
   });
 
   it('renders percent from the percent metadata key', () => {
