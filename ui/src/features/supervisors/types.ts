@@ -25,6 +25,17 @@ export interface SupervisorTypeDetails {
   /** null means every command. */
   defaultAllowedCommands: string[] | null;
   exampleSettings: Record<string, unknown>;
+  /** The signals a supervisor of this type is told: EVENT, TICK, REVIEW, DELEGATED, CONSULTED, STARTED. */
+  signals?: string[];
+  /** Whether it may act on its own. */
+  canInitiate?: boolean;
+}
+
+/** Ready-made settings of a decision maker. */
+export interface SupervisorPreset {
+  name: string;
+  description: string;
+  settings: Record<string, unknown>;
 }
 
 /** A configured supervisor; secrets come back as `***`. */
@@ -81,11 +92,8 @@ export interface SupervisorDraft {
   description?: string;
   settings: Record<string, unknown>;
   dryRun: boolean;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: { field: string; message: string }[];
+  /** The supervisors it reports to. */
+  parents?: string[];
 }
 
 /** A supervisor declared in a session or workflow definition. */
@@ -116,5 +124,16 @@ export interface Decision {
     | (string & {});
   command: string;
   executionId: string;
+  /** Why it was not applied, or null. */
   reason: string | null;
+  /** The node it addressed, or null for a run-level or server command. */
+  nodeId?: string | null;
+  /** What made the supervisor send it: event, answers, tick or initiative. */
+  cause?: string | null;
+  /** The directive's key; the runs of one selector share it before `#`. */
+  key?: string | null;
+  /** The reason the supervisor gave for sending it. */
+  because?: string | null;
+  /** The workflow of the run, or null when it was not known. */
+  workflowId?: string | null;
 }

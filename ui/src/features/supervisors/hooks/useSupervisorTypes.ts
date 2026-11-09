@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getSupervisorType, getSupervisorTypes } from '../api/supervisorTypes';
+import {
+  getSupervisorType,
+  getSupervisorTypePresets,
+  getSupervisorTypes,
+  getSupervisorTypeUsage,
+} from '../api/supervisorTypes';
 import {
   getOwnership,
   getSupervision,
@@ -13,7 +18,9 @@ import {
   getAttachments,
   getSupervisor,
   getSupervisorDecisions,
+  getSupervisorVersions,
   getSupervisors,
+  rollbackSupervisor,
   replaceSupervisor,
   setAttachmentEnabled,
   type AttachmentFilter,
@@ -30,6 +37,27 @@ export const useSupervisorType = (type: string | null) =>
     queryKey: [...ROOT, 'types', type],
     queryFn: () => getSupervisorType(type as string),
     enabled: Boolean(type),
+  });
+
+/** The supervisors wired to a decision maker. */
+export const useSupervisorTypeUsage = (type: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'types', type, 'usage'],
+    queryFn: () => getSupervisorTypeUsage(type),
+  });
+
+/** The presets of a decision maker. */
+export const useSupervisorTypePresets = (type: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'types', type, 'presets'],
+    queryFn: () => getSupervisorTypePresets(type),
+  });
+
+/** The kept versions of a supervisor, newest first. */
+export const useSupervisorVersions = (id: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'versions', id],
+    queryFn: () => getSupervisorVersions(id),
   });
 
 export const useSupervisors = () =>
@@ -75,7 +103,7 @@ export const useSupervision = (target: ControlTarget, enabled = true) =>
 export const useSupervisorDecisions = (supervisor?: string) =>
   useQuery({
     queryKey: [...ROOT, 'decisions', supervisor ?? null],
-    queryFn: () => getSupervisorDecisions(supervisor),
+    queryFn: () => getSupervisorDecisions(supervisor, 200),
   });
 
 /** A write that refreshes everything about supervisors when it ends. */
@@ -93,3 +121,4 @@ export const useSetAttachmentEnabled = () =>
   useWrite((a: { id: string; enabled: boolean }) =>
     setAttachmentEnabled(a.id, a.enabled)
   );
+export const useRollbackSupervisor = () => useWrite(rollbackSupervisor);

@@ -41,3 +41,13 @@ export const getSupervision = (target: ControlTarget) => {
     `/api/supervision${text ? `?${text}` : ''}`
   );
 };
+
+/** What the Control page's tile shows: workflows nobody owns, and assignments in conflict. */
+export interface SupervisionSummary {
+  unowned: number;
+  unownedWorkflows: { sessionId: string; workflowId: string }[];
+  conflicts: number;
+}
+
+export const getSupervisionSummary = () =>
+  fetchApi<SupervisionSummary>('/api/supervision/summary');

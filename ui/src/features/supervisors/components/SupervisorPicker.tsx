@@ -8,22 +8,25 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useSupervisors } from '../hooks/useSupervisorTypes';
 import type { SupervisorRef } from '../types';
 import { groupNodes } from '../lib/scope';
-import { NewSupervisorWizard } from './SupervisorWizardPage';
+import { NewSupervisorForm } from './SupervisorEditPage';
 
 /**
  * Picks the supervisors a session or workflow declares. With `nodeIds` (a workflow) each
  * supervisor covers the whole workflow or chosen nodes; without them (a session) only the
- * supervisor and whether it runs. "Create new" opens the wizard in a drawer and adds the result.
+ * supervisor and whether it runs. "Create new" opens the form in a drawer and adds the result.
  */
 export function SupervisorPicker({
   value,
   onChange,
   nodeIds,
+  groupOf,
   errors = [],
 }: {
   value: SupervisorRef[];
   onChange: (next: SupervisorRef[]) => void;
   nodeIds?: string[];
+  /** The group each node declares (its Stage); a node without one is grouped by its id prefix. */
+  groupOf?: Record<string, string>;
   /** Messages from the server about these refs, shown under the picker. */
   errors?: string[];
 }) {
@@ -44,11 +47,25 @@ export function SupervisorPicker({
   const nodePicker = (index: number, ids: string[], selected: string[]) => (
     <fieldset className="border-border max-h-40 overflow-auto rounded-lg border p-2">
       <legend className="text-label-sm px-1">Nodes</legend>
-      {groupNodes(ids).map(([prefix, ids]) => (
+      {groupNodes(ids, groupOf).map(([prefix, ids]) => (
         <div key={prefix}>
           <div className="text-label-sm text-on-surface-variant">
-            {prefix ? `${prefix}.*` : 'No prefix'}
+            {!prefix
+              ? 'No group'
+              : ids.some((id) => groupOf?.[id] === prefix)
+                ? prefix
+                : `${prefix}.*`}
           </div>
+          {prefix && (
+            <label className="text-body-md flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selected.includes(`group:${prefix}`)}
+                onChange={() => toggleNode(index, `group:${prefix}`, selected)}
+              />
+              The whole group {prefix}, with nodes added to it later
+            </label>
+          )}
           {ids.map((id) => (
             <label key={id} className="text-body-md flex items-center gap-2">
               <input
@@ -168,7 +185,7 @@ export function SupervisorPicker({
         <Sheet open onOpenChange={(open) => !open && setCreating(false)}>
           <SheetContent>
             <SheetTitle>New supervisor</SheetTitle>
-            <NewSupervisorWizard
+            <NewSupervisorForm
               onSaved={(id) => {
                 onChange([...value, { supervisor: id }]);
                 setCreating(false);

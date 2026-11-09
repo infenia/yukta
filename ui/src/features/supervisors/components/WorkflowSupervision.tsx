@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useOwnership, useSupervision } from '../hooks/useSupervisorTypes';
@@ -63,16 +63,19 @@ export function SupervisionPanel({
     <div className="flex flex-col gap-3">
       <ConflictsBanner session={sessionId} workflow={workflowId} />
       {nobodyOwns && defaultSupervisor && (
-        <p className="text-body-md">
-          No supervisor owns this workflow. People control it directly through
-          Default (people).
-        </p>
+        <StateMessage
+          compact
+          icon="account_tree"
+          title={`Nobody supervises ${workflowId}`}
+        >
+          People control it directly through Default (people).
+        </StateMessage>
       )}
       {!defaultSupervisor && runOwner === 'default' && (
-        <p className="text-body-md text-error">
-          Default (people) is off and nothing owns the run, so nobody can
-          control it. An ADMIN can turn Default on or assign a supervisor.
-        </p>
+        <Callout kind="warning" title="Nobody can control this workflow">
+          Default (people) is off and no supervisor owns {workflowId}. An ADMIN
+          can turn Default on or assign a supervisor.
+        </Callout>
       )}
       <div className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
         <table className="text-body-md w-full">
@@ -116,7 +119,7 @@ export function SupervisionPanel({
   );
 }
 
-/** The run's owner on the workflow page, opening who owns what. */
+/** The run's owner on the workflow page, opening who owns what; `?supervision=1` opens it at once. */
 export function WorkflowSupervision({
   sessionId,
   workflowId,
@@ -126,14 +129,22 @@ export function WorkflowSupervision({
   workflowId: string;
   executionId: string | null;
 }) {
-  const [open, setOpen] = useState(false);
+  // the dialog lives in the URL, so the palette (and a link) can open it on a page already shown
+  const [params, setParams] = useSearchParams();
+  const open = params.has('supervision');
+  const show = (yes: boolean) => {
+    const next = new URLSearchParams(params);
+    if (yes) next.set('supervision', '1');
+    else next.delete('supervision');
+    setParams(next, { replace: !yes });
+  };
   const { data } = useOwnership(sessionId, workflowId);
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
-        className="text-body-sm bg-accent text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
+        onClick={() => show(true)}
+        className="bg-accent text-body-sm text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
       >
         <span
           aria-hidden="true"
@@ -144,7 +155,7 @@ export function WorkflowSupervision({
         Run owner: {ownerLabel(data?.run)}
       </button>
       {open && (
-        <Modal title="Supervision" onClose={() => setOpen(false)} wide>
+        <Modal title="Supervision" onClose={() => show(false)} wide>
           <SupervisionPanel
             sessionId={sessionId}
             workflowId={workflowId}
