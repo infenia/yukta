@@ -159,7 +159,8 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     return signals.subscribe(signal -> write(stdin, signal), sink::error);
   }
 
-  private static void write(final Writer stdin, final Signal signal) {
+  /** Package-private so a failing writer can be tested without racing a program's exit. */
+  /* default */ static void write(final Writer stdin, final Signal signal) {
     // the signals arrive one at a time on one subscription, so the writes never interleave
     try {
       stdin.write(JSON.writeValueAsString(Map.of("kind", signal.kind().name(), "signal", signal)));
@@ -170,7 +171,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     }
   }
 
-  private static void closeQuietly(final Writer stdin) {
+  /* default */ static void closeQuietly(final Writer stdin) {
     try {
       stdin.close();
     } catch (final IOException e) {

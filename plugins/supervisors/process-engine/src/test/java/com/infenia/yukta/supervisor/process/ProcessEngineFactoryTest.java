@@ -11,6 +11,8 @@ import com.infenia.yukta.plugin.control.engine.EngineConfig;
 import com.infenia.yukta.plugin.control.engine.EngineContext;
 import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.control.engine.SupervisorEngine;
+import java.io.IOException;
+import java.io.Writer;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -119,7 +121,7 @@ class ProcessEngineFactoryTest {
     final SupervisorEngine engine =
         open.create(new EngineConfig(Map.of("command", "/no/such/program")), CONTEXT);
     StepVerifier.create(engine.run(Flux.never()))
-        .expectError(java.io.IOException.class)
+        .expectError(IOException.class)
         .verify(Duration.ofSeconds(10));
     engine.close();
   }
@@ -236,5 +238,37 @@ class ProcessEngineFactoryTest {
                     .concatWith(Flux.never())))
         .expectErrorMessage("The program ended")
         .verify(Duration.ofSeconds(10));
+  }
+
+  /** A program input whose pipe is broken: every write, flush and close fails. */
+  private static final class BrokenPipe extends Writer {
+    @Override
+    public void write(final char[] text, final int offset, final int length) throws IOException {
+      throw new IOException("broken pipe");
+    }
+
+    @Override
+    public void flush() throws IOException {
+      throw new IOException("broken pipe");
+    }
+
+    @Override
+    public void close() throws IOException {
+      throw new IOException("broken pipe");
+    }
+  }
+
+  @Test
+  void writingOrClosingInputThatFailsIsDroppedQuietly() {
+    // only the closing of the try fails: write and closeQuietly drop the error
+    assertThatThrownBy(
+            () -> {
+              try (Writer broken = new BrokenPipe()) {
+                ProcessEngineFactory.write(broken, new Signal.Tick(Instant.EPOCH));
+                ProcessEngineFactory.closeQuietly(broken);
+              }
+            })
+        .isInstanceOf(IOException.class)
+        .hasMessage("broken pipe");
   }
 }
