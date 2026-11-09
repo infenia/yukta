@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { preText } from '@/test/preText';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { SupervisorsPage } from '../SupervisorsPage';
-import { SupervisorWizardPage } from '../SupervisorWizardPage';
+import { SupervisorEditPage, NewSupervisorForm } from '../SupervisorEditPage';
+import { setMe, type Me } from '@/lib/identity';
 import { groupNodes } from '../../lib/scope';
 import { getAttachments } from '../../api/supervisors';
 import { createTestQueryClient } from '@/test/utils/testUtils';
@@ -49,10 +49,6 @@ let supervisors: unknown[] = [guard, system];
 let attachments: unknown[] = [];
 let decisions: unknown[] = [];
 let writes: string[] = [];
-let validation: { valid: boolean; errors: unknown[] } = {
-  valid: true,
-  errors: [],
-};
 
 const server = setupServer(
   http.get('/api/supervisor-engines', () =>
@@ -95,7 +91,6 @@ const server = setupServer(
     writes.push(`assign ${String(params.id)} ${await request.text()}`);
     return envelope([]);
   }),
-  http.post('/api/supervisors/validate', () => envelope(validation)),
   http.post('/api/supervisors', async ({ request }) => {
     writes.push(`create ${await request.text()}`);
     return envelope({}, 201);
@@ -145,7 +140,7 @@ afterEach(() => {
   attachments = [];
   decisions = [];
   writes = [];
-  validation = { valid: true, errors: [] };
+  setMe(null);
 });
 afterAll(() => server.close());
 
@@ -160,10 +155,10 @@ const renderAt = (url: string) =>
       <MemoryRouter initialEntries={[url]}>
         <Routes>
           <Route path="/supervisors" element={<SupervisorsPage />} />
-          <Route path="/supervisors/new" element={<SupervisorWizardPage />} />
+          <Route path="/supervisors/new" element={<SupervisorEditPage />} />
           <Route
             path="/supervisors/:supervisorId/edit"
-            element={<SupervisorWizardPage />}
+            element={<SupervisorEditPage />}
           />
         </Routes>
         <Where />
@@ -212,125 +207,182 @@ describe('the activity tab', () => {
   });
 });
 
-describe('the wizard', () => {
-  it('walks through the steps and creates a supervisor, validating as it goes', async () => {
+describe('the edit form', () => {
+  const admin = () =>
+    setMe({ permissions: { editSessions: true } } as unknown as Me);
+
+  it('creates a supervisor in dry run, with parents, and goes to it', async () => {
+    admin();
     const user = userEvent.setup();
     renderAt('/supervisors/new');
-
-    await screen.findByRole('option', { name: 'Failure guard' });
+    expect(
+      screen.getByRole('heading', { name: 'New supervisor' })
+    ).toBeInTheDocument();
+    const save = screen.getByRole('button', { name: 'Save' });
+    expect(save).toBeDisabled();
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'bad id');
+    expect(
+      screen.getByText('Use letters, digits, dot, dash or underscore, up to 64')
+    ).toBeInTheDocument();
+    await user.clear(screen.getByRole('textbox', { name: 'Name' }));
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'fresh');
     await user.selectOptions(
-      screen.getByLabelText('Supervisor type'),
+      await screen.findByRole('combobox', { name: 'Decision maker' }),
       'failure-guard'
     );
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
-    await user.type(screen.getByLabelText('Name'), 'mine');
-    await user.type(screen.getByLabelText('Description'), 'for tests');
-    await user.type(await screen.findByLabelText(/failures/), '5');
-    await user.click(screen.getByLabelText('Advanced: JSON'));
-    await user.click(screen.getByLabelText('Settings JSON'));
-    await user.paste(' ');
-    await user.click(screen.getByLabelText('Advanced: JSON'));
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByLabelText(/Dry run/)).toBeChecked();
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(preText(/"dryRun": true/))).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Back' }));
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await user.type(
+      screen.getByRole('textbox', { name: 'Reports to' }),
+      'lead, ops'
+    );
+    const settings = screen.getByRole('textbox', { name: 'Settings (JSON)' });
+    await user.clear(settings);
+    await user.type(settings, '[[1]');
+    expect(
+      screen.getByText('Settings must be a JSON object')
+    ).toBeInTheDocument();
+    await user.clear(settings);
+    await user.type(settings, '{{');
+    expect(screen.getByText(/Settings are not valid JSON/)).toBeInTheDocument();
+    expect(save).toBeDisabled();
+    await user.clear(settings);
+    await user.click(save);
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect(JSON.parse(writes[0].slice('create '.length))).toEqual({
+      id: 'fresh',
+      type: 'failure-guard',
+      dryRun: true,
+      parents: ['lead', 'ops'],
+      settings: {},
+    });
+    expect(await screen.findByLabelText('where')).toHaveTextContent(
+      '/supervisors?supervisor=fresh'
+    );
+  });
 
-    await waitFor(() => expect(writes[0]).toContain('"id":"mine"'));
-    expect(writes[0]).toContain('"dryRun":true');
+  it('edits an existing supervisor, keeps its name, and turns dry run off', async () => {
+    admin();
+    const user = userEvent.setup();
+    renderAt('/supervisors/guard/edit');
+    expect(
+      await screen.findByRole('heading', { name: 'Edit guard' })
+    ).toBeInTheDocument();
+    expect(await screen.findByDisplayValue('Stops runs')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+    expect(
+      screen.getByText('Changing it replaces the settings below.')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('checkbox'));
+    await user.clear(screen.getByRole('textbox', { name: 'Description' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(writes).toHaveLength(1));
+    const sent = JSON.parse(writes[0].slice('replace '.length));
+    expect(sent).toMatchObject({ id: 'guard', dryRun: true, parents: [] });
+    expect(sent.description).toBeUndefined();
+    expect(sent.settings).toEqual({ failures: 3, token: '***' });
+  });
+
+  it('shows the server error with its field errors', async () => {
+    admin();
+    server.use(
+      http.put('/api/supervisors/:id', () =>
+        HttpResponse.json(
+          {
+            timestamp: 't',
+            status: 400,
+            message: 'Invalid settings',
+            path: '/',
+            errors: [
+              { field: 'settings.failures', message: 'must be 1 or more' },
+            ],
+          },
+          { status: 400 }
+        )
+      )
+    );
+    const user = userEvent.setup();
+    renderAt('/supervisors/plain/edit');
+    await screen.findByRole('heading', { name: 'Edit plain' });
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Invalid settings'
+    );
+    expect(
+      screen.getByText('settings.failures: must be 1 or more')
+    ).toBeInTheDocument();
+  });
+
+  it('shows an error that comes without a field list', async () => {
+    admin();
+    server.use(
+      http.put('/api/supervisors/:id', () =>
+        HttpResponse.json(
+          { timestamp: 't', status: 500, message: 'Store is down', path: '/' },
+          { status: 500 }
+        )
+      )
+    );
+    const user = userEvent.setup();
+    renderAt('/supervisors/plain/edit');
+    await screen.findByRole('heading', { name: 'Edit plain' });
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Store is down');
+    expect(within(alert).queryByRole('listitem')).toBeNull();
+  });
+
+  it('disables save with a saving label until the change is sent', async () => {
+    admin();
+    let release: () => void = () => undefined;
+    const sent = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    server.use(
+      http.put('/api/supervisors/:id', async () => {
+        await sent;
+        return envelope({});
+      })
+    );
+    const user = userEvent.setup();
+    renderAt('/supervisors/plain/edit');
+    await screen.findByRole('heading', { name: 'Edit plain' });
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(
+      await screen.findByRole('button', { name: 'Saving…' })
+    ).toBeDisabled();
+    release();
     await waitFor(() =>
       expect(screen.getByLabelText('where')).toHaveTextContent(
-        '/supervisors/mine'
+        '/supervisors?supervisor=plain'
       )
     );
   });
 
-  it('lets the wizard turn off the dry run before it is reviewed', async () => {
-    const user = userEvent.setup();
-    renderAt('/supervisors/new');
+  it('says when the supervisor cannot be loaded', async () => {
+    server.use(
+      http.get('/api/supervisors/:id', () =>
+        HttpResponse.json({ status: 404, message: 'no' }, { status: 404 })
+      )
+    );
+    renderAt('/supervisors/gone/edit');
+    expect(await screen.findByText('Failed to load gone.')).toBeInTheDocument();
+  });
 
-    await screen.findByRole('option', { name: 'Failure guard' });
+  it('creates from the drawer form and hands back the id', async () => {
+    admin();
+    const user = userEvent.setup();
+    let saved = '';
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <NewSupervisorForm onSaved={(id) => (saved = id)} />
+      </QueryClientProvider>
+    );
+    await user.type(screen.getByRole('textbox', { name: 'Name' }), 'drawer');
     await user.selectOptions(
-      screen.getByLabelText('Supervisor type'),
+      await screen.findByRole('combobox', { name: 'Decision maker' }),
       'failure-guard'
     );
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.type(screen.getByLabelText('Name'), 'live');
-    await user.type(screen.getByLabelText('Description'), 'goes live');
-    await user.type(await screen.findByLabelText(/failures/), '5');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-
-    const dryRun = screen.getByLabelText(/Dry run/);
-    expect(dryRun).toBeChecked();
-    await user.click(dryRun);
-    expect(dryRun).not.toBeChecked();
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    expect(screen.getByText(preText(/"dryRun": false/))).toBeInTheDocument();
-  });
-
-  it('shows the field errors the server finds and blocks next and save', async () => {
-    validation = {
-      valid: false,
-      errors: [{ field: 'settings.failures', message: 'must be at least 1' }],
-    };
-    const user = userEvent.setup();
-    renderAt('/supervisors/new?type=failure-guard');
-
-    await user.type(await screen.findByLabelText('Name'), 'x');
-    expect(await screen.findByText('settings.failures')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
-  });
-
-  it('takes the settings as JSON and ignores half-typed text', async () => {
-    const user = userEvent.setup();
-    renderAt('/supervisors/new?type=failure-guard');
-    await user.type(await screen.findByLabelText('Name'), 'j');
-    await user.click(screen.getByLabelText('Advanced: JSON'));
-    const box = screen.getByLabelText('Settings JSON');
-    await user.clear(box);
-    await user.click(box);
-    await user.paste('{ nope');
-    await user.clear(box);
-    await user.paste('[1]');
-    await user.clear(box);
-    await user.paste('{"failures": 7}');
-    await user.click(screen.getByLabelText('Advanced: JSON'));
-    expect(await screen.findByDisplayValue('7')).toBeInTheDocument();
-  });
-
-  it('edits an existing supervisor and saves it under the same name', async () => {
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard/edit');
-
-    expect(
-      await screen.findByRole('heading', { name: 'Edit guard' })
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Name')).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(writes[0]).toContain('replace'));
-    expect(writes[0]).toContain('"id":"guard"');
-  });
-
-  it('shows a save that fails and an edit that cannot be loaded', async () => {
-    server.use(http.post('/api/supervisors', () => envelope({}, 409)));
-    const user = userEvent.setup();
-    const first = renderAt('/supervisors/new?type=failure-guard');
-    await user.type(await screen.findByLabelText('Name'), 'dup');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByRole('button', { name: 'Save' }));
-    expect(await screen.findByText(/409|ok|Conflict/i)).toBeInTheDocument();
-    first.unmount();
-    server.use(http.get('/api/supervisors/:id', () => envelope({}, 500)));
-    renderAt('/supervisors/guard/edit');
-    expect(
-      await screen.findByText('Failed to load the supervisor.')
-    ).toBeInTheDocument();
+    await waitFor(() => expect(saved).toBe('drawer'));
   });
 });
 

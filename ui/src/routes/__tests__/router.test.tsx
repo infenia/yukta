@@ -145,9 +145,9 @@ describe('router', () => {
       expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('supervisors')).toBe('SupervisorsPage');
-      expect(await load('supervisors/new')).toBe('SupervisorWizardPage');
+      expect(await load('supervisors/new')).toBe('SupervisorEditPage');
       expect(await load('supervisors/:supervisorId/edit')).toBe(
-        'SupervisorWizardPage'
+        'SupervisorEditPage'
       );
       expect(await load('control')).toBe('ControlPage');
       expect(await load('runs')).toBe('RunsPage');

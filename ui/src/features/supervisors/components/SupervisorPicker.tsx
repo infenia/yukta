@@ -8,12 +8,12 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useSupervisors } from '../hooks/useSupervisorTypes';
 import type { SupervisorRef } from '../types';
 import { groupNodes } from '../lib/scope';
-import { NewSupervisorWizard } from './SupervisorWizardPage';
+import { NewSupervisorForm } from './SupervisorEditPage';
 
 /**
  * Picks the supervisors a session or workflow declares. With `nodeIds` (a workflow) each
  * supervisor covers the whole workflow or chosen nodes; without them (a session) only the
- * supervisor and whether it runs. "Create new" opens the wizard in a drawer and adds the result.
+ * supervisor and whether it runs. "Create new" opens the form in a drawer and adds the result.
  */
 export function SupervisorPicker({
   value,
@@ -168,7 +168,7 @@ export function SupervisorPicker({
         <Sheet open onOpenChange={(open) => !open && setCreating(false)}>
           <SheetContent>
             <SheetTitle>New supervisor</SheetTitle>
-            <NewSupervisorWizard
+            <NewSupervisorForm
               onSaved={(id) => {
                 onChange([...value, { supervisor: id }]);
                 setCreating(false);

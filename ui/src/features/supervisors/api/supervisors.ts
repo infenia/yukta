@@ -7,7 +7,6 @@ import type {
   Decision,
   SupervisorDraft,
   SupervisorView,
-  ValidationResult,
 } from '../types';
 
 const json = (method: string, body: unknown): RequestInit => ({
@@ -29,10 +28,6 @@ export const replaceSupervisor = (draft: SupervisorDraft & { id: string }) =>
     api`/api/supervisors/${draft.id}`,
     json('PUT', draft)
   );
-
-/** Checks a draft without saving it: always answers, look at `valid`. */
-export const validateSupervisor = (draft: SupervisorDraft) =>
-  fetchApi<ValidationResult>('/api/supervisors/validate', json('POST', draft));
 
 export interface AttachmentFilter {
   supervisor?: string;

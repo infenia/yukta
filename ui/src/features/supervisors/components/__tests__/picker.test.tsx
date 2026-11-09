@@ -165,14 +165,11 @@ describe('SupervisorPicker', () => {
         .findByText('New supervisor', { selector: '[data-slot], h2, div' })
         .catch(() => null)
     ).not.toBeUndefined();
+    await user.type(screen.getByLabelText('Name'), 'fresh');
     await user.selectOptions(
-      await screen.findByLabelText('Supervisor type'),
+      await screen.findByLabelText('Decision maker'),
       'failure-guard'
     );
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.type(screen.getByLabelText('Name'), 'fresh');
-    await user.click(screen.getByRole('button', { name: 'Next' }));
-    await user.click(screen.getByRole('button', { name: 'Next' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(latest).toEqual([{ supervisor: 'fresh' }]));
@@ -182,10 +179,10 @@ describe('SupervisorPicker', () => {
     const user = userEvent.setup();
     renderPicker();
     await user.click(screen.getByRole('button', { name: 'Create new' }));
-    await screen.findByLabelText('Supervisor type');
+    await screen.findByLabelText('Decision maker');
     await user.keyboard('{Escape}');
     await waitFor(() =>
-      expect(screen.queryByLabelText('Supervisor type')).toBeNull()
+      expect(screen.queryByLabelText('Decision maker')).toBeNull()
     );
     expect(latest).toEqual([]);
   });

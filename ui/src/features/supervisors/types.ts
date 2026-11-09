@@ -92,11 +92,8 @@ export interface SupervisorDraft {
   description?: string;
   settings: Record<string, unknown>;
   dryRun: boolean;
-}
-
-export interface ValidationResult {
-  valid: boolean;
-  errors: { field: string; message: string }[];
+  /** The supervisors it reports to. */
+  parents?: string[];
 }
 
 /** A supervisor declared in a session or workflow definition. */
