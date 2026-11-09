@@ -251,6 +251,12 @@ func ContractCmd(c *client.Client) *cobra.Command {
 		func([]string) (any, error) { return c.GetSupervisorContract() })
 }
 
+// SummaryCmd creates "supervision-summary": the workflows nobody owns and the assignments in conflict.
+func SummaryCmd(c *client.Client) *cobra.Command {
+	return commands.DataCmd("supervision-summary", "Count the workflows nobody owns and the assignments in conflict", 0,
+		func([]string) (any, error) { return c.GetSupervisionSummary() })
+}
+
 // OwnershipCmd creates "ownership": which supervisor carries each part of a workflow.
 func OwnershipCmd(c *client.Client) *cobra.Command {
 	var session, workflow string

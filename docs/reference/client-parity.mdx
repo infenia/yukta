@@ -67,7 +67,7 @@ Every client calls the [REST API](/api/overview); the others wrap it. A dash mea
 | Scheduler limits and queue | `GET`/`POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler limits set` | Control › Scheduler |
 | Drain the server | `GET`/`POST`/`DELETE /api/admin/drain` | – | – | – |
 | Workers | `GET /api/workers` | – | `workers` | Control › Workers |
-| Supervisors | `GET /api/supervisors/status`, `GET /api/supervisor-engines`, `GET /api/supervisors`, `GET`/`PUT /api/supervisors/{id}/assignments`, `GET /api/supervision`, `GET /api/supervision/summary` | `list_supervisors`, `list_supervisor_engines`, `get_supervisor`, `save_supervisor`, `set_assignments`, `get_supervision` | `supervisors`, `supervisors engines\|list\|show\|save\|assign\|parents\|credential\|agent` | Control › Supervisors, Supervisors page |
+| Supervisors | `GET /api/supervisors/status`, `GET /api/supervisor-engines`, `GET /api/supervisors`, `GET`/`PUT /api/supervisors/{id}/assignments`, `GET /api/supervision`, `GET /api/supervision/summary` | `list_supervisors`, `list_supervisor_engines`, `get_supervisor`, `save_supervisor`, `set_assignments`, `get_supervision`, `get_supervision_summary` | `supervisors`, `supervisors engines\|list\|show\|save\|assign\|parents\|credential\|agent`, `supervision-summary` | Control › Supervisors, Supervisors page |
 | Send a raw control-bus command | `POST /api/control/workflows/{id}/nodes/{node}/command` | – | `controlbus command` | – |
 | Who sent which command | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |
 | Live events of all runs | `GET /api/events/stream` | – | `controlbus watch` | Control › Activity |

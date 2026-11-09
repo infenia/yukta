@@ -213,6 +213,7 @@ com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.DefinitionSupervisors
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.OwnershipMap
+com.infenia.yukta.service.supervisor.SupervisionSummary
 com.infenia.yukta.service.supervisor.SupervisorAssignments
 com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService

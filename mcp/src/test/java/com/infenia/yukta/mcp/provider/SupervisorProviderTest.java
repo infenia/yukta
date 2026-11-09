@@ -50,8 +50,12 @@ class SupervisorProviderTest {
   private final com.infenia.yukta.service.control.gateway.ControlBusGateway bus =
       mock(com.infenia.yukta.service.control.gateway.ControlBusGateway.class);
 
+  private final com.infenia.yukta.service.supervisor.SupervisionSummary summary =
+      mock(com.infenia.yukta.service.supervisor.SupervisionSummary.class);
+
   private final SupervisorProvider provider =
-      new SupervisorProvider(host, service, credentials, ownership, assignments, reviewer, bus);
+      new SupervisorProvider(
+          host, service, credentials, ownership, assignments, reviewer, bus, summary);
 
   @BeforeEach
   void noAttachmentsYet() {
@@ -585,6 +589,27 @@ class SupervisorProviderTest {
     reactor.test.StepVerifier.create(
             provider.replayRules("r", "run1", java.util.Map.of("rules", java.util.List.of("c"))))
         .assertNext(replay -> assertThat(replay.decisions()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void summaryNamesTheUnownedWorkflowsAndCountsConflicts() {
+    when(summary.summarize())
+        .thenReturn(
+            Mono.just(
+                new com.infenia.yukta.service.supervisor.SupervisionSummary.Summary(
+                    1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2)));
+
+    StepVerifier.create(provider.summary())
+        .assertNext(
+            view -> {
+              assertThat(view.unowned()).isEqualTo(1);
+              assertThat(view.unownedWorkflows())
+                  .containsExactly(
+                      new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow(
+                          "s", "w"));
+              assertThat(view.conflicts()).isEqualTo(2);
+            })
         .verifyComplete();
   }
 }

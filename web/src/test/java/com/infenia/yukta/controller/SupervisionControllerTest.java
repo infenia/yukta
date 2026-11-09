@@ -7,15 +7,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
-import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
-import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.SupervisionSummary;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Who carries a command, for a node, a run, a run found by its execution and the server. */
@@ -35,11 +34,10 @@ class SupervisionControllerTest {
   }
 
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
-  private final SessionService sessions = mock(SessionService.class);
-  private final SupervisorService supervisors = mock(SupervisorService.class);
+  private final SupervisionSummary summary = mock(SupervisionSummary.class);
   private final OwnershipMap ownership = mock(OwnershipMap.class);
   private final SupervisionController controller =
-      new SupervisionController(reviewer, controlBus, ownership, sessions, supervisors);
+      new SupervisionController(reviewer, controlBus, ownership, summary);
 
   private static ControlReviewer.Capability allowed() {
     return new ControlReviewer.Capability(true, "default", null);
@@ -82,7 +80,7 @@ class SupervisionControllerTest {
                 "s1",
                 "wf",
                 com.infenia.yukta.model.execution.TaskStatus.RUNNING,
-                java.util.List.of(),
+                List.of(),
                 java.time.Instant.now(),
                 null,
                 null));
@@ -141,7 +139,7 @@ class SupervisionControllerTest {
   void ownershipComesFromTheMap() {
     final var owned =
         new OwnershipMap.Ownership("s", "w", true, "default", java.util.Map.of("build.a", "guard"));
-    when(ownership.ownersOf("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
+    when(ownership.ownersOf("s", "w")).thenReturn(Mono.just(owned));
 
     StepVerifier.create(controller.ownership("s", "w"))
         .assertNext(r -> assertThat(r.data()).isEqualTo(owned))
@@ -149,23 +147,13 @@ class SupervisionControllerTest {
   }
 
   @Test
-  void summaryCountsUnownedWorkflowsAndConflictsButNamesAtMostOneHundred() {
-    final Flux<String> ids = Flux.just("s");
-    when(sessions.getSessionIds(false)).thenReturn(ids);
-    when(ownership.unowned(ids))
-        .thenReturn(Flux.range(0, 101).map(i -> new OwnershipMap.WorkflowRef("s", "w" + i)));
-    final SupervisorAttachment kept = mock(SupervisorAttachment.class);
-    final SupervisorAttachment clash = mock(SupervisorAttachment.class);
-    when(clash.conflict()).thenReturn(true);
-    when(supervisors.attachments()).thenReturn(Flux.just(kept, clash));
+  void summaryIsWhatTheCoreCounts() {
+    final SupervisionSummary.Summary counted =
+        new SupervisionSummary.Summary(1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2);
+    when(summary.summarize()).thenReturn(Mono.just(counted));
 
     StepVerifier.create(controller.summary())
-        .assertNext(
-            response -> {
-              assertThat(response.data().unowned()).isEqualTo(101);
-              assertThat(response.data().unownedWorkflows()).hasSize(100);
-              assertThat(response.data().conflicts()).isEqualTo(1);
-            })
+        .assertNext(response -> assertThat(response.data()).isEqualTo(counted))
         .verifyComplete();
   }
 }

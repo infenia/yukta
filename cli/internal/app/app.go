@@ -57,6 +57,7 @@ func run() (int, error) {
 	rootCmd.AddCommand(supervisors.SupervisionCmd(c))
 	rootCmd.AddCommand(supervisors.ContractCmd(c))
 	rootCmd.AddCommand(supervisors.OwnershipCmd(c))
+	rootCmd.AddCommand(supervisors.SummaryCmd(c))
 	rootCmd.AddCommand(commands.DataCmd("workers", "List workers", 0,
 		func([]string) (any, error) { return c.GetWorkers() }))
 
