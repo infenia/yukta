@@ -151,9 +151,6 @@ public class SupervisorService {
   /** What engines may read, looked up late: the queries need the service that needs this one. */
   @Nullable private ObjectProvider<SupervisorQueries> queries;
 
-  /** The newest saved states of each supervisor. */
-  private final SupervisorVersions history = new SupervisorVersions();
-
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
 
@@ -181,6 +178,7 @@ public class SupervisorService {
         factories.stream().collect(Collectors.toMap(SupervisorFactory::type, Function.identity()));
     this.host = host;
     this.executionLog = executionLog;
+    host.keepHoldsIn(store);
   }
 
   /**
@@ -417,6 +415,8 @@ public class SupervisorService {
                 adoptRetired()
                     .then(refreshResolver())
                     .then(markConflicts())
+                    // before any engine starts: its Started signal carries what it holds
+                    .then(Mono.defer(() -> host.loadHolds(store)))
                     .thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
@@ -488,7 +488,7 @@ public class SupervisorService {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
-        .map(found -> history.list(id));
+        .flatMap(found -> store.versions(id).collectList());
   }
 
   /**
@@ -587,16 +587,15 @@ public class SupervisorService {
    * @return the supervisor as restored
    */
   public Mono<Supervisor> rollback(final String id, final int version) {
-    return Mono.defer(
-        () ->
-            history
-                .find(id, version)
-                .map(found -> saveSupervisor(found.supervisor()))
-                .orElseGet(
-                    () ->
-                        Mono.error(
-                            new NotFoundException(
-                                "Version " + version + " of supervisor " + id + " is not kept"))));
+    return store
+        .versions(id)
+        .filter(found -> found.version() == version)
+        .next()
+        .switchIfEmpty(
+            Mono.error(
+                new NotFoundException(
+                    "Version " + version + " of supervisor " + id + " is not kept")))
+        .flatMap(found -> saveSupervisor(found.supervisor()));
   }
 
   /**
@@ -618,7 +617,9 @@ public class SupervisorService {
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
-        .doOnSuccess(saved -> history.record(supervisor))
+        .then(
+            Mono.defer(() -> store.saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)))
+        .then(audited(true, "SaveSupervisor(" + supervisor.id() + ")"))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
@@ -679,9 +680,9 @@ public class SupervisorService {
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)))
+        .then(Mono.defer(() -> store.deleteVersions(id)))
         .doOnSuccess(
             done -> {
-              history.forget(id);
               // a supervisor created again under this id must not take the old credential
               final AgentCredentials agents = agentCredentials;
               if (agents != null) {

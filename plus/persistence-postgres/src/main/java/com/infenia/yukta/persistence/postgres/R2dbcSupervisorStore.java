@@ -11,22 +11,28 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
+import com.infenia.yukta.service.supervisor.SupervisorVersions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Supervisors and attachments in PostgreSQL (tables {@code supervisor} and {@code
- * supervisor_attachment}, migrations V7, V8 and V10), so supervisors attached at run time come back
- * after a restart. Settings are stored as given, a model API key included.
+ * supervisor_attachment}, migrations V7, V8 and V10; versions and the hold ledger in {@code
+ * supervisor_version} and {@code supervisor_hold}, V17), so supervisors attached at run time come
+ * back after a restart. Settings are stored as given, a model API key included.
  */
 @Slf4j
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
@@ -282,6 +288,130 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                     .fetch()
                     .rowsUpdated())
         .then();
+  }
+
+  @Override
+  public Mono<Void> saveVersion(
+      final Supervisor supervisor, final Instant savedAt, final int keep) {
+    // the number is the newest plus one, and nothing is added when the body equals the newest
+    // (jsonb equality, so 1 and 1.0 or a reordered map are the same); two saves of one supervisor
+    // at once can take the same number, so the loser tries again
+    return Mono.fromCallable(() -> mapper.writeValueAsString(body(supervisor)))
+        .flatMap(
+            json ->
+                client
+                    .sql(
+                        """
+                        INSERT INTO supervisor_version (supervisor_id, version, saved_at, body)
+                        SELECT :id, COALESCE(MAX(v.version), 0) + 1, :at, CAST(:body AS jsonb)
+                        FROM supervisor_version v WHERE v.supervisor_id = :id
+                        HAVING COALESCE((SELECT n.body <> CAST(:body AS jsonb)
+                          FROM supervisor_version n WHERE n.supervisor_id = :id
+                          ORDER BY n.version DESC LIMIT 1), true)
+                        """)
+                    .bind("id", supervisor.id())
+                    .bind("at", savedAt)
+                    .bind("body", json)
+                    .fetch()
+                    .rowsUpdated())
+        .retryWhen(Retry.max(3).filter(DataIntegrityViolationException.class::isInstance))
+        .then(
+            client
+                .sql(
+                    """
+                    DELETE FROM supervisor_version WHERE supervisor_id = :id
+                    AND version <= (SELECT MAX(version) FROM supervisor_version
+                      WHERE supervisor_id = :id) - :keep
+                    """)
+                .bind("id", supervisor.id())
+                .bind("keep", keep)
+                .fetch()
+                .rowsUpdated())
+        .then();
+  }
+
+  /** A supervisor as one JSON document, in the same shape as the columns of its own row. */
+  private static Map<String, Object> body(final Supervisor supervisor) {
+    final Map<String, Object> body = new java.util.LinkedHashMap<>();
+    body.put("type", supervisor.type());
+    body.put("settings", supervisor.settings());
+    body.put("dryRun", supervisor.dryRun());
+    body.put("description", supervisor.description());
+    body.put("parents", supervisor.parents());
+    body.put("delegation", delegationJson(supervisor.delegation()));
+    return body;
+  }
+
+  private Supervisor fromBody(final String id, final Map<String, Object> body) {
+    return new Supervisor(
+        id,
+        String.valueOf(body.get("type")),
+        mapper.convertValue(body.get("settings"), SETTINGS),
+        Boolean.TRUE.equals(body.get("dryRun")),
+        (String) body.get("description"),
+        mapper.convertValue(body.get("parents"), PARENTS),
+        delegationOf(mapper.convertValue(body.get("delegation"), DELEGATION)));
+  }
+
+  @Override
+  public Flux<SupervisorVersions.Version> versions(final String id) {
+    return client
+        .sql(
+            "SELECT version, saved_at, CAST(body AS text) AS body FROM supervisor_version"
+                + " WHERE supervisor_id = :id ORDER BY version DESC")
+        .bind("id", id)
+        .map(
+            row ->
+                new SupervisorVersions.Version(
+                    row.get("version", Integer.class),
+                    row.get("saved_at", Instant.class),
+                    fromBody(id, mapper.readValue(row.get("body", String.class), SETTINGS))))
+        .all();
+  }
+
+  @Override
+  public Mono<Void> deleteVersions(final String id) {
+    return client
+        .sql("DELETE FROM supervisor_version WHERE supervisor_id = :id")
+        .bind("id", id)
+        .fetch()
+        .rowsUpdated()
+        .then();
+  }
+
+  @Override
+  public Flux<Hold> holds() {
+    return client
+        .sql("SELECT holder, execution_id FROM supervisor_hold ORDER BY held_at, holder")
+        .map(
+            row -> new Hold(row.get("holder", String.class), row.get("execution_id", String.class)))
+        .all();
+  }
+
+  @Override
+  public Mono<Void> saveHold(final Hold hold) {
+    return client
+        .sql(
+            "INSERT INTO supervisor_hold (holder, execution_id) VALUES (:holder, :execution)"
+                + " ON CONFLICT DO NOTHING")
+        .bind("holder", hold.holder())
+        .bind("execution", hold.executionId())
+        .fetch()
+        .rowsUpdated()
+        .then();
+  }
+
+  @Override
+  public Mono<Void> deleteHold(final @Nullable String holder, final String executionId) {
+    final DatabaseClient.GenericExecuteSpec delete =
+        holder == null
+            ? client.sql("DELETE FROM supervisor_hold WHERE execution_id = :execution")
+            : client
+                .sql(
+                    "DELETE FROM supervisor_hold WHERE execution_id = :execution"
+                        + " AND holder = :holder")
+                .bind("holder", holder);
+    return delete.bind("execution", executionId).fetch().rowsUpdated().then();
   }
 
   /** A text parameter that may be null, which R2DBC wants typed. */

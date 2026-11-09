@@ -8,8 +8,10 @@ import com.infenia.yukta.dto.response.SupervisorView;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
+import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.supervisor.SupervisorAssignments;
@@ -27,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -72,6 +75,7 @@ import reactor.core.publisher.Mono;
   SupervisorsController.AssignmentBody.class,
   SupervisorsController.ValidationView.class,
   SupervisorsController.VersionView.class,
+  SupervisorsController.RulesView.class,
   SupervisorsController.ReplayBody.class,
   SupervisorService.ReplayDecision.class
 })
@@ -83,6 +87,15 @@ public class SupervisorsController {
   /** The reason a read-only attachment or supervisor is refused. */
   private static final String SYSTEM_MESSAGE =
       "A system supervisor is configured by the server and cannot be changed here";
+
+  /** The engine whose settings are a rules document. */
+  private static final String RULES_TYPE = "rules";
+
+  /** The settings every engine shares, which are not part of a rules document. */
+  private static final Set<String> COMMON_SETTINGS =
+      SupervisorCommonSettings.SCHEMA.stream()
+          .map(ConfigField::name)
+          .collect(Collectors.toUnmodifiableSet());
 
   /** Creates, changes and removes supervisors and their attachments. */
   private final SupervisorService service;
@@ -241,6 +254,85 @@ public class SupervisorsController {
    * @param id the supervisor id
    * @return the versions, with secret settings hidden; 404 if unknown
    */
+  @GetMapping("/{id}/engine/rules")
+  @Operation(summary = "Read the rules document of a rules supervisor")
+  public Mono<ApiResponse<RulesView>> rules(@PathVariable final String id) {
+    return rulesSupervisor(id)
+        .flatMap(this::rulesView)
+        .map(view -> ApiResponse.success(200, "Rules", view));
+  }
+
+  @PutMapping("/{id}/engine/rules")
+  @Operation(
+      summary = "Replace the rules document of a rules supervisor",
+      description =
+          "Validates the rules, keeps the supervisor's other settings, saves a new version and"
+              + " swaps the running rules; the common settings (allowedCommands, initiative, ...)"
+              + " change through PUT /api/supervisors/{id}")
+  public Mono<ApiResponse<RulesView>> saveRules(
+      @PathVariable final String id, @RequestBody final Map<String, Object> rules) {
+    if (host.isBuiltIn(id)) {
+      return Mono.error(new ConflictException(SYSTEM_MESSAGE));
+    }
+    final List<String> common = rules.keySet().stream().filter(COMMON_SETTINGS::contains).toList();
+    if (!common.isEmpty()) {
+      return Mono.error(
+          new IllegalArgumentException(
+              "Not part of the rules, change them with PUT /api/supervisors/"
+                  + id
+                  + ": "
+                  + common));
+    }
+    return rulesSupervisor(id)
+        .flatMap(
+            existing -> {
+              final Map<String, Object> settings = new LinkedHashMap<>();
+              existing
+                  .settings()
+                  .forEach(
+                      (key, value) -> {
+                        if (COMMON_SETTINGS.contains(key)) {
+                          settings.put(key, value);
+                        }
+                      });
+              settings.putAll(SupervisorSettingsMask.keepHidden(rules, existing.settings()));
+              return service.saveSupervisor(existing.withEngine(existing.type(), settings));
+            })
+        .flatMap(this::rulesView)
+        .map(view -> ApiResponse.success(200, "Rules saved", view));
+  }
+
+  /** A rules supervisor by id: 404 when there is none, 409 when it has another engine. */
+  private Mono<Supervisor> rulesSupervisor(final String id) {
+    return find(id)
+        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
+        .filter(found -> RULES_TYPE.equals(found.type()))
+        .switchIfEmpty(
+            Mono.error(
+                new ConflictException(
+                    "Supervisor " + id + " does not use the " + RULES_TYPE + " engine")));
+  }
+
+  private Mono<RulesView> rulesView(final Supervisor supervisor) {
+    final Map<String, Object> rules = new LinkedHashMap<>(supervisor.settings());
+    rules.keySet().removeAll(COMMON_SETTINGS);
+    return service
+        .versions(supervisor.id())
+        .map(
+            versions ->
+                new RulesView(
+                    versions.isEmpty() ? 0 : versions.getFirst().version(),
+                    SupervisorSettingsMask.hide(rules, service.secretSettings(supervisor.type()))));
+  }
+
+  /**
+   * The rules document of a rules supervisor.
+   *
+   * @param version the newest saved version of the supervisor; 0 when none is kept
+   * @param rules the document ({@code schemaVersion}, {@code rules}), without the common settings
+   */
+  public record RulesView(int version, Map<String, Object> rules) {}
+
   @GetMapping("/{id}/versions")
   @Operation(summary = "List the saved versions of a supervisor")
   public Mono<ApiResponse<List<VersionView>>> versions(@PathVariable final String id) {

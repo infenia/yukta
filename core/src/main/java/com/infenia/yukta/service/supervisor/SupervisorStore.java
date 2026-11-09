@@ -5,7 +5,9 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
+import java.time.Instant;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -77,4 +79,63 @@ public interface SupervisorStore {
    * @return completes when kept
    */
   Mono<Void> saveSessionRefs(String sessionId, List<SupervisorRef> refs);
+
+  /**
+   * Keeps a saved state of a supervisor as its next version, unless it equals the newest one, and
+   * drops the versions beyond the newest {@code keep}.
+   *
+   * @param supervisor the supervisor as saved
+   * @param savedAt when it was saved
+   * @param keep how many versions to keep
+   * @return completes when kept
+   */
+  Mono<Void> saveVersion(Supervisor supervisor, Instant savedAt, int keep);
+
+  /**
+   * The kept versions of a supervisor.
+   *
+   * @param id the supervisor id
+   * @return newest first; empty for an unknown supervisor
+   */
+  Flux<SupervisorVersions.Version> versions(String id);
+
+  /**
+   * Forgets the versions of a supervisor.
+   *
+   * @param id the supervisor id
+   * @return completes when forgotten
+   */
+  Mono<Void> deleteVersions(String id);
+
+  /**
+   * The runs a supervisor paused and nobody resumed or stopped yet (the hold ledger).
+   *
+   * @return the holds, oldest first per holder
+   */
+  Flux<Hold> holds();
+
+  /**
+   * Remembers that a supervisor holds a run.
+   *
+   * @param hold the hold
+   * @return completes when kept
+   */
+  Mono<Void> saveHold(Hold hold);
+
+  /**
+   * Forgets holds of a run.
+   *
+   * @param holder the supervisor or attachment id; {@code null} for every holder
+   * @param executionId the run
+   * @return completes when forgotten
+   */
+  Mono<Void> deleteHold(@Nullable String holder, String executionId);
+
+  /**
+   * A run paused by a supervisor.
+   *
+   * @param holder the supervisor or attachment id that paused it
+   * @param executionId the run
+   */
+  record Hold(String holder, String executionId) {}
 }

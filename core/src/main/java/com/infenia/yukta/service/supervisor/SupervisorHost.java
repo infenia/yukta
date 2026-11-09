@@ -18,6 +18,7 @@ import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.control.SupervisedControl;
+import com.infenia.yukta.service.control.directive.CommandTarget;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.review.AttachedSupervisors;
@@ -61,6 +62,7 @@ import reactor.core.Disposable;
 import reactor.core.publisher.BufferOverflowStrategy;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.publisher.Sinks;
 import reactor.core.scheduler.Schedulers;
 import reactor.util.context.Context;
 import reactor.util.retry.Retry;
@@ -316,6 +318,78 @@ public class SupervisorHost implements DryRunRecorder {
         .filter(bound -> bound.attachment().supervisorId().equals(supervisorId))
         .forEach(bound -> out.addAll(holds.held(bound.id())));
     return out.stream().distinct().toList();
+  }
+
+  /**
+   * Keeps the hold ledger in a store: every change is written there, one after another, in the
+   * order it happened. A failed write is logged and never reaches a supervisor.
+   *
+   * @param store where the ledger is kept
+   */
+  public void keepHoldsIn(final SupervisorStore store) {
+    final Sinks.Many<HoldLedger.Change> changes = Sinks.many().unicast().onBackpressureBuffer();
+    // the ledger calls this under its lock, so emissions never race
+    holds.onChange(changes::tryEmitNext);
+    subscriptions.add(
+        changes
+            .asFlux()
+            .concatMap(
+                change ->
+                    written(store, change)
+                        .onErrorResume(
+                            error -> {
+                              log.atWarn()
+                                  .setCause(error)
+                                  .addKeyValue("executionId", change.executionId())
+                                  .log("Could not keep a change of the hold ledger");
+                              return Mono.empty();
+                            }))
+            .subscribe());
+  }
+
+  private static Mono<Void> written(final SupervisorStore store, final HoldLedger.Change change) {
+    final String holder = change.holder();
+    return change.held() && holder != null
+        ? store.saveHold(new SupervisorStore.Hold(holder, change.executionId()))
+        : store.deleteHold(holder, change.executionId());
+  }
+
+  /**
+   * Puts back the holds kept before a restart whose runs still go on, and forgets the others: a run
+   * that ended, or that this server no longer knows, is held by nobody.
+   *
+   * @param store where the ledger is kept
+   * @return completes when loaded
+   */
+  public Mono<Void> loadHolds(final SupervisorStore store) {
+    return store
+        .holds()
+        .concatMap(
+            hold ->
+                stillGoing(hold.executionId())
+                    .flatMap(
+                        going -> {
+                          if (going) {
+                            holds.load(hold.holder(), hold.executionId());
+                            return Mono.<Void>empty();
+                          }
+                          return store.deleteHold(hold.holder(), hold.executionId());
+                        }))
+        .then();
+  }
+
+  /** Whether a run is known and not finished; true when there is nothing to ask. */
+  private Mono<Boolean> stillGoing(final String executionId) {
+    final SupervisorQueries reads = queries == null ? null : queries.getIfAvailable();
+    if (reads == null) {
+      return Mono.just(true);
+    }
+    return dispatcher
+        .target(new ExecutionControlCommand.PauseWorkflowCommand(executionId))
+        .mapNotNull(CommandTarget::sessionId)
+        .flatMap(session -> reads.statusOf(session, executionId))
+        .map(status -> !com.infenia.yukta.model.execution.TaskStatus.isTerminalName(status))
+        .defaultIfEmpty(false);
   }
 
   /**
