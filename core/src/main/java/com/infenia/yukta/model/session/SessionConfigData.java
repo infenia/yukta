@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.session;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.validation.ProjectPath;
@@ -39,8 +41,10 @@ public record SessionConfigData(
     @ProjectPath String projectPath,
     @NotEmpty(message = "Workflows cannot be empty") @Valid
         Map<String, WorkflowDefinition> workflows,
-    @Size(max = 20, message = "A session declares at most 20 supervisors")
-        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors) {
+    @JsonProperty("assignments")
+        @JsonAlias("supervisors")
+        @Size(max = 20, message = "A session declares at most 20 assignments")
+        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors) {
   /** Compact constructor for immutability. */
   public SessionConfigData {
     tags = tags == null ? Map.of() : Map.copyOf(tags);

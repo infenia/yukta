@@ -40,9 +40,9 @@ expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
 expect 'plugins/processors/llm-call/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:model-control-plane :plugins:control-planes:rules-first-control-plane :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
-expect 'plugins/supervisors/rule-supervisor/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:guards :plugins:supervisors:rule-supervisor :plus:plus-architecture"'
+  '":architecture :boot :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
+expect 'plugins/supervisors/rules/src/A.java' "$affected" \
+  '":architecture :boot :plugins:supervisors:rules :plus:plus-architecture"'
 expect 'plugins/processors/internal/internal-core/src/A.java' "$affected" \
   '":architecture :boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus:plus-architecture"'
 expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra plugins"'

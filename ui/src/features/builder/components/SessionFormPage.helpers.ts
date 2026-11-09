@@ -43,7 +43,7 @@ export function newSession(
   return {
     ...fields,
     tags,
-    ...(supervisors.length > 0 ? { supervisors } : {}),
+    ...(supervisors.length > 0 ? { assignments: supervisors } : {}),
     workflows: template
       ? template.session.workflows
       : starterSession(fields).workflows,

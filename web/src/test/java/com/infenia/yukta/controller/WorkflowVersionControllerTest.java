@@ -143,7 +143,7 @@ class WorkflowVersionControllerTest {
                 new com.infenia.yukta.service.supervisor.SettingsValidationException(
                     List.of(
                         new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
-                            "supervisors[0].supervisor", "no supervisor 'audit'")))));
+                            "assignments[0].supervisor", "no supervisor 'audit'")))));
 
     client.post().uri(BASE + "/rollback?version=0001-a").exchange().expectStatus().isBadRequest();
 

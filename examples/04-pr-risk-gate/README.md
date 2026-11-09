@@ -68,7 +68,7 @@ supervisor first and adds the declaration:
 ```bash
 curl -X PUT localhost:9858/api/supervisors/example-04-reviewer-advice -H 'Content-Type: application/json' -d @supervisor.json
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
-  -d "$(jq '.workflows.pr.supervisors = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json)"
+  -d "$(jq '.workflows.pr.assignments = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json)"
 ```
 
 `run.sh` reads the open request (`GET /api/sessions/<s>/inputs?state=ESCALATED`) and checks the advice before it answers. Make it yours: add

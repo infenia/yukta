@@ -114,6 +114,20 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
+  void lockIsStoredAndReadBack() {
+    final SupervisorAttachment locked =
+        new SupervisorAttachment("l1", "p", new SupervisorScope.Run("w", "A"), true)
+            .withLocked(true);
+
+    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
+    StepVerifier.create(store.saveAttachment(locked)).verifyComplete();
+
+    StepVerifier.create(store.attachments().filter(a -> "l1".equals(a.id())))
+        .assertNext(a -> org.assertj.core.api.Assertions.assertThat(a.locked()).isTrue())
+        .verifyComplete();
+  }
+
+  @Test
   void conflictMarkIsStoredAndReadBack() {
     final SupervisorAttachment marked =
         new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();

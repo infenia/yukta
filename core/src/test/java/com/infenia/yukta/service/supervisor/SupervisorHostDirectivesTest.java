@@ -4,6 +4,7 @@ package com.infenia.yukta.service.supervisor;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -370,5 +371,110 @@ class SupervisorHostDirectivesTest {
             false,
             pausing(10)));
     assertThat(host.detach("eng")).isTrue();
+  }
+
+  @Test
+  void pauseStaysHeldWhenTheOutcomeWasNotAppliedOrIsUnrelated() {
+    host.start();
+    attach(
+        pausing(10),
+        new Directive.Command("k1", new PauseWorkflowCommand("e1"), Cause.event("x"), null, null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").size() == 1);
+
+    // a resume that was refused, a pause that was applied and a status that is not final
+    feed.publish(
+        new ExecutionEvent.ControlOutcome(
+            "e1",
+            "s",
+            "w",
+            "ResumeWorkflowCommand",
+            "key:alice",
+            false,
+            "no",
+            Instant.now(),
+            null,
+            "OPERATOR"));
+    feed.publish(
+        new ExecutionEvent.ControlOutcome(
+            "e1",
+            "s",
+            "w",
+            "PauseWorkflowCommand",
+            "key:alice",
+            true,
+            null,
+            Instant.now(),
+            null,
+            "OPERATOR"));
+    feed.publish(
+        new ExecutionEvent.WorkflowStatusChanged("e1", "s", "w", "RUNNING", Instant.now()));
+    feed.publish(
+        new ExecutionEvent.LogLine(
+            "e1",
+            "s",
+            "w",
+            "n",
+            "hello",
+            com.infenia.yukta.plugin.core.LogLevel.INFO,
+            Instant.now()));
+    // the last event reaches the host after the earlier ones; give it a moment
+    await()
+        .pollDelay(300, TimeUnit.MILLISECONDS)
+        .atMost(3, TimeUnit.SECONDS)
+        .until(() -> host.held("eng").size() == 1);
+  }
+
+  @Test
+  void runningSupervisorsAreFoundByAttachmentAndBySupervisor() {
+    attach(pausing(10));
+
+    assertThat(host.attached("eng")).isPresent();
+    assertThat(host.attached("nope")).isEmpty();
+    assertThat(host.attachedOf("p")).extracting(b -> b.attachment().id()).containsExactly("eng");
+    assertThat(host.attachedOf("other")).isEmpty();
+  }
+
+  @Test
+  void feedThatFailsDoesNotStopTheHostFromStarting() {
+    final ExecutionEventFeed broken = mock(ExecutionEventFeed.class);
+    when(broken.events()).thenReturn(Flux.error(new IllegalStateException("feed down")));
+    final SupervisorHost other =
+        SupervisorHostFixture.create(
+            providerOf(),
+            broken,
+            dispatcher,
+            new InMemoryExecutionLogStore(),
+            new SimpleMeterRegistry(),
+            false,
+            20,
+            100);
+    try {
+      assertThatCode(other::start).doesNotThrowAnyException();
+    } finally {
+      other.stop();
+    }
+  }
+
+  @Test
+  void stopOfTheRunBySomeoneElseReleasesItToo() {
+    host.start();
+    attach(
+        pausing(10),
+        new Directive.Command("k1", new PauseWorkflowCommand("e1"), Cause.event("x"), null, null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").size() == 1);
+
+    feed.publish(
+        new ExecutionEvent.ControlOutcome(
+            "e1",
+            "s",
+            "w",
+            "StopWorkflowCommand",
+            "key:alice",
+            true,
+            null,
+            Instant.now(),
+            null,
+            "OPERATOR"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").isEmpty());
   }
 }

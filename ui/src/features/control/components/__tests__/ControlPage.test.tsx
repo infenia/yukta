@@ -22,9 +22,9 @@ const ok = (data: unknown) =>
 const server = setupServer(
   http.get('/api/supervisors/status', () => ok([])),
   http.get('/api/supervisors', () => ok([])),
-  http.get('/api/supervisors/attachments', () => ok([])),
+  http.get('/api/supervisors/assignments', () => ok([])),
   http.get('/api/supervisors/decisions', () => ok([])),
-  http.get('/api/supervisor-types', () => ok([])),
+  http.get('/api/supervisor-engines', () => ok([])),
   http.get('/api/sessions/summaries', () => ok([])),
   http.get('/api/metrics/snapshot', () => ok({ time: 0, values: {} })),
   http.get('/api/metrics/series', () => ok({ range: '1h', series: {} })),

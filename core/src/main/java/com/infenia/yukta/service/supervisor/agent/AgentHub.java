@@ -141,23 +141,22 @@ public final class AgentHub {
             final List<Sequenced> past;
             final long oldest;
             final long current;
+            final long start;
             lock.lock();
             try {
-              past = recent.stream().filter(s -> s.cursor() > after).toList();
               current = sequence.get();
+              // a negative cursor means "from now on"
+              start = after < 0 ? current : after;
+              past = recent.stream().filter(s -> s.cursor() > start).toList();
               oldest = recent.isEmpty() ? current + 1 : recent.peekFirst().cursor();
             } finally {
               lock.unlock();
             }
-            // a negative cursor means "from now on"
-            final long start = after < 0 ? current : after;
             final long last = past.isEmpty() ? start : past.getLast().cursor();
             // signals between the cursor and the oldest one remembered are gone
             final long forgotten = Math.max(0, Math.min(oldest, current + 1) - after - 1);
             final Flux<Sequenced> gap =
-                after >= 0 && forgotten > 0 && !past.isEmpty()
-                    ? Flux.just(missed(after, forgotten))
-                    : Flux.empty();
+                after >= 0 && forgotten > 0 ? Flux.just(missed(after, forgotten)) : Flux.empty();
             final AtomicLong seen = new AtomicLong(last);
             final Flux<Sequenced> fresh =
                 live.asFlux()

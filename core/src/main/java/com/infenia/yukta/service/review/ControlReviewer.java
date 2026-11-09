@@ -18,9 +18,11 @@ import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
@@ -35,7 +37,13 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.AvoidUsingVolatile",
+  "PMD.CouplingBetweenObjects",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 public class ControlReviewer {
 
   /** The {@code via} of a unit that nobody owns. */
@@ -333,6 +341,57 @@ public class ControlReviewer {
     return owner.get().capabilities().allowsOperator(command)
         ? new Capability(true, name, null)
         : new Capability(false, name, name + " controls this. People cannot do this directly.");
+  }
+
+  /** A sample of each node command, for asking who carries it. */
+  private static final Map<String, Supplier<ExecutionControlCommand>> NODE_COMMANDS =
+      Map.of(
+          "pauseNode", () -> new ExecutionControlCommand.PauseNodeCommand("e", "n"),
+          "resumeNode", () -> new ExecutionControlCommand.ResumeNodeCommand("e", "n"),
+          "stopNode", () -> new ExecutionControlCommand.StopNodeCommand("e", "n", false, null),
+          "skipNode", () -> new ExecutionControlCommand.SkipNodeCommand("e", "n", true),
+          "stepNode", () -> new ExecutionControlCommand.StepNodeCommand("e", "n"));
+
+  /** A sample of each run-level command. */
+  private static final Map<String, Supplier<ExecutionControlCommand>> RUN_COMMANDS =
+      Map.of(
+          "start", () -> new ExecutionControlCommand.StartWorkflowCommand("s", "w", Map.of(), null),
+          "pause", () -> new ExecutionControlCommand.PauseWorkflowCommand("e"),
+          "resume", () -> new ExecutionControlCommand.ResumeWorkflowCommand("e"),
+          "stop", () -> new ExecutionControlCommand.StopWorkflowCommand("e", null),
+          "restart", () -> new ExecutionControlCommand.RestartCommand("e", "e2"),
+          "priority", () -> new ExecutionControlCommand.SetPriorityCommand("e", 0),
+          "recover", () -> new ExecutionControlCommand.RecoverCommand("e"));
+
+  /** A sample of each server command. */
+  private static final Map<String, Supplier<ExecutionControlCommand>> SERVER_COMMANDS =
+      Map.of(
+          "setLimits", () -> new ExecutionControlCommand.SetLimitsCommand(0, 0),
+          "drain", () -> new ExecutionControlCommand.DrainCommand(true));
+
+  /**
+   * Who carries each command a person might send to a node, a run level or the server, and whether
+   * people may send it: the server's commands when neither session nor workflow is given, a node's
+   * when a node is given, otherwise the run level's. Sorted by command name.
+   *
+   * @param sessionId the session, or {@code null} for the server
+   * @param workflowId the workflow, or {@code null} for the server
+   * @param nodeId the node, or {@code null}
+   * @return the answer per command
+   */
+  public Map<String, Capability> capabilities(
+      final @Nullable String sessionId,
+      final @Nullable String workflowId,
+      final @Nullable String nodeId) {
+    final Map<String, Supplier<ExecutionControlCommand>> commands =
+        sessionId == null && workflowId == null
+            ? SERVER_COMMANDS
+            : nodeId != null ? NODE_COMMANDS : RUN_COMMANDS;
+    final Map<String, Capability> answer = new java.util.TreeMap<>();
+    commands.forEach(
+        (name, sample) ->
+            answer.put(name, capability(sessionId, workflowId, nodeId, sample.get())));
+    return java.util.Collections.unmodifiableMap(answer);
   }
 
   /**

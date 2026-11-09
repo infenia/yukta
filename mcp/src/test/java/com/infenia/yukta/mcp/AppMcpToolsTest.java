@@ -38,6 +38,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Mono;
@@ -373,18 +374,32 @@ class AppMcpToolsTest {
     final var listing =
         new com.infenia.yukta.mcp.dto.SupervisorListing(
             List.of(), List.of(), List.of(), List.of("t"));
-    final var binding =
-        new com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo("b", "p", "global", true, "MANUAL");
-    final var detached = new com.infenia.yukta.mcp.dto.SupervisorDetached("b", true);
+    final var owned = new com.infenia.yukta.mcp.dto.SupervisorAssignmentList("p", List.of());
+    final var check = new com.infenia.yukta.mcp.dto.SupervisorCheck(true, List.of());
+    final var deleted = new com.infenia.yukta.mcp.dto.SupervisorDeleted("p", true);
+    final var details =
+        new com.infenia.yukta.mcp.dto.SupervisorDetails(
+            "p", "t", null, false, Map.of(), List.of(), List.of());
+    final var supervision = new com.infenia.yukta.mcp.dto.SupervisionAnswer(List.of());
     when(supervisorProvider.list()).thenReturn(Mono.just(listing));
-    when(supervisorProvider.attach("p", "global", null, null)).thenReturn(Mono.just(binding));
-    when(supervisorProvider.detach("b")).thenReturn(Mono.just(detached));
+    when(supervisorProvider.setAssignments("p", List.of(), null)).thenReturn(Mono.just(owned));
+    when(supervisorProvider.checkAssignments("p", List.of())).thenReturn(Mono.just(check));
+    when(supervisorProvider.delete("p")).thenReturn(Mono.just(deleted));
+    when(supervisorProvider.details("p")).thenReturn(Mono.just(details));
+    when(supervisorProvider.supervision("s", "w", null, null)).thenReturn(Mono.just(supervision));
 
     StepVerifier.create(mcpTools.listSupervisors()).expectNext(listing).verifyComplete();
-    StepVerifier.create(mcpTools.attachSupervisor("p", "global", null, null))
-        .expectNext(binding)
+    StepVerifier.create(mcpTools.setAssignments("p", List.of(), null))
+        .expectNext(owned)
         .verifyComplete();
-    StepVerifier.create(mcpTools.detachSupervisor("b")).expectNext(detached).verifyComplete();
+    StepVerifier.create(mcpTools.checkAssignment("p", List.of()))
+        .expectNext(check)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.deleteSupervisor("p")).expectNext(deleted).verifyComplete();
+    StepVerifier.create(mcpTools.getSupervisor("p")).expectNext(details).verifyComplete();
+    StepVerifier.create(mcpTools.getSupervision("s", "w", null, null))
+        .expectNext(supervision)
+        .verifyComplete();
   }
 
   @Test
@@ -412,8 +427,8 @@ class AppMcpToolsTest {
     when(supervisorProvider.save("s", "t", java.util.Map.of("k", 1), true, "why"))
         .thenReturn(Mono.just(saved));
 
-    StepVerifier.create(mcpTools.listSupervisorTypes()).expectNext(types).verifyComplete();
-    StepVerifier.create(mcpTools.getSupervisorType("t")).expectNext(details).verifyComplete();
+    StepVerifier.create(mcpTools.listSupervisorEngines()).expectNext(types).verifyComplete();
+    StepVerifier.create(mcpTools.getSupervisorEngine("t")).expectNext(details).verifyComplete();
     StepVerifier.create(mcpTools.saveSupervisor("s", "t", java.util.Map.of("k", 1), true, "why"))
         .expectNext(saved)
         .verifyComplete();

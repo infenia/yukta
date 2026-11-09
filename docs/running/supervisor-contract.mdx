@@ -87,7 +87,8 @@ Everything is limited to what the supervisor owns.
 | `Event` | An execution event: node or workflow status, a control outcome, a log line, an input event, `EventsMissed` |
 | `Tick` | Time, only if the engine's settings ask for a period |
 | `Review` | A command that a person or the operator gateway wants to send for an owned unit. The engine answers it. |
-| `Delegated` | A delegation from a child: kind, payload, id. The engine answers it. |
+| `Delegated` | A question from a child: kind, payload, id. The engine answers it. |
+| `Consulted` | What the parents answered to a `Delegate` this engine sent: the key it gave, and the typed answer of each parent that had one, by parent id. Empty when none did. |
 | `Started` | The engine started or reconnected: the reason (`first`, `resubscribe`, `credential-rotated`) and a snapshot with a cursor |
 
 ```json
@@ -112,7 +113,7 @@ Each directive is checked by the supervisor before it has any effect.
 | `Command` | A control command from the act table, with a cause and, for initiative, a `reason`. Its target may be a selector. It may carry `ifStatus`. |
 | `ReviewVerdict` | `allow`, `deny` or `requireApproval`, for a `Review` |
 | `DelegationAnswer` | The answer to a `Delegated` signal |
-| `Delegate` | Pass a question up to the parents, with a kind and a payload |
+| `Delegate` | Pass a question up to the parents (`CONSULT`), with a payload and an optional `key`. The parents are asked in the mode and within the timeout set for `CONSULT`; their answers come back as a `Consulted` signal with the same key. A parent that is not running, declines or is slow is left out. |
 | `Notify` | An audited message that changes nothing |
 | `NoOpinion` | Explicitly no answer |
 

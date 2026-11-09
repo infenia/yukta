@@ -5,11 +5,15 @@ package com.infenia.yukta.service.supervisor.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
@@ -69,12 +73,12 @@ class AgentCredentialsTest {
     final Clock clock =
         new Clock() {
           @Override
-          public java.time.ZoneId getZone() {
+          public ZoneId getZone() {
             return ZoneOffset.UTC;
           }
 
           @Override
-          public Clock withZone(final java.time.ZoneId zone) {
+          public Clock withZone(final ZoneId zone) {
             return this;
           }
 
@@ -137,6 +141,7 @@ class AgentCredentialsTest {
   }
 
   @Test
+  @ExpectedErrorLog("ERROR com.infenia.yukta.service.supervisor.agent.AgentCredentials - ")
   void anExpiredStoredCredentialIsNotLoadedAndFailingStoreDoesNotBreakIssuing() {
     final MapStore store = new MapStore();
     store.rows.put(
@@ -146,6 +151,7 @@ class AgentCredentialsTest {
     credentials.restoreOnReady();
     assertThat(credentials.has("old")).isFalse();
 
+    final AtomicInteger writes = new AtomicInteger();
     final AgentCredentialStore broken =
         new AgentCredentialStore() {
           @Override
@@ -155,12 +161,20 @@ class AgentCredentialsTest {
 
           @Override
           public reactor.core.publisher.Mono<Void> save(final Stored credential) {
-            return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+            return reactor.core.publisher.Mono.defer(
+                () -> {
+                  writes.incrementAndGet();
+                  return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+                });
           }
 
           @Override
           public reactor.core.publisher.Mono<Void> delete(final String supervisorId) {
-            return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+            return reactor.core.publisher.Mono.defer(
+                () -> {
+                  writes.incrementAndGet();
+                  return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+                });
           }
         };
     final AgentCredentials offline = new AgentCredentials();
@@ -169,6 +183,42 @@ class AgentCredentialsTest {
     final String token = offline.issue("a", null).token();
     assertThat(offline.authenticate(token)).contains("a");
     assertThat(offline.revoke("a")).isTrue();
+    // a write that fails is tried three times (once, and twice more) before it is logged as an
+    // error
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(() -> assertThat(writes.get()).isEqualTo(6));
+  }
+
+  @Test
+  void credentialThatExpiredHasNoMetadataEither() {
+    final AtomicReference<Instant> now =
+        new AtomicReference<>(Instant.parse("2030-01-01T00:00:00Z"));
+    final AgentCredentials credentials =
+        new AgentCredentials(
+            new Clock() {
+              @Override
+              public ZoneId getZone() {
+                return ZoneOffset.UTC;
+              }
+
+              @Override
+              public Clock withZone(final ZoneId zone) {
+                return this;
+              }
+
+              @Override
+              public Instant instant() {
+                return now.get();
+              }
+            });
+    credentials.issue("a", Duration.ofMinutes(1));
+    assertThat(credentials.metadata("a")).isPresent();
+
+    now.set(Instant.parse("2030-01-01T01:00:00Z"));
+
+    assertThat(credentials.metadata("a")).isEmpty();
+    assertThat(credentials.metadata("nobody")).isEmpty();
   }
 
   @Test

@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -122,5 +123,60 @@ func TestAgentReportsAProgramThatCannotStart(t *testing.T) {
 	c := client.NewClient("http://127.0.0.1:1")
 	if err := runAgent(context.Background(), c, "/no/such/program", nil, io.Discard); err == nil {
 		t.Error("a missing program should be an error")
+	}
+}
+
+func TestAgentEndsWhenTheProgramEndsAndSaysWhatItCouldNotSend(t *testing.T) {
+	c := client.NewClient("http://127.0.0.1:1") // down: the stream ends at once and is retried
+	var log strings.Builder
+	err := runAgent(context.Background(), c, "sh", []string{"-c", "echo not-json; sleep 0.2"}, &log)
+	if err == nil || !strings.Contains(err.Error(), "the program ended") {
+		t.Fatalf("want the program ended, got %v", err)
+	}
+	if !strings.Contains(log.String(), "directive not sent") || !strings.Contains(log.String(), "reconnecting") {
+		t.Errorf("the log must say what went wrong: %q", log.String())
+	}
+}
+
+func TestAgentStopsTheStreamWhenTheProgramCannotTakeASignal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		time.Sleep(400 * time.Millisecond) // the program has closed its input by now
+		_, _ = io.WriteString(w, "id: 1\ndata: {\"cursor\":1}\n\n")
+	}))
+	defer srv.Close()
+	var log strings.Builder
+	err := runAgent(context.Background(), client.NewClient(srv.URL), "sh", []string{"-c", "exec 0<&-; sleep 3"}, &log)
+	if err == nil || !strings.Contains(err.Error(), "the program ended") {
+		t.Errorf("want the program ended, got %v", err)
+	}
+	if !strings.Contains(log.String(), "stream ended") {
+		t.Errorf("a signal the program could not take must end the stream: %q", log.String())
+	}
+}
+
+func TestAgentCommandNeedsAReadableCredentialFile(t *testing.T) {
+	cmd := agentCmd(client.NewClient("http://127.0.0.1:1"))
+	cmd.SetArgs([]string{"--credential-file", "/no/such/file", "--exec", "true"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	if err := cmd.ExecuteContext(context.Background()); err == nil || !strings.Contains(err.Error(), "credential file") {
+		t.Errorf("want a credential file error, got %v", err)
+	}
+
+	file := t.TempDir() + "/token"
+	if err := os.WriteFile(file, []byte(" yag_secret \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := client.NewClient("http://127.0.0.1:1")
+	cmd = agentCmd(c)
+	cmd.SetArgs([]string{"--credential-file", file, "--exec", "true"})
+	cmd.SilenceUsage, cmd.SilenceErrors = true, true
+	cmd.SetErr(io.Discard)
+	err := cmd.ExecuteContext(context.Background())
+	if c.Token != "yag_secret" {
+		t.Errorf("the credential must be read without its spaces: %q", c.Token)
+	}
+	if err == nil || !strings.Contains(err.Error(), "the program ended") {
+		t.Errorf("want the program ended, got %v", err)
 	}
 }

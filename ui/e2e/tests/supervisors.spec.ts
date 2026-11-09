@@ -35,14 +35,14 @@ async function mockSupervisorsApi(page: Page) {
   const state = {
     supervisors: [] as { id: string; type: string; system: boolean }[],
     savedSession: null as null | {
-      workflows: Record<string, { supervisors?: unknown[] }>;
+      workflows: Record<string, { assignments?: unknown[] }>;
     },
   };
-  await page.route('**/api/supervisor-types', (route) =>
-    route.fulfill(envelope('/api/supervisor-types', [type]))
+  await page.route('**/api/supervisor-engines', (route) =>
+    route.fulfill(envelope('/api/supervisor-engines', [type]))
   );
-  await page.route('**/api/supervisor-types/*', (route) =>
-    route.fulfill(envelope('/api/supervisor-types/failure-guard', type))
+  await page.route('**/api/supervisor-engines/*', (route) =>
+    route.fulfill(envelope('/api/supervisor-engines/failure-guard', type))
   );
   await page.route('**/api/supervisors/validate', (route) =>
     route.fulfill(envelope('/validate', { valid: true, errors: [] }))
@@ -55,10 +55,10 @@ async function mockSupervisorsApi(page: Page) {
     }
     return route.fulfill(envelope('/api/supervisors', state.supervisors));
   });
-  await page.route('**/api/supervisors/attachments*', (route) =>
+  await page.route('**/api/supervisors/assignments*', (route) =>
     route.fulfill(
       envelope(
-        '/attachments',
+        '/assignments',
         state.savedSession
           ? [
               {
@@ -149,7 +149,7 @@ test.describe('Supervisors end to end', () => {
     );
     await page.getByRole('button', { name: 'Save version' }).click();
     await expect
-      .poll(() => state.savedSession?.workflows.build.supervisors)
+      .poll(() => state.savedSession?.workflows.build.assignments)
       .toEqual([{ supervisor: 'fresh' }]);
 
     await page.goto('/sessions/session-1/workflow/build');

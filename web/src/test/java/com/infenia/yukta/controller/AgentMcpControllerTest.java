@@ -24,7 +24,7 @@ import reactor.core.publisher.Flux;
 import tools.jackson.databind.ObjectMapper;
 
 /** An AI agent that is a supervisor reaches the agent API through MCP tools. */
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.UseConcurrentHashMap", "PMD.TooManyMethods"})
 class AgentMcpControllerTest {
 
   private final AgentHub hub = new AgentHub();
@@ -35,6 +35,11 @@ class AgentMcpControllerTest {
   private final List<Directive> received = new ArrayList<>();
 
   private MockServerWebExchange running() {
+    return running(com.infenia.yukta.plugin.control.engine.EngineReads.NONE);
+  }
+
+  private MockServerWebExchange running(
+      final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
     new HttpEngineFactory(hub)
         .create(
             new EngineConfig(Map.of()),
@@ -52,6 +57,11 @@ class AgentMcpControllerTest {
               @Override
               public Map<String, Object> state() {
                 return Map.of();
+              }
+
+              @Override
+              public com.infenia.yukta.plugin.control.engine.EngineReads reads() {
+                return reads;
               }
             })
         .run(
@@ -104,7 +114,7 @@ class AgentMcpControllerTest {
     assertThat(result(rpc(exchange, "initialize", Map.of())).get("protocolVersion"))
         .isEqualTo("2025-03-26");
     assertThat(result(rpc(exchange, "ping", null))).isEmpty();
-    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(7);
+    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(11);
     assertThat(((Map<?, ?>) rpc(exchange, "nope", null).get("error")).get("code"))
         .isEqualTo(-32_601);
     assertThat(
@@ -121,6 +131,17 @@ class AgentMcpControllerTest {
       final Map<String, Object> result =
           result(rpc(exchange, "tools/call", call(read, Map.of("limit", 5))));
       assertThat(result.get("isError")).isEqualTo(false);
+    }
+    // this engine reads nothing, so what is not owned is reported as not found, not as a crash
+    for (final String read :
+        new String[] {"get_execution", "get_logs", "get_workflow", "get_scheduler"}) {
+      final Map<String, Object> result =
+          result(
+              rpc(
+                  exchange,
+                  "tools/call",
+                  call(read, Map.of("executionId", "run1", "sessionId", "s", "workflowId", "w"))));
+      assertThat(result.get("isError")).isEqualTo(true);
     }
 
     assertThat(
@@ -209,5 +230,61 @@ class AgentMcpControllerTest {
         .isEqualTo(-32_602);
     assertThat(result(rpc(exchange, "tools/call", Map.of("name", "get_snapshot"))).get("isError"))
         .isEqualTo(false);
+  }
+
+  @Test
+  void anAgentThatCanReadGetsTheExecutionItsLogsTheWorkflowAndTheScheduler() {
+    final var view =
+        new com.infenia.yukta.plugin.control.engine.EngineReads.RunView(
+            "s", "run1", "w", "RUNNING", null);
+    final MockServerWebExchange exchange =
+        running(
+            new com.infenia.yukta.plugin.control.engine.EngineReads() {
+              @Override
+              public Flux<RunView> executions(final String status, final int limit) {
+                return Flux.empty();
+              }
+
+              @Override
+              public Flux<com.infenia.yukta.plugin.input.InputRequest> openInputs(final int limit) {
+                return Flux.empty();
+              }
+
+              @Override
+              public reactor.core.publisher.Mono<RunDetail> execution(final String executionId) {
+                return reactor.core.publisher.Mono.just(
+                    new RunDetail(view, Map.of("n", "RUNNING")));
+              }
+
+              @Override
+              public Flux<String> logs(final String executionId, final int tail) {
+                return Flux.just("INFO n: hello");
+              }
+
+              @Override
+              public reactor.core.publisher.Mono<WorkflowView> workflow(
+                  final String sessionId, final String workflowId) {
+                return reactor.core.publisher.Mono.just(
+                    new WorkflowView(workflowId, List.of(), List.of()));
+              }
+
+              @Override
+              public reactor.core.publisher.Mono<SchedulerView> scheduler() {
+                return reactor.core.publisher.Mono.just(new SchedulerView(4, 2, 1, 0));
+              }
+            });
+    for (final String read :
+        new String[] {"get_execution", "get_logs", "get_workflow", "get_scheduler"}) {
+      final Map<String, Object> result =
+          result(
+              rpc(
+                  exchange,
+                  "tools/call",
+                  call(
+                      read,
+                      Map.of(
+                          "executionId", "run1", "sessionId", "s", "workflowId", "w", "tail", 5))));
+      assertThat(result.get("isError")).isEqualTo(false);
+    }
   }
 }

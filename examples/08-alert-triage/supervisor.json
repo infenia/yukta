@@ -1,6 +1,6 @@
 {
   "id": "example-08-ack-advice",
-  "type": "rule-supervisor",
+  "type": "rules",
   "dryRun": false,
   "settings": {
     "rules": [

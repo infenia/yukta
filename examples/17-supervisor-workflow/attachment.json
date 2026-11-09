@@ -1,6 +1,0 @@
-{
-  "id": "low-risk-workflow-binding",
-  "supervisorId": "low-risk-workflow",
-  "scope": "session:my-session",
-  "enabled": true
-}

@@ -15,8 +15,8 @@ The catalogue endpoints describe what the server offers and who is attached to i
 |---|---|
 | `GET /api/plugins` | List plugin types |
 | `GET /api/plugins/{type}` | Describe one plugin type |
-| `GET /api/supervisors/status` | List running supervisors and control planes |
-| `GET /api/supervisor-types` | List the supervisor types; `GET /api/supervisor-types/{type}` describes one |
+| `GET /api/supervisors/status` | List running supervisors |
+| `GET /api/supervisor-engines` | List the engines a supervisor can have; `GET /api/supervisor-engines/{type}` describes one |
 | `GET /api/supervisors` | List the configured supervisors (see [Supervisors](/running/supervisors)) |
 | `GET /api/workers` | List connected remote workers |
 | `GET /api/templates` | List the example sessions bundled with the server |
@@ -124,7 +124,7 @@ The plugin pages describe each built-in type: [Plugins overview](/plugins/overvi
 
 `GET /api/supervisors/status`
 
-Lists the supervisors and control-plane plugins running on the control bus, in the order they review commands. The counts start at zero when the server starts. See [Supervisors](/running/supervisors) and [Control planes](/running/control-planes).
+Lists the supervisors running on the control bus. The counts start at zero when the server starts. See [Supervisors](/running/supervisors).
 
 **Response `data`**: an array, one entry per supervisor.
 

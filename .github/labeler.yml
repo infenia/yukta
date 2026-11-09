@@ -87,12 +87,6 @@ supervisors:
       - any-glob-to-any-file:
           - 'plugins/supervisors/**'
 
-# Control-plane plugin changes
-control-planes:
-  - changed-files:
-      - any-glob-to-any-file:
-          - 'plugins/control-planes/**'
-
 # Terminals plugin changes
 terminals:
   - changed-files:

@@ -31,7 +31,7 @@ const stored = (): SessionDraft => ({
   workflows: {
     wf: { workflowId: 'wf', description: 'w', nodes: [], edges: [] },
   },
-  supervisors: [{ supervisor: 'guard' }],
+  assignments: [{ supervisor: 'guard' }],
 });
 
 const posted: SessionDraft[] = [];
@@ -54,7 +54,7 @@ const server = setupServer(
           message: 'Invalid supervisors',
           errors: [
             {
-              field: 'supervisors[0].supervisor',
+              field: 'assignments[0].supervisor',
               message: "no supervisor 'x'",
             },
           ],
@@ -103,7 +103,7 @@ describe('the supervisors of a session in the form', () => {
     await user.click(screen.getByRole('button', { name: 'Create session' }));
 
     await waitFor(() => expect(posted).toHaveLength(1));
-    expect(posted[0].supervisors).toEqual([{ supervisor: 'guard' }]);
+    expect(posted[0].assignments).toEqual([{ supervisor: 'guard' }]);
   });
 
   it('creates a session without any and sends no field for them', async () => {
@@ -129,7 +129,7 @@ describe('the supervisors of a session in the form', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(posted).toHaveLength(1));
-    expect(posted[0].supervisors).toEqual([]);
+    expect(posted[0].assignments).toEqual([]);
   });
 
   it('shows what the server says about the supervisors, on the field', async () => {
@@ -139,7 +139,7 @@ describe('the supervisors of a session in the form', () => {
     await user.click(await screen.findByRole('button', { name: 'Save' }));
 
     const shown = await screen.findAllByText(
-      "supervisors[0].supervisor: no supervisor 'x'"
+      "assignments[0].supervisor: no supervisor 'x'"
     );
     expect(shown.some((el) => el.getAttribute('role') === 'alert')).toBe(true);
   });
@@ -153,7 +153,7 @@ describe('the supervisors of a session in the form', () => {
       projectPath: '/p',
     };
     expect(
-      newSession(fields, {}, undefined, [{ supervisor: 'g' }]).supervisors
+      newSession(fields, {}, undefined, [{ supervisor: 'g' }]).assignments
     ).toEqual([{ supervisor: 'g' }]);
     expect(newSession(fields, {})).not.toHaveProperty('supervisors');
   });

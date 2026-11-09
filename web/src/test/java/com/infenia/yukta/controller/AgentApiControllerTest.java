@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
 import org.springframework.mock.web.server.MockServerWebExchange;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** The agent API turns what an application sends into directives of its supervisor. */
@@ -612,5 +613,76 @@ class AgentApiControllerTest {
         .thenConsumeWhile(event -> true)
         .verifyComplete();
     assertThatThrownBy(() -> controller.snapshot(as("a1"))).isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
+  void anExecutionItsLogsItsWorkflowAndTheSchedulerComeFromTheEnginesReads() {
+    final EngineReads.RunView view = new EngineReads.RunView("s", "run1", "w", "RUNNING", null);
+    final EngineReads reads =
+        new EngineReads() {
+          @Override
+          public Flux<RunView> executions(final @Nullable String status, final int limit) {
+            return Flux.empty();
+          }
+
+          @Override
+          public Flux<com.infenia.yukta.plugin.input.InputRequest> openInputs(final int limit) {
+            return Flux.empty();
+          }
+
+          @Override
+          public Mono<RunDetail> execution(final String executionId) {
+            return "run1".equals(executionId)
+                ? Mono.just(new RunDetail(view, Map.of("build", "RUNNING")))
+                : Mono.empty();
+          }
+
+          @Override
+          public Flux<String> logs(final String executionId, final int tail) {
+            return Flux.just("INFO build: hello");
+          }
+
+          @Override
+          public Mono<WorkflowView> workflow(final String sessionId, final String workflowId) {
+            return Mono.just(new WorkflowView(workflowId, List.of(), List.of()));
+          }
+
+          @Override
+          public Mono<SchedulerView> scheduler() {
+            return Mono.just(new SchedulerView(4, 2, 1, 0));
+          }
+        };
+    running(reads);
+
+    StepVerifier.create(controller.execution(as("a1"), "run1"))
+        .assertNext(r -> assertThat(r.data().nodes()).containsEntry("build", "RUNNING"))
+        .verifyComplete();
+    StepVerifier.create(controller.logs(as("a1"), "run1", 10))
+        .assertNext(r -> assertThat(r.data()).containsExactly("INFO build: hello"))
+        .verifyComplete();
+    StepVerifier.create(controller.workflow(as("a1"), "s", "w"))
+        .assertNext(r -> assertThat(r.data().workflowId()).isEqualTo("w"))
+        .verifyComplete();
+    StepVerifier.create(controller.scheduler(as("a1")))
+        .assertNext(r -> assertThat(r.data().maxConcurrent()).isEqualTo(4))
+        .verifyComplete();
+  }
+
+  @Test
+  void whatIsNotOwnedOrNotReadableIsNotFound() {
+    running(EngineReads.NONE);
+
+    StepVerifier.create(controller.execution(as("a1"), "run1"))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(controller.logs(as("a1"), "run1", 10))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(controller.workflow(as("a1"), "s", "w"))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(controller.scheduler(as("a1")))
+        .expectError(NotFoundException.class)
+        .verify();
   }
 }

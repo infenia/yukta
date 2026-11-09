@@ -33,7 +33,7 @@ public final class DefinitionChecks {
   private static final String WORKFLOWS = "workflows.";
 
   /** Field name of the supervisor id in a declaration. */
-  private static final String SUPERVISOR_FIELD = "supervisors[%d].supervisor";
+  private static final String SUPERVISOR_FIELD = "assignments[%d].supervisor";
 
   /** Attaches and detaches, to read what is attached by hand. */
   private final SupervisorService service;
@@ -58,7 +58,7 @@ public final class DefinitionChecks {
    * nothing is declared twice.
    *
    * @param data the session as it would be saved
-   * @return the problems, each with a field such as {@code workflows.build.supervisors[0].nodes};
+   * @return the problems, each with a field such as {@code workflows.build.assignments[0].nodes};
    *     empty when all is well
    */
   public Mono<List<Issue>> check(final SessionConfigData data) {
@@ -94,7 +94,7 @@ public final class DefinitionChecks {
    * Checks what one workflow declares, for a draft that is not saved.
    *
    * @param workflow the draft
-   * @return the problems, with fields such as {@code supervisors[0].supervisor}
+   * @return the problems, with fields such as {@code assignments[0].supervisor}
    */
   public Mono<List<Issue>> check(final WorkflowDefinition workflow) {
     return service
@@ -211,7 +211,7 @@ public final class DefinitionChecks {
                             issues.add(
                                 new Issue(
                                     a.scope().workflowId() == null
-                                        ? "supervisors"
+                                        ? "assignments"
                                         : WORKFLOWS + a.scope().workflowId() + ".nodes",
                                     c.message())));
               }
@@ -219,7 +219,7 @@ public final class DefinitionChecks {
             });
   }
 
-  /** The field of a declaration, such as {@code workflows.build.supervisors[0].supervisor}. */
+  /** The field of a declaration, such as {@code workflows.build.assignments[0].supervisor}. */
   /* default */ static String fieldOf(
       final SupervisorAttachment attachment, final SessionConfigData data) {
     return fieldOf(attachment, data.supervisors(), data.workflows());
@@ -240,7 +240,7 @@ public final class DefinitionChecks {
             + SUPERVISOR_FIELD.formatted(i);
       }
     }
-    return workflowId == null ? "supervisors" : WORKFLOWS + workflowId + ".supervisors";
+    return workflowId == null ? "assignments" : WORKFLOWS + workflowId + ".assignments";
   }
 
   private void checkRefs(
@@ -255,7 +255,7 @@ public final class DefinitionChecks {
     for (int i = 0; i < refs.size(); i++) {
       final SupervisorRef ref = refs.get(i);
       final String field = prefix + SUPERVISOR_FIELD.formatted(i);
-      final String nodesField = prefix + "supervisors[" + i + "].nodes";
+      final String nodesField = prefix + "assignments[" + i + "].nodes";
       if (host.isBuiltIn(ref.supervisor())) {
         issues.add(new Issue(field, "is configured by the server and cannot be declared"));
       } else if (!known.contains(ref.supervisor())) {

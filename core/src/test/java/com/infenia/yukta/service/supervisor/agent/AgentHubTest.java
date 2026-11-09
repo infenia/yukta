@@ -14,7 +14,11 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 /** The hub remembers signals per supervisor and passes credential changes on. */
-@SuppressWarnings("PMD.AvoidInstantiatingObjectsInLoops")
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.TooManyMethods"
+})
 class AgentHubTest {
 
   private final AgentHub hub = new AgentHub();
@@ -147,5 +151,46 @@ class AgentHubTest {
   @Test
   void configurationOffersTheHttpType() {
     assertThat(new AgentEngineConfiguration().httpSupervisorFactory(hub).type()).isEqualTo("http");
+  }
+
+  @Test
+  void anOpenReviewOrDelegationIsAnsweredOnceAndOnlyInTime() {
+    final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
+    channel.signal(tick(1));
+    channel.signal(new Signal.Review("rv", null, Duration.ofSeconds(10)));
+    channel.signal(new Signal.Review("late", null, Duration.ofNanos(1)));
+    channel.signal(new Signal.Delegated("dl", null, "child", Map.of()));
+    final Instant now = Instant.now();
+
+    assertThat(channel.claimAnswer("verdict", "rv", now)).isTrue();
+    assertThat(channel.claimAnswer("verdict", "rv", now)).isFalse(); // once
+    assertThat(channel.claimAnswer("command", "rv", now)).isTrue(); // a command it caused
+    assertThat(channel.claimAnswer("verdict", "dl", now)).isTrue();
+    assertThat(channel.claimAnswer("verdict", "unknown", now)).isFalse();
+    assertThat(channel.claimAnswer("verdict", "late", now.plusSeconds(60))).isFalse();
+  }
+
+  @Test
+  void rememberedAnswersAreBoundedLikeTheSignals() {
+    final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
+    for (int i = 0; i < AgentHub.REMEMBERED + 5; i++) {
+      channel.signal(new Signal.Delegated("d" + i, null, "child", Map.of()));
+      assertThat(channel.claimAnswer("verdict", "d" + i, Instant.now())).isTrue();
+    }
+
+    assertThat(channel.claimAnswer("verdict", "d" + (AgentHub.REMEMBERED + 4), Instant.now()))
+        .isFalse();
+  }
+
+  @Test
+  void negativeCursorMeansFromNowOnAndSkipsWhatWasSent() {
+    final AgentHub.Channel channel = hub.open("s", () -> EngineReads.NONE);
+    channel.signal(tick(1));
+
+    StepVerifier.create(channel.signalsAfter(-1))
+        .then(() -> channel.signal(tick(2)))
+        .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
+        .thenCancel()
+        .verify(Duration.ofSeconds(5));
   }
 }

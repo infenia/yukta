@@ -27,7 +27,7 @@ const server = setupServer(
       { id: 'rules', type: 't', system: true },
     ])
   ),
-  http.get('/api/supervisor-types', () =>
+  http.get('/api/supervisor-engines', () =>
     ok([
       {
         type: 'failure-guard',
@@ -38,7 +38,7 @@ const server = setupServer(
       },
     ])
   ),
-  http.get('/api/supervisor-types/:type', () =>
+  http.get('/api/supervisor-engines/:type', () =>
     ok({
       type: 'failure-guard',
       displayName: 'Failure guard',
@@ -153,7 +153,7 @@ describe('SupervisorPicker', () => {
   });
 
   it('shows what the server said about the refs', () => {
-    renderPicker({ errors: ['supervisors[0].supervisor: no supervisor'] });
+    renderPicker({ errors: ['assignments[0].supervisor: no supervisor'] });
     expect(screen.getByRole('alert')).toHaveTextContent('no supervisor');
   });
 

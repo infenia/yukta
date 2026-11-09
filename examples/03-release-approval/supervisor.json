@@ -1,6 +1,6 @@
 {
   "id": "example-03-release-guard",
-  "type": "rule-supervisor",
+  "type": "rules",
   "dryRun": false,
   "settings": {
     "rules": [

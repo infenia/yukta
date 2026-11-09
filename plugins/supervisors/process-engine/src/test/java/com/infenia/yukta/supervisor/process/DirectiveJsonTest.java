@@ -95,4 +95,40 @@ class DirectiveJsonTest {
       assertThat(DirectiveJson.read(line)).as(line.toString()).isEmpty();
     }
   }
+
+  @Test
+  void onlyConsultationCanBePassedUp() {
+    assertThat(
+            DirectiveJson.read(
+                Map.of(
+                    "type", "delegate", "kind", "consult", "key", "q", "payload", Map.of("a", 1))))
+        .contains(
+            new Directive.Delegate(
+                com.infenia.yukta.plugin.control.DelegationKind.CONSULT, Map.of("a", 1), "q"));
+    assertThat(
+            DirectiveJson.read(
+                Map.of("type", "delegate", "kind", "APPROVAL", "payload", Map.of("a", 1))))
+        .isEmpty();
+    assertThat(DirectiveJson.read(Map.of("type", "delegate", "kind", "CONSULT"))).isEmpty();
+  }
+
+  @Test
+  void linesThatAreNotCompleteDirectivesAreNotDirectives() {
+    assertThat(DirectiveJson.read(Map.of("type", "verdict", "answers", "r1"))).isEmpty();
+    assertThat(DirectiveJson.read(Map.of("type", "verdict", "answers", "r1", "verdict", "MAYBE")))
+        .isEmpty();
+    assertThat(DirectiveJson.read(Map.of("type", "command", "command", "pause"))).isEmpty();
+    assertThat(
+            DirectiveJson.read(
+                Map.of(
+                    "type",
+                    "command",
+                    "key",
+                    "k",
+                    "command",
+                    Map.of("type", "PauseWorkflow", "executionId", " "))))
+        .isEmpty();
+    assertThat(DirectiveJson.read(Map.of("type", "noOpinion", "answers", "  "))).isEmpty();
+    assertThat(DirectiveJson.read(Map.of("type", "delegate", "payload", Map.of("a", 1)))).isEmpty();
+  }
 }

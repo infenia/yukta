@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.model.workflow;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -45,9 +47,11 @@ public record WorkflowDefinition(
         @NotNull(message = "Edges list cannot be null")
         @Size(max = 2000, message = "Workflow is too large: at most 2000 edges")
         List<@Valid @NotNull(message = "Edge cannot be null") Edge> edges,
-    @Schema(description = "Supervisors declared for this workflow; attached when it is saved")
-        @Size(max = 20, message = "A workflow declares at most 20 supervisors")
-        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors,
+    @Schema(description = "What supervisors own in this workflow; assigned when it is saved")
+        @JsonProperty("assignments")
+        @JsonAlias("supervisors")
+        @Size(max = 20, message = "A workflow declares at most 20 assignments")
+        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors,
     @Schema(
             description =
                 "Palette color of a group by group name, for display only: "

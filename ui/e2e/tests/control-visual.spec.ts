@@ -30,7 +30,7 @@ async function mockControlPage(page: Page) {
   const empty = [
     '**/api/supervisors',
     '**/api/supervisors/status',
-    '**/api/supervisors/attachments*',
+    '**/api/supervisors/assignments*',
     '**/api/supervisors/decisions*',
     '**/api/control/audit*',
     '**/api/control/heartbeats',
@@ -44,7 +44,7 @@ async function mockControlPage(page: Page) {
   for (const pattern of empty) {
     await page.route(pattern, (route) => route.fulfill(envelope(pattern, [])));
   }
-  await page.route('**/api/supervisor-types', (route) =>
+  await page.route('**/api/supervisor-engines', (route) =>
     route.fulfill(envelope('/types', [{ type: 'rule-supervisor' }]))
   );
   await page.route('**/api/edition', (route) =>

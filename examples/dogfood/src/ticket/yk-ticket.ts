@@ -364,18 +364,18 @@ async function ticketRun(argv: string[], ykPath: string): Promise<number> {
   }
 }
 
-/** The dogfood supervisor of the ticket questions (supervisor/*.json, #1923): the internal session with its workflow, the supervisor and its attachment, posted to the dev server
+/** The dogfood supervisor of the ticket questions (supervisor/*.json, #1923): the internal session with its workflow, the supervisor and what it owns, sent to the dev server
  * with the dev key (ADMIN). __TICKET__ and __STATE__ are replaced; an object that exists already (409) is left as it is. */
 export async function installSupervisor(base = DEV_URL, dir = join(KIT, 'supervisor'), state = STATE_DIR): Promise<string[]> {
   const sub = (s: string): string => s.split('__TICKET__').join(KIT).split('__STATE__').join(state)
-  const steps: [string, string][] = [
-    ['session.json', '/api/sessions'],
-    ['supervisor.json', '/api/supervisors'],
-    ['attachment.json', '/api/supervisors/attachments'],
+  const steps: [string, string, string][] = [
+    ['session.json', 'POST', '/api/sessions'],
+    ['supervisor.json', 'POST', '/api/supervisors'],
+    ['assignments.json', 'PUT', '/api/supervisors/dogfood-ticket-advice/assignments'],
   ]
   const out: string[] = []
-  for (const [file, path] of steps) {
-    const r = await http('POST', base + path, {
+  for (const [file, method, path] of steps) {
+    const r = await http(method, base + path, {
       headers: { ...keyHeader(), 'Content-Type': 'application/json' },
       body: sub(text(join(dir, file))),
       timeoutMs: 20000,

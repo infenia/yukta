@@ -1136,7 +1136,7 @@ class SessionServiceTest {
             Mono.just(
                 List.of(
                     new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
-                        "supervisors[0].supervisor", "no supervisor 'nope'"))));
+                        "assignments[0].supervisor", "no supervisor 'nope'"))));
 
     StepVerifier.create(sessionService.applyConfig(data))
         .expectErrorSatisfies(
@@ -1144,7 +1144,7 @@ class SessionServiceTest {
                 assertThat(error)
                     .isInstanceOf(
                         com.infenia.yukta.service.supervisor.SettingsValidationException.class)
-                    .hasMessageContaining("supervisors[0].supervisor"))
+                    .hasMessageContaining("assignments[0].supervisor"))
         .verify();
 
     verify(configService, never()).applySessionConfig(any());

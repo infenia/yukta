@@ -93,4 +93,25 @@ class SupervisorAttachmentTest {
     assertThatThrownBy(() -> new SupervisorAttachment("b", "p", null, true))
         .isInstanceOf(NullPointerException.class);
   }
+
+  @Test
+  void attachmentsCanBeBuiltWithConflictFlagAndLockedOrNot() {
+    final SupervisorAttachment stored =
+        new SupervisorAttachment(
+            "a",
+            "p",
+            new SupervisorScope.Run("w", "s"),
+            true,
+            SupervisorSource.MANUAL,
+            null,
+            null,
+            true);
+
+    assertThat(stored.conflict()).isTrue();
+    assertThat(stored.locked()).isFalse();
+    final SupervisorAttachment locked = stored.withLocked(true);
+    assertThat(locked.locked()).isTrue();
+    assertThat(locked.conflict()).isTrue();
+    assertThat(locked.withLocked(false).locked()).isFalse();
+  }
 }

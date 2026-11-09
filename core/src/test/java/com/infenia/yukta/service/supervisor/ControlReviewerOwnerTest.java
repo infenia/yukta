@@ -376,4 +376,33 @@ class ControlReviewerOwnerTest {
     assertThat(reviewer(false).summary(List.of("s")))
         .isEqualTo(new ControlReviewer.Summary(false, 1));
   }
+
+  @Test
+  void capabilitiesListEveryCommandOfTheUnitAskedAbout() {
+    final ControlReviewer open = reviewer(true);
+
+    assertThat(open.capabilities(null, null, null).keySet()).containsExactly("drain", "setLimits");
+    assertThat(open.capabilities("s", "w", "n").keySet())
+        .containsExactly("pauseNode", "resumeNode", "skipNode", "stepNode", "stopNode");
+    assertThat(open.capabilities("s", "w", null).keySet())
+        .containsExactly("pause", "priority", "recover", "restart", "resume", "start", "stop");
+    // a session or a workflow alone still asks about a run level, never about the server
+    assertThat(open.capabilities("s", null, null).keySet()).contains("pause");
+    assertThat(open.capabilities(null, "w", null).keySet()).contains("pause");
+    assertThat(open.capabilities("s", "w", null).values())
+        .allMatch(ControlReviewer.Capability::allowed);
+  }
+
+  @Test
+  void theSummaryCountsOwnersTheCallerCanReach() {
+    own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
+    own("b", new SupervisorScope.Workflow("w", "t"), answering(Decision.ALLOW));
+    own("srv", new SupervisorScope.Server(), answering(Decision.ALLOW));
+    final ControlReviewer open = reviewer(true);
+
+    assertThat(open.summary(null).owners()).isEqualTo(3);
+    assertThat(open.summary(List.of("s")).owners()).isEqualTo(1);
+    assertThat(open.summary(List.of("other")).owners()).isZero();
+    assertThat(open.summary(null).defaultSupervisor()).isTrue();
+  }
 }

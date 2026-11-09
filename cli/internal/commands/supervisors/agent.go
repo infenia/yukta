@@ -59,14 +59,9 @@ func runAgent(ctx context.Context, c *client.Client, program string, args []stri
 	defer cancel()
 	proc := exec.CommandContext(ctx, program, args...) // #nosec G204 -- the user names the program
 	proc.Stderr = log
-	stdin, err := proc.StdinPipe()
-	if err != nil {
-		return err
-	}
-	stdout, err := proc.StdoutPipe()
-	if err != nil {
-		return err
-	}
+	// the pipes fail only when a stream was set already or the process has started: neither is so here
+	stdin, _ := proc.StdinPipe()
+	stdout, _ := proc.StdoutPipe()
 	if err := proc.Start(); err != nil {
 		return fmt.Errorf("cannot start %s: %w", program, err)
 	}
@@ -108,9 +103,7 @@ func runAgent(ctx context.Context, c *client.Client, program string, args []stri
 		case <-time.After(backoff):
 		case <-ctx.Done():
 		}
-		if backoff < 30*time.Second {
-			backoff *= 2
-		}
+		backoff = min(backoff*2, 30*time.Second)
 	}
 	_ = stdin.Close()
 	return nil

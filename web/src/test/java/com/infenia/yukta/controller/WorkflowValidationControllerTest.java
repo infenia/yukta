@@ -255,7 +255,7 @@ class WorkflowValidationControllerTest {
             Mono.just(
                 List.of(
                     new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
-                        "supervisors[0].supervisor", "no supervisor 'nope'"))));
+                        "assignments[0].supervisor", "no supervisor 'nope'"))));
     when(workflowValidator.validateAll(any())).thenReturn(Mono.just(List.of()));
 
     post("{\"workflowId\":\"w\",\"nodes\":[{\"nodeId\":\"a\",\"type\":\"T\",\"config\":{}}],"
@@ -266,6 +266,6 @@ class WorkflowValidationControllerTest {
         .jsonPath("$.data.valid")
         .isEqualTo(false)
         .jsonPath("$.data.problems[0]")
-        .isEqualTo("supervisors[0].supervisor: no supervisor 'nope'");
+        .isEqualTo("assignments[0].supervisor: no supervisor 'nope'");
   }
 }

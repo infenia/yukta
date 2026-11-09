@@ -43,7 +43,9 @@ describe('SupervisorSummary', () => {
       />
     );
     expect(screen.getByText(/\(paused\)/)).toBeInTheDocument();
-    expect(screen.getByText('Live: its commands are sent.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Live: its commands are sent.')
+    ).toBeInTheDocument();
   });
 
   it('names every command when none is listed, and the type defaults when given', () => {
@@ -89,9 +91,7 @@ describe('SupervisorSummary', () => {
         typeDefaults={null}
       />
     );
-    expect(
-      screen.getByText(/May answer up to HIGH risk/)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/May answer up to HIGH risk/)).toBeInTheDocument();
     unmount();
 
     render(

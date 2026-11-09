@@ -75,16 +75,29 @@ public sealed interface Directive {
   }
 
   /**
-   * A question or request passed up to the parents.
+   * A question or request passed up to the parents. The parents' answers come back to the engine as
+   * a {@link Signal.Consulted} carrying the same key.
    *
    * @param kind what is delegated
    * @param payload the content
+   * @param key names the question in the answer, or {@code null} for a generated id
    */
-  record Delegate(DelegationKind kind, Map<String, Object> payload) implements Directive {
+  record Delegate(DelegationKind kind, Map<String, Object> payload, @Nullable String key)
+      implements Directive {
 
     /** Keeps an unmodifiable copy. */
     public Delegate {
       payload = Map.copyOf(payload);
+    }
+
+    /**
+     * A question with no key of its own.
+     *
+     * @param kind what is delegated
+     * @param payload the content
+     */
+    public Delegate(final DelegationKind kind, final Map<String, Object> payload) {
+      this(kind, payload, null);
     }
   }
 

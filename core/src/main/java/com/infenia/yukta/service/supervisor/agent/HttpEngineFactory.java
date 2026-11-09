@@ -46,7 +46,12 @@ public final class HttpEngineFactory implements SupervisorEngineFactory {
         "Agent endpoint",
         "An application operates this supervisor through /api/agent/v1 with its own credential:"
             + " it streams the events and sends commands, answers reviews and delegations.",
-        Set.of(Signal.Kind.EVENT, Signal.Kind.REVIEW, Signal.Kind.STARTED, Signal.Kind.DELEGATED),
+        Set.of(
+            Signal.Kind.EVENT,
+            Signal.Kind.REVIEW,
+            Signal.Kind.STARTED,
+            Signal.Kind.DELEGATED,
+            Signal.Kind.CONSULTED),
         true);
   }
 

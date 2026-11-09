@@ -37,7 +37,9 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
                   row.get("supervisor_id", String.class),
                   row.get("token_hash", String.class),
                   expires == null ? null : expires.toInstant(),
-                  addressesOf(row.get("allowed_addresses", String.class)));
+                  addressesOf(
+                      java.util.Objects.requireNonNullElse(
+                          row.get("allowed_addresses", String.class), "")));
             })
         .all();
   }

@@ -12,14 +12,14 @@ import org.jspecify.annotations.Nullable;
  *
  * @param running every running supervisor, those configured at startup and those attached since
  * @param supervisors the configured supervisors (secrets are not shown)
- * @param attachments the attachments, made by hand or declared by definitions
+ * @param assignments what the supervisors own, whatever made it
  * @param types the supervisor types a supervisor may have
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorListing(
     List<RunningSupervisor> running,
     List<ConfiguredSupervisor> supervisors,
-    List<SupervisorAttachmentInfo> attachments,
+    List<SupervisorAssignmentInfo> assignments,
     List<String> types) {
 
   /**
@@ -38,7 +38,7 @@ public record SupervisorListing(
   public SupervisorListing {
     running = List.copyOf(running);
     supervisors = List.copyOf(supervisors);
-    attachments = List.copyOf(attachments);
+    assignments = List.copyOf(assignments);
     types = List.copyOf(types);
   }
 

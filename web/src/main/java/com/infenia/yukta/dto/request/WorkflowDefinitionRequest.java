@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
@@ -43,9 +45,11 @@ public record WorkflowDefinitionRequest(
     @Schema(description = "Edges connecting the nodes")
         @NotNull(message = "Edges list cannot be null")
         List<@Valid @NotNull(message = "Edge cannot be null") EdgeRequest> edges,
-    @Schema(description = "Supervisors declared for this workflow; attached when it is saved")
-        @Size(max = 20, message = "A workflow declares at most 20 supervisors")
-        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors) {
+    @Schema(description = "What supervisors own in this workflow; assigned when it is saved")
+        @JsonProperty("assignments")
+        @JsonAlias("supervisors")
+        @Size(max = 20, message = "A workflow declares at most 20 assignments")
+        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors) {
 
   /**
    * A workflow that declares no supervisors.

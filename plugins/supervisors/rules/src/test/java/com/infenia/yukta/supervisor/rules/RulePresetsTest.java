@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.supervisor.rules;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.infenia.yukta.plugin.control.SupervisorPreset;
+import java.time.Clock;
+import org.junit.jupiter.api.Test;
+
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops"})
+class RulePresetsTest {
+
+  @Test
+  void everyPresetIsRuleDocumentThatLoads() {
+    assertThat(RulePresets.ALL)
+        .extracting(SupervisorPreset::name)
+        .containsExactly("failure-guard", "approval-gate", "stall-watchdog", "too-many-running");
+    for (final SupervisorPreset preset : RulePresets.ALL) {
+      final RuleSet rules = RuleSupervisor.read(preset.settings());
+      assertThat(rules.rules()).as(preset.name()).hasSize(1);
+      assertThat(new RuleSupervisor(rules, Clock.systemUTC())).isNotNull();
+    }
+  }
+
+  @Test
+  void theFactoryOffersThem() {
+    assertThat(new RuleSupervisorFactory().presets()).isSameAs(RulePresets.ALL);
+  }
+}
