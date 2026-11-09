@@ -7,6 +7,7 @@ import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisionSummary;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Map;
@@ -36,6 +37,23 @@ public class SupervisionController {
   private final ControlBusGateway controlBus;
 
   private final OwnershipMap ownershipMap;
+
+  /** Counts what nobody supervises. */
+  private final SupervisionSummary supervisionSummary;
+
+  /**
+   * How many workflows nobody owns and how many assignments are in conflict. Internal sessions are
+   * left out.
+   *
+   * @return the summary
+   */
+  @GetMapping("/summary")
+  @Operation(summary = "How many workflows nobody owns, and how many assignments conflict")
+  public Mono<ApiResponse<SupervisionSummary.Summary>> summary() {
+    return supervisionSummary
+        .summarize()
+        .map(found -> ApiResponse.success(200, "Supervision summary", found));
+  }
 
   /**
    * Who owns each part of a workflow.

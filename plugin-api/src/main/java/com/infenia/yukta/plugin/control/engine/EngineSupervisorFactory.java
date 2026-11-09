@@ -4,7 +4,6 @@ package com.infenia.yukta.plugin.control.engine;
 
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
-import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
@@ -15,7 +14,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 import reactor.core.publisher.Flux;
@@ -103,15 +101,25 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
+  public java.util.Set<Signal.Kind> signals() {
+    return engines.describe().drivers();
+  }
+
+  @Override
+  public boolean canInitiate() {
+    return engines.describe().canInitiate();
+  }
+
+  @Override
   public SupervisorDescriptor describe() {
     final EngineDescriptor engine = engines.describe();
     return new SupervisorDescriptor(
         engine.name(),
         engine.description(),
-        "",
-        SupervisorCategory.INTEGRATION,
-        Optional.empty(),
-        Map.of());
+        engine.usagePattern(),
+        engine.category(),
+        engine.uiDesign(),
+        engine.exampleSettings());
   }
 
   @Override

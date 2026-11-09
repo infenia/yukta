@@ -5,7 +5,6 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.Delegation;
 import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -111,6 +110,9 @@ public class SupervisorService {
 
   private static final String NOT_FOUND = "Supervisor not found: ";
 
+  /** Log key that names the supervisor a message is about. */
+  private static final String SUPERVISOR_KEY = "supervisor";
+
   /** Most decisions one replay returns, and how long a replay waits for a timer. */
   private static final int REPLAY_LIMIT = 100;
 
@@ -150,9 +152,6 @@ public class SupervisorService {
 
   /** What engines may read, looked up late: the queries need the service that needs this one. */
   @Nullable private ObjectProvider<SupervisorQueries> queries;
-
-  /** The newest saved states of each supervisor. */
-  private final SupervisorVersions history = new SupervisorVersions();
 
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
@@ -357,7 +356,7 @@ public class SupervisorService {
                       .findFirst();
               if (adoption.isEmpty()) {
                 log.atWarn()
-                    .addKeyValue("supervisor", legacy.id())
+                    .addKeyValue(SUPERVISOR_KEY, legacy.id())
                     .addKeyValue("type", legacy.type())
                     .log(
                         "No engine replaces this retired supervisor type; it does not start until"
@@ -370,7 +369,7 @@ public class SupervisorService {
                   .doOnSuccess(
                       done ->
                           log.atInfo()
-                              .addKeyValue("supervisor", legacy.id())
+                              .addKeyValue(SUPERVISOR_KEY, legacy.id())
                               .addKeyValue("from", legacy.type())
                               .addKeyValue("to", converted.type())
                               .addKeyValue("notes", adoption.get().notes())
@@ -395,7 +394,7 @@ public class SupervisorService {
     } catch (IllegalArgumentException e) {
       log.atWarn()
           .setCause(e)
-          .addKeyValue("supervisor", legacy.id())
+          .addKeyValue(SUPERVISOR_KEY, legacy.id())
           .addKeyValue("type", legacy.type())
           .log("The retired supervisor's settings could not be converted");
       return Optional.empty();
@@ -488,7 +487,7 @@ public class SupervisorService {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
-        .map(found -> history.list(id));
+        .flatMap(found -> store.versions(id).collectList());
   }
 
   /**
@@ -587,16 +586,15 @@ public class SupervisorService {
    * @return the supervisor as restored
    */
   public Mono<Supervisor> rollback(final String id, final int version) {
-    return Mono.defer(
-        () ->
-            history
-                .find(id, version)
-                .map(found -> saveSupervisor(found.supervisor()))
-                .orElseGet(
-                    () ->
-                        Mono.error(
-                            new NotFoundException(
-                                "Version " + version + " of supervisor " + id + " is not kept"))));
+    return store
+        .versions(id)
+        .filter(found -> found.version() == version)
+        .next()
+        .switchIfEmpty(
+            Mono.error(
+                new NotFoundException(
+                    "Version " + version + " of supervisor " + id + " is not kept")))
+        .flatMap(found -> saveSupervisor(found.supervisor()));
   }
 
   /**
@@ -618,7 +616,21 @@ public class SupervisorService {
         // the check left the unsaved supervisor in the resolver: put the stored ones back
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
-        .doOnSuccess(saved -> history.record(supervisor))
+        .then(
+            // the supervisor is saved: a lost version must not keep the old engine running
+            Mono.defer(
+                () ->
+                    store
+                        .saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)
+                        .onErrorResume(
+                            error -> {
+                              log.atWarn()
+                                  .setCause(error)
+                                  .addKeyValue(SUPERVISOR_KEY, supervisor.id())
+                                  .log("Could not keep a version of the saved supervisor");
+                              return Mono.empty();
+                            })))
+        .then(audited(true, "SaveSupervisor(" + supervisor.id() + ")"))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
@@ -679,9 +691,9 @@ public class SupervisorService {
         .then(Mono.defer(() -> childrenCheck(id)))
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)))
+        .then(Mono.defer(() -> store.deleteVersions(id)))
         .doOnSuccess(
             done -> {
-              history.forget(id);
               // a supervisor created again under this id must not take the old credential
               final AgentCredentials agents = agentCredentials;
               if (agents != null) {
@@ -1103,35 +1115,6 @@ public class SupervisorService {
   }
 
   /**
-   * The kind of a type: {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found by making a
-   * supervisor from the type's example settings; a type that cannot be made that way (it needs a
-   * model, or other supervisors) is told apart by its name.
-   *
-   * @param type the supervisor type
-   * @return the kind
-   */
-  @SuppressWarnings("PMD.AvoidCatchingGenericException")
-  public String kind(final String type) {
-    final SupervisorFactory factory = factories.get(type);
-    if (factory == null) {
-      return "SUPERVISOR";
-    }
-    try {
-      final ExecutionSupervisor made =
-          factory.create(
-              new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
-      return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
-    } catch (RuntimeException e) { // PMD.AvoidCatchingGenericException: any factory may refuse
-      return kindByName(type);
-    }
-  }
-
-  /** The kind of a type whose example cannot be made: told apart by its name. */
-  private static String kindByName(final String type) {
-    return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
-  }
-
-  /**
    * The commands a supervisor of a type may send when its settings do not say.
    *
    * @param type the supervisor type
@@ -1175,6 +1158,30 @@ public class SupervisorService {
   public List<ConfigField> configSchema(final String type) {
     final SupervisorFactory factory = factories.get(type);
     return factory == null ? List.of() : factory.getConfigSchema();
+  }
+
+  /**
+   * The signals a supervisor of a type is told, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return the signal kinds by name, sorted; empty for an unknown type
+   */
+  public List<String> signals(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null
+        ? List.of()
+        : factory.signals().stream().map(Enum::name).sorted().toList();
+  }
+
+  /**
+   * Whether a supervisor of a type may act on its own, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return true if it may; false for an unknown type
+   */
+  public boolean canInitiate(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory != null && factory.canInitiate();
   }
 
   /** What the supervisor lets its supervisor do; an unknown command name is refused. */

@@ -19,6 +19,16 @@ export interface InputAnswer {
   answeredAt: string;
 }
 
+/** One step of the way a request came to its current tier. */
+export interface AskedStep {
+  /** A supervisor, key or tier. */
+  who: string;
+  /** `asked for approval`, a parent's answer (`allow`, `deny`, `no-opinion`, `silent`) or `escalated`. */
+  said: string;
+  reason: string | null;
+  at: string;
+}
+
 /** An input request as GET /api/sessions/{id}/inputs returns it. */
 export interface InputRequest {
   id: string;
@@ -40,6 +50,8 @@ export interface InputRequest {
   createdAt: string;
   updatedAt: string;
   answer: InputAnswer | null;
+  /** The approval chain, oldest first; an older server sends none. */
+  asked?: AskedStep[];
 }
 
 export interface AnswerBody {

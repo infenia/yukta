@@ -12,7 +12,7 @@ import java.util.List;
 public interface SupervisorEngineFactory {
 
   /**
-   * The type name in the catalog, such as {@code rules}, {@code http}, {@code callout}.
+   * The type name in the catalog, such as {@code rules}, {@code http}, {@code process}.
    *
    * @return the type
    */

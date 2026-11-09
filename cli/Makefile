@@ -26,7 +26,7 @@ GOARCH ?= $(shell go env GOARCH)
 
 # Pinned tool versions (run via `go run`, so builds are reproducible and need no installs).
 GOLANGCI_LINT := github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.14.0
-GOSEC := github.com/securego/gosec/v2/cmd/gosec@v2.29.0
+GOSEC := github.com/securego/gosec/v2/cmd/gosec@v2.30.0
 GOVULNCHECK := golang.org/x/vuln/cmd/govulncheck@v1.8.0
 
 # Minimum per-function coverage (%), with per-file overrides as path=min.

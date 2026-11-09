@@ -90,6 +90,7 @@ class SupervisorHostScopeEnforcementTest {
   @BeforeEach
   void setUp() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    org.mockito.Mockito.lenient().when(dispatcher.workflowOf(MINE)).thenReturn("w");
     when(dispatcher.target(any()))
         .thenAnswer(
             call -> {
@@ -153,6 +154,8 @@ class SupervisorHostScopeEnforcementTest {
         .extracting(SupervisorDecision::outcome)
         .containsExactly("applied", OUT_OF_SCOPE, OUT_OF_SCOPE, OUT_OF_SCOPE, OUT_OF_SCOPE);
     assertThat(decisions.get(1).reason()).isEqualTo("target outside scope workflow:s/w//build.*");
+    assertThat(decisions.get(0).workflowId()).isEqualTo("w");
+    assertThat(decisions.get(3).workflowId()).isNull();
     verify(dispatcher).dispatchOrdered(new PauseNodeCommand(MINE, "build.compile"));
     verify(dispatcher, never()).dispatchOrdered(new PauseWorkflowCommand(MINE));
     assertThat(counted("build", OUT_OF_SCOPE)).isEqualTo(4);

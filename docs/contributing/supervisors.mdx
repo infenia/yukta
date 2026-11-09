@@ -31,10 +31,9 @@ A unit (a node, the run level of a workflow, the server) has one owner: `Ownersh
 | Type | Category | Decides with |
 |---|---|---|
 | `rules` | Rules | A JSON rules file (`{"schemaVersion": 1, "rules": [...]}`); presets `failure-guard`, `stall-watchdog`, `approval-gate` |
-| `http` | Integration | An application on `/api/agent/v1` |
-| `callout` | Integration | An HTTP endpoint you run |
-| `workflow` | Workflow | A workflow in an internal session |
-| `process` | Integration | A program on the server (JSON lines) |
+| `http` | External system | A system outside the server: signals posted to its `url` or read from `/api/agent/v1`, decisions sent there |
+| `workflow` | On this server | A workflow in an internal session |
+| `process` | On this server | A program on the server (JSON lines) |
 
 `GET /api/supervisor-engines/{type}` returns the description, the settings schema, the default commands and an example for any of them. Stored supervisors of the retired types are adopted at start-up (`SupervisorFactory.adopt`).
 
@@ -44,7 +43,7 @@ These are the keys of `SupervisorCommonSettings`. The settings schema of the typ
 
 | Key | Default | Effect |
 |---|---|---|
-| `allowedCommands` | The type's default. `null` is every command, except for `callout`, `workflow` and the rule presets, which start with only what they need. | A command whose class name is not listed is dropped and counted as `forbidden`. An unknown name is refused when saving. |
+| `allowedCommands` | The type's default. `null` is every command, except for `workflow` and the rule presets, which start with only what they need. | A command whose class name is not listed is dropped and counted as `forbidden`. An unknown name is refused when saving. |
 | `canAnswer` | `false` | May it answer input requests? |
 | `maxRisk` | `LOW` | The highest risk it may answer. `HIGH` is always for a person. |
 | `observeInternal` | `false` | See events of an internal session its scope names. |
@@ -139,7 +138,7 @@ Take the first option that fits. The later ones need more work and more review.
 | 1 | **Configure an existing type** (a `rules` supervisor with a preset) | No | The behaviour is "if this happens, do that" |
 | 2 | **Combine supervisors** with `parents` and a delegation mode | No | Several checks, one verdict (`ORDERED`, `ALL`, `ANY`) |
 | 3 | **A workflow supervisor** (`workflow` type) | No | The decision needs steps: look something up, call a model, then answer |
-| 4 | **An external program** (the `http`, `callout` or `process` engine) | No | The logic lives in another language or service |
+| 4 | **An external program** (the `http` or `process` engine) | No | The logic lives in another language or service |
 | 5 | **A new engine** (`SupervisorEngineFactory`, see [Supervisor engines](/running/supervisor-engines#write-an-engine)) | Yes | A reusable, generic type that people configure from the catalog |
 | 6 | **A bean** (`ExecutionSupervisor`) | Yes | One fixed behaviour of this server, not shown in the catalog as a type |
 
@@ -163,7 +162,7 @@ Start with `"dryRun": true`, watch `GET /api/supervisors/decisions`, then turn i
 
 ### Option 4: outside the server
 
-Follow `GET /api/events/stream?type=...` (SSE) and send commands through REST or the MCP tools. A key's actor is `key:<name>` with kind `KEY`, so it counts as a person for the risk rule. For an application that connects to the server use the `http` engine; for an HTTP endpoint that the server calls, use the `callout` engine: egress goes through the host allow-list, private addresses are refused unless allow-listed, replies pass the same command allow-list, and it may send nothing until `allowedCommands` names something.
+Follow `GET /api/events/stream?type=...` (SSE) and send commands through REST or the MCP tools. A key's actor is `key:<name>` with kind `KEY`, so it counts as a person for the risk rule. For an external system use the `http` engine: it reads the signals from `/api/agent/v1`, or gets them posted to its `url` (egress through the host allow-list, private addresses refused unless allow-listed), and decides through the same API.
 
 ### Option 5: a new Java supervisor type
 
@@ -271,7 +270,7 @@ These come from reading the current code (UI under `ui/src/features/supervisors`
 
 | # | Gap | Proposed fix |
 |---|---|---|
-| 15 | **A new type needs Java and a rebuild** (option 5), so teams reach for `callout` and lose the settings form and the review support that a real type has. | Let a `webhook` or `workflow` supervisor publish its own settings schema and description, so it appears in the catalog as a type. |
+| 15 | **A new type needs Java and a rebuild** (option 5), so teams reach for an `http` supervisor and lose the settings form and the review support that a real type has. | Let an `http` or `workflow` supervisor publish its own settings schema and description, so it appears in the catalog as a type. |
 | 16 | **There is no scaffold.** A new module needs edits to three build files and a test that matches the catalog. | A `yk` generator (`yk new supervisor <name>`) that writes the module, the factory, the schema, a test and the two build entries. |
 | 17 | **The schema is flat.** `ConfigField` has no nesting, so `rules` and `children` are JSON in a text field (`JsonField`). | Nested and repeatable fields in `ConfigField`, so a rule row is a form row. |
 | 18 | **Overflow is quiet.** A supervisor behind on events loses them. The notice is an `EventsMissed` event the supervisor must handle, and a person sees only a metric. | Show dropped-event counts per supervisor on its page, with a warning at the first drop (`#894` tracks the overflow itself). |
@@ -292,7 +291,7 @@ Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vit
 | Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
 | Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `TurnAroundGuard`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
 | Ownership, hierarchy, engines, agent API | `core/.../service/supervisor/ownership/`, `.../hierarchy/`, `.../engine/`, `.../agent/`, `.../workflow/` |
-| Engines | `plugins/supervisors/rules`, `callout`, `process-engine` |
+| Engines | `plugins/supervisors/rules`, `process-engine`; `http` and `workflow` in core |
 | REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
 | CLI | `cli/internal/commands/supervisors` |
 | UI | `ui/src/features/supervisors/` |

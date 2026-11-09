@@ -9,8 +9,12 @@ import static org.mockito.Mockito.when;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisionSummary;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Who carries a command, for a node, a run, a run found by its execution and the server. */
@@ -30,10 +34,10 @@ class SupervisionControllerTest {
   }
 
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
-  private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
-      mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);
+  private final SupervisionSummary summary = mock(SupervisionSummary.class);
+  private final OwnershipMap ownership = mock(OwnershipMap.class);
   private final SupervisionController controller =
-      new SupervisionController(reviewer, controlBus, ownership);
+      new SupervisionController(reviewer, controlBus, ownership, summary);
 
   private static ControlReviewer.Capability allowed() {
     return new ControlReviewer.Capability(true, "default", null);
@@ -76,7 +80,7 @@ class SupervisionControllerTest {
                 "s1",
                 "wf",
                 com.infenia.yukta.model.execution.TaskStatus.RUNNING,
-                java.util.List.of(),
+                List.of(),
                 java.time.Instant.now(),
                 null,
                 null));
@@ -134,12 +138,22 @@ class SupervisionControllerTest {
   @Test
   void ownershipComesFromTheMap() {
     final var owned =
-        new com.infenia.yukta.service.supervisor.OwnershipMap.Ownership(
-            "s", "w", true, "default", java.util.Map.of("build.a", "guard"));
-    when(ownership.ownersOf("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
+        new OwnershipMap.Ownership("s", "w", true, "default", java.util.Map.of("build.a", "guard"));
+    when(ownership.ownersOf("s", "w")).thenReturn(Mono.just(owned));
 
     StepVerifier.create(controller.ownership("s", "w"))
         .assertNext(r -> assertThat(r.data()).isEqualTo(owned))
+        .verifyComplete();
+  }
+
+  @Test
+  void summaryIsWhatTheCoreCounts() {
+    final SupervisionSummary.Summary counted =
+        new SupervisionSummary.Summary(1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2);
+    when(summary.summarize()).thenReturn(Mono.just(counted));
+
+    StepVerifier.create(controller.summary())
+        .assertNext(response -> assertThat(response.data()).isEqualTo(counted))
         .verifyComplete();
   }
 }

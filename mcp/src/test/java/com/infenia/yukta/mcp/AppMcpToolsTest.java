@@ -403,24 +403,36 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void supervisionSummaryDelegatesToTheSupervisorProvider() {
+    final var summary =
+        new com.infenia.yukta.mcp.dto.SupervisionSummaryView(
+            2,
+            List.of(new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow("s", "w")),
+            1L);
+    when(supervisorProvider.summary()).thenReturn(Mono.just(summary));
+
+    StepVerifier.create(mcpTools.getSupervisionSummary()).expectNext(summary).verifyComplete();
+  }
+
+  @Test
   void supervisorCatalogToolsDelegateToTheSupervisorProvider() {
     final var types =
         new com.infenia.yukta.mcp.dto.SupervisorTypeList(
             List.of(
-                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry(
-                    "t", "T", "GUARD", "SUPERVISOR", "d")));
+                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry("t", "T", "RULES", "d")));
     final var details =
         new com.infenia.yukta.mcp.dto.SupervisorTypeDetails(
             "t",
             "T",
             "d",
             "u",
-            "GUARD",
-            "SUPERVISOR",
+            "RULES",
             List.of(),
             List.of(),
             null,
-            java.util.Map.of());
+            java.util.Map.of(),
+            List.of(),
+            false);
     final var saved = new com.infenia.yukta.mcp.dto.SupervisorSaved("s", "t", null, true);
     when(supervisorProvider.types()).thenReturn(types);
     when(supervisorProvider.type("t")).thenReturn(details);
@@ -470,6 +482,23 @@ class AppMcpToolsTest {
         .expectNext(credential)
         .verifyComplete();
     StepVerifier.create(mcpTools.revokeCredential("sup")).expectNext(detached).verifyComplete();
+  }
+
+  @Test
+  void testRulesToolsDelegateToTheProvider() {
+    final var doc =
+        new com.infenia.yukta.mcp.dto.SupervisorRulesDoc("sup", 2, java.util.Map.of("rules", 1));
+    final var replay = new com.infenia.yukta.mcp.dto.SupervisorReplay("sup", "e", List.of());
+    when(supervisorProvider.rules("sup")).thenReturn(Mono.just(doc));
+    when(supervisorProvider.saveRules("sup", java.util.Map.of("rules", 1)))
+        .thenReturn(Mono.just(doc));
+    when(supervisorProvider.replayRules("sup", "e", null)).thenReturn(Mono.just(replay));
+
+    StepVerifier.create(mcpTools.getRules("sup")).expectNext(doc).verifyComplete();
+    StepVerifier.create(mcpTools.saveRules("sup", java.util.Map.of("rules", 1)))
+        .expectNext(doc)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.replayRules("sup", "e", null)).expectNext(replay).verifyComplete();
   }
 
   @Test

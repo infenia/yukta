@@ -19,8 +19,7 @@ All commands, a supervisor's and a person's, go through the same ordered, review
 | Engine | Decides with | Use it when |
 |---|---|---|
 | `rules` | A JSON rules file; presets `failure-guard`, `stall-watchdog`, `approval-gate` | You can state the situations and responses exactly ([Rule files](/running/rule-files)) |
-| `http` | An application or AI agent that connects to `/api/agent/v1` | The logic lives in another service, or you want open-ended judgement |
-| `callout` | An endpoint Yukta posts each signal to | A simple integration without a held connection |
+| `http` | An external system or AI agent: Yukta posts it each signal (`url`) or it reads them from `/api/agent/v1`, and it decides there | The logic lives in another service, or you want open-ended judgement |
 | `workflow` | A workflow in an internal session | The decision should be visible and editable as a workflow |
 | `process` | A program on the server | A script or binary already decides |
 
@@ -42,7 +41,7 @@ An **assignment** says what a supervisor owns. The units are a node, the run lev
 
 **Units nobody owns** go to the default supervisor, which lets people act as before. `yukta.supervisor.default.enabled=false` turns that off, so each workflow must name its supervisor.
 
-**People and owners.** A person's command goes to the owner of the unit. The owner's `operatorAccess` (a list of command names, default none) says which commands a person may send through it; any other is `409 CONTROLLED_BY_SUPERVISOR` naming the supervisor. A listed command is reviewed by the owner's engine. Reading is unrestricted. `GET /api/supervision` tells a client which commands are allowed before it sends them.
+**People and owners.** A person's command goes to the owner of the unit. The owner's `operatorAccess` (a list of command names, default none) says which commands a person may send through it; any other is `409 CONTROLLED_BY_SUPERVISOR` naming the supervisor. A listed command is reviewed by the owner's engine. Reading is unrestricted. `GET /api/supervision` tells a client which commands are allowed before it sends them. `GET /api/supervision/summary` counts the workflows nobody owns (the default supervisor carries their run level and every node; internal sessions left out, the first 100 named) and the assignments start-up disabled as conflicts; the Control page's Supervisors tile shows both.
 
 ```bash
 # the supervisor first, then what it owns
@@ -120,7 +119,7 @@ A session or a workflow names its supervisors in an `assignments` block. They ow
 - `PUT /api/supervisors/{id}` saves (admin key). Settings are checked against the engine: an unknown key or a wrong type is `400` with a `settings.<key>` field. A setting sent back as `***` keeps its stored secret. Saving restarts the supervisor. A supervisor that owns something, that a definition names, or that others report to cannot be deleted.
 - Ids match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin`.
 - Settings can limit and empower the shell: `allowedCommands` (a supervisor sends nothing until it names some), `initiative` (the commands it may send with no triggering signal, default none, with `maxInitiativePerMinute`, default 10), `operatorAccess`, `canAnswer` (default `false`), `maxRisk` (`LOW`, `MEDIUM`; a `HIGH` request is answered by people only), `readNodeOutputs` (default `false`).
-- `GET /api/supervisors/{id}/versions` and `POST .../rollback?version=` use the newest 20 saved states; `POST .../replay` shows what rules would have done on a past run, in dry run.
+- `GET|PUT /api/supervisors/{id}/engine/rules` reads and replaces the rules document of a `rules` supervisor (its other settings stay). `GET /api/supervisors/{id}/versions` and `POST .../rollback?version=` use the newest 20 saved states (kept in PostgreSQL when configured); `POST .../replay` shows what rules would have done on a past run, in dry run.
 - At most `yukta.supervisor.max-attachments` assignments (default 200). Changes are recorded in the execution log under the run id `supervisors`, with the caller as actor. Settings under secret-looking keys (`key`, `secret`, `token`, `password`) read as `***`.
 - Supervisors and assignments are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`).
 - `GET /api/supervisors/decisions?supervisor=&limit=` lists what became of the newest commands since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `not-owned`, `reason-required`, `initiative-not-allowed`, `precondition-failed`), newest first, at most 500. `GET /api/supervisors/status` shows what runs.
@@ -141,23 +140,6 @@ Acts on a node that has run too long or written no log line for a while: `maxRun
 ### `approval-gate`
 
 Holds the chosen commands (`StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand`) until a person approves them: `commands` (required), `nodes`, `risk` (`HIGH`: only a person), `route`, `ttl`, `reason`. A stop sent by a person is never held, so a person can always stop a run (it runs with a warning); the gate holds what supervisors send and the other commands of a person.
-
-## The `callout` engine
-
-Hands decisions to a web service (it replaces `webhook`; stored `webhook` supervisors are adopted at start-up). It posts `{"kind": "event", "supervisorId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked.
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `url` | required | The endpoint (http or https) |
-| `headers` | – | Headers to send; a value may be `${env.NAME}` |
-| `secretHeaders` | – | Headers with secrets; shown as `***` in every read |
-| `events` | `InputRequested`, `NodeStatusChanged` | The event types to post |
-| `timeoutMs` | `3000` | How long to wait for a reply, at most `10000` |
-| `review` | `false` | Also post the commands to review |
-| `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
-| `maxConcurrent` | `4` | Most calls at once |
-
-A reply of `{"commands": [...]}` is read through the allow-list of [workflow supervisors](#workflow-supervisors), at most 10 commands, and only the commands `allowedCommands` names are sent. A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. It is reactive only: a timeout, an error status or an unreadable reply is no opinion. It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`); a private, loopback or link-local address is refused unless listed, and redirects are not followed.
 
 ## Answer input requests
 

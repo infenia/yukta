@@ -16,6 +16,7 @@ import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
+import com.infenia.yukta.service.supervisor.SupervisorRules;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -72,6 +73,7 @@ import reactor.core.publisher.Mono;
   SupervisorsController.AssignmentBody.class,
   SupervisorsController.ValidationView.class,
   SupervisorsController.VersionView.class,
+  SupervisorsController.RulesView.class,
   SupervisorsController.ReplayBody.class,
   SupervisorService.ReplayDecision.class
 })
@@ -236,7 +238,73 @@ public class SupervisorsController {
   }
 
   /**
-   * The saved states of a supervisor (newest 20 since the server started), newest first.
+   * The rules document of a rules supervisor, with secret settings hidden.
+   *
+   * @param id the supervisor id
+   * @return the rules and the newest version; 404 if unknown, 409 if it has another engine
+   */
+  @GetMapping("/{id}/engine/rules")
+  @Operation(summary = "Read the rules document of a rules supervisor")
+  public Mono<ApiResponse<RulesView>> rules(@PathVariable final String id) {
+    return SupervisorRules.read(service, id)
+        .map(doc -> ApiResponse.success(200, "Rules", view(doc)));
+  }
+
+  /**
+   * Replace the rules of a rules supervisor and swap the running rules.
+   *
+   * @param id the supervisor id
+   * @param rules the new rules document, without the common settings
+   * @return the saved rules and their newest version; 404 if unknown, 409 if built in or when it
+   *     uses another engine
+   */
+  @PutMapping("/{id}/engine/rules")
+  @Operation(
+      summary = "Replace the rules document of a rules supervisor",
+      description =
+          "Validates the rules, keeps the supervisor's other settings, saves a new version and"
+              + " swaps the running rules; the common settings (allowedCommands, initiative, ...)"
+              + " change through PUT /api/supervisors/{id}")
+  public Mono<ApiResponse<RulesView>> saveRules(
+      @PathVariable final String id, @RequestBody final Map<String, Object> rules) {
+    return host.isBuiltIn(id)
+        ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+        : SupervisorRules.save(service, id, rules)
+            .map(doc -> ApiResponse.success(200, "Rules saved", view(doc)));
+  }
+
+  /**
+   * Try a draft rules document on the recorded events of a past run, with the supervisor's stored
+   * common settings, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, in {@code settings}, the draft rules document (none: the stored)
+   * @return what the rules would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/engine/rules/replay")
+  @Operation(summary = "Replay a draft rules document over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replayRules(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return SupervisorRules.replay(service, id, body.executionId(), body.settings())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
+  }
+
+  /**
+   * The rules document of a rules supervisor.
+   *
+   * @param version the newest saved version of the supervisor; 0 when none is kept
+   * @param rules the document ({@code schemaVersion}, {@code rules}), without the common settings
+   */
+  public record RulesView(int version, Map<String, Object> rules) {
+
+    /** Keeps an unmodifiable copy, so the caller's map cannot change the view. */
+    public RulesView {
+      rules = Collections.unmodifiableMap(new LinkedHashMap<>(rules));
+    }
+  }
+
+  /**
+   * The saved versions of a supervisor (the newest 20), newest first.
    *
    * @param id the supervisor id
    * @return the versions, with secret settings hidden; 404 if unknown
@@ -612,6 +680,13 @@ public class SupervisorsController {
         infos.stream().mapToLong(SupervisorInfo::rateLimited).sum(),
         supervisor.parents(),
         delegationView(supervisor));
+  }
+
+  /** The document as shown: secrets hidden. */
+  private RulesView view(final SupervisorRules.Document doc) {
+    return new RulesView(
+        doc.version(),
+        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
   }
 
   @SuppressWarnings("PMD.UseConcurrentHashMap")

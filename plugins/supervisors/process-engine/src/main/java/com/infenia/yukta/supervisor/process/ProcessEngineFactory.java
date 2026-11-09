@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.supervisor.process;
 
+import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineConfig;
 import com.infenia.yukta.plugin.control.engine.EngineContext;
@@ -10,6 +11,7 @@ import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.control.engine.SupervisorEngine;
 import com.infenia.yukta.plugin.control.engine.SupervisorEngineFactory;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.UiDesign;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -19,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
@@ -79,7 +82,12 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
             + " executable is in yukta.process.allowed-commands.",
         Set.of(
             Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED, Signal.Kind.CONSULTED),
-        true);
+        true,
+        SupervisorCategory.ON_THIS_SERVER,
+        "Use it for a decision program you install next to the server, in any language. Allow its"
+            + " executable in yukta.process.allowed-commands first.",
+        Optional.of(new UiDesign("green", "terminal", "Program", 140, 80)),
+        Map.of(COMMAND, "/opt/yukta/decide"));
   }
 
   @Override

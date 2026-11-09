@@ -4,23 +4,6 @@
 /** Separates the workflow from the node selectors in a section scope. */
 const SECTION = '//';
 
-/** A scope as a person reads it. */
-export function scopeLabel(scope: string): string {
-  if (scope === 'global') return 'Global';
-  const [kind, rest] = [
-    scope.split(':')[0],
-    scope.slice(scope.indexOf(':') + 1),
-  ];
-  if (kind === 'session') return `Session ${rest}`;
-  const at = rest.indexOf(SECTION);
-  return at < 0
-    ? `Workflow ${rest}`
-    : `Section ${rest.slice(0, at)}: ${rest
-        .slice(at + SECTION.length)
-        .split(',')
-        .join(', ')}`;
-}
-
 /**
  * The node selectors typed as text: separated by commas or spaces, blanks dropped. A selector is a
  * node id or `<prefix>.*`.
@@ -53,4 +36,24 @@ export function buildScope(
   return selectors.length === 0
     ? null
     : `${workflow}${SECTION}${selectors.join(',')}`;
+}
+
+/** The part of a node id before its first dot: the group the picker puts it under. */
+const prefixOf = (nodeId: string) =>
+  nodeId.includes('.') ? nodeId.slice(0, nodeId.indexOf('.')) : '';
+
+/**
+ * Node ids grouped as the server groups them for `group:<name>`: a node's declared group, else
+ * the part of its id before the first dot; in the order they first appear.
+ */
+export function groupNodes(
+  ids: string[],
+  groupOf: Record<string, string> = {}
+): [string, string[]][] {
+  const groups = new Map<string, string[]>();
+  for (const id of ids) {
+    const group = groupOf[id] || prefixOf(id);
+    groups.set(group, [...(groups.get(group) ?? []), id]);
+  }
+  return [...groups.entries()];
 }

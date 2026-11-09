@@ -10,6 +10,7 @@ import { getDrain, setDrain } from '../../api/drain';
 import { getLimits, setLimits } from '../../api/scheduler';
 import { useMetricSnapshot } from '@/features/metrics/hooks';
 import { CapacityPanel } from '../CapacityPanel';
+import { useSupervision } from '@/features/supervisors/hooks/useSupervisorTypes';
 
 vi.mock('../../api/drain', () => ({
   getDrain: vi.fn(),
@@ -25,6 +26,9 @@ vi.mock('@/lib/identity', () => ({
   REQUIRED_ROLE: { changeLimits: 'ADMIN' },
 }));
 vi.mock('@/features/metrics/hooks', () => ({ useMetricSnapshot: vi.fn() }));
+vi.mock('@/features/supervisors/hooks/useSupervisorTypes', () => ({
+  useSupervision: vi.fn(() => ({ data: undefined })),
+}));
 vi.mock('@/components/dashboard/Gauges', () => ({
   ArcGauge: () => <div>gauge</div>,
 }));
@@ -135,6 +139,35 @@ describe('CapacityPanel', () => {
     const knob = await screen.findByTestId('knob');
     expect(knob.getAttribute('data-disabled')).toBe('true');
     expect(screen.getByRole('switch')).toBeDisabled();
+  });
+
+  it('locks the controls, with the reason, when the owner of the server does not let people change them', async () => {
+    vi.mocked(useMe).mockReturnValue(me(true) as never);
+    vi.mocked(useSupervision).mockReturnValue({
+      data: {
+        setLimits: { allowed: false, via: 'ops-guard', reason: null },
+        drain: { allowed: true, via: 'ops-guard', reason: null },
+      },
+    } as never);
+    renderWithProviders(<CapacityPanel live={false} />);
+    const knob = await screen.findByTestId('knob');
+    expect(knob.getAttribute('data-disabled')).toBe('true');
+    expect(screen.getByRole('switch')).toHaveAttribute(
+      'title',
+      'Controlled by ops-guard. People cannot do this directly.'
+    );
+    vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
+  });
+
+  it('uses the reason the server gives', async () => {
+    vi.mocked(useMe).mockReturnValue(me(true) as never);
+    vi.mocked(useSupervision).mockReturnValue({
+      data: { drain: { allowed: false, via: 'x', reason: 'Not now' } },
+    } as never);
+    renderWithProviders(<CapacityPanel live={false} />);
+    await screen.findByTestId('knob');
+    expect(screen.getByRole('switch')).toHaveAttribute('title', 'Not now');
+    vi.mocked(useSupervision).mockReturnValue({ data: undefined } as never);
   });
 
   it('shows why a limit change was refused', async () => {

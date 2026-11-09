@@ -16,12 +16,13 @@ import org.jspecify.annotations.Nullable;
  * @param description what it does
  * @param usagePattern when to use it
  * @param category the catalog category
- * @param kind {@code SUPERVISOR}, {@code CONTROL_PLANE} or {@code COMPOSITE}
  * @param configSchema the settings of the type: name, type, required, default, options
  * @param commonSchema the settings every type takes
  * @param defaultAllowedCommands the commands allowed when the settings do not say; absent means
  *     every command
  * @param exampleSettings settings that pass validation
+ * @param signals the signals a supervisor of this type is told, such as {@code EVENT}, {@code TICK}
+ * @param canInitiate whether it may act on its own
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
@@ -31,11 +32,12 @@ public record SupervisorTypeDetails(
     String description,
     String usagePattern,
     String category,
-    String kind,
     List<ConfigField> configSchema,
     List<ConfigField> commonSchema,
     @Nullable List<String> defaultAllowedCommands,
-    Map<String, Object> exampleSettings) {
+    Map<String, Object> exampleSettings,
+    List<String> signals,
+    boolean canInitiate) {
 
   /** Keeps immutable copies. */
   public SupervisorTypeDetails {
@@ -44,5 +46,6 @@ public record SupervisorTypeDetails(
     defaultAllowedCommands =
         defaultAllowedCommands == null ? null : List.copyOf(defaultAllowedCommands);
     exampleSettings = Map.copyOf(exampleSettings);
+    signals = List.copyOf(signals);
   }
 }

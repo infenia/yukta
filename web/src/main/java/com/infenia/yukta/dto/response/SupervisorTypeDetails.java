@@ -16,15 +16,16 @@ import java.util.Map;
  * @param description what it does
  * @param usagePattern when to use it
  * @param category the catalog category
- * @param kind {@code SUPERVISOR}, {@code CONTROL_PLANE} or {@code COMPOSITE}
  * @param uiDesign the icon and colour, or {@code null}
  * @param configSchema the settings of the type
  * @param commonSchema the settings every type takes
  * @param defaultAllowedCommands the commands allowed when the settings do not say; {@code null}
  *     means every command
  * @param exampleSettings settings that pass validation
+ * @param signals the signals a supervisor of this type is told, such as {@code EVENT}, {@code TICK}
+ * @param canInitiate whether it may act on its own
  */
-@Schema(description = "Details of a supervisor type")
+@Schema(description = "Details of a decision maker")
 @SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
 public record SupervisorTypeDetails(
     String type,
@@ -32,13 +33,14 @@ public record SupervisorTypeDetails(
     String description,
     String usagePattern,
     String category,
-    String kind,
     UiDesign uiDesign,
     List<ConfigField> configSchema,
     List<ConfigField> commonSchema,
     @Schema(description = "Commands allowed by default; null means every command")
         List<String> defaultAllowedCommands,
-    Map<String, Object> exampleSettings) {
+    Map<String, Object> exampleSettings,
+    List<String> signals,
+    boolean canInitiate) {
 
   /** Keeps immutable copies. */
   public SupervisorTypeDetails {
@@ -47,5 +49,6 @@ public record SupervisorTypeDetails(
     defaultAllowedCommands =
         defaultAllowedCommands == null ? null : List.copyOf(defaultAllowedCommands);
     exampleSettings = Map.copyOf(exampleSettings);
+    signals = List.copyOf(signals);
   }
 }

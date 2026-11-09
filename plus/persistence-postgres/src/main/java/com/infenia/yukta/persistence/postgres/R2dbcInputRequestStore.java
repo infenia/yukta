@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputResponse;
@@ -41,10 +42,14 @@ public class R2dbcInputRequestStore implements InputRequestStore {
   private static final String REQUEST_COLUMNS =
       "id, req_key, session_id, workflow_id, execution_id, node_id, state, version, tier,"
           + " CAST(targets AS text) AS targets, tier_deadline, deadline, CAST(spec AS text) AS"
-          + " spec, advice, CAST(votes AS text) AS votes, created_at, updated_at";
+          + " spec, advice, CAST(votes AS text) AS votes, created_at, updated_at,"
+          + " CAST(asked AS text) AS asked";
 
   /** The stored targets of a request. */
   private static final TypeReference<List<String>> TARGETS = new TypeReference<>() {};
+
+  /** The stored steps of a request. */
+  private static final TypeReference<List<Asked>> ASKED = new TypeReference<>() {};
 
   /** The stored votes of a request. */
   private static final TypeReference<List<Vote>> VOTES = new TypeReference<>() {};
@@ -83,11 +88,12 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                         """
                         INSERT INTO input_request (id, req_key, session_id, workflow_id,
                           execution_id, node_id, kind, risk, state, version, tier, targets,
-                          tier_deadline, deadline, spec, advice, votes, created_at, updated_at)
+                          tier_deadline, deadline, spec, advice, votes, created_at, updated_at,
+                          asked)
                         VALUES (:id, :key, :session, :workflow, :execution, :node, :kind, :risk,
                           :state, :version, :tier, CAST(:targets AS jsonb), :tierDeadline,
                           :deadline, CAST(:spec AS jsonb), :advice, CAST(:votes AS jsonb),
-                          :created, :updated)
+                          :created, :updated, CAST(:asked AS jsonb))
                         ON CONFLICT DO NOTHING
                         """)
                     .bind("id", request.id())
@@ -104,6 +110,7 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                     .bind("targets", json.targets())
                     .bind("spec", json.spec())
                     .bind("votes", json.votes())
+                    .bind("asked", json.asked())
                     .bind("created", request.createdAt())
                     .bind("updated", request.updatedAt())
                     .bind("advice", nullable(request.advice(), String.class))
@@ -164,7 +171,8 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                           tier = :tier, targets = CAST(:targets AS jsonb),
                           tier_deadline = :tierDeadline, deadline = :deadline,
                           spec = CAST(:spec AS jsonb), advice = :advice,
-                          votes = CAST(:votes AS jsonb), updated_at = :updated
+                          votes = CAST(:votes AS jsonb), asked = CAST(:asked AS jsonb),
+                          updated_at = :updated
                         WHERE id = :id AND version = :expected AND state IN ('OPEN', 'ESCALATED')
                         """)
                     .bind("id", id)
@@ -175,6 +183,7 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                     .bind("targets", json.targets())
                     .bind("spec", json.spec())
                     .bind("votes", json.votes())
+                    .bind("asked", json.asked())
                     .bind("updated", next.updatedAt())
                     .bind("advice", nullable(next.advice(), String.class))
                     .bind("tierDeadline", nullable(next.tierDeadline(), Instant.class))
@@ -346,18 +355,20 @@ public class R2dbcInputRequestStore implements InputRequestStore {
         row.get("tier_deadline", Instant.class),
         mapper.readValue(row.get("votes", String.class), VOTES),
         row.get("created_at", Instant.class),
-        row.get("updated_at", Instant.class));
+        row.get("updated_at", Instant.class),
+        mapper.readValue(row.get("asked", String.class), ASKED));
   }
 
   private Json json(final InputRequest request) {
     return new Json(
         mapper.writeValueAsString(request.targets()),
         mapper.writeValueAsString(request.spec()),
-        mapper.writeValueAsString(request.votes()));
+        mapper.writeValueAsString(request.votes()),
+        mapper.writeValueAsString(request.asked()));
   }
 
   /** The JSON columns of a request. */
-  private record Json(String targets, String spec, String votes) {}
+  private record Json(String targets, String spec, String votes, String asked) {}
 
   /** A bindable value: a null needs its type for the driver. */
   private static Object nullable(final @Nullable Object value, final Class<?> type) {

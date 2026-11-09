@@ -48,6 +48,20 @@ public class RuleSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
+  public Set<com.infenia.yukta.plugin.control.engine.Signal.Kind> signals() {
+    return Set.of(
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.EVENT,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.TICK,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.REVIEW,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.DELEGATED);
+  }
+
+  @Override
+  public boolean canInitiate() {
+    return true;
+  }
+
+  @Override
   public SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
         "Rules",

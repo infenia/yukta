@@ -3,25 +3,23 @@
 package com.infenia.yukta.service.supervisor;
 
 import com.infenia.yukta.plugin.control.Supervisor;
-import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The newest saved states of each supervisor, so a change to its engine settings (for example its
- * rules) can be undone. In memory: the history starts again after a restart.
+ * rules) can be undone. This is the in-memory history of {@link InMemorySupervisorStore}; a durable
+ * store keeps its own.
  */
 public final class SupervisorVersions {
 
   /** Most versions kept per supervisor. */
   public static final int KEPT = 20;
 
-  private final Clock clock;
   // each value is an immutable list, replaced whole, so a read needs no lock
   private final Map<String, List<Version>> history = new ConcurrentHashMap<>();
 
@@ -34,26 +32,14 @@ public final class SupervisorVersions {
    */
   public record Version(int version, Instant savedAt, Supervisor supervisor) {}
 
-  /** Creates the history with the system clock. */
-  public SupervisorVersions() {
-    this(Clock.systemUTC());
-  }
-
-  /**
-   * Creates the history.
-   *
-   * @param clock tells the time of a save
-   */
-  public SupervisorVersions(final Clock clock) {
-    this.clock = clock;
-  }
-
   /**
    * Remembers a saved supervisor, unless its settings are the newest version's already.
    *
    * @param supervisor the supervisor as saved
+   * @param savedAt when it was saved
+   * @param keep how many versions to keep
    */
-  public void record(final Supervisor supervisor) {
+  public void record(final Supervisor supervisor, final Instant savedAt, final int keep) {
     history.compute(
         supervisor.id(),
         (id, versions) -> {
@@ -64,8 +50,8 @@ public final class SupervisorVersions {
           }
           final Deque<Version> next = new ArrayDeque<>(kept);
           next.addFirst(
-              new Version(newest == null ? 1 : newest.version() + 1, clock.instant(), supervisor));
-          while (next.size() > KEPT) {
+              new Version(newest == null ? 1 : newest.version() + 1, savedAt, supervisor));
+          while (next.size() > keep) {
             next.removeLast();
           }
           return List.copyOf(next);
@@ -80,17 +66,6 @@ public final class SupervisorVersions {
    */
   public List<Version> list(final String id) {
     return history.getOrDefault(id, List.of());
-  }
-
-  /**
-   * One saved state.
-   *
-   * @param id the supervisor id
-   * @param version the number
-   * @return the version, if still kept
-   */
-  public Optional<Version> find(final String id, final int version) {
-    return list(id).stream().filter(v -> v.version() == version).findFirst();
   }
 
   /**

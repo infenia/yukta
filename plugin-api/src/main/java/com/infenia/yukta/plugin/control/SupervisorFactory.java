@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
+import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.core.ConfigField;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +84,26 @@ public interface SupervisorFactory {
    */
   default SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
-        type(), "", "", SupervisorCategory.INTEGRATION, Optional.empty(), Map.of());
+        type(), "", "", SupervisorCategory.ON_THIS_SERVER, Optional.empty(), Map.of());
+  }
+
+  /**
+   * The signals a supervisor of this type is told, for the catalog. The default is events only.
+   *
+   * @return the signal kinds
+   */
+  default Set<Signal.Kind> signals() {
+    return Set.of(Signal.Kind.EVENT);
+  }
+
+  /**
+   * Whether a supervisor of this type may act on its own (with no triggering signal), for the
+   * catalog. The default is no.
+   *
+   * @return true if it may
+   */
+  default boolean canInitiate() {
+    return false;
   }
 
   /**

@@ -296,7 +296,7 @@ Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vit
 | Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
 | Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `CommandArbiter`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
 | Composite and workflow | `core/.../service/supervisor/composite/`, `.../workflow/` |
-| Types | `plugins/supervisors/rules`, `guards`, `webhook` (type `callout`) |
+| Types | `plugins/supervisors/rules`, `process-engine`; `http` and `workflow` in core (the `webhook`/`callout` type was removed in #2153) |
 | REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
 | CLI | `cli/internal/commands/supervisors` |
 | UI | `ui/src/features/supervisors/` |
