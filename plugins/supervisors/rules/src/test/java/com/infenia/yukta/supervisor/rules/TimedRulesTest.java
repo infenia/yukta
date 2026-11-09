@@ -20,7 +20,12 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 /** Rules with an {@code every} look at the owned runs on a timer. */
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.LooseCoupling"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.LooseCoupling",
+  "PMD.TooManyMethods",
+  "PMD.UnitTestShouldIncludeAssert"
+})
 class TimedRulesTest {
 
   private static final String TIMED =
@@ -181,5 +186,73 @@ class TimedRulesTest {
     assertThat(commands)
         .extracting(Directive.Command::command)
         .containsExactly(new PauseWorkflowCommand("run2"));
+  }
+
+  @Test
+  void timedRuleWithNoCommandOrBlankReasonIsRefused() {
+    assertThatThrownBy(
+            () ->
+                supervisor(
+                    """
+                    {"rules": [{"id": "a", "when": {"every": "1s"}, "then": {"reason": "r"}}]}
+                    """))
+        .hasMessageContaining("needs a command");
+    assertThatThrownBy(
+            () ->
+                supervisor(
+                    """
+                    {"rules": [{"id": "a", "when": {"every": "1s"},
+                      "then": {"command": "PauseWorkflow", "reason": "  "}}]}
+                    """))
+        .hasMessageContaining("needs a reason");
+  }
+
+  @Test
+  void runWithNoStartTimeAndNoEventIsIdleForNoTime() {
+    final RuleSupervisor supervisor =
+        supervisor(
+            """
+            {"schemaVersion": 1, "rules": [
+              {"id": "stalled", "when": {"every": "1s", "status": "RUNNING",
+                 "if": "idleSeconds >= 0"},
+               "then": {"command": "PauseWorkflow", "reason": "stalled"}}]}
+            """);
+    supervisor.readsFrom(
+        new EngineReads() {
+          @Override
+          public Flux<RunView> executions(final @Nullable String status, final int limit) {
+            return Flux.just(new RunView("s", "run1", "w", "RUNNING", null));
+          }
+
+          @Override
+          public Flux<InputRequest> openInputs(final int limit) {
+            return Flux.empty();
+          }
+        });
+
+    final List<Directive.Command> commands =
+        supervisor.directives(Flux.never()).take(1).collectList().block(Duration.ofSeconds(10));
+
+    assertThat(commands)
+        .extracting(Directive.Command::command)
+        .containsExactly(new PauseWorkflowCommand("run1"));
+  }
+
+  @Test
+  void onlyTheNewestRunsAreRememberedAndEventsWithoutRunAreIgnored() {
+    final RuleSupervisor supervisor = supervisor(TIMED);
+    final Flux<ExecutionEvent> events =
+        Flux.range(0, 10_005)
+            .<ExecutionEvent>map(
+                n ->
+                    new ExecutionEvent.WorkflowStatusChanged(
+                        "run" + n, "s", "w", "RUNNING", Instant.EPOCH))
+            .concatWith(Flux.just(new ExecutionEvent.EventsMissed(3, Instant.EPOCH)));
+
+    supervisor
+        .directives(events)
+        .take(Duration.ofSeconds(2))
+        .collectList()
+        .block(Duration.ofSeconds(10));
   }
 }

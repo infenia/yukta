@@ -158,12 +158,12 @@ public class DefinitionSupervisors implements DefinitionUsage {
     leaderElection.onTakeover(this::reconcileAllInBackground);
   }
 
-  /** Reconciles every session once the server is up, on the leader only. */
-  @EventListener(ApplicationReadyEvent.class)
   /* default */ void useRetryPeriod(final Duration period) {
     this.retryEvery = period;
   }
 
+  /** Reconciles every session once the server is up, on the leader only. */
+  @EventListener(ApplicationReadyEvent.class)
   /* default */ void onReady() {
     reconcileAllInBackground();
     // ponytail: a fixed minute; make it a setting if operators need to tune it

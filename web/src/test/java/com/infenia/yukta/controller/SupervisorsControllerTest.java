@@ -690,4 +690,19 @@ class SupervisorsControllerTest {
         .expectError(IllegalArgumentException.class)
         .verify();
   }
+
+  @Test
+  void assignmentNeedsTargetAndCanBeSwitchedOffAndLocked() {
+    created("s1");
+
+    StepVerifier.create(
+            controller.setAssignments("s1", false, List.of(new AssignmentBody(" ", true, null))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("server", false, true))))
+        .assertNext(r -> assertThat(r.data()).singleElement().matches(AssignmentView::locked))
+        .verifyComplete();
+  }
 }

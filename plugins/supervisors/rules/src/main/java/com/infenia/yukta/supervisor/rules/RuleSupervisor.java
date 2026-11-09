@@ -402,7 +402,7 @@ public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
   /** Records when a run last did something, for {@code idleSeconds} in timed rules. */
   private void seen(final ExecutionEvent event) {
     final String run = event.executionId();
-    if (run == null) {
+    if (run.isEmpty()) { // a gap in the events belongs to no run
       return;
     }
     synchronized (lastSeen) {

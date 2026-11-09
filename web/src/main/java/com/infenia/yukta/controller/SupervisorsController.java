@@ -770,8 +770,8 @@ public class SupervisorsController {
   }
 
   /** A missing or blank field is a client error, not a server one. */
-  private static <T> T required(final String name, final @Nullable T value) {
-    if (value == null || value instanceof String text && text.isBlank()) {
+  private static String required(final String name, final @Nullable String value) {
+    if (value == null || value.isBlank()) {
       throw new IllegalArgumentException(name + " is required");
     }
     return value;
