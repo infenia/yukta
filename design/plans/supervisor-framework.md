@@ -162,7 +162,7 @@ Units that nobody owns fall to the **default supervisor** (a fallback, not an ov
 
 **Groups.** The workflow definition gains `groups`: a map of a name to a list of node ids and `<prefix>.*` selectors, validated when the definition is saved (each member resolves). An assignment names a group as `group:<name>`.
 
-**Definitions.** The `supervisors` block in a session or workflow definition becomes an `assignments` block with the same reconcile-on-save behaviour as today (`DefinitionSupervisors`, source `DEFINITION`, deterministic ids); the exclusivity rule runs before anything is attached.
+**Definitions.** The `supervisors` block in a session or workflow definition becomes an `assignments` block with the same reconcile-on-save behaviour as today (`DefinitionSupervisors`, source `DEFINITION`, deterministic ids); the exclusivity rule runs before anything is attached. A stored definition needs no migration: `supervisors` is read as `assignments` (same entries), so its assignments keep source `DEFINITION` and the same ids, and the next save writes `assignments`. One that overlaps another owner after the upgrade is disabled as a conflict at start-up, for the administrator to resolve.
 
 ### Hierarchy and delegation
 
@@ -178,9 +178,10 @@ Units that nobody owns fall to the **default supervisor** (a fallback, not an ov
 
 - **Modes (D7), set per kind in `delegation`:**
   - `ORDERED` (default): ask the parents in order. The first answer decides. A parent that times out or has no opinion passes it to the next.
-  - `ALL`: ask all at once; all must allow.
-  - `ANY`: ask all at once; the first answer decides.
-  - In every mode a **refusal from any parent asked is final**. When no parent is left (none configured, all silent, or the chain is exhausted) the request goes to the **person tier** (the input inbox), as an unresolved escalation does today.
+  - `ALL`: ask all at once and wait for every answer (or its timeout). One refusal refuses; it is allowed only when every parent allows; otherwise a person decides.
+  - `ANY`: ask all at once; the **first decisive answer** (allow or refuse) decides and the others are not waited for. A refusal that arrives after an allow does not count, so choose `ALL` when every parent must be able to refuse.
+  - A **refusal that decides is final**: no later parent or person overturns it. When no parent decides (none configured, all silent, or the chain is exhausted) the request goes to the **person tier** (the input inbox), as an unresolved escalation does today.
+  - The modes decide `APPROVAL` (allow or deny). An `INPUT` escalation follows its route instead: the tier `supervisor:parent` targets the parents, and the tier's own `mode`, `quorum` and `timeout` decide, with the votes of a `QUORUM` or `UNANIMOUS` tier; `delegation.INPUT` is not read. A `CONSULT` asks the parents in its mode and gives the child **every answer** (`Signal.Consulted(key, answers by parent)`); the child's engine chooses between different answers, and no answer is an empty map.
 - `DefaultAnswerAuthorizer` ranks a parent above its child whatever their assignments, and keeps `separation` and "`HIGH` is for a person".
 
 ## The engine interface (the decision maker)
@@ -251,9 +252,9 @@ Event-driven supervisors are edge-triggered. Most proactive ones are level-trigg
 
 **Limits on initiative (D12).** Initiative is the riskiest case because no signal justifies it, so it has its own limits on top of ownership and `allowedCommands`: the commands must be in the supervisor's `initiative` list (default none, so a new `http` supervisor can observe and answer but not act on its own until an administrator names commands), a `reason` is required, `maxInitiativePerMinute` applies, dry run applies, and the audit and the UI flag it.
 
-**Targets without an event (D13).** A reaction knows its execution id; an initiative does not, and listing then acting races with the runs. A command may name its target as `execution:<id>`, `workflow:<id>`, `node:<ids>` or `owned.running`. The server expands a selector to the owned executions it matches (at most 200), applies and audits each command separately, and returns the result per target, so a partial success is visible.
+**Targets without an event (D13).** A reaction knows its execution id; an initiative does not, and listing then acting races with the runs. A command may name its target as `execution:<id>`, `workflow:<id>`, `node:<ids>` or `owned.running`. The server expands a selector to the owned executions it matches (at most 200), applies and audits each command separately as the directive `<key>#<execution>`. The submission only says it was accepted; the result per target is recorded in the decisions (`GET /api/supervisors/decisions`, the Activity tab groups them by key), so a partial success is visible without the engine receiving its own outcomes (see "A loop of supervisors").
 
-**Hold ledger (D13).** The server records which executions this supervisor paused. `resume held` resumes only those, so a supervisor never undoes a pause that a person or another owner made. It is kept in the supervisor's `state()` (memory, or PostgreSQL when configured) and an entry ends with its execution.
+**Hold ledger (D13).** The server records which executions this supervisor paused. An entry ends as soon as **anyone** resumes or stops that execution, or the execution ends, so a later pause by a person or another owner never inherits it. `resume held` resumes only the entries still there. It is kept in memory on purpose: a restart marks unfinished runs `ABORTED`, and a resumed run is not paused, so no hold can outlive a restart.
 
 **Preconditions and outcomes.** A command may say `ifStatus` (for example `RUNNING`), so a decision based on a read that has gone stale fails safely. Outcomes are explicit: `APPLIED`, `NOT_FOUND`, `NOT_OWNED`, `PRECONDITION_FAILED`, `ALREADY_IN_STATE`. Commands are idempotent in their end state. `AnswerInput` already has `expectedVersion`; this generalises it.
 
@@ -357,7 +358,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 | Group | Operations |
 |---|---|
 | Run level | `start` (new `StartWorkflowCommand`), pause, resume, stop (drain or immediate), restart, restart from a node, priority |
-| Targets | `execution:<id>`, `workflow:<id>`, `node:<ids>` or `owned.running`; a selector is expanded by the server to the owned executions it matches (at most 200), each applied and audited separately. `resume held` resumes only what this supervisor paused. A command may carry `ifStatus`. |
+| Targets | `execution:<id>`, `workflow:<id>`, `node:<ids>` or `owned.running`; a selector is expanded by the server to the owned executions it matches (at most 200), each applied and audited separately; the submission is accepted, and the result per target is in the decisions. `resume held` resumes only what this supervisor paused. A command may carry `ifStatus`. |
 | Node level | pause, resume, stop, skip, retry, step mode, breakpoints |
 | Inputs | answer, escalate |
 | Server | set limits, drain (server owner only) |
@@ -372,14 +373,14 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 | Threat | Control |
 |---|---|
 | A stolen human key stops runs | Its commands go through the owner, which may refuse operator access. Role and session limits stay. |
-| An external program acts with a person's rights | The `http` credential is accepted only on the agent API; its actor kind is `SUPERVISOR`. |
+| An external program acts with a person's rights | The `http` credential is accepted only on the agent API, `/api/agent/v1/**` (REST and its MCP form `/api/agent/v1/mcp`, with the same per-credential limits); its actor kind is `SUPERVISOR`. |
 | A credential leaks | Per supervisor, shown once, hashed, rotated, revoked, optional expiry and address list. Ownership and `allowedCommands` limit the damage. Disabling the supervisor cuts it at once. |
 | An engine acts outside what its supervisor owns | Ownership is checked on the server from the command's real target, never from what the engine says. A lookup error counts as not owned. |
 | Two supervisors fight or override each other | The one-owner rule makes it impossible, and is re-checked at every definition save. |
 | An administrator removes the supervisor that protects a workflow | Creating, changing, assigning and detaching supervisors is `ADMIN`, audited under run id `supervisors`. `locked`: only a parent or an administrator holding the lock permission may detach it (decided in S0: `locked` is in, built in S2). |
 | Data leaks through the read API | Limited to owned units, paged, redacted, node outputs off by default, reads counted per supervisor. |
 | An engine overloads the server | Rate limit per supervisor, open streams and reviews capped, bounded buffers with `EventsMissed`. |
-| A loop of supervisors | A supervisor never sees its own outcomes; internal sessions are hidden; delegation depth at most 4; workflow-engine depth limit. |
+| A loop of supervisors | A supervisor never sees its own outcomes (not even per target: those are in the decisions, for people and clients); internal sessions are hidden; delegation depth at most 4; workflow-engine depth limit. |
 | A new endpoint skips the checks | One choke point (`SupervisedControl`) and an ArchUnit rule in the `architecture` module: only it may call the gateway's executor and `WorkflowStarter`; engines may depend on `plugin-api` only. |
 | A reviewer that hangs or crashes | Timeouts; an error denies; a stop is still allowed. |
 | Replay and duplicates | An idempotency key on every directive; starts already have one. |
@@ -395,7 +396,7 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 | `model-control-plane` | Later: engine `model`; or a parent whose engine is a `workflow` with an `LLM_CALL` node |
 | `failure-guard`, `stall-watchdog`, `approval-gate` | Presets of the `rules` engine |
 | `webhook` | Engine `callout` |
-| `composite` | Removed. Its review `ALL`, `ANY` and `MAJORITY` become the delegation modes; `QUORUM` is added later if needed |
+| `composite` | Removed. Its review `ALL` and `ANY` become the delegation modes of `parents`. **`MAJORITY` has no equivalent**: a stored composite is kept, does not start and is named in a start-up WARN; the administrator rebuilds it with `parents` (`ALL` or `ANY`), or waits for `QUORUM` if it is added |
 | `workflow` | Engine `workflow` with the three new nodes |
 | `CommandArbiter`, `order()`, `ControlReviewer` fan-out | Removed; a turn-around guard stays per supervisor |
 | `SupervisorScope`, `strictlyCovers`, `supervisor:above` | Assignments and units; tier `supervisor:parent` |
@@ -528,7 +529,7 @@ The OpenAPI snapshots (`ui/openapi.json`, `docs/api/openapi.json`) and `ui/src/t
 
 Constraints that apply as before: list results are wrapper records (a `Flux` result is cut to its first element, and `Mono<List<T>>` with an output schema fails at start-up with Spring AI 2.0); the detail tool includes the settings schema (`get_plugin_details` still lacks it, do not copy that gap).
 
-**Supervisor MCP endpoint (for an AI agent that is a supervisor).** A second endpoint, `/mcp/supervisor`, authenticated only by a supervisor credential (`ApiKeyFilter` and `McpEndpointFilter` get a matcher for it; a human key is refused and a supervisor credential is refused on `/mcp`). It lists only supervisor tools, so an agent connected to it cannot see or call anything else. MCP has no server push that a model can wait on, so the stream becomes a poll with a cursor.
+**Supervisor MCP endpoint (for an AI agent that is a supervisor).** A second endpoint, `/api/agent/v1/mcp`, inside the agent API, so it is guarded like the rest of `/api/agent/v1/**`: only a supervisor credential works there (a human key is refused, and a supervisor credential is refused on `/mcp` and everywhere else), with the same per-credential limits (`yukta.agent.*`). It lists only supervisor tools, so an agent connected to it cannot see or call anything else. MCP has no server push that a model can wait on, so the stream becomes a poll with a cursor.
 
 | Tool | Purpose |
 |---|---|
@@ -551,8 +552,8 @@ A new skill `skills/yukta-supervisor` teaches an agent the loop (snapshot, then 
 | `yukta supervisors save -f supervisor.json`, `delete <id>`, `validate -f …` | Create, change, check |
 | `yukta supervisors assign <id> --workflow w --nodes 'build.*' [--group g] [--run-level]`, `unassign`, `check-assign …` | Ownership |
 | `yukta supervisors parents set <id> --parent a --parent b --mode approval=ordered` | Hierarchy |
-| `yukta supervisors rules get|set|versions|rollback|replay <id>` | Rules |
-| `yukta supervisors credential create|rotate|revoke <id>` | The secret is printed once, to stdout only |
+| `yukta supervisors rules get\|set\|versions\|rollback\|replay <id>` | Rules |
+| `yukta supervisors credential create\|rotate\|revoke <id>` | The secret is printed once, to stdout only |
 | `yukta supervisors decisions [--supervisor --cause initiative]` | Activity |
 | `yukta ownership [--session s --workflow w]` and `yukta supervision …` | Who owns what, and whether a command would be allowed |
 | `yukta supervisor-contract` | The version and operations |
@@ -592,7 +593,7 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 
 **S6. `http` engine (web, core, plugins, cli, L).** The credential, `/api/agent/v1`, the stream, directives, review and delegation round trips, per-credential limits, OpenAPI, CLI. Tests: a leaked credential cannot reach another supervisor's units or exceed its commands; revocation cuts a stream at once; a human key is refused; a slow reader loses events with `EventsMissed` and the runs are unaffected. Also `GET /snapshot`, `GET /events?after=`, and `cause`, `reason`, selectors and `ifStatus` on `/directives`.
 
-**S7. `callout` engine and retiring the old types (plugins, core, docs, M).** Port `webhook`; delete the old types, the composite and the arbiter code; migrate the examples, acceptance tests, docs, CLI and MCP.
+**S7. `callout` engine and retiring the old types (plugins, core, docs, M).** Port `webhook`; delete the old types, the composite and the arbiter code; migrate the examples, acceptance tests, docs, CLI and MCP. The `workflow` supervisor type is **not** retired here: its implementation keeps running migrated workflow supervisors until S9 makes it the `workflow` engine, so no supervisor loses its decision maker in between. (The `callout` engine was later removed in #2153: an `http` supervisor with a `url` posts the same signals.)
 
 **S8. UI (ui, web, L, in four PRs).** The design is in [UI and UX design](#ui-and-ux-design). Artboards first (updated `Supervisors.html`, `Control.html`, `RunView.html`, `SessionDetail.html`, `SessionsPhone.html`, new `Ownership.html`, `SupervisorWizard.html`, `Rules.html`; light, dark and 390 px), reviewed before code.
 - **S8a, Supervisors tab and gated controls:** the page shell, the Supervisors tab (hierarchy, by workflow, Owns, Allowed operations, Hierarchy), `RequireControl`, the workflow Supervision tab, the conflicts banner.
@@ -604,7 +605,7 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 
 **S10. Hardening and more engines (M and L).** A threat-model review of the new endpoints against the table above; fuzzing of the directive body; a chaos test (the engine disconnects mid-review, the credential is revoked during a command); the `process` engine; a scaffold `yk new engine <name>`; the docs and the migration note (`docs/operations/security.mdx`, `docs/running/supervisors.mdx`, `docs/api`, `core/.claude/rules/supervisors.md`, `docs/contributing/core-reference.mdx` then `core/scripts/check-core-reference.sh`); regenerate `ui/openapi.json`, `docs/api/openapi.json` and `ui/src/types/api.generated.ts`.
 
-**S11. Clients (mcp, cli, web, docs, examples, L; delivered with the phase that changes each surface).** The [Clients](#clients-mcp-cli-rest-and-others) section: the operator results and descriptions (S2); the management tools, the CLI management commands and `/api/supervisor-engines` (S4 and S7); the rules and credential endpoints, tools and commands (S5 and S6); the supervisor MCP endpoint `/mcp/supervisor` and the `yukta-supervisor` skill (S6); the reference agent command and the Python and Go reference agents; the CPU guard and other examples; the Bruno collections; the OpenAPI snapshots and generated types; the docs listed there. This phase tracks the checklist; each item is done in the PR of the phase that needs it.
+**S11. Clients (mcp, cli, web, docs, examples, L; delivered with the phase that changes each surface).** The [Clients](#clients-mcp-cli-rest-and-others) section: the operator results and descriptions (S2); the management tools, the CLI management commands and `/api/supervisor-engines` (S4 and S7); the rules and credential endpoints, tools and commands (S5 and S6); the supervisor MCP endpoint `/api/agent/v1/mcp` and the `yukta-supervisor` skill (S6); the reference agent command and the Python and Go reference agents; the CPU guard and other examples; the Bruno collections; the OpenAPI snapshots and generated types; the docs listed there. This phase tracks the checklist; each item is done in the PR of the phase that needs it.
 
 ## Dependency order
 
