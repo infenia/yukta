@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.supervisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import com.infenia.yukta.plugin.control.ControlActor;
@@ -13,6 +14,7 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
@@ -170,5 +172,70 @@ class SupervisorAssignmentsTest {
     StepVerifier.create(assignments.set("a", List.of(locked, owns("run:s/w")), false))
         .assertNext(all -> assertThat(all).hasSize(2))
         .verifyComplete();
+  }
+
+  @Test
+  void anUnknownDigestIsAnErrorOfTheRuntimeNotOfTheCaller() {
+    assertThatThrownBy(() -> SupervisorAssignments.hash("NOPE-256", "x"))
+        .isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void switchedOffAssignmentMayNameWhatAnotherSupervisorOwnsAndOtherSourcesStay() {
+    supervisors("a", "b");
+    assignments.set("a", List.of(owns("workflow:s/w")), false).block();
+    service
+        .attach(
+            new SupervisorAttachment(
+                "def-b",
+                "b",
+                SupervisorScope.parse("workflow:s/other"),
+                true,
+                SupervisorSource.DEFINITION,
+                "s",
+                "other"))
+        .block();
+
+    StepVerifier.create(
+            assignments.set(
+                "b",
+                List.of(new Assignment(SupervisorScope.parse("workflow:s/w"), false, false)),
+                false))
+        .assertNext(
+            all ->
+                assertThat(all)
+                    .extracting(SupervisorAttachment::source)
+                    .contains(SupervisorSource.DEFINITION, SupervisorSource.MANUAL))
+        .verifyComplete();
+  }
+
+  @Test
+  void whoMayUnlockDependsOnTheListAndTheCaller() {
+    supervisors("a");
+    final Assignment locked = new Assignment(SupervisorScope.parse("server"), true, true);
+
+    // no list: any administrator may, but only by asking
+    assignments.set("a", List.of(locked), false).block();
+    StepVerifier.create(assignments.set("a", List.of(), false))
+        .expectErrorMessage(
+            "Locked assignments (server) change only when the request asks to unlock")
+        .verify();
+    StepVerifier.create(assignments.set("a", List.of(), true))
+        .assertNext(left -> assertThat(left).isEmpty())
+        .verifyComplete();
+
+    // a list: a caller with no name, a name that is not a key and a key that is not listed fail
+    assignments.setProperties(
+        YuktaSettings.bind(Map.of("yukta.supervisor.lock-holders", "release-admin")));
+    assignments.set("a", List.of(locked), false).block();
+    StepVerifier.create(assignments.set("a", List.of(), true))
+        .expectError(ConflictException.class)
+        .verify();
+    StepVerifier.create(
+            assignments
+                .set("a", List.of(), true)
+                .contextWrite(Context.of(ControlActor.CONTEXT_KEY, "some-supervisor")))
+        .expectError(ConflictException.class)
+        .verify();
   }
 }

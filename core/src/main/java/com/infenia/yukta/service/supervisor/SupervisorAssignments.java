@@ -109,11 +109,14 @@ public class SupervisorAssignments {
    * @return the id
    */
   public static String idOf(final String supervisorId, final SupervisorScope scope) {
+    return ID_PREFIX + hash("SHA-256", supervisorId + "\n" + scope.key()).substring(0, HASH_CHARS);
+  }
+
+  /* default */ static String hash(final String algorithm, final String text) {
     try {
-      final byte[] digest =
-          MessageDigest.getInstance("SHA-256")
-              .digest((supervisorId + "\n" + scope.key()).getBytes(StandardCharsets.UTF_8));
-      return ID_PREFIX + HexFormat.of().formatHex(digest).substring(0, HASH_CHARS);
+      return HexFormat.of()
+          .formatHex(
+              MessageDigest.getInstance(algorithm).digest(text.getBytes(StandardCharsets.UTF_8)));
     } catch (final NoSuchAlgorithmException e) {
       throw new IllegalStateException("SHA-256 is part of every Java runtime", e);
     }

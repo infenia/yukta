@@ -73,6 +73,9 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /** How often failed declarations are tried again. */
   private static final Duration RETRY_EVERY = Duration.ofMinutes(1);
 
+  /** How often a declaration that could not be applied is tried again; shortened by tests. */
+  private Duration retryEvery = RETRY_EVERY;
+
   /** Hex digits of the hash kept in an id. */
   private static final int HASH_DIGITS = 16;
 
@@ -157,10 +160,14 @@ public class DefinitionSupervisors implements DefinitionUsage {
 
   /** Reconciles every session once the server is up, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
+  /* default */ void useRetryPeriod(final Duration period) {
+    this.retryEvery = period;
+  }
+
   /* default */ void onReady() {
     reconcileAllInBackground();
     // ponytail: a fixed minute; make it a setting if operators need to tune it
-    retry = Flux.interval(RETRY_EVERY, Schedulers.parallel()).subscribe(_ -> retryFailed());
+    retry = Flux.interval(retryEvery, Schedulers.parallel()).subscribe(_ -> retryFailed());
   }
 
   /** Stops the retry. */

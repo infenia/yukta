@@ -270,8 +270,11 @@ class SupervisorQueriesTest {
     final WorkflowDefinition.Edge across = mock(WorkflowDefinition.Edge.class);
     when(across.source()).thenReturn("build.test");
     when(across.target()).thenReturn("deploy.prod");
+    final WorkflowDefinition.Edge back = mock(WorkflowDefinition.Edge.class);
+    when(back.source()).thenReturn("deploy.prod");
+    when(back.target()).thenReturn("build.compile");
     when(definition.nodes()).thenReturn(List.of(compile, test, deploy));
-    when(definition.edges()).thenReturn(List.of(inside, across));
+    when(definition.edges()).thenReturn(List.of(inside, across, back));
     when(sessions.getSessionWorkflow("s", "w")).thenReturn(Mono.just(definition));
 
     final var section = queries.readsFor(new SupervisorScope.Section("w", "s", Set.of("build.*")));
@@ -310,5 +313,16 @@ class SupervisorQueriesTest {
     assertThat(queries.readsFor(new SupervisorScope.Workflow("w", "s")).scheduler().blockOptional())
         .isEmpty();
     assertThat(EngineReads.NONE.scheduler().blockOptional()).isEmpty();
+  }
+
+  @Test
+  void theRunsSupervisorPausedAreWhatItsLedgerSays() {
+    final EngineReads reads =
+        queries.readsFor(new SupervisorScope.Workflow("w", "s"), () -> List.of("run1", "run2"));
+
+    assertThat(reads.held().collectList().block()).containsExactly("run1", "run2");
+    assertThat(
+            queries.readsFor(new SupervisorScope.Workflow("w", "s")).held().collectList().block())
+        .isEmpty();
   }
 }

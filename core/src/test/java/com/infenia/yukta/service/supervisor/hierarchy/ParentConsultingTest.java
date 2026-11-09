@@ -64,4 +64,13 @@ class ParentConsultingTest {
           .verifyComplete();
     }
   }
+
+  @Test
+  void anEmptyAnswerIsNoAnswer() {
+    StepVerifier.create(
+            ParentConsulting.consult(
+                how(DelegationMode.ORDERED), PARENTS, parent -> Mono.just(Map.of())))
+        .expectNext(Map.of())
+        .verifyComplete();
+  }
 }

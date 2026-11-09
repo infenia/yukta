@@ -169,7 +169,7 @@ public record YuktaProperties(
 
     /** Keeps an unmodifiable copy of the lock holders. */
     public Supervisor {
-      lockHolders = lockHolders == null ? List.of() : List.copyOf(lockHolders);
+      lockHolders = List.copyOf(lockHolders);
     }
   }
 

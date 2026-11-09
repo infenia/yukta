@@ -25,7 +25,6 @@ import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.review.BoundSupervisor;
-import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -69,7 +68,6 @@ class SupervisorServiceConsultTest {
         }
       };
 
-  private final SupervisorResolver resolver = new SupervisorResolver();
   private final SupervisorService service =
       new SupervisorService(
           new InMemorySupervisorStore(), List.of(factory), host, new InMemoryExecutionLogStore());
@@ -95,14 +93,12 @@ class SupervisorServiceConsultTest {
   }
 
   private Consultant started(final Supervisor child) {
-    service.setResolver(resolver);
     for (final String parent : child.parents()) {
       StepVerifier.create(service.saveSupervisor(shell(parent)))
           .expectNextCount(1)
           .verifyComplete();
     }
     StepVerifier.create(service.saveSupervisor(child)).expectNextCount(1).verifyComplete();
-    resolver.refresh(service.supervisors().collectList().block());
     final SupervisorAttachment attachment =
         new SupervisorAttachment("k1", child.id(), new SupervisorScope.Session("A"), true);
     StepVerifier.create(service.attach(attachment)).expectNext(attachment).verifyComplete();
@@ -166,19 +162,5 @@ class SupervisorServiceConsultTest {
         .expectNext(Map.of())
         .expectComplete()
         .verify(Duration.ofSeconds(2));
-  }
-
-  @Test
-  void withoutResolverNobodyIsAsked() {
-    final SupervisorService bare =
-        new SupervisorService(
-            new InMemorySupervisorStore(), List.of(factory), host, new InMemoryExecutionLogStore());
-    StepVerifier.create(bare.saveSupervisor(shell("kid"))).expectNextCount(1).verifyComplete();
-    final SupervisorAttachment attachment =
-        new SupervisorAttachment("k2", "kid", new SupervisorScope.Session("A"), true);
-    StepVerifier.create(bare.attach(attachment)).expectNext(attachment).verifyComplete();
-    StepVerifier.create(asking.get().consult(DelegationKind.CONSULT, Map.of()))
-        .expectNext(Map.of())
-        .verifyComplete();
   }
 }

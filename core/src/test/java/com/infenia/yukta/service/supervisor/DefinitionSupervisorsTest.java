@@ -786,4 +786,47 @@ class DefinitionSupervisorsTest {
       return super.findAll(sessionId).delayElement(java.time.Duration.ofMillis(100));
     }
   }
+
+  @Test
+  void declarationThatFailedIsAttachedByTheTimerOnceItCanBe() {
+    save(session(List.of(), workflow("w1", ref("later"))));
+    assertThat(attachments()).isEmpty();
+    supervisor("later");
+
+    declared.useRetryPeriod(java.time.Duration.ofMillis(50));
+    declared.onReady();
+    try {
+      org.awaitility.Awaitility.await()
+          .atMost(java.time.Duration.ofSeconds(5))
+          .untilAsserted(() -> assertThat(attachments()).hasSize(1));
+    } finally {
+      declared.stop();
+    }
+  }
+
+  @Test
+  void groupsOfSessionAreKeptFromItsDefinitionsAndForgottenWithIt() {
+    final com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex groups =
+        new com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex();
+    declared.setNodeGroups(groups);
+    supervisor("guard");
+
+    save(session(List.of(ref("guard")), workflow("w1", ref("guard"))));
+    // the same definitions again change no group, so nothing is restarted
+    save(session(List.of(ref("guard")), workflow("w1", ref("guard"))));
+    definitions.removeAll(SESSION).block();
+    StepVerifier.create(declared.forget(SESSION)).verifyComplete();
+
+    assertThat(attachments()).isEmpty();
+  }
+
+  @Test
+  void versionWhoseOwnDeclarationsAreWrongIsRefusedBeforeOwnershipIsLookedAt() {
+    final WorkflowDefinition broken = workflow("w1", ref("ghost"));
+    final DefinitionChecks checks = new DefinitionChecks(service, host);
+
+    StepVerifier.create(checks.check(SESSION, List.of(), Map.of("w1", broken), broken))
+        .assertNext(issues -> assertThat(issues).isNotEmpty())
+        .verifyComplete();
+  }
 }

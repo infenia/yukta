@@ -1223,18 +1223,13 @@ public class SupervisorService {
    */
   private Mono<Map<String, Map<String, Object>>> consultParents(
       final Supervisor child, final DelegationKind kind, final Map<String, Object> payload) {
-    final SupervisorResolver parents = resolver;
-    if (parents == null) {
+    if (child.parents().isEmpty()) {
       return Mono.just(Map.of());
     }
-    final Optional<Supervisor> shell = parents.supervisor(child.id());
-    if (shell.isEmpty() || shell.get().parents().isEmpty()) {
-      return Mono.just(Map.of());
-    }
-    final Delegation how = shell.get().delegationFor(DelegationKind.CONSULT);
+    final Delegation how = child.delegationFor(DelegationKind.CONSULT);
     return ParentConsulting.consult(
         how,
-        shell.get().parents(),
+        child.parents(),
         parent ->
             Flux.fromIterable(host.attachedOf(parent))
                 .map(BoundSupervisor::delegate)
