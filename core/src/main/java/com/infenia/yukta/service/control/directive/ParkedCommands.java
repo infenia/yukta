@@ -6,6 +6,7 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
@@ -33,6 +34,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -207,7 +209,7 @@ public class ParkedCommands implements CommandProposals {
             run,
             sender(context));
     return broker
-        .raise(who, spec(command, run, actor, needs))
+        .raise(who, spec(command, run, actor, needs), steps(needs))
         .onErrorMap(
             InputLimitException.class, error -> new ControlRejectedException(error.getMessage()))
         .map(request -> keep(request, candidate));
@@ -341,6 +343,26 @@ public class ParkedCommands implements CommandProposals {
 
   private void count(final String outcome) {
     meters.counter(METRIC, "outcome", outcome).increment();
+  }
+
+  /**
+   * The way the command came to a person: each supervisor that wanted it approved, then each parent
+   * asked, with its answer ({@code allow}, {@code deny}, {@code no-opinion} or {@code silent}).
+   */
+  private List<Asked> steps(final ReviewVerdict.NeedsApproval needs) {
+    final Instant now = Instant.now();
+    final List<Asked> steps = new ArrayList<>();
+    needs.askedBy().forEach(id -> steps.add(new Asked(id, "asked for approval", null, now)));
+    for (final String line : needs.parents()) {
+      final int colon = line.lastIndexOf(':');
+      steps.add(
+          new Asked(
+              line.substring(0, colon),
+              line.substring(colon + 1).toLowerCase(Locale.ROOT).replace('_', '-'),
+              null,
+              now));
+    }
+    return steps;
   }
 
   /** The question; the server writes the prompt, the review's reason is quoted as data only. */

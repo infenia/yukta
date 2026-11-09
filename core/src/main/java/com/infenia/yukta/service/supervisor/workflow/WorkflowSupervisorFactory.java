@@ -63,13 +63,28 @@ public class WorkflowSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
+  public Set<com.infenia.yukta.plugin.control.engine.Signal.Kind> signals() {
+    return Set.of(
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.EVENT,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.TICK,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.REVIEW,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.DELEGATED,
+        com.infenia.yukta.plugin.control.engine.Signal.Kind.STARTED);
+  }
+
+  @Override
+  public boolean canInitiate() {
+    return true;
+  }
+
+  @Override
   public SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
         "Workflow",
-        "Makes a supervisor out of a workflow in an internal session, started for each matching"
-            + " event.",
+        "A workflow in an internal session decides: it is started for each matching event, and"
+            + " what its last node returns is the decision.",
         "Use it when the decision needs steps: calling a service, asking a model, or waiting.",
-        SupervisorCategory.WORKFLOW,
+        SupervisorCategory.ON_THIS_SERVER,
         Optional.of(new UiDesign("teal", "schema", "Workflow", 140, 80)),
         Map.of(
             "sessionId",

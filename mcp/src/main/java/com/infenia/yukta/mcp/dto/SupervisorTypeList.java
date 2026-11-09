@@ -24,9 +24,7 @@ public record SupervisorTypeList(List<Entry> types) {
    * @param type the type name
    * @param displayName the name shown to people
    * @param category the catalog category
-   * @param kind {@code SUPERVISOR}, {@code CONTROL_PLANE} or {@code COMPOSITE}
    * @param description what it does
    */
-  public record Entry(
-      String type, String displayName, String category, String kind, String description) {}
+  public record Entry(String type, String displayName, String category, String description) {}
 }

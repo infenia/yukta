@@ -136,6 +136,21 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
+  void decisionShowsTheCauseKeyAndReasonOfItsDirective() {
+    attach(pausing(10), command("k", Cause.event("e1"), "3 failures"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
+    assertThat(host.decisions(null, 10))
+        .singleElement()
+        .satisfies(
+            d -> {
+              assertThat(d.cause()).isEqualTo("event");
+              assertThat(d.key()).isEqualTo("k");
+              assertThat(d.because()).isEqualTo("3 failures");
+              assertThat(d.nodeId()).isNull();
+            });
+  }
+
+  @Test
   void anInitiativeNeedsReason() {
     attach(pausing(10), command("k", Cause.initiative(), " "));
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("reason-required") == 1);

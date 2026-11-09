@@ -50,8 +50,12 @@ class SupervisorProviderTest {
   private final com.infenia.yukta.service.control.gateway.ControlBusGateway bus =
       mock(com.infenia.yukta.service.control.gateway.ControlBusGateway.class);
 
+  private final com.infenia.yukta.service.supervisor.SupervisionSummary summary =
+      mock(com.infenia.yukta.service.supervisor.SupervisionSummary.class);
+
   private final SupervisorProvider provider =
-      new SupervisorProvider(host, service, credentials, ownership, assignments, reviewer, bus);
+      new SupervisorProvider(
+          host, service, credentials, ownership, assignments, reviewer, bus, summary);
 
   @BeforeEach
   void noAttachmentsYet() {
@@ -157,23 +161,18 @@ class SupervisorProviderTest {
             "T",
             "does t",
             "use t",
-            com.infenia.yukta.plugin.control.SupervisorCategory.GUARD,
+            com.infenia.yukta.plugin.control.SupervisorCategory.RULES,
             java.util.Optional.empty(),
             java.util.Map.of("k", 1));
     when(service.types()).thenReturn(List.of("t"));
     when(service.describe("t")).thenReturn(java.util.Optional.of(descriptor));
     when(service.describe("nope")).thenReturn(java.util.Optional.empty());
-    when(service.kind("t")).thenReturn("SUPERVISOR");
     when(service.configSchema("t")).thenReturn(List.of());
     when(service.defaultAllowedCommands("t")).thenReturn(java.util.Set.of("B", "A"));
 
     assertThat(provider.types().types())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.displayName()).isEqualTo("T");
-              assertThat(e.kind()).isEqualTo("SUPERVISOR");
-            });
+        .satisfies(e -> assertThat(e.displayName()).isEqualTo("T"));
     final var details = provider.type("t");
     assertThat(details.defaultAllowedCommands()).containsExactly("A", "B");
     assertThat(details.commonSchema()).isNotEmpty();
@@ -205,7 +204,6 @@ class SupervisorProviderTest {
             java.util.Optional.empty(),
             java.util.Map.of());
     when(service.describe("t")).thenReturn(java.util.Optional.of(descriptor));
-    when(service.kind("t")).thenReturn("SUPERVISOR");
     when(service.configSchema("t")).thenReturn(List.of());
     when(service.defaultAllowedCommands("t")).thenReturn(null);
 
@@ -556,5 +554,62 @@ class SupervisorProviderTest {
             org.mockito.ArgumentMatchers.eq(true));
     assertThat(sent.getValue().get(0).enabled()).isTrue();
     assertThat(sent.getValue().get(0).locked()).isFalse();
+  }
+
+  @Test
+  void rulesAreReadSavedAndReplayedWithSecretsHidden() {
+    final Supervisor rules =
+        new Supervisor(
+            "r", "rules", java.util.Map.of("rules", java.util.List.of("a"), "token", "abc"), false);
+    when(service.supervisors()).thenReturn(Flux.just(rules));
+    when(service.versions("r")).thenReturn(Mono.just(java.util.List.of()));
+    when(service.secretSettings("rules")).thenReturn(java.util.Set.of("token"));
+    when(service.saveSupervisor(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.replay(
+            org.mockito.ArgumentMatchers.eq("r"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq("run1")))
+        .thenReturn(Mono.just(java.util.List.of()));
+
+    reactor.test.StepVerifier.create(provider.rules("r"))
+        .assertNext(
+            doc -> {
+              assertThat(doc.version()).isZero();
+              assertThat(doc.rules()).containsEntry("token", "***");
+            })
+        .verifyComplete();
+    reactor.test.StepVerifier.create(provider.saveRules("r", null))
+        .assertNext(doc -> assertThat(doc.supervisorId()).isEqualTo("r"))
+        .verifyComplete();
+    reactor.test.StepVerifier.create(
+            provider.saveRules("r", java.util.Map.of("rules", java.util.List.of("b"))))
+        .assertNext(doc -> assertThat(doc.rules()).containsKey("rules"))
+        .verifyComplete();
+    reactor.test.StepVerifier.create(
+            provider.replayRules("r", "run1", java.util.Map.of("rules", java.util.List.of("c"))))
+        .assertNext(replay -> assertThat(replay.decisions()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void summaryNamesTheUnownedWorkflowsAndCountsConflicts() {
+    when(summary.summarize())
+        .thenReturn(
+            Mono.just(
+                new com.infenia.yukta.service.supervisor.SupervisionSummary.Summary(
+                    1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2)));
+
+    StepVerifier.create(provider.summary())
+        .assertNext(
+            view -> {
+              assertThat(view.unowned()).isEqualTo(1);
+              assertThat(view.unownedWorkflows())
+                  .containsExactly(
+                      new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow(
+                          "s", "w"));
+              assertThat(view.conflicts()).isEqualTo(2);
+            })
+        .verifyComplete();
   }
 }

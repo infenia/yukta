@@ -344,6 +344,11 @@ function Editor({
               value={workflow.assignments ?? []}
               onChange={(next) => update({ assignments: next })}
               nodeIds={workflow.nodes.map((n) => n.nodeId)}
+              groupOf={Object.fromEntries(
+                workflow.nodes
+                  .filter((n) => n.group)
+                  .map((n) => [n.nodeId, n.group as string])
+              )}
               errors={supervisorErrors}
             />
           </div>

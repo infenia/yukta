@@ -150,7 +150,16 @@ class AgentHubTest {
 
   @Test
   void configurationOffersTheHttpType() {
-    assertThat(new AgentEngineConfiguration().httpSupervisorFactory(hub).type()).isEqualTo("http");
+    assertThat(
+            new AgentEngineConfiguration()
+                .httpSupervisorFactory(
+                    hub,
+                    com.infenia.yukta.plugin.util.EgressPolicy.OPEN,
+                    java.util.List.of(),
+                    org.springframework.web.reactive.function.client.WebClient.builder(),
+                    tools.jackson.databind.json.JsonMapper.builder().build())
+                .type())
+        .isEqualTo("http");
   }
 
   @Test

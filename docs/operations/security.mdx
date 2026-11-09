@@ -206,9 +206,9 @@ Accepted risks and limits to know:
 - **The request size limit reads `Content-Length`.** A chunked body has none and is bounded by the codec limit (256 KB) instead.
 - **The failure limiter and the address list use the address the connection comes from.** Behind a proxy that is the proxy, so all callers share one failure budget and an address list names the proxy. Put the agent API on a path that reaches the server directly, or keep the list empty.
 - **A revocation is local to the server that got it.** With several servers on one database the others stop the credential at their next restart or credential reload, not at once. A failed write of a revocation is retried and logged as an error.
-- **Supervisor versions and the hold ledger are in memory** and start empty after a restart: a supervisor that paused runs before a restart cannot `resume held` them.
+- **Without PostgreSQL, supervisor versions are in memory** and start empty after a restart; with PostgreSQL they are kept (migration V17). The hold ledger is always in memory, and needs nothing more: a restart marks every unfinished run aborted, so no paused run is left to `resume held`.
 - **Ownership is checked before it is saved, not while saving.** Two saves at the same moment could both pass the check and leave one unit with two owners until the next restart, when the start-up check keeps the first and saves the other disabled with `conflict`.
-- **Engines of type `callout`, `http`, `process` and `workflow` are untrusted by design**; they reach the server only through directives. Engines that run in the JVM are trusted code that an administrator deploys.
+- **Engines of type `http`, `process` and `workflow` are untrusted by design**; they reach the server only through directives. An `http` supervisor with a `url` posts its signals only to hosts the egress policy allows (`yukta.egress.*`, `yukta.http.allowed-hosts`; private addresses only when listed; no redirects). Engines that run in the JVM are trusted code that an administrator deploys.
 
 ## Process execution
 

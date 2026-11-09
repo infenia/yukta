@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"com.infenia.yukta/go-cli/internal/client"
@@ -146,6 +147,20 @@ func TestSupervisionAndContractRead(t *testing.T) {
 	}
 }
 
+func TestSummaryReadsTheSupervisionSummary(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RequestURI()
+		_, _ = w.Write([]byte(`{"data":{"unowned":1,"unownedWorkflows":[],"conflicts":0}}`))
+	}))
+	defer srv.Close()
+	cmd := SummaryCmd(client.NewClient(srv.URL))
+	cmd.SetArgs(nil)
+	if err := cmd.Execute(); err != nil || got != "/api/supervision/summary" {
+		t.Errorf("got %q (%v)", got, err)
+	}
+}
+
 func TestOwnershipNeedsASessionAndAWorkflow(t *testing.T) {
 	var got string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +251,47 @@ func TestAssignmentCommandsRefuseBadInput(t *testing.T) {
 		cmd.SilenceUsage, cmd.SilenceErrors = true, true
 		if err := cmd.Execute(); err == nil {
 			t.Errorf("%v must fail", args)
+		}
+	}
+}
+
+func TestRulesCommands(t *testing.T) {
+	var path, method, body string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		path, method, body = r.URL.Path, r.Method, string(raw)
+		_, _ = w.Write([]byte(`{"data":{}}`))
+	}))
+	defer srv.Close()
+	file := t.TempDir() + "/rules.json"
+	if err := os.WriteFile(file, []byte(`{"rules":["a"]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		args                     []string
+		wantMethod, wantPath, in string
+	}{
+		{[]string{"rules", "get", "s1"}, "GET", "/api/supervisors/s1/engine/rules", ""},
+		{[]string{"rules", "set", "s1", "-f", file}, "PUT", "/api/supervisors/s1/engine/rules", `"rules":["a"]`},
+		{[]string{"rules", "replay", "s1", "--execution", "e1"}, "POST", "/api/supervisors/s1/engine/rules/replay", `"executionId":"e1"`},
+		{[]string{"rules", "replay", "s1", "--execution", "e1", "-f", file}, "POST", "/api/supervisors/s1/engine/rules/replay", `"settings":{"rules":["a"]}`},
+	} {
+		cmd := SupervisorsCmd(client.NewClient(srv.URL))
+		cmd.SetArgs(tt.args)
+		if err := cmd.Execute(); err != nil || method != tt.wantMethod || path != tt.wantPath || !strings.Contains(body, tt.in) {
+			t.Errorf("%v: got %s %s %s (%v)", tt.args, method, path, body, err)
+		}
+	}
+	for _, args := range [][]string{
+		{"rules", "set", "s1", "-f", "/no/such/file"},
+		{"rules", "replay", "s1", "--execution", "e1", "-f", "/no/such/file"},
+		{"rules", "replay", "s1"},
+	} {
+		cmd := SupervisorsCmd(client.NewClient(srv.URL))
+		cmd.SetArgs(args)
+		cmd.SilenceUsage, cmd.SilenceErrors = true, true
+		if err := cmd.Execute(); err == nil {
+			t.Errorf("%v: want an error", args)
 		}
 	}
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useSupervisors } from '@/features/supervisors/hooks/useSupervisorTypes';
 import { useDeferredValue, useEffect, useId, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useMatch, useNavigate, useSearchParams } from 'react-router';
@@ -73,6 +74,7 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
   const listId = useId();
 
   const sessions = useSessionSummaries().data ?? [];
+  const supervisors = useSupervisors().data ?? [];
   // ponytail: one workflows request per session; add a server-side search when sessions number in the hundreds
   const workflows = useQueries({
     queries: sessions.map((session) => ({
@@ -125,6 +127,18 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
           perform: copy(toCli(start, window.location.origin)),
         },
         {
+          id: 'here:owner',
+          group: 'This workflow',
+          icon: 'shield_person',
+          label: 'Who owns this workflow?',
+          perform: () => {
+            const next = new URLSearchParams(params);
+            next.set('supervision', '1');
+            onClose();
+            void navigate({ search: `?${next}` });
+          },
+        },
+        {
           id: 'here:mcp',
           group: 'This workflow',
           icon: 'data_object',
@@ -173,6 +187,16 @@ function PaletteDialog({ onClose }: { onClose: () => void }) {
       icon,
       label,
       perform: go(to),
+    })),
+    ...supervisors.map((supervisor) => ({
+      id: `supervisor:${supervisor.id}`,
+      group: 'Supervisors',
+      icon: 'shield_person',
+      label: `Go to supervisor ${supervisor.id}`,
+      hint: supervisor.description ?? undefined,
+      perform: go(
+        `/supervisors?supervisor=${encodeURIComponent(supervisor.id)}`
+      ),
     })),
     ...sessions.map((session) => ({
       id: `session:${session.sessionId}`,

@@ -3,54 +3,28 @@
 
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { CatalogTab } from './CatalogTab';
-import { CoverageTab } from './CoverageTab';
-import { HowItWorks } from './HowItWorks';
-import { AttachmentsTab } from './AttachmentsTab';
-import { DecisionsTable } from './DecisionsTable';
-import { SupervisorsTab } from './SupervisorsTab';
+import { DecisionMakersTab } from './DecisionMakersTab';
+import { ConflictsBanner } from './ConflictsBanner';
+import { Activity } from './Activity';
+import { SupervisorsBrowser } from './SupervisorsBrowser';
 
-export const TABS = [
-  'coverage',
-  'catalog',
-  'supervisors',
-  'attachments',
-  'decisions',
-] as const;
+export const TABS = ['supervisors', 'decision-makers', 'activity'] as const;
 export type Tab = (typeof TABS)[number];
 
-/** What each tab is called, and the one sentence that says what it shows. */
-const TAB_INFO: Record<Tab, { label: string; hint: string }> = {
-  coverage: {
-    label: 'Coverage',
-    hint: 'Each row is a place a run can happen. A filled chip is attached right there; a dashed chip is inherited from a wider row above and watches here too.',
-  },
-  catalog: {
-    label: 'Library',
-    hint: 'The kinds of supervisor you can create.',
-  },
-  supervisors: {
-    label: 'Supervisors',
-    hint: 'The supervisors you have set up.',
-  },
-  attachments: {
-    label: 'Attachments',
-    hint: 'Each place a supervisor is switched on.',
-  },
-  decisions: {
-    label: 'Activity',
-    hint: 'What supervisors did with each command.',
-  },
+const LABEL: Record<Tab, string> = {
+  supervisors: 'Supervisors',
+  'decision-makers': 'Decision makers',
+  activity: 'Activity',
 };
 
-/** Supervisors: the catalog of types, the configured supervisors, their attachments and decisions. */
+/** Supervisors: who watches each workflow, the decision makers they use, and what they did. */
 export function SupervisorsPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get('tab');
-  const tab: Tab = TABS.find((t) => t === requested) ?? 'coverage';
+  const tab: Tab = TABS.find((t) => t === requested) ?? 'supervisors';
   const show = (next: Tab) => {
     const updated = new URLSearchParams(params);
-    if (next === 'coverage') updated.delete('tab');
+    if (next === 'supervisors') updated.delete('tab');
     else updated.set('tab', next);
     setParams(updated, { replace: true });
   };
@@ -59,10 +33,11 @@ export function SupervisorsPage() {
       <PageHeader
         backdrop
         title="Supervisors"
-        description="Automatic operators that watch runs and step in: pick a type, configure it, attach it to a scope."
+        description="Who watches your workflows, what each may do, and who they answer to. Usually set up by an AI agent over MCP, the CLI or the API."
         actions={
           <div
             role="tablist"
+            aria-label="Supervisors sections"
             className="border-border flex max-w-full gap-4 overflow-x-auto border-b"
           >
             {TABS.map((name) => (
@@ -80,26 +55,21 @@ export function SupervisorsPage() {
                     : 'text-on-surface-variant hover:text-on-surface border-transparent'
                 }`}
               >
-                {TAB_INFO[name].label}
+                {LABEL[name]}
               </button>
             ))}
           </div>
         }
       />
-      <HowItWorks />
-      <p className="text-body-md text-on-surface-variant">
-        {TAB_INFO[tab].hint}
-      </p>
+      <ConflictsBanner />
       <div
         id="supervisors-tabpanel"
         role="tabpanel"
         aria-labelledby={`supervisors-tab-${tab}`}
       >
-        {tab === 'coverage' && <CoverageTab />}
-        {tab === 'catalog' && <CatalogTab />}
-        {tab === 'supervisors' && <SupervisorsTab />}
-        {tab === 'attachments' && <AttachmentsTab />}
-        {tab === 'decisions' && <DecisionsTable />}
+        {tab === 'supervisors' && <SupervisorsBrowser />}
+        {tab === 'decision-makers' && <DecisionMakersTab />}
+        {tab === 'activity' && <Activity />}
       </div>
     </div>
   );

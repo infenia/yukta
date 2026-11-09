@@ -43,6 +43,7 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 		checkAssignCmd(c),
 		setAssignmentsCmd(c),
 		parentsCmd(c),
+		rulesCmd(c),
 		credentialCmd(c),
 		agentCmd(c),
 	)
@@ -138,6 +139,45 @@ func replayCmd(c *client.Client) *cobra.Command {
 	return cmd
 }
 
+// rulesCmd reads, replaces and tries the rules document of a rules supervisor. Its versions and
+// rollback are those of the supervisor ("versions", "rollback").
+func rulesCmd(c *client.Client) *cobra.Command {
+	group := &cobra.Command{Use: "rules", Short: "Read, replace or try the rules of a rules supervisor"}
+	var file, execution string
+	set := commands.DataCmd("set <id>", "Replace the rules from a JSON file (-f); the other settings stay", 1,
+		func(args []string) (any, error) {
+			body, err := os.ReadFile(file) // #nosec G304 -- the user names this file on purpose
+			if err != nil {
+				return nil, fmt.Errorf("cannot read %s: %w", file, err)
+			}
+			return c.SaveRules(args[0], body)
+		})
+	set.Flags().StringVarP(&file, "file", "f", "", "The rules document as JSON")
+	_ = set.MarkFlagRequired("file")
+	var draft string
+	replay := commands.DataCmd("replay <id>", "Show what rules would have done on a past run (nothing is sent)", 1,
+		func(args []string) (any, error) {
+			var body []byte
+			if draft != "" {
+				read, err := os.ReadFile(draft) // #nosec G304 -- the user names this file on purpose
+				if err != nil {
+					return nil, fmt.Errorf("cannot read %s: %w", draft, err)
+				}
+				body = read
+			}
+			return c.ReplayRules(args[0], execution, body)
+		})
+	replay.Flags().StringVar(&execution, "execution", "", "The past run")
+	replay.Flags().StringVarP(&draft, "file", "f", "", "A draft rules document as JSON; default the stored rules")
+	_ = replay.MarkFlagRequired("execution")
+	group.AddCommand(
+		commands.DataCmd("get <id>", "Show the rules document and the newest version", 1,
+			func(args []string) (any, error) { return c.GetRules(args[0]) }),
+		set,
+		replay)
+	return group
+}
+
 // credentialCmd issues and revokes the credential of an http supervisor.
 func credentialCmd(c *client.Client) *cobra.Command {
 	group := &cobra.Command{Use: "credential", Short: "Issue, rotate or revoke the credential of an http supervisor"}
@@ -209,6 +249,12 @@ func SupervisionCmd(c *client.Client) *cobra.Command {
 func ContractCmd(c *client.Client) *cobra.Command {
 	return commands.DataCmd("supervisor-contract", "Show the supervisor contract version and its operations", 0,
 		func([]string) (any, error) { return c.GetSupervisorContract() })
+}
+
+// SummaryCmd creates "supervision-summary": the workflows nobody owns and the assignments in conflict.
+func SummaryCmd(c *client.Client) *cobra.Command {
+	return commands.DataCmd("supervision-summary", "Count the workflows nobody owns and the assignments in conflict", 0,
+		func([]string) (any, error) { return c.GetSupervisionSummary() })
 }
 
 // OwnershipCmd creates "ownership": which supervisor carries each part of a workflow.

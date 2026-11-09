@@ -5,9 +5,6 @@ package com.infenia.yukta.service.supervisor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
-import com.infenia.yukta.plugin.control.ExecutionControlCommand;
-import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
@@ -19,24 +16,15 @@ import java.util.Set;
 import java.util.function.Supplier;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** What the service tells the catalog about a type, and how it checks a draft. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisorServiceCatalogTest {
 
   /** A url value the test factory refuses. */
   private static final String BAD = "bad";
-
-  /** A control plane that does nothing. */
-  private interface QuietPlane extends ControlPlanePlugin {
-    @Override
-    default Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
-      return Flux.empty();
-    }
-  }
 
   private static SupervisorFactory factory(
       final String type, final Supplier<ExecutionSupervisor> made) {
@@ -91,8 +79,9 @@ class SupervisorServiceCatalogTest {
     assertThat(service.describe("nope")).isEmpty();
     assertThat(service.configSchema("nope")).isEmpty();
     assertThat(service.secretSettings("nope")).isEmpty();
-    assertThat(service.kind("nope")).isEqualTo("SUPERVISOR");
     assertThat(service.defaultAllowedCommands("nope")).isNull();
+    assertThat(service.signals("nope")).isEmpty();
+    assertThat(service.canInitiate("nope")).isFalse();
   }
 
   @Test
@@ -105,25 +94,19 @@ class SupervisorServiceCatalogTest {
     assertThat(service.secretSettings("t")).containsExactly("bearer");
     assertThat(service.defaultAllowedCommands("t")).containsExactly("PauseWorkflowCommand");
     assertThat(service.describe("t")).isPresent();
+    assertThat(service.signals("t")).containsExactly("EVENT");
+    assertThat(service.canInitiate("t")).isFalse();
   }
 
   @Test
-  void kindComesFromWhatTheExampleMakes() {
-    final SupervisorService service =
-        service(
-            factory("plane", () -> mock(QuietPlane.class)),
-            factory("plain", () -> mock(ExecutionSupervisor.class)));
+  void canInitiateIsWhatTheFactoryAnswers() {
+    final SupervisorFactory acting = mock(SupervisorFactory.class);
+    org.mockito.Mockito.when(acting.type()).thenReturn("t");
+    org.mockito.Mockito.when(acting.canInitiate()).thenReturn(true);
+    final SupervisorService service = service(acting);
 
-    assertThat(service.kind("plane")).isEqualTo("CONTROL_PLANE");
-    assertThat(service.kind("plain")).isEqualTo("SUPERVISOR");
-  }
-
-  @Test
-  void kindFallsBackToTheNameWhenTheExampleCannotBeMade() {
-    final SupervisorService service = service(refusing("model-control-plane"), refusing("custom"));
-
-    assertThat(service.kind("model-control-plane")).isEqualTo("CONTROL_PLANE");
-    assertThat(service.kind("custom")).isEqualTo("SUPERVISOR");
+    assertThat(service.canInitiate("t")).isTrue();
+    assertThat(service.canInitiate("nope")).isFalse();
   }
 
   @Test

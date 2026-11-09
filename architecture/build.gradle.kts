@@ -32,7 +32,6 @@ dependencies {
     testImplementation(project(":plugins:terminals:notify-terminal"))
     testImplementation(project(":plugins:terminals:outcome-terminal"))
     testImplementation(project(":plugins:supervisors:rules"))
-    testImplementation(project(":plugins:supervisors:callout"))
     testImplementation(project(":plugins:supervisors:process-engine"))
     // The shared rules and helpers (testFixtures) are reused by plus:plus-architecture
     testFixturesApi(libs.archunit.junit5)

@@ -20,6 +20,7 @@ import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SupervisionAnswer;
+import com.infenia.yukta.mcp.dto.SupervisionSummaryView;
 import com.infenia.yukta.mcp.dto.SupervisorAssignmentList;
 import com.infenia.yukta.mcp.dto.SupervisorCheck;
 import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
@@ -31,6 +32,7 @@ import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
 import com.infenia.yukta.mcp.dto.SupervisorReplay;
+import com.infenia.yukta.mcp.dto.SupervisorRulesDoc;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
 import com.infenia.yukta.mcp.dto.SupervisorTypeDetails;
 import com.infenia.yukta.mcp.dto.SupervisorTypeList;
@@ -294,6 +296,24 @@ public class AppMcpTools {
   }
 
   /**
+   * How much of the server nobody supervises.
+   *
+   * @return the workflows nobody owns and the assignments in conflict
+   */
+  @McpTool(
+      name = "get_supervision_summary",
+      title = "Get Supervision Summary",
+      description =
+          "How many workflows nobody owns (the default supervisor carries their run level and "
+              + "every node; internal sessions left out; the first 100 named) and how many "
+              + "assignments start-up disabled because they overlapped another.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisionSummaryView> getSupervisionSummary() {
+    return supervisorProvider.summary();
+  }
+
+  /**
    * The presets of a supervisor type.
    *
    * @param type the type
@@ -386,6 +406,81 @@ public class AppMcpTools {
               description = "Draft settings to try; default the stored ones")
           final Map<String, Object> settings) {
     return supervisorProvider.replay(supervisorId, executionId, settings);
+  }
+
+  /**
+   * The rules document of a rules supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @return the document and the newest version
+   */
+  @McpTool(
+      name = "get_rules",
+      title = "Get Supervisor Rules",
+      description =
+          "Read the rules document (schemaVersion, rules) of a supervisor of type rules, without"
+              + " the settings every engine shares (allowedCommands, initiative, ...), with the"
+              + " newest version number. Secrets are shown as ***.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorRulesDoc> getRules(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId) {
+    return supervisorProvider.rules(supervisorId);
+  }
+
+  /**
+   * Replace the rules document of a rules supervisor.
+   *
+   * @param supervisorId the supervisor
+   * @param rules the new document
+   * @return the document as saved
+   */
+  @McpTool(
+      name = "save_rules",
+      title = "Save Supervisor Rules",
+      description =
+          "Replace the rules document of a supervisor of type rules. Its other settings stay"
+              + " (change them with save_supervisor); naming one here is refused. The rules are"
+              + " checked, a new version is kept and the running rules are swapped. Try a draft"
+              + " with replay_rules first. Needs an admin key.",
+      generateOutputSchema = true,
+      annotations =
+          @McpTool.McpAnnotations(
+              readOnlyHint = false,
+              destructiveHint = false,
+              idempotentHint = true,
+              openWorldHint = false))
+  public Mono<SupervisorRulesDoc> saveRules(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
+      @McpToolParam(required = true, description = "The rules document, as get_rules shows it")
+          final Map<String, Object> rules) {
+    return supervisorProvider.saveRules(supervisorId, rules);
+  }
+
+  /**
+   * Try a draft rules document on a past run.
+   *
+   * @param supervisorId the supervisor
+   * @param executionId the past run
+   * @param rules the draft document
+   * @return what the rules would have done
+   */
+  @McpTool(
+      name = "replay_rules",
+      title = "Replay Supervisor Rules",
+      description =
+          "Show what a draft rules document would have done on the recorded events of a past"
+              + " run, with the supervisor's own allowedCommands and other shared settings, in"
+              + " dry run: nothing is sent. Without rules it replays the stored ones. Needs an"
+              + " admin key.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorReplay> replayRules(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
+      @McpToolParam(required = true, description = "A past execution id") final String executionId,
+      @McpToolParam(required = false, description = "The draft rules document; default the stored")
+          final Map<String, Object> rules) {
+    return supervisorProvider.replayRules(supervisorId, executionId, rules);
   }
 
   /**

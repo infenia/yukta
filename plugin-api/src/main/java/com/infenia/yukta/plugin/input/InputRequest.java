@@ -29,6 +29,8 @@ import org.jspecify.annotations.Nullable;
  * @param votes the votes of the current tier, for a tier that decides by quorum or unanimity
  * @param createdAt when it was asked
  * @param updatedAt when it last changed
+ * @param asked the way the request came to its current tier, oldest first, at most {@link
+ *     Asked#MAX_STEPS}
  * @since 0.1.0-alpha.4
  */
 @SuppressWarnings("PMD.ExcessiveParameterList")
@@ -49,7 +51,68 @@ public record InputRequest(
     @Nullable Instant tierDeadline,
     List<Vote> votes,
     Instant createdAt,
-    Instant updatedAt) {
+    Instant updatedAt,
+    List<Asked> asked) {
+
+  /**
+   * A request that keeps no steps yet.
+   *
+   * @param id the request id
+   * @param key the idempotency key
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @param executionId the run
+   * @param nodeId the node
+   * @param spec the question
+   * @param state the state
+   * @param version the version
+   * @param tier the current tier
+   * @param targets the selectors of the current tier
+   * @param advice advice for the next tier, or {@code null}
+   * @param deadline the deadline, or {@code null}
+   * @param tierDeadline when the current tier gives up, or {@code null}
+   * @param votes the votes of the current tier
+   * @param createdAt when it was asked
+   * @param updatedAt when it last changed
+   */
+  public InputRequest(
+      final String id,
+      final String key,
+      final String sessionId,
+      final String workflowId,
+      final String executionId,
+      final String nodeId,
+      final InputRequestSpec spec,
+      final InputState state,
+      final long version,
+      final String tier,
+      final List<String> targets,
+      final @Nullable String advice,
+      final @Nullable Instant deadline,
+      final @Nullable Instant tierDeadline,
+      final List<Vote> votes,
+      final Instant createdAt,
+      final Instant updatedAt) {
+    this(
+        id,
+        key,
+        sessionId,
+        workflowId,
+        executionId,
+        nodeId,
+        spec,
+        state,
+        version,
+        tier,
+        targets,
+        advice,
+        deadline,
+        tierDeadline,
+        votes,
+        createdAt,
+        updatedAt,
+        List.of());
+  }
 
   /**
    * A request in a single tier with no vote: the shape before routes.
@@ -124,6 +187,7 @@ public record InputRequest(
    * @param deadline the deadline, or {@code null}
    * @param createdAt when it was asked
    * @param updatedAt when it last changed
+   * @param asked the steps so far, oldest first; only the newest {@link Asked#MAX_STEPS} are kept
    */
   public InputRequest {
     InputLimits.requireId("id", id);
@@ -140,8 +204,42 @@ public record InputRequest(
     InputLimits.requireId("tier", tier);
     targets = targets == null ? List.of() : List.copyOf(targets);
     votes = votes == null ? List.of() : List.copyOf(votes);
+    asked =
+        asked == null
+            ? List.of()
+            : List.copyOf(asked.subList(Math.max(0, asked.size() - Asked.MAX_STEPS), asked.size()));
     InputLimits.optionalText("advice", advice, InputLimits.TEXT_MAX_BYTES);
     Objects.requireNonNull(createdAt, "createdAt");
     Objects.requireNonNull(updatedAt, "updatedAt");
+  }
+
+  /**
+   * The same request with one more step.
+   *
+   * @param step what happened
+   * @return a copy with the step appended
+   */
+  public InputRequest withAsked(final Asked step) {
+    final List<Asked> steps = new java.util.ArrayList<>(asked);
+    steps.add(step);
+    return new InputRequest(
+        id,
+        key,
+        sessionId,
+        workflowId,
+        executionId,
+        nodeId,
+        spec,
+        state,
+        version,
+        tier,
+        targets,
+        advice,
+        deadline,
+        tierDeadline,
+        votes,
+        createdAt,
+        updatedAt,
+        steps);
   }
 }

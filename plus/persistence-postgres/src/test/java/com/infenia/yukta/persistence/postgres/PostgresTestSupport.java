@@ -117,6 +117,7 @@ abstract class PostgresTestSupport {
           "leader_lease",
           "kv_entry",
           "supervisor_attachment",
+          "supervisor_version",
           "supervisor",
           "session_supervisor",
           "session_history"

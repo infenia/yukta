@@ -39,7 +39,7 @@ class SupervisorApiAcceptanceTest {
   void catalogListsEveryShippedTypeWithItsSchema() throws Exception {
     final HttpResponse<String> list = call("GET", "/api/supervisor-engines", null);
     assertThat(list.statusCode()).isEqualTo(200);
-    assertThat(list.body()).contains("\"rules\"", "\"workflow\"", "\"callout\"", "\"http\"");
+    assertThat(list.body()).contains("\"rules\"", "\"workflow\"", "\"http\"");
     assertThat(list.body()).doesNotContain("model-control-plane", "failure-guard");
 
     final HttpResponse<String> one = call("GET", "/api/supervisor-engines/rules", null);

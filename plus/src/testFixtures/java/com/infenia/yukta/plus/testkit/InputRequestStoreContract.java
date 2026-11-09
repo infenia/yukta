@@ -4,6 +4,7 @@ package com.infenia.yukta.plus.testkit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
@@ -96,7 +97,10 @@ public abstract class InputRequestStoreContract {
   @Test
   void requestCanBeReadBack() {
     final InputRequestStore store = create();
-    final InputRequest request = request("r1", "k1", "s", "e");
+    final InputRequest request =
+        request("r1", "k1", "s", "e")
+            .withAsked(new Asked("guard", "asked for approval", null, T0))
+            .withAsked(new Asked("lead", "silent", "no answer", T0));
 
     assertThat(store.createIfAbsent(request).block()).isEqualTo(request);
 
@@ -133,7 +137,8 @@ public abstract class InputRequestStoreContract {
     final InputRequestStore store = create();
     final InputRequest first = request("r1", "k1", "s", "e");
     store.createIfAbsent(first).block();
-    final InputRequest second = next(first, InputState.ESCALATED);
+    final InputRequest second =
+        next(first, InputState.ESCALATED).withAsked(new Asked("lead", "escalated", "up", T0));
 
     assertThat(store.compareAndSet("r1", 5, second).block()).isFalse();
     assertThat(store.compareAndSet("r1", 0, second).block()).isTrue();

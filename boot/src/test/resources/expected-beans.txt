@@ -213,6 +213,7 @@ com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.DefinitionSupervisors
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.OwnershipMap
+com.infenia.yukta.service.supervisor.SupervisionSummary
 com.infenia.yukta.service.supervisor.SupervisorAssignments
 com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService
@@ -236,6 +237,5 @@ com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.AppConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
-com.infenia.yukta.supervisor.callout.CalloutSupervisorFactory
 com.infenia.yukta.supervisor.process.ProcessEngineConfiguration
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory

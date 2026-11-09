@@ -163,7 +163,6 @@ Engines differ in what drives them. The descriptor of an engine declares its **d
 | `rules` | events, ticks, reviews, delegations | Through timed rules (`every` with `read.*`) |
 | `workflow` | the same, as signal kinds that start a run | A run started by a tick |
 | `http` | everything | At any time |
-| `callout` | events, reviews, delegations | No: Yukta makes each call |
 
 **Limits on initiative.** Without a triggering signal nothing justifies a command, so it has its own limits on top of ownership and `allowedCommands`:
 
@@ -264,7 +263,7 @@ Within major version 1 changes are additive: new operations, signals, directives
 | Concept | UI word |
 |---|---|
 | Supervisor | Supervisor |
-| Engine | Decision maker: **Rules**, **Agent endpoint** (`http`), **Outbound call** (`callout`), **Workflow** |
+| Engine | Decision maker: **Rules**, **External system** (`http`), **Workflow**, **Program on this server** (`process`) |
 | Assignment | Owns |
 | Parents | Reports to |
 | `initiative` | Acts on its own |

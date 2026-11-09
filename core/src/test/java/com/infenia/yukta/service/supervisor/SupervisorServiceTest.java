@@ -38,6 +38,7 @@ import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -209,7 +210,13 @@ class SupervisorServiceTest {
 
     attached("b1", new SupervisorScope.Global());
 
-    verify(sink).record(any());
+    final ArgumentCaptor<com.infenia.yukta.security.AuditRecord> records =
+        ArgumentCaptor.forClass(com.infenia.yukta.security.AuditRecord.class);
+    verify(sink, times(2)).record(records.capture());
+    assertThat(records.getAllValues())
+        .extracting(com.infenia.yukta.security.AuditRecord::command)
+        .first()
+        .isEqualTo("SaveSupervisor(p)");
   }
 
   @Test
@@ -972,6 +979,24 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void saveCompletesWhenItsVersionCannotBeKept() {
+    final InMemorySupervisorStore noVersions =
+        new InMemorySupervisorStore() {
+          @Override
+          public Mono<Void> saveVersion(
+              final Supervisor saved, final Instant savedAt, final int keep) {
+            return Mono.error(new IllegalStateException("database down"));
+          }
+        };
+    final SupervisorService saving = new SupervisorService(noVersions, List.of(factory), host, log);
+
+    StepVerifier.create(saving.saveSupervisor(supervisor("v"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(noVersions.supervisors().map(Supervisor::id))
+        .expectNext("v")
+        .verifyComplete();
+  }
+
+  @Test
   void deletingSupervisorForgetsItsVersions() {
     StepVerifier.create(service.saveSupervisor(supervisor("v")))
         .expectNextCount(1)
@@ -989,11 +1014,14 @@ class SupervisorServiceTest {
   void onlyTheNewestTwentyVersionsAreKept() {
     final SupervisorVersions kept = new SupervisorVersions();
     for (int i = 0; i < 25; i++) {
-      kept.record(new Supervisor("k", TYPE, Map.of("level", i), false));
+      kept.record(
+          new Supervisor("k", TYPE, Map.of("level", i), false),
+          Instant.EPOCH,
+          SupervisorVersions.KEPT);
     }
     assertThat(kept.list("k")).hasSize(SupervisorVersions.KEPT);
-    assertThat(kept.find("k", 25)).isPresent();
-    assertThat(kept.find("k", 5)).isEmpty();
+    assertThat(kept.list("k").getFirst().version()).isEqualTo(25);
+    assertThat(kept.list("k").getLast().version()).isEqualTo(6);
     assertThat(kept.list("other")).isEmpty();
   }
 

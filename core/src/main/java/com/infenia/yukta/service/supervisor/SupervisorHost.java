@@ -164,6 +164,15 @@ public class SupervisorHost implements DryRunRecorder {
   /** The runs each supervisor paused. */
   private final HoldLedger holds = new HoldLedger();
 
+  /**
+   * The directive each command came from, so a decision can show its cause, key and reason. Weak
+   * keys: an entry goes with its command.
+   */
+  // ponytail: keyed by command equality, so two equal commands sent at once may show one cause;
+  // thread the directive through apply if that ever matters
+  private final Map<ExecutionControlCommand, Directive.Command> origins =
+      Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
   /** Reads the status of a run for {@code ifStatus}, looked up late; null where none is given. */
   @Nullable private ObjectProvider<SupervisorQueries> queries;
 
@@ -586,6 +595,7 @@ public class SupervisorHost implements DryRunRecorder {
                 return Mono.empty();
               }
               final Cause cause = directive.cause();
+              origins.put(directive.command(), directive);
               if (cause.kind() == Cause.Kind.ANSWERS
                   && answeredBefore(answered, cause.text(), baseKey(directive.key()))) {
                 // an answer is accepted once; a second command answering the same request is not
@@ -898,6 +908,7 @@ public class SupervisorHost implements DryRunRecorder {
       final String outcome,
       final ExecutionControlCommand command,
       @Nullable final String reason) {
+    final Directive.Command origin = origins.get(command);
     final SupervisorDecision decision =
         new SupervisorDecision(
             Instant.now(),
@@ -905,7 +916,12 @@ public class SupervisorHost implements DryRunRecorder {
             outcome,
             command.getClass().getSimpleName(),
             command.executionId(),
-            reason);
+            reason,
+            command.nodeId(),
+            origin == null ? null : origin.cause().kind().name().toLowerCase(Locale.ROOT),
+            origin == null ? null : origin.key(),
+            origin == null ? null : origin.reason(),
+            dispatcher.workflowOf(command.executionId()));
     while (!recentDecisions.offerLast(decision)) {
       recentDecisions.pollFirst();
     }

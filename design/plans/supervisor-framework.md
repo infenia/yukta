@@ -405,129 +405,53 @@ Node outputs and message payloads are **not** readable unless `readNodeOutputs` 
 
 ## UI and UX design
 
-The UI is where most people meet supervisors, so it is designed first (artboards, then code) and ships with the phase that changes behaviour, never after it. A control that a supervisor refuses must be disabled with the reason before anyone clicks it.
+Revised 2026-11-09 after the first artboards were rejected; the approved artboards are `design/plans/supervisor-framework/artboards/` (#2153, PR #2206). This section replaces the earlier wizard-first design.
 
 ### UX principles
 
-1. **Say who is in charge.** Every run, workflow and node shows its owner. "Who can stop this?" always has a one-click answer.
-2. **Disabled, not hidden, with a reason and a way forward.** As `RequirePermission` does today, but the reason names the supervisor and links to it.
-3. **Plain words first.** The primary UI says *supervisor*, *decision maker*, *owns*, *reports to*, *acts on its own*. The words *engine*, *unit*, *directive*, *delegation* appear only on advanced screens and in the docs.
-4. **Safe by default, and show the effect before saving.** New supervisors start in dry run, the wizard shows what changes for people ("people can no longer pause these nodes directly"), and conflicts are explained where they happen.
-5. **One pattern per concept.** Catalog and detail work like Plugins; forms are built from the schema (`ConfigForm`); lists, tabs and states reuse the existing components (`StateMessage`, `Callout`, `PageHeader`).
-6. **Progressive disclosure.** The common path is three decisions: what decides, what it owns, what it may do. Parents, initiative, delegation modes and raw JSON sit behind "Advanced".
-7. **Accessible and responsive.** Keyboard order and visible focus, `aria-disabled` plus the reason in the tooltip and in text (not tooltip only), contrast in light and dark, no colour-only status, reduced motion, and a 390 px phone layout for every screen.
+1. **Viewing first.** An AI agent usually configures supervisors over MCP, the CLI or the API. People mostly want to see what was configured: which supervisor owns which workflow and node, the hierarchy, what each may do, and what each did. Creating and editing is a secondary action that sits next to the matching MCP and CLI commands.
+2. **Decision makers are integrations, shown like Plugins.** A supervisor is wired to one decision maker (Rules, External system, Program on this server, Workflow); the catalog uses the Plugins page layout.
+3. **Built from the running app.** The left icon rail, the header with search, `PageHeader` with tabs on the right, the Plugins master-detail layout, `StateMessage`, `Card`, `TableFrame`, `CodeBlock`. No new visual language.
+4. **Say who is in charge.** Every run, workflow and node shows its owner; a disabled control says why, names the supervisor and links to it, as text and not only in a tooltip.
+5. **Plain words.** Supervisor, decision maker, owns, reports to, acts on its own, people can. Engine, unit, directive and delegation only in docs and JSON.
+6. **Accessible and responsive.** Visible focus, `aria-disabled` with the reason as text, an icon plus a word for every status, the app's reduced-motion guard, the 390 px layout with the bottom tab bar.
 
 ### Vocabulary in the UI
 
-| Concept | UI word | Notes |
-|---|---|---|
-| Supervisor | Supervisor | The owner of some nodes |
-| Engine | Decision maker | Types: **Rules**, **Agent endpoint** (`http`), **Outbound call** (`callout`), **Workflow** |
-| Assignment | Owns | "Owns: build.* in release" |
-| Parents | Reports to | "Asks release-lead when it needs approval" |
-| Delegation modes | "Asks … in order / all must agree / first answer" | Advanced |
-| `initiative` | Acts on its own | The list of commands it may send with no trigger |
-| `operatorAccess` | People can… | "People can pause and resume through it" |
-| Default supervisor | Default (people) | "Nobody owns this: people can control it" |
-| `CONTROLLED_BY_SUPERVISOR` | "Controlled by *name*" | |
+| Concept | UI word |
+|---|---|
+| Supervisor | Supervisor |
+| Engine | Decision maker: **Rules** (`rules`), **External system** (`http`), **Program on this server** (`process`), **Workflow** (`workflow`) |
+| Catalog category | Rules, External system, On this server |
+| Assignment | Owns |
+| Parents | Reports to |
+| `initiative` | Acts on its own |
+| `operatorAccess` | People can… |
+| Default supervisor | Default (people) |
 
 ### Information architecture
 
 | Place | What it shows |
 |---|---|
-| `/supervisors` (exists; tabs change) | **Overview** (ownership map and conflicts), **Supervisors** (list), **Decision makers** (catalog, was Catalog), **Activity** (was Decisions) |
-| `/supervisors/new`, `/supervisors/:id/edit` | The wizard |
-| `/supervisors/:id` | Tabs **Overview**, **Owns**, **Reports to**, **Decision maker** (settings; rules editor; credentials), **Activity** |
-| Session page and workflow page | A **Supervision** panel (replaces `EffectiveSupervision`): who owns what, here |
-| Run view, node sheet, run controls | The owner badge and the gated controls |
-| Control page | The summary tile (exists), plus an "unowned workflows" count and a conflicts count |
-| Input inbox | Each escalation shows its chain: "asked build-agent, then release-lead, now you" |
-| Command palette | "Go to supervisor", "Assign a supervisor", "Who owns this workflow?" |
-
-### Key screens
-
-**1. Gated controls (run, node, recover, limits).** A new `RequireControl` replaces `RequirePermission` at every control site: `RunButton`, `RecoverButton`, `RunControls` (four places), `NodeSheet` and `NodeControlsMenu`, plus the scheduler-limits control in `CapacityPanel` (which reads `me.permissions.changeLimits` itself, not through `RequirePermission`). The role ceiling from `/api/me` still applies; `GET /api/supervision` adds who carries the command.
-
-```text
-[ Pause ]  [ Stop ▾ ]  [ Restart ]      Owner: release-guard ›     ● live
-  ↳ disabled "Pause" tooltip (and the same text under the menu on touch):
-    "Controlled by release-guard. People cannot pause this run directly.  Open release-guard"
-```
-
-| State | Look | Text |
-|---|---|---|
-| Allowed, owner is the default | Enabled; owner badge "Default (people)" | |
-| Allowed through an owner's review | Enabled; badge shows the owner; after a click a toast says "release-guard allowed it" | |
-| Held for approval (`202 AWAITING_APPROVAL`) | Button shows "Waiting for approval", a link to the approval request | "release-lead must approve" |
-| Refused by the owner | Toast with the owner's reason; the button stays enabled | "release-guard refused: <reason>" |
-| Not allowed here | Disabled | "Controlled by *name*. Open *name*" or "No supervisor can do this here" or "Needs OPERATOR" |
-| Dry run | Badge "dry run": commands are recorded, not applied | |
-
-**2. Supervision panel (session and workflow pages).**
-
-```text
-Supervision                                              [ Assign supervisor ]
-Run level      release-guard        reports to release-lead (in order)
-Nodes
-  build.*   4 nodes   build-agent    reports to release-lead
-  deploy.*  3 nodes   release-guard
-  smoke     1 node    Default (people can control)         [ Assign ]
-Who can stop this run?  release-guard only. People can stop it through release-guard (operator access: stop).
-```
-
-Empty state (nothing owned): "No supervisor owns this workflow. People can control it directly through the default supervisor. [ Assign a supervisor ]". If the default supervisor is disabled and nothing is owned, the controls are disabled and the panel says why and who can change it.
-
-**3. Wizard** (extends `SupervisorWizardPage`; a drawer variant exists as `NewSupervisorWizard`).
-
-| Step | Content |
-|---|---|
-| 1. Decision maker | Cards by category (the catalog's descriptions, icon and "use it when"), pick one; "Start from a preset" for Rules (failure guard, stall watchdog, approval gate) |
-| 2. Settings | The schema form (`ConfigForm`); Rules: the rule builder; Agent endpoint: a note that a credential is created on save; Workflow: pick the workflow, with a check that it has the supervisor trigger and terminal |
-| 3. Owns | Target (nodes of a workflow / a whole workflow / a session / run level / server), workflow, node picker (ids, prefixes, groups), with a live overlap check |
-| 4. Reports to | Choose parents (cannot be itself, no cycle), per kind (approval, input, consult) the mode, with a sentence for each ("Ask in order: the first answer decides") |
-| 5. Permissions | Allowed commands in groups (pause and resume, stop and skip, restart, limits, answers), **Acts on its own** (a subset), **People can…**, read node outputs; **Dry run is on** |
-| 6. Review | A plain sentence ("Pauses the workflow release when it fails 3 times in 60 s. Cannot stop runs."), what changes for people, the final settings as JSON (advanced), Save |
-
-```text
-Owns   (•) Some nodes of a workflow   ( ) A whole workflow   ( ) A session   ( ) Run level only
-Workflow  [ release ▾ ]    Nodes  [x] build.*  [ ] deploy.*   Group [ ci ▾ ]
- ⚠ deploy.test is already owned by release-guard.   [ Open release-guard ]   [ Use only the free nodes ]
-```
-
-Validation runs on the server (`POST /api/supervisors/validate`, extended to the whole draft and to ownership) and its field errors appear next to the field, as the wizard does today.
-
-**4. Hierarchy view** (the **Reports to** tab and a tree on the Overview). An indented tree with a node per supervisor and its parents; a supervisor with several parents appears under each, marked "also under …". Choosing a parent greys out those that would make a cycle, with the reason. No graph canvas in v1.
-
-**5. Rules editor** (Decision maker tab of a `rules` supervisor).
-
-```text
-Rules  v7 (draft)                              [ Replay on a run ]  [ Versions ]  [ Save ]
- ┌ pause-on-failures ───────────────────────────────────────────────────────────────┐
- │ When  a node fails   at least [3] times within [60] s    only nodes [ build.* ]  │
- │ Then  [ pause run ▾ ]    reason [ too many failures ]                            │
- └──────────────────────────────────────────────────────────────────────────────────┘
- [ + Add rule ]     Advanced: edit as JSON   (conditions with SpEL: off)
- Replay  run [ 8f2c… ▾ ] →  would have: paused run at 12:03:11 (rule pause-on-failures) · 0 other actions
-```
-
-Errors are shown on the rule and the field with the same text as the server. Saving swaps the rules at once and records a version; versions can be compared and restored.
-
-**6. Credentials** (Decision maker tab of an Agent endpoint).
-
-```text
-Agent credential         Active · created 2026-11-08 · last used 2 min ago from 10.0.4.7
-[ Rotate ]  [ Revoke ]   Allowed addresses  [ 10.0.4.0/24 ]
-After create or rotate:  Copy it now. It will not be shown again.  [ Copy ]
-  curl -H "Authorization: Bearer …" https://yukta.example/api/agent/v1/self
-```
-
-**7. Activity** (the Decisions tab, extended). A feed with a **cause** badge (event, answered, tick, **on its own**), the supervisor, the target, the command, the outcome and the reason. "On its own" rows are marked and always show the reason. A command with a selector shows a result per target. Filters: supervisor, cause, outcome, workflow.
-
-**8. Conflicts and migration.** After the upgrade, a banner on `/supervisors` and on each affected workflow: "3 assignments overlap and were disabled. [ Review ]". The review lists each conflict (the units, the kept supervisor, the disabled ones) with "Keep this one" and "Split the nodes".
+| `/supervisors` tabs | **Supervisors** (master-detail), **Decision makers** (catalog), **Activity** |
+| Supervisors, left | Filter; **Hierarchy** (indented tree; a supervisor with several parents appears under each, "also under …") or **By workflow** (workflows with their supervisors, what nobody owns, the server) |
+| Supervisors, right | Header (decision maker link, running or dry run, version), description, an "at a glance" strip (reports to, the supervisor, owns), tabs **Owns**, **Allowed operations**, **Hierarchy**, **Settings**, **History**, **Activity**, and "Change it from your agent" (MCP, CLI, API) |
+| Owns | Per workflow: every node with its owner, the selector, the run-level owner. View only; ownership is changed by agents and definitions (`yukta supervisors assign`, MCP, `assignments` in a definition) |
+| Allowed operations | Per command group: it may send, acts on its own, people can through it (`allowedCommands`, `initiative`, `operatorAccess`) |
+| Settings | Rules: the rules as sentences, replay on a past run, the document as JSON. External system: out (url), in (agent API), decisions; the settings; the credential (create, copy once, rotate, revoke, last used). Others: the schema form, read only |
+| History | The kept versions with their time; compare (client-side JSON diff); restore (rollback). Who saved a version is not recorded |
+| Decision makers | Plugins layout: categories, the decision maker, "how it connects", tabs Signals, Settings, Presets (Rules), Example, Used by |
+| Activity | Cause (event, answered, tick, on its own), supervisor, target, command, outcome, reason; per-target results; filters |
+| Workflow page | A **Supervision** tab: nodes with their owner (colour plus the name), the owners table, who can stop the run; the run controls gated with the reason |
+| Conflicts | A banner on `/supervisors` and on an affected workflow when start-up disabled overlapping assignments; the review lists each conflict with "Keep this one" |
+| Input inbox | Each escalation shows its approval chain ("asked build-agent, then release-lead, now you") |
+| Control page, palette | The supervisors tile adds unowned workflows and conflicts; palette entries "Go to supervisor", "Who owns this workflow?" |
+| Workflow editor | A groups editor (group name to node ids and prefixes) with the server's field errors |
+| Edit | A plain form (description, decision maker, dry run, reports to, settings as JSON) for a quick change by hand; there is no wizard and no assign dialog |
 
 ### States, copy and errors
 
-Every screen has loading, empty, error and stale states built from `StateMessage` and `Callout`. Server errors are shown with the server's message and field errors (as `ApiError` carries them). Refusals use the same words everywhere (UI, CLI, MCP):
+Every place has loading, empty, error and out-of-date states built from `StateMessage`. Refusals use the same words everywhere (UI, CLI, MCP):
 
 | Code | Text |
 |---|---|
@@ -537,22 +461,18 @@ Every screen has loading, empty, error and stale states built from `StateMessage
 | `403 CONTROL_REJECTED` | "*name* refused: *reason*." |
 | `409 NOT_OWNED` | "*name* does not own this." |
 
+A disabled control says "Controlled by *name*. Open *name*", "No supervisor can do this here" or "Needs OPERATOR".
+
 ### Implementation map
 
-| Area | Change | Files |
+| Phase | Screens | Backend it needs |
 |---|---|---|
-| Gating | `RequireControl`, `useSupervision(session, workflow, execution, node)`, `GET /api/supervision`; `Permissions` keeps `editSessions` and `deleteSessions` and the role ceiling | `components/common/RequireControl.tsx` (new), `lib/identity.ts`, the sites above |
-| Pages | Tabs, wizard steps, ownership dialog (replaces `AttachDialog`), supervision panel (replaces `EffectiveSupervision`), hierarchy tree, rules editor, credentials, activity | `features/supervisors/components/*` |
-| Definitions | Assignments and groups in the session form, the workflow editor (a groups editor) and the new-workflow dialog | `features/builder/components/*`, `SupervisorPicker.tsx` |
-| Types and data | Regenerated API types, MSW handlers, query keys `['supervisors', …]` and `['supervision', …]` | `types/api.generated.ts`, `features/supervisors/api/*`, `hooks/*` |
-| Navigation | `AppHeader` entry exists; add palette entries | `AppHeader.tsx`, `CommandPalette.tsx` |
-| Design | Update `Supervisors.html`, `Control.html`, `RunView.html`, `SessionDetail.html`, `SessionsPhone.html`; add `Ownership.html`, `SupervisorWizard.html`, `Rules.html`; each in light, dark and 390 px | `design/plans/ui-redesign/artboards/` |
-| Tests | Vitest and MSW for each state of `RequireControl`; the wizard conflict preview; the rules editor with replay; Playwright for: assign a supervisor and see the controls disabled, an approval held and answered, a conflict resolved, a credential created and rotated (screenshots as for `plugins`) | `ui/e2e`, `__tests__` (the 100 % coverage thresholds apply) |
-| Icons | `pnpm run icons` for new icons | `ui` |
+| S8a (#2154) | Page shell and tabs; Supervisors tab (hierarchy and by-workflow, header, at a glance, Owns, Allowed operations, Hierarchy); `RequireControl` over `GET /api/supervision` with the `RequirePermission` fallback; workflow Supervision tab; conflicts banner and review; delete `CoverageTab`, `AttachmentsTab`, `AttachDialog`, `EffectiveSupervision`, `HowItWorks`, `SupervisorWizardPage` | exists |
+| S8b (#2155) | Decision makers tab (shared with the Plugins page pieces); Settings (generic); History; the Edit form; the groups editor | catalog `signals` and `canInitiate` |
+| S8c (#2156) | Rules settings (sentences, replay, JSON); External system settings and the credential panel (secret shown once, absent from the DOM and storage afterwards) | exists |
+| S8d (#2157) | Activity; approval chain in the inbox; palette entries; Control tile counts; states pass; Playwright scenarios with screenshots | decisions with `cause`, `key`, `nodeId` and the directive's reason |
 
-### Rollout
-
-The UI reads `GET /api/supervision`; an older server that lacks it falls back to today's `RequirePermission`, so a UI built for this change can be deployed first. The design artboards are reviewed and approved before code, as in `supervisor-catalog.md` §S8.
+The UI reads `GET /api/supervision`; an older server without it falls back to `RequirePermission`.
 
 ## Clients: MCP, CLI, REST and others
 
@@ -675,10 +595,10 @@ Sizes: S under 2 days, M under a week, L more. Each phase is its own issue and P
 **S7. `callout` engine and retiring the old types (plugins, core, docs, M).** Port `webhook`; delete the old types, the composite and the arbiter code; migrate the examples, acceptance tests, docs, CLI and MCP.
 
 **S8. UI (ui, web, L, in four PRs).** The design is in [UI and UX design](#ui-and-ux-design). Artboards first (updated `Supervisors.html`, `Control.html`, `RunView.html`, `SessionDetail.html`, `SessionsPhone.html`, new `Ownership.html`, `SupervisorWizard.html`, `Rules.html`; light, dark and 390 px), reviewed before code.
-- **S8a, ownership and gated controls (with S2):** `GET /api/supervision`, `RequireControl` at every control site, the Supervision panel, the ownership dialog, owner badges, the conflicts banner.
-- **S8b, wizard and hierarchy (with S3 and S4):** the engine catalog, the six-step wizard with the live overlap check, parents and delegation modes, the hierarchy tree.
-- **S8c, rules editor and credentials (with S5 and S6):** the rule builder, versions and replay; the credential panel.
-- **S8d, activity and polish:** the Activity feed with causes and per-target results, the approval chain in the inbox, command palette entries, Playwright scenarios and screenshots.
+- **S8a, Supervisors tab and gated controls:** the page shell, the Supervisors tab (hierarchy, by workflow, Owns, Allowed operations, Hierarchy), `RequireControl`, the workflow Supervision tab, the conflicts banner.
+- **S8b, decision makers and editing:** the Decision makers catalog, Settings, History, the Edit form, the groups editor.
+- **S8c, rules and credentials:** Rules settings with replay and JSON; External system settings and the credential panel.
+- **S8d, activity and polish:** Activity, the approval chain in the inbox, palette entries, the Control tile counts, states, Playwright. See "UI and UX design" for the screens (revised 2026-11-09).
 
 **S9. `workflow` engine and nodes (plugins, core, L).** Begin with a spike that answers the evaluation question; then `SUPERVISOR_SIGNAL`, `SUPERVISOR_DECISION`, `SUPERVISOR_READ` and the engine, and port the example `examples/17-supervisor-workflow`. The engine declares the signal kinds that start it; `Tick` is how it initiates.
 
@@ -734,7 +654,7 @@ Not filed. Proposed epic: "Supervisor framework". One issue per phase, labelled 
 | S5 | `rules` engine: vocabulary, presets, run-time editing, replay | L |
 | S6 | `http` engine: agent endpoint and credentials | L |
 | S7 | `callout` engine; retire the old supervisor types | M |
-| S8 | UI: gated controls, ownership, wizard, hierarchy, rules editor, credentials, activity (four PRs, S8a to S8d) | L |
+| S8 | UI: Supervisors tab, gated controls, decision makers, rules and credentials, activity (four PRs, S8a to S8d) | L |
 | S9 | `workflow` engine and the supervisor nodes (spike first) | L |
 | S10 | Hardening, more engines, scaffold, docs and migration | M |
 | S11 | Clients: MCP (operator, management and supervisor endpoint), CLI, REST and OpenAPI, examples, skills, docs (checklist across phases) | L |

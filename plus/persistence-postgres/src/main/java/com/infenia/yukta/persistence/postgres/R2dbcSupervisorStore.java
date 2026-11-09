@@ -11,22 +11,28 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
+import com.infenia.yukta.service.supervisor.SupervisorVersions;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 
 /**
  * Supervisors and attachments in PostgreSQL (tables {@code supervisor} and {@code
- * supervisor_attachment}, migrations V7, V8 and V10), so supervisors attached at run time come back
- * after a restart. Settings are stored as given, a model API key included.
+ * supervisor_attachment}, migrations V7, V8 and V10; versions in {@code supervisor_version}, V17),
+ * so supervisors attached at run time come back after a restart. Settings are stored as given, a
+ * model API key included.
  */
 @Slf4j
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
@@ -42,6 +48,13 @@ public class R2dbcSupervisorStore implements SupervisorStore {
 
   private static final TypeReference<Map<String, Map<String, Object>>> DELEGATION =
       new TypeReference<>() {};
+
+  // column names, also the keys of a version body
+  private static final String TYPE = "type";
+  private static final String SETTINGS_FIELD = "settings";
+  private static final String DESCRIPTION = "description";
+  private static final String PARENTS_FIELD = "parents";
+  private static final String DELEGATION_FIELD = "delegation";
 
   /** Runs the statements. */
   private final DatabaseClient client;
@@ -105,13 +118,13 @@ public class R2dbcSupervisorStore implements SupervisorStore {
             row ->
                 new Supervisor(
                     row.get("id", String.class),
-                    row.get("type", String.class),
-                    mapper.readValue(row.get("settings", String.class), SETTINGS),
+                    row.get(TYPE, String.class),
+                    mapper.readValue(row.get(SETTINGS_FIELD, String.class), SETTINGS),
                     Boolean.TRUE.equals(row.get("dry_run", Boolean.class)),
-                    row.get("description", String.class),
-                    mapper.readValue(row.get("parents", String.class), PARENTS),
+                    row.get(DESCRIPTION, String.class),
+                    mapper.readValue(row.get(PARENTS_FIELD, String.class), PARENTS),
                     delegationOf(
-                        mapper.readValue(row.get("delegation", String.class), DELEGATION))))
+                        mapper.readValue(row.get(DELEGATION_FIELD, String.class), DELEGATION))))
         .all();
   }
 
@@ -281,6 +294,95 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                     .bind("refs", json)
                     .fetch()
                     .rowsUpdated())
+        .then();
+  }
+
+  @Override
+  public Mono<Void> saveVersion(
+      final Supervisor supervisor, final Instant savedAt, final int keep) {
+    // the number is the newest plus one, and nothing is added when the body equals the newest
+    // (jsonb equality, so 1 and 1.0 or a reordered map are the same); two saves of one supervisor
+    // at once can take the same number, so the loser tries again
+    return Mono.fromCallable(() -> mapper.writeValueAsString(body(supervisor)))
+        .flatMap(
+            json ->
+                client
+                    .sql(
+                        """
+                        INSERT INTO supervisor_version (supervisor_id, version, saved_at, body)
+                        SELECT :id, COALESCE(MAX(v.version), 0) + 1, :at, CAST(:body AS jsonb)
+                        FROM supervisor_version v WHERE v.supervisor_id = :id
+                        HAVING COALESCE((SELECT n.body <> CAST(:body AS jsonb)
+                          FROM supervisor_version n WHERE n.supervisor_id = :id
+                          ORDER BY n.version DESC LIMIT 1), true)
+                        """)
+                    .bind("id", supervisor.id())
+                    .bind("at", savedAt)
+                    .bind("body", json)
+                    .fetch()
+                    .rowsUpdated())
+        .retryWhen(Retry.max(3).filter(DataIntegrityViolationException.class::isInstance))
+        .then(
+            client
+                .sql(
+                    """
+                    DELETE FROM supervisor_version WHERE supervisor_id = :id
+                    AND version <= (SELECT MAX(version) FROM supervisor_version
+                      WHERE supervisor_id = :id) - :keep
+                    """)
+                .bind("id", supervisor.id())
+                .bind("keep", keep)
+                .fetch()
+                .rowsUpdated())
+        .then();
+  }
+
+  /** A supervisor as one JSON document, in the same shape as the columns of its own row. */
+  private static Map<String, Object> body(final Supervisor supervisor) {
+    final Map<String, Object> body = new java.util.LinkedHashMap<>();
+    body.put(TYPE, supervisor.type());
+    body.put(SETTINGS_FIELD, supervisor.settings());
+    body.put("dryRun", supervisor.dryRun());
+    body.put(DESCRIPTION, supervisor.description());
+    body.put(PARENTS_FIELD, supervisor.parents());
+    body.put(DELEGATION_FIELD, delegationJson(supervisor.delegation()));
+    return body;
+  }
+
+  private Supervisor fromBody(final String id, final Map<String, Object> body) {
+    return new Supervisor(
+        id,
+        String.valueOf(body.get(TYPE)),
+        mapper.convertValue(body.get(SETTINGS_FIELD), SETTINGS),
+        Boolean.TRUE.equals(body.get("dryRun")),
+        (String) body.get(DESCRIPTION),
+        mapper.convertValue(body.get(PARENTS_FIELD), PARENTS),
+        delegationOf(mapper.convertValue(body.get(DELEGATION_FIELD), DELEGATION)));
+  }
+
+  @Override
+  public Flux<SupervisorVersions.Version> versions(final String id) {
+    return client
+        .sql(
+            "SELECT version, saved_at, CAST(body AS text) AS body FROM supervisor_version"
+                + " WHERE supervisor_id = :id ORDER BY version DESC")
+        .bind("id", id)
+        .map(
+            row ->
+                new SupervisorVersions.Version(
+                    Objects.requireNonNull(row.get("version", Integer.class)),
+                    row.get("saved_at", Instant.class),
+                    fromBody(id, mapper.readValue(row.get("body", String.class), SETTINGS))))
+        .all();
+  }
+
+  @Override
+  public Mono<Void> deleteVersions(final String id) {
+    return client
+        .sql("DELETE FROM supervisor_version WHERE supervisor_id = :id")
+        .bind("id", id)
+        .fetch()
+        .rowsUpdated()
         .then();
   }
 

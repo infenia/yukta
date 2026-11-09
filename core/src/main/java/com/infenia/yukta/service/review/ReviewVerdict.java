@@ -41,19 +41,34 @@ public sealed interface ReviewVerdict {
    * @param need the merged need: the highest risk, the first route named and the shortest ttl
    * @param reason the reasons, each as {@code <supervisor>: <reason>}, joined with {@code "; "}
    * @param askedBy the ids of the supervisors that asked, in review order
+   * @param parents the parents asked before a person, each as {@code <parent>:<ANSWER>} ({@code
+   *     silent} for none), in the order they were asked
    */
-  record NeedsApproval(ApprovalNeed need, String reason, List<String> askedBy)
+  record NeedsApproval(ApprovalNeed need, String reason, List<String> askedBy, List<String> parents)
       implements ReviewVerdict {
 
     /**
-     * Copies the list.
+     * A need no parent was asked about.
      *
      * @param need the merged need
      * @param reason the joined reasons
      * @param askedBy the supervisors that asked
      */
+    public NeedsApproval(final ApprovalNeed need, final String reason, final List<String> askedBy) {
+      this(need, reason, askedBy, List.of());
+    }
+
+    /**
+     * Copies the lists.
+     *
+     * @param need the merged need
+     * @param reason the joined reasons
+     * @param askedBy the supervisors that asked
+     * @param parents the parents asked, with their answers
+     */
     public NeedsApproval {
       askedBy = List.copyOf(askedBy);
+      parents = List.copyOf(parents);
     }
   }
 }

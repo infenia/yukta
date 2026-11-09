@@ -92,7 +92,15 @@ class AgentApiControllerTest {
 
   private SupervisorEngine running(final EngineReads reads, final Flux<Signal> signals) {
     final SupervisorEngine engine =
-        new HttpEngineFactory(hub)
+        new HttpEngineFactory(
+                hub,
+                new com.infenia.yukta.service.supervisor.agent.Outbound(
+                    new com.infenia.yukta.service.supervisor.agent.Egress(
+                        com.infenia.yukta.plugin.util.EgressPolicy.OPEN,
+                        com.infenia.yukta.plugin.util.HostAllowList.from(null)),
+                    org.springframework.web.reactive.function.client.WebClient.create(),
+                    tools.jackson.databind.json.JsonMapper.builder().build(),
+                    name -> null))
             .create(
                 new EngineConfig(Map.of()),
                 new EngineContext() {
