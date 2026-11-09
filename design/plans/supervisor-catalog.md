@@ -141,7 +141,7 @@ New module `plugins/supervisors/guards` (in `settings.gradle.kts`, added to `boo
 
 ## S8. Supervisors UI design (design artboards)
 
-Before any UI code, add `design/plans/ui-redesign/artboards/Supervisors.html`, built from the same shared tokens and header as `Plugins.html` and `Control.html`, and link it from `index.html`. Screens:
+Before any UI code, add `design/plans/ui-redesign/artboards/Supervisors.html` (removed in #2153; replaced by `design/plans/supervisor-framework/artboards/`), built from the same shared tokens and header as `Plugins.html` and `Control.html`, and link it from `index.html`. Screens:
 
 1. **Catalog**:
    - type cards grouped by category, each with icon, name, one-line description, kind badge and "N configured";
