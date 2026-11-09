@@ -96,6 +96,45 @@ class DirectiveGateTest {
   }
 
   @Test
+  void failedLookupIsNotOwnedAndTheServerOwnerCarriesOnlyServerCommands() {
+    final SupervisorScope server = new SupervisorScope.Server();
+    final DirectiveGate.Target unknown = new DirectiveGate.Target(null, null, null);
+    // a run that could not be looked up is nobody's, not the server owner's
+    assertThat(
+            gate.check(
+                    "sup",
+                    pause(Cause.event("e"), null),
+                    unknown,
+                    caps(Set.of(), 10),
+                    server,
+                    true,
+                    false)
+                .rejection())
+        .isEqualTo(Rejection.NOT_OWNED);
+    assertThat(
+            gate.check(
+                    "sup",
+                    pause(Cause.event("e"), null),
+                    unknown,
+                    caps(Set.of(), 10),
+                    OWNS,
+                    true,
+                    false)
+                .rejection())
+        .isEqualTo(Rejection.NOT_OWNED);
+    final Directive.Command limits =
+        new Directive.Command(
+            "l", new ExecutionControlCommand.SetLimitsCommand(4, 2), Cause.event("e"), null, null);
+    assertThat(
+            gate.check("sup", limits, unknown, caps(Set.of(), 10), server, true, false).accepted())
+        .isTrue();
+    // a workflow owner cannot change the server's limits
+    assertThat(
+            gate.check("sup", limits, unknown, caps(Set.of(), 10), OWNS, true, false).rejection())
+        .isEqualTo(Rejection.NOT_OWNED);
+  }
+
+  @Test
   void commandWithNoTriggerNeedsReasonAndEntryInTheInitiativeList() {
     assertThat(
             check(

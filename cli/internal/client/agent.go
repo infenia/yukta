@@ -19,10 +19,8 @@ func (c *Client) AgentStream(ctx context.Context, after int64, onSignal func(dat
 		return err
 	}
 	defer resp.Body.Close()
+	// an event without data is never delivered, so every event here carries a signal
 	return ScanSSE(ctx, resp.Body, func(event SSEEvent) error {
-		if event.Data == "" {
-			return nil
-		}
 		return onSignal(event.Data, event.ID)
 	})
 }

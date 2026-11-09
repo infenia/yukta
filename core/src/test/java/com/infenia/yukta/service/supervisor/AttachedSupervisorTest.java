@@ -2,9 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
-import com.infenia.yukta.service.review.ControlRejectedException;
-import com.infenia.yukta.service.review.ControlReviewer;
-import com.infenia.yukta.service.review.ControlReviewerFixture;
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -26,6 +23,9 @@ import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.review.AttachedSupervisors;
 import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.review.ControlRejectedException;
+import com.infenia.yukta.service.review.ControlReviewer;
+import com.infenia.yukta.service.review.ControlReviewerFixture;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -316,8 +316,9 @@ class AttachedSupervisorTest {
                   new ExecutionEvent.WorkflowStatusChanged(
                       "x", "A", "w", "RUNNING", Instant.now()));
               assertThat(host.decisions("chatty", 1000)).hasSize(500);
+              // the commands land one by one: wait for the last before reading the newest
+              assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
             });
-    assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
   }
 
   @Test

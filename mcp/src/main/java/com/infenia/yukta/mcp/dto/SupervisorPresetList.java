@@ -3,6 +3,8 @@
 package com.infenia.yukta.mcp.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -15,6 +17,11 @@ import java.util.Map;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorPresetList(String type, List<Preset> presets) {
 
+  /** Keeps an immutable copy of the presets. */
+  public SupervisorPresetList {
+    presets = List.copyOf(presets);
+  }
+
   /**
    * One preset.
    *
@@ -23,5 +30,11 @@ public record SupervisorPresetList(String type, List<Preset> presets) {
    * @param settings the settings to start from
    */
   @JsonInclude(JsonInclude.Include.NON_NULL)
-  public record Preset(String name, String description, Map<String, Object> settings) {}
+  public record Preset(String name, String description, Map<String, Object> settings) {
+
+    /** Keeps an unmodifiable copy of the settings, which may hold nulls. */
+    public Preset {
+      settings = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
+    }
+  }
 }

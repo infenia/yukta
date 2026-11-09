@@ -14,7 +14,6 @@ import com.infenia.yukta.service.supervisor.SupervisorStore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -30,7 +29,7 @@ import tools.jackson.databind.ObjectMapper;
  * after a restart. Settings are stored as given, a model API key included.
  */
 @Slf4j
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 public class R2dbcSupervisorStore implements SupervisorStore {
 
   /** The stored settings of a profile. */
@@ -154,13 +153,9 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   /** The delegation modes as JSON: kind to mode and timeout in milliseconds. */
   private static Map<String, Map<String, Object>> delegationJson(
       final Map<DelegationKind, Delegation> delegation) {
-    return delegation.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                e -> e.getKey().name(),
-                e -> delegationEntry(e.getValue()),
-                (a, b) -> a,
-                () -> new java.util.TreeMap<String, Map<String, Object>>()));
+    final Map<String, Map<String, Object>> json = new java.util.TreeMap<>();
+    delegation.forEach((kind, d) -> json.put(kind.name(), delegationEntry(d)));
+    return json;
   }
 
   private static Map<String, Object> delegationEntry(final Delegation d) {
@@ -169,13 +164,10 @@ public class R2dbcSupervisorStore implements SupervisorStore {
 
   private static Map<DelegationKind, Delegation> delegationOf(
       final Map<String, Map<String, Object>> json) {
-    return json.entrySet().stream()
-        .collect(
-            Collectors.toMap(
-                e -> DelegationKind.valueOf(e.getKey()),
-                e -> delegationFrom(e.getValue()),
-                (a, b) -> a,
-                () -> new java.util.EnumMap<DelegationKind, Delegation>(DelegationKind.class)));
+    final Map<DelegationKind, Delegation> delegation =
+        new java.util.EnumMap<>(DelegationKind.class);
+    json.forEach((kind, d) -> delegation.put(DelegationKind.valueOf(kind), delegationFrom(d)));
+    return delegation;
   }
 
   private static Delegation delegationFrom(final Map<String, Object> d) {
@@ -199,7 +191,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
     return client
         .sql(
             "SELECT id, supervisor_id, scope, enabled, source, origin_session_id,"
-                + " origin_workflow_id, conflict FROM supervisor_attachment ORDER BY id")
+                + " origin_workflow_id, conflict, locked FROM supervisor_attachment ORDER BY id")
         .map(
             row ->
                 new SupervisorAttachment(
@@ -210,7 +202,8 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                     SupervisorSource.valueOf(row.get("source", String.class)),
                     row.get("origin_session_id", String.class),
                     row.get("origin_workflow_id", String.class),
-                    Boolean.TRUE.equals(row.get("conflict", Boolean.class))))
+                    Boolean.TRUE.equals(row.get("conflict", Boolean.class)),
+                    Boolean.TRUE.equals(row.get("locked", Boolean.class))))
         .all();
   }
 
@@ -220,14 +213,14 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .sql(
             """
             INSERT INTO supervisor_attachment (id, supervisor_id, scope, enabled, source,
-              origin_session_id, origin_workflow_id, conflict, updated_at)
+              origin_session_id, origin_workflow_id, conflict, locked, updated_at)
             VALUES (:id, :supervisor, :scope, :enabled, :source, :originSession,
-              :originWorkflow, :conflict, now())
+              :originWorkflow, :conflict, :locked, now())
             ON CONFLICT (id) DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id,
               scope = EXCLUDED.scope, enabled = EXCLUDED.enabled, source = EXCLUDED.source,
               origin_session_id = EXCLUDED.origin_session_id,
               origin_workflow_id = EXCLUDED.origin_workflow_id, conflict = EXCLUDED.conflict,
-              updated_at = now()
+              locked = EXCLUDED.locked, updated_at = now()
             """)
         .bind("id", binding.id())
         .bind("supervisor", binding.supervisorId())
@@ -237,6 +230,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .bind("originSession", nullable(binding.originSessionId()))
         .bind("originWorkflow", nullable(binding.originWorkflowId()))
         .bind("conflict", binding.conflict())
+        .bind("locked", binding.locked())
         .fetch()
         .rowsUpdated()
         .then();

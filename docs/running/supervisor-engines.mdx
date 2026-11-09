@@ -9,11 +9,11 @@ keywords: ["supervisor engine", "rules", "http", "callout", "workflow", "process
   **In plain terms:** a supervisor owns some parts of a run; an **engine** decides for it. Pick the engine by who knows the answer: a rule you can write down, an application you run, a service Yukta calls, a workflow you edit in the UI, or a program on the server. Every engine returns the same thing (directives), and the supervisor checks each one before it has any effect.
 </Info>
 
-`GET /api/supervisor-engines` lists the engines of your server (the same catalog as `/api/supervisor-types`).
+`GET /api/supervisor-engines` lists the engines of your server (`/api/supervisor-types` of earlier versions is gone).
 
 | Engine (`type`) | Who decides | Initiates? | Use it when |
 |---|---|---|---|
-| `rule-supervisor` | JSON rules with SpEL conditions | Yes, with `every` rules | The cases are exact and repeatable |
+| `rules` | JSON rules with SpEL conditions | Yes, with `every` rules | The cases are exact and repeatable |
 | `http` | An application that connects to `/api/agent/v1` | Yes | The logic lives in another service or is an AI agent |
 | `callout` | An HTTP endpoint Yukta calls for each signal | No | You want a simple integration without keeping a connection |
 | `workflow` | A Yukta workflow in an internal session | Yes, from a tick | The decision should be visible and editable as a workflow |
@@ -23,19 +23,19 @@ keywords: ["supervisor engine", "rules", "http", "callout", "workflow", "process
 
 A rule document has `schemaVersion: 1` and a list of rules. A rule with `when.every` (`30s`, `5m`, `2h`; at least one second) runs on a timer over the executions the supervisor owns; its `if` can read `read.RUNNING`, `read.FAILURE` and so on (the number of owned executions in that status). A timed rule acts on its own, so it needs a `reason` and the command in the supervisor's `initiative` list.
 
-* `GET /api/supervisor-types/rule-supervisor/presets` lists ready-made documents: `failure-guard`, `approval-gate`, `too-many-running`.
-* Every save is a version (the newest 20 since the server started): `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback?version=N`. Saving restarts the attachments at once, so a change swaps in whole.
+* `GET /api/supervisor-engines/rules/presets` lists ready-made documents: `failure-guard`, `approval-gate`, `too-many-running`.
+* Every save is a version (the newest 20 since the server started): `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback?version=N`. Saving restarts the supervisor at once, so a change swaps in whole.
 * `POST /api/supervisors/{id}/replay` with `{"executionId": "…", "settings": {…}}` shows what the supervisor would have done on a past run, in dry run. Only statuses are replayed.
 
 ## Agent endpoint (`http`)
 
-1. Save a supervisor of type `http` and attach it.
+1. Save a supervisor of type `http` and give it something to own (`PUT /api/supervisors/{id}/assignments`).
 2. `POST /api/supervisors/{id}/credential?ttlHours=24&allowedAddresses=10.0.0.5` returns a token **once**. Issuing again rotates it; `DELETE` revokes it at once. The CLI does the same: `yukta supervisors credential create <id>`.
-3. The application sends `Authorization: Bearer <token>` to `/api/agent/v1`: `GET /self`, `GET /snapshot`, `GET /events?after=<cursor>` (Server-Sent Events), `GET /signals?after=<cursor>&wait=25` (a poll for clients that cannot hold a stream), `GET /executions`, `GET /inputs`, `POST /directives`, `POST /reviews/{id}`, `POST /delegations/{id}`. An AI agent can use the same operations as MCP tools at `POST /api/agent/v1/mcp`.
+3. The application sends `Authorization: Bearer <token>` to `/api/agent/v1`: `GET /self`, `GET /snapshot`, `GET /events?after=<cursor>` (Server-Sent Events), `GET /signals?after=<cursor>&wait=25` (a poll for clients that cannot hold a stream), `GET /executions`, `GET /executions/{id}` (with the status of the nodes you own), `GET /executions/{id}/logs?tail=` (at most 200 lines, secrets removed), `GET /workflows/{session}/{workflow}` (nodes and edges, no settings), `GET /scheduler` (the server owner only), `GET /inputs`, `POST /directives`, `POST /reviews/{id}`, `POST /delegations/{id}`. An AI agent can use the same operations as MCP tools at `POST /api/agent/v1/mcp`.
 
 The credential works on the agent API only, and no API key of a person works there. A command may name `target`: `execution:<id>`, `workflow:<id>`, `owned.running` or `held` (the runs this supervisor paused); it is expanded to at most 200 runs, each applied and audited on its own.
 
-**Limits per credential** (system properties): `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, 100 reviews waiting at once (more count as unanswered). An address list ties the credential to those source addresses.
+**Limits per credential** (settings, like every `yukta.*` one): `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, 100 reviews waiting at once (more count as unanswered). An address list ties the credential to those source addresses.
 
 ## Outbound call (`callout`)
 
@@ -53,7 +53,11 @@ Settings: `command` and `args`. The executable must be in `yukta.process.allowed
 {"type":"command","key":"k1","cause":"event:e7","reason":"too many failures","command":{"type":"PauseWorkflow","executionId":"…"}}
 {"type":"verdict","answers":"<review id>","verdict":"DENY","reason":"not during a freeze"}
 {"type":"noOpinion","answers":"<review id>"}
+{"type":"delegationAnswer","answers":"<delegation id>","answer":{"choice":"retry"}}
+{"type":"delegate","kind":"CONSULT","key":"q1","payload":{"question":"retry the deploy?"}}
 ```
+
+A `delegate` line asks the supervisor's parents a question; what they answer comes back on stdin as a `CONSULTED` signal with the same `key`.
 
 A line that is not a directive is dropped. If the program exits, Yukta starts it again with a growing delay.
 
@@ -66,16 +70,17 @@ A line that is not a directive is dropped. If the program exits, Yukta starts it
 
 ## Write an engine
 
-An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
+`yk new engine <name>` creates the module for you (build file, factory, configuration, a passing test) and adds it to `settings.gradle.kts` and `boot/build.gradle.kts`; add its bean to `boot/src/test/resources/expected-beans.txt`. An engine is a `SupervisorEngineFactory` in `plugin-api` (`type()`, `describe()`, `getConfigSchema()`, `validate()`, `create()`) that returns a `SupervisorEngine` (`Flux<Signal>` in, `Flux<Directive>` out). Register it as a Spring bean: `new EngineSupervisorFactory(new MyEngineFactory())`. `plugins/supervisors/process-engine` is the smallest complete example: a module of one factory, one configuration class and its tests, added to `settings.gradle.kts` and `boot/build.gradle.kts`.
 
 ## Moving from earlier versions
 
 This is an alpha release, so these changes break:
 
-* One owner per unit. Two attachments that overlap are no longer both asked: at start-up the first (by id) stays on and the others are saved disabled with `conflict: true`; resolve them in `/supervisors`. A `global` attachment owns nothing and only observes. Section selectors `group:<name>` are refused until groups are expanded.
+* One owner per unit. Two attachments that overlap are no longer both asked: at start-up the first (by id) stays on and the others are saved disabled with `conflict: true`; resolve them in `/supervisors`. A `global` attachment owns nothing and only observes.
 * A person's command goes to the owner of the unit, and the owner's `operatorAccess` (a list of command names, default none) decides which of them a person may send. A command for a unit with no owner is allowed while `yukta.supervisor.default.enabled` is true (the default).
 * Bean supervisors (`ExecutionSupervisor` beans) stop reviewing commands; they still observe and send.
 * The composite type is gone: use `parents` and the delegation modes `ORDERED`, `ALL`, `ANY`. The input tier `supervisor:above` is now `supervisor:parent`, and a supervisor approves another's command only from above it in the hierarchy.
+* The old types are retired. Stored `rule-supervisor`, `rule-control-plane`, `failure-guard`, `stall-watchdog` and `approval-gate` supervisors become `rules` supervisors at start-up (a WARN names what changed in meaning), `webhook` becomes `callout`. The model, rules-first and composite types stay stored, do not start and are named in a WARN. `attach_supervisor`, `detach_supervisor` and `/api/supervisors/attachments` are replaced by assignments (`PUT /api/supervisors/{id}/assignments`), and the `supervisors` block of a definition by `assignments`.
 * The `webhook` type is called `callout`. `order`, `arbitrated` and `coalesced` are gone from the status of a supervisor.
 * A refusal is `409 CONTROLLED_BY_SUPERVISOR`; a command that needs approval is `202 AWAITING_APPROVAL`; the CLI exits with code 6 for a refusal.
 * The catalog is also at `/api/supervisor-engines`.

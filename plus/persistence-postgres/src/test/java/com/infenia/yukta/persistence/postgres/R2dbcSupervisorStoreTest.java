@@ -19,6 +19,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods"})
 class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
   private final R2dbcSupervisorStore store = new R2dbcSupervisorStore(db, new ObjectMapper());
@@ -100,7 +101,7 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
             Map.of(),
             false,
             null,
-            java.util.List.of("p1", "p2"),
+            List.of("p1", "p2"),
             Map.of(
                 com.infenia.yukta.plugin.control.DelegationKind.APPROVAL,
                 new com.infenia.yukta.plugin.control.Delegation(
@@ -110,6 +111,20 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
     StepVerifier.create(store.saveSupervisor(child)).verifyComplete();
 
     StepVerifier.create(store.supervisors()).expectNext(child).verifyComplete();
+  }
+
+  @Test
+  void lockIsStoredAndReadBack() {
+    final SupervisorAttachment locked =
+        new SupervisorAttachment("l1", "p", new SupervisorScope.Run("w", "A"), true)
+            .withLocked(true);
+
+    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
+    StepVerifier.create(store.saveAttachment(locked)).verifyComplete();
+
+    StepVerifier.create(store.attachments().filter(a -> "l1".equals(a.id())))
+        .assertNext(a -> org.assertj.core.api.Assertions.assertThat(a.locked()).isTrue())
+        .verifyComplete();
   }
 
   @Test

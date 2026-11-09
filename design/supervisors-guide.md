@@ -296,9 +296,9 @@ Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vit
 | Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
 | Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `CommandArbiter`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
 | Composite and workflow | `core/.../service/supervisor/composite/`, `.../workflow/` |
-| Types | `plugins/supervisors/rule-supervisor`, `guards`, `webhook` (type `callout`) |
+| Types | `plugins/supervisors/rules`, `guards`, `webhook` (type `callout`) |
 | REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
 | CLI | `cli/internal/commands/supervisors` |
 | UI | `ui/src/features/supervisors/` |
-| Examples | `examples/16-supervisor-profiles`, `examples/17-supervisor-workflow`, `plugins/supervisors/rule-supervisor/rules.example.json` |
+| Examples | `examples/16-supervisor-profiles`, `examples/17-supervisor-workflow`, `plugins/supervisors/rules/rules.example.json` |
 | Tests | `boot/src/test/.../Supervisor*AcceptanceTest.java`, `SupervisorCatalogTest.java` |

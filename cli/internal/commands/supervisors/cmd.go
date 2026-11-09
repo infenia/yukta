@@ -7,6 +7,7 @@ package supervisors
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
@@ -19,13 +20,12 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 	cmd := commands.DataCmd("supervisors", "Show the running supervisors, the catalog and the configured supervisors", 0,
 		func([]string) (any, error) { return c.GetSupervisors() })
 	cmd.AddCommand(
-		typesCmd(c),
 		enginesCmd(c),
 		commands.DataCmd("list", "List the configured supervisors", 0,
 			func([]string) (any, error) { return c.ListSupervisors() }),
 		commands.DataCmd("show <id>", "Show one configured supervisor", 1,
 			func(args []string) (any, error) { return c.GetSupervisor(args[0]) }),
-		commands.DataCmd("presets <type>", "List the ready-made settings of a supervisor type", 1,
+		commands.DataCmd("presets <engine>", "List the ready-made settings of an engine", 1,
 			func(args []string) (any, error) { return c.GetSupervisorPresets(args[0]) }),
 		commands.DataCmd("versions <id>", "List the saved versions of a supervisor, newest first", 1,
 			func(args []string) (any, error) { return c.GetSupervisorVersions(args[0]) }),
@@ -36,23 +36,85 @@ func SupervisorsCmd(c *client.Client) *cobra.Command {
 		commands.DataCmd("delete <id>", "Delete a supervisor that nothing uses", 1,
 			func(args []string) (any, error) { return c.DeleteSupervisor(args[0]) }),
 		replayCmd(c),
+		commands.DataCmd("assignments <id>", "List what a supervisor owns, whatever made it", 1,
+			func(args []string) (any, error) { return c.GetAssignments(args[0]) }),
+		assignCmd(c),
+		unassignCmd(c),
+		checkAssignCmd(c),
+		setAssignmentsCmd(c),
+		parentsCmd(c),
 		credentialCmd(c),
 		agentCmd(c),
 	)
 	return cmd
 }
 
-// typesCmd lists the catalog, or describes one type when given its name.
-func typesCmd(c *client.Client) *cobra.Command {
-	cmd := commands.DataCmd("types [type]", "List the supervisor types, or describe one with its settings", 0,
-		func(args []string) (any, error) {
-			if len(args) == 1 {
-				return c.GetSupervisorType(args[0])
-			}
-			return c.GetSupervisorTypes()
-		})
-	cmd.Args = cobra.MaximumNArgs(1)
+// assignCmd adds a target to what a supervisor owns.
+func assignCmd(c *client.Client) *cobra.Command {
+	var disabled, locked bool
+	cmd := commands.DataCmd("assign <id> <target>",
+		"Make a supervisor own a target too: server, session:<id>, workflow:<s>/<w>, run:<s>/<w> or workflow:<s>/<w>//<selector>,...", 2,
+		func(args []string) (any, error) { return c.Assign(args[0], args[1], !disabled, locked) })
+	cmd.Flags().BoolVar(&disabled, "disabled", false, "Save it without running it")
+	cmd.Flags().BoolVar(&locked, "locked", false, "Only a lock holder may change or remove it")
 	return cmd
+}
+
+// checkAssignCmd checks what a supervisor would own with more targets, without saving.
+func checkAssignCmd(c *client.Client) *cobra.Command {
+	cmd := commands.DataCmd("check-assign <id> <target>...", "Check what a supervisor would own with these targets, without saving", 2,
+		func(args []string) (any, error) { return c.CheckAssign(args[0], args[1:]) })
+	cmd.Args = cobra.MinimumNArgs(2)
+	return cmd
+}
+
+// unassignCmd removes a target from what a supervisor owns.
+func unassignCmd(c *client.Client) *cobra.Command {
+	var unlock bool
+	cmd := commands.DataCmd("unassign <id> <target>", "Stop a supervisor owning a target it owns by hand", 2,
+		func(args []string) (any, error) { return c.Unassign(args[0], args[1], unlock) })
+	cmd.Flags().BoolVar(&unlock, "unlock", false, "Allow removing a locked assignment (lock holders only)")
+	return cmd
+}
+
+// setAssignmentsCmd replaces what a supervisor owns from a JSON file of {target, enabled, locked}.
+func setAssignmentsCmd(c *client.Client) *cobra.Command {
+	var file string
+	var unlock bool
+	cmd := commands.DataCmd("set-assignments <id>", "Make a supervisor own exactly the targets of a JSON file (-f)", 1,
+		func(args []string) (any, error) {
+			body, err := os.ReadFile(file) //nolint:gosec // the path is the user's own argument
+			if err != nil {
+				return nil, err
+			}
+			return c.SetAssignmentsBody(args[0], body, unlock)
+		})
+	cmd.Flags().StringVarP(&file, "file", "f", "", "A JSON list of {target, enabled, locked}")
+	cmd.Flags().BoolVar(&unlock, "unlock", false, "Allow changing locked assignments (lock holders only)")
+	_ = cmd.MarkFlagRequired("file")
+	return cmd
+}
+
+// parentsCmd sets who a supervisor reports to.
+func parentsCmd(c *client.Client) *cobra.Command {
+	group := &cobra.Command{Use: "parents", Short: "Set the supervisors a supervisor reports to"}
+	var parents, modes []string
+	set := commands.DataCmd("set <id>", "Make a supervisor report to these parents, in order", 1,
+		func(args []string) (any, error) {
+			byKind := map[string]string{}
+			for _, m := range modes {
+				kind, mode, ok := strings.Cut(m, "=")
+				if !ok {
+					return nil, fmt.Errorf("--mode is <kind>=<mode>, such as approval=ordered: %q", m)
+				}
+				byKind[kind] = mode
+			}
+			return c.SetParents(args[0], parents, byKind)
+		})
+	set.Flags().StringArrayVar(&parents, "parent", nil, "A parent, in the order they are asked (repeat)")
+	set.Flags().StringArrayVar(&modes, "mode", nil, "approval|input|consult=ordered|all|any (repeat)")
+	group.AddCommand(set)
+	return group
 }
 
 // rollbackCmd makes an earlier version current again.
@@ -84,6 +146,8 @@ func credentialCmd(c *client.Client) *cobra.Command {
 		func(args []string) (any, error) { return c.IssueAgentCredential(args[0], ttl) })
 	create.Flags().IntVar(&ttl, "ttl-hours", 0, "Hours it works (0 for no expiry)")
 	group.AddCommand(create,
+		commands.DataCmd("show <id>", "Show when the credential was issued and last used (never the secret)", 1,
+			func(args []string) (any, error) { return c.GetAgentCredential(args[0]) }),
 		commands.DataCmd("revoke <id>", "Cut the credential at once", 1,
 			func(args []string) (any, error) { return c.RevokeAgentCredential(args[0]) }))
 	return group
@@ -94,9 +158,9 @@ func enginesCmd(c *client.Client) *cobra.Command {
 	cmd := commands.DataCmd("engines [type]", "List the decision engines, or describe one with its settings", 0,
 		func(args []string) (any, error) {
 			if len(args) == 1 {
-				return c.GetSupervisorType(args[0])
+				return c.GetSupervisorEngine(args[0])
 			}
-			return c.GetSupervisorTypes()
+			return c.GetSupervisorEngines()
 		})
 	cmd.Args = cobra.MaximumNArgs(1)
 	return cmd

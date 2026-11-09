@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ShortMethodName"})
 class SupervisorDecisionTerminalTest {
 
   private final SupervisorDecisionTerminal terminal = new SupervisorDecisionTerminal();
@@ -54,7 +55,7 @@ class SupervisorDecisionTerminalTest {
   }
 
   @Test
-  void aCommandTheContractCannotReadFailsTheRun() {
+  void commandTheContractCannotReadFailsTheRun() {
     StepVerifier.create(
             terminal.consume(
                 Flux.just(

@@ -21,8 +21,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.scheduler.Schedulers;
+import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -35,14 +38,16 @@ import tools.jackson.databind.json.JsonMapper;
  * engine's. If the program exits, the engine fails and starts it again with backoff.
  */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public final class ProcessEngineFactory implements SupervisorEngineFactory {
 
   /** The engine type. */
-  public static final String TYPE = "process";
+  public static final String ENGINE_TYPE = "process";
 
   private static final String COMMAND = "command";
-  private static final String ARGS = "args";
+  private static final String ARGS_SETTING = "args";
   private static final int MAX_LINE = 65_536;
+  private static final int NEWLINE = '\n';
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -62,7 +67,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
 
   @Override
   public String type() {
-    return TYPE;
+    return ENGINE_TYPE;
   }
 
   @Override
@@ -72,7 +77,8 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
         "A program reads the signals as JSON lines on standard input and writes directives as JSON"
             + " lines on standard output. It runs with an empty environment, and only if its"
             + " executable is in yukta.process.allowed-commands.",
-        Set.of(Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED),
+        Set.of(
+            Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED, Signal.Kind.CONSULTED),
         true);
   }
 
@@ -81,7 +87,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     return List.of(
         ConfigField.required(COMMAND, ConfigField.Type.STRING, "The executable to run"),
         ConfigField.optional(
-            ARGS, ConfigField.Type.STRING, null, "Arguments, one per line, in order"));
+            ARGS_SETTING, ConfigField.Type.STRING, null, "Arguments, one per line, in order"));
   }
 
   @Override
@@ -118,11 +124,11 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
                   running[0] = process;
                   final Writer stdin =
                       new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8);
-                  final var feeding =
-                      signals.subscribe(signal -> write(stdin, signal), sink::error);
+                  final Disposable feeding = feed(stdin, signals, sink);
                   sink.onDispose(
                       () -> {
                         feeding.dispose();
+                        closeQuietly(stdin);
                         process.destroyForcibly();
                       });
                   Schedulers.boundedElastic().schedule(() -> read(process, sink));
@@ -139,28 +145,38 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     };
   }
 
+  /** Writes every signal to the program's input; the writer is closed when the feed is disposed. */
+  private static Disposable feed(
+      final Writer stdin, final Flux<Signal> signals, final FluxSink<Directive> sink) {
+    return signals.subscribe(signal -> write(stdin, signal), sink::error);
+  }
+
   private static void write(final Writer stdin, final Signal signal) {
+    // the signals arrive one at a time on one subscription, so the writes never interleave
     try {
-      synchronized (stdin) {
-        stdin.write(
-            JSON.writeValueAsString(Map.of("kind", signal.kind().name(), "signal", signal)));
-        stdin.write('\n');
-        stdin.flush();
-      }
-    } catch (final IOException | RuntimeException e) {
+      stdin.write(JSON.writeValueAsString(Map.of("kind", signal.kind().name(), "signal", signal)));
+      stdin.write('\n');
+      stdin.flush();
+    } catch (final IOException | JacksonException e) {
       log.atDebug().setCause(e).log("A signal could not be written to the program");
     }
   }
 
+  private static void closeQuietly(final Writer stdin) {
+    try {
+      stdin.close();
+    } catch (final IOException e) {
+      log.atDebug().setCause(e).log("The input of the program could not be closed");
+    }
+  }
+
   @SuppressWarnings("unchecked")
-  private static void read(
-      final Process process, final reactor.core.publisher.FluxSink<Directive> sink) {
+  private static void read(final Process process, final FluxSink<Directive> sink) {
     try (BufferedReader out =
         new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-      String line;
-      while ((line = out.readLine()) != null) {
-        if (line.length() > MAX_LINE || line.isBlank()) {
+      for (String line = boundedLine(out); line != null; line = boundedLine(out)) {
+        if (line.isBlank()) {
           continue;
         }
         try {
@@ -168,14 +184,43 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
           if (parsed instanceof Map<?, ?> map) {
             DirectiveJson.read((Map<String, Object>) map).ifPresent(sink::next);
           }
-        } catch (final RuntimeException notJson) {
-          log.atDebug().log("The program wrote a line that is not JSON; dropped");
+        } catch (final JacksonException | IllegalArgumentException | ClassCastException notJson) {
+          log.atDebug()
+              .setCause(notJson)
+              .log("The program wrote a line that is not a directive; dropped");
         }
       }
-      sink.error(new IllegalStateException("The program ended"));
+      sink.error(new IllegalStateException("The program ended")); // NOPMD - a FluxSink, not a log
     } catch (final IOException e) {
       sink.error(e);
     }
+  }
+
+  /**
+   * Reads one line, keeping at most {@link #MAX_LINE} characters. The rest of a longer line is read
+   * and thrown away, so a program that writes without a newline cannot fill the server's memory.
+   *
+   * @param in the program's output
+   * @return the line (empty when it was too long), or {@code null} at the end
+   * @throws IOException when the output cannot be read
+   */
+  /* default */ static String boundedLine(final BufferedReader in) throws IOException {
+    final StringBuilder line = new StringBuilder();
+    boolean tooLong = false;
+    for (int c = in.read(); c != -1; c = in.read()) {
+      if (c == NEWLINE) {
+        return tooLong ? "" : line.toString();
+      }
+      if (line.length() < MAX_LINE) {
+        line.append((char) c);
+      } else {
+        tooLong = true;
+      }
+    }
+    if (tooLong) {
+      return "";
+    }
+    return line.isEmpty() ? null : line.toString();
   }
 
   private static String executable(final EngineConfig config) {
@@ -187,7 +232,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
   }
 
   private static List<String> args(final EngineConfig config) {
-    final Object value = config.settings().get(ARGS);
+    final Object value = config.settings().get(ARGS_SETTING);
     if (value instanceof List<?> list) {
       return list.stream().map(String::valueOf).toList();
     }

@@ -24,8 +24,8 @@ export interface DraftWorkflow {
   description: string;
   nodes: DraftNode[];
   edges: DraftEdge[];
-  /** Supervisors the workflow declares; attached when it is saved. */
-  supervisors?: SupervisorRef[];
+  /** What supervisors own in the workflow; assigned when it is saved. */
+  assignments?: SupervisorRef[];
   /** The palette color of a group, by group name. */
   groupColors?: Record<string, string>;
 }
@@ -38,8 +38,8 @@ export interface SessionDraft {
   tags: Record<string, string>;
   projectPath: string;
   workflows: Record<string, DraftWorkflow>;
-  /** Supervisors the whole session declares; attached when it is saved. */
-  supervisors?: SupervisorRef[];
+  /** What supervisors own in the whole session; assigned when it is saved. */
+  assignments?: SupervisorRef[];
 }
 
 export interface ValidationResult {

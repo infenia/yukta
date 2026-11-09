@@ -17,7 +17,6 @@ import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
-import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.ExecutionLogStore;
@@ -26,6 +25,7 @@ import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.review.DryRunRecorder;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
+import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.sessionstore.InternalSessions;
 import com.infenia.yukta.service.supervisor.engine.DirectiveGate;
 import com.infenia.yukta.service.supervisor.engine.HoldLedger;
@@ -43,6 +43,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentHashMap;
@@ -104,6 +105,12 @@ public class SupervisorHost implements DryRunRecorder {
 
   /** Key of the supervisor in log entries. */
   private static final String SUPERVISOR_KEY = "supervisor";
+
+  private static final String RESUME_WORKFLOW =
+      ExecutionControlCommand.ResumeWorkflowCommand.class.getSimpleName();
+
+  private static final String STOP_WORKFLOW =
+      ExecutionControlCommand.StopWorkflowCommand.class.getSimpleName();
 
   /** The supervisors to run. */
   private final ObjectProvider<ExecutionSupervisor> supervisors;
@@ -240,12 +247,37 @@ public class SupervisorHost implements DryRunRecorder {
   /** Starts every supervisor. */
   @PostConstruct
   public void start() {
+    subscriptions.add(releaseHoldsWhenRunsMove());
     supervisors.stream()
         .forEach(
             supervisor -> {
               checkBeanId(supervisor);
               subscriptions.add(launch(supervisor, dryRun));
             });
+  }
+
+  /**
+   * Keeps the hold ledger honest: a run that anyone resumed or stopped, or that ended, is held by
+   * no supervisor any more, so {@code resume held} never undoes a later pause by someone else.
+   */
+  private Disposable releaseHoldsWhenRunsMove() {
+    return feed.events()
+        .filter(SupervisorHost::releasesHolds)
+        .subscribe(
+            event -> holds.releaseEverywhere(event.executionId()),
+            error -> log.atWarn().setCause(error).log("Hold ledger stopped following runs"));
+  }
+
+  private static boolean releasesHolds(final ExecutionEvent event) {
+    return switch (event) {
+      case ExecutionEvent.ControlOutcome outcome ->
+          outcome.applied()
+              && (RESUME_WORKFLOW.equals(outcome.command())
+                  || STOP_WORKFLOW.equals(outcome.command()));
+      case ExecutionEvent.WorkflowStatusChanged status ->
+          com.infenia.yukta.model.execution.TaskStatus.isTerminalName(status.status());
+      default -> false;
+    };
   }
 
   /** Fails start-up for a bean supervisor whose id breaks the naming rule. */
@@ -311,6 +343,28 @@ public class SupervisorHost implements DryRunRecorder {
     } finally {
       lock.unlock();
     }
+  }
+
+  /**
+   * The running supervisor of an attachment.
+   *
+   * @param attachmentId the attachment id
+   * @return it, or empty when it is not running
+   */
+  public Optional<BoundSupervisor> attached(final String attachmentId) {
+    return attachedSupervisors.stream().filter(s -> s.id().equals(attachmentId)).findFirst();
+  }
+
+  /**
+   * Every running supervisor of a supervisor id (one per assignment).
+   *
+   * @param supervisorId the supervisor id
+   * @return the running ones; empty when it owns nothing or is off
+   */
+  public List<BoundSupervisor> attachedOf(final String supervisorId) {
+    return attachedSupervisors.stream()
+        .filter(bound -> bound.attachment().supervisorId().equals(supervisorId))
+        .toList();
   }
 
   /**
@@ -519,8 +573,11 @@ public class SupervisorHost implements DryRunRecorder {
         supervisor instanceof BoundSupervisor bound
             ? bound.capabilities()
             : SupervisorCapabilities.from(new Supervisor(supervisor.id(), "bean", Map.of(), false));
-    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys());
-    final Set<String> answered = Collections.newSetFromMap(new BoundedKeys());
+    final Set<String> seen = Collections.newSetFromMap(new BoundedKeys<>());
+    // the request an answer is for, and the base key of the directive that answered it: the runs
+    // of one selector share that key (<key>#<execution>) and together are one answer
+    // read and written only by this supervisor's one subscription
+    final Map<String, String> answered = new BoundedKeys<>(); // NOPMD - UseConcurrentHashMap
     return directives
         .directives(events)
         .concatMap(
@@ -529,7 +586,8 @@ public class SupervisorHost implements DryRunRecorder {
                 return Mono.empty();
               }
               final Cause cause = directive.cause();
-              if (cause.kind() == Cause.Kind.ANSWERS && !answered.add(cause.text())) {
+              if (cause.kind() == Cause.Kind.ANSWERS
+                  && answeredBefore(answered, cause.text(), baseKey(directive.key()))) {
                 // an answer is accepted once; a second command answering the same request is not
                 return notApplied(
                         supervisor.id(),
@@ -609,12 +667,25 @@ public class SupervisorHost implements DryRunRecorder {
         .onErrorReturn(false);
   }
 
+  /** Whether another directive (by base key) already answered this request; records the first. */
+  private static boolean answeredBefore(
+      final Map<String, String> answered, final String request, final String base) {
+    final String first = answered.putIfAbsent(request, base);
+    return first != null && !first.equals(base);
+  }
+
+  /** The key a directive was sent under, without the {@code #<execution>} of a selector. */
+  private static String baseKey(final String key) {
+    final int hash = key.lastIndexOf('#');
+    return hash < 0 ? key : key.substring(0, hash);
+  }
+
   /** The keys remembered per supervisor: the newest 1000. */
-  private static final class BoundedKeys extends LinkedHashMap<String, Boolean> {
+  private static final class BoundedKeys<V> extends LinkedHashMap<String, V> {
     private static final long serialVersionUID = 1L;
 
     @Override
-    protected boolean removeEldestEntry(final Map.Entry<String, Boolean> eldest) {
+    protected boolean removeEldestEntry(final Map.Entry<String, V> eldest) {
       return size() > 1000;
     }
   }
@@ -718,7 +789,7 @@ public class SupervisorHost implements DryRunRecorder {
         ? Mono.just(!attached)
         : dispatcher
             .target(command)
-            .map(target -> scope.matches(target.sessionId(), target.workflowId(), target.nodeId()))
+            .map(t -> scope.owns(command, t.sessionId(), t.workflowId(), t.nodeId()))
             .onErrorReturn(false);
   }
 

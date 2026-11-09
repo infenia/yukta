@@ -50,6 +50,23 @@ class AgentCredentialControllerTest {
   }
 
   @Test
+  void metadataIsShownWithoutTheSecretAndIsGoneAfterRevoke() {
+    has("a1", "http");
+    final String token =
+        java.util.Objects.requireNonNull(controller.issue("a1", null, null).block()).data().token();
+
+    StepVerifier.create(controller.show("a1"))
+        .assertNext(
+            r -> {
+              assertThat(r.data().issuedAt()).isNotNull();
+              assertThat(r.data().toString()).doesNotContain(token);
+            })
+        .verifyComplete();
+    controller.revoke("a1").block();
+    assertThatThrownBy(() -> controller.show("a1")).isInstanceOf(NotFoundException.class);
+  }
+
+  @Test
   void credentialWithoutLifetimeTiedToAddressesNeverExpires() {
     has("a1", "http");
     StepVerifier.create(controller.issue("a1", null, java.util.List.of("10.0.0.5")))

@@ -56,7 +56,7 @@ let validation: { valid: boolean; errors: unknown[] } = {
 };
 
 const server = setupServer(
-  http.get('/api/supervisor-types', () =>
+  http.get('/api/supervisor-engines', () =>
     envelope([
       {
         type: 'failure-guard',
@@ -67,7 +67,7 @@ const server = setupServer(
       },
     ])
   ),
-  http.get('/api/supervisor-types/:type', ({ params }) =>
+  http.get('/api/supervisor-engines/:type', ({ params }) =>
     envelope({
       type: params.type,
       displayName: 'Failure guard',
@@ -83,7 +83,7 @@ const server = setupServer(
   ),
   http.get('/api/supervisors', () => envelope(supervisors)),
   http.get('/api/supervisors/decisions', () => envelope(decisions)),
-  http.get('/api/supervisors/attachments', ({ request }) => {
+  http.get('/api/supervisors/assignments', ({ request }) => {
     const source = new URL(request.url).searchParams.get('source');
     return envelope(
       source
@@ -93,21 +93,10 @@ const server = setupServer(
         : attachments
     );
   }),
-  http.get('/api/supervisors/:id/attachments', () => envelope(attachments)),
-  http.post('/api/supervisors/attachments', async ({ request }) => {
-    writes.push(`attach ${await request.text()}`);
-    return envelope({}, 201);
-  }),
-  http.patch(
-    '/api/supervisors/attachments/:id',
-    async ({ params, request }) => {
-      writes.push(`patch ${String(params.id)} ${await request.text()}`);
-      return envelope({});
-    }
-  ),
-  http.delete('/api/supervisors/attachments/:id', ({ params }) => {
-    writes.push(`detach ${String(params.id)}`);
-    return envelope(null);
+  http.get('/api/supervisors/:id/assignments', () => envelope(attachments)),
+  http.put('/api/supervisors/:id/assignments', async ({ params, request }) => {
+    writes.push(`assign ${String(params.id)} ${await request.text()}`);
+    return envelope([]);
   }),
   http.post('/api/supervisors/validate', () => envelope(validation)),
   http.post('/api/supervisors', async ({ request }) => {
@@ -281,9 +270,13 @@ describe('the attachments and decisions tabs', () => {
     renderAt('/supervisors?tab=attachments');
 
     await user.click(await screen.findByRole('button', { name: 'Disable' }));
-    await waitFor(() => expect(writes).toContain('patch a1 {"enabled":false}'));
+    await waitFor(() =>
+      expect(writes).toContain(
+        'assign guard [{"target":"session:s1","enabled":false,"locked":false}]'
+      )
+    );
     await user.click(screen.getByRole('button', { name: 'Detach' }));
-    await waitFor(() => expect(writes).toContain('detach a1'));
+    await waitFor(() => expect(writes).toContain('assign guard []'));
   });
 
   it('says when there are no attachments and when they cannot be read', async () => {
@@ -291,7 +284,7 @@ describe('the attachments and decisions tabs', () => {
     expect(await screen.findByText('No attachments.')).toBeInTheDocument();
     first.unmount();
     server.use(
-      http.get('/api/supervisors/attachments', () => envelope({}, 500))
+      http.get('/api/supervisors/assignments', () => envelope({}, 500))
     );
     renderAt('/supervisors?tab=attachments');
     expect(
@@ -391,7 +384,7 @@ describe('a supervisor', () => {
     );
     await user.click(within(dialog).getByRole('button', { name: 'Attach' }));
     await waitFor(() =>
-      expect(writes[0]).toContain('"scope":"workflow:s1/w1//build.a"')
+      expect(writes[0]).toContain('"target":"workflow:s1/w1//build.a"')
     );
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   });
@@ -419,13 +412,13 @@ describe('a supervisor', () => {
     expect(within(dialog).queryByLabelText('Choose session')).toBeNull();
     await user.click(within(dialog).getByLabelText('Start now'));
     await user.click(within(dialog).getByRole('button', { name: 'Attach' }));
-    await waitFor(() => expect(writes[0]).toContain('"scope":"global"'));
+    await waitFor(() => expect(writes[0]).toContain('"target":"global"'));
     expect(writes[0]).toContain('"enabled":false');
   });
 
   it('says when attaching needs an admin key or fails', async () => {
     server.use(
-      http.post('/api/supervisors/attachments', () => envelope({}, 403))
+      http.put('/api/supervisors/:id/assignments', () => envelope({}, 403))
     );
     const user = userEvent.setup();
     renderAt('/supervisors/guard');
@@ -515,6 +508,29 @@ describe('the wizard', () => {
     );
   });
 
+  it('lets the wizard turn off the dry run before it is reviewed', async () => {
+    const user = userEvent.setup();
+    renderAt('/supervisors/new');
+
+    await screen.findByRole('option', { name: 'Failure guard' });
+    await user.selectOptions(
+      screen.getByLabelText('Supervisor type'),
+      'failure-guard'
+    );
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await user.type(screen.getByLabelText('Name'), 'live');
+    await user.type(screen.getByLabelText('Description'), 'goes live');
+    await user.type(await screen.findByLabelText(/failures/), '5');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+
+    const dryRun = screen.getByLabelText(/Dry run/);
+    expect(dryRun).toBeChecked();
+    await user.click(dryRun);
+    expect(dryRun).not.toBeChecked();
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    expect(screen.getByText(preText(/"dryRun": false/))).toBeInTheDocument();
+  });
+
   it('shows the field errors the server finds and blocks next and save', async () => {
     validation = {
       valid: false,
@@ -594,7 +610,11 @@ describe('small cases', () => {
     const user = userEvent.setup();
     renderAt('/supervisors?tab=attachments');
     await user.click(await screen.findByRole('button', { name: 'Enable' }));
-    await waitFor(() => expect(writes).toContain('patch a2 {"enabled":true}'));
+    await waitFor(() =>
+      expect(writes).toContain(
+        'assign guard [{"target":"global","enabled":true,"locked":false}]'
+      )
+    );
   });
 
   it('shows and edits a supervisor without a description', async () => {
@@ -607,7 +627,7 @@ describe('small cases', () => {
 
   it('shows no attachments while they cannot be read', async () => {
     server.use(
-      http.get('/api/supervisors/:id/attachments', () => envelope({}, 500))
+      http.get('/api/supervisors/:id/assignments', () => envelope({}, 500))
     );
     const user = userEvent.setup();
     renderAt('/supervisors/guard');
@@ -618,7 +638,7 @@ describe('small cases', () => {
   it('asks for attachments of a session and workflow by source', async () => {
     let asked = '';
     server.use(
-      http.get('/api/supervisors/attachments', ({ request }) => {
+      http.get('/api/supervisors/assignments', ({ request }) => {
         asked = new URL(request.url).search;
         return envelope([]);
       })

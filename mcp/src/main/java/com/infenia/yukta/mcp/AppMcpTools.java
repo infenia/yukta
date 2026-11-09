@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
+import com.infenia.yukta.mcp.dto.AssignmentInput;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
 import com.infenia.yukta.mcp.dto.ExecutionLogs;
@@ -18,10 +19,14 @@ import com.infenia.yukta.mcp.dto.SessionCreationGuide;
 import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
-import com.infenia.yukta.mcp.dto.SupervisorAttachmentInfo;
+import com.infenia.yukta.mcp.dto.SupervisionAnswer;
+import com.infenia.yukta.mcp.dto.SupervisorAssignmentList;
+import com.infenia.yukta.mcp.dto.SupervisorCheck;
 import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
 import com.infenia.yukta.mcp.dto.SupervisorCredential;
+import com.infenia.yukta.mcp.dto.SupervisorDeleted;
 import com.infenia.yukta.mcp.dto.SupervisorDetached;
+import com.infenia.yukta.mcp.dto.SupervisorDetails;
 import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
@@ -53,6 +58,7 @@ import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.control.StopMode;
 import com.infenia.yukta.service.workflow.store.WorkflowDiff;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.ai.mcp.annotation.McpTool;
@@ -67,11 +73,12 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({
-  "PMD.UseObjectForClearerAPI",
   "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
+  "PMD.ExcessivePublicCount",
+  "PMD.LinguisticNaming",
   "PMD.TooManyMethods",
-  "PMD.ExcessivePublicCount"
+  "PMD.UseObjectForClearerAPI"
 })
 public class AppMcpTools {
 
@@ -89,6 +96,12 @@ public class AppMcpTools {
 
   /** Description of the supervisor id parameter. */
   private static final String SUPERVISOR_ID_DESC = "The supervisor id";
+
+  /** The assignments parameter of the assignment tools. */
+  private static final String ASSIGNMENTS_DESC =
+      "What the supervisor owns: a list of {target, enabled, locked}. A target is server,"
+          + " session:<id>, workflow:<s>/<w>, run:<s>/<w> or a section"
+          + " workflow:<s>/<w>//<selector>,... (node ids, <prefix>.*, group:<name>)";
 
   /** Provides session information for MCP tools. */
   private final SessionInfoProvider sessionInfoProvider;
@@ -170,14 +183,14 @@ public class AppMcpTools {
    * @return the catalog
    */
   @McpTool(
-      name = "list_supervisor_types",
-      title = "List Supervisor Types",
+      name = "list_supervisor_engines",
+      title = "List Supervisor Engines",
       description =
-          "List the supervisor types in the catalog with their category and what they do. Use "
-              + "get_supervisor_type for the settings of one.",
+          "List the decision makers (engines) a supervisor can have, with their category and what"
+              + " they do. Use get_supervisor_engine for the settings of one.",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
-  public Mono<SupervisorTypeList> listSupervisorTypes() {
+  public Mono<SupervisorTypeList> listSupervisorEngines() {
     return Mono.fromSupplier(supervisorProvider::types);
   }
 
@@ -188,16 +201,16 @@ public class AppMcpTools {
    * @return its details, with the settings it takes
    */
   @McpTool(
-      name = "get_supervisor_type",
-      title = "Get Supervisor Type",
+      name = "get_supervisor_engine",
+      title = "Get Supervisor Engine",
       description =
-          "Describe one supervisor type: what it does, when to use it, the settings it takes "
-              + "(configSchema), the settings every type takes (commonSchema), the commands it may "
-              + "send by default and an example that passes validation",
+          "Describe one decision maker (engine): what it does, when to use it, the settings it"
+              + " takes (configSchema), the settings every type takes (commonSchema), the commands"
+              + " it may send by default and an example that passes validation",
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
-  public Mono<SupervisorTypeDetails> getSupervisorType(
-      @McpToolParam(required = true, description = "The type name from list_supervisor_types")
+  public Mono<SupervisorTypeDetails> getSupervisorEngine(
+      @McpToolParam(required = true, description = "The engine type from list_supervisor_engines")
           final String type) {
     return Mono.fromSupplier(() -> supervisorProvider.type(type));
   }
@@ -216,10 +229,10 @@ public class AppMcpTools {
       name = "save_supervisor",
       title = "Save Supervisor",
       description =
-          "Create or replace a configured supervisor of a type from list_supervisor_types, with "
-              + "settings that follow get_supervisor_type. Attachments that use it restart with "
-              + "the new settings. Settings are checked and unknown keys are refused. Attach it "
-              + "with attach_supervisor. Needs an admin key.",
+          "Create or replace a configured supervisor with an engine from list_supervisor_engines"
+              + " and settings that follow get_supervisor_engine. Its assignments restart with the"
+              + " new settings. Settings are checked and unknown keys are refused. Say what it owns"
+              + " with set_assignments (check_assignment first). Needs an admin key.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -295,7 +308,7 @@ public class AppMcpTools {
       generateOutputSchema = true,
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<SupervisorPresetList> listSupervisorPresets(
-      @McpToolParam(required = true, description = "The type name from list_supervisor_types")
+      @McpToolParam(required = true, description = "The engine type from list_supervisor_engines")
           final String type) {
     return supervisorProvider.presets(type);
   }
@@ -428,61 +441,96 @@ public class AppMcpTools {
   }
 
   /**
-   * Attach a supervisor to a scope.
+   * One configured supervisor.
    *
-   * @param supervisorId an existing supervisor
-   * @param scope where it applies
-   * @param enabled whether it runs
-   * @param attachmentId the attachment id
-   * @return the attachment
+   * @param id the supervisor id
+   * @return its engine, settings (secrets hidden), parents and assignments
    */
   @McpTool(
-      name = "attach_supervisor",
-      title = "Attach Supervisor",
+      name = "get_supervisor",
+      title = "Get Supervisor",
       description =
-          "Attach a supervisor to a scope: global, session:<id>, workflow:<id>,"
-              + " workflow:<sessionId>/<workflowId>, or a section of a workflow: one of the"
-              + " workflow forms, then // and node selectors separated by commas, such as"
-              + " workflow:s1/deploy//build.*,publish (a selector is a node id or <prefix>.*). It"
-              + " starts at once and supervises that scope from now on, including runs already"
-              + " going. It sees, reviews and may send commands only within its scope; a section"
-              + " supervisor sees no workflow-wide event or command. Needs an admin key.",
+          "Describe one configured supervisor: its engine, settings (secrets as ***), the"
+              + " supervisors it reports to and what it owns (its assignments, with their source"
+              + " and lock).",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorDetails> getSupervisor(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String id) {
+    return supervisorProvider.details(id);
+  }
+
+  /**
+   * Check assignments without saving them.
+   *
+   * @param supervisorId the supervisor
+   * @param assignments what it would own
+   * @return whether it is fine, and the problems
+   */
+  @McpTool(
+      name = "check_assignment",
+      title = "Check Assignment",
+      description =
+          "Check what a supervisor would own, without saving: each target, groups, and the"
+              + " one-owner rule against every other supervisor. Call it before set_assignments."
+              + " Needs an admin key.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisorCheck> checkAssignment(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
+      @McpToolParam(required = true, description = ASSIGNMENTS_DESC)
+          final List<AssignmentInput> assignments) {
+    return supervisorProvider.checkAssignments(supervisorId, assignments);
+  }
+
+  /**
+   * Set what a supervisor owns.
+   *
+   * @param supervisorId the supervisor
+   * @param assignments what it should own
+   * @param unlock whether locked assignments may change
+   * @return what it owns afterwards
+   */
+  @McpTool(
+      name = "set_assignments",
+      title = "Set Assignments",
+      description =
+          "Make a supervisor own exactly these targets (its manual assignments; those from"
+              + " definitions change with the definition). Everything is checked first and nothing"
+              + " changes when a check fails: a target another supervisor owns is refused"
+              + " (OWNERSHIP_CONFLICT), and a locked assignment changes only with unlock=true by a"
+              + " lock holder. An empty list owns nothing. Owning a unit takes direct control of it"
+              + " away from people unless the supervisor lists the command in operatorAccess, so"
+              + " ask the user first. Needs an admin key.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
               readOnlyHint = false,
-              destructiveHint = false,
-              idempotentHint = false,
+              destructiveHint = true,
+              idempotentHint = true,
               openWorldHint = false))
-  public Mono<SupervisorAttachmentInfo> attachSupervisor(
-      @McpToolParam(required = true, description = "The id of an existing supervisor")
-          final String supervisorId,
-      @McpToolParam(
-              required = true,
-              description =
-                  "global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a "
-                      + "section workflow:<sessionId>/<workflowId>//<selector>,<selector>")
-          final String scope,
-      @McpToolParam(required = false, description = "Whether it runs; default true")
-          final Boolean enabled,
-      @McpToolParam(required = false, description = "The attachment id; generated when omitted")
-          final String attachmentId) {
-    return supervisorProvider.attach(supervisorId, scope, enabled, attachmentId);
+  public Mono<SupervisorAssignmentList> setAssignments(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String supervisorId,
+      @McpToolParam(required = true, description = ASSIGNMENTS_DESC)
+          final List<AssignmentInput> assignments,
+      @McpToolParam(required = false, description = "Allow changing locked ones; default false")
+          final Boolean unlock) {
+    return supervisorProvider.setAssignments(supervisorId, assignments, unlock);
   }
 
   /**
-   * Detach a supervisor.
+   * Delete a supervisor.
    *
-   * @param attachmentId the attachment to remove
+   * @param id the supervisor id
    * @return the result
    */
   @McpTool(
-      name = "detach_supervisor",
-      title = "Detach Supervisor",
+      name = "delete_supervisor",
+      title = "Delete Supervisor",
       description =
-          "Detach a manual attachment: its supervisor stops at once, without a restart. An "
-              + "attachment declared by a session or workflow definition is changed by editing the "
-              + "definition. Needs an admin key.",
+          "Delete a configured supervisor. It must own nothing (set_assignments with an empty"
+              + " list first), no definition may name it and no supervisor may report to it. Its"
+              + " agent credential is revoked. Needs an admin key.",
       generateOutputSchema = true,
       annotations =
           @McpTool.McpAnnotations(
@@ -490,10 +538,39 @@ public class AppMcpTools {
               destructiveHint = true,
               idempotentHint = false,
               openWorldHint = false))
-  public Mono<SupervisorDetached> detachSupervisor(
-      @McpToolParam(required = true, description = "The attachment id from list_supervisors")
-          final String attachmentId) {
-    return supervisorProvider.detach(attachmentId);
+  public Mono<SupervisorDeleted> deleteSupervisor(
+      @McpToolParam(required = true, description = SUPERVISOR_ID_DESC) final String id) {
+    return supervisorProvider.delete(id);
+  }
+
+  /**
+   * Who may send which command.
+   *
+   * @param sessionId the session, or null
+   * @param workflowId the workflow, or null
+   * @param executionId a run, or null
+   * @param nodeId the node, or null
+   * @return one answer per command
+   */
+  @McpTool(
+      name = "get_supervision",
+      title = "Get Supervision",
+      description =
+          "Who may send which command to a node, a run level or the server, before sending it:"
+              + " per command whether people may send it now, the supervisor that carries it"
+              + " ('default' when nobody owns the unit) and why not. Name no session and workflow"
+              + " for the server's commands, a node for its node commands. A refusal naming a"
+              + " supervisor is a decision, not an error to retry.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisionAnswer> getSupervision(
+      @McpToolParam(required = false, description = "The session") final String sessionId,
+      @McpToolParam(required = false, description = "The workflow") final String workflowId,
+      @McpToolParam(required = false, description = "A run; its session and workflow are used")
+          final String executionId,
+      @McpToolParam(required = false, description = "A node, for its node commands")
+          final String nodeId) {
+    return supervisorProvider.supervision(sessionId, workflowId, executionId, nodeId);
   }
 
   /**

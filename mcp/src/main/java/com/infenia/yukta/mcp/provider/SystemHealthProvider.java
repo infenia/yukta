@@ -84,7 +84,7 @@ public class SystemHealthProvider {
         });
   }
 
-  private Map<String, Object> supervision(final java.util.@Nullable List<String> sessions) {
+  private Map<String, Object> supervision(final @Nullable List<String> sessions) {
     final var summary = reviewer.summary(sessions);
     return Map.of("defaultSupervisor", summary.defaultSupervisor(), "owners", summary.owners());
   }

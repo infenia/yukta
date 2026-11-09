@@ -19,6 +19,7 @@ import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,8 +41,17 @@ class SupervisorProviderTest {
 
   private final OwnershipMap ownership = mock(OwnershipMap.class);
 
+  private final com.infenia.yukta.service.supervisor.SupervisorAssignments assignments =
+      mock(com.infenia.yukta.service.supervisor.SupervisorAssignments.class);
+
+  private final com.infenia.yukta.service.review.ControlReviewer reviewer =
+      mock(com.infenia.yukta.service.review.ControlReviewer.class);
+
+  private final com.infenia.yukta.service.control.gateway.ControlBusGateway bus =
+      mock(com.infenia.yukta.service.control.gateway.ControlBusGateway.class);
+
   private final SupervisorProvider provider =
-      new SupervisorProvider(host, service, credentials, ownership);
+      new SupervisorProvider(host, service, credentials, ownership, assignments, reviewer, bus);
 
   @BeforeEach
   void noAttachmentsYet() {
@@ -89,7 +99,7 @@ class SupervisorProviderTest {
                         assertThat(r.applied()).isEqualTo(3);
                         assertThat(r.dryRun()).isTrue();
                       });
-              assertThat(listing.attachments())
+              assertThat(listing.assignments())
                   .singleElement()
                   .satisfies(b -> assertThat(b.scope()).isEqualTo("session:A"));
               assertThat(listing.supervisors())
@@ -114,89 +124,6 @@ class SupervisorProviderTest {
                     "g", "SUPERVISOR", "GLOBAL", null, null, null, false, 0, 0)
                 .scopeNodes())
         .isNull();
-  }
-
-  @Test
-  void attachParsesTheScopeGeneratesAnIdAndDefaultsToEnabled() {
-    when(service.attach(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
-
-    StepVerifier.create(provider.attach("p", "workflow:A/w", null, " "))
-        .assertNext(
-            b -> {
-              assertThat(b.id()).isNotBlank();
-              assertThat(b.scope()).isEqualTo("workflow:A/w");
-              assertThat(b.enabled()).isTrue();
-            })
-        .verifyComplete();
-    StepVerifier.create(provider.attach("p", "workflow:A/w//build.*, deploy", null, null))
-        .assertNext(b -> assertThat(b.scope()).isEqualTo("workflow:A/w//build.*,deploy"))
-        .verifyComplete();
-    StepVerifier.create(provider.attach("p", "global", false, " mine "))
-        .assertNext(
-            b -> {
-              assertThat(b.id()).isEqualTo("mine");
-              assertThat(b.enabled()).isFalse();
-            })
-        .verifyComplete();
-
-    final ArgumentCaptor<SupervisorAttachment> sent =
-        ArgumentCaptor.forClass(SupervisorAttachment.class);
-    verify(service, org.mockito.Mockito.times(3)).attach(sent.capture());
-    assertThat(sent.getAllValues().getFirst().scope())
-        .isEqualTo(new SupervisorScope.Workflow("w", "A"));
-  }
-
-  @Test
-  void attachWithoutBindingIdGeneratesOne() {
-    when(service.attach(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
-
-    StepVerifier.create(provider.attach("p", "global", true, null))
-        .assertNext(b -> assertThat(b.id()).isNotBlank())
-        .verifyComplete();
-  }
-
-  @Test
-  void badScopeIsRejected() {
-    StepVerifier.create(provider.attach("p", "everything", true, "b"))
-        .expectError(IllegalArgumentException.class)
-        .verify();
-  }
-
-  @Test
-  void detachReportsTheRemovedBinding() {
-    when(service.detach("b")).thenReturn(Mono.empty());
-
-    StepVerifier.create(provider.detach("b"))
-        .assertNext(
-            d -> {
-              assertThat(d.attachmentId()).isEqualTo("b");
-              assertThat(d.detached()).isTrue();
-            })
-        .verifyComplete();
-  }
-
-  @Test
-  void definitionAttachmentCannotBeDetachedOrReplacedByHand() {
-    when(service.attachments())
-        .thenReturn(
-            Flux.just(
-                new SupervisorAttachment(
-                    "def-1",
-                    "p",
-                    new SupervisorScope.Session("A"),
-                    true,
-                    com.infenia.yukta.plugin.control.SupervisorSource.DEFINITION,
-                    "A",
-                    null)));
-
-    StepVerifier.create(provider.detach("def-1"))
-        .expectError(com.infenia.yukta.service.ConflictException.class)
-        .verify();
-    StepVerifier.create(provider.attach("p", "global", true, "def-1"))
-        .expectError(com.infenia.yukta.service.ConflictException.class)
-        .verify();
-    verify(service, org.mockito.Mockito.never()).detach(any());
-    verify(service, org.mockito.Mockito.never()).attach(any());
   }
 
   @Test
@@ -286,18 +213,6 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void manualAttachmentCanBeDetached() {
-    when(service.attachments())
-        .thenReturn(
-            Flux.just(new SupervisorAttachment("m", "p", new SupervisorScope.Global(), true)));
-    when(service.detach("m")).thenReturn(Mono.empty());
-
-    StepVerifier.create(provider.detach("m"))
-        .assertNext(d -> assertThat(d.detached()).isTrue())
-        .verifyComplete();
-  }
-
-  @Test
   void saveGeneratesIdForBlankOneAndTakesNoDescription() {
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
@@ -307,18 +222,6 @@ class SupervisorProviderTest {
               assertThat(saved.id()).isNotBlank();
               assertThat(saved.description()).isNull();
             })
-        .verifyComplete();
-  }
-
-  @Test
-  void detachingAnAttachmentOtherThanTheListedOnesGoesToTheService() {
-    when(service.attachments())
-        .thenReturn(
-            Flux.just(new SupervisorAttachment("other", "p", new SupervisorScope.Global(), true)));
-    when(service.detach("m")).thenReturn(Mono.empty());
-
-    StepVerifier.create(provider.detach("m"))
-        .assertNext(d -> assertThat(d.attachmentId()).isEqualTo("m"))
         .verifyComplete();
   }
 
@@ -455,5 +358,203 @@ class SupervisorProviderTest {
                   .containsEntry("a", "default");
             })
         .verifyComplete();
+  }
+
+  @Test
+  void assignmentsAreReadSetAndCheckedThroughTheAssignments() {
+    final SupervisorAttachment owned =
+        new SupervisorAttachment("asg-1", "p", new SupervisorScope.Server(), true).withLocked(true);
+    when(assignments.of("p")).thenReturn(Flux.just(owned));
+    when(assignments.set(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        .thenReturn(Mono.just(List.of(owned)));
+    when(assignments.check(any(), any()))
+        .thenReturn(
+            Mono.just(
+                List.of(
+                    new com.infenia.yukta.service.supervisor.SettingsValidationException.Issue(
+                        "assignments[0]", "taken"))));
+    final List<com.infenia.yukta.mcp.dto.AssignmentInput> wanted =
+        List.of(new com.infenia.yukta.mcp.dto.AssignmentInput("server", null, true));
+
+    StepVerifier.create(provider.assignments("p"))
+        .assertNext(r -> assertThat(r.assignments()).singleElement().matches(a -> a.locked()))
+        .verifyComplete();
+    StepVerifier.create(provider.setAssignments("p", wanted, true))
+        .assertNext(r -> assertThat(r.assignments()).hasSize(1))
+        .verifyComplete();
+    StepVerifier.create(provider.checkAssignments("p", wanted))
+        .assertNext(
+            r -> {
+              assertThat(r.valid()).isFalse();
+              assertThat(r.problems()).containsExactly("assignments[0]: taken");
+            })
+        .verifyComplete();
+    final ArgumentCaptor<
+            List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
+        sent = ArgumentCaptor.captor();
+    verify(assignments)
+        .set(
+            org.mockito.ArgumentMatchers.eq("p"),
+            sent.capture(),
+            org.mockito.ArgumentMatchers.eq(true));
+    assertThat(sent.getValue().get(0).enabled()).isTrue();
+    assertThat(sent.getValue().get(0).locked()).isTrue();
+  }
+
+  @Test
+  void assignmentsNeedListAndTargets() {
+    StepVerifier.create(provider.setAssignments("p", null, false))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            provider.checkAssignments(
+                "p", List.of(new com.infenia.yukta.mcp.dto.AssignmentInput(" ", true, null))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void detailsHideSecretsAndDeleteGoesToTheService() {
+    when(service.supervisors())
+        .thenReturn(
+            Flux.just(new Supervisor("p", "T", Map.of("apiKey", "s3cret", "level", 2), false)));
+    when(service.configSchema("T")).thenReturn(List.of());
+    when(assignments.of("p")).thenReturn(Flux.empty());
+    when(service.deleteSupervisor("p")).thenReturn(Mono.empty());
+
+    StepVerifier.create(provider.details("p"))
+        .assertNext(
+            d -> {
+              assertThat(d.settings()).containsEntry("apiKey", "***").containsEntry("level", 2);
+              assertThat(d.assignments()).isEmpty();
+            })
+        .verifyComplete();
+    StepVerifier.create(provider.details("nobody"))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(provider.delete("p"))
+        .assertNext(r -> assertThat(r.deleted()).isTrue())
+        .verifyComplete();
+  }
+
+  @Test
+  void supervisionAsksTheReviewerForTheRunOfAnExecution() {
+    final com.infenia.yukta.model.execution.WorkflowProgress progress =
+        mock(com.infenia.yukta.model.execution.WorkflowProgress.class);
+    when(progress.sessionId()).thenReturn("s");
+    when(progress.workflowId()).thenReturn("w");
+    when(bus.getCurrentProgress("e1")).thenReturn(progress);
+    when(reviewer.capabilities("s", "w", null))
+        .thenReturn(
+            Map.of(
+                "pause",
+                new com.infenia.yukta.service.review.ControlReviewer.Capability(
+                    false, "guard", "guard controls this")));
+    when(reviewer.capabilities(null, null, null)).thenReturn(Map.of());
+
+    StepVerifier.create(provider.supervision(null, null, "e1", null))
+        .assertNext(
+            a ->
+                assertThat(a.commands())
+                    .singleElement()
+                    .satisfies(
+                        c -> {
+                          assertThat(c.command()).isEqualTo("pause");
+                          assertThat(c.via()).isEqualTo("guard");
+                          assertThat(c.allowed()).isFalse();
+                        }))
+        .verifyComplete();
+    StepVerifier.create(provider.supervision(null, null, "unknown", null))
+        .assertNext(a -> assertThat(a.commands()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void secretFieldOfTheSchemaIsHiddenWhateverItsName() {
+    when(service.supervisors())
+        .thenReturn(Flux.just(new Supervisor("p", "T", Map.of("passphrase", "s3cret"), false)));
+    when(service.configSchema("T"))
+        .thenReturn(
+            List.of(
+                com.infenia.yukta.plugin.core.ConfigField.optional(
+                    "passphrase",
+                    com.infenia.yukta.plugin.core.ConfigField.Type.SECRET,
+                    null,
+                    "a secret"),
+                com.infenia.yukta.plugin.core.ConfigField.optional(
+                    "level",
+                    com.infenia.yukta.plugin.core.ConfigField.Type.NUMBER,
+                    null,
+                    "plain")));
+    when(assignments.of("p")).thenReturn(Flux.empty());
+
+    StepVerifier.create(provider.details("p"))
+        .assertNext(d -> assertThat(d.settings()).containsEntry("passphrase", "***"))
+        .verifyComplete();
+  }
+
+  @Test
+  void supervisionOfNodeNamedWithoutAnExecutionUsesTheSessionAndWorkflowGiven() {
+    when(reviewer.capabilities("s", "w", "n")).thenReturn(Map.of());
+
+    StepVerifier.create(provider.supervision("s", "w", null, "n"))
+        .assertNext(a -> assertThat(a.commands()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void anAssignmentWithNoTargetOrSwitchedOffAndUnlockedIsReadAsGiven() {
+    when(assignments.set(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        .thenReturn(Mono.just(List.of()));
+    final ArgumentCaptor<
+            List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
+        sent = ArgumentCaptor.captor();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput("server", false, false)),
+                null))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(assignments)
+        .set(
+            org.mockito.ArgumentMatchers.eq("p"),
+            sent.capture(),
+            org.mockito.ArgumentMatchers.eq(false));
+    assertThat(sent.getValue().get(0).enabled()).isFalse();
+    assertThat(sent.getValue().get(0).locked()).isFalse();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput(null, true, true)),
+                false))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void anAssignmentSwitchedOnExplicitlyIsReadAsOn() {
+    when(assignments.set(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        .thenReturn(Mono.just(List.of()));
+    final ArgumentCaptor<
+            List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
+        sent = ArgumentCaptor.captor();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput("server", true, null)),
+                true))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(assignments)
+        .set(
+            org.mockito.ArgumentMatchers.eq("p"),
+            sent.capture(),
+            org.mockito.ArgumentMatchers.eq(true));
+    assertThat(sent.getValue().get(0).enabled()).isTrue();
+    assertThat(sent.getValue().get(0).locked()).isFalse();
   }
 }

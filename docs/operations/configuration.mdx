@@ -224,21 +224,20 @@ A plugin can ask for a decision and wait for the answer; these settings bound th
 
 Requests are kept in memory and are lost when the server restarts.
 
-## Supervisors and control planes
+## Supervisors
 
-See [Supervisors](/running/supervisors) and [Control planes](/running/control-planes).
+See [Supervisors](/running/supervisors) and [Supervisor engines](/running/supervisor-engines).
 
 | Setting | Default | Meaning and effect |
 |---|---|---|
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit for each supervisor's commands |
-| `yukta.supervisor.max-attachments` | `200` | Most supervisor attachments at once; one more is refused with 409 |
+| `yukta.supervisor.max-attachments` | `200` | Most supervisor assignments at once; one more is refused with 409 |
 | `yukta.supervisor.buffer-size` | `10000` | Events a supervisor may have waiting; beyond that events are dropped and it receives an `EventsMissed` event |
 | `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to review a command. A slower review refuses the command, except a stop, which is allowed |
 | `yukta.supervisor.dry-run` | `false` | Record supervisor commands without applying them |
-| `yukta.supervisor.rules.file` | unset | JSON rules file. Setting it enables the rule supervisor |
-| `yukta.control-plane.rules.file` | unset | JSON rules file. Setting it enables the rule control plane |
-| `yukta.control-plane.rules-first.rules-file` | unset | Rules file of the rules-first control plane |
-| `yukta.control-plane.model.name` | unset | Model name. Setting it enables the model control plane |
+| `yukta.supervisor.rules.file` | unset | JSON rules file. Setting it starts a rule supervisor that owns nothing, so it reviews nothing; prefer a `rules` supervisor made through the API |
+| `yukta.supervisor.default.enabled` | `true` | Lets people control what no supervisor owns |
+| `yukta.supervisor.lock-holders` | unset | Keys that may change a locked assignment |
 
 ## Workers
 

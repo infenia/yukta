@@ -14,10 +14,21 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 /** Who carries a command, for a node, a run, a run found by its execution and the server. */
+@SuppressWarnings({"PMD.NonStaticInitializer"})
 @NoArgsConstructor
 class SupervisionControllerTest {
 
   private final ControlReviewer reviewer = mock(ControlReviewer.class);
+
+  {
+    // the list of commands is the reviewer's own; each answer comes from capability, stubbed below
+    when(reviewer.capabilities(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
+        .thenCallRealMethod();
+  }
+
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
   private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
       mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);

@@ -361,7 +361,7 @@ export const test = base.extend<TestFixtures>({
     await quiet(/\/api\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/workers$/, 200, []);
     await quiet(/\/api\/supervisors$/, 200, []);
-    await quiet(/\/api\/supervisors\/attachments(\?|$)/, 200, []);
+    await quiet(/\/api\/supervisors\/assignments(\?|$)/, 200, []);
     await quiet(/\/api\/supervisors\/status$/, 200, []);
     await quiet(/\/api\/supervisors\/decisions(\?|$)/, 200, []);
     await quiet(/\/api\/supervisors\/types$/, 200, ['rule-supervisor']);

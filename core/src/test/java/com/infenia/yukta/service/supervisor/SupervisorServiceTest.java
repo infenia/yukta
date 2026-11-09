@@ -32,6 +32,8 @@ import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
+import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -367,19 +369,48 @@ class SupervisorServiceTest {
   }
 
   @Test
-  void groupSelectorsAreRefusedUntilTheyCanBeResolved() {
+  void groupSelectorNeedsTheSessionAndIsResolvedToTheNodesOfTheGroupWhenItStarts() {
     saveSupervisors("a");
+    final NodeGroupIndex groups = new NodeGroupIndex();
+    groups.put(
+        "s",
+        Map.of(
+            "w",
+            Fixtures.workflow(
+                "w",
+                "d",
+                List.of(
+                    Fixtures.node("build.compile", "T", Map.of()),
+                    Fixtures.node("deploy", "T", Map.of())),
+                List.of(),
+                List.of())));
+    service.setNodeGroups(groups);
 
     StepVerifier.create(
             service.attach(
                 attachment(
-                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:ci")), true)))
+                    "a0",
+                    "a",
+                    new SupervisorScope.Section("w", null, Set.of("group:build")),
+                    true)))
         .expectErrorSatisfies(
             error ->
                 assertThat(error)
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(SupervisorService.GROUPS_NOT_YET))
+                    .hasMessage(SupervisorService.GROUPS_NEED_SESSION))
         .verify();
+    StepVerifier.create(
+            service.attach(
+                attachment(
+                    "a1", "a", new SupervisorScope.Section("w", "s", Set.of("group:build")), true)))
+        .expectNextCount(1)
+        .verifyComplete();
+    final ArgumentCaptor<BoundSupervisor> bound = ArgumentCaptor.forClass(BoundSupervisor.class);
+    verify(host, org.mockito.Mockito.atLeastOnce()).attach(bound.capture());
+    // the bound supervisor owns build.compile, the one node of group build, and not deploy
+    assertThat(bound.getValue().scope().matches("s", "w", "build.compile")).isTrue();
+    assertThat(bound.getValue().scope().matches("s", "w", "deploy")).isFalse();
+    assertThat(bound.getValue().attachment().scope().key()).isEqualTo("workflow:s/w//group:build");
   }
 
   @Test
@@ -1084,7 +1115,9 @@ class SupervisorServiceTest {
   private static Boolean replayedAllowed(
       final SupervisorService made,
       final @org.jspecify.annotations.Nullable Map<String, Object> draft) {
-    return made.replay("r", draft, "run1").block().getFirst().allowed();
+    return java.util.Objects.requireNonNull(made.replay("r", draft, "run1").block())
+        .getFirst()
+        .allowed();
   }
 
   @Test
@@ -1173,12 +1206,12 @@ class SupervisorServiceTest {
     definitions
         .save(
             "s",
-            com.infenia.yukta.testing.Fixtures.workflow(
+            Fixtures.workflow(
                 "w",
                 "d",
                 List.of(
-                    com.infenia.yukta.testing.Fixtures.node("build.compile", "T", Map.of()),
-                    com.infenia.yukta.testing.Fixtures.node("deploy", "T", Map.of())),
+                    Fixtures.node("build.compile", "T", Map.of()),
+                    Fixtures.node("deploy", "T", Map.of())),
                 List.of(),
                 List.of()))
         .block();

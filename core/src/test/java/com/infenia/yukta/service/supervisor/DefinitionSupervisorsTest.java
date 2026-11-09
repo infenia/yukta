@@ -25,6 +25,7 @@ import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -135,7 +136,7 @@ class DefinitionSupervisorsTest {
   void checkRefusesDeclarationThatTakesWhatAnotherSupervisorOwns() {
     supervisor("a");
     supervisor("b");
-    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a")))))
         .assertNext(
@@ -145,7 +146,7 @@ class DefinitionSupervisorsTest {
                     .satisfies(
                         issue -> {
                           assertThat(issue.field())
-                              .isEqualTo("workflows.w1.supervisors[0].supervisor");
+                              .isEqualTo("workflows.w1.assignments[0].supervisor");
                           assertThat(issue.message()).contains("workflow w1", "owned by b");
                         }))
         .verifyComplete();
@@ -155,14 +156,14 @@ class DefinitionSupervisorsTest {
   void checkNamesSessionDeclarationThatTakesWhatAnotherSupervisorOwns() {
     supervisor("a");
     supervisor("b");
-    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, java.util.Set.of("build.*")));
+    manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(ref("a")), workflow("w1"))))
         .assertNext(
             issues ->
                 assertThat(issues)
                     .extracting(Issue::field)
-                    .containsOnly("supervisors[0].supervisor"))
+                    .containsOnly("assignments[0].supervisor"))
         .verifyComplete();
   }
 
@@ -176,7 +177,7 @@ class DefinitionSupervisorsTest {
                     "off", "b", new SupervisorScope.Workflow("w1", SESSION), false)))
         .expectNextCount(1)
         .verifyComplete();
-    manual("elsewhere", "b", new SupervisorScope.Section("w1", "other", java.util.Set.of("x")));
+    manual("elsewhere", "b", new SupervisorScope.Section("w1", "other", Set.of("x")));
     final SessionConfigData data = session(List.of(), workflow("w1", ref("a")));
     save(data);
 
@@ -189,10 +190,10 @@ class DefinitionSupervisorsTest {
   void checkComparesSectionsOfAnySessionAndLeavesOtherSessionsDefinitionsAlone() {
     supervisor("a");
     supervisor("b");
-    manual("any-a", "a", new SupervisorScope.Section("w1", null, java.util.Set.of("deploy")));
-    manual("any-b", "b", new SupervisorScope.Section("w1", null, java.util.Set.of("build.*")));
-    manual("other-a", "a", new SupervisorScope.Section("w2", "other", java.util.Set.of("x")));
-    manual("other-b", "b", new SupervisorScope.Section("w2", "other", java.util.Set.of("y")));
+    manual("any-a", "a", new SupervisorScope.Section("w1", null, Set.of("deploy")));
+    manual("any-b", "b", new SupervisorScope.Section("w1", null, Set.of("build.*")));
+    manual("other-a", "a", new SupervisorScope.Section("w2", "other", Set.of("x")));
+    manual("other-b", "b", new SupervisorScope.Section("w2", "other", Set.of("y")));
     store
         .saveAttachment(
             new SupervisorAttachment(
@@ -227,7 +228,7 @@ class DefinitionSupervisorsTest {
             issues ->
                 assertThat(issues)
                     .extracting(Issue::field)
-                    .contains("supervisors", "workflows.w1.nodes"))
+                    .contains("assignments", "workflows.w1.nodes"))
         .verifyComplete();
   }
 
@@ -246,7 +247,7 @@ class DefinitionSupervisorsTest {
                     SESSION,
                     null),
                 data))
-        .isEqualTo("supervisors");
+        .isEqualTo("assignments");
     assertThat(
             DefinitionChecks.fieldOf(
                 new SupervisorAttachment(
@@ -258,7 +259,7 @@ class DefinitionSupervisorsTest {
                     SESSION,
                     "w1"),
                 data))
-        .isEqualTo("workflows.w1.supervisors");
+        .isEqualTo("workflows.w1.assignments");
   }
 
   @Test
@@ -276,16 +277,17 @@ class DefinitionSupervisorsTest {
                     .satisfies(
                         issue -> {
                           assertThat(issue.field())
-                              .isEqualTo("workflows.w1.supervisors[1].supervisor");
+                              .isEqualTo("workflows.w1.assignments[1].supervisor");
                           assertThat(issue.message()).contains("owned by a");
                         }))
         .verifyComplete();
   }
 
   @Test
-  void checkRefusesGroupSelectorUntilItCanBeResolved() {
+  void groupSelectorMustNameGroupOfTheWorkflow() {
     supervisor("a");
 
+    // build.compile and build.test make the group build; there is no group ci
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))
         .assertNext(
             issues ->
@@ -293,9 +295,12 @@ class DefinitionSupervisorsTest {
                     .singleElement()
                     .satisfies(
                         issue -> {
-                          assertThat(issue.field()).isEqualTo("workflows.w1.supervisors[0].nodes");
-                          assertThat(issue.message()).isEqualTo(SupervisorService.GROUPS_NOT_YET);
+                          assertThat(issue.field()).isEqualTo("workflows.w1.assignments[0].nodes");
+                          assertThat(issue.message()).contains("selects no node");
                         }))
+        .verifyComplete();
+    StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:build")))))
+        .assertNext(issues -> assertThat(issues).isEmpty())
         .verifyComplete();
   }
 
@@ -504,14 +509,14 @@ class DefinitionSupervisorsTest {
     assertThat(issues)
         .extracting(Issue::field)
         .containsExactlyInAnyOrder(
-            "supervisors[0].supervisor",
-            "supervisors[1].supervisor",
-            "supervisors[2].nodes",
-            "supervisors[4].supervisor",
-            "workflows.w1.supervisors[0].nodes",
-            "workflows.w1.supervisors[1].nodes",
-            "workflows.w1.supervisors[3].supervisor");
-    assertThat(issues.stream().filter(i -> "supervisors[1].supervisor".equals(i.field())))
+            "assignments[0].supervisor",
+            "assignments[1].supervisor",
+            "assignments[2].nodes",
+            "assignments[4].supervisor",
+            "workflows.w1.assignments[0].nodes",
+            "workflows.w1.assignments[1].nodes",
+            "workflows.w1.assignments[3].supervisor");
+    assertThat(issues.stream().filter(i -> "assignments[1].supervisor".equals(i.field())))
         .singleElement()
         .satisfies(i -> assertThat(i.message()).contains("server"));
   }
@@ -524,7 +529,22 @@ class DefinitionSupervisorsTest {
     org.assertj.core.api.Assertions.assertThatThrownBy(
             () -> declared.require(workflow("w1", ref("nope"))).block())
         .isInstanceOf(SettingsValidationException.class)
-        .hasMessageContaining("supervisors[0].supervisor");
+        .hasMessageContaining("assignments[0].supervisor");
+  }
+
+  @Test
+  void requireWithTheSessionRefusesVersionThatTakesWhatAnotherSupervisorOwns() {
+    supervisor("guard");
+    supervisor("other");
+    definitions.save(SESSION, workflow("w1")).block();
+    manual("m", "other", new SupervisorScope.Section("w1", SESSION, Set.of("deploy")));
+
+    // a rollback to a version that declares guard on deploy is checked like a session save
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> declared.require(SESSION, workflow("w1", ref("guard", "deploy"))).block())
+        .isInstanceOf(SettingsValidationException.class)
+        .hasMessageContaining("workflows.w1.assignments[0]");
+    declared.require(SESSION, workflow("w1", ref("guard", "build.*"))).block();
   }
 
   @Test
@@ -538,7 +558,7 @@ class DefinitionSupervisorsTest {
         .isEmpty();
     assertThat(declared.check(workflow("w1", ref("nope"))).block())
         .extracting(Issue::field)
-        .containsExactly("supervisors[0].supervisor");
+        .containsExactly("assignments[0].supervisor");
   }
 
   @Test
@@ -765,5 +785,48 @@ class DefinitionSupervisorsTest {
     public Mono<Map<String, WorkflowDefinition>> findAll(final String sessionId) {
       return super.findAll(sessionId).delayElement(java.time.Duration.ofMillis(100));
     }
+  }
+
+  @Test
+  void declarationThatFailedIsAttachedByTheTimerOnceItCanBe() {
+    save(session(List.of(), workflow("w1", ref("later"))));
+    assertThat(attachments()).isEmpty();
+    supervisor("later");
+
+    declared.useRetryPeriod(java.time.Duration.ofMillis(50));
+    declared.onReady();
+    try {
+      org.awaitility.Awaitility.await()
+          .atMost(java.time.Duration.ofSeconds(5))
+          .untilAsserted(() -> assertThat(attachments()).hasSize(1));
+    } finally {
+      declared.stop();
+    }
+  }
+
+  @Test
+  void groupsOfSessionAreKeptFromItsDefinitionsAndForgottenWithIt() {
+    final com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex groups =
+        new com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex();
+    declared.setNodeGroups(groups);
+    supervisor("guard");
+
+    save(session(List.of(ref("guard")), workflow("w1", ref("guard"))));
+    // the same definitions again change no group, so nothing is restarted
+    save(session(List.of(ref("guard")), workflow("w1", ref("guard"))));
+    definitions.removeAll(SESSION).block();
+    StepVerifier.create(declared.forget(SESSION)).verifyComplete();
+
+    assertThat(attachments()).isEmpty();
+  }
+
+  @Test
+  void versionWhoseOwnDeclarationsAreWrongIsRefusedBeforeOwnershipIsLookedAt() {
+    final WorkflowDefinition broken = workflow("w1", ref("ghost"));
+    final DefinitionChecks checks = new DefinitionChecks(service, host);
+
+    StepVerifier.create(checks.check(SESSION, List.of(), Map.of("w1", broken), broken))
+        .assertNext(issues -> assertThat(issues).isNotEmpty())
+        .verifyComplete();
   }
 }

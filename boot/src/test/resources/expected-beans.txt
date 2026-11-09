@@ -39,14 +39,12 @@ com.infenia.yukta.controller.WorkflowController
 com.infenia.yukta.controller.WorkflowDetailsController
 com.infenia.yukta.controller.WorkflowValidationController
 com.infenia.yukta.controller.WorkflowVersionController
-com.infenia.yukta.controlplane.composite.RulesFirstControlPlaneFactory
-com.infenia.yukta.controlplane.model.ModelControlPlaneFactory
-com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory
 com.infenia.yukta.docs.ApiDocsCustomizer
 com.infenia.yukta.edition.EditionInfo
 com.infenia.yukta.exception.GlobalExceptionHandler
 com.infenia.yukta.filter.AgentCredentialFilter
 com.infenia.yukta.filter.ApiKeyFilter
+com.infenia.yukta.filter.ControlViaFilter
 com.infenia.yukta.filter.DeprecatedAliasFilter
 com.infenia.yukta.filter.HostOriginFilter
 com.infenia.yukta.filter.RequestLoggingFilter
@@ -215,6 +213,7 @@ com.infenia.yukta.service.supervisor.AttachedSupervisorsDirectory
 com.infenia.yukta.service.supervisor.DefinitionSupervisors
 com.infenia.yukta.service.supervisor.InMemorySupervisorStore
 com.infenia.yukta.service.supervisor.OwnershipMap
+com.infenia.yukta.service.supervisor.SupervisorAssignments
 com.infenia.yukta.service.supervisor.SupervisorHost
 com.infenia.yukta.service.supervisor.SupervisorService
 com.infenia.yukta.service.supervisor.agent.AgentCredentials
@@ -222,6 +221,7 @@ com.infenia.yukta.service.supervisor.agent.AgentEngineConfiguration
 com.infenia.yukta.service.supervisor.agent.AgentHub
 com.infenia.yukta.service.supervisor.engine.SupervisorQueries
 com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver
+com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex
 com.infenia.yukta.service.supervisor.workflow.SupervisorWorkflowRunner
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks
 com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory
@@ -236,9 +236,6 @@ com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.AppConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
-com.infenia.yukta.supervisor.guards.ApprovalGateFactory
-com.infenia.yukta.supervisor.guards.FailureGuardFactory
-com.infenia.yukta.supervisor.guards.StallWatchdogFactory
+com.infenia.yukta.supervisor.callout.CalloutSupervisorFactory
 com.infenia.yukta.supervisor.process.ProcessEngineConfiguration
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory
-com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory

@@ -83,14 +83,14 @@ const details = (type: string) => ({
 });
 
 const server = setupServer(
-  http.get('/api/supervisor-types', () =>
+  http.get('/api/supervisor-engines', () =>
     HttpResponse.json(envelope(summaries))
   ),
-  http.get('/api/supervisor-types/:type', ({ params }) =>
+  http.get('/api/supervisor-engines/:type', ({ params }) =>
     HttpResponse.json(envelope(details(String(params.type))))
   ),
   http.get('/api/supervisors/decisions', () => HttpResponse.json(envelope([]))),
-  http.get('/api/supervisors/attachments', () =>
+  http.get('/api/supervisors/assignments', () =>
     HttpResponse.json(envelope([]))
   ),
   http.get('/api/supervisors', () =>
@@ -192,7 +192,7 @@ describe('SupervisorsPage', () => {
 
   it('says so when a type cannot be loaded or there are none', async () => {
     server.use(
-      http.get('/api/supervisor-types/:type', () =>
+      http.get('/api/supervisor-engines/:type', () =>
         HttpResponse.json({}, { status: 500 })
       )
     );
@@ -214,7 +214,7 @@ describe('SupervisorsPage', () => {
 
   it('says so when there are no types', async () => {
     server.use(
-      http.get('/api/supervisor-types', () => HttpResponse.json(envelope([])))
+      http.get('/api/supervisor-engines', () => HttpResponse.json(envelope([])))
     );
     renderPage();
     expect(
@@ -224,7 +224,7 @@ describe('SupervisorsPage', () => {
 
   it('says so when the catalog cannot be loaded', async () => {
     server.use(
-      http.get('/api/supervisor-types', () =>
+      http.get('/api/supervisor-engines', () =>
         HttpResponse.json({}, { status: 500 })
       )
     );

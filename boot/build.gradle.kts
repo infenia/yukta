@@ -59,13 +59,9 @@ dependencies {
     implementation(project(":plugins:terminals:notify-terminal"))
     implementation(project(":plugins:terminals:outcome-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))
-    implementation(project(":plugins:supervisors:rule-supervisor"))
-    implementation(project(":plugins:supervisors:guards"))
-    implementation(project(":plugins:supervisors:webhook"))
+    implementation(project(":plugins:supervisors:rules"))
+    implementation(project(":plugins:supervisors:callout"))
     implementation(project(":plugins:supervisors:process-engine"))
-    implementation(project(":plugins:control-planes:rule-control-plane"))
-    implementation(project(":plugins:control-planes:model-control-plane"))
-    implementation(project(":plugins:control-planes:rules-first-control-plane"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }
 

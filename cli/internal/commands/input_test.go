@@ -100,7 +100,7 @@ func TestExitCode_refusedBySupervisor(t *testing.T) {
 	}
 	// a plain 409 (no supervisor code) and a non-API error are not refusals
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, `{"message":"busy"}`, 409)
+		http.Error(w, `{"message":"busy"}`, http.StatusConflict)
 	}))
 	_, err := client.NewClient(srv.URL).GetSessionDetails("s")
 	srv.Close()

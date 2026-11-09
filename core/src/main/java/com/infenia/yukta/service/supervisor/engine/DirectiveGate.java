@@ -133,7 +133,11 @@ public final class DirectiveGate {
     if (!capabilities.allows(directive.command())) {
       return Rejection.NOT_ALLOWED;
     }
-    if (!scope.matches(target.sessionId(), target.workflowId(), target.nodeId())) {
+    // an attached Global scope is refused by the host before this; a bean supervisor's Global
+    // scope keeps its legacy reach
+    if (!(scope instanceof SupervisorScope.Global)
+        && !scope.owns(
+            directive.command(), target.sessionId(), target.workflowId(), target.nodeId())) {
       return Rejection.NOT_OWNED;
     }
     return null;

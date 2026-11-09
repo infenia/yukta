@@ -105,7 +105,7 @@ curl -X POST localhost:9858/hooks/example-08-alert-triage/alert \
 ```bash
 curl -X PUT localhost:9858/api/supervisors/example-08-ack-advice -H 'Content-Type: application/json' -d @supervisor.json
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
-  -d "$(jq '.workflows.alert.supervisors = [{supervisor: "example-08-ack-advice", nodes: ["wait-ack"]}]' session.json)"
+  -d "$(jq '.workflows.alert.assignments = [{supervisor: "example-08-ack-advice", nodes: ["wait-ack"]}]' session.json)"
 ```
 
 `run.sh` checks the advice on the request of scenario 3 before it plays the on-call.

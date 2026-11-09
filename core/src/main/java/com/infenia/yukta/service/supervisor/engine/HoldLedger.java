@@ -47,7 +47,7 @@ public final class HoldLedger {
       final SequencedSet<String> mine =
           bySupervisor.computeIfAbsent(supervisorId, id -> new LinkedHashSet<>());
       mine.add(pause.executionId());
-      // ponytail: no end-of-run hook; the oldest entry (most likely a finished run) goes first
+      // the end of a run releases it (releaseEverywhere); the cap only bounds a missed end
       if (mine.size() > MAX_PER_SUPERVISOR) {
         mine.removeFirst();
       }
@@ -66,6 +66,21 @@ public final class HoldLedger {
     lock.lock();
     try {
       return List.copyOf(bySupervisor.getOrDefault(supervisorId, new LinkedHashSet<>()));
+    } finally {
+      lock.unlock();
+    }
+  }
+
+  /**
+   * Forgets a run for every supervisor: someone resumed or stopped it, or it ended, so no
+   * supervisor's pause holds it any more and {@code resume held} must not touch it.
+   *
+   * @param executionId the run
+   */
+  public void releaseEverywhere(final String executionId) {
+    lock.lock();
+    try {
+      bySupervisor.values().forEach(mine -> mine.remove(executionId));
     } finally {
       lock.unlock();
     }

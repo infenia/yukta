@@ -38,7 +38,7 @@ class WorkflowVersionNoteControllerTest {
   @BeforeEach
   void setUp() {
     when(declared.reconcile(any())).thenReturn(Mono.empty());
-    when(declared.require(any())).thenReturn(Mono.empty());
+    when(declared.require(any(), any())).thenReturn(Mono.empty());
     client =
         WebTestClient.bindToController(
                 new WorkflowVersionController(definitions, controlBus, declared))

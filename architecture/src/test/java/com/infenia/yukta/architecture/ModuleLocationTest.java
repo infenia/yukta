@@ -25,7 +25,7 @@ class ModuleLocationTest {
           "com.infenia.yukta.exception.GlobalExceptionHandler", "web",
           "com.infenia.yukta.mcp.AppMcpTools", "mcp",
           "com.infenia.yukta.plugin.http.HttpRequestPlugin", "http-request",
-          "com.infenia.yukta.supervisor.guards.FailureGuardFactory", "guards");
+          "com.infenia.yukta.supervisor.rules.RuleSupervisorFactory", "rules");
 
   @Test
   @SuppressWarnings("PMD.LooseCoupling")

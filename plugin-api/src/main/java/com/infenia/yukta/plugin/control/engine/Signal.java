@@ -23,6 +23,8 @@ public sealed interface Signal {
     REVIEW,
     /** A delegation from a child. */
     DELEGATED,
+    /** The answers of the parents to a question this engine passed up. */
+    CONSULTED,
     /** The engine started or reconnected. */
     STARTED
   }
@@ -95,6 +97,28 @@ public sealed interface Signal {
     @Override
     public Kind kind() {
       return Kind.DELEGATED;
+    }
+  }
+
+  /**
+   * What the parents answered to a {@link Directive.Delegate} of this engine. A parent that did not
+   * answer in time is missing; an empty map means no parent had an opinion.
+   *
+   * @param id the key the engine gave its {@code Delegate}, or a generated id when it gave none
+   * @param delegation what was delegated
+   * @param answers the typed answer of each parent that gave one, by parent supervisor id
+   */
+  record Consulted(String id, DelegationKind delegation, Map<String, Map<String, Object>> answers)
+      implements Signal {
+
+    /** Keeps an unmodifiable copy. */
+    public Consulted {
+      answers = Map.copyOf(answers);
+    }
+
+    @Override
+    public Kind kind() {
+      return Kind.CONSULTED;
     }
   }
 

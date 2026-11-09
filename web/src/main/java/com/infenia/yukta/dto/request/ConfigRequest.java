@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.validation.SessionId;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -70,9 +72,11 @@ public record ConfigRequest(
         @NotEmpty(message = "At least one workflow definition is required")
         @Valid
         Map<String, WorkflowDefinitionRequest> workflows,
-    @Schema(description = "Supervisors declared for the whole session; attached when it is saved")
-        @Size(max = 20, message = "A session declares at most 20 supervisors")
-        List<@Valid @NotNull(message = "Supervisor cannot be null") SupervisorRef> supervisors) {
+    @Schema(description = "What supervisors own in the whole session; assigned when it is saved")
+        @JsonProperty("assignments")
+        @JsonAlias("supervisors")
+        @Size(max = 20, message = "A session declares at most 20 assignments")
+        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors) {
 
   /**
    * A session that declares no supervisors.

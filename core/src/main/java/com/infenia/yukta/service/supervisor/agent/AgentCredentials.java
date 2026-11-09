@@ -22,6 +22,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 /**
  * The credential of an agent, one per supervisor: shown once, kept only as a SHA-256 hash, replaced
@@ -42,6 +43,7 @@ public final class AgentCredentials {
   private final SecureRandom random = new SecureRandom();
   private final Map<String, Entry> byHash = new ConcurrentHashMap<>();
   private final Map<String, String> hashOf = new ConcurrentHashMap<>();
+  private final Map<String, Use> lastUse = new ConcurrentHashMap<>();
 
   /** Keeps the hashes across a restart; null where a module provides none. */
   @Nullable private AgentCredentialStore store;
@@ -56,7 +58,35 @@ public final class AgentCredentials {
    */
   public record Issued(String token, @Nullable Instant expiresAt) {}
 
-  private record Entry(String supervisorId, @Nullable Instant expiresAt, Set<String> addresses) {}
+  private record Entry(
+      String supervisorId,
+      @Nullable Instant expiresAt,
+      Set<String> addresses,
+      @Nullable Instant issuedAt) {}
+
+  /**
+   * What may be shown about a credential: never the secret or its hash.
+   *
+   * @param issuedAt when it was issued, or {@code null} when it was loaded from the store
+   * @param expiresAt when it stops working, or {@code null} for never
+   * @param addresses the source addresses it works from, empty for any
+   * @param lastUsedAt when it last opened a request since the server started, or {@code null}
+   * @param lastUsedFrom the address of that request, or {@code null}
+   */
+  public record Metadata(
+      @Nullable Instant issuedAt,
+      @Nullable Instant expiresAt,
+      Set<String> addresses,
+      @Nullable Instant lastUsedAt,
+      @Nullable String lastUsedFrom) {
+
+    /** Keeps an unmodifiable copy of the addresses. */
+    public Metadata {
+      addresses = Set.copyOf(addresses);
+    }
+  }
+
+  private record Use(Instant at, @Nullable String from) {}
 
   /** Creates the store with the system clock. */
   public AgentCredentials() {
@@ -104,7 +134,7 @@ public final class AgentCredentials {
         ? Mono.empty()
         : kept.all()
             .filter(c -> live(c.expiresAt()))
-            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses()))
+            .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses(), null))
             .then()
             .onErrorResume(
                 error -> {
@@ -117,23 +147,30 @@ public final class AgentCredentials {
       final String supervisorId,
       final String hash,
       final @Nullable Instant expires,
-      final Set<String> addresses) {
+      final Set<String> addresses,
+      final @Nullable Instant issued) {
     final String earlier = hashOf.put(supervisorId, hash);
     if (earlier != null) {
       byHash.remove(earlier);
+      lastUse.remove(supervisorId);
       changed(supervisorId);
     }
-    byHash.put(hash, new Entry(supervisorId, expires, addresses));
+    byHash.put(hash, new Entry(supervisorId, expires, addresses, issued));
   }
 
   private void persist(final Mono<Void> write, final String supervisorId) {
+    // a failed write of a revocation would let the credential come back after a restart, so the
+    // write is tried three times and a failure is an error, not a warning
     write
+        .retryWhen(Retry.fixedDelay(2, Duration.ofMillis(200)))
         .doOnError(
             error ->
-                log.atWarn()
+                log.atError()
                     .setCause(error)
                     .addKeyValue("supervisor", supervisorId)
-                    .log("Could not store an agent credential"))
+                    .log(
+                        "Could not store an agent credential change; after a restart the stored"
+                            + " state returns, so check that a revoked credential is gone"))
         .onErrorResume(error -> Mono.empty())
         .subscribe();
   }
@@ -164,7 +201,7 @@ public final class AgentCredentials {
     final String token = PREFIX + Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     final Instant expires = ttl == null ? null : clock.instant().plus(ttl);
     final String hash = hash(token);
-    remember(supervisorId, hash, expires, addresses);
+    remember(supervisorId, hash, expires, addresses, clock.instant());
     if (store != null) {
       persist(
           store.save(new AgentCredentialStore.Stored(supervisorId, hash, expires, addresses)),
@@ -201,7 +238,11 @@ public final class AgentCredentials {
         .filter(
             entry ->
                 entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
-        .map(Entry::supervisorId);
+        .map(
+            entry -> {
+              lastUse.put(entry.supervisorId(), new Use(clock.instant(), remote));
+              return entry.supervisorId();
+            });
   }
 
   /**
@@ -212,6 +253,7 @@ public final class AgentCredentials {
    */
   public boolean revoke(final String supervisorId) {
     final String hash = hashOf.remove(supervisorId);
+    lastUse.remove(supervisorId);
     if (store != null && hash != null) {
       persist(store.delete(supervisorId), supervisorId);
     }
@@ -226,6 +268,28 @@ public final class AgentCredentials {
     if (agents != null) {
       agents.credentialChanged(supervisorId);
     }
+  }
+
+  /**
+   * What may be shown about a supervisor's credential.
+   *
+   * @param supervisorId the supervisor
+   * @return the metadata, or empty when it has no credential that still works
+   */
+  public Optional<Metadata> metadata(final String supervisorId) {
+    final String hash = hashOf.get(supervisorId);
+    final Entry entry = hash == null ? null : byHash.get(hash);
+    if (entry == null || !live(entry.expiresAt())) {
+      return Optional.empty();
+    }
+    final Use use = lastUse.get(supervisorId);
+    return Optional.of(
+        new Metadata(
+            entry.issuedAt(),
+            entry.expiresAt(),
+            entry.addresses(),
+            use == null ? null : use.at(),
+            use == null ? null : use.from()));
   }
 
   /**

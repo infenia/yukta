@@ -47,7 +47,7 @@ export interface AttachmentFilter {
 export const getAttachments = (filter: AttachmentFilter = {}) => {
   if (filter.supervisor) {
     return fetchApi<AttachmentView[]>(
-      api`/api/supervisors/${filter.supervisor}/attachments`
+      api`/api/supervisors/${filter.supervisor}/assignments`
     );
   }
   const query = new URLSearchParams();
@@ -56,30 +56,78 @@ export const getAttachments = (filter: AttachmentFilter = {}) => {
   if (filter.source) query.set('source', filter.source);
   const text = query.toString();
   return fetchApi<AttachmentView[]>(
-    `/api/supervisors/attachments${text ? `?${text}` : ''}`
+    `/api/supervisors/assignments${text ? `?${text}` : ''}`
   );
 };
 
-export const attachSupervisor = (attachment: {
+/** One thing a supervisor owns, as the assignments endpoint takes it. */
+interface AssignmentBody {
+  target: string;
+  enabled: boolean;
+  locked: boolean;
+}
+
+/** What a supervisor owns by hand now: the assignments that a PUT replaces. */
+const manualAssignments = async (supervisorId: string) =>
+  (await getAttachments({ supervisor: supervisorId }))
+    .filter((a) => a.source === 'MANUAL')
+    .map<AssignmentBody & { id: string }>((a) => ({
+      id: a.id,
+      target: a.scope,
+      enabled: a.enabled,
+      locked: a.locked ?? false,
+    }));
+
+const putAssignments = (supervisorId: string, wanted: AssignmentBody[]) =>
+  fetchApi<AttachmentView[]>(
+    api`/api/supervisors/${supervisorId}/assignments`,
+    json(
+      'PUT',
+      wanted.map(({ target, enabled, locked }) => ({ target, enabled, locked }))
+    )
+  );
+
+/** The supervisor of a manual assignment, by its id. */
+const ownerOf = async (id: string) => {
+  const found = (await getAttachments({ source: 'MANUAL' })).find(
+    (a) => a.id === id
+  );
+  if (!found) throw new Error(`Assignment ${id} not found`);
+  return found.supervisorId;
+};
+
+/** Adds one target to what a supervisor owns; the server checks the whole list. */
+export const attachSupervisor = async (attachment: {
   supervisorId: string;
   scope: string;
   enabled: boolean;
-}) =>
-  fetchApi<AttachmentView>(
-    '/api/supervisors/attachments',
-    json('POST', attachment)
-  );
+}) => {
+  const current = await manualAssignments(attachment.supervisorId);
+  const saved = await putAssignments(attachment.supervisorId, [
+    ...current.filter((a) => a.target !== attachment.scope),
+    { target: attachment.scope, enabled: attachment.enabled, locked: false },
+  ]);
+  return saved.find((a) => a.scope === attachment.scope) ?? saved[0];
+};
 
-export const setAttachmentEnabled = (id: string, enabled: boolean) =>
-  fetchApi<AttachmentView>(
-    api`/api/supervisors/attachments/${id}`,
-    json('PATCH', { enabled })
+export const setAttachmentEnabled = async (id: string, enabled: boolean) => {
+  const supervisorId = await ownerOf(id);
+  const current = await manualAssignments(supervisorId);
+  const saved = await putAssignments(
+    supervisorId,
+    current.map((a) => (a.id === id ? { ...a, enabled } : a))
   );
+  return saved.find((a) => a.id === id);
+};
 
-export const detachAttachment = (id: string) =>
-  fetchApi<unknown>(api`/api/supervisors/attachments/${id}`, {
-    method: 'DELETE',
-  });
+export const detachAttachment = async (id: string) => {
+  const supervisorId = await ownerOf(id);
+  const current = await manualAssignments(supervisorId);
+  return putAssignments(
+    supervisorId,
+    current.filter((a) => a.id !== id)
+  );
+};
 
 export const getSupervisorDecisions = (supervisor?: string, limit = 50) => {
   const query = new URLSearchParams({ limit: String(limit) });

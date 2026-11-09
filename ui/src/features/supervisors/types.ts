@@ -65,6 +65,10 @@ export interface AttachmentView {
   source: AttachmentSource;
   originSessionId: string | null;
   originWorkflowId: string | null;
+  /** Disabled at start-up because it overlapped another assignment. */
+  conflict?: boolean;
+  /** Changes only when the request asks to unlock. */
+  locked?: boolean;
 }
 
 /** What a supervisor is saved as. */

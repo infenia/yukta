@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
+import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.testing.Fixtures;
 import java.util.List;
 import java.util.Map;
@@ -45,5 +46,20 @@ class SupervisorRefTest {
             new SessionConfigResponse("s", "n", "d", "i", Map.of(), ".", Map.of(), null)
                 .supervisors())
         .isEmpty();
+  }
+
+  @Test
+  void definitionsWriteAssignmentsAndStillReadTheOldSupervisorsKey() {
+    final tools.jackson.databind.json.JsonMapper json =
+        tools.jackson.databind.json.JsonMapper.builder().build();
+    final String old =
+        "{\"workflowId\":\"w\",\"description\":\"d\",\"nodes\":[],\"edges\":[],"
+            + "\"supervisors\":[{\"supervisor\":\"guard\"}]}";
+    final WorkflowDefinition read = json.readValue(old, WorkflowDefinition.class);
+
+    assertThat(read.supervisors()).extracting(SupervisorRef::supervisor).containsExactly("guard");
+    assertThat(json.writeValueAsString(read))
+        .contains("\"assignments\"")
+        .doesNotContain("\"supervisors\"");
   }
 }

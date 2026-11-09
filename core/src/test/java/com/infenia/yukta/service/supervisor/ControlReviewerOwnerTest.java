@@ -2,12 +2,6 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor;
 
-import com.infenia.yukta.service.review.AttachedSupervisors;
-import com.infenia.yukta.service.review.BoundSupervisor;
-import com.infenia.yukta.service.review.ControlReviewer;
-import com.infenia.yukta.service.review.DryRunRecorder;
-import com.infenia.yukta.service.review.ReviewVerdict;
-import com.infenia.yukta.service.review.ControlledBySupervisorException;
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.never;
@@ -22,6 +16,12 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorCapabilities;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.input.InputRisk;
+import com.infenia.yukta.service.review.AttachedSupervisors;
+import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.review.ControlReviewer;
+import com.infenia.yukta.service.review.ControlledBySupervisorException;
+import com.infenia.yukta.service.review.DryRunRecorder;
+import com.infenia.yukta.service.review.ReviewVerdict;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +36,7 @@ import reactor.util.context.Context;
 
 /** Production review: the owner only, and only for what people send. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.TooManyMethods")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
 class ControlReviewerOwnerTest {
 
   private static final String PAUSE = "PauseWorkflowCommand";
@@ -343,12 +343,12 @@ class ControlReviewerOwnerTest {
   }
 
   @Test
-  void aPersonsCommandSaysWhichSupervisorCarriedIt() {
+  void personsCommandSaysWhichSupervisorCarriedIt() {
     own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
     final var via = new java.util.concurrent.atomic.AtomicReference<String>();
     StepVerifier.create(
             reviewer(true)
-                .verdict(RUN_COMMAND, java.util.Set.of())
+                .verdict(RUN_COMMAND, Set.of())
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
                 .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, via)))
         .expectNextCount(1)
@@ -358,7 +358,7 @@ class ControlReviewerOwnerTest {
     final var unowned = new java.util.concurrent.atomic.AtomicReference<String>();
     StepVerifier.create(
             reviewer(true)
-                .verdict(SERVER_COMMAND, java.util.Set.of())
+                .verdict(SERVER_COMMAND, Set.of())
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR))
                 .contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, unowned)))
         .expectNextCount(1)
@@ -373,7 +373,36 @@ class ControlReviewerOwnerTest {
     own("g", new SupervisorScope.Global(), answering(Decision.ALLOW));
 
     assertThat(reviewer(true).summary(null)).isEqualTo(new ControlReviewer.Summary(true, 2));
-    assertThat(reviewer(false).summary(java.util.List.of("s")))
+    assertThat(reviewer(false).summary(List.of("s")))
         .isEqualTo(new ControlReviewer.Summary(false, 1));
+  }
+
+  @Test
+  void capabilitiesListEveryCommandOfTheUnitAskedAbout() {
+    final ControlReviewer open = reviewer(true);
+
+    assertThat(open.capabilities(null, null, null).keySet()).containsExactly("drain", "setLimits");
+    assertThat(open.capabilities("s", "w", "n").keySet())
+        .containsExactly("pauseNode", "resumeNode", "skipNode", "stepNode", "stopNode");
+    assertThat(open.capabilities("s", "w", null).keySet())
+        .containsExactly("pause", "priority", "recover", "restart", "resume", "start", "stop");
+    // a session or a workflow alone still asks about a run level, never about the server
+    assertThat(open.capabilities("s", null, null).keySet()).contains("pause");
+    assertThat(open.capabilities(null, "w", null).keySet()).contains("pause");
+    assertThat(open.capabilities("s", "w", null).values())
+        .allMatch(ControlReviewer.Capability::allowed);
+  }
+
+  @Test
+  void theSummaryCountsOwnersTheCallerCanReach() {
+    own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
+    own("b", new SupervisorScope.Workflow("w", "t"), answering(Decision.ALLOW));
+    own("srv", new SupervisorScope.Server(), answering(Decision.ALLOW));
+    final ControlReviewer open = reviewer(true);
+
+    assertThat(open.summary(null).owners()).isEqualTo(3);
+    assertThat(open.summary(List.of("s")).owners()).isEqualTo(1);
+    assertThat(open.summary(List.of("other")).owners()).isZero();
+    assertThat(open.summary(null).defaultSupervisor()).isTrue();
   }
 }

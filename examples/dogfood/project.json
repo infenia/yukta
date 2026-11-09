@@ -124,7 +124,6 @@
     "triggers": "java",
     "terminals": "java",
     "supervisors": "java",
-    "control-planes": "java",
     "plus": "java",
     "workers": "java",
     "persistence-postgres": "java",

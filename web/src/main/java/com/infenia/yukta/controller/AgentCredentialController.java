@@ -15,6 +15,7 @@ import java.time.Instant;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -77,6 +78,26 @@ public class AgentCredentialController {
               return ApiResponse.success(
                   201, "Credential issued", new IssuedView(issued.token(), issued.expiresAt()));
             });
+  }
+
+  /**
+   * What may be shown about the credential: when it was issued and last used and from where, its
+   * expiry and its addresses. Never the secret.
+   *
+   * @param id the supervisor id
+   * @return the metadata; 404 if it has no credential that works
+   */
+  @GetMapping
+  @Operation(summary = "Show the credential metadata of an agent supervisor (never the secret)")
+  public Mono<ApiResponse<AgentCredentials.Metadata>> show(@PathVariable final String id) {
+    return Mono.just(
+        ApiResponse.success(
+            200,
+            "Credential",
+            credentials
+                .metadata(id)
+                .orElseThrow(
+                    () -> new NotFoundException("Supervisor " + id + " has no credential"))));
   }
 
   /**

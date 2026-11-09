@@ -3,6 +3,7 @@
 package com.infenia.yukta.persistence.postgres;
 
 import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
+import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Set;
@@ -36,7 +37,9 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
                   row.get("supervisor_id", String.class),
                   row.get("token_hash", String.class),
                   expires == null ? null : expires.toInstant(),
-                  addressesOf(row.get("allowed_addresses", String.class)));
+                  addressesOf(
+                      java.util.Objects.requireNonNullElse(
+                          row.get("allowed_addresses", String.class), "")));
             })
         .all();
   }
@@ -56,14 +59,16 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
             .bind("id", credential.supervisorId())
             .bind("hash", credential.hash())
             .bind("addresses", String.join(",", new java.util.TreeSet<>(credential.addresses())));
-    return (credential.expiresAt() == null
+    final Instant expires = credential.expiresAt();
+    return (expires == null
             ? spec.bindNull("expires", OffsetDateTime.class)
-            : spec.bind("expires", credential.expiresAt().atOffset(ZoneOffset.UTC)))
+            : spec.bind("expires", expires.atOffset(ZoneOffset.UTC)))
         .then();
   }
 
+  /** The column is {@code NOT NULL DEFAULT ''}, so a stored value is never null. */
   private static Set<String> addressesOf(final String stored) {
-    return stored == null || stored.isBlank() ? Set.of() : Set.of(stored.split(","));
+    return stored.isBlank() ? Set.of() : Set.of(stored.split(","));
   }
 
   @Override

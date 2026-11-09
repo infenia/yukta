@@ -21,6 +21,15 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** The program decides; the server only checks that it may run and what it says. */
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CloseResource",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
+  "PMD.LambdaCanBeMethodReference",
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods",
+  "PMD.UseTryWithResources"
+})
 class ProcessEngineFactoryTest {
 
   private static final EngineContext CONTEXT =
@@ -72,7 +81,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramReadsSignalsAndAnswersWithDirectives() {
+  void programReadsSignalsAndAnswersWithDirectives() {
     // answers every line it reads with a pause, and a junk line the server must drop
     final SupervisorEngine engine =
         factory.create(
@@ -97,7 +106,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramThatExitsFailsTheEngineSoItIsStartedAgain() {
+  void programThatExitsFailsTheEngineSoItIsStartedAgain() {
     final SupervisorEngine engine = factory.create(sh("exit 0"), CONTEXT);
     StepVerifier.create(engine.run(Flux.never()))
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("ended"))
@@ -105,7 +114,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aProgramThatCannotStartFailsTheEngine() {
+  void programThatCannotStartFailsTheEngine() {
     final ProcessEngineFactory open = new ProcessEngineFactory(Set.of("/no/such/program"), false);
     final SupervisorEngine engine =
         open.create(new EngineConfig(Map.of("command", "/no/such/program")), CONTEXT);
@@ -153,5 +162,79 @@ class ProcessEngineFactoryTest {
     } finally {
       engine.close();
     }
+  }
+
+  @Test
+  void lineWithoutEndNeverFillsTheMemoryAndTheNextLineStillCounts() {
+    final SupervisorEngine engine =
+        factory.create(
+            sh(
+                "head -c 300000 /dev/zero | tr '\\0' x; echo; echo '{\"type\":\"command\","
+                    + "\"key\":\"k\",\"cause\":\"tick\",\"reason\":\"r\","
+                    + "\"command\":{\"type\":\"PauseWorkflow\",\"executionId\":\"run1\"}}';"
+                    + " sleep 5"),
+            CONTEXT);
+    try {
+      StepVerifier.create(engine.run(Flux.never()).take(1))
+          .assertNext(
+              d ->
+                  assertThat(((Directive.Command) d).command())
+                      .isEqualTo(new PauseWorkflowCommand("run1")))
+          .verifyComplete();
+    } finally {
+      engine.close();
+    }
+  }
+
+  private static java.io.BufferedReader reader(final String text) {
+    return new java.io.BufferedReader(new java.io.StringReader(text));
+  }
+
+  @Test
+  void boundedLineReadsLinesTheLastOneWithoutEndAndTheEndOfTheOutput() throws Exception {
+    final var in = reader("abc\ntail");
+    assertThat(ProcessEngineFactory.boundedLine(in)).isEqualTo("abc");
+    assertThat(ProcessEngineFactory.boundedLine(in)).isEqualTo("tail");
+    assertThat(ProcessEngineFactory.boundedLine(in)).isNull();
+    assertThat(ProcessEngineFactory.boundedLine(reader(""))).isNull();
+  }
+
+  @Test
+  void boundedLineThrowsAwayTheRestOfLongLineWithOrWithoutEnd() throws Exception {
+    final String longText = "x".repeat(70_000);
+    final var withEnd = reader(longText + "\nnext\n");
+    assertThat(ProcessEngineFactory.boundedLine(withEnd)).isEmpty();
+    assertThat(ProcessEngineFactory.boundedLine(withEnd)).isEqualTo("next");
+    assertThat(ProcessEngineFactory.boundedLine(reader(longText))).isEmpty();
+  }
+
+  @Test
+  void lineThatIsJsonButNotAnObjectIsDroppedAndEmptyArgumentsMeanNone() {
+    factory.create(new EngineConfig(Map.of("command", "sh", "args", "")), CONTEXT).close();
+    final SupervisorEngine engine =
+        factory.create(
+            sh(
+                "echo '[1,2]'; echo 3; echo '{\"type\":\"noOpinion\",\"answers\":\"x\"}';"
+                    + " sleep 5"),
+            CONTEXT);
+    try {
+      StepVerifier.create(engine.run(Flux.never()).take(1))
+          .assertNext(d -> assertThat(d).isEqualTo(new Directive.NoOpinion("x")))
+          .verifyComplete();
+    } finally {
+      engine.close();
+    }
+  }
+
+  @Test
+  void signalsSentToProgramThatClosedItsInputAreDroppedAndTheEngineStillEnds() {
+    final SupervisorEngine engine = factory.create(sh("exec 0<&-; sleep 1"), CONTEXT);
+    StepVerifier.create(
+            engine.run(
+                Flux.<Signal>just(new Signal.Tick(Instant.EPOCH))
+                    .delaySubscription(Duration.ofMillis(400))
+                    .concatWith(Flux.never())))
+        .expectErrorMessage("The program ended")
+        .verify(Duration.ofSeconds(10));
   }
 }

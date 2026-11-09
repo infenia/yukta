@@ -22,24 +22,40 @@ import reactor.core.publisher.Mono;
  * @param dryRun whether its commands are only recorded
  * @param capabilities which commands it may send and whether it may answer input requests
  * @param observeInternal whether it also sees the events of the internal session its scope names
+ * @param scope what it owns, as matched at run time: the attachment's scope with its {@code group:}
+ *     selectors resolved to the nodes they name now
  */
 public record BoundSupervisor(
     SupervisorAttachment attachment,
     ExecutionSupervisor delegate,
     boolean dryRun,
     SupervisorCapabilities capabilities,
-    boolean observeInternal)
+    boolean observeInternal,
+    SupervisorScope scope)
     implements ExecutionSupervisor {
+
+  /**
+   * A bound supervisor that owns its attachment's scope as written.
+   *
+   * @param attachment the attachment that attached it
+   * @param delegate the supervisor the factory made
+   * @param dryRun whether its commands are only recorded
+   * @param capabilities which commands it may send and whether it may answer input requests
+   * @param observeInternal whether it also sees the events of the internal session its scope names
+   */
+  public BoundSupervisor(
+      final SupervisorAttachment attachment,
+      final ExecutionSupervisor delegate,
+      final boolean dryRun,
+      final SupervisorCapabilities capabilities,
+      final boolean observeInternal) {
+    this(attachment, delegate, dryRun, capabilities, observeInternal, attachment.scope());
+  }
 
   @Override
   @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
     return attachment.id();
-  }
-
-  @Override
-  public SupervisorScope scope() {
-    return attachment.scope();
   }
 
   @Override

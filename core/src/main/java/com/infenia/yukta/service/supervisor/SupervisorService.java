@@ -6,6 +6,8 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
+import com.infenia.yukta.plugin.control.Delegation;
+import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -17,9 +19,11 @@ import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorPreset;
 import com.infenia.yukta.plugin.control.SupervisorScope;
-import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
-import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.plugin.control.engine.ConsultAware;
+import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
+import com.infenia.yukta.plugin.control.engine.EngineBackedSupervisor;
+import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
@@ -28,15 +32,17 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.log.ExecutionLogStore;
+import com.infenia.yukta.service.review.BoundSupervisor;
+import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
+import com.infenia.yukta.service.supervisor.hierarchy.ParentConsulting;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import com.infenia.yukta.service.supervisor.ownership.OwnershipValidator;
 import com.infenia.yukta.service.supervisor.ownership.WorkflowShape;
-import com.infenia.yukta.service.review.BoundSupervisor;
-import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisor;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorChecks;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
@@ -96,9 +102,9 @@ public class SupervisorService {
   private final AtomicInteger attaching = new AtomicInteger();
 
   /** Message for a section that selects a group, which runtime matching cannot resolve yet. */
-  public static final String GROUPS_NOT_YET =
-      "Group selectors (group:<name>) are not supported yet: list the node ids or use a prefix"
-          + " such as build.*";
+  public static final String GROUPS_NEED_SESSION =
+      "Group selectors (group:<name>) need the session: workflow:<sessionId>/<workflowId>//group:"
+          + "<name>";
 
   /** Start of the messages about one supervisor. */
   private static final String SUPERVISOR_PREFIX = "Supervisor ";
@@ -151,6 +157,9 @@ public class SupervisorService {
   /** Tells who declares a supervisor; null where definitions declare none. */
   @Nullable private DefinitionUsage definitionUsage;
 
+  /** The groups of the stored workflows, for {@code group:} selectors; none in plain tests. */
+  @Nullable private NodeGroupIndex nodeGroups;
+
   /** Receives every audit record besides the log, if a module provides one. */
   @Nullable private AuditSink auditSink;
 
@@ -191,6 +200,16 @@ public class SupervisorService {
    */
   public void setDefinitionUsage(final DefinitionUsage usage) {
     this.definitionUsage = usage;
+  }
+
+  /**
+   * Lets {@code group:} selectors match the nodes of the stored workflows.
+   *
+   * @param groups the groups of the stored workflows
+   */
+  @Autowired(required = false)
+  public void setNodeGroups(final NodeGroupIndex groups) {
+    this.nodeGroups = groups;
   }
 
   /**
@@ -317,6 +336,72 @@ public class SupervisorService {
         .then();
   }
 
+  /**
+   * Converts stored supervisors of retired types (decision D8): each engine is asked whether it
+   * replaces the type ({@link SupervisorFactory#adopt}); the first answer is saved under the same
+   * id and what changed in meaning is logged. A supervisor that no engine adopts stays stored and
+   * does not start, with a WARN that names it; start-up never fails on it.
+   *
+   * @return completes when every retired supervisor was looked at
+   */
+  /* default */ Mono<Void> adoptRetired() {
+    return store
+        .supervisors()
+        .filter(supervisor -> !factories.containsKey(supervisor.type()))
+        .concatMap(
+            legacy -> {
+              final Optional<SupervisorFactory.Adoption> adoption =
+                  factories.values().stream()
+                      .map(factory -> adopt(factory, legacy))
+                      .flatMap(Optional::stream)
+                      .findFirst();
+              if (adoption.isEmpty()) {
+                log.atWarn()
+                    .addKeyValue("supervisor", legacy.id())
+                    .addKeyValue("type", legacy.type())
+                    .log(
+                        "No engine replaces this retired supervisor type; it does not start until"
+                            + " it is saved again with an engine from /api/supervisor-engines");
+                return Mono.<Void>empty();
+              }
+              final Supervisor converted = adoption.get().supervisor();
+              return store
+                  .saveSupervisor(converted)
+                  .doOnSuccess(
+                      done ->
+                          log.atInfo()
+                              .addKeyValue("supervisor", legacy.id())
+                              .addKeyValue("from", legacy.type())
+                              .addKeyValue("to", converted.type())
+                              .addKeyValue("notes", adoption.get().notes())
+                              .log(
+                                  adoption.get().notes().isEmpty()
+                                      ? "Retired supervisor type converted"
+                                      : "Retired supervisor type converted; check the notes"));
+            })
+        .onErrorResume(
+            error -> {
+              log.atWarn().setCause(error).log("Could not convert the retired supervisor types");
+              return Mono.empty();
+            })
+        .then();
+  }
+
+  /** One engine's answer; an engine that cannot read the old settings adopts nothing. */
+  private static Optional<SupervisorFactory.Adoption> adopt(
+      final SupervisorFactory factory, final Supervisor legacy) {
+    try {
+      return factory.adopt(legacy);
+    } catch (IllegalArgumentException e) {
+      log.atWarn()
+          .setCause(e)
+          .addKeyValue("supervisor", legacy.id())
+          .addKeyValue("type", legacy.type())
+          .log("The retired supervisor's settings could not be converted");
+      return Optional.empty();
+    }
+  }
+
   /** Starts the enabled attachments that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
@@ -328,7 +413,11 @@ public class SupervisorService {
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
     Flux.defer(
-            () -> refreshResolver().then(markConflicts()).thenMany(Flux.defer(store::attachments)))
+            () ->
+                adoptRetired()
+                    .then(refreshResolver())
+                    .then(markConflicts())
+                    .thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
         .concatMap(
@@ -682,10 +771,11 @@ public class SupervisorService {
     this.definitions = workflowDefinitions;
   }
 
-  /** Whether a scope is a section with a {@code group:} selector. */
-  public static boolean usesGroups(final SupervisorScope scope) {
+  /** Whether a scope is a section with a {@code group:} selector that does not name its session. */
+  public static boolean groupsWithoutSession(final SupervisorScope scope) {
     return scope instanceof SupervisorScope.Section section
-        && section.nodes().stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX));
+        && section.hasGroups()
+        && section.sessionId() == null;
   }
 
   /**
@@ -702,8 +792,9 @@ public class SupervisorService {
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
     }
-    if (usesGroups(attachment.scope())) {
-      return Mono.error(new IllegalArgumentException(GROUPS_NOT_YET));
+    if (groupsWithoutSession(attachment.scope())) {
+      // a group is the stage nodes of one stored workflow declare, so it is resolved per session
+      return Mono.error(new IllegalArgumentException(GROUPS_NEED_SESSION));
     }
     if (attachment.source() == SupervisorSource.MANUAL
         && attachment.id().startsWith(DefinitionSupervisors.ID_PREFIX)) {
@@ -830,6 +921,37 @@ public class SupervisorService {
         .collectMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
+  /**
+   * An ownership validator that compares selectors with the real nodes of the workflows the scopes
+   * name.
+   *
+   * @param scopes the scopes to be compared
+   * @return the validator
+   */
+  /* default */ Mono<OwnershipValidator> validatorFor(final List<SupervisorScope> scopes) {
+    final WorkflowDefinitionStore stored = this.definitions;
+    if (stored == null) {
+      return Mono.just(new OwnershipValidator((session, workflow) -> Optional.empty()));
+    }
+    return Flux.fromIterable(scopes)
+        .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
+        .map(scope -> scope.sessionId() + "/" + scope.workflowId())
+        .distinct()
+        .concatMap(
+            key -> {
+              final int slash = key.indexOf('/');
+              return stored
+                  .find(key.substring(0, slash), key.substring(slash + 1))
+                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+            })
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+        .map(
+            shapes ->
+                new OwnershipValidator(
+                    (session, workflow) ->
+                        Optional.ofNullable(shapes.get(session + "/" + workflow))));
+  }
+
   /** Puts the host back to what the store holds for a attachment when saving it failed. */
   private Mono<Void> restoreAttachment(final String attachmentId) {
     return store
@@ -862,6 +984,32 @@ public class SupervisorService {
    * @return completes when stopped; errors with {@link NotFoundException}
    */
   public Mono<Void> detach(final String attachmentId) {
+    return leaderOnly()
+        .then(
+            Mono.defer(
+                () ->
+                    store
+                        .attachments()
+                        .filter(a -> a.id().equals(attachmentId) && a.locked())
+                        .hasElements()))
+        .flatMap(
+            locked ->
+                locked
+                    ? Mono.error(
+                        new ConflictException(
+                            "Assignment "
+                                + attachmentId
+                                + " is locked; change it through the supervisor's assignments"))
+                    : detachBinding(attachmentId));
+  }
+
+  /**
+   * Detaches an attachment whatever its lock, once the caller's right to unlock it was checked.
+   *
+   * @param attachmentId the attachment id
+   * @return completes when it is gone
+   */
+  /* default */ Mono<Void> detachUnlocked(final String attachmentId) {
     return leaderOnly().then(Mono.defer(() -> detachBinding(attachmentId)));
   }
 
@@ -1047,12 +1195,16 @@ public class SupervisorService {
     if (made instanceof AttachmentAware aware) {
       aware.bindTo(attachment.id());
     }
+    final SupervisorScope owned =
+        nodeGroups == null ? attachment.scope() : nodeGroups.resolve(attachment.scope());
     if (made instanceof ReadsAware reading && queries != null) {
       final SupervisorQueries reads = queries.getIfAvailable();
       if (reads != null) {
-        reading.readsFrom(
-            reads.readsFor(attachment.scope(), () -> host.held(attachment.supervisorId())));
+        reading.readsFrom(reads.readsFor(owned, () -> host.held(attachment.supervisorId())));
       }
+    }
+    if (made instanceof ConsultAware consulting) {
+      consulting.consultWith((kind, payload) -> consultParents(supervisor, kind, payload));
     }
     host.attach(
         new BoundSupervisor(
@@ -1060,8 +1212,71 @@ public class SupervisorService {
             made,
             supervisor.dryRun(),
             capabilities(supervisor),
-            Boolean.TRUE.equals(
-                supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL))));
+            Boolean.TRUE.equals(supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL)),
+            owned));
+  }
+
+  /**
+   * Asks the parents of a supervisor a question for its engine, in the mode set for {@code
+   * CONSULT}. A parent answers through its running engine; one that is not running (it owns
+   * nothing, or it is off), is not an engine or has no opinion is silent.
+   */
+  private Mono<Map<String, Map<String, Object>>> consultParents(
+      final Supervisor child, final DelegationKind kind, final Map<String, Object> payload) {
+    if (child.parents().isEmpty()) {
+      return Mono.just(Map.of());
+    }
+    final Delegation how = child.delegationFor(DelegationKind.CONSULT);
+    return ParentConsulting.consult(
+        how,
+        child.parents(),
+        parent ->
+            Flux.fromIterable(host.attachedOf(parent))
+                .map(BoundSupervisor::delegate)
+                .ofType(EngineBackedSupervisor.class)
+                .concatMap(engine -> engine.consulted(child.id(), kind, payload, how.timeout()))
+                .next());
+  }
+
+  /**
+   * Starts again the attachments of a session whose {@code group:} selectors now name other nodes,
+   * after its workflows changed.
+   *
+   * @param sessionId the session
+   * @return completes when done
+   */
+  public Mono<Void> regroup(final String sessionId) {
+    final NodeGroupIndex groups = nodeGroups;
+    if (groups == null) {
+      return Mono.empty();
+    }
+    return store
+        .attachments()
+        .filter(
+            a ->
+                a.enabled()
+                    && a.scope() instanceof SupervisorScope.Section section
+                    && section.hasGroups()
+                    && sessionId.equals(section.sessionId())
+                    && host.attached(a.id())
+                        .map(bound -> !bound.scope().equals(groups.resolve(a.scope())))
+                        .orElse(false))
+        .concatMap(
+            a ->
+                store
+                    .supervisors()
+                    .filter(supervisor -> supervisor.id().equals(a.supervisorId()))
+                    .next()
+                    .doOnNext(supervisor -> start(a, supervisor))
+                    .onErrorResume(
+                        error -> {
+                          log.atWarn()
+                              .setCause(error)
+                              .addKeyValue("attachmentId", a.id())
+                              .log("Could not restart a supervisor whose groups changed");
+                          return Mono.empty();
+                        }))
+        .then();
   }
 
   /** Records an attach or detach with the caller as actor. */

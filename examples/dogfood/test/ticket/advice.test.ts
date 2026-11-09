@@ -78,7 +78,7 @@ test('the run id is request data: a path, a missing run and an empty id are refu
 test('supervisor/*.json: the profile answers nothing, matches only the route ticket, the workflow edges are closed', () => {
   const dir = join(import.meta.dir, '..', '..', 'supervisor')
   const p = json(join(dir, 'supervisor.json')),
-    b = json(join(dir, 'attachment.json')),
+    b = json(join(dir, 'assignments.json')),
     s = json(join(dir, 'session.json'))
   expect(p).toMatchObject({
     type: 'workflow',
@@ -90,7 +90,7 @@ test('supervisor/*.json: the profile answers nothing, matches only the route tic
       workflowId: 'dogfood-ticket-advice',
     },
   })
-  expect(b).toMatchObject({ profileId: p.id, scope: 'session:dogfood' })
+  expect(b).toEqual([{ target: 'session:dogfood' }])
   expect(s.tags['yukta.internal']).toBe('true')
   const wf = s.workflows['dogfood-ticket-advice']
   const ids = new Set<string>(wf.nodes.map((n: any) => n.nodeId))
@@ -115,8 +115,8 @@ test('yk ticket supervisor: session, supervisor, attachment in that order with t
   })
   try {
     const out = await installSupervisor(`http://127.0.0.1:${srv.port}`, join(import.meta.dir, '..', '..', 'supervisor'), '/state/x')
-    expect(out).toEqual(['session.json: installed', 'supervisor.json: installed', 'attachment.json: installed'])
-    expect(seen.map((s) => s.path)).toEqual(['/api/sessions', '/api/supervisors', '/api/supervisors/attachments'])
+    expect(out).toEqual(['session.json: installed', 'supervisor.json: installed', 'assignments.json: installed'])
+    expect(seen.map((s) => s.path)).toEqual(['/api/sessions', '/api/supervisors', '/api/supervisors/dogfood-ticket-advice/assignments'])
     expect(seen[0]!.body).toContain('/state/x')
     expect(seen[0]!.body).not.toContain('__TICKET__')
     expect(seen[0]!.body).not.toContain('__STATE__')

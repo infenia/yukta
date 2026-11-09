@@ -30,6 +30,18 @@ class HoldLedgerTest {
   }
 
   @Test
+  void releaseEverywhereForgetsTheRunForEverySupervisor() {
+    ledger.applied("s", new PauseWorkflowCommand("a"));
+    ledger.applied("t", new PauseWorkflowCommand("a"));
+    ledger.applied("t", new PauseWorkflowCommand("b"));
+
+    ledger.releaseEverywhere("a");
+
+    assertThat(ledger.held("s")).isEmpty();
+    assertThat(ledger.held("t")).containsExactly("b");
+  }
+
+  @Test
   void otherCommandsAndUnknownSupervisorsChangeNothing() {
     ledger.applied("s", new PauseNodeCommand("a", "n"));
     ledger.release("nobody", "a");

@@ -18,6 +18,10 @@ Use the MCP endpoint `POST <server>/api/agent/v1/mcp` with `Authorization: Beare
 | `get_snapshot` | The executions and open input requests you own, with a cursor. Start here. |
 | `next_signals` | The signals after a cursor (`after`), waiting up to 25 seconds (`waitSeconds`) for the first; returns the new cursor. |
 | `list_executions`, `list_open_inputs` | The same, filtered (`status`, `limit`). |
+| `get_execution` | One execution you own with the status of the nodes you own. |
+| `get_logs` | The newest log lines of an execution you own (`tail`, at most 200), secrets removed, long lines cut. |
+| `get_workflow` | The nodes and edges of a workflow you own something in; no settings. |
+| `get_scheduler` | The scheduler limits and load; only for the supervisor that owns the server. |
 | `send_directive` | `key` (unique per decision), `cause`, `reason`, `ifStatus`, `command`. |
 | `answer_review` | Answer a review: `id` and `verdict` ALLOW, DENY, REQUIRE_APPROVAL or NO_OPINION. |
 | `answer_delegation` | Answer a delegation from a child supervisor. |

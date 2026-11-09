@@ -33,7 +33,7 @@ public final class DefinitionChecks {
   private static final String WORKFLOWS = "workflows.";
 
   /** Field name of the supervisor id in a declaration. */
-  private static final String SUPERVISOR_FIELD = "supervisors[%d].supervisor";
+  private static final String SUPERVISOR_FIELD = "assignments[%d].supervisor";
 
   /** Attaches and detaches, to read what is attached by hand. */
   private final SupervisorService service;
@@ -58,7 +58,7 @@ public final class DefinitionChecks {
    * nothing is declared twice.
    *
    * @param data the session as it would be saved
-   * @return the problems, each with a field such as {@code workflows.build.supervisors[0].nodes};
+   * @return the problems, each with a field such as {@code workflows.build.assignments[0].nodes};
    *     empty when all is well
    */
   public Mono<List<Issue>> check(final SessionConfigData data) {
@@ -83,14 +83,18 @@ public final class DefinitionChecks {
                               issues));
               return issues;
             })
-        .flatMap(issues -> issues.isEmpty() ? ownershipIssues(data) : Mono.just(issues));
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? ownershipIssues(data.sessionId(), data.supervisors(), data.workflows())
+                    : Mono.just(issues));
   }
 
   /**
    * Checks what one workflow declares, for a draft that is not saved.
    *
    * @param workflow the draft
-   * @return the problems, with fields such as {@code supervisors[0].supervisor}
+   * @return the problems, with fields such as {@code assignments[0].supervisor}
    */
   public Mono<List<Issue>> check(final WorkflowDefinition workflow) {
     return service
@@ -104,6 +108,30 @@ public final class DefinitionChecks {
                   workflow.supervisors(), "", known, workflow, workflow.workflowId(), null, issues);
               return issues;
             });
+  }
+
+  /**
+   * Checks one workflow as part of its session, for a save that changes only that workflow (a
+   * rollback to a saved version): the references, then ownership across the whole session with this
+   * version in place, as a session save does.
+   *
+   * @param sessionId the session
+   * @param sessionRefs what the session itself declares
+   * @param workflows the stored workflows of the session, with the new version in place
+   * @param workflow the new version
+   * @return the problems, empty when the save may go ahead
+   */
+  public Mono<List<Issue>> check(
+      final String sessionId,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows,
+      final WorkflowDefinition workflow) {
+    return check(workflow)
+        .flatMap(
+            issues ->
+                issues.isEmpty()
+                    ? ownershipIssues(sessionId, sessionRefs, workflows)
+                    : Mono.just(issues));
   }
 
   /**
@@ -127,14 +155,16 @@ public final class DefinitionChecks {
    * what the session declares against the attachments others made by hand (or from other sessions),
    * and those attachments against the nodes and groups of the new definitions.
    */
-  private Mono<List<Issue>> ownershipIssues(final SessionConfigData data) {
-    final String sessionId = data.sessionId();
+  private Mono<List<Issue>> ownershipIssues(
+      final String sessionId,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows) {
     final OwnershipValidator validator =
         new OwnershipValidator(
             (session, workflow) ->
                 session != null && !session.equals(sessionId)
                     ? Optional.empty()
-                    : Optional.ofNullable(data.workflows().get(workflow)).map(WorkflowShape::from));
+                    : Optional.ofNullable(workflows.get(workflow)).map(WorkflowShape::from));
     return service
         .attachments()
         .filter(
@@ -152,7 +182,7 @@ public final class DefinitionChecks {
                           .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
                           .toList());
               final Map<String, SupervisorAttachment> declared =
-                  DefinitionSupervisors.desired(sessionId, data.supervisors(), data.workflows());
+                  DefinitionSupervisors.desired(sessionId, sessionRefs, workflows);
               declared.values().stream()
                   .filter(SupervisorAttachment::enabled)
                   .forEach(
@@ -161,7 +191,11 @@ public final class DefinitionChecks {
                             new OwnershipValidator.Claim(a.supervisorId(), a.scope());
                         validator
                             .conflicts(claim, claims)
-                            .forEach(c -> issues.add(new Issue(fieldOf(a, data), c.message())));
+                            .forEach(
+                                c ->
+                                    issues.add(
+                                        new Issue(
+                                            fieldOf(a, sessionRefs, workflows), c.message())));
                         claims.add(claim);
                       });
               final List<OwnershipValidator.Claim> keptClaims =
@@ -177,7 +211,7 @@ public final class DefinitionChecks {
                             issues.add(
                                 new Issue(
                                     a.scope().workflowId() == null
-                                        ? "supervisors"
+                                        ? "assignments"
                                         : WORKFLOWS + a.scope().workflowId() + ".nodes",
                                     c.message())));
               }
@@ -185,12 +219,19 @@ public final class DefinitionChecks {
             });
   }
 
-  /** The field of a declaration, such as {@code workflows.build.supervisors[0].supervisor}. */
+  /** The field of a declaration, such as {@code workflows.build.assignments[0].supervisor}. */
   /* default */ static String fieldOf(
       final SupervisorAttachment attachment, final SessionConfigData data) {
+    return fieldOf(attachment, data.supervisors(), data.workflows());
+  }
+
+  private static String fieldOf(
+      final SupervisorAttachment attachment,
+      final List<SupervisorRef> sessionRefs,
+      final Map<String, WorkflowDefinition> workflows) {
     final String workflowId = attachment.originWorkflowId();
     final List<SupervisorRef> refs =
-        workflowId == null ? data.supervisors() : data.workflows().get(workflowId).supervisors();
+        workflowId == null ? sessionRefs : workflows.get(workflowId).supervisors();
     for (int i = 0; i < refs.size(); i++) {
       if (DefinitionSupervisors.attachmentId(
               attachment.originSessionId(), workflowId == null ? "" : workflowId, refs.get(i))
@@ -199,7 +240,7 @@ public final class DefinitionChecks {
             + SUPERVISOR_FIELD.formatted(i);
       }
     }
-    return workflowId == null ? "supervisors" : WORKFLOWS + workflowId + ".supervisors";
+    return workflowId == null ? "assignments" : WORKFLOWS + workflowId + ".assignments";
   }
 
   private void checkRefs(
@@ -214,7 +255,7 @@ public final class DefinitionChecks {
     for (int i = 0; i < refs.size(); i++) {
       final SupervisorRef ref = refs.get(i);
       final String field = prefix + SUPERVISOR_FIELD.formatted(i);
-      final String nodesField = prefix + "supervisors[" + i + "].nodes";
+      final String nodesField = prefix + "assignments[" + i + "].nodes";
       if (host.isBuiltIn(ref.supervisor())) {
         issues.add(new Issue(field, "is configured by the server and cannot be declared"));
       } else if (!known.contains(ref.supervisor())) {
@@ -231,6 +272,17 @@ public final class DefinitionChecks {
     }
   }
 
+  /** The nodes the {@code group:} selectors name in this version of the workflow. */
+  private static Set<String> groupMembers(
+      final List<String> selectors, final WorkflowDefinition workflow) {
+    final WorkflowShape shape = WorkflowShape.from(workflow);
+    final Set<String> members = new HashSet<>();
+    selectors.stream()
+        .filter(selector -> selector.startsWith(WorkflowShape.GROUP_PREFIX))
+        .forEach(selector -> members.addAll(shape.take(selector)));
+    return members;
+  }
+
   private static void checkNodes(
       final List<String> nodes,
       final WorkflowDefinition workflow,
@@ -238,13 +290,10 @@ public final class DefinitionChecks {
       final @Nullable String sessionId,
       final String field,
       final List<Issue> issues) {
-    if (nodes.stream().anyMatch(n -> n.startsWith(WorkflowShape.GROUP_PREFIX))) {
-      issues.add(new Issue(field, SupervisorService.GROUPS_NOT_YET));
-      return;
-    }
     try {
       final SupervisorScope.Section section =
-          new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes));
+          new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes))
+              .withGroupMembers(groupMembers(nodes, workflow));
       final boolean any =
           workflow.nodes().stream()
               .anyMatch(node -> section.matches(sessionId, workflow.workflowId(), node.nodeId()));

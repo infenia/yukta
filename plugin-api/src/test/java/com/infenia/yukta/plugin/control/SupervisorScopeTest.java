@@ -5,11 +5,13 @@ package com.infenia.yukta.plugin.control;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 /** Tests for the behaviour described by {@link SupervisorScope}. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class SupervisorScopeTest {
 
   @Test
@@ -53,6 +55,28 @@ class SupervisorScopeTest {
   }
 
   @Test
+  void ownsKeepsServerCommandsForTheServerAndAnUnknownRunForNobody() {
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+    final ExecutionControlCommand limits = new ExecutionControlCommand.SetLimitsCommand(1, 1);
+    final SupervisorScope workflow = new SupervisorScope.Workflow("w", "s");
+
+    assertThat(workflow.owns(pause, "s", "w", null)).isTrue();
+    assertThat(workflow.owns(pause, null, null, null)).isFalse();
+    assertThat(workflow.owns(limits, null, null, null)).isFalse();
+    assertThat(new SupervisorScope.Server().owns(limits, null, null, null)).isTrue();
+    assertThat(new SupervisorScope.Server().owns(pause, null, null, null)).isFalse();
+    assertThat(
+            new SupervisorScope.Server()
+                .owns(new ExecutionControlCommand.DrainCommand(true), null, null, null))
+        .isTrue();
+    assertThat(
+            new SupervisorScope.Server()
+                .owns(new ExecutionControlCommand.RecoverCommand("e"), "s", "w", null))
+        .isTrue();
+    assertThat(new SupervisorScope.Global().owns(pause, "s", "w", null)).isFalse();
+  }
+
+  @Test
   void serverMatchesOnlyCommandsThatBelongToNoRun() {
     final SupervisorScope server = new SupervisorScope.Server();
 
@@ -87,5 +111,47 @@ class SupervisorScopeTest {
     assertThat(new SupervisorScope.Workflow("w", "A").matches("A", "w")).isTrue();
     assertThat(new SupervisorScope.Workflow("w", "A").matches("B", "w")).isFalse();
     assertThat(new SupervisorScope.Workflow("w", "A").matches(null, null)).isFalse();
+  }
+
+  @Test
+  void ownsWorkflowRunOfKnownWorkflowWhenTheSessionIsUnknown() {
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+
+    assertThat(new SupervisorScope.Workflow("w", "s").owns(pause, null, "w", null)).isFalse();
+    assertThat(new SupervisorScope.Workflow("w", null).owns(pause, null, "w", null)).isTrue();
+  }
+
+  @Test
+  void sectionMatchesOnlyTheNodesItsSelectorsTake() {
+    final SupervisorScope section =
+        new SupervisorScope.Section("w", "A", Set.of("build.compile", "test.*"));
+
+    assertThat(section.kind()).isEqualTo(SupervisorScope.Kind.SECTION);
+    assertThat(section.matches("A", "w", "build.compile")).isTrue();
+    assertThat(section.matches("A", "w", "test.unit")).isTrue();
+    assertThat(section.matches("A", "w", "build.link")).isFalse();
+    assertThat(section.matches("B", "w", "build.compile")).isFalse();
+    assertThat(section.matches("A", "x", "build.compile")).isFalse();
+    assertThat(section.matches("A", "w", null)).isFalse();
+    assertThat(section.matches("A", "w")).isFalse();
+    assertThat(new SupervisorScope.Section("w", null, Set.of("a")).matches("any", "w", "a"))
+        .isTrue();
+  }
+
+  @Test
+  void sectionTakesTheNodesOfItsGroupsOnceTheServerResolvesThem() {
+    final SupervisorScope.Section written =
+        new SupervisorScope.Section("w", "A", Set.of("group:build", "x"));
+    final SupervisorScope.Section resolved = written.withGroupMembers(Set.of("build.compile"));
+
+    assertThat(written.hasGroups()).isTrue();
+    assertThat(written.groupMembers()).isEmpty();
+    assertThat(written.matches("A", "w", "build.compile")).isFalse();
+    assertThat(written.matches("A", "w", "x")).isTrue();
+    assertThat(resolved.groupMembers()).containsExactly("build.compile");
+    assertThat(resolved.key()).isEqualTo(written.key());
+    assertThat(resolved.matches("A", "w", "build.compile")).isTrue();
+    assertThat(resolved.matches("A", "w", "build.link")).isFalse();
+    assertThat(new SupervisorScope.Section("w", null, Set.of("a.*")).hasGroups()).isFalse();
   }
 }

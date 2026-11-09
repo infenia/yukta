@@ -16,6 +16,11 @@ import org.jspecify.annotations.Nullable;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record SupervisorReplay(String supervisorId, String executionId, List<Decision> decisions) {
 
+  /** Keeps an immutable copy of the decisions. */
+  public SupervisorReplay {
+    decisions = List.copyOf(decisions);
+  }
+
   /**
    * One command it would have sent.
    *

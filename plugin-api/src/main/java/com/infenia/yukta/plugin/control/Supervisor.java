@@ -89,4 +89,16 @@ public record Supervisor(
   public Delegation delegationFor(final DelegationKind kind) {
     return delegation.getOrDefault(kind, Delegation.DEFAULT);
   }
+
+  /**
+   * The same supervisor with another engine: its id, description, dry run, parents and delegation
+   * stay.
+   *
+   * @param newType the engine type
+   * @param newSettings the engine's settings
+   * @return the supervisor
+   */
+  public Supervisor withEngine(final String newType, final Map<String, Object> newSettings) {
+    return new Supervisor(id, newType, newSettings, dryRun, description, parents, delegation);
+  }
 }

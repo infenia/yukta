@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp.provider;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -36,7 +37,7 @@ class WorkflowVersionProviderTest {
 
   {
     when(declared.reconcile(any())).thenReturn(Mono.empty());
-    when(declared.require(any())).thenReturn(Mono.empty());
+    when(declared.require(any(), any())).thenReturn(Mono.empty());
   }
 
   private static WorkflowDefinition definition(final String... nodeIds) {
@@ -105,7 +106,7 @@ class WorkflowVersionProviderTest {
   void rollback_refusesVersionWhoseSupervisorIsGone_andSavesNothing() {
     final WorkflowDefinition old = definition("a");
     when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
-    when(declared.require(old))
+    when(declared.require(any(), eq(old)))
         .thenReturn(Mono.error(new IllegalStateException("no supervisor 'audit'")));
 
     StepVerifier.create(provider.rollback("s", "w1", "0001-a"))

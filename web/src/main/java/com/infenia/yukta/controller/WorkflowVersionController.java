@@ -135,7 +135,7 @@ public class WorkflowVersionController {
             definition ->
                 // the revision may declare a supervisor deleted since: refuse it as a save would
                 declared
-                    .require(definition)
+                    .require(sessionId, definition)
                     .then(
                         Mono.defer(
                             () ->
