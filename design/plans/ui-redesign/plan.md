@@ -41,7 +41,7 @@
 **Who updates which branch:** a second session (`yukta-ui-redesign-design-system`) merges main into the older PR branches (#1490–#1512) and fixes their CI. Don't push to those without asking it. This session's branches are #1516–#1519 and K2.
 
 **Design references**
-- **Offline:** [`artboards/index.html`](artboards/index.html) has a static copy of every artboard. Fonts, icons and the logo are in `artboards/assets/`, so it opens with no network. Add `#dark` or `#light` to any URL to switch theme.
+- **Offline:** the static copies in `artboards/` were removed in #2153: they showed the old top menu, and the app itself is now the reference. The supervisor screens are in `design/plans/supervisor-framework/artboards/`.
 - **Live canvas:** https://claude.ai/artifact/FDLDwU5fDE6XqogqKQzqNQ (editable).
 - **Design system:** https://claude.ai/artifact/LeqMJNrp9wEkCaEDrKAWch. Its README has the status vocabulary and the agent-friendly rules.
 
@@ -266,4 +266,4 @@ Compared every artboard with the UI on main after #1520. The deliberate deviatio
 - Run `yk gradle :ui:pnpmTest`; coverage thresholds are 100%.
 - Run `yk check --base <parent branch>`.
 - Run Playwright on chromium. Open each changed screenshot before updating its baseline.
-- Compare the result against the matching artboard in `artboards/`.
+- Compare the result against the running app (or, for supervisors, `design/plans/supervisor-framework/artboards/`).
