@@ -17,6 +17,7 @@ import { hierarchyRows } from '../lib/hierarchy';
 import { parseScope, targetLabel } from '../lib/ownership';
 import type { AttachmentView, SupervisorView } from '../types';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
+import { Activity } from './Activity';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
 
 const DETAIL_TABS = [
@@ -25,6 +26,7 @@ const DETAIL_TABS = [
   'Hierarchy',
   'Settings',
   'History',
+  'Activity',
 ] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
@@ -209,6 +211,7 @@ function SupervisorPanel({
         )}
         {tab === 'Settings' && <SettingsTab supervisor={supervisor} />}
         {tab === 'History' && <HistoryTab supervisor={supervisor} />}
+        {tab === 'Activity' && <Activity supervisor={supervisor.id} />}
       </div>
       <AgentCommands id={supervisor.id} />
     </article>

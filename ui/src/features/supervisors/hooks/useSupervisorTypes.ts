@@ -103,7 +103,7 @@ export const useSupervision = (target: ControlTarget, enabled = true) =>
 export const useSupervisorDecisions = (supervisor?: string) =>
   useQuery({
     queryKey: [...ROOT, 'decisions', supervisor ?? null],
-    queryFn: () => getSupervisorDecisions(supervisor),
+    queryFn: () => getSupervisorDecisions(supervisor, 200),
   });
 
 /** A write that refreshes everything about supervisors when it ends. */
