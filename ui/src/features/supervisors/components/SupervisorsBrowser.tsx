@@ -17,8 +17,15 @@ import { hierarchyRows } from '../lib/hierarchy';
 import { parseScope, targetLabel } from '../lib/ownership';
 import type { AttachmentView, SupervisorView } from '../types';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
+import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
 
-const DETAIL_TABS = ['Owns', 'Allowed operations', 'Hierarchy'] as const;
+const DETAIL_TABS = [
+  'Owns',
+  'Allowed operations',
+  'Hierarchy',
+  'Settings',
+  'History',
+] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
 function NavItem({
@@ -200,6 +207,8 @@ function SupervisorPanel({
         {tab === 'Hierarchy' && (
           <HierarchyTab supervisor={supervisor} all={all} onSelect={onSelect} />
         )}
+        {tab === 'Settings' && <SettingsTab supervisor={supervisor} />}
+        {tab === 'History' && <HistoryTab supervisor={supervisor} />}
       </div>
       <AgentCommands id={supervisor.id} />
     </article>

@@ -133,7 +133,7 @@ export function WorkflowSupervision({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-body-sm bg-accent text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
+        className="bg-accent text-body-sm text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
       >
         <span
           aria-hidden="true"

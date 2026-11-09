@@ -25,6 +25,17 @@ export interface SupervisorTypeDetails {
   /** null means every command. */
   defaultAllowedCommands: string[] | null;
   exampleSettings: Record<string, unknown>;
+  /** The signals a supervisor of this type is told: EVENT, TICK, REVIEW, DELEGATED, CONSULTED, STARTED. */
+  signals?: string[];
+  /** Whether it may act on its own. */
+  canInitiate?: boolean;
+}
+
+/** Ready-made settings of a decision maker. */
+export interface SupervisorPreset {
+  name: string;
+  description: string;
+  settings: Record<string, unknown>;
 }
 
 /** A configured supervisor; secrets come back as `***`. */

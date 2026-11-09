@@ -117,3 +117,28 @@ export interface RunningSupervisor {
 
 export const getRunningSupervisors = () =>
   fetchApi<RunningSupervisor[]>('/api/supervisors/status');
+
+/** One kept version of a supervisor, newest first. */
+export interface SupervisorVersion {
+  version: number;
+  savedAt: string;
+  supervisor: SupervisorView;
+}
+
+export const getSupervisorVersions = (id: string) =>
+  fetchApi<SupervisorVersion[]>(api`/api/supervisors/${id}/versions`);
+
+/** Saves a kept version again as the newest. */
+export const rollbackSupervisor = ({
+  id,
+  version,
+}: {
+  id: string;
+  version: number;
+}) =>
+  fetchApi<SupervisorView>(
+    api`/api/supervisors/${id}/rollback?version=${version}`,
+    {
+      method: 'POST',
+    }
+  );

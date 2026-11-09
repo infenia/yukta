@@ -3,7 +3,7 @@
 
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { CatalogTab } from './CatalogTab';
+import { DecisionMakersTab } from './DecisionMakersTab';
 import { ConflictsBanner } from './ConflictsBanner';
 import { DecisionsTable } from './DecisionsTable';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
@@ -67,7 +67,7 @@ export function SupervisorsPage() {
         aria-labelledby={`supervisors-tab-${tab}`}
       >
         {tab === 'supervisors' && <SupervisorsBrowser />}
-        {tab === 'decision-makers' && <CatalogTab />}
+        {tab === 'decision-makers' && <DecisionMakersTab />}
         {tab === 'activity' && <DecisionsTable />}
       </div>
     </div>
