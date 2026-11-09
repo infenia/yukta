@@ -454,4 +454,27 @@ class SupervisorHostDirectivesTest {
       other.stop();
     }
   }
+
+  @Test
+  void aStopOfTheRunBySomeoneElseReleasesItToo() {
+    host.start();
+    attach(
+        pausing(10),
+        new Directive.Command("k1", new PauseWorkflowCommand("e1"), Cause.event("x"), null, null));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").size() == 1);
+
+    feed.publish(
+        new ExecutionEvent.ControlOutcome(
+            "e1",
+            "s",
+            "w",
+            "StopWorkflowCommand",
+            "key:alice",
+            true,
+            null,
+            Instant.now(),
+            null,
+            "OPERATOR"));
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.held("eng").isEmpty());
+  }
 }
