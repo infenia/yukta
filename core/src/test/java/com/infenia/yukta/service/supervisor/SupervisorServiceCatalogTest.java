@@ -99,6 +99,17 @@ class SupervisorServiceCatalogTest {
   }
 
   @Test
+  void canInitiateIsWhatTheFactoryAnswers() {
+    final SupervisorFactory acting = mock(SupervisorFactory.class);
+    org.mockito.Mockito.when(acting.type()).thenReturn("t");
+    org.mockito.Mockito.when(acting.canInitiate()).thenReturn(true);
+    final SupervisorService service = service(acting);
+
+    assertThat(service.canInitiate("t")).isTrue();
+    assertThat(service.canInitiate("nope")).isFalse();
+  }
+
+  @Test
   void checkReportsNothingForGoodDraft() {
     final SupervisorService service = service(factory("t", () -> mock(ExecutionSupervisor.class)));
 
