@@ -83,7 +83,7 @@ func setAssignmentsCmd(c *client.Client) *cobra.Command {
 	var unlock bool
 	cmd := commands.DataCmd("set-assignments <id>", "Make a supervisor own exactly the targets of a JSON file (-f)", 1,
 		func(args []string) (any, error) {
-			body, err := os.ReadFile(file) //nolint:gosec // the path is the user's own argument
+			body, err := os.ReadFile(file) // #nosec G304 -- the user names this file on purpose
 			if err != nil {
 				return nil, err
 			}
