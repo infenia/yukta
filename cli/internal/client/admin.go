@@ -200,10 +200,7 @@ func (c *Client) ReplaySupervisor(id, executionID, settingsJSON string) (any, er
 		}
 		body["settings"] = settings
 	}
-	raw, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
+	raw, _ := json.Marshal(body)
 	return c.dataCall("POST", apiPath("/api/supervisors/%s/replay", id), raw)
 }
 
