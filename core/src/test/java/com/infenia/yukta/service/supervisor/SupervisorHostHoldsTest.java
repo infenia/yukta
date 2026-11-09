@@ -94,15 +94,25 @@ class SupervisorHostHoldsTest {
     newHost(pausingOnFailure()).keepHoldsIn(store);
     started.start();
 
+    // the feed does not wait for the supervisor to subscribe, so publish until its first write
+    // has been attempted (and failed); then one more pause goes through to the store
     await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              feed.publish(failed("e1"));
-              assertThat(store.holds().collectList().block())
-                  .containsExactly(new Hold("rules", "e1"));
+              if (!failedOnce.get()) {
+                feed.publish(failed("e1"));
+              }
+              assertThat(failedOnce).isTrue();
             });
     assertThat(failedOnce).isTrue();
+    feed.publish(failed("e1"));
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(store.holds().collectList().block())
+                    .containsExactly(new Hold("rules", "e1")));
 
     feed.publish(
         new ExecutionEvent.WorkflowStatusChanged("e1", "s", "wf", "SUCCESS", Instant.now()));

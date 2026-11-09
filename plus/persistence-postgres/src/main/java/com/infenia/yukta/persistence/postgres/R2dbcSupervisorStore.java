@@ -16,6 +16,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -370,7 +371,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .map(
             row ->
                 new SupervisorVersions.Version(
-                    row.get("version", Integer.class),
+                    Objects.requireNonNull(row.get("version", Integer.class)),
                     row.get("saved_at", Instant.class),
                     fromBody(id, mapper.readValue(row.get("body", String.class), SETTINGS))))
         .all();

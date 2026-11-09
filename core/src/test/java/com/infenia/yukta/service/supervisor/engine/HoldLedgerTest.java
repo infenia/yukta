@@ -99,7 +99,7 @@ class HoldLedgerTest {
   }
 
   @Test
-  void loadPutsBackAHoldWithoutTellingTheListener() {
+  void loadPutsBackHoldWithoutTellingTheListener() {
     final List<HoldLedger.Change> changes = new ArrayList<>();
     ledger.onChange(changes::add);
 

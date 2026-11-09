@@ -87,7 +87,8 @@ public final class HoldLedger {
   private void hold(final String supervisorId, final ExecutionControlCommand pause) {
     lock.lock();
     try {
-      if (add(supervisorId, pause.executionId()) instanceof String dropped) {
+      final String dropped = add(supervisorId, pause.executionId());
+      if (dropped != null) {
         listener.accept(new Change(supervisorId, dropped, false));
       }
       listener.accept(new Change(supervisorId, pause.executionId(), true));

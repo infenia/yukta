@@ -44,6 +44,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.BlockingDeque;
@@ -349,8 +350,10 @@ public class SupervisorHost implements DryRunRecorder {
 
   private static Mono<Void> written(final SupervisorStore store, final HoldLedger.Change change) {
     final String holder = change.holder();
-    return change.held() && holder != null
-        ? store.saveHold(new SupervisorStore.Hold(holder, change.executionId()))
+    // the ledger names the holder of every run it holds; only a release may have none
+    return change.held()
+        ? store.saveHold(
+            new SupervisorStore.Hold(Objects.requireNonNull(holder), change.executionId()))
         : store.deleteHold(holder, change.executionId());
   }
 

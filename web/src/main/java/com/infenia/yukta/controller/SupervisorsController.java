@@ -32,6 +32,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -249,10 +250,10 @@ public class SupervisorsController {
   }
 
   /**
-   * The saved states of a supervisor (newest 20 since the server started), newest first.
+   * The rules document of a rules supervisor, with secret settings hidden.
    *
    * @param id the supervisor id
-   * @return the versions, with secret settings hidden; 404 if unknown
+   * @return the rules and the newest version; 404 if unknown, 409 if it has another engine
    */
   @GetMapping("/{id}/engine/rules")
   @Operation(summary = "Read the rules document of a rules supervisor")
@@ -262,6 +263,14 @@ public class SupervisorsController {
         .map(view -> ApiResponse.success(200, "Rules", view));
   }
 
+  /**
+   * Replace the rules of a rules supervisor and swap the running rules.
+   *
+   * @param id the supervisor id
+   * @param rules the new rules document, without the common settings
+   * @return the saved rules and their newest version; 404 if unknown, 409 if built in or when it
+   *     uses another engine
+   */
   @PutMapping("/{id}/engine/rules")
   @Operation(
       summary = "Replace the rules document of a rules supervisor",
@@ -285,21 +294,19 @@ public class SupervisorsController {
     }
     return rulesSupervisor(id)
         .flatMap(
-            existing -> {
-              final Map<String, Object> settings = new LinkedHashMap<>();
-              existing
-                  .settings()
-                  .forEach(
-                      (key, value) -> {
-                        if (COMMON_SETTINGS.contains(key)) {
-                          settings.put(key, value);
-                        }
-                      });
-              settings.putAll(SupervisorSettingsMask.keepHidden(rules, existing.settings()));
-              return service.saveSupervisor(existing.withEngine(existing.type(), settings));
-            })
+            existing ->
+                service.saveSupervisor(
+                    existing.withEngine(existing.type(), rulesSettings(existing, rules))))
         .flatMap(this::rulesView)
         .map(view -> ApiResponse.success(200, "Rules saved", view));
+  }
+
+  /** The settings to save: the common settings of the supervisor, then the new rules. */
+  private static Map<String, Object> rulesSettings(
+      final Supervisor existing, final Map<String, Object> rules) {
+    final Map<String, Object> settings = copyWhere(existing.settings(), COMMON_SETTINGS::contains);
+    settings.putAll(SupervisorSettingsMask.keepHidden(rules, existing.settings()));
+    return settings;
   }
 
   /** A rules supervisor by id: 404 when there is none, 409 when it has another engine. */
@@ -314,15 +321,30 @@ public class SupervisorsController {
   }
 
   private Mono<RulesView> rulesView(final Supervisor supervisor) {
-    final Map<String, Object> rules = new LinkedHashMap<>(supervisor.settings());
-    rules.keySet().removeAll(COMMON_SETTINGS);
+    final Map<String, Object> rules =
+        SupervisorSettingsMask.hide(
+            withoutCommon(supervisor.settings()), service.secretSettings(supervisor.type()));
     return service
         .versions(supervisor.id())
         .map(
             versions ->
-                new RulesView(
-                    versions.isEmpty() ? 0 : versions.getFirst().version(),
-                    SupervisorSettingsMask.hide(rules, service.secretSettings(supervisor.type()))));
+                new RulesView(versions.isEmpty() ? 0 : versions.getFirst().version(), rules));
+  }
+
+  /** The settings without the common settings: the rules document. */
+  private static Map<String, Object> withoutCommon(final Map<String, Object> settings) {
+    return copyWhere(settings, key -> !COMMON_SETTINGS.contains(key));
+  }
+
+  /** A copy of the settings whose keys pass the test, in their order; null values are kept. */
+  private static Map<String, Object> copyWhere(
+      final Map<String, Object> settings, final Predicate<String> keep) {
+    return settings.entrySet().stream()
+        .filter(entry -> keep.test(entry.getKey()))
+        .collect(
+            LinkedHashMap::new,
+            (copy, entry) -> copy.put(entry.getKey(), entry.getValue()),
+            Map::putAll);
   }
 
   /**
@@ -331,8 +353,20 @@ public class SupervisorsController {
    * @param version the newest saved version of the supervisor; 0 when none is kept
    * @param rules the document ({@code schemaVersion}, {@code rules}), without the common settings
    */
-  public record RulesView(int version, Map<String, Object> rules) {}
+  public record RulesView(int version, Map<String, Object> rules) {
 
+    /** Keeps an unmodifiable copy, so the caller's map cannot change the view. */
+    public RulesView {
+      rules = Collections.unmodifiableMap(new LinkedHashMap<>(rules));
+    }
+  }
+
+  /**
+   * The saved versions of a supervisor (the newest 20), newest first.
+   *
+   * @param id the supervisor id
+   * @return the versions, with secret settings hidden; 404 if unknown
+   */
   @GetMapping("/{id}/versions")
   @Operation(summary = "List the saved versions of a supervisor")
   public Mono<ApiResponse<List<VersionView>>> versions(@PathVariable final String id) {
