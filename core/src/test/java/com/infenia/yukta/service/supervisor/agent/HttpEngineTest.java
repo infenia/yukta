@@ -38,7 +38,9 @@ class HttpEngineTest {
       new HttpEngineFactory(
           hub,
           new Outbound(
-              new Egress(EgressPolicy.OPEN, HostAllowList.from(List.of("127.0.0.1"))),
+              new Egress(
+                  EgressPolicy.OPEN,
+                  HostAllowList.from(List.of(InetAddress.getLoopbackAddress().getHostAddress()))),
               WebClient.create(),
               JsonMapper.builder().build(),
               name -> null));

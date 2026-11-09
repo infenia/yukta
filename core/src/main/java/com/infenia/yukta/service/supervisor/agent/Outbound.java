@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.agent;
 
+import com.infenia.yukta.plugin.control.engine.Signal;
 import java.net.URI;
 import java.time.Duration;
-import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.UnaryOperator;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -52,29 +53,6 @@ public final class Outbound {
 
   private static final String PREFIX = "${env.";
 
-  /**
-   * Where and how to post.
-   *
-   * @param url the URL
-   * @param headers the headers, secrets resolved
-   * @param timeout how long one post may take
-   * @param maxConcurrent most posts at once
-   */
-  public record Config(
-      String url, Map<String, String> headers, Duration timeout, int maxConcurrent) {
-
-    /** Keeps an unmodifiable copy of the headers. */
-    public Config {
-      headers = Map.copyOf(headers);
-    }
-
-    /** Never shows the headers, which may hold secrets. */
-    @Override
-    public String toString() {
-      return "Config[url=" + url + ", headers=" + headers.keySet() + "]";
-    }
-  }
-
   private final Egress egress;
 
   private final WebClient client;
@@ -120,9 +98,9 @@ public final class Outbound {
         || uri.getHost() == null) {
       throw new IllegalArgumentException(URL + " must be an http or https URL with a host");
     }
-    final Map<String, String> headers = new LinkedHashMap<>();
-    headers.putAll(headers(settings.get(HEADERS), HEADERS));
-    headers.putAll(headers(settings.get(SECRET_HEADERS), SECRET_HEADERS));
+    final Map<String, String> headers = new ConcurrentHashMap<>();
+    headers.putAll(readHeaders(settings.get(HEADERS), HEADERS));
+    headers.putAll(readHeaders(settings.get(SECRET_HEADERS), SECRET_HEADERS));
     return new Config(
         url,
         headers,
@@ -147,10 +125,8 @@ public final class Outbound {
 
   private Mono<Void> post(
       final String supervisorId, final Config config, final AgentHub.Sequenced sequenced) {
-    final Map<String, Object> body = new LinkedHashMap<>();
-    body.put("cursor", sequenced.cursor());
-    body.put("kind", sequenced.signal().kind().name());
-    body.put("signal", sequenced.signal());
+    final Body body =
+        new Body(sequenced.cursor(), sequenced.signal().kind().name(), sequenced.signal());
     return egress
         .check(config.url())
         .then(
@@ -177,14 +153,14 @@ public final class Outbound {
             });
   }
 
-  private Map<String, String> headers(final @Nullable Object value, final String key) {
+  private Map<String, String> readHeaders(final @Nullable Object value, final String key) {
     if (value == null) {
       return Map.of();
     }
     if (!(value instanceof final Map<?, ?> map)) {
       throw new IllegalArgumentException(key + " must be an object of header names and values");
     }
-    final Map<String, String> out = new LinkedHashMap<>();
+    final Map<String, String> out = new ConcurrentHashMap<>();
     map.forEach(
         (name, text) -> out.put(String.valueOf(name), resolve(key, String.valueOf(name), text)));
     return out;
@@ -219,4 +195,30 @@ public final class Outbound {
     }
     throw new IllegalArgumentException(key + " must be a whole number from 1 to " + max);
   }
+
+  /**
+   * Where and how to post.
+   *
+   * @param url the URL
+   * @param headers the headers, secrets resolved
+   * @param timeout how long one post may take
+   * @param maxConcurrent most posts at once
+   */
+  public record Config(
+      String url, Map<String, String> headers, Duration timeout, int maxConcurrent) {
+
+    /** Keeps an unmodifiable copy of the headers. */
+    public Config {
+      headers = Map.copyOf(headers);
+    }
+
+    /** Never shows the headers, which may hold secrets. */
+    @Override
+    public String toString() {
+      return "Config[url=" + url + ", headers=" + headers.keySet() + "]";
+    }
+  }
+
+  /** One post: the signal as the agent API shows it, with its cursor and kind, in that order. */
+  private record Body(long cursor, String kind, Signal signal) {}
 }

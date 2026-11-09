@@ -20,7 +20,7 @@ import reactor.test.StepVerifier;
 
 /** What the service tells the catalog about a type, and how it checks a draft. */
 @NoArgsConstructor
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class SupervisorServiceCatalogTest {
 
   /** A url value the test factory refuses. */

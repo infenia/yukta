@@ -39,9 +39,29 @@ class OutboundTest {
 
   private static final String SECRET = "s3cr3t-value";
 
+  private static final int REDIRECT = 302;
+
+  private static final Signal TICK = new Signal.Tick(Instant.EPOCH);
+
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  private static final Egress ALLOW_LOOPBACK =
+      new Egress(EgressPolicy.OPEN, HostAllowList.from(List.of("127.0.0.1")));
+
+  private static final Egress CLOSED_EGRESS =
+      new Egress(EgressPolicy.OPEN, HostAllowList.from(null));
+
+  private static final Outbound OPEN =
+      new Outbound(
+          ALLOW_LOOPBACK, WebClient.create(), JSON, name -> "TOKEN".equals(name) ? SECRET : null);
+
+  private static final Outbound CLOSED =
+      new Outbound(
+          CLOSED_EGRESS, WebClient.create(), JSON, name -> "TOKEN".equals(name) ? SECRET : null);
+
   private HttpServer server;
+
+  private Outbound.Config config;
 
   private final AtomicInteger status = new AtomicInteger(200);
 
@@ -62,7 +82,7 @@ class OutboundTest {
           paths.add(exchange.getRequestURI().getPath());
           bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
           secrets.add(String.valueOf(exchange.getRequestHeaders().getFirst("X-Secret")));
-          if (status.get() == 302) {
+          if (status.get() == REDIRECT) {
             exchange.getResponseHeaders().add("Location", "/elsewhere");
           }
           exchange.sendResponseHeaders(status.get(), -1);
@@ -71,6 +91,8 @@ class OutboundTest {
     server.start();
     logs.start();
     ((Logger) LoggerFactory.getLogger(Outbound.class)).addAppender(logs);
+    final String url = "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
+    config = OPEN.read(Map.of("url", url, "secretHeaders", Map.of("X-Secret", "${env.TOKEN}")));
   }
 
   @AfterEach
@@ -79,35 +101,13 @@ class OutboundTest {
     ((Logger) LoggerFactory.getLogger(Outbound.class)).detachAppender(logs);
   }
 
-  private String url() {
-    return "http://127.0.0.1:" + server.getAddress().getPort() + "/hook";
-  }
-
-  private static Egress allowLoopback() {
-    return new Egress(EgressPolicy.OPEN, HostAllowList.from(List.of("127.0.0.1")));
-  }
-
-  private static Outbound outbound(final Egress egress) {
-    return new Outbound(
-        egress, WebClient.create(), JSON, name -> "TOKEN".equals(name) ? SECRET : null);
-  }
-
-  private Outbound.Config config() {
-    return outbound(allowLoopback())
-        .read(Map.of("url", url(), "secretHeaders", Map.of("X-Secret", "${env.TOKEN}")));
-  }
-
-  private static AgentHub.Sequenced tick(final long cursor) {
-    return new AgentHub.Sequenced(cursor, new Signal.Tick(Instant.EPOCH));
-  }
-
   private void deliver(final Outbound outbound, final AgentHub.Sequenced... signals) {
-    outbound.deliver("ext", config(), Flux.just(signals)).block(Duration.ofSeconds(15));
+    outbound.deliver("ext", config, Flux.just(signals)).block(Duration.ofSeconds(15));
   }
 
   @Test
   void eachSignalIsPostedAsTheAgentApiShowsItWithTheHeaders() throws Exception {
-    deliver(outbound(allowLoopback()), tick(1), tick(2));
+    deliver(OPEN, new AgentHub.Sequenced(1, TICK), new AgentHub.Sequenced(2, TICK));
 
     assertThat(bodies).hasSize(2);
     final Map<?, ?> first = JSON.readValue(bodies.getFirst(), Map.class);
@@ -120,9 +120,8 @@ class OutboundTest {
   @Test
   void failedPostIsLoggedWithoutSecretsAndDeliveryGoesOn() {
     status.set(500);
-    final Outbound.Config config = config();
 
-    deliver(outbound(allowLoopback()), tick(1), tick(2));
+    deliver(OPEN, new AgentHub.Sequenced(1, TICK), new AgentHub.Sequenced(2, TICK));
 
     assertThat(bodies).hasSize(2);
     assertThat(logs.list).hasSize(2);
@@ -135,18 +134,16 @@ class OutboundTest {
 
   @Test
   void redirectsAreNotFollowed() {
-    status.set(302);
+    status.set(REDIRECT);
 
-    deliver(outbound(allowLoopback()), tick(1));
+    deliver(OPEN, new AgentHub.Sequenced(1, TICK));
 
     assertThat(paths).containsExactly("/hook");
   }
 
   @Test
   void loopbackTargetIsRefusedUnlessTheListNamesIt() {
-    final Outbound closed = outbound(new Egress(EgressPolicy.OPEN, HostAllowList.from(null)));
-
-    closed.deliver("ext", config(), Flux.just(tick(1))).block(Duration.ofSeconds(15));
+    deliver(CLOSED, new AgentHub.Sequenced(1, TICK));
 
     assertThat(bodies).isEmpty();
     assertThat(logs.list).hasSize(1);
@@ -154,12 +151,10 @@ class OutboundTest {
 
   @Test
   void settingsAreReadAndRefusedWithoutRepeatingValues() {
-    final Outbound reader = outbound(allowLoopback());
-
-    assertThat(reader.read(Map.of())).isNull();
-    assertThat(reader.read(Map.of("url", " "))).isNull();
+    assertThat(OPEN.read(Map.of())).isNull();
+    assertThat(OPEN.read(Map.of("url", " "))).isNull();
     final Outbound.Config read =
-        reader.read(
+        OPEN.read(
             Map.of(
                 "url",
                 "https://x.example/in",
@@ -172,18 +167,18 @@ class OutboundTest {
     assertThat(read.headers()).containsEntry("A", "b");
     assertThat(read.timeout()).isEqualTo(Duration.ofMillis(500));
     assertThat(read.maxConcurrent()).isEqualTo(2);
-    assertThat(reader.read(Map.of("url", "https://x.example")).timeout())
+    assertThat(OPEN.read(Map.of("url", "https://x.example")).timeout())
         .isEqualTo(Duration.ofSeconds(3));
 
-    assertThatThrownBy(() -> reader.read(Map.of("url", "ftp://x.example")))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "ftp://x.example")))
         .hasMessageContaining("http or https");
-    assertThatThrownBy(() -> reader.read(Map.of("url", "https:///x")))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https:///x")))
         .hasMessageContaining("with a host");
-    assertThatThrownBy(() -> reader.read(Map.of("url", "https://x.example", "headers", "A: b")))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "headers", "A: b")))
         .hasMessageContaining("headers must be an object");
     assertThatThrownBy(
             () ->
-                reader.read(
+                OPEN.read(
                     Map.of(
                         "url",
                         "https://x.example",
@@ -191,12 +186,11 @@ class OutboundTest {
                         Map.of("X", "${env.MISSING}"))))
         .hasMessageContaining("MISSING")
         .hasMessageContaining("secretHeaders.X");
-    assertThatThrownBy(() -> reader.read(Map.of("url", "https://x.example", "timeoutMs", 0)))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "timeoutMs", 0)))
         .hasMessageContaining("timeoutMs must be a whole number from 1 to 10000");
-    assertThatThrownBy(() -> reader.read(Map.of("url", "https://x.example", "timeoutMs", 1.5)))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "timeoutMs", 1.5)))
         .hasMessageContaining("timeoutMs");
-    assertThatThrownBy(
-            () -> reader.read(Map.of("url", "https://x.example", "maxConcurrent", "many")))
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "maxConcurrent", "many")))
         .hasMessageContaining("maxConcurrent");
   }
 
@@ -223,12 +217,10 @@ class OutboundTest {
 
   @Test
   void privateRefusalReadsTheHostAndTheList() throws Exception {
-    final Egress closed = new Egress(EgressPolicy.OPEN, HostAllowList.from(null));
-
-    assertThat(closed.privateRefusal("http:///x")).contains("no host");
-    assertThat(closed.privateRefusal("http://8.8.8.8/x")).isNull();
-    assertThat(closed.privateRefusal("http://10.0.0.5/x")).contains("private");
-    assertThat(closed.privateRefusal("http://224.0.0.1/x")).contains("private");
-    assertThat(allowLoopback().privateRefusal("http://127.0.0.1/x")).isNull();
+    assertThat(CLOSED_EGRESS.privateRefusal("http:///x")).contains("no host");
+    assertThat(CLOSED_EGRESS.privateRefusal("http://8.8.8.8/x")).isNull();
+    assertThat(CLOSED_EGRESS.privateRefusal("http://10.0.0.5/x")).contains("private");
+    assertThat(CLOSED_EGRESS.privateRefusal("http://224.0.0.1/x")).contains("private");
+    assertThat(ALLOW_LOOPBACK.privateRefusal("http://127.0.0.1/x")).isNull();
   }
 }
