@@ -54,7 +54,9 @@ describe('CoverageTab', () => {
   it('shows a loading message until the attachments arrive', async () => {
     renderTab();
     expect(screen.getByText('Loading…')).toBeInTheDocument();
-    expect(await screen.findByText('Nothing is supervised yet')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Nothing is supervised yet')
+    ).toBeInTheDocument();
   });
 
   it('says what to do when nothing is supervised', async () => {
@@ -95,7 +97,9 @@ describe('CoverageTab', () => {
     ];
     renderTab();
 
-    expect(await screen.findByText('All sessions and workflows')).toBeInTheDocument();
+    expect(
+      await screen.findByText('All sessions and workflows')
+    ).toBeInTheDocument();
     expect(screen.getByText('Not supervised')).toBeInTheDocument();
     expect(screen.getByText('s1')).toBeInTheDocument();
     expect(screen.getByText('s2')).toBeInTheDocument();
@@ -123,9 +127,14 @@ describe('CoverageTab', () => {
     expect(rules).toHaveAttribute('title', expect.stringContaining('(paused)'));
 
     const sys = screen.getByRole('link', { name: 'sys' });
-    expect(sys).toHaveAttribute('title', expect.stringContaining('set by the server'));
+    expect(sys).toHaveAttribute(
+      'title',
+      expect.stringContaining('set by the server')
+    );
 
     const legend = screen.getByText('● green: attached by hand');
-    expect(within(legend.parentElement as HTMLElement).getByText(/grey/)).toBeInTheDocument();
+    expect(
+      within(legend.parentElement as HTMLElement).getByText(/grey/)
+    ).toBeInTheDocument();
   });
 });

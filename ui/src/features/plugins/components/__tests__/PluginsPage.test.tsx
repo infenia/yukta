@@ -57,7 +57,9 @@ describe('PluginsPage keyboard', () => {
     );
     await screen.findByRole('button', { name: /ShellProcessor/ });
     const nav = screen.getByRole('navigation', { name: 'Plugins' });
-    const items = [...nav.querySelectorAll<HTMLButtonElement>('button[aria-current]')];
+    const items = [
+      ...nav.querySelectorAll<HTMLButtonElement>('button[aria-current]'),
+    ];
     expect(items).toHaveLength(2);
     const [first, second] = items;
 

@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  afterEach,
+  vi,
+} from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -10,7 +18,13 @@ import { AttachDialog } from '../AttachDialog';
 import { renderWithProviders } from '@/test/utils/testUtils';
 
 const envelope = (data: unknown) =>
-  HttpResponse.json({ timestamp: 't', status: 200, message: 'ok', data, path: '/' });
+  HttpResponse.json({
+    timestamp: 't',
+    status: 200,
+    message: 'ok',
+    data,
+    path: '/',
+  });
 
 const supervisor = (id: string, system = false) => ({
   id,
@@ -35,7 +49,13 @@ const server = setupServer(
   ),
   http.get('/api/sessions/:id/workflows', () =>
     envelope([
-      { workflowId: 'w1', description: '', nodeCount: 1, edgeCount: 0, status: null },
+      {
+        workflowId: 'w1',
+        description: '',
+        nodeCount: 1,
+        edgeCount: 0,
+        status: null,
+      },
     ])
   )
 );
@@ -50,12 +70,20 @@ afterEach(() => {
 describe('AttachDialog', () => {
   it('asks which supervisor to attach, from the configured ones', async () => {
     const user = userEvent.setup();
-    supervisors = [supervisor('guard'), supervisor('other'), supervisor('rules', true)];
+    supervisors = [
+      supervisor('guard'),
+      supervisor('other'),
+      supervisor('rules', true),
+    ];
     renderWithProviders(<AttachDialog onClose={vi.fn()} />);
 
     const choose = screen.getByRole('combobox', { name: 'Choose supervisor' });
-    expect(await screen.findByRole('option', { name: 'other' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'rules' })).not.toBeInTheDocument();
+    expect(
+      await screen.findByRole('option', { name: 'other' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('option', { name: 'rules' })
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('option', { name: 'Create a supervisor first' })
     ).not.toBeInTheDocument();
@@ -77,7 +105,11 @@ describe('AttachDialog', () => {
 
   it('opens on the session it is given', async () => {
     renderWithProviders(
-      <AttachDialog supervisorId="guard" preset={{ sessionId: 's1' }} onClose={vi.fn()} />
+      <AttachDialog
+        supervisorId="guard"
+        preset={{ sessionId: 's1' }}
+        onClose={vi.fn()}
+      />
     );
 
     await screen.findByRole('option', { name: 'Alpha' });
@@ -104,7 +136,9 @@ describe('AttachDialog', () => {
   });
 
   it('starts with no session and no scope when nothing is given', async () => {
-    renderWithProviders(<AttachDialog supervisorId="guard" onClose={vi.fn()} />);
+    renderWithProviders(
+      <AttachDialog supervisorId="guard" onClose={vi.fn()} />
+    );
 
     expect(
       await screen.findByRole('combobox', { name: 'Choose session' })

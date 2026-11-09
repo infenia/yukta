@@ -14,10 +14,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import {
-  expectTooltip,
-  renderWithProviders,
-} from '@/test/utils/testUtils';
+import { expectTooltip, renderWithProviders } from '@/test/utils/testUtils';
 import { RunControls } from '../RunControls';
 import { RunButton } from '../RunButton';
 import { parsePayload } from '../RunButton.helpers';
