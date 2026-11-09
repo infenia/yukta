@@ -4594,6 +4594,13 @@ export interface components {
              */
             timestamp?: string;
         };
+        Asked: {
+            /** Format: date-time */
+            at?: string;
+            reason?: string;
+            said?: string;
+            who?: string;
+        };
         AssignmentBody: {
             enabled?: boolean;
             locked?: boolean;
@@ -4979,6 +4986,7 @@ export interface components {
         };
         InputRequest: {
             advice?: string;
+            asked?: components["schemas"]["Asked"][];
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -5027,6 +5035,7 @@ export interface components {
         InputRequestView: {
             advice?: string;
             answer?: components["schemas"]["InputAnswerView"];
+            asked?: components["schemas"]["Asked"][];
             audience?: components["schemas"]["Audience"];
             context?: {
                 [key: string]: unknown;

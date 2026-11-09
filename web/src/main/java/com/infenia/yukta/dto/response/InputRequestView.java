@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.dto.response;
 
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputOption;
@@ -49,6 +50,8 @@ import org.jspecify.annotations.Nullable;
  * @param createdAt when it was asked
  * @param updatedAt when it last changed
  * @param answer the answer, once the request is answered and the answer is still kept
+ * @param asked the way the request came to its current tier, oldest first: who asked for approval,
+ *     the parents asked before a person and each hand-up
  */
 @Schema(description = "An input request of a node and, once answered, its answer")
 public record InputRequestView(
@@ -74,10 +77,12 @@ public record InputRequestView(
     @Nullable Instant deadline,
     Instant createdAt,
     Instant updatedAt,
-    @Nullable InputAnswerView answer) {
+    @Nullable InputAnswerView answer,
+    List<Asked> asked) {
 
   /** Copies the collections. */
   public InputRequestView {
+    asked = List.copyOf(asked);
     // Map.copyOf rejects null values, and a value in the context may be null
     context = Collections.unmodifiableMap(new LinkedHashMap<>(context));
     options = List.copyOf(options);
@@ -170,7 +175,8 @@ public record InputRequestView(
         request.deadline(),
         request.createdAt(),
         request.updatedAt(),
-        response == null ? null : InputAnswerView.from(response));
+        response == null ? null : InputAnswerView.from(response),
+        request.asked());
   }
 
   private static InputOptionView option(final InputOption option) {

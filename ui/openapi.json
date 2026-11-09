@@ -3041,6 +3041,24 @@
         },
         "type" : "object"
       },
+      "Asked" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "said" : {
+            "type" : "string"
+          },
+          "who" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "AssignmentBody" : {
         "properties" : {
           "enabled" : {
@@ -4053,6 +4071,12 @@
           "advice" : {
             "type" : "string"
           },
+          "asked" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Asked"
+            },
+            "type" : "array"
+          },
           "createdAt" : {
             "format" : "date-time",
             "type" : "string"
@@ -4176,6 +4200,12 @@
           },
           "answer" : {
             "$ref" : "#/components/schemas/InputAnswerView"
+          },
+          "asked" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Asked"
+            },
+            "type" : "array"
           },
           "audience" : {
             "$ref" : "#/components/schemas/Audience"

@@ -8,6 +8,7 @@ import com.infenia.yukta.model.input.InputRoute;
 import com.infenia.yukta.model.input.Mode;
 import com.infenia.yukta.model.input.Tier;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputCancelledException;
 import com.infenia.yukta.plugin.input.InputExpiredException;
@@ -267,7 +268,8 @@ public class InputBroker {
           return store
               .findAnsweredByKey(spec.key())
               .flatMap(answered -> store.findResponse(answered.id()))
-              .switchIfEmpty(Mono.defer(() -> openRequest(who, spec).flatMap(this::await)));
+              .switchIfEmpty(
+                  Mono.defer(() -> openRequest(who, spec, List.of()).flatMap(this::await)));
         });
   }
 
@@ -280,11 +282,14 @@ public class InputBroker {
    *
    * @param who the run (and node, or a stand-in for a command on the whole run) the request is for
    * @param raw the question; its prompt and context are redacted before anything is stored
+   * @param steps the way it came so far (the supervisors that asked, the parents asked), oldest
+   *     first; kept on a new request only
    * @return the request, new or the open one with the same key; fails with {@link
    *     InputLimitException} when a cap is reached
    */
-  public Mono<InputRequest> raise(final InputIdentity who, final InputRequestSpec raw) {
-    return Mono.defer(() -> openRequest(who, redactor.redact(raw)));
+  public Mono<InputRequest> raise(
+      final InputIdentity who, final InputRequestSpec raw, final List<Asked> steps) {
+    return Mono.defer(() -> openRequest(who, redactor.redact(raw), steps));
   }
 
   /**
@@ -382,6 +387,12 @@ public class InputBroker {
     return tier.votes()
         ? vote(current, route, tier, expectedVersion, response)
         : finalAnswer(current.id(), expectedVersion, response);
+  }
+
+  /** The step a hand-up adds: who handed it up (its tier when the system did) and why. */
+  private Asked handedUp(
+      final InputRequest current, final String reason, final @Nullable Responder by) {
+    return new Asked(by == null ? current.tier() : by.id(), "escalated", reason, clock.instant());
   }
 
   /** Moves a request up, or flags it as handed up when its route has no higher tier. */
@@ -548,7 +559,9 @@ public class InputBroker {
             requestId,
             null,
             state -> state == InputState.OPEN,
-            current -> advance(current, InputState.ESCALATED, advice))
+            current ->
+                advance(current, InputState.ESCALATED, advice)
+                    .withAsked(handedUp(current, reason, by)))
         .doOnNext(
             change -> {
               if (change.applied()) {
@@ -591,7 +604,9 @@ public class InputBroker {
                       advice == null ? c.advice() : advice,
                       next.timeout() == null ? null : clock.instant().plus(next.timeout()),
                       List.of());
-              return retarget(moved, TierTargets.selectors(moved, next, directory(), askers));
+              return retarget(
+                  moved.withAsked(handedUp(c, reason, by)),
+                  TierTargets.selectors(moved, next, directory(), askers));
             })
         .flatMap(
             change -> {
@@ -770,7 +785,8 @@ public class InputBroker {
     return store.listOpen(sessionId, executionId);
   }
 
-  private Mono<InputRequest> openRequest(final InputIdentity who, final InputRequestSpec spec) {
+  private Mono<InputRequest> openRequest(
+      final InputIdentity who, final InputRequestSpec spec, final List<Asked> steps) {
     return store
         .listOpen(who.sessionId(), null)
         .collectList()
@@ -792,7 +808,7 @@ public class InputBroker {
                   .resolve(spec, who.sessionId())
                   .flatMap(
                       route -> {
-                        final InputRequest created = create(who, spec, route);
+                        final InputRequest created = create(who, spec, route, steps);
                         return store
                             .createIfAbsent(created)
                             .doOnNext(
@@ -841,7 +857,8 @@ public class InputBroker {
             existing.tierDeadline(),
             existing.votes(),
             existing.createdAt(),
-            clock.instant());
+            clock.instant(),
+            existing.asked());
     return store
         .compareAndSet(existing.id(), existing.version(), rebound)
         .flatMap(
@@ -888,7 +905,10 @@ public class InputBroker {
   }
 
   private InputRequest create(
-      final InputIdentity who, final InputRequestSpec spec, final InputRoute route) {
+      final InputIdentity who,
+      final InputRequestSpec spec,
+      final InputRoute route,
+      final List<Asked> steps) {
     final Instant now = clock.instant();
     // ponytail: the first tier; a run raised by a supervisor (phase 8) will start higher up
     final Tier first = route.tiers().getFirst();
@@ -910,7 +930,8 @@ public class InputBroker {
             first.timeout() == null ? null : now.plus(first.timeout()),
             List.of(),
             now,
-            now);
+            now,
+            steps);
     return retarget(draft, TierTargets.selectors(draft, first, directory(), List.of()));
   }
 
@@ -951,7 +972,8 @@ public class InputBroker {
         request.tierDeadline(),
         request.votes(),
         request.createdAt(),
-        request.updatedAt());
+        request.updatedAt(),
+        request.asked());
   }
 
   private EligibleSupervisors directory() {
@@ -1082,7 +1104,8 @@ public class InputBroker {
         tierDeadline,
         votes,
         current.createdAt(),
-        clock.instant());
+        clock.instant(),
+        current.asked());
   }
 
   private Mono<Void> expire(final InputRequest due) {
