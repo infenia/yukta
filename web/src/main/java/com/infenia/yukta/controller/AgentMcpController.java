@@ -59,6 +59,24 @@ public class AgentMcpController {
               "The executions you supervise, newest first.",
               Map.of("status", Map.of(TYPE, STRING_TYPE), LIMIT, Map.of(TYPE, INTEGER_TYPE))),
           tool(
+              "get_execution",
+              "One execution you supervise, with the status of the nodes you own.",
+              Map.of("executionId", Map.of(TYPE, STRING_TYPE))),
+          tool(
+              "get_logs",
+              "The newest log lines of an execution you supervise (secrets removed, long lines"
+                  + " cut).",
+              Map.of("executionId", Map.of(TYPE, STRING_TYPE), "tail", Map.of(TYPE, INTEGER_TYPE))),
+          tool(
+              "get_workflow",
+              "The nodes and edges of a workflow you own something in (no settings).",
+              Map.of(
+                  "sessionId", Map.of(TYPE, STRING_TYPE), "workflowId", Map.of(TYPE, STRING_TYPE))),
+          tool(
+              "get_scheduler",
+              "The scheduler limits and load; only for the supervisor that owns the server.",
+              Map.of()),
+          tool(
               "list_open_inputs",
               "The open input requests of the units you supervise.",
               Map.of(LIMIT, Map.of(TYPE, INTEGER_TYPE))),
@@ -166,6 +184,15 @@ public class AgentMcpController {
       case "list_executions" ->
           api.executions(exchange, string(a, "status"), integer(a.get(LIMIT)))
               .map(r -> (Object) r.data());
+      case "get_execution" ->
+          api.execution(exchange, string(a, "executionId")).map(r -> (Object) r.data());
+      case "get_logs" ->
+          api.logs(exchange, string(a, "executionId"), integer(a.get("tail")))
+              .map(r -> (Object) r.data());
+      case "get_workflow" ->
+          api.workflow(exchange, string(a, "sessionId"), string(a, "workflowId"))
+              .map(r -> (Object) r.data());
+      case "get_scheduler" -> api.scheduler(exchange).map(r -> (Object) r.data());
       case "list_open_inputs" ->
           api.inputs(exchange, integer(a.get(LIMIT))).map(r -> (Object) r.data());
       case "send_directive" ->

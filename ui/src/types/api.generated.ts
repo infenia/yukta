@@ -96,6 +96,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/executions/{executionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read one owned execution with its node statuses */
+        get: operations["execution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/executions/{executionId}/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the newest log lines of an owned execution */
+        get: operations["logs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/inputs": {
         parameters: {
             query?: never;
@@ -146,6 +180,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agent/v1/scheduler": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the scheduler (server owner only) */
+        get: operations["scheduler"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agent/v1/self": {
         parameters: {
             query?: never;
@@ -189,6 +240,23 @@ export interface paths {
         };
         /** The owned state and a cursor to resume the stream from */
         get: operations["snapshot_1"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agent/v1/workflows/{sessionId}/{workflowId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the shape of an owned workflow */
+        get: operations["workflow"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3697,9 +3765,75 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseRunDetail: {
+            /** @description The response data */
+            data?: components["schemas"]["RunDetail"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSchedulerLimits: {
             /** @description The response data */
             data?: components["schemas"]["SchedulerLimits"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSchedulerView: {
+            /** @description The response data */
+            data?: components["schemas"]["SchedulerView"];
             /**
              * @description The HTTP status error name
              * @example Bad Request
@@ -4356,6 +4490,39 @@ export interface components {
              */
             timestamp?: string;
         };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseWorkflowView: {
+            /** @description The response data */
+            data?: components["schemas"]["WorkflowView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
         AssignmentBody: {
             enabled?: boolean;
             locked?: boolean;
@@ -4405,6 +4572,8 @@ export interface components {
         };
         /** @description Request object for session configuration, supporting both initialization and runtime updates */
         ConfigRequest: {
+            /** @description What supervisors own in the whole session; assigned when it is saved */
+            assignments?: components["schemas"]["SupervisorRef"][];
             /**
              * @description A human-readable description of the session (optional; defaults to the name)
              * @example Daily build and quality check
@@ -4430,8 +4599,6 @@ export interface components {
              * @example session-123
              */
             sessionId: string;
-            /** @description Supervisors declared for the whole session; attached when it is saved */
-            supervisors?: components["schemas"]["SupervisorRef"][];
             /**
              * @description Metadata tags for categorization and filtering
              * @example {
@@ -4446,6 +4613,16 @@ export interface components {
             workflows: {
                 [key: string]: components["schemas"]["WorkflowDefinitionRequest"];
             };
+        };
+        Consulted: components["schemas"]["Signal"] & {
+            answers?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /** @enum {string} */
+            delegation?: "APPROVAL" | "INPUT" | "CONSULT";
+            id?: string;
         };
         ContractView: {
             operations?: {
@@ -4549,6 +4726,10 @@ export interface components {
             sourcePort?: string;
             /** @description Target node ID */
             target: string;
+        };
+        EdgeView: {
+            source?: string;
+            target?: string;
         };
         EditionInfo: {
             /** @enum {string} */
@@ -4972,6 +5153,11 @@ export interface components {
             timestamp?: string;
             workflowId?: string;
         };
+        NodeView: {
+            group?: string;
+            nodeId?: string;
+            type?: string;
+        };
         /** @description How far a run got through its nodes */
         Nodes: {
             /**
@@ -5090,6 +5276,12 @@ export interface components {
             /** Format: duration */
             timeout?: string;
         };
+        RunDetail: {
+            nodes?: {
+                [key: string]: string;
+            };
+            run?: components["schemas"]["RunView"];
+        };
         RunView: {
             executionId?: string;
             sessionId?: string;
@@ -5105,6 +5297,16 @@ export interface components {
             maxPerWorkflow?: number;
             /** Format: int32 */
             queueCapacity?: number;
+            /** Format: int32 */
+            queued?: number;
+            /** Format: int32 */
+            running?: number;
+        };
+        SchedulerView: {
+            /** Format: int32 */
+            maxConcurrent?: number;
+            /** Format: int32 */
+            maxPerWorkflow?: number;
             /** Format: int32 */
             queued?: number;
             /** Format: int32 */
@@ -5252,7 +5454,7 @@ export interface components {
             /** Format: int64 */
             cursor?: number;
             kind?: string;
-            signal?: components["schemas"]["Delegated"] | components["schemas"]["Event"] | components["schemas"]["Review"] | components["schemas"]["Started"] | components["schemas"]["Tick"];
+            signal?: components["schemas"]["Consulted"] | components["schemas"]["Delegated"] | components["schemas"]["Event"] | components["schemas"]["Review"] | components["schemas"]["Started"] | components["schemas"]["Tick"];
         };
         SkipNodeCommand: components["schemas"]["ExecutionControlCommand"] & {
             executionId?: string;
@@ -5560,6 +5762,8 @@ export interface components {
         };
         /** @description Definition of a reactive workflow DAG */
         WorkflowDefinitionRequest: {
+            /** @description What supervisors own in this workflow; assigned when it is saved */
+            assignments?: components["schemas"]["SupervisorRef"][];
             /**
              * @description A human-readable description of the workflow (optional; defaults to the workflow ID)
              * @example Quality check
@@ -5569,8 +5773,6 @@ export interface components {
             edges: components["schemas"]["EdgeRequest"][];
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["NodeRequest"][];
-            /** @description Supervisors declared for this workflow; attached when it is saved */
-            supervisors?: components["schemas"]["SupervisorRef"][];
             /** @description Unique workflow identifier */
             workflowId: string;
         };
@@ -5776,6 +5978,11 @@ export interface components {
             /** @description Problems that do not stop the workflow, for the editor to show */
             warnings?: components["schemas"]["Warning"][];
         };
+        WorkflowView: {
+            edges?: components["schemas"]["EdgeView"][];
+            nodes?: components["schemas"]["NodeView"][];
+            workflowId?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -5940,6 +6147,52 @@ export interface operations {
             };
         };
     };
+    execution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRunDetail"];
+                };
+            };
+        };
+    };
+    logs: {
+        parameters: {
+            query?: {
+                tail?: number;
+            };
+            header?: never;
+            path: {
+                executionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListString"];
+                };
+            };
+        };
+    };
     inputs: {
         parameters: {
             query?: {
@@ -6016,6 +6269,26 @@ export interface operations {
             };
         };
     };
+    scheduler: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSchedulerView"];
+                };
+            };
+        };
+    };
     self: {
         parameters: {
             query?: never;
@@ -6075,6 +6348,29 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseSnapshotView"];
+                };
+            };
+        };
+    };
+    workflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sessionId: string;
+                workflowId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseWorkflowView"];
                 };
             };
         };

@@ -104,7 +104,7 @@ class AgentMcpControllerTest {
     assertThat(result(rpc(exchange, "initialize", Map.of())).get("protocolVersion"))
         .isEqualTo("2025-03-26");
     assertThat(result(rpc(exchange, "ping", null))).isEmpty();
-    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(7);
+    assertThat((List<?>) result(rpc(exchange, "tools/list", null)).get("tools")).hasSize(11);
     assertThat(((Map<?, ?>) rpc(exchange, "nope", null).get("error")).get("code"))
         .isEqualTo(-32_601);
     assertThat(
@@ -121,6 +121,17 @@ class AgentMcpControllerTest {
       final Map<String, Object> result =
           result(rpc(exchange, "tools/call", call(read, Map.of("limit", 5))));
       assertThat(result.get("isError")).isEqualTo(false);
+    }
+    // this engine reads nothing, so what is not owned is reported as not found, not as a crash
+    for (final String read :
+        new String[] {"get_execution", "get_logs", "get_workflow", "get_scheduler"}) {
+      final Map<String, Object> result =
+          result(
+              rpc(
+                  exchange,
+                  "tools/call",
+                  call(read, Map.of("executionId", "run1", "sessionId", "s", "workflowId", "w"))));
+      assertThat(result.get("isError")).isEqualTo(true);
     }
 
     assertThat(

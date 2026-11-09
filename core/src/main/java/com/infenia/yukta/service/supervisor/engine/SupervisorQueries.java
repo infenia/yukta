@@ -2,20 +2,28 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.engine;
 
+import com.infenia.yukta.logging.api.PluginLogEntry;
+import com.infenia.yukta.logging.api.PluginLogStore;
 import com.infenia.yukta.model.execution.TaskStatus;
+import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InputRequestQueries;
+import com.infenia.yukta.service.redact.SecretRedactor;
 import com.infenia.yukta.service.session.SessionService;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * What an engine may read: the executions and open input requests of the units its supervisor owns,
@@ -30,6 +38,13 @@ public class SupervisorQueries {
   private final SessionService sessions;
   private final ControlBusGateway controlBus;
   private final InputRequestQueries inputs;
+
+  /** The longest a log line is when an engine reads it. */
+  private static final int MAX_LOG_CHARS = 2000;
+
+  private final SecretRedactor redactor = new SecretRedactor(null, null);
+
+  @Nullable private PluginLogStore logStore;
 
   /**
    * Creates the queries.
@@ -88,6 +103,36 @@ public class SupervisorQueries {
       @Override
       public Flux<InputRequest> openInputs(final int limit) {
         return SupervisorQueries.this.openInputs(scope, limit);
+      }
+
+      @Override
+      public Mono<RunDetail> execution(final String executionId) {
+        return SupervisorQueries.this.detail(scope, executionId);
+      }
+
+      @Override
+      public Mono<WorkflowView> workflow(final String sessionId, final String workflowId) {
+        return SupervisorQueries.this.shape(scope, sessionId, workflowId);
+      }
+
+      @Override
+      public Flux<String> logs(final String executionId, final int tail) {
+        return SupervisorQueries.this.logLines(scope, executionId, tail);
+      }
+
+      @Override
+      public Mono<SchedulerView> scheduler() {
+        return scope instanceof SupervisorScope.Server
+            ? controlBus
+                .limits()
+                .map(
+                    limits ->
+                        new SchedulerView(
+                            limits.maxConcurrent(),
+                            limits.maxPerWorkflow(),
+                            limits.running(),
+                            limits.queued()))
+            : Mono.empty();
       }
     };
   }
@@ -202,5 +247,107 @@ public class SupervisorQueries {
                 !(scope instanceof SupervisorScope.Global)
                     && scope.matches(request.sessionId(), request.workflowId(), request.nodeId()))
         .take(Math.clamp(limit, 1, MAX_ROWS));
+  }
+
+  /**
+   * Gives the queries the log store, when the server has one.
+   *
+   * @param store the store
+   */
+  @Autowired(required = false)
+  public void setLogStore(final PluginLogStore store) {
+    this.logStore = store;
+  }
+
+  /** One owned execution and the status of the nodes the scope owns. */
+  private Mono<EngineReads.RunDetail> detail(
+      final SupervisorScope scope, final String executionId) {
+    return owned(scope, executionId)
+        .flatMap(
+            run ->
+                Mono.fromSupplier(() -> controlBus.getProgress(run.sessionId(), executionId))
+                    .map(
+                        progress ->
+                            new EngineReads.RunDetail(
+                                new EngineReads.RunView(
+                                    run.sessionId(),
+                                    run.executionId(),
+                                    run.workflowId(),
+                                    run.status(),
+                                    run.startTime()),
+                                nodeStatuses(scope, progress))));
+  }
+
+  private static Map<String, String> nodeStatuses(
+      final SupervisorScope scope, final WorkflowProgress progress) {
+    final Map<String, String> out = new LinkedHashMap<>();
+    progress.tasks().stream()
+        .filter(task -> scope.matches(progress.sessionId(), progress.workflowId(), task.nodeId()))
+        .forEach(task -> out.put(task.nodeId(), task.status().name()));
+    return out;
+  }
+
+  /** The run, when the scope sees it among its newest {@value #MAX_ROWS}. */
+  private Mono<Run> owned(final SupervisorScope scope, final String executionId) {
+    return executions(scope, null, MAX_ROWS)
+        .filter(run -> executionId.equals(run.executionId()))
+        .next();
+  }
+
+  /** The shape of a workflow, only the nodes the scope owns and the edges between them. */
+  private Mono<EngineReads.WorkflowView> shape(
+      final SupervisorScope scope, final String sessionId, final String workflowId) {
+    if (!sees(scope, sessionId, workflowId)) {
+      return Mono.empty();
+    }
+    return sessions
+        .getSessionWorkflow(sessionId, workflowId)
+        .map(
+            definition -> {
+              final List<EngineReads.NodeView> nodes =
+                  definition.nodes().stream()
+                      .filter(node -> scope.matches(sessionId, workflowId, node.nodeId()))
+                      .map(
+                          node ->
+                              new EngineReads.NodeView(node.nodeId(), node.type(), node.group()))
+                      .toList();
+              final java.util.Set<String> kept =
+                  nodes.stream()
+                      .map(EngineReads.NodeView::nodeId)
+                      .collect(java.util.stream.Collectors.toSet());
+              final List<EngineReads.EdgeView> edges =
+                  definition.edges().stream()
+                      .filter(edge -> kept.contains(edge.source()) && kept.contains(edge.target()))
+                      .map(edge -> new EngineReads.EdgeView(edge.source(), edge.target()))
+                      .toList();
+              return new EngineReads.WorkflowView(workflowId, nodes, edges);
+            })
+        .onErrorResume(_ -> Mono.empty());
+  }
+
+  /** The newest lines of an owned execution, each cleaned of secrets and cut short. */
+  private Flux<String> logLines(
+      final SupervisorScope scope, final String executionId, final int tail) {
+    final PluginLogStore store = logStore;
+    if (store == null) {
+      return Flux.empty();
+    }
+    final int count = Math.clamp(tail, 1, MAX_ROWS);
+    return owned(scope, executionId)
+        .flatMapMany(
+            run ->
+                store
+                    .readExecution(executionId)
+                    .filter(
+                        entry -> scope.matches(run.sessionId(), run.workflowId(), entry.pluginId()))
+                    .takeLast(count)
+                    .map(this::line));
+  }
+
+  private String line(final PluginLogEntry entry) {
+    final String text = redactor.redactText(entry.message());
+    final String cut =
+        text.length() > MAX_LOG_CHARS ? text.substring(0, MAX_LOG_CHARS) + "..." : text;
+    return entry.logLevel() + " " + entry.pluginId() + ": " + cut;
   }
 }

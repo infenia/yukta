@@ -317,6 +317,85 @@ public class AgentApiController {
   }
 
   /**
+   * One owned execution with the status of its nodes.
+   *
+   * @param exchange the request
+   * @param executionId the execution
+   * @return the execution, or 404 when it is unknown or not owned
+   */
+  @GetMapping("/executions/{executionId}")
+  @Operation(summary = "Read one owned execution with its node statuses")
+  public Mono<ApiResponse<EngineReads.RunDetail>> execution(
+      final ServerWebExchange exchange, @PathVariable final String executionId) {
+    return channel(supervisor(exchange))
+        .reads()
+        .execution(executionId)
+        .map(run -> ApiResponse.success(200, "Execution", run))
+        .switchIfEmpty(Mono.error(new NotFoundException("Execution not found: " + executionId)));
+  }
+
+  /**
+   * The newest log lines of an owned execution, cleaned of secrets and cut short.
+   *
+   * @param exchange the request
+   * @param executionId the execution
+   * @param tail how many lines at most (up to 200)
+   * @return the lines, oldest first; 404 when the execution is unknown or not owned
+   */
+  @GetMapping("/executions/{executionId}/logs")
+  @Operation(summary = "Read the newest log lines of an owned execution")
+  public Mono<ApiResponse<List<String>>> logs(
+      final ServerWebExchange exchange,
+      @PathVariable final String executionId,
+      @RequestParam(defaultValue = "50") final int tail) {
+    final EngineReads reads = channel(supervisor(exchange)).reads();
+    return reads
+        .execution(executionId)
+        .switchIfEmpty(Mono.error(new NotFoundException("Execution not found: " + executionId)))
+        .thenMany(reads.logs(executionId, tail))
+        .collectList()
+        .map(lines -> ApiResponse.success(200, "Log lines", lines));
+  }
+
+  /**
+   * The shape of a workflow the supervisor owns something in: its nodes and edges, no settings.
+   *
+   * @param exchange the request
+   * @param sessionId the session
+   * @param workflowId the workflow
+   * @return the shape, or 404 when it is unknown or owns nothing there
+   */
+  @GetMapping("/workflows/{sessionId}/{workflowId}")
+  @Operation(summary = "Read the shape of an owned workflow")
+  public Mono<ApiResponse<EngineReads.WorkflowView>> workflow(
+      final ServerWebExchange exchange,
+      @PathVariable final String sessionId,
+      @PathVariable final String workflowId) {
+    return channel(supervisor(exchange))
+        .reads()
+        .workflow(sessionId, workflowId)
+        .map(shape -> ApiResponse.success(200, "Workflow", shape))
+        .switchIfEmpty(Mono.error(new NotFoundException("Workflow not found: " + workflowId)));
+  }
+
+  /**
+   * The scheduler limits and load, for the owner of the server.
+   *
+   * @param exchange the request
+   * @return the limits, or 404 for a supervisor that does not own the server
+   */
+  @GetMapping("/scheduler")
+  @Operation(summary = "Read the scheduler (server owner only)")
+  public Mono<ApiResponse<EngineReads.SchedulerView>> scheduler(final ServerWebExchange exchange) {
+    return channel(supervisor(exchange))
+        .reads()
+        .scheduler()
+        .map(view -> ApiResponse.success(200, "Scheduler", view))
+        .switchIfEmpty(
+            Mono.error(new NotFoundException("This supervisor does not own the server")));
+  }
+
+  /**
    * Sends a command. The supervisor checks it (ownership, allowed commands, reason and initiative
    * for a command nobody prompted, rate, dry run) before it has any effect.
    *

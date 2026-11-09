@@ -15,8 +15,8 @@ The catalogue endpoints describe what the server offers and who is attached to i
 |---|---|
 | `GET /api/plugins` | List plugin types |
 | `GET /api/plugins/{type}` | Describe one plugin type |
-| `GET /api/supervisors/status` | List running supervisors and control planes |
-| `GET /api/supervisor-types` | List the supervisor types; `GET /api/supervisor-types/{type}` describes one |
+| `GET /api/supervisors/status` | List running supervisors |
+| `GET /api/supervisor-engines` | List the engines a supervisor can have; `GET /api/supervisor-engines/{type}` describes one |
 | `GET /api/supervisors` | List the configured supervisors (see [Supervisors](/running/supervisors)) |
 | `GET /api/workers` | List connected remote workers |
 | `GET /api/templates` | List the example sessions bundled with the server |
