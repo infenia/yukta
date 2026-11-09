@@ -320,7 +320,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void aParentEngineIsAskedAndAnswersAConsultation() {
+  void parentEngineIsAskedAndAnswersConsultation() {
     final var parent =
         supervisor(
             engine(
@@ -342,7 +342,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void aParentThatDeclinesOrIsSlowGivesNoAnswer() {
+  void parentThatDeclinesOrIsSlowGivesNoAnswer() {
     final var declines =
         supervisor(
             engine(
@@ -368,7 +368,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void aQuestionOfTheEngineComesBackAsConsultedWithItsKey() {
+  void questionOfTheEngineComesBackAsConsultedWithItsKey() {
     final Sinks.Many<Signal> seen = Sinks.many().replay().all();
     final var child =
         supervisor(
@@ -397,7 +397,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void aQuestionWithNoWayToAskIsDropped() {
+  void questionWithNoWayToAskIsDropped() {
     final var child =
         supervisor(
             engine(
@@ -410,7 +410,7 @@ class EngineBackedSupervisorTest {
   }
 
   @Test
-  void anEngineThatDiesWhileAReviewIsOpenLeavesTheReviewToTimeOutAndNeverAllowsIt() {
+  void anEngineThatDiesWhileReviewIsOpenLeavesTheReviewToTimeOutAndNeverAllowsIt() {
     final var sup =
         supervisor(
             engine(

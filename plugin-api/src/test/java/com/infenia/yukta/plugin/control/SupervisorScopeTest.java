@@ -113,7 +113,7 @@ class SupervisorScopeTest {
   }
 
   @Test
-  void ownsAWorkflowRunOfKnownWorkflowWhenTheSessionIsUnknown() {
+  void ownsWorkflowRunOfKnownWorkflowWhenTheSessionIsUnknown() {
     final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
 
     assertThat(new SupervisorScope.Workflow("w", "s").owns(pause, null, "w", null)).isFalse();

@@ -624,4 +624,73 @@ class SupervisorsControllerTest {
         .expectError(IllegalArgumentException.class)
         .verify();
   }
+
+  @Test
+  void aSystemSupervisorIsShownByIdAndAnUnknownOneIsNotFound() {
+    when(host.status()).thenReturn(List.of(system("rules", "GLOBAL", null, null)));
+    when(host.isBuiltIn("rules")).thenReturn(true);
+
+    StepVerifier.create(controller.get("rules"))
+        .assertNext(r -> assertThat(r.data().system()).isTrue())
+        .verifyComplete();
+    StepVerifier.create(controller.get("ghost")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
+  void twoRunningSupervisorsWithOneIdAreShownOnce() {
+    when(host.status())
+        .thenReturn(
+            List.of(system("dup", "SESSION", "A", null), system("dup", "SESSION", "B", null)));
+    created("dup");
+
+    StepVerifier.create(controller.get("dup"))
+        .assertNext(r -> assertThat(r.data().id()).isEqualTo("dup"))
+        .verifyComplete();
+  }
+
+  @Test
+  void checkingNothingToOwnIsValidAndAMissingListIsAClientError() {
+    created("s1");
+
+    StepVerifier.create(controller.checkAssignments("s1", List.of()))
+        .assertNext(
+            r -> {
+              assertThat(r.data().valid()).isTrue();
+              assertThat(r.message()).isEqualTo("No problems");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.checkAssignments("s1", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void aReplayThatFindsDecisionsAnswersWithThem() {
+    created("s1");
+    final SupervisorService spied = org.mockito.Mockito.spy(service);
+    org.mockito.Mockito.doReturn(
+            Mono.just(
+                List.of(
+                    new SupervisorService.ReplayDecision(
+                        "PauseWorkflowCommand", "e1", null, "event:e1", "ok", true))))
+        .when(spied)
+        .replay("s1", null, "e1");
+    final SupervisorsController replaying =
+        new SupervisorsController(spied, host, new SupervisorAssignments(spied));
+
+    StepVerifier.create(replaying.replay("s1", new SupervisorsController.ReplayBody("e1", null)))
+        .assertNext(r -> assertThat(r.data()).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void aMissingIdIsGeneratedAndAMissingTypeIsAClientError() {
+    StepVerifier.create(controller.create(body(null, Map.of())))
+        .assertNext(r -> assertThat(r.data().id()).isNotBlank())
+        .verifyComplete();
+    StepVerifier.create(
+            controller.create(new SupervisorBody("x", null, null, null, null, null, null)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
 }

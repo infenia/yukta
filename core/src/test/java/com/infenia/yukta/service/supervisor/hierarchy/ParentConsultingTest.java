@@ -54,7 +54,7 @@ class ParentConsultingTest {
   }
 
   @Test
-  void aSlowOrFailingParentIsSilentAndNoAnswerIsEmpty() {
+  void slowOrFailingParentIsSilentAndNoAnswerIsEmpty() {
     final Function<String, Mono<Map<String, Object>>> ask =
         parent -> "a".equals(parent) ? Mono.never() : Mono.error(new IllegalStateException("down"));
     for (final DelegationMode mode : DelegationMode.values()) {

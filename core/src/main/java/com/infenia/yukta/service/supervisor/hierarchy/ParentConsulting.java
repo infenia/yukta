@@ -22,7 +22,7 @@ import reactor.core.publisher.Mono;
  *   <li>{@code ALL}: all at once; the result holds every answer given.
  * </ul>
  *
- * When no parent answers the result is empty; the asking engine decides what that means for it.
+ * <p>When no parent answers the result is empty; the asking engine decides what that means for it.
  */
 @UtilityClass
 public class ParentConsulting {

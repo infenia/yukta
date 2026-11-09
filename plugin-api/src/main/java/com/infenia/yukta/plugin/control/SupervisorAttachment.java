@@ -81,16 +81,6 @@ public record SupervisorAttachment(
   }
 
   /**
-   * The same attachment, disabled because it overlaps another one.
-   *
-   * @return the attachment with {@code enabled} false and {@code conflict} true
-   */
-  public SupervisorAttachment asConflict() {
-    return new SupervisorAttachment(
-        id, supervisorId, scope, false, source, originSessionId, originWorkflowId, true, locked);
-  }
-
-  /**
    * An attachment as stored before {@code locked} existed: not locked.
    *
    * @param id the attachment id
@@ -121,6 +111,16 @@ public record SupervisorAttachment(
         originWorkflowId,
         conflict,
         false);
+  }
+
+  /**
+   * The same attachment, disabled because it overlaps another one.
+   *
+   * @return the attachment with {@code enabled} false and {@code conflict} true
+   */
+  public SupervisorAttachment asConflict() {
+    return new SupervisorAttachment(
+        id, supervisorId, scope, false, source, originSessionId, originWorkflowId, true, locked);
   }
 
   /**

@@ -161,6 +161,23 @@ public class SupervisorAssignments {
         .flatMap(all -> problems(supervisorId, wanted, all));
   }
 
+  private Mono<Problems> problems(
+      final String supervisorId,
+      final List<Assignment> wanted,
+      final List<SupervisorAttachment> all) {
+    final List<SupervisorAttachment> others =
+        all.stream()
+            .filter(SupervisorAttachment::enabled)
+            .filter(a -> !a.supervisorId().equals(supervisorId))
+            .toList();
+    final List<SupervisorScope> scopes =
+        Stream.concat(wanted.stream().map(Assignment::scope), others.stream().map(a -> a.scope()))
+            .toList();
+    return service
+        .validatorFor(scopes)
+        .map(validator -> problems(supervisorId, wanted, others, validator));
+  }
+
   /**
    * Makes a supervisor own exactly these targets (its {@code MANUAL} assignments), after every
    * check passed. Assignments that stay the same are left running.
@@ -251,23 +268,6 @@ public class SupervisorAssignments {
         : "Locked assignments ("
             + targets
             + ") change only with unlock, by a key in yukta.supervisor.lock-holders";
-  }
-
-  private Mono<Problems> problems(
-      final String supervisorId,
-      final List<Assignment> wanted,
-      final List<SupervisorAttachment> all) {
-    final List<SupervisorAttachment> others =
-        all.stream()
-            .filter(SupervisorAttachment::enabled)
-            .filter(a -> !a.supervisorId().equals(supervisorId))
-            .toList();
-    final List<SupervisorScope> scopes =
-        Stream.concat(wanted.stream().map(Assignment::scope), others.stream().map(a -> a.scope()))
-            .toList();
-    return service
-        .validatorFor(scopes)
-        .map(validator -> problems(supervisorId, wanted, others, validator));
   }
 
   private static Problems problems(

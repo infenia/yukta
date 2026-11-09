@@ -238,7 +238,7 @@ class SupervisorQueriesTest {
   }
 
   @Test
-  void withoutALogStoreThereAreNoLogs() {
+  void withoutLogStoreThereAreNoLogs() {
     history();
     assertThat(
             queries
@@ -251,7 +251,7 @@ class SupervisorQueriesTest {
   }
 
   @Test
-  void aWorkflowShowsOnlyOwnedNodesAndTheEdgesBetweenThem() {
+  void workflowShowsOnlyOwnedNodesAndTheEdgesBetweenThem() {
     final WorkflowDefinition definition = mock(WorkflowDefinition.class);
     final WorkflowDefinition.Node compile = mock(WorkflowDefinition.Node.class);
     when(compile.nodeId()).thenReturn("build.compile");

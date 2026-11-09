@@ -97,7 +97,7 @@ class DirectiveJsonTest {
   }
 
   @Test
-  void onlyAConsultationCanBePassedUp() {
+  void onlyConsultationCanBePassedUp() {
     assertThat(
             DirectiveJson.read(
                 Map.of(

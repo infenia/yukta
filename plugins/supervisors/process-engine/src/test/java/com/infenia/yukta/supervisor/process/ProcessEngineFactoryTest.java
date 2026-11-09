@@ -164,7 +164,7 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
-  void aLineWithoutEndNeverFillsTheMemoryAndTheNextLineStillCounts() {
+  void lineWithoutEndNeverFillsTheMemoryAndTheNextLineStillCounts() {
     final SupervisorEngine engine =
         factory.create(
             sh(

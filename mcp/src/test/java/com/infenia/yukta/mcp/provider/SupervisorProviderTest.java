@@ -468,4 +468,64 @@ class SupervisorProviderTest {
         .assertNext(a -> assertThat(a.commands()).isEmpty())
         .verifyComplete();
   }
+
+  @Test
+  void aSecretFieldOfTheSchemaIsHiddenWhateverItsName() {
+    when(service.supervisors())
+        .thenReturn(Flux.just(new Supervisor("p", "T", Map.of("passphrase", "s3cret"), false)));
+    when(service.configSchema("T"))
+        .thenReturn(
+            List.of(
+                com.infenia.yukta.plugin.core.ConfigField.optional(
+                    "passphrase",
+                    com.infenia.yukta.plugin.core.ConfigField.Type.SECRET,
+                    null,
+                    "a secret")));
+    when(assignments.of("p")).thenReturn(Flux.empty());
+
+    StepVerifier.create(provider.details("p"))
+        .assertNext(d -> assertThat(d.settings()).containsEntry("passphrase", "***"))
+        .verifyComplete();
+  }
+
+  @Test
+  void supervisionOfANodeNamedWithoutAnExecutionUsesTheSessionAndWorkflowGiven() {
+    when(reviewer.capabilities("s", "w", "n")).thenReturn(Map.of());
+
+    StepVerifier.create(provider.supervision("s", "w", null, "n"))
+        .assertNext(a -> assertThat(a.commands()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void anAssignmentWithNoTargetOrSwitchedOffAndUnlockedIsReadAsGiven() {
+    when(assignments.set(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        .thenReturn(Mono.just(List.of()));
+    final ArgumentCaptor<
+            List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
+        sent = ArgumentCaptor.captor();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput("server", false, false)),
+                null))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(assignments)
+        .set(
+            org.mockito.ArgumentMatchers.eq("p"),
+            sent.capture(),
+            org.mockito.ArgumentMatchers.eq(false));
+    assertThat(sent.getValue().get(0).enabled()).isFalse();
+    assertThat(sent.getValue().get(0).locked()).isFalse();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput(null, true, true)),
+                false))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
 }

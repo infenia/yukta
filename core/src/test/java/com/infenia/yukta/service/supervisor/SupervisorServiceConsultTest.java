@@ -120,7 +120,7 @@ class SupervisorServiceConsultTest {
   }
 
   @Test
-  void theRunningEngineOfAParentAnswersTheQuestion() {
+  void theRunningEngineOfParentAnswersTheQuestion() {
     final var boss =
         new EngineBackedSupervisor(
             "boss",
@@ -143,7 +143,7 @@ class SupervisorServiceConsultTest {
   }
 
   @Test
-  void aParentThatIsNotRunningOrNotAnEngineIsSilent() {
+  void parentThatIsNotRunningOrNotAnEngineIsSilent() {
     when(host.attachedOf(any()))
         .thenReturn(List.of())
         .thenReturn(List.of(running("plain", new Asking(new AtomicReference<>()))));
@@ -154,7 +154,7 @@ class SupervisorServiceConsultTest {
   }
 
   @Test
-  void aSupervisorWithoutParentsGetsNoAnswerWithoutAsking() {
+  void supervisorWithoutParentsGetsNoAnswerWithoutAsking() {
     final Consultant consultant = started(shell("kid"));
     StepVerifier.create(consultant.consult(DelegationKind.CONSULT, Map.of()))
         .expectNext(Map.of())
@@ -163,7 +163,7 @@ class SupervisorServiceConsultTest {
   }
 
   @Test
-  void withoutAResolverNobodyIsAsked() {
+  void withoutResolverNobodyIsAsked() {
     final SupervisorService bare =
         new SupervisorService(
             new InMemorySupervisorStore(), List.of(factory), host, new InMemoryExecutionLogStore());
