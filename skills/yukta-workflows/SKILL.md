@@ -63,6 +63,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `delete_supervisor` | `ADMIN` | `id` |
 | `get_supervisor_contract` | `VIEWER` | none |
 | `get_ownership` | `VIEWER` | `sessionId`, `workflowId` |
+| `get_supervision_summary` | `VIEWER` | none |
 | `list_supervisor_presets` | `VIEWER` | `type` |
 | `list_supervisor_versions` | `VIEWER` | `supervisorId` |
 | `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` |
@@ -156,5 +157,5 @@ The page `docs/interfaces/mcp.mdx` of the Yukta repository (docs site: Interface
 
 ## Supervisors (ask the user first)
 
-A supervisor can refuse a command you send: that is the owner's decision, so do not retry it; tell the user which supervisor refused and why. To look: `list_supervisors`, `get_supervisor_contract`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor`, `get_supervision`, `list_supervisor_presets`, `list_supervisor_versions` (`VIEWER`). Changing supervision is `ADMIN` and needs the user's yes: `save_supervisor`, `check_assignment` (read only), `set_assignments`, `delete_supervisor`, `rollback_supervisor`, `replay_supervisor` (a dry run, safe), `create_credential`, `revoke_credential`. A credential passes through your context when you create one: prefer to ask the user to make it in the UI or CLI, and never repeat the token. If you are to act as a supervisor yourself, use the `yukta-supervisor` skill.
+A supervisor can refuse a command you send: that is the owner's decision, so do not retry it; tell the user which supervisor refused and why. To look: `list_supervisors`, `get_supervisor_contract`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor`, `get_supervision`, `get_supervision_summary`, `list_supervisor_presets`, `list_supervisor_versions` (`VIEWER`). Changing supervision is `ADMIN` and needs the user's yes: `save_supervisor`, `check_assignment` (read only), `set_assignments`, `delete_supervisor`, `rollback_supervisor`, `replay_supervisor` (a dry run, safe), `create_credential`, `revoke_credential`. A credential passes through your context when you create one: prefer to ask the user to make it in the UI or CLI, and never repeat the token. If you are to act as a supervisor yourself, use the `yukta-supervisor` skill.
 
