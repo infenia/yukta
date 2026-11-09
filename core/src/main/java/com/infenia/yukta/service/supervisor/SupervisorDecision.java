@@ -19,6 +19,7 @@ import org.jspecify.annotations.Nullable;
  *     {@code initiative} (acted on its own); null for a supervisor that gives no cause
  * @param key the directive's key; the runs of one selector share it before {@code #}
  * @param because the reason the supervisor gave for sending it, or null
+ * @param workflowId the workflow of the run, or null when the run is not known
  */
 public record SupervisorDecision(
     Instant time,
@@ -30,10 +31,11 @@ public record SupervisorDecision(
     @Nullable String nodeId,
     @Nullable String cause,
     @Nullable String key,
-    @Nullable String because) {
+    @Nullable String because,
+    @Nullable String workflowId) {
 
   /**
-   * A decision with no node, cause, key or given reason.
+   * A decision with no node, cause, key, given reason or workflow.
    *
    * @param time when it was decided
    * @param supervisorId the supervisor
@@ -49,6 +51,6 @@ public record SupervisorDecision(
       final String command,
       final String executionId,
       final @Nullable String reason) {
-    this(time, supervisorId, outcome, command, executionId, reason, null, null, null, null);
+    this(time, supervisorId, outcome, command, executionId, reason, null, null, null, null, null);
   }
 }

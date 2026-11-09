@@ -26,6 +26,7 @@ class SupervisorDecisionTest {
     assertThat(decision.cause()).isNull();
     assertThat(decision.key()).isNull();
     assertThat(decision.because()).isNull();
+    assertThat(decision.workflowId()).isNull();
   }
 
   @Test
@@ -41,12 +42,14 @@ class SupervisorDecisionTest {
             "n1",
             "event",
             "k#1",
-            "because");
+            "because",
+            "w1");
 
     assertThat(decision.reason()).isNull();
     assertThat(decision.nodeId()).isEqualTo("n1");
     assertThat(decision.cause()).isEqualTo("event");
     assertThat(decision.key()).isEqualTo("k#1");
     assertThat(decision.because()).isEqualTo("because");
+    assertThat(decision.workflowId()).isEqualTo("w1");
   }
 }

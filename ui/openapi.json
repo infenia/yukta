@@ -5603,6 +5603,9 @@
           "time" : {
             "format" : "date-time",
             "type" : "string"
+          },
+          "workflowId" : {
+            "type" : "string"
           }
         },
         "type" : "object"

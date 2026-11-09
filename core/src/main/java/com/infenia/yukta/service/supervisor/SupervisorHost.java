@@ -920,7 +920,8 @@ public class SupervisorHost implements DryRunRecorder {
             command.nodeId(),
             origin == null ? null : origin.cause().kind().name().toLowerCase(Locale.ROOT),
             origin == null ? null : origin.key(),
-            origin == null ? null : origin.reason());
+            origin == null ? null : origin.reason(),
+            dispatcher.workflowOf(command.executionId()));
     while (!recentDecisions.offerLast(decision)) {
       recentDecisions.pollFirst();
     }

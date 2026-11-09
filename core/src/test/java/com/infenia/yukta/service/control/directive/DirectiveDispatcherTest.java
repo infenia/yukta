@@ -321,6 +321,23 @@ class DirectiveDispatcherTest {
   }
 
   @Test
+  void workflowOfReadsLiveOrArchivedRun() {
+    registry.save(createControl("s", "live-w", "live"));
+    archive.put(
+        new com.infenia.yukta.service.archive.ArchivedExecution(
+            "finished",
+            "s",
+            "archived-w",
+            mock(com.infenia.yukta.model.workflow.PreparedWorkflow.class),
+            "v",
+            Map.of()));
+
+    assertThat(dispatcher.workflowOf("live")).isEqualTo("live-w");
+    assertThat(dispatcher.workflowOf("finished")).isEqualTo("archived-w");
+    assertThat(dispatcher.workflowOf("gone")).isNull();
+  }
+
+  @Test
   void dispatchOrdered_restartOfAnUnknownExecution_isRejected() {
     StepVerifier.create(
             dispatcher.dispatchOrdered(

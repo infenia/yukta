@@ -5613,6 +5613,7 @@ export interface components {
             supervisorId?: string;
             /** Format: date-time */
             time?: string;
+            workflowId?: string;
         };
         SupervisorInfo: {
             /** Format: int64 */
