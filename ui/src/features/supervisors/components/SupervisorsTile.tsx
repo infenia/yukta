@@ -9,12 +9,16 @@ import {
   getRunningSupervisors,
   getSupervisorDecisions,
 } from '../api/supervisors';
+import { getSupervisionSummary } from '../api/supervision';
 
-const HOUR = 3_600_000;
 const WINDOW = 10 * 60_000;
-const CONFLICTS = new Set(['arbitrated', 'coalesced', 'flapping-blocked']);
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
 
-/** Control page summary: how many supervisors run, conflicts in the last hour, decisions per minute. */
+/**
+ * Control page summary: how many supervisors run, the workflows nobody owns, the assignments in
+ * conflict, and decisions per minute.
+ */
 export function SupervisorsTile() {
   // keys under control/supervisors: a control event on the stream refreshes the tile
   const poll = useFallbackPoll();
@@ -28,13 +32,16 @@ export function SupervisorsTile() {
     queryFn: () => getSupervisorDecisions(undefined, 500),
     refetchInterval: poll,
   });
+  const summary = useQuery({
+    queryKey: ['control', 'supervisors', 'summary'],
+    queryFn: getSupervisionSummary,
+    refetchInterval: poll,
+  });
   // `dataUpdatedAt` is when the decisions were fetched: a stable "now" that is not read during render
   const now = decisions.dataUpdatedAt;
-  const lastHour = (decisions.data ?? []).filter(
-    (d) => now - Date.parse(d.time) <= HOUR
+  const recent = (decisions.data ?? []).filter(
+    (d) => now - Date.parse(d.time) <= WINDOW
   );
-  const conflicts = lastHour.filter((d) => CONFLICTS.has(d.outcome)).length;
-  const recent = lastHour.filter((d) => now - Date.parse(d.time) <= WINDOW);
   const perMinute = recent.length / (WINDOW / 60_000);
   const active = (running.data ?? []).filter(
     (s) => s.kind === 'SUPERVISOR'
@@ -46,8 +53,17 @@ export function SupervisorsTile() {
         <p className="text-overline text-on-surface-variant">Supervisors</p>
         <p className="text-headline-md">{running.data ? active : '–'} active</p>
         <p className="text-body-sm text-on-surface-variant">
+          {summary.data
+            ? `${plural(summary.data.unowned, 'workflow', 'workflows')} nobody owns · `
+            : ''}
+          {summary.data && (
+            <span className={summary.data.conflicts > 0 ? 'text-warning' : ''}>
+              {plural(summary.data.conflicts, 'conflict', 'conflicts')}
+            </span>
+          )}
+          {summary.data && ' · '}
           {decisions.data
-            ? `${conflicts} conflicts in the last hour · ${perMinute.toFixed(1)} decisions/min`
+            ? `${perMinute.toFixed(1)} decisions/min`
             : 'loading decisions'}
         </p>
       </Card>

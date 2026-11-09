@@ -25,6 +25,12 @@ const ok = (data: unknown) =>
 const runQueries: string[] = [];
 
 const server = setupServer(
+  http.get('/api/supervisors', () =>
+    ok([
+      { id: 'release-guard', description: 'Guards the release' },
+      { id: 'bare', description: null },
+    ])
+  ),
   http.get('/api/sessions/summaries', () =>
     ok([createMockSession({ sessionId: 'dogfood', name: 'dogfood' })])
   ),
@@ -135,6 +141,25 @@ describe('CommandPalette', () => {
       '/sessions/dogfood/workflow/check'
     );
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('goes to a supervisor', async () => {
+    const user = userEvent.setup();
+    renderPalette();
+    act(() => openCommandPalette());
+    await user.type(input(), 'release-guard');
+    expect(
+      await screen.findByTestId('palette-supervisor:release-guard')
+    ).toHaveTextContent('Guards the release');
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '/supervisors?supervisor=release-guard'
+    );
+    act(() => openCommandPalette());
+    await user.type(input(), 'bare');
+    expect(
+      await screen.findByTestId('palette-supervisor:bare')
+    ).toHaveTextContent('Go to supervisor bare');
   });
 
   it('moves the selection with the arrow keys, wrapping at the ends', async () => {

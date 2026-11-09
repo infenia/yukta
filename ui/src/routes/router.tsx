@@ -111,16 +111,16 @@ const router = createBrowserRouter([
         path: 'supervisors/new',
         lazy: async () => ({
           Component: (
-            await import('@/features/supervisors/components/SupervisorWizardPage')
-          ).SupervisorWizardPage,
+            await import('@/features/supervisors/components/SupervisorEditPage')
+          ).SupervisorEditPage,
         }),
       },
       {
         path: 'supervisors/:supervisorId/edit',
         lazy: async () => ({
           Component: (
-            await import('@/features/supervisors/components/SupervisorWizardPage')
-          ).SupervisorWizardPage,
+            await import('@/features/supervisors/components/SupervisorEditPage')
+          ).SupervisorEditPage,
         }),
       },
       {
