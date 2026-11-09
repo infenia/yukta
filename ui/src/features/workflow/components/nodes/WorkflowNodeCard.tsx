@@ -22,7 +22,7 @@ import {
   portTop,
   type WorkflowFlowNode,
 } from '../../lib/layout';
-import { portGlyph } from '../../lib/portGlyph';
+import { portColor } from '../../lib/portGlyph';
 import type { NodeUiStatus, TaskProgress } from '../../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
 
@@ -51,12 +51,6 @@ const STATUS_CARD_CLASSES: Record<NodeUiStatus, string> = {
   paused: 'border-outline',
   skipped: 'border-outline-variant opacity-50',
 };
-
-const TONE_CLASSES = {
-  ok: 'border-success!',
-  bad: 'border-error!',
-  neutral: 'border-(--node-accent)!',
-} as const;
 
 function progressPercent(
   status: NodeUiStatus,
@@ -87,9 +81,6 @@ export function WorkflowNodeCard({
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
   const isTrigger = node.category === 'TRIGGER';
   const icon = pluginIcon(node.type, node.category);
-  // The default node id is "<type>-N"; only show the id when it says more than the plugin name.
-  const norm = (v: string) => v.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const showId = !norm(node.nodeId).startsWith(norm(node.type));
   // The raw task status tells e.g. "Timed out" from "Failed"; without one, the bucket's label.
   const statusLabel = task?.status
     ? toStatusDisplay(task.status, 'node').label
@@ -143,7 +134,6 @@ export function WorkflowNodeCard({
         />
       )}
       {outputPorts.map((port, index) => {
-        const { tone } = portGlyph(port);
         const top = portTop(index, outputPorts.length, height);
         return (
           <Handle
@@ -151,32 +141,28 @@ export function WorkflowNodeCard({
             id={port ?? undefined}
             type="source"
             position={Position.Right}
-            style={{ top }}
-            className={cn(HANDLE_CLASSES, TONE_CLASSES[tone])}
+            style={{ top, borderColor: portColor(port) }}
+            className={HANDLE_CLASSES}
             aria-label={`${node.nodeId} output ${port ?? 'default'}`}
           />
         );
       })}
       {outputPorts.length > 1 &&
-        outputPorts.map((port, index) => {
-          const { icon: portIcon } = portGlyph(port);
-          return (
+        outputPorts.map((port, index) => (
+          <span
+            key={`label-${port}`}
+            data-testid="port-label"
+            aria-hidden="true"
+            style={{ top: portTop(index, outputPorts.length, height) }}
+            className="border-outline-variant/70 bg-surface/90 text-label-sm text-on-surface shadow-raised pointer-events-none absolute left-full z-10 ml-3 inline-flex -translate-x-1 -translate-y-1/2 items-center gap-1.5 rounded-lg border py-0.5 pr-2.5 pl-2 tracking-wide opacity-0 backdrop-blur-md transition-[opacity,translate] duration-150 group-hover:translate-x-0 group-hover:opacity-100 group-data-[selected=true]:translate-x-0 group-data-[selected=true]:opacity-100"
+          >
             <span
-              key={`label-${port}`}
-              data-testid="port-label"
-              aria-hidden="true"
-              style={{ top: portTop(index, outputPorts.length, height) }}
-              className="border-outline-variant bg-surface text-label-sm text-on-surface-variant shadow-card pointer-events-none absolute left-full ml-2 inline-flex -translate-y-1/2 items-center gap-1 rounded-full border px-1.5 opacity-0 transition-opacity group-hover:opacity-100 group-data-[selected=true]:opacity-100"
-            >
-              {portIcon && (
-                <span className="material-symbols-outlined text-base">
-                  {portIcon}
-                </span>
-              )}
-              {port}
-            </span>
-          );
-        })}
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: portColor(port) }}
+            />
+            {port}
+          </span>
+        ))}
 
       {color && (
         // a marker only: borders and the status badge keep meaning status and category
@@ -201,7 +187,7 @@ export function WorkflowNodeCard({
               className={cn(
                 'absolute -inset-1 rounded-[14px]',
                 percent === null
-                  ? 'animate-spin border-2 border-transparent border-t-(--node-accent)'
+                  ? 'node-pulse border-2 border-(--node-accent)'
                   : 'node-ring'
               )}
               style={
@@ -245,14 +231,10 @@ export function WorkflowNodeCard({
       </Tip>
 
       <div className="min-w-0 flex-1">
-        <p className="text-label-md text-on-surface truncate">
+        <p className="text-label-md text-on-surface truncate">{node.nodeId}</p>
+        <p className="text-body-sm text-on-surface-variant truncate">
           {pluginLabel(node.type)}
         </p>
-        {showId && (
-          <p className="text-body-sm text-on-surface-variant truncate">
-            {node.nodeId}
-          </p>
-        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-0.5 pr-1">
@@ -261,6 +243,8 @@ export function WorkflowNodeCard({
             <Tip label="Description">
               <PopoverTrigger
                 aria-label={`Show the description of ${node.nodeId}`}
+                // the canvas opens the node's sheet on a node click; this only shows the hint
+                onClick={(event) => event.stopPropagation()}
                 className="nodrag text-on-surface-variant hover:text-on-surface inline-flex rounded opacity-60 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 group-data-[selected=true]:opacity-100 [@media(hover:none)]:opacity-100"
               >
                 <span
@@ -271,7 +255,10 @@ export function WorkflowNodeCard({
                 </span>
               </PopoverTrigger>
             </Tip>
-            <PopoverContent className="nodrag nowheel">
+            <PopoverContent
+              className="nodrag nowheel"
+              onClick={(event) => event.stopPropagation()}
+            >
               <p className="text-body-sm text-on-surface whitespace-pre-line">
                 {node.description}
               </p>

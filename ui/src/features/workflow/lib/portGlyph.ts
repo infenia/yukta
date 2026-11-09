@@ -1,21 +1,27 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-/** How an output port is told apart without reading its name: an icon and a tone. */
-export interface PortGlyph {
-  /** Material icon name, or null to fall back to the port's first letter. */
-  icon: string | null;
-  /** Handle colour: `ok` and `bad` follow the success and error tokens. */
-  tone: 'ok' | 'bad' | 'neutral';
-}
-
 const OK = new Set(['success', 'ok', 'true', 'yes', 'pass', 'passed']);
 const BAD = new Set(['failure', 'failed', 'error', 'false', 'no', 'fail']);
+const WARN = new Set(['warning', 'warn', 'retry', 'timeout', 'skipped']);
+/** Every other port name gets one of these, picked by its name so it stays the same everywhere. */
+const SPREAD = [
+  'var(--pal-teal)',
+  'var(--pal-sky)',
+  'var(--pal-violet)',
+  'var(--pal-magenta)',
+  'var(--color-primary)',
+  'var(--color-attention)',
+];
 
-export function portGlyph(port: string | null): PortGlyph {
+/** A CSS color for an output port: success and failure keep their tokens, the rest are told apart. */
+export function portColor(port: string | null): string {
   const name = port?.toLowerCase() ?? 'default';
-  if (OK.has(name)) return { icon: 'check', tone: 'ok' };
-  if (BAD.has(name)) return { icon: 'close', tone: 'bad' };
-  if (name === 'default') return { icon: 'arrow_forward', tone: 'neutral' };
-  return { icon: null, tone: 'neutral' };
+  if (OK.has(name)) return 'var(--color-success)';
+  if (BAD.has(name)) return 'var(--color-error)';
+  if (WARN.has(name)) return 'var(--color-warning)';
+  if (name === 'default') return 'var(--node-accent)';
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return SPREAD[hash % SPREAD.length];
 }
