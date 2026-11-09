@@ -236,6 +236,5 @@ com.infenia.yukta.service.workflow.store.WorkflowDefinitionStoreConfiguration
 com.infenia.yukta.startup.AppConfiguration
 com.infenia.yukta.startup.DefaultsAutoConfiguration
 com.infenia.yukta.startup.InMemoryStateNotice
-com.infenia.yukta.supervisor.callout.CalloutSupervisorFactory
 com.infenia.yukta.supervisor.process.ProcessEngineConfiguration
 com.infenia.yukta.supervisor.rules.RuleSupervisorFactory

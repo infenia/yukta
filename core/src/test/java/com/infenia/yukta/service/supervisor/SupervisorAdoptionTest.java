@@ -105,8 +105,7 @@ class SupervisorAdoptionTest {
                         "rule-control-plane",
                         "failure-guard",
                         "approval-gate",
-                        "stall-watchdog")),
-                engine("callout", Set.of("webhook"))),
+                        "stall-watchdog"))),
             mock(SupervisorHost.class),
             new InMemoryExecutionLogStore());
 
@@ -117,15 +116,18 @@ class SupervisorAdoptionTest {
     assertThat(byId.get("s-failure-guard").settings()).containsEntry("from", "failure-guard");
     assertThat(byId.get("s-failure-guard").dryRun()).isTrue();
     assertThat(byId.get("s-failure-guard").description()).isEqualTo("old failure-guard");
-    assertThat(byId.get("s-webhook").type()).isEqualTo("callout");
     // nobody replaces these: they stay as stored and do not start
     assertThat(
             byId.values().stream()
-                .filter(s -> !Set.of("rules", "callout").contains(s.type()))
+                .filter(s -> !"rules".equals(s.type()))
                 .map(Supervisor::id)
                 .collect(Collectors.toSet()))
         .containsExactlyInAnyOrder(
-            "s-rules-first-control-plane", "s-model-control-plane", "s-composite", "bad");
+            "s-webhook",
+            "s-rules-first-control-plane",
+            "s-model-control-plane",
+            "s-composite",
+            "bad");
     assertThat(byId.get("current").settings()).isEmpty();
   }
 }
