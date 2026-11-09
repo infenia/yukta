@@ -38,6 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
  * engine's. If the program exits, the engine fails and starts it again with backoff.
  */
 @Slf4j
+@SuppressWarnings("PMD.TooManyMethods")
 public final class ProcessEngineFactory implements SupervisorEngineFactory {
 
   /** The engine type. */
@@ -46,6 +47,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
   private static final String COMMAND = "command";
   private static final String ARGS_SETTING = "args";
   private static final int MAX_LINE = 65_536;
+  private static final int NEWLINE = '\n';
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
@@ -206,7 +208,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     final StringBuilder line = new StringBuilder();
     boolean tooLong = false;
     for (int c = in.read(); c != -1; c = in.read()) {
-      if (c == '\n') {
+      if (c == NEWLINE) {
         return tooLong ? "" : line.toString();
       }
       if (line.length() < MAX_LINE) {

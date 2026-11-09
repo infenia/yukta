@@ -125,4 +125,28 @@ class LegacyGuardsTest {
     assertThat(factory.adopt(new Supervisor("m", "model-control-plane", Map.of(), false)))
         .isEmpty();
   }
+
+  @Test
+  void anApprovalGateNeedsKnownCommandsToHold() {
+    assertThatThrownBy(() -> LegacyGuards.approvalGate(Map.of()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("commands is required");
+    assertThatThrownBy(() -> LegacyGuards.approvalGate(Map.of("commands", List.of("Bogus"))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("commands must be among");
+    assertThatThrownBy(() -> LegacyGuards.approvalGate(Map.of("commands", List.of(7))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void aWatchdogWithOnlyARunningLimitNeedsNoSilenceAndAGuardTakesEveryActionName() {
+    assertThat(LegacyGuards.stallWatchdog(Map.of("maxRunningSeconds", 60)).notes()).hasSize(1);
+    for (final String action : new String[] {"PAUSE_WORKFLOW", "stop_workflow", "PAUSE_NODE"}) {
+      loads(LegacyGuards.failureGuard(Map.of("action", action)).rules());
+    }
+    loads(LegacyGuards.failureGuard(Map.of()).rules());
+    assertThatThrownBy(() -> LegacyGuards.failureGuard(Map.of("action", "RESTART")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("unknown action");
+  }
 }
