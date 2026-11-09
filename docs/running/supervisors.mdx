@@ -1,116 +1,104 @@
 ---
-title: "Supervisors: watch and steer every execution"
+title: "Supervisors: who is in charge of a run"
 sidebarTitle: "Supervisors"
-description: "Programs that watch every execution and steer it, or veto commands before they run: the built-in rule supervisor, an AI agent or your own code. Off by default."
+description: "A supervisor owns some nodes, run levels or the server, reports to parents and uses an engine to decide: rules, an application, an outbound call, a workflow or a program."
 tag: "Optional"
-keywords: ["supervisors", "rule engine", "AI supervisor"]
+keywords: ["supervisors", "ownership", "assignments", "rules", "engine"]
 ---
 
 <Info>
-  **In plain terms:** a supervisor is an automatic operator that watches every run and steps in when something looks wrong, for example pausing a workflow after repeated failures. It is optional and off until you turn it on.
+  **In plain terms:** a supervisor is the one that is in charge of some part of your runs. It watches them, steps in when something looks wrong, and decides whether people may steer that part directly. It is optional: with no supervisor, people control everything, as before.
 </Info>
 
-A **supervisor** watches the live event feed of all executions and returns commands: pause a workflow after repeated failures, stop a node that returns a server error, refuse a dangerous stop. Supervisors are optional and off until you enable one.
+A **supervisor** has two layers. The shell is what Yukta enforces: what it **owns** (its assignments), who it **reports to** (its parents), what it may send (`allowedCommands`, `initiative`) and whether people may steer through it (`operatorAccess`). The **engine** decides: it reads signals and returns directives, and the supervisor checks each one before it has any effect. See [Supervisor engines](/running/supervisor-engines) for the engines and the [supervisor contract](/running/supervisor-contract) for the rules.
 
-## Choose a supervisor
+All commands, a supervisor's and a person's, go through the same ordered, reviewed and audited pipeline, so nothing a supervisor does is hidden.
 
-A supervisor can be as simple as a few rules or as capable as an AI agent. Pick by how well you can describe the situations it should handle:
+## Choose an engine
 
-| Supervisor | Decides with | Use it when | See |
-|---|---|---|---|
-| Rule supervisor | A JSON rules file | You can state the situations and responses exactly | [Rule files](/running/rule-files) |
-| Model control plane | A decision model: a System One model, or any LLM | You can describe the situations only in words | [Control planes](/running/control-planes#model-control-plane) |
-| Rules-first control plane | Rules, then the model when no rule fired | Exact cases come first, the model covers the long tail | [Control planes](/running/control-planes#rules-first-control-plane) |
-| An AI agent outside the server | Any agent that reads the event stream and sends commands over MCP or REST | You want open-ended judgement, or a person and an agent sharing the controls | [Supervisors outside the server](#supervisors-outside-the-server) |
-| Your own code | A supervisor or control plane you write | None of the above fits | [Writing a plugin](/plugins/writing-a-plugin) |
+| Engine | Decides with | Use it when |
+|---|---|---|
+| `rules` | A JSON rules file; presets `failure-guard`, `stall-watchdog`, `approval-gate` | You can state the situations and responses exactly ([Rule files](/running/rule-files)) |
+| `http` | An application or AI agent that connects to `/api/agent/v1` | The logic lives in another service, or you want open-ended judgement |
+| `callout` | An endpoint Yukta posts each signal to | A simple integration without a held connection |
+| `workflow` | A workflow in an internal session | The decision should be visible and editable as a workflow |
+| `process` | A program on the server | A script or binary already decides |
 
-All of them send commands through the same ordered, reviewed and audited pipeline as a person does, so a supervisor can never do anything you could not see afterwards.
+The model and rules-first control planes of earlier versions are gone. A stored supervisor of those types stays stored, does not start, and is named in a warning at start-up; use an `http` supervisor that calls your model.
 
-## What a supervisor can do
+## What a supervisor owns
 
-- **React to events.** Receive every event (a node changed status, a workflow changed status, a command was applied or rejected, a log line was written, an input request was raised or ended) and answer with commands.
-- **Answer input requests.** Answer or escalate the questions steps and agents ask, when its settings allow it; see [Answer input requests](#answer-input-requests).
-- **Veto commands.** A **reviewer** can refuse any command, from a person or a program, before it runs. The first refusal wins, and a reviewer that errors refuses. The caller gets `403` and the log records the rejection.
+An **assignment** says what a supervisor owns. The units are a node, the run level of a workflow, and the server.
 
-- **Limit what it watches and does.** A supervisor has a **scope** (see [Scopes](#scopes)): all runs (the default), the runs of one session, the runs of one workflow, or a section (some nodes) of one workflow. It sees only the events in its scope, is asked to review only the commands in it, and may send only commands in it. `GET /api/supervisors` reports each supervisor's `scope`, `scopeSessionId`, `scopeWorkflowId` and, for a section, `scopeNodes`.
+| Target (text form) | Owns |
+|---|---|
+| `server` | Server-wide commands: scheduler limits, drain, recover |
+| `session:<id>` | Every workflow of the session, run level and nodes |
+| `workflow:<s>/<w>` | The run level and all nodes of one workflow |
+| `run:<s>/<w>` | The run level only: start, pause, resume, stop, restart, priority |
+| `workflow:<s>/<w>//<selector>,...` | Some nodes: a node id, `<prefix>.*`, or `group:<stage>` (the `group` a node declares, else the part of its id before the first dot) |
 
-Commands sent by a supervisor go through the same ordered, reviewed, audited pipeline as everyone else's. They are logged and audited with the supervisor's id as the actor.
+**One owner per unit.** A save that would give a unit to two supervisors is refused with `409 OWNERSHIP_CONFLICT`, naming the other supervisor and the units. Nothing is inherited and nothing is overridden: to give one node to a specialist, stop the main supervisor's assignment covering it first. A workflow definition that makes two selectors take one node is refused too. A `global` assignment owns nothing; it only observes.
 
-## Ask for approval
+**Units nobody owns** go to the default supervisor, which lets people act as before. `yukta.supervisor.default.enabled=false` turns that off, so each workflow must name its supervisor.
 
-A review can also answer "yes, but only after someone approves". A custom supervisor returns `Decision.requireApproval(reason, new ApprovalNeed(risk, route, ttl))`; the rule supervisor has a `requireApproval` rule (see [Rule files](/running/rule-files)).
+**People and owners.** A person's command goes to the owner of the unit. The owner's `operatorAccess` (a list of command names, default none) says which commands a person may send through it; any other is `409 CONTROLLED_BY_SUPERVISOR` naming the supervisor. A listed command is reviewed by the owner's engine. Reading is unrestricted. `GET /api/supervision` tells a client which commands are allowed before it sends them.
 
-The command is not run and not refused. The server parks it in memory and raises an input request of kind `APPROVAL` (options `approve` and `reject`, risk `HIGH` unless the need says otherwise, so a person must answer) through the usual route. The server writes the prompt; the reviewer's reason is quoted as data. The caller does not wait: REST answers `202 Accepted` with `{"status": "AWAITING_APPROVAL", "requestId": "..."}`, and a supervisor's decision list shows `outcome=awaiting-approval` with the request id. The same command sent again while the request is open gets the same request.
+```bash
+# the supervisor first, then what it owns
+curl -X POST http://localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @build-guard.json
+curl -X POST http://localhost:9858/api/supervisors/build-guard/assignments/check -H 'Content-Type: application/json' \
+  -d '[{"target":"workflow:s1/release//build.*"}]'
+curl -X PUT  http://localhost:9858/api/supervisors/build-guard/assignments -H 'Content-Type: application/json' \
+  -d '[{"target":"workflow:s1/release//build.*","locked":true}]'
+```
 
-- **Approved:** the command is sent again with its original sender. The supervisors that asked are satisfied for it; every other supervisor reviews it again and a denial still applies. The run may have moved on, in which case the command fails as usual.
-- **Rejected, expired or cancelled (the run ended):** the command is dropped, the log records `CONTROL_REJECTED` with the request id, and a `ControlOutcome` event is published.
-- **Stops:** a stop sent by a person is never parked: it runs with a warning, as when a review times out. A stop proposed by a supervisor can be parked.
-- **Who can approve:** not the sender of the command and not a supervisor that asked. A supervisor approves another supervisor's command only if its scope strictly covers the sender's, and never a `HIGH` risk request.
-- **Limits:** parked commands count against the open request caps (5 per run, 50 per session). They live in memory: a restart cancels the requests and the commands are not replayed. `yukta.control.approval.ttl` (default `10m`, never above `yukta.input.max-ttl`) is how long a request waits. Metric: `yukta.control.approval{outcome=requested|approved|rejected|expired|cancelled}`.
-
-## Scopes
-
-| Scope | Text | Sees and reviews | May send |
-|---|---|---|---|
-| Global | `global` | Everything, including commands that belong to no run (scheduler limits) | Any command |
-| Session | `session:<id>` | The runs of the session | Commands for runs of the session |
-| Workflow | `workflow:<id>` or `workflow:<sessionId>/<workflowId>` | The runs of the workflow (in any session, or in that session) | Commands for those runs |
-| Section | `workflow:[<sessionId>/]<workflowId>//<selector>,<selector>` | The events and node commands of the selected nodes of those runs | Node commands for the selected nodes |
-
-- **Sections.** A selector is a node id (exact) or `<prefix>.*`, every node whose id starts with `<prefix>.` (`build.*` takes `build.compile` and `build.test.unit`, not `build` or `builder.x`). This is the rule the UI uses to group nodes that have no explicit `group`; an explicit `group` is not a selector. A section has 1 to 50 selectors, each at most 256 characters and without a comma. Session and workflow ids cannot contain `/`, so the first `//` always starts the selectors.
-- **Workflow-wide items are not a section's.** A section supervisor does not see workflow status events, does not review workflow commands (pause, resume or stop the workflow, priority, restart, also restart from a node) and may not send them. The workflow, session and global supervisors of the run do. So a section owner can never hold up or stop a whole run.
-- **Input requests** belong to the node that asked: a section supervisor sees, reviews and may answer (with `canAnswer`) the requests of its nodes.
-- **Overlap is allowed.** Two sections, or a section and a workflow attachment, may take the same node. All of them see its events and review its commands; the first refusal wins, as always.
-- **Out of scope is refused.** A command a supervisor sends for a run, a node or no run outside its scope is not sent. It is counted in `yukta.supervisor.commands{outcome=out-of-scope}`, listed in the decisions with the reason `target outside scope <scope>`, and recorded as rejected in the control audit. The check also runs in dry-run, so the record is the same. This applies to attachments made before sections existed: a session or workflow binding could act on any run before, and now acts only within its scope, as the scope always meant. Global attachments and supervisors configured as beans are global and unaffected.
+A **locked** assignment changes only when the request asks to `unlock`, and only by a key listed in `yukta.supervisor.lock-holders` when that list is set. Setting assignments checks everything first and changes nothing if a check fails. `GET /api/supervisors/assignments?session=&workflow=` lists them; those from definitions (`DEFINITION`) and the server (`SYSTEM`) change only where they come from.
 
 ### Two supervisors on two stages
 
-A release workflow `release` in session `s1` builds (`build.compile`, `build.test`) and then deploys (`deploy.staging`, `deploy.prod`). One supervisor watches the build, another the deploy, and a third the whole workflow:
+A release workflow `release` in session `s1` builds (`build.compile`, `build.test`) and deploys (`deploy.staging`, `deploy.prod`). One supervisor owns the build, another the deploy, a third the run level:
 
-```bash
-curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
-  -d '{"id":"build-guard","supervisorId":"build-rules","scope":"workflow:s1/release//build.*"}'
-curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
-  -d '{"id":"deploy-guard","supervisorId":"deploy-model","scope":"workflow:s1/release//deploy.*"}'
-curl -X POST http://localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' \
-  -d '{"id":"release-guard","supervisorId":"release-rules","scope":"workflow:s1/release"}'
+```json
+{ "build-guard":   [{ "target": "workflow:s1/release//build.*" }],
+  "deploy-guard":  [{ "target": "workflow:s1/release//deploy.*" }],
+  "release-guard": [{ "target": "run:s1/release" }] }
 ```
 
-`build-guard` sees only the build nodes and may pause, skip or step them; a `PauseNodeCommand` it sends for `deploy.prod` is refused as `out-of-scope`. A person pausing `deploy.prod` is reviewed by `deploy-guard` and `release-guard`; a person stopping the whole run is reviewed by `release-guard` only.
+`build-guard` may pause, skip or step the build nodes; a `PauseNodeCommand` it sends for `deploy.prod` is `not-owned`. A person pausing `deploy.prod` is reviewed by `deploy-guard` only; a person stopping the run is reviewed by `release-guard` only.
 
-## The built-in rule supervisor
+## Reporting to parents
 
-The rule supervisor reads a JSON rules file. Enable it by setting the path:
+A supervisor lists `parents` (zero or more; no cycle, at most four levels). When its own command needs approval, the parents are asked first, in the `delegation` mode for `APPROVAL`: `ORDERED` (default: one after the other, the first answer decides), `ALL` (all must allow) or `ANY` (the first answer decides). A refusal from any parent asked is final; when nobody decides, a person does. A parent needs no assignment. For input requests the route decides instead: the tier `supervisor:parent` sends an escalated request to the parents of the supervisor that escalated, with the tier's own mode, quorum and timeout (`CONSULT` is not built yet). A supervisor approves another's parked command only from above it in the hierarchy, and never a `HIGH` risk request.
 
-```properties
-yukta.supervisor.rules.file=/etc/yukta/rules.json
-```
+## Ask for approval
 
-The rule format is in [Rule files](/running/rule-files).
+A review can also answer "yes, but only after someone approves". A custom supervisor returns `Decision.requireApproval(reason, new ApprovalNeed(risk, route, ttl))`; a `rules` supervisor has a `requireApproval` rule (see [Rule files](/running/rule-files)).
+
+The command is not run and not refused. The server parks it in memory and raises an input request of kind `APPROVAL` (options `approve` and `reject`, risk `HIGH` unless the need says otherwise, so a person must answer) through the usual route. The server writes the prompt; the reviewer's reason is quoted as data. The caller does not wait: REST answers `202 Accepted` with `{"status": "AWAITING_APPROVAL", "requestId": "..."}`, and a supervisor's decision list shows `outcome=awaiting-approval` with the request id. The same command sent again while the request is open gets the same request.
+
+- **Approved:** the command is sent again with its original sender. The supervisors that asked are satisfied for it; the owner reviews it again and a denial still applies. The run may have moved on, in which case the command fails as usual.
+- **Rejected, expired or cancelled (the run ended):** the command is dropped, the log records `CONTROL_REJECTED` with the request id, and a `ControlOutcome` event is published.
+- **Stops:** a stop sent by a person is never parked: it runs with a warning, as when a review times out. A stop proposed by a supervisor can be parked.
+- **Who can approve:** not the sender of the command and not a supervisor that asked. A supervisor approves another supervisor's command only from above it in the hierarchy, and never a `HIGH` risk request.
+- **Limits:** parked commands count against the open request caps (5 per run, 50 per session). They live in memory: a restart cancels the requests and the commands are not replayed. `yukta.control.approval.ttl` (default `10m`, never above `yukta.input.max-ttl`) is how long a request waits. Metric: `yukta.control.approval{outcome=requested|approved|rejected|expired|cancelled}`.
+
 
 ## The Supervisors page
 
-`/supervisors` in the web UI is the home of supervisors (the Control page keeps only a summary tile that links here). It has four tabs:
+`/supervisors` in the web UI is the home of supervisors (the Control page keeps a summary tile). **Catalog** lists the engines with their settings and an example; **Create supervisor** is a wizard that checks the settings before it saves. **Supervisors** lists what you configured and what the server configures itself (read-only, source `SYSTEM`); a supervisor's page shows its settings, what it owns and its decisions. **Decisions** shows what became of the newest commands. A session or workflow page shows **Supervision**: who owns what there.
 
-- **Catalog**: every supervisor type, like the plugin catalog: category, description, the settings it takes and an example. **Create supervisor** starts a wizard (type, settings in a form built from the type's schema, scope-free details, review) that checks the settings before it saves.
-- **Supervisors**: the ones you configured, and the ones the server configures itself (read-only, source `SYSTEM`). A supervisor's page shows its settings, its attachments and its decisions.
-- **Attachments**: where each supervisor applies, with its **source**: `MANUAL` (made by hand), `DEFINITION` (declared in a session or workflow) or `SYSTEM` (a bean). Hand-made attachments can be switched off, detached and added; the others are managed by their owner.
-- **Decisions**: what became of the newest commands supervisors emitted.
+## Declare ownership in a definition
 
-A session page and a workflow page show **Supervision**: every supervisor that applies, whether it was declared there, attached by hand, inherited from a wider scope or system-wide, and a link to change it.
-
-## Declare supervisors in a definition
-
-A session or a workflow can name the supervisors it wants. They are attached when the definition is saved, so imports, templates, MCP-created sessions and every saved version carry them.
+A session or a workflow names its supervisors in an `assignments` block. They own what is declared from the moment the definition is saved, so imports, templates, MCP-created sessions and every saved version carry them.
 
 ```json
 {
   "sessionId": "s1",
-  "supervisors": [{ "supervisor": "failure-guard-default" }],
   "workflows": {
     "release": {
       "workflowId": "release",
-      "supervisors": [
+      "assignments": [
         { "supervisor": "deploy-approval", "nodes": ["deploy.*"] },
         { "supervisor": "stall-watch", "enabled": false }
       ],
@@ -121,78 +109,42 @@ A session or a workflow can name the supervisors it wants. They are attached whe
 }
 ```
 
-- A session declaration covers the whole session. A workflow declaration covers the whole workflow, or only the listed `nodes` (node ids or `<prefix>.*`, a section scope). `enabled: false` declares it but keeps it off.
-- The supervisor must exist when the definition is saved; an unknown one is refused with the field (`workflows.release.supervisors[0].supervisor`). Supervisors referenced by a definition cannot be deleted until they are removed from it.
-- The definition is the truth. Saving attaches what is declared (source `DEFINITION`, id `def-<hash>`, origin the session and workflow), detaches what is no longer declared, and never touches attachments made by hand. Reordering the declarations changes nothing, so a running workflow stays supervised across a save.
-- A declaration that cannot be attached right now (for example a supervisor that fails to start) is logged and retried at the next save; it never fails the save.
-- In the web UI: the **Supervisors** section of the session form, the **Supervisors** panel of the workflow editor (it is part of the draft, so it is saved with the version) and the **New workflow** dialog.
+- A session-level block covers the whole session. A workflow-level block covers the whole workflow, or only the listed `nodes` (ids, `<prefix>.*` or `group:<name>`). `enabled: false` declares it and keeps it off.
+- The supervisor must exist when the definition is saved (an unknown one is refused with the field, `workflows.release.assignments[0].supervisor`), and the one-owner rule runs first: a definition that would give a node to a second supervisor is refused with `409` naming the other. A supervisor that a definition names cannot be deleted.
+- The definition is the truth: saving takes up what is declared (source `DEFINITION`) and releases what is no longer declared, and never touches assignments made by hand. A declaration that cannot start right now is logged and retried at the next save.
+- Rolling back a workflow version checks ownership with the restored version in place.
 
-## Attach a supervisor while the server runs
+## Manage supervisors while the server runs
 
-Besides the supervisors configured at startup, you can create **supervisors** and **attach** them to a scope at run time, without a restart.
+- `GET /api/supervisor-engines[/{type}]` lists the engines and gives the settings schema, default commands and an example; `/{type}/presets` the ready-made documents. `POST /api/supervisors/validate` checks a draft, including overlap, without saving.
+- `PUT /api/supervisors/{id}` saves (admin key). Settings are checked against the engine: an unknown key or a wrong type is `400` with a `settings.<key>` field. A setting sent back as `***` keeps its stored secret. Saving restarts the supervisor. A supervisor that owns something, that a definition names, or that others report to cannot be deleted.
+- Ids match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin`.
+- Settings can limit and empower the shell: `allowedCommands` (a supervisor sends nothing until it names some), `initiative` (the commands it may send with no triggering signal, default none, with `maxInitiativePerMinute`, default 10), `operatorAccess`, `canAnswer` (default `false`), `maxRisk` (`LOW`, `MEDIUM`; a `HIGH` request is answered by people only), `readNodeOutputs` (default `false`).
+- `GET /api/supervisors/{id}/versions` and `POST .../rollback?version=` use the newest 20 saved states; `POST .../replay` shows what rules would have done on a past run, in dry run.
+- At most `yukta.supervisor.max-attachments` assignments (default 200). Changes are recorded in the execution log under the run id `supervisors`, with the caller as actor. Settings under secret-looking keys (`key`, `secret`, `token`, `password`) read as `***`.
+- Supervisors and assignments are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`).
+- `GET /api/supervisors/decisions?supervisor=&limit=` lists what became of the newest commands since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `not-owned`, `reason-required`, `initiative-not-allowed`, `precondition-failed`), newest first, at most 500. `GET /api/supervisors/status` shows what runs.
+- The MCP tools `list_supervisor_engines`, `get_supervisor_engine`, `list_supervisors`, `get_supervisor`, `save_supervisor`, `check_assignment`, `set_assignments`, `delete_supervisor` and `get_supervision` do the same for agents; the CLI has `yukta supervisors ...`.
 
-- A **supervisor** names a supervisor type from the catalog (`GET /api/supervisor-types`; `GET /api/supervisor-types/{type}` gives its description, the settings it takes, the commands it may send by default and an example), its settings and whether its commands are only recorded (`dryRun`). Settings are checked against the type when you save: an unknown key or a value of the wrong type is refused with 400 and a `settings.<key>` field error. `POST /api/supervisors/validate` checks a draft without saving it. For `rule-supervisor` the settings are the rules file: `{"rules": [...]}`.
-- Supervisor and attachment ids (and the id of a supervisor configured as a bean) match `[A-Za-z0-9._-]{1,64}`: no `:` and no whitespace, so an id never looks like an actor such as `key:admin` in the audit log. A bad id is refused with 400 and the rule in the message; a bean supervisor with a bad `id()` stops the server from starting. With PostgreSQL, stored ids that broke the rule are renamed by migration V8 (bad characters become `_`, a collision gets `-2`, `-3`, ...). The table `supervisor_id_migration` maps old to new, and the server logs one warning per renamed id at startup. Entries already in the execution log keep the old actor string.
-- An **attachment** attaches a supervisor to a scope: `global`, `session:<id>`, `workflow:<id>`, `workflow:<sessionId>/<workflowId>`, or a section such as `workflow:<sessionId>/<workflowId>//build.*,publish` (see [Scopes](#scopes)). For several scopes, make several attachments of the same supervisor. `POST /api/supervisors/attachments` starts it at once; `PATCH /api/supervisors/attachments/{id}` with `{"enabled": false}` pauses it; `DELETE /api/supervisors/attachments/{id}` stops it, and deleting a session removes the attachments limited to it. `GET /api/supervisors/attachments?session=&workflow=&source=` lists them, and with `session` or `workflow` the ones that apply there. An attachment has a source: `MANUAL` (made here), `DEFINITION` (declared by a session or workflow definition) or `SYSTEM` (a supervisor the server configures itself); only `MANUAL` ones can be changed here, the others answer 409.
-- A supervisor's settings can limit and empower its supervisor: `allowedCommands` (a list of command names such as `PauseWorkflowCommand`; a command outside it is dropped and counted as `forbidden`; leave it out for no limit), `canAnswer` (default `false`: may it answer input requests) and `maxRisk` (`LOW`, `MEDIUM` or `HIGH`, default `LOW`). A request of risk `HIGH` can only be answered by a person, whatever these say; a supervisor can still hand any request up.
-- Changing a supervisor (`PUT /api/supervisors/{id}`; a setting sent back as `***` keeps its stored secret) restarts the attachments that use it. A supervisor that an attachment uses cannot be deleted.
-- An attached supervisor sees events and reviews commands from the moment it is attached, so a run that is already going is supervised from there, not from its start.
-- At most `yukta.supervisor.max-attachments` attachments (default 200). Attaching and detaching are recorded in the execution log under the run id `supervisors`, with the caller as actor. Values under settings keys that look like secrets (`key`, `secret`, `token`, `password`) are shown as `***`.
-- Reading needs a viewer key; creating, changing and removing needs an admin key. Supervisors and attachments are kept in memory and are gone after a restart, unless the server uses PostgreSQL (`yukta.session.store-type=postgres`), which keeps them in the tables `supervisor` and `supervisor_attachment`; an enabled attachment then starts again at startup. The settings are stored as given, a model API key included.
-- `GET /api/supervisors/decisions?supervisor=&attachment=&limit=` lists what became of the newest commands supervisors emitted since startup (`applied`, `rejected`, `dry-run`, `rate-limited`, `forbidden`, `out-of-scope`), newest first, at most 500 are kept.
-- The MCP tools `list_supervisor_types`, `get_supervisor_type`, `save_supervisor`, `list_supervisors`, `attach_supervisor` and `detach_supervisor` do the same for agents. `GET /api/supervisors/status` shows what runs (scope and command counts).
+## Presets of the rules engine
 
-## Failure guard and approval gate
-
-Two supervisor types you only configure, no rules to write. Create them like any supervisor (`POST /api/supervisors`, see `GET /api/supervisor-types/{type}` for the settings) and attach them to a scope.
+`failure-guard`, `stall-watchdog` and `approval-gate` are ready-made rule documents (`GET /api/supervisor-engines/rules/presets`), filled in with a few parameters. Supervisors of those types stored by earlier versions become `rules` supervisors at start-up.
 
 ### `failure-guard`
 
-Acts after nodes have failed a number of times within a time window, counted per run.
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `failures` | `3` | How many failures trigger the action |
-| `withinSeconds` | `60` | The window in which they are counted |
-| `nodes` | all | Only failures of these nodes count: node ids or `<prefix>.*` |
-| `errorContains` | any | Only failures whose `error` metadata contains this text count |
-| `action` | `PAUSE_WORKFLOW` | `PAUSE_WORKFLOW`, `STOP_WORKFLOW` or `PAUSE_NODE` |
-
-It may send only the command of its action, and nothing else.
+Acts after nodes failed a number of times within a window, counted per run: `failures` (3), `withinSeconds` (60), `nodes` (all), `errorContains` (any), `action` (`PAUSE_WORKFLOW`, `STOP_WORKFLOW` or `PAUSE_NODE`). It may send only the command of its action.
 
 ### `stall-watchdog`
 
-Acts on a node that has run too long or has written no log line for a while. It follows the events it sees and checks on a timer.
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `maxRunningSeconds` | – | Longest a node may run. At least one of the two limits is required |
-| `maxSilenceSeconds` | – | Longest a running node may go without a log line |
-| `nodes` | all | Only these nodes: node ids or `<prefix>.*` |
-| `action` | `PAUSE_NODE` | `PAUSE_NODE`, `STOP_NODE`, `PAUSE_WORKFLOW` or `STOP_WORKFLOW` |
-| `once` | `true` | Act once per run of a node; `false` acts at every check while it stalls |
-| `checkEverySeconds` | `10` | How often it looks |
-
-After a gap in the events (`EventsMissed`) it forgets what it follows and does not act on what it can no longer see. It follows at most 10,000 nodes at once.
+Acts on a node that has run too long or written no log line for a while: `maxRunningSeconds`, `maxSilenceSeconds` (at least one), `nodes`, `action` (`PAUSE_NODE`, `STOP_NODE`, `PAUSE_WORKFLOW`, `STOP_WORKFLOW`), `once` (true). It is a timed rule, so it acts on its own: its command must be in the supervisor's `initiative` list.
 
 ### `approval-gate`
 
-Holds the chosen commands until a person approves them. It reviews commands and sends none.
+Holds the chosen commands (`StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand`) until a person approves them: `commands` (required), `nodes`, `risk` (`HIGH`: only a person), `route`, `ttl`, `reason`. A stop sent by a person is never held, so a person can always stop a run (it runs with a warning); the gate holds what supervisors send and the other commands of a person.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `commands` | required | Among `StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand` |
-| `nodes` | all | Hold only commands for these nodes: node ids or `<prefix>.*` |
-| `risk` | `HIGH` | Who may approve: `HIGH` only a person |
-| `route` | default route | The route of the approval request |
-| `ttl` | server default | Seconds the request waits |
-| `reason` | – | Shown to whoever approves |
+## The `callout` engine
 
-A command sent by a person is never held, so a person can always stop a run; the gate holds what other supervisors send.
-
-### `webhook`
-
-Hands decisions to a web service. It posts `{"kind": "event", "supervisorId", "attachmentId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked in what it sends.
+Hands decisions to a web service (it replaces `webhook`; stored `webhook` supervisors are adopted at start-up). It posts `{"kind": "event", "supervisorId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -205,9 +157,7 @@ Hands decisions to a web service. It posts `{"kind": "event", "supervisorId", "a
 | `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
 | `maxConcurrent` | `4` | Most calls at once |
 
-A reply of `{"commands": [...]}` is read through the same allow-list as [workflow supervisors](#workflow-supervisors), at most 10 commands, and the supervisor sends **only** the commands `allowedCommands` names (it may send none until it names some). A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. A timeout, an error status or a reply that cannot be read is no opinion for an event.
-
-It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`). A private, loopback or link-local address is refused unless the list names the host, and redirects are not followed.
+A reply of `{"commands": [...]}` is read through the allow-list of [workflow supervisors](#workflow-supervisors), at most 10 commands, and only the commands `allowedCommands` names are sent. A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. It is reactive only: a timeout, an error status or an unreadable reply is no opinion. It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`); a private, loopback or link-local address is refused unless listed, and redirects are not followed.
 
 ## Answer input requests
 
@@ -215,7 +165,7 @@ An [input request](/building/input-requests) is a question a running step or AI 
 
 ### Common settings
 
-These settings sit next to the supervisor type's own settings in a supervisor (for `rule-supervisor`, next to `rules`). They are read by the server, not by the supervisor.
+These settings sit next to the supervisor type's own settings in a supervisor (for `rules`, next to `rules`). They are read by the server, not by the supervisor.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -226,7 +176,7 @@ These settings sit next to the supervisor type's own settings in a supervisor (f
 ```json
 {
   "id": "staging-approver",
-  "type": "rule-supervisor",
+  "type": "rules",
   "settings": {
     "canAnswer": true,
     "maxRisk": "LOW",
@@ -236,15 +186,13 @@ These settings sit next to the supervisor type's own settings in a supervisor (f
 }
 ```
 
-Every answer must also pass the audience, tier, scope and separation rules (a supervisor answers only runs in its scope and never a run it started). A denied answer is refused with the rule that failed, counted in `yukta.input.denied{rule}` and in `yukta.supervisor.commands{outcome=rejected}`, listed in `GET /api/supervisors/decisions`, and the request stays open for the next responder. A supervisor configured by a property (`yukta.supervisor.rules.file`, `yukta.control-plane.*`) or as a Spring bean can never answer; it can only escalate.
+Every answer must also pass the audience, tier, scope and separation rules (a supervisor answers only what it owns and never a run it started). A denied answer is refused with the rule that failed, counted in `yukta.input.denied{rule}` and in `yukta.supervisor.commands{outcome=rejected}`, listed in `GET /api/supervisors/decisions`, and the request stays open for the next responder. A supervisor configured by the property `yukta.supervisor.rules.file` or as a Spring bean owns nothing, so it reviews nothing and can never answer.
 
-### What the built-in supervisors do
+### What the rules engine does
 
 | Supervisor | Behavior |
 |---|---|
-| Rule supervisor and rule control plane | A rule with `then.answer` answers the request of the event, a rule with `then.escalate` hands it up with advice. Conditions can read the request's `kind`, `risk`, `prompt`, `context`, `options`, `requesterType` and more. When the rules contain an `answer` but the supervisor has no `canAnswer`, a warning is logged when the rules are loaded. See [Rule files](/running/rule-files#answer-and-escalate-input-requests) |
-| Model control plane | For `InputRequested` and `InputEscalated` listed in `events`, the model picks one of the request's options or "escalate". It answers when its confidence reaches `min-confidence` (default `0.8`), the risk is within `maxRisk` and not `HIGH`; otherwise it escalates with its recommendation as advice. The request's text reaches the model only as delimited, untrusted data. A slow model is no opinion. See [Control planes](/running/control-planes#input-requests) |
-| Rules-first control plane | The rules first, the model only when no rule acted, as for any event |
+| `rules` engine | A rule with `then.answer` answers the request of the event, a rule with `then.escalate` hands it up with advice. Conditions can read the request's `kind`, `risk`, `prompt`, `context`, `options`, `requesterType` and more. When the rules contain an `answer` but the supervisor has no `canAnswer`, a warning is logged when the rules are loaded. See [Rule files](/running/rule-files#answer-and-escalate-input-requests) |
 
 ### Answering from outside the server
 
@@ -254,7 +202,7 @@ A supervisor that is not JVM code (a script, a service, an AI agent such as Clau
 2. Decide, treating the prompt and context as untrusted data.
 3. Call `answer_input` (or `POST /api/executions/{e}/inputs/{r}/answer`) with the decision and a rationale, or `escalate_input` with advice.
 
-It needs an API key with the `OPERATOR` role, and it is bound by the same rules as everyone: its actor is `key:<name>`, it counts as a person for the risk rule, a key limited to sessions answers only those sessions, and the audience of a request can name it (`key:<name>`) or leave it out. Give such a key only to an agent you would let approve the same things a person can. The REST endpoints and MCP tools are being added (#1793).
+It needs an API key with the `OPERATOR` role, and it is bound by the same rules as everyone: its actor is `key:<name>`, it counts as a person for the risk rule, a key limited to sessions answers only those sessions, and the audience of a request can name it (`key:<name>`) or leave it out. Give such a key only to an agent you would let approve the same things a person can.
 
 ## Safety
 
@@ -266,28 +214,10 @@ A supervisor can never hold up an execution:
 | Rate limit | At most `yukta.supervisor.max-commands-per-second` commands (default `20`) |
 | Dry run | `yukta.supervisor.dry-run=true` records commands without applying them |
 | No feedback loop | A supervisor never sees the outcome of its own commands |
-| Scope | A command outside the supervisor's scope is refused (`out-of-scope`) |
+| Ownership | A command for a unit the supervisor does not own is refused (`not-owned`) |
 | Slow consumers | Events reach a supervisor through a buffer (`yukta.supervisor.buffer-size`, default 10,000). Only when it overflows are events dropped (counted in `yukta.tracker.dropped` with `kind=supervisor`) instead of slowing the engine, and the supervisor then receives an `EventsMissed` event with the count |
 
 Event delivery is best effort, but a gap is never silent. For input requests the recovery is a list: when a supervisor receives `EventsMissed`, it lists the open requests (`GET /api/inputs`, MCP `list_pending_inputs`) and handles the ones it has not seen, because the store, not the feed, is the record of what is waiting. Also: a rule that must not miss a case should treat `EventsMissed` (rule field `status=EVENTS_MISSED`, `missed` = count) as a reason to check the execution log or fail safe (for example pause). The notice arrives with the next event after the gap. Commands are rate limited, but a supervisor can still react to the state changes its own commands cause.
-
-## Supervisors outside the server
-
-You do not need to write code inside the server. The event feed is also a server-sent events stream, and external agents steer through the REST control endpoints or the MCP tools:
-
-```http
-GET /api/events/stream?executionId={id}&type={type}
-```
-
-Such an agent can also answer input requests; see [Answering from outside the server](#answering-from-outside-the-server).
-
-## Inspect what is installed
-
-```http
-GET /api/supervisors
-```
-
-This reports every supervisor and control plane: its kind (`SUPERVISOR` or `CONTROL_PLANE`), order, dry-run flag and command counts. The Control page shows a summary tile; the [Supervisors page](#the-supervisors-page) has the details.
 
 ## Internal sessions
 
@@ -295,13 +225,13 @@ A session whose tags contain `"yukta.internal": "true"` is **internal**: it hold
 
 - are left out of `GET /api/sessions`, `GET /api/sessions/summaries` and the MCP tool `list_sessions` unless you pass `includeInternal=true`;
 - have their runs left out of `GET /api/executions` unless you pass `includeInternal=true`, and always out of `GET /api/executions/counts`;
-- send no events to supervisors. A supervisor sees the events of an internal session only when its settings set `observeInternal: true` **and** its attachment scope names that session (`session:<id>` or `workflow:<id>/...`), so a supervisor that watches everything cannot trigger on the workflows that supervise.
+- send no events to supervisors. A supervisor sees the events of an internal session only when its settings set `observeInternal: true` **and** it owns that session (`session:<id>` or `workflow:<id>/...`), so a supervisor that watches everything cannot trigger on the workflows that supervise.
 
 The answer is cached for 30 seconds and dropped when this server saves or deletes the session. A session that cannot be read counts as internal.
 
 ## Workflow supervisors
 
-A supervisor of type `workflow` makes a supervisor out of a workflow in an [internal session](#internal-sessions). For each event of a listed type the server starts the workflow with the event (secrets masked), the request if the event has one, and the supervisor and attachment ids, then reads how it ended. See `examples/17-supervisor-workflow`.
+A supervisor of type `workflow` makes a supervisor out of a workflow in an [internal session](#internal-sessions). For each event of a listed type the server starts the workflow with the event (secrets masked), the request if the event has one, and the supervisor id, then reads how it ended. See `examples/17-supervisor-workflow`.
 
 | Setting | Meaning |
 |---|---|
@@ -313,65 +243,45 @@ A supervisor of type `workflow` makes a supervisor out of a workflow in an [inte
 | `when` | Optional read-only SpEL condition over the event (secrets masked), for example `request.spec.risk == 'LOW'`. The run starts only when it holds; a condition that cannot be evaluated does not match. A condition that is not valid SpEL is refused when the supervisor starts |
 | `allowedCommands`, `canAnswer`, `maxRisk` | As for any supervisor. A workflow supervisor may send **no** command until `allowedCommands` names some |
 
-How the run ends decides what happens: `SUCCESS` with `{"commands": [...]}` sends them (at most 10 per run), `ESCALATE` hands the request in the event up with the reason as advice, `RETRY` runs once more, and a failure, a timeout or a result that cannot be read is no opinion (`yukta.supervisor.workflow{outcome}`). `AnswerInput`, `EscalateInput`, `PauseWorkflow`, `ResumeWorkflow`, `PauseNode`, `ResumeNode` and `SetPriority` can always be mapped; `StopWorkflow`, `StopNode`, `SkipNode`, `Restart`, `RestartFromNode`, `SetLimits` and `SetBreakpoint` only when `allowedCommands` names them; other types are dropped. The commands still pass the scope check, `allowedCommands` and the answer rules.
+How the run ends decides what happens: `SUCCESS` with `{"commands": [...]}` sends them (at most 10 per run), `ESCALATE` hands the request in the event up with the reason as advice, `RETRY` runs once more, and a failure, a timeout or a result that cannot be read is no opinion (`yukta.supervisor.workflow{outcome}`). `AnswerInput`, `EscalateInput`, `PauseWorkflow`, `ResumeWorkflow`, `PauseNode`, `ResumeNode` and `SetPriority` can always be mapped; `StopWorkflow`, `StopNode`, `SkipNode`, `Restart`, `RestartFromNode`, `SetLimits` and `SetBreakpoint` only when `allowedCommands` names them; other types are dropped. The commands still pass the ownership check, `allowedCommands` and the answer rules.
 
 Guards against loops and deadlocks:
 
 - Events of internal sessions do not reach supervisors unless the supervisor sets `observeInternal`.
-- A run carries `yukta.supervisor.depth` and `yukta.supervisor.id`. Supervisors nested deeper than `yukta.supervisor.max-depth` (2) are refused. An input request raised by such a run goes only to people and to supervisors whose scope **strictly covers** the scope of the supervisor that started it, so it never waits for itself or for an equal or narrower one.
+- A run carries `yukta.supervisor.depth` and `yukta.supervisor.id`. Supervisors nested deeper than `yukta.supervisor.max-depth` (2) are refused. An input request raised by such a run goes only to people and to the parents of the supervisor that started it, so it never waits for itself.
 - A supervisor may not answer a request raised by a run it started.
 - Runs take no slot of the normal pool, so a saturated server still runs its supervisors; they hold one of `yukta.supervisor.reserved-slots` (4) slots of their own, so they cannot starve normal work. A run that finds no free slot within its timeout is skipped.
 
-Not yet there: the request is passed to the workflow only as part of the event.
+## A supervisor that flaps
 
-## One owner per unit, and a supervisor that flaps
-
-Two supervisors never fight over a node: a node, the run level of a workflow and the server each have **one owner**, and a save that would give one unit to two supervisors is refused (`409 OWNERSHIP_CONFLICT`, naming the other supervisor). See the [supervisor contract](/running/supervisor-contract). What is left to guard is one supervisor flapping against itself: a supervisor that turns one target around (pause then resume, skip then unskip, step on then off, priority) more than `limit` times in `period` is blocked from turning that target around for `cooldown` (`flapping-blocked` in the decision list, the control audit and `yukta.supervisor.commands{id,outcome}`).
+Two supervisors never fight over a node (one owner per unit). What is left to guard is one supervisor flapping against itself: one that turns a target around (pause then resume, skip then unskip, step on then off, priority) more than `limit` times in `period` is blocked from turning it around for `cooldown` (`flapping-blocked` in the decision list and the control audit).
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `yukta.supervisor.max-attachments` | `200` | Most attachments at once |
+| `yukta.supervisor.max-attachments` | `200` | Most assignments at once |
 | `yukta.supervisor.turn-around.period` | `60s` | The period in which turn-arounds are counted |
-| `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target by one supervisor in the period |
+| `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target in the period |
 | `yukta.supervisor.turn-around.cooldown` | `5m` | How long a supervisor over the limit is blocked |
-| `yukta.supervisor.default.enabled` | `true` | Lets people control what no supervisor owns. Turn it off in production so that every workflow must name its supervisor |
-
-## Composite supervisors
-
-A supervisor of type `composite` runs other supervisors as one: one id, one scope (the attachment's) and one set of metrics. Settings:
-
-| Setting | Meaning |
-|---|---|
-| `mode` | `CHAIN` (first child with a non-empty decision wins), `FIRST_MATCH` (stops at the first child that returns any decision), `PARALLEL` (all command streams merged), `QUORUM` (a command is sent when `quorum` children send an equal one within `window`) |
-| `children` | Supervisor ids, 1 to 10 |
-| `review` | `ALL` (default; the first denial wins and names the child), `ANY`, `MAJORITY` |
-| `quorum` | For `QUORUM`, 2 to the number of children; default a majority |
-| `window` | For `QUORUM`, milliseconds, default 500 |
-
-`CHAIN` and `FIRST_MATCH` need control planes as children, because only they decide one event at a time. Saving checks that the children exist, that composites do not form a cycle and nest at most 3 deep. Saving a child restarts the attachments of every composite that lists it; a child of a composite cannot be deleted. `GET /api/supervisors` shows a composite with kind `COMPOSITE` and its `children`, and the counts `arbitrated`, `coalesced` and `flappingBlocked`.
-
-## Settings
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `yukta.supervisor.rules.file` | unset | Enables the rule supervisor and sets its rules file |
+| `yukta.supervisor.default.enabled` | `true` | Lets people control what no supervisor owns. Turn it off in production |
+| `yukta.supervisor.lock-holders` | any admin | Keys that may change a locked assignment |
+| `yukta.supervisor.rules.file` | unset | Starts a rule supervisor from a file; it owns nothing, so it reviews nothing |
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
 | `yukta.supervisor.dry-run` | `false` | Record commands without applying them |
 
+## Supervisors outside the server
+
+An application can be a supervisor: use the `http` engine ([Supervisor engines](/running/supervisor-engines)). An agent that only observes can follow `GET /api/events/stream` and steer with the REST or MCP control endpoints as an `OPERATOR` key, which makes it a person for the risk rule and subject to the owner's `operatorAccess`.
+
 ## Next steps
 
-<Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
-  The declarative JSON format used by the rule supervisor and the rule control plane: react to events and veto commands.
+<Card title="Supervisor engines" icon="gears" horizontal href="/running/supervisor-engines">
+  The engines that decide for a supervisor, and what protects the server from them.
 </Card>
 
-<Card title="Control planes" icon="scale-balanced" horizontal href="/running/control-planes">
-  Decision makers on the control bus that judge one event at a time, using rules, a small model, or rules first and a model as a fallback.
+<Card title="Rule files" icon="file-lines" horizontal href="/running/rule-files">
+  The declarative JSON format of the rules engine: react to events and veto commands.
 </Card>
 
 <Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
-</Card>
-
-<Card title="Observability" icon="eye" horizontal href="/running/observability">
-  Progress, logs, results, the live event feed, metrics and tracing: how to see what an execution is doing and what it produced.
 </Card>

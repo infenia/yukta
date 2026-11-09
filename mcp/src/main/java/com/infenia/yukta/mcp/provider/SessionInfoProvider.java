@@ -174,16 +174,18 @@ public class SessionInfoProvider {
         A workflow definition has a 'workflowId', a 'description', 'nodes' and 'edges'. It is a \
         Directed Acyclic Graph: a node has a unique 'nodeId', a 'type' (the type of a registered \
         plugin, see list_plugins), a 'config' object for that plugin and, optionally, a 'group' \
-        naming the stage it belongs to (display only). An edge has a 'source' \
+        naming the stage it belongs to (supervisors can own a stage as 'group:<name>'). An edge has a 'source' \
         and a 'target' node id and, optionally, a 'sourcePort' (for example 'success', 'failure' \
         or 'error'; without one it uses the default port, and '*' takes every port but \
         'error'). Cycles are not allowed. Execution \
         flows from trigger nodes through processors to terminal nodes. A workflow may also \
-        declare 'supervisors': a list of {"supervisor": "<id of a configured supervisor>", \
-        "nodes": ["build.*", "deploy"], "enabled": true}. They are attached when the session is \
-        saved and detached when removed from the definition. Without 'nodes' the supervisor \
-        watches the whole workflow; with 'nodes' (node ids or '<prefix>.*') only those nodes. \
-        Create the supervisor first with save_supervisor; see list_supervisor_types.\
+        declare 'assignments': a list of {"supervisor": "<id of a configured supervisor>", \
+        "nodes": ["build.*", "deploy"], "enabled": true}. The supervisor then owns them from \
+        the moment the session is saved until they are removed from the definition. Without \
+        'nodes' it owns the whole workflow; with 'nodes' (node ids, '<prefix>.*' or \
+        'group:<name>') only those nodes. One node has one owner: a definition that gives a \
+        node to a second supervisor is refused. Create the supervisor first with \
+        save_supervisor; see list_supervisor_engines.\
         """;
 
     final List<PluginReference> availablePlugins =

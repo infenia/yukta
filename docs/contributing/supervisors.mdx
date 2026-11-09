@@ -20,26 +20,23 @@ The reference for each class is in `core/.claude/rules/supervisors.md`. The desi
 
 | Concept | What it is | Where it lives |
 |---|---|---|
-| **Supervisor type** | A catalog entry: a `SupervisorFactory` bean with a descriptor and a settings schema. | Code (`plugins/supervisors/*`, `core/.../supervisor/composite`, `.../workflow`) |
-| **Supervisor** | One configured instance: `id`, `type`, `settings`, `dryRun`, `description`. It does nothing on its own. | `SupervisorStore` |
-| **Attachment** | Binds a supervisor to a **scope**, with `enabled` and a `source`. Creating one starts the supervisor. | `SupervisorStore` |
+| **Engine** (supervisor type) | A catalog entry: a `SupervisorFactory` bean (or an `EngineSupervisorFactory` around a `SupervisorEngineFactory`) with a descriptor and a settings schema. | Code (`plugins/supervisors/*`, `core/.../supervisor/agent`, `.../workflow`) |
+| **Supervisor** | One configured instance: `id`, `type`, `settings`, `dryRun`, `parents`, `delegation`, `description`. It owns nothing until it is assigned something. | `SupervisorStore` |
+| **Assignment** | What a supervisor owns, with `enabled`, `locked` and a `source`. Stored as a `SupervisorAttachment`; creating one starts the supervisor. | `SupervisorStore` |
 
-A supervisor can have many attachments, one per scope. A supervisor that is not attached is idle. A supervisor that an attachment or a definition uses cannot be deleted.
+A unit (a node, the run level of a workflow, the server) has one owner: `OwnershipValidator` refuses an overlap when a supervisor, an assignment or a workflow definition is saved. A supervisor that owns nothing is idle but can still be a parent. A supervisor that an assignment, a definition or a child uses cannot be deleted.
 
-### Built-in types
+### Built-in engines
 
 | Type | Category | Decides with |
 |---|---|---|
-| `rule-supervisor`, `rule-control-plane` | Rules | A JSON rules file (`{"rules": [...]}`) |
-| `model-control-plane`, `rules-first-control-plane` | Model | A decision model, with rules first for the second one |
-| `failure-guard` | Guard | N failures in a window, then pause or stop |
-| `stall-watchdog` | Guard | A node that runs or stays silent too long |
-| `approval-gate` | Gate | Parks chosen commands until a person approves |
-| `callout` (was `webhook`) | Integration | An HTTP endpoint you run |
-| `composite` | Composition | Several other supervisors (`CHAIN`, `FIRST_MATCH`, `PARALLEL`, `QUORUM`) |
+| `rules` | Rules | A JSON rules file (`{"schemaVersion": 1, "rules": [...]}`); presets `failure-guard`, `stall-watchdog`, `approval-gate` |
+| `http` | Integration | An application on `/api/agent/v1` |
+| `callout` | Integration | An HTTP endpoint you run |
 | `workflow` | Workflow | A workflow in an internal session |
+| `process` | Integration | A program on the server (JSON lines) |
 
-`GET /api/supervisor-types/{type}` returns the description, the settings schema, the default commands and an example for any of them.
+`GET /api/supervisor-engines/{type}` returns the description, the settings schema, the default commands and an example for any of them. Stored supervisors of the retired types are adopted at start-up (`SupervisorFactory.adopt`).
 
 ### Settings every supervisor takes
 
@@ -47,33 +44,25 @@ These are the keys of `SupervisorCommonSettings`. The settings schema of the typ
 
 | Key | Default | Effect |
 |---|---|---|
-| `allowedCommands` | The type's default. `null` is every command, except for `callout`, `workflow` and the guards, which start with only what they need. | A command whose class name is not listed is dropped and counted as `forbidden`. An unknown name is refused when saving. |
+| `allowedCommands` | The type's default. `null` is every command, except for `callout`, `workflow` and the rule presets, which start with only what they need. | A command whose class name is not listed is dropped and counted as `forbidden`. An unknown name is refused when saving. |
 | `canAnswer` | `false` | May it answer input requests? |
 | `maxRisk` | `LOW` | The highest risk it may answer. `HIGH` is always for a person. |
 | `observeInternal` | `false` | See events of an internal session its scope names. |
 | `dryRun` (field, not a setting) | `false` | Record commands, apply none. |
 
-### Scope
+### What a supervisor owns
 
-An attachment applies to a **scope** (`SupervisorScope`). Text form is used in the API and in storage.
+An assignment is a `SupervisorScope` (text form in the API and in storage): `server`, `session:<id>`, `workflow:[<session>/]<workflow>` (run level and all nodes), `run:<session>/<workflow>` (run level only) or a section `workflow:<session>/<workflow>//<sel>,<sel>` (a selector is a node id, `<prefix>.*` or `group:<name>`). `Global` owns nothing and only observes. `SupervisorScope.owns(command, session, workflow, node)` is the one ownership test; a command whose run cannot be looked up is owned by nobody, and server-level commands (limits, drain, recover) belong only to the `Server` owner.
 
-| Scope | Text | Sees and may steer |
-|---|---|---|
-| Global | `global` | Everything. The only scope that may send `SetLimitsCommand`. |
-| Session | `session:<id>` | Every workflow of the session |
-| Workflow | `workflow:[<session>/]<workflow>` | One workflow |
-| Section | `workflow:<session>/<workflow>//<sel>,<sel>` | The listed nodes. A selector is a node id or `<prefix>.*`. It sees no workflow-wide event and no workflow-wide command. |
-
-### Four ways to declare a supervisor
+### Ways to declare ownership
 
 | Way | Use it for | Source | Survives restart |
 |---|---|---|---|
-| **In the session or workflow definition** (`supervisors: [{supervisor, nodes?, enabled?}]`) | Supervision that belongs to the workflow. Saved with versions, exports and templates. | `DEFINITION` | Yes, reconciled on save and at start-up |
-| **Attach by hand** (UI, `POST /api/supervisors/attachments`, CLI, MCP `attach_supervisor`) | Trying something, or one-off supervision | `MANUAL` | Only with PostgreSQL |
-| **Properties** (`yukta.supervisor.rules.file`, plus a control plane bean) | Server-wide rules the operator owns | `SYSTEM` | Yes, it is configuration |
-| **A Spring bean** implementing `ExecutionSupervisor` | Code that ships with the server | `SYSTEM` | Yes |
+| **In the session or workflow definition** (`assignments: [{supervisor, nodes?, enabled?}]`) | Supervision that belongs to the workflow. Saved with versions, exports and templates. | `DEFINITION` | Yes, reconciled on save and at start-up |
+| **By hand** (UI, `PUT /api/supervisors/{id}/assignments`, CLI `supervisors assign`, MCP `set_assignments`) | Trying something, or one-off supervision | `MANUAL` | Only with PostgreSQL |
+| **Properties** (`yukta.supervisor.rules.file`) or **a Spring bean** implementing `ExecutionSupervisor` | Code and rules that ship with the server | `SYSTEM` | Yes. They own nothing, so they observe and send but review nothing |
 
-Each way has its own owner: only `MANUAL` attachments can be changed through the attachments API. The others answer 409. A definition is the truth for its `DEFINITION` attachments. Saving it attaches what it names, detaches what it dropped, and never touches `MANUAL` ones.
+Only `MANUAL` assignments change through the assignments API; the others answer 409. A definition is the truth for its `DEFINITION` assignments. Saving it takes up what it names, releases what it dropped, and never touches `MANUAL` ones.
 
 ### Server settings
 
@@ -82,17 +71,18 @@ Each way has its own owner: only `MANUAL` attachments can be changed through the
 | `yukta.supervisor.rules.file` | unset | Turns on the rule supervisor and sets its file |
 | `yukta.supervisor.dry-run` | `false` | Record, never apply, for every supervisor |
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |
-| `yukta.supervisor.max-attachments` | `200` | Limit on all attachments |
+| `yukta.supervisor.max-attachments` | `200` | Limit on all assignments |
+| `yukta.supervisor.lock-holders` | unset | Keys that may change a locked assignment |
 | `yukta.supervisor.buffer-size` | `10000` | Per-supervisor event buffer |
 | `yukta.supervisor.review-timeout` | `5s` | Time a `review` has before it is refused (a stop is allowed) |
 | `yukta.supervisor.turn-around.period`, `.limit`, `.cooldown` | see [core reference](/contributing/core-reference) | Guard against a supervisor flapping against itself. |
 | `yukta.supervisor.default.enabled` | `true` | Lets people control what nobody owns. |
 | `yukta.supervisor.reserved-slots`, `.max-depth` | `4`, `2` | Capacity and nesting of workflow supervisors |
-| `yukta.session.store-type=postgres` | in memory | Keeps supervisors and attachments across restarts |
+| `yukta.session.store-type=postgres` | in memory | Keeps supervisors and assignments across restarts |
 
 ### Ids
 
-Supervisor, attachment and bean ids match `[A-Za-z0-9._-]{1,64}`. A `:` is refused so an id never looks like an actor such as `key:admin` in the audit log. A bean with a bad id stops the server from starting.
+Supervisor, assignment and bean ids match `[A-Za-z0-9._-]{1,64}`. A `:` is refused so an id never looks like an actor such as `key:admin` in the audit log. A bean with a bad id stops the server from starting.
 
 ## 2. How it works
 
@@ -101,8 +91,8 @@ tracker + command outcomes
           │
           ▼
 ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorHost
-                                                            │  one BoundSupervisor per attachment
-                                    scope filter ◄──────────┤  (drops events of internal sessions)
+                                                            │  one BoundSupervisor per assignment
+                                  ownership filter ◄────────┤  (drops events of internal sessions)
                                     256-event buffer        │
                                                             ▼
                                        ExecutionSupervisor.supervise(Flux<ExecutionEvent>)
@@ -110,7 +100,7 @@ ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorH
                                                             ▼
                       SupervisorHost.apply: checks, in this order
                       1. allowedCommands      → forbidden
-                      2. scope                → out-of-scope
+                      2. ownership            → not-owned
                       3. TurnAroundGuard      → flapping-blocked
                       4. rate limit           → rate-limited
                       5. dry run              → dry-run (recorded only)
@@ -125,7 +115,7 @@ ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorH
 
 **Two jobs.** An `ExecutionSupervisor` can *watch* (`supervise`: events in, commands out) and *veto* (`review`: a command in, a decision out). A supervisor may do either or both. Only a `review` can stop a command that a person sent.
 
-**Starting.** Saving an attachment makes `SupervisorService` ask the type's factory (`SupervisorFactory.create`) for the running supervisor, wrap it in a `BoundSupervisor` with its scope and capabilities, and subscribe it once with `SupervisorHost.attach`. The supervisor's own `id()` and `scope()` are replaced by the attachment's. Attaching and detaching are written to the execution log under run id `supervisors`. At start-up, enabled attachments are restored from the store, and a stored row with a bad id is skipped with a warning.
+**Starting.** Saving an assignment makes `SupervisorService` ask the type's factory (`SupervisorFactory.create`) for the running supervisor, wrap it in a `BoundSupervisor` with what it owns and its capabilities, and subscribe it once with `SupervisorHost.attach`. The supervisor's own `id()` and `scope()` are replaced by the assignment's. Assigning and releasing are written to the execution log under run id `supervisors`. At start-up, enabled assignments are restored (overlapping legacy ones are saved disabled with `conflict`) from the store, and a stored row with a bad id is skipped with a warning.
 
 **Isolation.** A supervisor never holds up a run:
 
@@ -134,7 +124,7 @@ ExecutionEventFeed ──(own 10 000 buffer per subscriber)──► SupervisorH
 - It never sees the outcome of its own commands, so it cannot loop on itself.
 - Events of an internal session reach it only when `observeInternal` is set and its scope names that session.
 
-**Review.** `ControlReviewer` asks every attached supervisor with a matching scope, in `order()`. A denial wins, and an error counts as a denial. Needs for approval merge into one (highest risk, shortest ttl). The command is parked behind an `APPROVAL` input request and re-dispatched with a one-time grant once approved. Rules for who may approve: the sender and the askers cannot (`separation`), a supervisor needs a strictly wider scope (`rank`), and `HIGH` is for a person.
+**Review.** `ControlReviewer` reads the channel of the command. A person's command (`OPERATOR`) goes to the one owner of the unit: no owner means the default supervisor, an owner whose `operatorAccess` does not list the command means `409 CONTROLLED_BY_SUPERVISOR`, a listed command is reviewed by the owner's engine (`ask`: first refusal wins, an error counts as a refusal). A supervisor's own directive (`ENGINE`) was checked by `DirectiveGate` and is not reviewed again; `SYSTEM` is exempt. A need for approval first goes to the owner's parents (`DelegationChain`), then parks the command behind an `APPROVAL` input request, re-dispatched with a one-time grant once approved. Who may approve: the sender and the askers cannot (`separation`), only a supervisor above the proposer in the hierarchy (`rank`, `EligibleSupervisors.outranks`), and `HIGH` is for a person.
 
 **Disagreement.** There is none between supervisors: one owner per unit. A supervisor that turns a target around too often is blocked for a cooldown (`TurnAroundGuard`).
 
@@ -146,38 +136,38 @@ Take the first option that fits. The later ones need more work and more review.
 
 | # | Option | Needs a rebuild | When it fits |
 |---|---|---|---|
-| 1 | **Configure an existing type** (`failure-guard`, `stall-watchdog`, `approval-gate`, rules) | No | The behaviour is "if this happens, do that" |
-| 2 | **Combine types** with `composite` | No | Several checks, one verdict (`QUORUM`, `FIRST_MATCH`, ...) |
+| 1 | **Configure an existing type** (a `rules` supervisor with a preset) | No | The behaviour is "if this happens, do that" |
+| 2 | **Combine supervisors** with `parents` and a delegation mode | No | Several checks, one verdict (`ORDERED`, `ALL`, `ANY`) |
 | 3 | **A workflow supervisor** (`workflow` type) | No | The decision needs steps: look something up, call a model, then answer |
-| 4 | **An external program** (event stream plus REST or MCP, or the `callout` type) | No | The logic lives in another language or service |
-| 5 | **A new Java type** (`SupervisorFactory`) | Yes | A reusable, generic type that people configure from the catalog |
+| 4 | **An external program** (the `http`, `callout` or `process` engine) | No | The logic lives in another language or service |
+| 5 | **A new engine** (`SupervisorEngineFactory`, see [Supervisor engines](/running/supervisor-engines#write-an-engine)) | Yes | A reusable, generic type that people configure from the catalog |
 | 6 | **A bean** (`ExecutionSupervisor`) | Yes | One fixed behaviour of this server, not shown in the catalog as a type |
 
 ### Options 1 to 3: no code
 
 ```bash
 # see the schema and an example first
-curl -s localhost:9858/api/supervisor-types/failure-guard
+curl -s localhost:9858/api/supervisor-engines/rules/presets
 
 # check a draft without saving it
 curl -s -X POST localhost:9858/api/supervisors/validate -H 'Content-Type: application/json' \
-  -d '{"id":"fg","type":"failure-guard","settings":{"failures":3,"withinSeconds":60}}'
+  -d '{"id":"fg","type":"rules","settings":{"schemaVersion":1,"rules":[]}}'
 
-# save it, then attach it (needs an ADMIN key)
-curl -s -X PUT  localhost:9858/api/supervisors/fg ...
-curl -s -X POST localhost:9858/api/supervisors/attachments \
-  -d '{"supervisorId":"fg","scope":"workflow:s1/release","enabled":true}'
+# save it, check what it would own, then assign it (needs an ADMIN key)
+curl -s -X POST localhost:9858/api/supervisors ...
+curl -s -X POST localhost:9858/api/supervisors/fg/assignments/check -d '[{"target":"workflow:s1/release"}]'
+curl -s -X PUT  localhost:9858/api/supervisors/fg/assignments -d '[{"target":"workflow:s1/release"}]'
 ```
 
-Start with `"dryRun": true`, watch `GET /api/supervisors/decisions`, then turn it off. To keep it with the workflow, name it in the definition instead of attaching it: `"supervisors": [{"supervisor": "fg"}]`.
+Start with `"dryRun": true`, watch `GET /api/supervisors/decisions`, then turn it off. To keep it with the workflow, name it in the definition instead: `"assignments": [{"supervisor": "fg"}]`.
 
 ### Option 4: outside the server
 
-Follow `GET /api/events/stream?type=...` (SSE) and send commands through REST or the MCP tools. A key's actor is `key:<name>` with kind `KEY`, so it counts as a person for the risk rule. For an HTTP endpoint that the server calls, use the `webhook` type: egress goes through the host allow-list, private addresses are refused unless allow-listed, replies pass the same command allow-list, and it may send nothing until `allowedCommands` names something.
+Follow `GET /api/events/stream?type=...` (SSE) and send commands through REST or the MCP tools. A key's actor is `key:<name>` with kind `KEY`, so it counts as a person for the risk rule. For an application that connects to the server use the `http` engine; for an HTTP endpoint that the server calls, use the `callout` engine: egress goes through the host allow-list, private addresses are refused unless allow-listed, replies pass the same command allow-list, and it may send nothing until `allowedCommands` names something.
 
 ### Option 5: a new Java supervisor type
 
-The three existing modules under `plugins/supervisors/` are the templates. `guards` is the smallest: `FailureGuardFactory` compiles its settings into one rule of the rule engine, so it needs no new engine.
+The modules under `plugins/supervisors/` are the templates. `process-engine` is the smallest complete engine (one factory, one configuration class and its tests); `rules` shows presets, which fill in a rule document and need no new engine.
 
 **1. Write the supervisor.** Implement `ExecutionSupervisor` (`plugin-api`). `supervise` is the only method without a default. Keep it reactive and never block: a slow consumer only loses events, but it still wastes a thread. A supervisor that needs a clock (like `StallWatchdog`) uses `Flux.interval` and fails safe on `EventsMissed`.
 
@@ -228,13 +218,13 @@ Rules that bite:
 - **Reviews must be fast.** `review` has `yukta.supervisor.review-timeout` (5 s) and must not wait for a person. Return `Decision.requireApproval(...)` to ask for one.
 - **Composites and cycles.** If your type holds other supervisors, resolve them through `SupervisorResolver` so cycle, depth and delete checks apply.
 
-**3. Add the module** (only for a new module; a class in `guards` needs nothing else):
+**3. Add the module** (only for a new module; a class in an existing module needs nothing else):
 
 - `settings.gradle.kts`: `include("plugins:supervisors:my-guard")`
 - `boot/build.gradle.kts`: `implementation(project(":plugins:supervisors:my-guard"))`
 - `plugins/supervisors/my-guard/build.gradle.kts`: `id("com.infenia.yukta.library-conventions")`, `api(project(":plugin-api"))`
 
-**4. Test it.** Follow `FailureGuardFactoryTest`: build a `Supervisor`, call `factory.create`, feed `Flux.just(events)` to `supervise` and assert the commands (`StepVerifier` for time). Add the type to the catalog test in `boot` (`SupervisorCatalogTest`) and an attach-through-the-API test like `SupervisorApiAcceptanceTest`.
+**4. Test it.** Follow `RulePresetsTest`: build a `Supervisor`, call `factory.create`, feed `Flux.just(events)` to `supervise` and assert the commands (`StepVerifier` for time). Add the type to the catalog test in `boot` (`SupervisorCatalogTest`) and an attach-through-the-API test like `SupervisorApiAcceptanceTest`.
 
 ```bash
 yk gradle :plugins:supervisors:my-guard:test
@@ -275,7 +265,7 @@ These come from reading the current code (UI under `ui/src/features/supervisors`
 | 11 | **Errors on the definition are hard to find.** A declaration that fails to attach is logged and retried at the next save, but the definition page does not say so. | `DefinitionSupervisors`, the session page | Show a per-declaration status (`running`, `failed: <reason>`) in the effective supervision card and the editor panel. |
 | 12 | **Two places configure supervision.** `yukta.supervisor.rules.file` and `yukta.supervisor.dry-run` are properties, everything else is the API, and a global dry run hides the per-supervisor flag. | Server settings | Show system supervisors read-only with the property that made them, and a banner on the Supervisors page when the global dry run is on. |
 | 13 | **Scopes are strings.** The API and CLI take `workflow:s1/release//deploy.*`. The UI has pickers, but the concept still takes a paragraph to explain. | `scope.ts`, docs | Keep the text form, but show its plain meaning everywhere (`scopeLabel` exists) and print it in the CLI's `list` output. |
-| 14 | **Words overlap.** *Supervisor*, *control plane*, *attachment*, *composite* and *workflow supervisor* are all in the UI. `SupervisorInfo.kind` shows `CONTROL_PLANE` or `SUPERVISOR`, which a user cannot choose and does not need. | Docs, status API | Say "supervisor" everywhere. Keep "kind" in the API only. |
+| 14 | **Words overlap.** *Supervisor*, *control plane*, *assignment* (stored as an *attachment*) and *workflow supervisor* are all in the UI. `SupervisorInfo.kind` shows `CONTROL_PLANE` or `SUPERVISOR`, which a user cannot choose and does not need. | Docs, status API | Say "supervisor" everywhere. Keep "kind" in the API only. |
 
 ### Extension and operations
 
@@ -301,8 +291,8 @@ Open the issues against the `Supervisors` epic (#1996). Each UI change needs Vit
 |---|---|
 | Contract | `plugin-api/.../plugin/control/` (`ExecutionSupervisor`, `SupervisorFactory`, `SupervisorScope`, `SupervisorCapabilities`, `SupervisorCommonSettings`, `SupervisorDescriptor`) |
 | Host and service | `core/.../service/supervisor/` (`SupervisorHost`, `SupervisorService`, `BoundSupervisor`, `TurnAroundGuard`, `ControlReviewer`, `DefinitionSupervisors`, `SupervisorSettingsValidator`) |
-| Composite and workflow | `core/.../service/supervisor/composite/`, `.../workflow/` |
-| Types | `plugins/supervisors/rules`, `guards`, `webhook` (type `callout`) |
+| Ownership, hierarchy, engines, agent API | `core/.../service/supervisor/ownership/`, `.../hierarchy/`, `.../engine/`, `.../agent/`, `.../workflow/` |
+| Engines | `plugins/supervisors/rules`, `callout`, `process-engine` |
 | REST and MCP | `SupervisorTypesController`, `SupervisorsController`, `SupervisorProvider` |
 | CLI | `cli/internal/commands/supervisors` |
 | UI | `ui/src/features/supervisors/` |

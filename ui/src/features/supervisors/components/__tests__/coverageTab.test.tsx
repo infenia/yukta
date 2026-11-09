@@ -31,7 +31,7 @@ const attachment = (overrides: Partial<AttachmentView>): AttachmentView => ({
 let attachments: AttachmentView[] = [];
 
 const server = setupServer(
-  http.get('/api/supervisors/attachments', () => envelope(attachments))
+  http.get('/api/supervisors/assignments', () => envelope(attachments))
 );
 
 beforeAll(() => server.listen());
@@ -66,7 +66,7 @@ describe('CoverageTab', () => {
 
   it('says when the coverage cannot be read', async () => {
     server.use(
-      http.get('/api/supervisors/attachments', () => envelope({}, 500))
+      http.get('/api/supervisors/assignments', () => envelope({}, 500))
     );
     renderTab();
     expect(

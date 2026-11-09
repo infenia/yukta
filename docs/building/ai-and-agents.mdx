@@ -225,7 +225,7 @@ An agent does two very different jobs: **writing** (drafting an answer, planning
 | Draft, summarise, plan or call tools | `LLM_CALL` |
 | Route, gate, score or flag, especially at high volume | A decision plugin with `backend: SYSTEMONE`, the default |
 | A decision, but no System One model is available | The same decision plugin with `backend: LLM` |
-| Watch and steer running workflows | A [model control plane](/running/control-planes#model-control-plane) |
+| Watch and steer running workflows | A [supervisor](/running/supervisors) with the `http` engine, driven by your model |
 
 With `SYSTEMONE`, token and provider costs for these calls do not apply, because the model runs on your own Ollama. Probabilities from `SYSTEMONE` are calibrated; those from the `LLM` backend are the model's own estimates. See [Decision plugins](/plugins/decisions#common-options) for the two backends. `CLASSIFY` gives one label from your list, `GATE` a yes/no with a probability, `SCORE` a position on a scale and `ASK` several answers in one call. Typical uses:
 
@@ -251,7 +251,7 @@ AI does not have to live inside the graph.
 | Role | How | See |
 |---|---|---|
 | Author | An assistant such as Claude creates sessions, starts runs and reads results through the MCP server | [MCP server](/interfaces/mcp) |
-| Supervisor | A supervisor watches every event on the control bus and pauses or stops a run that loops or drifts, using rules, an LLM agent or a decision model | [Supervisors](/running/supervisors), [Control planes](/running/control-planes) |
+| Supervisor | A supervisor watches every event on the control bus and pauses or stops a run that loops or drifts, using rules, or an LLM agent that operates it over the agent API | [Supervisors](/running/supervisors), [Supervisor engines](/running/supervisor-engines) |
 
 ## Guardrails
 
