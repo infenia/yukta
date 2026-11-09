@@ -71,7 +71,7 @@ public class SupervisorContract {
 
   /** What an engine receives. */
   public static final List<String> SIGNAL_KINDS =
-      List.of("Event", "Tick", "Review", "Delegated", "Started");
+      List.of("Event", "Tick", "Review", "Delegated", "Consulted", "Started");
 
   /** What an engine returns. */
   public static final List<String> DIRECTIVE_KINDS =

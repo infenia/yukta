@@ -6,6 +6,8 @@ import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
 import com.infenia.yukta.plugin.control.ControlPlanePlugin;
+import com.infenia.yukta.plugin.control.Delegation;
+import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
@@ -18,7 +20,9 @@ import com.infenia.yukta.plugin.control.SupervisorIds;
 import com.infenia.yukta.plugin.control.SupervisorPreset;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.plugin.control.engine.ConsultAware;
 import com.infenia.yukta.plugin.control.engine.DirectiveSupervisor;
+import com.infenia.yukta.plugin.control.engine.EngineBackedSupervisor;
 import com.infenia.yukta.plugin.control.engine.ReadsAware;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.security.AuditRecord;
@@ -32,6 +36,7 @@ import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.runtime.ControlAudit;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
 import com.infenia.yukta.service.supervisor.engine.SupervisorQueries;
+import com.infenia.yukta.service.supervisor.hierarchy.ParentConsulting;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorHierarchy;
 import com.infenia.yukta.service.supervisor.hierarchy.SupervisorResolver;
 import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
@@ -1198,6 +1203,9 @@ public class SupervisorService {
         reading.readsFrom(reads.readsFor(owned, () -> host.held(attachment.supervisorId())));
       }
     }
+    if (made instanceof ConsultAware consulting) {
+      consulting.consultWith((kind, payload) -> consultParents(supervisor, kind, payload));
+    }
     host.attach(
         new BoundSupervisor(
             attachment,
@@ -1206,6 +1214,33 @@ public class SupervisorService {
             capabilities(supervisor),
             Boolean.TRUE.equals(supervisor.settings().get(SupervisorCapabilities.OBSERVE_INTERNAL)),
             owned));
+  }
+
+  /**
+   * Asks the parents of a supervisor a question for its engine, in the mode set for {@code
+   * CONSULT}. A parent answers through its running engine; one that is not running (it owns
+   * nothing, or it is off), is not an engine or has no opinion is silent.
+   */
+  private Mono<Map<String, Map<String, Object>>> consultParents(
+      final Supervisor child, final DelegationKind kind, final Map<String, Object> payload) {
+    final SupervisorResolver parents = resolver;
+    if (parents == null) {
+      return Mono.just(Map.of());
+    }
+    final Optional<Supervisor> shell = parents.supervisor(child.id());
+    if (shell.isEmpty() || shell.get().parents().isEmpty()) {
+      return Mono.just(Map.of());
+    }
+    final Delegation how = shell.get().delegationFor(DelegationKind.CONSULT);
+    return ParentConsulting.consult(
+        how,
+        shell.get().parents(),
+        parent ->
+            Flux.fromIterable(host.attachedOf(parent))
+                .map(BoundSupervisor::delegate)
+                .ofType(EngineBackedSupervisor.class)
+                .concatMap(engine -> engine.consulted(child.id(), kind, payload, how.timeout()))
+                .next());
   }
 
   /**

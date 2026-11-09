@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
+import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.Supervisor;
@@ -18,6 +19,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
 
@@ -315,5 +317,95 @@ class EngineBackedSupervisorTest {
   @Test
   void theDefaultReadsHoldNothing() {
     StepVerifier.create(EngineReads.NONE.held()).verifyComplete();
+  }
+
+  @Test
+  void aParentEngineIsAskedAndAnswersAConsultation() {
+    final var parent =
+        supervisor(
+            engine(
+                signals ->
+                    signals
+                        .ofType(Signal.Delegated.class)
+                        .map(d -> new Directive.DelegationAnswer(d.id(), Map.of("ok", true)))),
+            true);
+    final var directives = parent.directives(Flux.never()).subscribe();
+    try {
+      StepVerifier.create(
+              parent.consulted(
+                  "child", DelegationKind.CONSULT, Map.of("q", 1), Duration.ofSeconds(2)))
+          .expectNext(Map.of("ok", true))
+          .verifyComplete();
+    } finally {
+      directives.dispose();
+    }
+  }
+
+  @Test
+  void aParentThatDeclinesOrIsSlowGivesNoAnswer() {
+    final var declines =
+        supervisor(
+            engine(
+                signals ->
+                    signals
+                        .ofType(Signal.Delegated.class)
+                        .map(d -> (Directive) new Directive.NoOpinion(d.id()))),
+            true);
+    final var slow = supervisor(engine(signals -> signals.thenMany(Flux.never())), true);
+    final var first = declines.directives(Flux.never()).subscribe();
+    final var second = slow.directives(Flux.never()).subscribe();
+    try {
+      StepVerifier.create(
+              declines.consulted("c", DelegationKind.CONSULT, Map.of(), Duration.ofSeconds(2)))
+          .verifyComplete();
+      StepVerifier.create(
+              slow.consulted("c", DelegationKind.CONSULT, Map.of(), Duration.ofMillis(100)))
+          .verifyComplete();
+    } finally {
+      first.dispose();
+      second.dispose();
+    }
+  }
+
+  @Test
+  void aQuestionOfTheEngineComesBackAsConsultedWithItsKey() {
+    final Sinks.Many<Signal> seen = Sinks.many().replay().all();
+    final var child =
+        supervisor(
+            engine(
+                signals ->
+                    Flux.merge(
+                        signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
+                        Flux.just(
+                            new Directive.Delegate(
+                                DelegationKind.CONSULT, Map.of("q", "x"), "q1")))),
+            true);
+    child.consultWith((kind, payload) -> Mono.just(Map.of("boss", Map.of("a", 1))));
+    final var run = child.directives(Flux.never()).subscribe();
+    try {
+      StepVerifier.create(seen.asFlux().ofType(Signal.Consulted.class).take(1))
+          .assertNext(
+              c -> {
+                assertThat(c.id()).isEqualTo("q1");
+                assertThat(c.answers()).isEqualTo(Map.of("boss", Map.of("a", 1)));
+                assertThat(c.kind()).isEqualTo(Signal.Kind.CONSULTED);
+              })
+          .verifyComplete();
+    } finally {
+      run.dispose();
+    }
+  }
+
+  @Test
+  void aQuestionWithNoWayToAskIsDropped() {
+    final var child =
+        supervisor(
+            engine(
+                signals ->
+                    Flux.<Directive>just(new Directive.Delegate(DelegationKind.CONSULT, Map.of()))
+                        .concatWith(Flux.never())),
+            true);
+    StepVerifier.create(child.directives(Flux.never()).take(Duration.ofMillis(200)))
+        .verifyComplete();
   }
 }

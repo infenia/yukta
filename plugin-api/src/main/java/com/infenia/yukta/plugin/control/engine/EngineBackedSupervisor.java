@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.control.engine;
 import com.infenia.yukta.plugin.control.ApprovalNeed;
 import com.infenia.yukta.plugin.control.ControlRequest;
 import com.infenia.yukta.plugin.control.Decision;
+import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import java.time.Duration;
@@ -25,7 +26,7 @@ import reactor.core.publisher.Sinks;
  */
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public final class EngineBackedSupervisor
-    implements DirectiveSupervisor, ReadsAware, AutoCloseable {
+    implements DirectiveSupervisor, ReadsAware, ConsultAware, AutoCloseable {
 
   private static final Duration REVIEW_TIMEOUT = Duration.ofSeconds(10);
 
@@ -43,6 +44,9 @@ public final class EngineBackedSupervisor
   private final Map<String, Sinks.One<Decision>> pending = new ConcurrentHashMap<>();
   private final Sinks.Many<Signal> asked =
       Sinks.many().multicast().onBackpressureBuffer(MAX_OPEN_REVIEWS, false);
+  private final Map<String, Sinks.One<Map<String, Object>>> delegations = new ConcurrentHashMap<>();
+  private final java.util.concurrent.atomic.AtomicReference<Consultant> consultant =
+      new java.util.concurrent.atomic.AtomicReference<>();
   private final AtomicLong seq = new AtomicLong();
   private final Consumer<EngineReads> readsSink;
   private final java.util.concurrent.atomic.AtomicReference<EngineReads> reads =
@@ -106,6 +110,8 @@ public final class EngineBackedSupervisor
                   case Directive.Command command -> Mono.just(command);
                   case Directive.ReviewVerdict verdict -> answer(verdict);
                   case Directive.NoOpinion none -> answer(none);
+                  case Directive.DelegationAnswer reply -> answer(reply);
+                  case Directive.Delegate question -> pass(question);
                   default -> Mono.empty();
                 });
   }
@@ -162,7 +168,66 @@ public final class EngineBackedSupervisor
     if (sink != null) {
       sink.tryEmitValue(Decision.ALLOW);
     }
+    final Sinks.One<Map<String, Object>> open = delegations.get(none.answers());
+    if (open != null) {
+      open.tryEmitValue(Map.of());
+    }
     return Mono.empty();
+  }
+
+  private Mono<Directive.Command> answer(final Directive.DelegationAnswer reply) {
+    final Sinks.One<Map<String, Object>> sink = delegations.get(reply.answers());
+    if (sink != null) {
+      sink.tryEmitValue(reply.answer());
+    }
+    return Mono.empty();
+  }
+
+  /** The engine passes a question up: the parents' answers come back as a {@code Consulted}. */
+  private Mono<Directive.Command> pass(final Directive.Delegate question) {
+    final Consultant ask = consultant.get();
+    if (ask == null) {
+      return Mono.empty();
+    }
+    final String id = question.key() == null ? "c" + seq.incrementAndGet() : question.key();
+    return ask.consult(question.kind(), question.payload())
+        .onErrorReturn(Map.of())
+        .doOnNext(answers -> asked.tryEmitNext(new Signal.Consulted(id, question.kind(), answers)))
+        .then(Mono.empty());
+  }
+
+  /**
+   * A child passes a question to this supervisor. The engine gets a {@link Signal.Delegated} and
+   * answers it with a {@link Directive.DelegationAnswer}, or declines with a {@link
+   * Directive.NoOpinion}.
+   *
+   * @param from the child supervisor
+   * @param kind what is delegated
+   * @param payload the question
+   * @param timeout how long the engine has to answer
+   * @return the answer, or empty when the engine declined, was too slow or is overloaded
+   */
+  public Mono<Map<String, Object>> consulted(
+      final String from,
+      final DelegationKind kind,
+      final Map<String, Object> payload,
+      final Duration timeout) {
+    if (delegations.size() >= MAX_OPEN_REVIEWS) {
+      return Mono.empty();
+    }
+    final String id = "d" + seq.incrementAndGet();
+    final Sinks.One<Map<String, Object>> sink = Sinks.one();
+    delegations.put(id, sink);
+    asked.tryEmitNext(new Signal.Delegated(id, kind, from, payload));
+    return sink.asMono()
+        .filter(answer -> !answer.isEmpty())
+        .timeout(timeout, Mono.empty())
+        .doFinally(done -> delegations.remove(id));
+  }
+
+  @Override
+  public void consultWith(final Consultant given) {
+    consultant.set(given);
   }
 
   private static String reason(final String reason) {

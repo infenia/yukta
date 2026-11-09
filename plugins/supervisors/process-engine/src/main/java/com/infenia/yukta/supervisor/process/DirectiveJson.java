@@ -53,6 +53,7 @@ public class DirectiveJson {
       case "verdict" -> verdict(line);
       case "noOpinion" -> new Directive.NoOpinion(required(line, ANSWERS));
       case "delegationAnswer" -> delegationAnswer(line);
+      case "delegate" -> delegate(line);
       default -> null;
     };
   }
@@ -69,6 +70,16 @@ public class DirectiveJson {
     return line.get("answer") instanceof Map<?, ?> answer
         ? new Directive.DelegationAnswer(required(line, ANSWERS), copy(answer))
         : null;
+  }
+
+  /** A question for the parents. Only {@code CONSULT} is a question; the other kinds are not. */
+  private static @Nullable Directive delegate(final Map<String, Object> line) {
+    final String kind = upper(text(line, "kind"));
+    if (!"CONSULT".equals(kind) || !(line.get("payload") instanceof Map<?, ?> payload)) {
+      return null;
+    }
+    return new Directive.Delegate(
+        com.infenia.yukta.plugin.control.DelegationKind.CONSULT, copy(payload), text(line, "key"));
   }
 
   private static @Nullable Directive command(final Map<String, Object> line) {

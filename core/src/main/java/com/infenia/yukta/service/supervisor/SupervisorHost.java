@@ -356,6 +356,18 @@ public class SupervisorHost implements DryRunRecorder {
   }
 
   /**
+   * Every running supervisor of a supervisor id (one per assignment).
+   *
+   * @param supervisorId the supervisor id
+   * @return the running ones; empty when it owns nothing or is off
+   */
+  public List<BoundSupervisor> attachedOf(final String supervisorId) {
+    return attachedSupervisors.stream()
+        .filter(bound -> bound.attachment().supervisorId().equals(supervisorId))
+        .toList();
+  }
+
+  /**
    * Stops an attached supervisor.
    *
    * @param attachmentId the attachment id

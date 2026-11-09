@@ -69,7 +69,7 @@ A release workflow `release` in session `s1` builds (`build.compile`, `build.tes
 
 ## Reporting to parents
 
-A supervisor lists `parents` (zero or more; no cycle, at most four levels). When its own command needs approval, the parents are asked first, in the `delegation` mode for `APPROVAL`: `ORDERED` (default: one after the other, the first answer decides), `ALL` (all must allow) or `ANY` (the first answer decides). A refusal from any parent asked is final; when nobody decides, a person does. A parent needs no assignment. For input requests the route decides instead: the tier `supervisor:parent` sends an escalated request to the parents of the supervisor that escalated, with the tier's own mode, quorum and timeout (`CONSULT` is not built yet). A supervisor approves another's parked command only from above it in the hierarchy, and never a `HIGH` risk request.
+A supervisor lists `parents` (zero or more; no cycle, at most four levels). When its own command needs approval, the parents are asked first, in the `delegation` mode for `APPROVAL`: `ORDERED` (default: one after the other, the first answer decides), `ALL` (all must allow) or `ANY` (the first answer decides). A refusal from any parent asked is final; when nobody decides, a person does. A parent needs no assignment. For input requests the route decides instead: the tier `supervisor:parent` sends an escalated request to the parents of the supervisor that escalated, with the tier's own mode, quorum and timeout (`CONSULT` questions are asked in their own mode, see the [contract](/running/supervisor-contract)). A supervisor approves another's parked command only from above it in the hierarchy, and never a `HIGH` risk request.
 
 ## Ask for approval
 

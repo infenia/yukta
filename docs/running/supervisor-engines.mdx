@@ -53,7 +53,11 @@ Settings: `command` and `args`. The executable must be in `yukta.process.allowed
 {"type":"command","key":"k1","cause":"event:e7","reason":"too many failures","command":{"type":"PauseWorkflow","executionId":"…"}}
 {"type":"verdict","answers":"<review id>","verdict":"DENY","reason":"not during a freeze"}
 {"type":"noOpinion","answers":"<review id>"}
+{"type":"delegationAnswer","answers":"<delegation id>","answer":{"choice":"retry"}}
+{"type":"delegate","kind":"CONSULT","key":"q1","payload":{"question":"retry the deploy?"}}
 ```
+
+A `delegate` line asks the supervisor's parents a question; what they answer comes back on stdin as a `CONSULTED` signal with the same `key`.
 
 A line that is not a directive is dropped. If the program exits, Yukta starts it again with a growing delay.
 

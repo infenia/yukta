@@ -49,6 +49,13 @@ class EngineTypesTest {
         new Signal.Delegated("d1", DelegationKind.CONSULT, "child", Map.of("question", "retry?"));
     assertThat(delegated.kind()).isEqualTo(Signal.Kind.DELEGATED);
     assertThat(delegated.payload()).containsEntry("question", "retry?");
+    final var consulted =
+        new Signal.Consulted(
+            "q1", DelegationKind.CONSULT, Map.of("boss", Map.of("choice", "retry")));
+    assertThat(consulted.kind()).isEqualTo(Signal.Kind.CONSULTED);
+    assertThat(consulted.answers()).containsKey("boss");
+    assertThat(new Directive.Delegate(DelegationKind.CONSULT, Map.of("q", 1), "q1").key())
+        .isEqualTo("q1");
     assertThat(new Directive.DelegationAnswer("d1", Map.of("choice", "retry")).answer())
         .containsEntry("choice", "retry");
     assertThat(new Directive.Delegate(DelegationKind.APPROVAL, Map.of()).kind())
@@ -84,7 +91,7 @@ class EngineTypesTest {
     assertThat(verdict.reason()).isEqualTo("closed");
     assertThat(new Directive.Notify("queue is long", Cause.tick(), "depth 40").message())
         .isEqualTo("queue is long");
-    assertThat(Signal.Kind.values()).hasSize(5);
+    assertThat(Signal.Kind.values()).hasSize(6);
     assertThat(Cause.Kind.values()).hasSize(4);
   }
 

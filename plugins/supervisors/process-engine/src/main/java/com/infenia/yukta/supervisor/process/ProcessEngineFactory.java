@@ -75,7 +75,8 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
         "A program reads the signals as JSON lines on standard input and writes directives as JSON"
             + " lines on standard output. It runs with an empty environment, and only if its"
             + " executable is in yukta.process.allowed-commands.",
-        Set.of(Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED),
+        Set.of(
+            Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED, Signal.Kind.CONSULTED),
         true);
   }
 
