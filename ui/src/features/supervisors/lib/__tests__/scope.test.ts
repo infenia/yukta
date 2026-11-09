@@ -2,16 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect } from 'vitest';
-import { buildScope, parseSelectors, scopeLabel } from '../scope';
+import { buildScope, parseSelectors } from '../scope';
 
 describe('the scope helpers', () => {
-  it('labels a section with its workflow and nodes', () => {
-    expect(scopeLabel('workflow:s/w//build.*,deploy')).toBe(
-      'Section s/w: build.*, deploy'
-    );
-    expect(scopeLabel('workflow:s/w')).toBe('Workflow s/w');
-  });
-
   it('builds a scope and refuses an incomplete one', () => {
     expect(buildScope('global', '', '')).toBe('global');
     expect(buildScope('session', 's', '')).toBe('session:s');

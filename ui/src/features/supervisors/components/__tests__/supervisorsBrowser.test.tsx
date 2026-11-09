@@ -416,7 +416,17 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Activity' }));
+    const page = within(
+      screen.getByRole('tablist', { name: 'Supervisors sections' })
+    );
+    await user.click(
+      within(screen.getByRole('tablist', { name: 'lead details' })).getByRole(
+        'tab',
+        { name: 'Activity' }
+      )
+    );
+    expect(await screen.findByText('No activity yet')).toBeInTheDocument();
+    await user.click(page.getByRole('tab', { name: 'Activity' }));
     expect(screen.getByLabelText('where')).toHaveTextContent('tab=activity');
     await user.click(screen.getByRole('tab', { name: 'Decision makers' }));
     expect(screen.getByLabelText('where')).toHaveTextContent(

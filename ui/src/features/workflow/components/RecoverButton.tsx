@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { RequirePermission } from '@/components/common/RequirePermission';
+import { RequireControl } from '@/features/supervisors/components/RequireControl';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import { buttonVariants } from '@/components/ui/button';
@@ -38,7 +38,11 @@ export function RecoverButton({
 
   return (
     <>
-      <RequirePermission perm="controlRuns">
+      <RequireControl
+        perm="controlRuns"
+        command="recover"
+        target={{ execution: executionId }}
+      >
         <Tip label={iconOnly ? 'Recover this run' : undefined}>
           <button
             type="button"
@@ -62,7 +66,7 @@ export function RecoverButton({
             {!iconOnly && 'Recover'}
           </button>
         </Tip>
-      </RequirePermission>
+      </RequireControl>
       <InlineError
         message={recover.error ? controlErrorMessage(recover.error) : null}
       />
