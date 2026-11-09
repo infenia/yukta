@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Modal } from '@/components/common/Modal';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useOwnership, useSupervision } from '../hooks/useSupervisorTypes';
@@ -116,7 +115,7 @@ export function SupervisionPanel({
   );
 }
 
-/** The run's owner on the workflow page, opening who owns what. */
+/** The run's owner on the workflow page, opening who owns what; `?supervision=1` opens it at once. */
 export function WorkflowSupervision({
   sessionId,
   workflowId,
@@ -126,13 +125,21 @@ export function WorkflowSupervision({
   workflowId: string;
   executionId: string | null;
 }) {
-  const [open, setOpen] = useState(false);
+  // the dialog lives in the URL, so the palette (and a link) can open it on a page already shown
+  const [params, setParams] = useSearchParams();
+  const open = params.has('supervision');
+  const show = (yes: boolean) => {
+    const next = new URLSearchParams(params);
+    if (yes) next.set('supervision', '1');
+    else next.delete('supervision');
+    setParams(next, { replace: !yes });
+  };
   const { data } = useOwnership(sessionId, workflowId);
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => show(true)}
         className="bg-accent text-body-sm text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
       >
         <span
@@ -144,7 +151,7 @@ export function WorkflowSupervision({
         Run owner: {ownerLabel(data?.run)}
       </button>
       {open && (
-        <Modal title="Supervision" onClose={() => setOpen(false)} wide>
+        <Modal title="Supervision" onClose={() => show(false)} wide>
           <SupervisionPanel
             sessionId={sessionId}
             workflowId={workflowId}
