@@ -1,6 +1,0 @@
-{
-  "id": "dogfood-ticket-advice-binding",
-  "supervisorId": "dogfood-ticket-advice",
-  "scope": "session:dogfood",
-  "enabled": true
-}

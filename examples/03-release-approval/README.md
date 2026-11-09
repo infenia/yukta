@@ -60,7 +60,7 @@ saved) and adds the declaration to the workflow:
 ```bash
 curl -X PUT localhost:9858/api/supervisors/example-03-release-guard -H 'Content-Type: application/json' -d @supervisor.json
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' \
-  -d "$(jq '.workflows.release.supervisors = [{supervisor: "example-03-release-guard"}]' session.json)"
+  -d "$(jq '.workflows.release.assignments = [{supervisor: "example-03-release-guard"}]' session.json)"
 ```
 
 `run.sh` sends `POST /api/executions/<e>/stop?mode=KILL` while a release waits for approval and expects `403`; the release then carries on.

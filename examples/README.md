@@ -71,7 +71,7 @@ declared, and then proves it acted. `session.json` itself stays a plain template
 
 A `WAIT_FOR_SIGNAL` approval has risk `HIGH`, so a supervisor can only advise on it; a supervisor answers requests of risk `LOW` (or `MEDIUM`) that come
 from `ASK_INPUT` or an agent. Example 16 and its docs page "Input requests" show that. Create 16 with `POST /api/supervisors` (admin key) and attach it
-to a session with `POST /api/supervisors/attachments`. A test loads it, so it stays valid.
+to a session with `PUT /api/supervisors/{id}/assignments` (`[{"target":"session:<id>"}]`). A test loads it, so it stays valid.
 
 Approval steps (`WAIT_FOR_SIGNAL`) are answered by each `run.sh` itself, which polls `GET /api/sessions/{id}/inputs?state=OPEN,ESCALATED` and answers the
 request with `POST /api/executions/{e}/inputs/{requestId}/answer`. In real use a person answers it (an agent may too, over MCP; a supervisor cannot, see above) from the UI,

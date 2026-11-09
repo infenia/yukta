@@ -56,7 +56,7 @@ node_reached() { api GET "/api/executions/$EID" | jq -e --arg n "$1" '.data.task
 
 # The supervisor must exist before a session declares it. session.json stays a plain template; the declaration is added here.
 apply_supervisor supervisor.json
-jq '.workflows.pr.supervisors = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json >"$SUPERVISED"
+jq '.workflows.pr.assignments = [{supervisor: "example-04-reviewer-advice", nodes: ["reviewer"]}]' session.json >"$SUPERVISED"
 apply_session "$SUPERVISED"
 
 echo "--> low risk (score 100): no human involved"

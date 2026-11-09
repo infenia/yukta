@@ -8,8 +8,8 @@ starts the workflow with the event (secrets masked) and reads what the workflow 
 |---|---|
 | `session.json` | The internal session `supervisors` and its workflow `low-risk-answers`. |
 | `supervisor.json` | A supervisor of type `workflow` that starts it on `InputRequested`. It may send only `AnswerInputCommand` and `EscalateInputCommand`; a workflow supervisor sends nothing until its profile names commands. |
-| `attachment.json` | Attaches the supervisor to one session (change `my-session`). |
-| `section-supervisor.json`, `section-attachment.json` | A second, narrower supervisor: the workflow `section-triage` bound to the section `build.*` of `my-workflow`. It only escalates. |
+| `assignments.json` | What the supervisor owns: one session (change `my-session`). |
+| `section-supervisor.json`, `section-assignments.json` | A second, narrower supervisor: the workflow `section-triage` owning the nodes `build.*` of `my-workflow`. It only escalates. |
 
 The workflow starts at a `SUPERVISOR_SIGNAL` and ends in a `SUPERVISOR_DECISION` (the same exits as `OUTCOME_TERMINAL`, and a command the contract cannot read fails the run instead of being dropped):
 
@@ -28,9 +28,9 @@ supervisor `low-risk-workflow`, which approves a LOW risk request. Anything else
 # the session is internal, so ask for it with includeInternal
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
 curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @supervisor.json
-curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @attachment.json
+curl -X PUT localhost:9858/api/supervisors/low-risk-workflow/assignments -H 'Content-Type: application/json' -d @assignments.json
 curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @section-supervisor.json
-curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @section-attachment.json
+curl -X PUT localhost:9858/api/supervisors/section-workflow/assignments -H 'Content-Type: application/json' -d @section-assignments.json
 curl 'localhost:9858/api/sessions?includeInternal=true'
 ```
 
