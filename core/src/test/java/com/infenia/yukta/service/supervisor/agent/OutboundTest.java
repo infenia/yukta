@@ -167,6 +167,9 @@ class OutboundTest {
     assertThat(read.headers()).containsEntry("A", "b");
     assertThat(read.timeout()).isEqualTo(Duration.ofMillis(500));
     assertThat(read.maxConcurrent()).isEqualTo(2);
+    final Outbound.Config plain =
+        OPEN.read(Map.of("url", "https://x.example", "headers", Map.of("A", "${env.TOKEN")));
+    assertThat(plain.headers()).containsEntry("A", "${env.TOKEN");
     assertThat(OPEN.read(Map.of("url", "https://x.example")).timeout())
         .isEqualTo(Duration.ofSeconds(3));
 
@@ -192,6 +195,11 @@ class OutboundTest {
         .hasMessageContaining("timeoutMs");
     assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "maxConcurrent", "many")))
         .hasMessageContaining("maxConcurrent");
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", 42))).hasMessageContaining("http or https");
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "timeoutMs", 10_001)))
+        .hasMessageContaining("timeoutMs must be a whole number from 1 to 10000");
+    assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "maxConcurrent", 33)))
+        .hasMessageContaining("maxConcurrent must be a whole number from 1 to 32");
   }
 
   @Test
