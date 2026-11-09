@@ -200,6 +200,18 @@ class SupervisorsControllerTest {
   }
 
   @Test
+  void rulesReplayOfRunWithoutRecordedEventsIsNotFound() {
+    final SupervisorsController rules = withRules();
+
+    StepVerifier.create(
+            rules.replayRules(
+                "r",
+                new SupervisorsController.ReplayBody("gone", Map.of("rules", List.of("draft")))))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  @Test
   void rulesOfSupervisorWithNoKeptVersionShowVersionZero() {
     final SupervisorsController rules = withRules();
     // stored without a save through the service, as an adopted supervisor is

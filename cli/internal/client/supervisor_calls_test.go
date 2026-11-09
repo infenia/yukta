@@ -46,6 +46,9 @@ func TestSupervisorCallsUseTheirPathsAndMethods(t *testing.T) {
 		{"GET /api/supervisors/p/credential", func() (any, error) { return c.GetAgentCredential("p") }},
 		{"GET /api/supervisors/p/versions", func() (any, error) { return c.GetSupervisorVersions("p") }},
 		{"POST /api/supervisors/p/rollback?version=2", func() (any, error) { return c.RollbackSupervisor("p", 2) }},
+		{"GET /api/supervisors/p/engine/rules", func() (any, error) { return c.GetRules("p") }},
+		{"PUT /api/supervisors/p/engine/rules", func() (any, error) { return c.SaveRules("p", []byte(`{"rules":[]}`)) }},
+		{"POST /api/supervisors/p/engine/rules/replay", func() (any, error) { return c.ReplayRules("p", "e", nil) }},
 		{"POST /api/supervisors/p/credential", func() (any, error) { return c.IssueAgentCredential("p", 0) }},
 		{"POST /api/supervisors/p/credential?ttlHours=24", func() (any, error) { return c.IssueAgentCredential("p", 24) }},
 		{"DELETE /api/supervisors/p/credential", func() (any, error) { return c.RevokeAgentCredential("p") }},
@@ -82,6 +85,12 @@ func TestSupervisorCallsRefuseWhatCannotBeSent(t *testing.T) {
 	if _, err := c.ReplaySupervisor("p", "e", "not json"); err == nil {
 		t.Error("settings that are not JSON must be refused")
 	}
+	if _, err := c.ReplayRules("p", "", nil); err == nil {
+		t.Error("a rules replay needs an execution")
+	}
+	if _, err := c.ReplayRules("p", "e", []byte("not json")); err == nil {
+		t.Error("draft rules that are not JSON must be refused")
+	}
 	for _, body := range []string{"not json", `{}`, `{"id":""}`} {
 		if _, err := c.SaveSupervisor([]byte(body)); err == nil {
 			t.Errorf("a supervisor file %q needs an id", body)
@@ -99,6 +108,9 @@ func TestReplayCarriesTheExecutionAndTheDraftSettings(t *testing.T) {
 	}
 	if r.method != "POST" || r.uri != "/api/supervisors/p/replay" || !strings.Contains(r.body, `"executionId":"e1"`) || strings.Contains(r.body, "settings") {
 		t.Errorf("unexpected replay: %s %s %s", r.method, r.uri, r.body)
+	}
+	if _, err := c.ReplayRules("p", "e1", []byte(`{"rules":[1]}`)); err != nil || !strings.Contains(r.body, `"settings":{"rules":[1]}`) {
+		t.Errorf("the draft rules must travel as settings: %s (%v)", r.body, err)
 	}
 	if _, err := c.ReplaySupervisor("p", "e1", `{"rules":[]}`); err != nil || !strings.Contains(r.body, `"settings":{"rules":[]}`) {
 		t.Errorf("the draft settings must travel: %s (%v)", r.body, err)

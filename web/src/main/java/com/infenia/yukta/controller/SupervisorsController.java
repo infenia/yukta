@@ -8,16 +8,15 @@ import com.infenia.yukta.dto.response.SupervisorView;
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
-import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
-import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
+import com.infenia.yukta.service.supervisor.SupervisorRules;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -29,10 +28,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
@@ -88,15 +85,6 @@ public class SupervisorsController {
   /** The reason a read-only attachment or supervisor is refused. */
   private static final String SYSTEM_MESSAGE =
       "A system supervisor is configured by the server and cannot be changed here";
-
-  /** The engine whose settings are a rules document. */
-  private static final String RULES_TYPE = "rules";
-
-  /** The settings every engine shares, which are not part of a rules document. */
-  private static final Set<String> COMMON_SETTINGS =
-      SupervisorCommonSettings.SCHEMA.stream()
-          .map(ConfigField::name)
-          .collect(Collectors.toUnmodifiableSet());
 
   /** Creates, changes and removes supervisors and their attachments. */
   private final SupervisorService service;
@@ -258,9 +246,8 @@ public class SupervisorsController {
   @GetMapping("/{id}/engine/rules")
   @Operation(summary = "Read the rules document of a rules supervisor")
   public Mono<ApiResponse<RulesView>> rules(@PathVariable final String id) {
-    return rulesSupervisor(id)
-        .flatMap(this::rulesView)
-        .map(view -> ApiResponse.success(200, "Rules", view));
+    return SupervisorRules.read(service, id)
+        .map(doc -> ApiResponse.success(200, "Rules", view(doc)));
   }
 
   /**
@@ -280,71 +267,33 @@ public class SupervisorsController {
               + " change through PUT /api/supervisors/{id}")
   public Mono<ApiResponse<RulesView>> saveRules(
       @PathVariable final String id, @RequestBody final Map<String, Object> rules) {
-    if (host.isBuiltIn(id)) {
-      return Mono.error(new ConflictException(SYSTEM_MESSAGE));
-    }
-    final List<String> common = rules.keySet().stream().filter(COMMON_SETTINGS::contains).toList();
-    if (!common.isEmpty()) {
-      return Mono.error(
-          new IllegalArgumentException(
-              "Not part of the rules, change them with PUT /api/supervisors/"
-                  + id
-                  + ": "
-                  + common));
-    }
-    return rulesSupervisor(id)
-        .flatMap(
-            existing ->
-                service.saveSupervisor(
-                    existing.withEngine(existing.type(), rulesSettings(existing, rules))))
-        .flatMap(this::rulesView)
-        .map(view -> ApiResponse.success(200, "Rules saved", view));
+    return host.isBuiltIn(id)
+        ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+        : SupervisorRules.save(service, id, rules)
+            .map(doc -> ApiResponse.success(200, "Rules saved", view(doc)));
   }
 
-  /** The settings to save: the common settings of the supervisor, then the new rules. */
-  private static Map<String, Object> rulesSettings(
-      final Supervisor existing, final Map<String, Object> rules) {
-    final Map<String, Object> settings = copyWhere(existing.settings(), COMMON_SETTINGS::contains);
-    settings.putAll(SupervisorSettingsMask.keepHidden(rules, existing.settings()));
-    return settings;
+  /**
+   * Try a draft rules document on the recorded events of a past run, with the supervisor's stored
+   * common settings, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, in {@code settings}, the draft rules document (none: the stored)
+   * @return what the rules would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/engine/rules/replay")
+  @Operation(summary = "Replay a draft rules document over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replayRules(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return SupervisorRules.replay(service, id, body.executionId(), body.settings())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
   }
 
-  /** A rules supervisor by id: 404 when there is none, 409 when it has another engine. */
-  private Mono<Supervisor> rulesSupervisor(final String id) {
-    return find(id)
-        .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
-        .filter(found -> RULES_TYPE.equals(found.type()))
-        .switchIfEmpty(
-            Mono.error(
-                new ConflictException(
-                    "Supervisor " + id + " does not use the " + RULES_TYPE + " engine")));
-  }
-
-  private Mono<RulesView> rulesView(final Supervisor supervisor) {
-    final Map<String, Object> rules =
-        SupervisorSettingsMask.hide(
-            withoutCommon(supervisor.settings()), service.secretSettings(supervisor.type()));
-    return service
-        .versions(supervisor.id())
-        .map(
-            versions ->
-                new RulesView(versions.isEmpty() ? 0 : versions.getFirst().version(), rules));
-  }
-
-  /** The settings without the common settings: the rules document. */
-  private static Map<String, Object> withoutCommon(final Map<String, Object> settings) {
-    return copyWhere(settings, key -> !COMMON_SETTINGS.contains(key));
-  }
-
-  /** A copy of the settings whose keys pass the test, in their order; null values are kept. */
-  private static Map<String, Object> copyWhere(
-      final Map<String, Object> settings, final Predicate<String> keep) {
-    return settings.entrySet().stream()
-        .filter(entry -> keep.test(entry.getKey()))
-        .collect(
-            LinkedHashMap::new,
-            (copy, entry) -> copy.put(entry.getKey(), entry.getValue()),
-            Map::putAll);
+  /** The document as shown: secrets hidden. */
+  private RulesView view(final SupervisorRules.Document doc) {
+    return new RulesView(
+        doc.version(),
+        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
   }
 
   /**

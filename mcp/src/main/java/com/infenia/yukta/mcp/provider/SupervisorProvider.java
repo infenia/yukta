@@ -16,6 +16,7 @@ import com.infenia.yukta.mcp.dto.SupervisorListing;
 import com.infenia.yukta.mcp.dto.SupervisorOwnership;
 import com.infenia.yukta.mcp.dto.SupervisorPresetList;
 import com.infenia.yukta.mcp.dto.SupervisorReplay;
+import com.infenia.yukta.mcp.dto.SupervisorRulesDoc;
 import com.infenia.yukta.mcp.dto.SupervisorSaved;
 import com.infenia.yukta.mcp.dto.SupervisorTypeDetails;
 import com.infenia.yukta.mcp.dto.SupervisorTypeList;
@@ -34,6 +35,7 @@ import com.infenia.yukta.service.review.ControlReviewer;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
 import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
+import com.infenia.yukta.service.supervisor.SupervisorRules;
 import com.infenia.yukta.service.supervisor.SupervisorService;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import com.infenia.yukta.service.supervisor.agent.AgentCredentials;
@@ -437,24 +439,70 @@ public class SupervisorProvider {
    */
   public Mono<SupervisorReplay> replay(
       final String id, final String executionId, final Map<String, Object> settings) {
-    return service
-        .replay(id, settings, executionId)
-        .map(
-            found ->
-                new SupervisorReplay(
-                    id,
-                    executionId,
-                    found.stream()
-                        .map(
-                            d ->
-                                new SupervisorReplay.Decision(
-                                    d.command(),
-                                    d.executionId(),
-                                    d.nodeId(),
-                                    d.cause(),
-                                    d.reason(),
-                                    d.allowed()))
-                        .toList()));
+    return service.replay(id, settings, executionId).map(found -> replayOf(id, executionId, found));
+  }
+
+  private static SupervisorReplay replayOf(
+      final String id,
+      final String executionId,
+      final List<SupervisorService.ReplayDecision> found) {
+    return new SupervisorReplay(
+        id,
+        executionId,
+        found.stream()
+            .map(
+                d ->
+                    new SupervisorReplay.Decision(
+                        d.command(),
+                        d.executionId(),
+                        d.nodeId(),
+                        d.cause(),
+                        d.reason(),
+                        d.allowed()))
+            .toList());
+  }
+
+  /**
+   * The rules document of a rules supervisor, secrets hidden.
+   *
+   * @param id the supervisor
+   * @return the document and the newest version
+   */
+  public Mono<SupervisorRulesDoc> rules(final String id) {
+    return SupervisorRules.read(service, id).map(doc -> rulesDoc(id, doc));
+  }
+
+  /**
+   * Replaces the rules document of a rules supervisor; its other settings stay.
+   *
+   * @param id the supervisor
+   * @param rules the new document; a secret sent as {@code ***} is kept
+   * @return the document as saved
+   */
+  public Mono<SupervisorRulesDoc> saveRules(final String id, final Map<String, Object> rules) {
+    return SupervisorRules.save(service, id, rules == null ? Map.of() : rules)
+        .map(doc -> rulesDoc(id, doc));
+  }
+
+  /**
+   * Tries a draft rules document on a past run in dry run, with the stored common settings.
+   *
+   * @param id the supervisor
+   * @param executionId the past run
+   * @param rules the draft document, or {@code null} for the stored rules
+   * @return what the rules would have sent
+   */
+  public Mono<SupervisorReplay> replayRules(
+      final String id, final String executionId, final Map<String, Object> rules) {
+    return SupervisorRules.replay(service, id, executionId, rules)
+        .map(found -> replayOf(id, executionId, found));
+  }
+
+  private SupervisorRulesDoc rulesDoc(final String id, final SupervisorRules.Document doc) {
+    return new SupervisorRulesDoc(
+        id,
+        doc.version(),
+        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
   }
 
   /**

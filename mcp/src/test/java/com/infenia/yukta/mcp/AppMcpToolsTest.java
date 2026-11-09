@@ -473,6 +473,23 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testRulesToolsDelegateToTheProvider() {
+    final var doc =
+        new com.infenia.yukta.mcp.dto.SupervisorRulesDoc("sup", 2, java.util.Map.of("rules", 1));
+    final var replay = new com.infenia.yukta.mcp.dto.SupervisorReplay("sup", "e", List.of());
+    when(supervisorProvider.rules("sup")).thenReturn(Mono.just(doc));
+    when(supervisorProvider.saveRules("sup", java.util.Map.of("rules", 1)))
+        .thenReturn(Mono.just(doc));
+    when(supervisorProvider.replayRules("sup", "e", null)).thenReturn(Mono.just(replay));
+
+    StepVerifier.create(mcpTools.getRules("sup")).expectNext(doc).verifyComplete();
+    StepVerifier.create(mcpTools.saveRules("sup", java.util.Map.of("rules", 1)))
+        .expectNext(doc)
+        .verifyComplete();
+    StepVerifier.create(mcpTools.replayRules("sup", "e", null)).expectNext(replay).verifyComplete();
+  }
+
+  @Test
   void testInputToolsDelegateToTheProvider() {
     final var inputs =
         new com.infenia.yukta.mcp.dto.PendingInputs("s1", List.of("OPEN"), List.of(), false);

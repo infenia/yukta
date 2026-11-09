@@ -1818,6 +1818,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervisors/{id}/engine/rules/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replay a draft rules document over a past run */
+        post: operations["replayRules"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisors/{id}/replay": {
         parameters: {
             query?: never;
@@ -8717,6 +8734,32 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseRulesView"];
+                };
+            };
+        };
+    };
+    replayRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplayBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseListReplayDecision"];
                 };
             };
         };

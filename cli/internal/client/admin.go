@@ -204,6 +204,34 @@ func (c *Client) ReplaySupervisor(id, executionID, settingsJSON string) (any, er
 	return c.dataCall("POST", apiPath("/api/supervisors/%s/replay", id), raw)
 }
 
+// GetRules reads the rules document of a rules supervisor, without the settings every engine shares.
+func (c *Client) GetRules(id string) (any, error) {
+	return c.getData(apiPath("/api/supervisors/%s/engine/rules", id))
+}
+
+// SaveRules replaces the rules document of a rules supervisor; its other settings stay.
+func (c *Client) SaveRules(id string, body []byte) (any, error) {
+	return c.dataCall("PUT", apiPath("/api/supervisors/%s/engine/rules", id), body)
+}
+
+// ReplayRules tries a rules document on the recorded events of a past run, in dry run, with the
+// supervisor's stored shared settings. An empty rules replays the stored document.
+func (c *Client) ReplayRules(id, executionID string, rules []byte) (any, error) {
+	if executionID == "" {
+		return nil, fmt.Errorf("an execution is needed")
+	}
+	body := map[string]any{"executionId": executionID}
+	if len(rules) > 0 {
+		var draft map[string]any
+		if err := json.Unmarshal(rules, &draft); err != nil {
+			return nil, fmt.Errorf("the rules are not a JSON object: %w", err)
+		}
+		body["settings"] = draft
+	}
+	raw, _ := json.Marshal(body)
+	return c.dataCall("POST", apiPath("/api/supervisors/%s/engine/rules/replay", id), raw)
+}
+
 // IssueAgentCredential makes the credential of an http supervisor (the token is shown once); a
 // ttlHours of 0 means no expiry.
 func (c *Client) IssueAgentCredential(id string, ttlHours int) (any, error) {

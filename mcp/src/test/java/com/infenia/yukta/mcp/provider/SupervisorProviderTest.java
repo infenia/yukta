@@ -557,4 +557,40 @@ class SupervisorProviderTest {
     assertThat(sent.getValue().get(0).enabled()).isTrue();
     assertThat(sent.getValue().get(0).locked()).isFalse();
   }
+
+  @Test
+  void rulesAreReadSavedAndReplayedWithSecretsHidden() {
+    final Supervisor rules =
+        new Supervisor(
+            "r", "rules", java.util.Map.of("rules", java.util.List.of("a"), "token", "abc"), false);
+    when(service.supervisors()).thenReturn(Flux.just(rules));
+    when(service.versions("r")).thenReturn(Mono.just(java.util.List.of()));
+    when(service.secretSettings("rules")).thenReturn(java.util.Set.of("token"));
+    when(service.saveSupervisor(org.mockito.ArgumentMatchers.any()))
+        .thenAnswer(call -> Mono.just(call.getArgument(0)));
+    when(service.replay(
+            org.mockito.ArgumentMatchers.eq("r"),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.eq("run1")))
+        .thenReturn(Mono.just(java.util.List.of()));
+
+    reactor.test.StepVerifier.create(provider.rules("r"))
+        .assertNext(
+            doc -> {
+              assertThat(doc.version()).isZero();
+              assertThat(doc.rules()).containsEntry("token", "***");
+            })
+        .verifyComplete();
+    reactor.test.StepVerifier.create(provider.saveRules("r", null))
+        .assertNext(doc -> assertThat(doc.supervisorId()).isEqualTo("r"))
+        .verifyComplete();
+    reactor.test.StepVerifier.create(
+            provider.saveRules("r", java.util.Map.of("rules", java.util.List.of("b"))))
+        .assertNext(doc -> assertThat(doc.rules()).containsKey("rules"))
+        .verifyComplete();
+    reactor.test.StepVerifier.create(
+            provider.replayRules("r", "run1", java.util.Map.of("rules", java.util.List.of("c"))))
+        .assertNext(replay -> assertThat(replay.decisions()).isEmpty())
+        .verifyComplete();
+  }
 }

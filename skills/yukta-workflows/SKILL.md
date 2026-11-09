@@ -67,6 +67,9 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `list_supervisor_versions` | `VIEWER` | `supervisorId` |
 | `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` |
 | `replay_supervisor` | `ADMIN` | `supervisorId`, `executionId`, optional `settings` |
+| `get_rules` | `VIEWER` | `supervisorId` |
+| `save_rules` | `ADMIN` | `supervisorId`, `rules` (the document only; shared settings stay) |
+| `replay_rules` | `ADMIN` | `supervisorId`, `executionId`, optional `rules` |
 | `create_credential` | `ADMIN` | `supervisorId`, optional `ttlHours` |
 | `revoke_credential` | `ADMIN` | `supervisorId` |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` |

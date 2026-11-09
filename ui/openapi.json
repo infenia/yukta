@@ -10545,6 +10545,43 @@
         "tags" : [ "Supervisors API" ]
       }
     },
+    "/api/supervisors/{id}/engine/rules/replay" : {
+      "post" : {
+        "operationId" : "replayRules",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ReplayBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListReplayDecision"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replay a draft rules document over a past run",
+        "tags" : [ "Supervisors API" ]
+      }
+    },
     "/api/supervisors/{id}/replay" : {
       "post" : {
         "operationId" : "replay",
