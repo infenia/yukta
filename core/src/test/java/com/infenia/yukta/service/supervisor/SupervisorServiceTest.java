@@ -8,6 +8,7 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -38,6 +39,7 @@ import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import com.infenia.yukta.testsupport.YuktaSettings;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -68,6 +70,11 @@ class SupervisorServiceTest {
   private final SupervisorStore store = new InMemorySupervisorStore();
 
   private final SupervisorHost host = mock(SupervisorHost.class);
+
+  {
+    // a restore loads the hold ledger first
+    lenient().when(host.loadHolds(any())).thenReturn(Mono.empty());
+  }
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
 
@@ -209,7 +216,13 @@ class SupervisorServiceTest {
 
     attached("b1", new SupervisorScope.Global());
 
-    verify(sink).record(any());
+    final org.mockito.ArgumentCaptor<com.infenia.yukta.security.AuditRecord> records =
+        org.mockito.ArgumentCaptor.forClass(com.infenia.yukta.security.AuditRecord.class);
+    verify(sink, times(2)).record(records.capture());
+    assertThat(records.getAllValues())
+        .extracting(com.infenia.yukta.security.AuditRecord::command)
+        .first()
+        .isEqualTo("SaveSupervisor(p)");
   }
 
   @Test
@@ -989,11 +1002,14 @@ class SupervisorServiceTest {
   void onlyTheNewestTwentyVersionsAreKept() {
     final SupervisorVersions kept = new SupervisorVersions();
     for (int i = 0; i < 25; i++) {
-      kept.record(new Supervisor("k", TYPE, Map.of("level", i), false));
+      kept.record(
+          new Supervisor("k", TYPE, Map.of("level", i), false),
+          Instant.EPOCH,
+          SupervisorVersions.KEPT);
     }
     assertThat(kept.list("k")).hasSize(SupervisorVersions.KEPT);
-    assertThat(kept.find("k", 25)).isPresent();
-    assertThat(kept.find("k", 5)).isEmpty();
+    assertThat(kept.list("k").getFirst().version()).isEqualTo(25);
+    assertThat(kept.list("k").getLast().version()).isEqualTo(6);
     assertThat(kept.list("other")).isEmpty();
   }
 

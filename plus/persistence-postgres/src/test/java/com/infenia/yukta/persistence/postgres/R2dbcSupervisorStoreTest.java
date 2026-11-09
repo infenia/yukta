@@ -2,12 +2,20 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import com.infenia.yukta.model.supervisor.SupervisorRef;
+import com.infenia.yukta.plugin.control.Delegation;
+import com.infenia.yukta.plugin.control.DelegationKind;
+import com.infenia.yukta.plugin.control.DelegationMode;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
+import com.infenia.yukta.service.supervisor.SupervisorStore;
+import com.infenia.yukta.service.supervisor.SupervisorVersions;
 import io.r2dbc.spi.ConnectionFactories;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -210,5 +218,70 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
         .verifyComplete();
     StepVerifier.create(store.saveSessionRefs("A", List.of())).verifyComplete();
     StepVerifier.create(store.sessionRefs("A")).expectNext(List.of()).verifyComplete();
+  }
+
+  @Test
+  void versionsCountUpSkipAnUnchangedSaveAndKeepOnlyTheNewest() {
+    final Supervisor full =
+        new Supervisor(
+            "v",
+            "rules",
+            Map.of("rules", List.of(Map.of("id", "r")), "level", 2),
+            true,
+            "pauses after failures",
+            List.of("parent"),
+            Map.of(
+                DelegationKind.APPROVAL,
+                new Delegation(DelegationMode.ANY, java.time.Duration.ofSeconds(30))));
+    StepVerifier.create(store.saveVersion(full, Instant.EPOCH, 3)).verifyComplete();
+    // the same settings with a long instead of an int are the same JSON: no new version
+    StepVerifier.create(
+            store.saveVersion(
+                full.withEngine("rules", Map.of("level", 2L, "rules", List.of(Map.of("id", "r")))),
+                Instant.EPOCH,
+                3))
+        .verifyComplete();
+    StepVerifier.create(store.versions("v"))
+        .assertNext(
+            v -> {
+              assertThat(v.version()).isEqualTo(1);
+              assertThat(v.savedAt()).isEqualTo(Instant.EPOCH);
+              assertThat(v.supervisor()).isEqualTo(full);
+            })
+        .verifyComplete();
+
+    for (int level = 3; level <= 6; level++) {
+      StepVerifier.create(
+              store.saveVersion(full.withEngine("rules", Map.of("level", level)), Instant.EPOCH, 3))
+          .verifyComplete();
+    }
+    StepVerifier.create(store.versions("v").map(SupervisorVersions.Version::version))
+        .expectNext(5, 4, 3)
+        .verifyComplete();
+    StepVerifier.create(store.versions("other")).verifyComplete();
+
+    StepVerifier.create(store.deleteVersions("v")).verifyComplete();
+    StepVerifier.create(store.versions("v")).verifyComplete();
+  }
+
+  @Test
+  void holdsAreKeptOnceAndForgottenByHolderOrForEveryHolder() {
+    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e1"))).verifyComplete();
+    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e1"))).verifyComplete();
+    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("t", "e1"))).verifyComplete();
+    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e2"))).verifyComplete();
+    StepVerifier.create(store.holds().collectList())
+        .assertNext(
+            holds ->
+                assertThat(holds)
+                    .containsExactlyInAnyOrder(
+                        new SupervisorStore.Hold("s", "e1"),
+                        new SupervisorStore.Hold("t", "e1"),
+                        new SupervisorStore.Hold("s", "e2")))
+        .verifyComplete();
+
+    StepVerifier.create(store.deleteHold("s", "e2")).verifyComplete();
+    StepVerifier.create(store.deleteHold(null, "e1")).verifyComplete();
+    StepVerifier.create(store.holds()).verifyComplete();
   }
 }

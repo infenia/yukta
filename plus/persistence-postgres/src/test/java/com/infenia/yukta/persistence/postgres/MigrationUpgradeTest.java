@@ -106,7 +106,7 @@ class MigrationUpgradeTest extends PostgresTestSupport {
     flyway.validate();
 
     assertThat(result.success).isTrue();
-    assertThat(result.migrationsExecuted).isEqualTo(15);
+    assertThat(result.migrationsExecuted).isEqualTo(16);
     assertThat(flyway.info().current().getVersion().getVersion()).isEqualTo("17");
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
