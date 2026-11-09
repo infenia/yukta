@@ -408,4 +408,23 @@ class EngineBackedSupervisorTest {
     StepVerifier.create(child.directives(Flux.never()).take(Duration.ofMillis(200)))
         .verifyComplete();
   }
+
+  @Test
+  void anEngineThatDiesWhileAReviewIsOpenLeavesTheReviewToTimeOutAndNeverAllowsIt() {
+    final var sup =
+        supervisor(
+            engine(
+                signals ->
+                    signals
+                        .ofType(Signal.Review.class)
+                        .<Directive>flatMap(
+                            r -> Flux.error(new IllegalStateException("connection lost")))),
+            true);
+    final var run = sup.directives(Flux.never()).subscribe(d -> {}, e -> {});
+    try {
+      StepVerifier.create(sup.review(REQUEST)).expectError(TimeoutException.class).verify();
+    } finally {
+      run.dispose();
+    }
+  }
 }
