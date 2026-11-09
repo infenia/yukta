@@ -456,7 +456,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aStopOfTheRunBySomeoneElseReleasesItToo() {
+  void stopOfTheRunBySomeoneElseReleasesItToo() {
     host.start();
     attach(
         pausing(10),
