@@ -186,4 +186,18 @@ describe('SupervisorPicker', () => {
     );
     expect(latest).toEqual([]);
   });
+
+  it('can own a whole group by its name', async () => {
+    const user = userEvent.setup();
+    renderPicker({ nodeIds: ['build.a', 'build.b', 'end'] });
+    await user.click(screen.getByRole('button', { name: 'Add supervisor' }));
+    await user.click(
+      await screen.findByRole('radio', { name: 'Selected nodes' })
+    );
+    const whole = await screen.findAllByRole('checkbox', {
+      name: /The whole group/,
+    });
+    await user.click(whole[0]);
+    await waitFor(() => expect(JSON.stringify(latest)).toMatch(/group:/));
+  });
 });

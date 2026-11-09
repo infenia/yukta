@@ -49,6 +49,16 @@ export function SupervisorPicker({
           <div className="text-label-sm text-on-surface-variant">
             {prefix ? `${prefix}.*` : 'No prefix'}
           </div>
+          {prefix && (
+            <label className="text-body-md flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selected.includes(`group:${prefix}`)}
+                onChange={() => toggleNode(index, `group:${prefix}`, selected)}
+              />
+              The whole group {prefix}, with nodes added to it later
+            </label>
+          )}
           {ids.map((id) => (
             <label key={id} className="text-body-md flex items-center gap-2">
               <input
