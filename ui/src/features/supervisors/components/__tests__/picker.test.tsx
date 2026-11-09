@@ -64,10 +64,12 @@ afterEach(() => {
 function Harness({
   start = [],
   nodeIds,
+  groupOf,
   errors,
 }: {
   start?: SupervisorRef[];
   nodeIds?: string[];
+  groupOf?: Record<string, string>;
   errors?: string[];
 }) {
   const [value, setValue] = useState(start);
@@ -79,6 +81,7 @@ function Harness({
         setValue(next);
       }}
       nodeIds={nodeIds}
+      groupOf={groupOf}
       errors={errors}
     />
   );
@@ -140,7 +143,7 @@ describe('SupervisorPicker', () => {
     await user.click(screen.getByLabelText('Selected nodes'));
     expect(latest[0].nodes).toEqual([]);
     expect(screen.getByText('build.*')).toBeInTheDocument();
-    expect(screen.getByText('No prefix')).toBeInTheDocument();
+    expect(screen.getByText('No group')).toBeInTheDocument();
     await user.click(screen.getByLabelText('build.a'));
     await user.click(screen.getByLabelText('build.b'));
     await user.click(screen.getByLabelText('build.a'));
@@ -185,5 +188,37 @@ describe('SupervisorPicker', () => {
       expect(screen.queryByLabelText('Decision maker')).toBeNull()
     );
     expect(latest).toEqual([]);
+  });
+
+  it('can own a whole group by its name', async () => {
+    const user = userEvent.setup();
+    renderPicker({ nodeIds: ['build.a', 'build.b', 'end'] });
+    await user.click(screen.getByRole('button', { name: 'Add supervisor' }));
+    await user.click(
+      await screen.findByRole('radio', { name: 'Selected nodes' })
+    );
+    const whole = await screen.findAllByRole('checkbox', {
+      name: /The whole group/,
+    });
+    await user.click(whole[0]);
+    await waitFor(() => expect(JSON.stringify(latest)).toMatch(/group:/));
+  });
+
+  it('groups nodes by the group they declare, else their prefix', async () => {
+    const user = userEvent.setup();
+    renderPicker({
+      nodeIds: ['build.a', 'test.b', 'end'],
+      groupOf: { 'test.b': 'build' },
+    });
+    await user.click(screen.getByRole('button', { name: 'Add supervisor' }));
+    await user.click(
+      await screen.findByRole('radio', { name: 'Selected nodes' })
+    );
+    expect(screen.getByText('build')).toBeInTheDocument();
+    expect(screen.queryByText('test.*')).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('checkbox', { name: /The whole group build/ })
+    );
+    await waitFor(() => expect(JSON.stringify(latest)).toMatch(/group:build/));
   });
 });

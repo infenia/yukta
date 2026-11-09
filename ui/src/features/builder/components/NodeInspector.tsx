@@ -196,7 +196,9 @@ export function NodeInspector({
               id="node-group-hint"
               className="text-body-sm text-on-surface-variant"
             >
-              Groups nodes on the canvas. Blank uses the node-ID prefix.
+              Groups nodes on the canvas, and a supervisor can own the whole
+              group (<code className="text-code-sm">group:&lt;name&gt;</code>).
+              Blank uses the node-ID prefix.
             </span>
           </div>
           {onColorChange && (
