@@ -178,7 +178,6 @@ public class SupervisorService {
         factories.stream().collect(Collectors.toMap(SupervisorFactory::type, Function.identity()));
     this.host = host;
     this.executionLog = executionLog;
-    host.keepHoldsIn(store);
   }
 
   /**
@@ -415,8 +414,6 @@ public class SupervisorService {
                 adoptRetired()
                     .then(refreshResolver())
                     .then(markConflicts())
-                    // before any engine starts: its Started signal carries what it holds
-                    .then(Mono.defer(() -> host.loadHolds(store)))
                     .thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
@@ -618,7 +615,19 @@ public class SupervisorService {
         .onErrorResume(error -> refreshResolver().then(Mono.error(error)))
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
         .then(
-            Mono.defer(() -> store.saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)))
+            // the supervisor is saved: a lost version must not keep the old engine running
+            Mono.defer(
+                () ->
+                    store
+                        .saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)
+                        .onErrorResume(
+                            error -> {
+                              log.atWarn()
+                                  .setCause(error)
+                                  .addKeyValue("supervisor", supervisor.id())
+                                  .log("Could not keep a version of the saved supervisor");
+                              return Mono.empty();
+                            })))
         .then(audited(true, "SaveSupervisor(" + supervisor.id() + ")"))
         .then(Mono.defer(this::refreshResolver))
         .then(

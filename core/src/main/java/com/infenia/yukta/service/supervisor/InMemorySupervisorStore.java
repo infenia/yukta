@@ -6,15 +6,11 @@ import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.Comparator;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.NoArgsConstructor;
-import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -34,9 +30,6 @@ public class InMemorySupervisorStore implements SupervisorStore {
 
   /** The saved states of each supervisor. */
   private final SupervisorVersions history = new SupervisorVersions();
-
-  /** The hold ledger, in insertion order. */
-  private final Set<Hold> ledger = Collections.synchronizedSet(new LinkedHashSet<>());
 
   @Override
   public Flux<Supervisor> supervisors() {
@@ -101,25 +94,5 @@ public class InMemorySupervisorStore implements SupervisorStore {
   @Override
   public Mono<Void> deleteVersions(final String id) {
     return Mono.fromRunnable(() -> history.forget(id));
-  }
-
-  @Override
-  public Flux<Hold> holds() {
-    return Flux.defer(() -> Flux.fromIterable(List.copyOf(ledger)));
-  }
-
-  @Override
-  public Mono<Void> saveHold(final Hold hold) {
-    return Mono.fromRunnable(() -> ledger.add(hold));
-  }
-
-  @Override
-  public Mono<Void> deleteHold(final @Nullable String holder, final String executionId) {
-    return Mono.fromRunnable(
-        () ->
-            ledger.removeIf(
-                hold ->
-                    hold.executionId().equals(executionId)
-                        && (holder == null || hold.holder().equals(holder))));
   }
 }

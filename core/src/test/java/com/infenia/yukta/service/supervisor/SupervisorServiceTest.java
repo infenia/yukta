@@ -8,7 +8,6 @@ import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
@@ -69,7 +68,7 @@ class SupervisorServiceTest {
 
   private final SupervisorStore store = new InMemorySupervisorStore();
 
-  private final SupervisorHost host = loadingNoHolds();
+  private final SupervisorHost host = mock(SupervisorHost.class);
 
   private final InMemoryExecutionLogStore log = new InMemoryExecutionLogStore();
 
@@ -980,6 +979,24 @@ class SupervisorServiceTest {
   }
 
   @Test
+  void saveCompletesWhenItsVersionCannotBeKept() {
+    final InMemorySupervisorStore noVersions =
+        new InMemorySupervisorStore() {
+          @Override
+          public Mono<Void> saveVersion(
+              final Supervisor saved, final Instant savedAt, final int keep) {
+            return Mono.error(new IllegalStateException("database down"));
+          }
+        };
+    final SupervisorService saving = new SupervisorService(noVersions, List.of(factory), host, log);
+
+    StepVerifier.create(saving.saveSupervisor(supervisor("v"))).expectNextCount(1).verifyComplete();
+    StepVerifier.create(noVersions.supervisors().map(Supervisor::id))
+        .expectNext("v")
+        .verifyComplete();
+  }
+
+  @Test
   void deletingSupervisorForgetsItsVersions() {
     StepVerifier.create(service.saveSupervisor(supervisor("v")))
         .expectNextCount(1)
@@ -1324,12 +1341,5 @@ class SupervisorServiceTest {
     public void readsFrom(final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
       given.add(reads);
     }
-  }
-
-  /** A host mock whose hold ledger loads nothing, as a restore loads it first. */
-  private static SupervisorHost loadingNoHolds() {
-    final SupervisorHost mocked = mock(SupervisorHost.class);
-    lenient().when(mocked.loadHolds(any())).thenReturn(Mono.empty());
-    return mocked;
   }
 }

@@ -12,7 +12,6 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
-import com.infenia.yukta.service.supervisor.SupervisorStore;
 import com.infenia.yukta.service.supervisor.SupervisorVersions;
 import io.r2dbc.spi.ConnectionFactories;
 import java.time.Instant;
@@ -263,26 +262,5 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
     StepVerifier.create(store.deleteVersions("v")).verifyComplete();
     StepVerifier.create(store.versions("v")).verifyComplete();
-  }
-
-  @Test
-  void holdsAreKeptOnceAndForgottenByHolderOrForEveryHolder() {
-    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e1"))).verifyComplete();
-    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e1"))).verifyComplete();
-    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("t", "e1"))).verifyComplete();
-    StepVerifier.create(store.saveHold(new SupervisorStore.Hold("s", "e2"))).verifyComplete();
-    StepVerifier.create(store.holds().collectList())
-        .assertNext(
-            holds ->
-                assertThat(holds)
-                    .containsExactlyInAnyOrder(
-                        new SupervisorStore.Hold("s", "e1"),
-                        new SupervisorStore.Hold("t", "e1"),
-                        new SupervisorStore.Hold("s", "e2")))
-        .verifyComplete();
-
-    StepVerifier.create(store.deleteHold("s", "e2")).verifyComplete();
-    StepVerifier.create(store.deleteHold(null, "e1")).verifyComplete();
-    StepVerifier.create(store.holds()).verifyComplete();
   }
 }

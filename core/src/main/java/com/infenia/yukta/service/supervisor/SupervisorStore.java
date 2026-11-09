@@ -7,7 +7,6 @@ import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import java.time.Instant;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -107,36 +106,4 @@ public interface SupervisorStore {
    * @return completes when forgotten
    */
   Mono<Void> deleteVersions(String id);
-
-  /**
-   * The runs a supervisor paused and nobody resumed or stopped yet (the hold ledger).
-   *
-   * @return the holds, oldest first per holder
-   */
-  Flux<Hold> holds();
-
-  /**
-   * Remembers that a supervisor holds a run.
-   *
-   * @param hold the hold
-   * @return completes when kept
-   */
-  Mono<Void> saveHold(Hold hold);
-
-  /**
-   * Forgets holds of a run.
-   *
-   * @param holder the supervisor or attachment id; {@code null} for every holder
-   * @param executionId the run
-   * @return completes when forgotten
-   */
-  Mono<Void> deleteHold(@Nullable String holder, String executionId);
-
-  /**
-   * A run paused by a supervisor.
-   *
-   * @param holder the supervisor or attachment id that paused it
-   * @param executionId the run
-   */
-  record Hold(String holder, String executionId) {}
 }

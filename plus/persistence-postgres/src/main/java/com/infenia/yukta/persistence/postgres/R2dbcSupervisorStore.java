@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.Nullable;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -31,9 +30,9 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Supervisors and attachments in PostgreSQL (tables {@code supervisor} and {@code
- * supervisor_attachment}, migrations V7, V8 and V10; versions and the hold ledger in {@code
- * supervisor_version} and {@code supervisor_hold}, V17), so supervisors attached at run time come
- * back after a restart. Settings are stored as given, a model API key included.
+ * supervisor_attachment}, migrations V7, V8 and V10; versions in {@code supervisor_version}, V17),
+ * so supervisors attached at run time come back after a restart. Settings are stored as given, a
+ * model API key included.
  */
 @Slf4j
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap", "PMD.CouplingBetweenObjects"})
@@ -385,41 +384,6 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .fetch()
         .rowsUpdated()
         .then();
-  }
-
-  @Override
-  public Flux<Hold> holds() {
-    return client
-        .sql("SELECT holder, execution_id FROM supervisor_hold ORDER BY held_at, holder")
-        .map(
-            row -> new Hold(row.get("holder", String.class), row.get("execution_id", String.class)))
-        .all();
-  }
-
-  @Override
-  public Mono<Void> saveHold(final Hold hold) {
-    return client
-        .sql(
-            "INSERT INTO supervisor_hold (holder, execution_id) VALUES (:holder, :execution)"
-                + " ON CONFLICT DO NOTHING")
-        .bind("holder", hold.holder())
-        .bind("execution", hold.executionId())
-        .fetch()
-        .rowsUpdated()
-        .then();
-  }
-
-  @Override
-  public Mono<Void> deleteHold(final @Nullable String holder, final String executionId) {
-    final DatabaseClient.GenericExecuteSpec delete =
-        holder == null
-            ? client.sql("DELETE FROM supervisor_hold WHERE execution_id = :execution")
-            : client
-                .sql(
-                    "DELETE FROM supervisor_hold WHERE execution_id = :execution"
-                        + " AND holder = :holder")
-                .bind("holder", holder);
-    return delete.bind("execution", executionId).fetch().rowsUpdated().then();
   }
 
   /** A text parameter that may be null, which R2DBC wants typed. */
