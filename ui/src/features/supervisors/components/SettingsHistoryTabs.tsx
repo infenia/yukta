@@ -22,6 +22,8 @@ import {
   useSupervisorVersions,
 } from '../hooks/useSupervisorTypes';
 import type { SupervisorView } from '../types';
+import { CredentialPanel, ExternalFlow } from './ExternalSettings';
+import { RulesSettings } from './RulesSettings';
 
 const shown = (value: unknown) =>
   value === undefined
@@ -30,13 +32,23 @@ const shown = (value: unknown) =>
       ? JSON.stringify(value)
       : String(value);
 
-/** The decision maker's settings with their values; secrets come back as `***`. */
+/**
+ * The decision maker's settings with their values; secrets come back as `***`. Rules show their
+ * rules; an external system also shows how it connects and its credential.
+ */
 export function SettingsTab({ supervisor }: { supervisor: SupervisorView }) {
+  if (supervisor.type === 'rules') return <RulesSettings id={supervisor.id} />;
+  return <GenericSettings supervisor={supervisor} />;
+}
+
+function GenericSettings({ supervisor }: { supervisor: SupervisorView }) {
   const type = useSupervisorType(supervisor.type);
+  const external = supervisor.type === 'http';
   if (type.isPending) return <StateMessage tone="loading" title="Loading…" />;
   const schema = type.data?.configSchema ?? [];
   return (
     <div className="flex flex-col gap-3">
+      {external && <ExternalFlow url={supervisor.settings.url} />}
       {schema.length > 0 && (
         <TableFrame>
           <Table>
@@ -73,6 +85,7 @@ export function SettingsTab({ supervisor }: { supervisor: SupervisorView }) {
           <CodeBlock code={JSON.stringify(supervisor.settings, null, 2)} />
         </div>
       </details>
+      {external && <CredentialPanel id={supervisor.id} />}
     </div>
   );
 }

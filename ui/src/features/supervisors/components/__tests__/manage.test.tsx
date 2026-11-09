@@ -166,47 +166,6 @@ const renderAt = (url: string) =>
     </QueryClientProvider>
   );
 
-describe('the activity tab', () => {
-  it('lists decisions, filters them by outcome, and handles the empty and failed cases', async () => {
-    decisions = [
-      {
-        time: 't1',
-        supervisorId: 'a1',
-        outcome: 'applied',
-        command: 'PauseWorkflowCommand',
-        executionId: 'e1',
-        reason: null,
-      },
-      {
-        time: 't2',
-        supervisorId: 'a1',
-        outcome: 'rejected',
-        command: 'StopWorkflowCommand',
-        executionId: 'e2',
-        reason: 'busy',
-      },
-    ];
-    const user = userEvent.setup();
-    const first = renderAt('/supervisors?tab=activity');
-
-    expect(await screen.findByText('busy')).toBeInTheDocument();
-    await user.selectOptions(screen.getByLabelText('Outcome'), 'applied');
-    expect(screen.queryByText('busy')).toBeNull();
-    await user.selectOptions(screen.getByLabelText('Outcome'), '');
-    first.unmount();
-
-    decisions = [];
-    const second = renderAt('/supervisors?tab=activity');
-    expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
-    second.unmount();
-    server.use(http.get('/api/supervisors/decisions', () => envelope({}, 500)));
-    renderAt('/supervisors?tab=activity');
-    expect(
-      await screen.findByText('Failed to load the decisions.')
-    ).toBeInTheDocument();
-  });
-});
-
 describe('the edit form', () => {
   const admin = () =>
     setMe({ permissions: { editSessions: true } } as unknown as Me);

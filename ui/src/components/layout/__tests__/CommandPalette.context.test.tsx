@@ -6,7 +6,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import { MemoryRouter } from 'react-router';
+import { MemoryRouter, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 import { setMe, type Me } from '@/lib/identity';
@@ -54,6 +54,11 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
+function Where() {
+  const location = useLocation();
+  return <output data-testid="where">{location.search}</output>;
+}
+
 function open(url: string) {
   const user = userEvent.setup();
   const written: string[] = [];
@@ -66,6 +71,7 @@ function open(url: string) {
   render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter initialEntries={[url]}>
+        <Where />
         <CommandPalette />
       </MemoryRouter>
     </QueryClientProvider>
@@ -93,6 +99,15 @@ describe('CommandPalette on a run view', () => {
       name: 'start_workflow',
       arguments: { sessionId: 'dogfood', workflowId: 'check' },
     });
+  });
+
+  it('opens who owns this workflow, keeping the run in the URL', async () => {
+    const { user } = open('/sessions/dogfood/workflow/check?exec=e1');
+    await user.click(await screen.findByTestId('palette-here:owner'));
+    expect(screen.getByTestId('where')).toHaveTextContent(
+      '?exec=e1&supervision=1'
+    );
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('stops the run in the URL only on a second press', async () => {

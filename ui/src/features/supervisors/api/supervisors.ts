@@ -137,3 +137,63 @@ export const rollbackSupervisor = ({
       method: 'POST',
     }
   );
+
+/** The rules document of a rules supervisor: `schemaVersion` and `rules`. */
+export interface RulesView {
+  version: number;
+  rules: { schemaVersion?: number; rules?: Record<string, unknown>[] };
+}
+
+export const getRules = (id: string) =>
+  fetchApi<RulesView>(api`/api/supervisors/${id}/engine/rules`);
+
+/** What a command would have been, had the supervisor run on a past run. */
+export interface ReplayDecision {
+  command: string;
+  executionId: string;
+  nodeId: string | null;
+  cause: string;
+  reason: string | null;
+  allowed: boolean;
+}
+
+/** The stored rules tried on a past run, in dry run: nothing is sent. */
+export const replayRules = (id: string, executionId: string) =>
+  fetchApi<ReplayDecision[]>(
+    api`/api/supervisors/${id}/engine/rules/replay`,
+    json('POST', { executionId })
+  );
+
+/** What may be shown about an external system's credential: never the secret. */
+export interface CredentialMetadata {
+  issuedAt: string | null;
+  expiresAt: string | null;
+  addresses: string[];
+  lastUsedAt: string | null;
+  lastUsedFrom: string | null;
+}
+
+export const getCredential = (id: string) =>
+  fetchApi<CredentialMetadata>(api`/api/supervisors/${id}/credential`);
+
+/** Issues a credential, or rotates it: the earlier one stops at once. The token is shown once. */
+export const issueCredential = (
+  id: string,
+  ttlHours: number | null,
+  allowedAddresses: string[]
+) => {
+  const query = new URLSearchParams();
+  if (ttlHours) query.set('ttlHours', String(ttlHours));
+  for (const address of allowedAddresses)
+    query.append('allowedAddresses', address);
+  const text = query.toString();
+  return fetchApi<{ token: string; expiresAt: string | null }>(
+    `${api`/api/supervisors/${id}/credential`}${text ? `?${text}` : ''}`,
+    { method: 'POST' }
+  );
+};
+
+export const revokeCredential = (id: string) =>
+  fetchApi<unknown>(api`/api/supervisors/${id}/credential`, {
+    method: 'DELETE',
+  });
