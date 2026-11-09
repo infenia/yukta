@@ -24,7 +24,8 @@ keywords: ["supervisor engine", "rules", "http", "callout", "workflow", "process
 A rule document has `schemaVersion: 1` and a list of rules. A rule with `when.every` (`30s`, `5m`, `2h`; at least one second) runs on a timer over the executions the supervisor owns; its `if` can read `read.RUNNING`, `read.FAILURE` and so on (the number of owned executions in that status). A timed rule acts on its own, so it needs a `reason` and the command in the supervisor's `initiative` list.
 
 * `GET /api/supervisor-engines/rules/presets` lists ready-made documents: `failure-guard`, `approval-gate`, `too-many-running`.
-* Every save is a version (the newest 20 since the server started): `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback?version=N`. Saving restarts the supervisor at once, so a change swaps in whole.
+* Every save is a version (the newest 20; kept in PostgreSQL when the server uses it, otherwise until a restart): `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback?version=N`. Saving restarts the supervisor at once, so a change swaps in whole.
+* A `rules` supervisor's rules document alone: `GET /api/supervisors/{id}/engine/rules` (the newest version number and the document, without the common settings such as `allowedCommands`) and `PUT` the same path with the document. The `PUT` keeps the common settings and secrets sent as `***`, and refuses a common setting (change those with `PUT /api/supervisors/{id}`).
 * `POST /api/supervisors/{id}/replay` with `{"executionId": "…", "settings": {…}}` shows what the supervisor would have done on a past run, in dry run. Only statuses are replayed.
 
 ## Agent endpoint (`http`)

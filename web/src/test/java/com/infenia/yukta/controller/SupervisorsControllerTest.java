@@ -130,6 +130,97 @@ class SupervisorsControllerTest {
         .verifyComplete();
   }
 
+  /** A controller that also knows a rules engine with a secret setting. */
+  private SupervisorsController withRules() {
+    final SupervisorFactory rules =
+        new SupervisorFactory() {
+          @Override
+          public String type() {
+            return "rules";
+          }
+
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of(
+                ConfigField.optional("rules", ConfigField.Type.LIST, null, "the rules"),
+                ConfigField.optional("token", ConfigField.Type.SECRET, null, "credential"));
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            return factory.create(supervisor);
+          }
+        };
+    final SupervisorService both =
+        new SupervisorService(
+            store, List.of(factory, rules), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            both.saveSupervisor(
+                new Supervisor(
+                    "r",
+                    "rules",
+                    Map.of(
+                        "rules",
+                        List.of("first"),
+                        "token",
+                        "abc",
+                        "allowedCommands",
+                        List.of("PauseWorkflowCommand")),
+                    false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    return new SupervisorsController(both, host, new SupervisorAssignments(both));
+  }
+
+  @Test
+  void rulesAreReadWithoutCommonSettingsAndReplacedKeepingThem() {
+    final SupervisorsController rules = withRules();
+
+    StepVerifier.create(rules.rules("r"))
+        .assertNext(
+            r -> {
+              assertThat(r.data().version()).isEqualTo(1);
+              assertThat(r.data().rules())
+                  .containsOnly(Map.entry("rules", List.of("first")), Map.entry("token", "***"));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(rules.saveRules("r", Map.of("rules", List.of("second"), "token", "***")))
+        .assertNext(r -> assertThat(r.data().version()).isEqualTo(2))
+        .verifyComplete();
+    StepVerifier.create(store.supervisors().filter(found -> "r".equals(found.id())))
+        .assertNext(
+            saved ->
+                assertThat(saved.settings())
+                    .containsOnly(
+                        Map.entry("rules", List.of("second")),
+                        Map.entry("token", "abc"),
+                        Map.entry("allowedCommands", List.of("PauseWorkflowCommand"))))
+        .verifyComplete();
+  }
+
+  @Test
+  void rulesRefuseCommonSettingsSystemSupervisorsAndOtherEngines() {
+    final SupervisorsController rules = withRules();
+    created("plain");
+    when(host.isBuiltIn("sys")).thenReturn(true);
+
+    StepVerifier.create(rules.saveRules("r", Map.of("initiative", List.of())))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("initiative"))
+        .verify();
+    StepVerifier.create(rules.saveRules("sys", Map.of()))
+        .expectError(ConflictException.class)
+        .verify();
+    StepVerifier.create(rules.rules("plain")).expectError(ConflictException.class).verify();
+    StepVerifier.create(rules.saveRules("gone", Map.of()))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
   @Test
   void replayOfAnUnknownRunIsNotFound() {
     StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))

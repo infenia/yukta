@@ -1797,6 +1797,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervisors/{id}/engine/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read the rules document of a rules supervisor */
+        get: operations["rules"];
+        /**
+         * Replace the rules document of a rules supervisor
+         * @description Validates the rules, keeps the supervisor's other settings, saves a new version and swaps the running rules; the common settings (allowedCommands, initiative, ...) change through PUT /api/supervisors/{id}
+         */
+        put: operations["saveRules"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisors/{id}/replay": {
         parameters: {
             query?: never;
@@ -3765,6 +3786,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseRulesView: {
+            /** @description The response data */
+            data?: components["schemas"]["RulesView"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseRunDetail: {
             /** @description The response data */
             data?: components["schemas"]["RunDetail"];
@@ -5275,6 +5329,13 @@ export interface components {
             request?: components["schemas"]["ControlRequest"];
             /** Format: duration */
             timeout?: string;
+        };
+        RulesView: {
+            rules?: {
+                [key: string]: unknown;
+            };
+            /** Format: int32 */
+            version?: number;
         };
         RunDetail: {
             nodes?: {
@@ -8606,6 +8667,56 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseVoid"];
+                };
+            };
+        };
+    };
+    rules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRulesView"];
+                };
+            };
+        };
+    };
+    saveRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseRulesView"];
                 };
             };
         };

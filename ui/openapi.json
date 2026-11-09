@@ -2010,6 +2010,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseRulesView" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/RulesView",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseRunDetail" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -4948,6 +4991,19 @@
           },
           "type" : "object"
         } ]
+      },
+      "RulesView" : {
+        "properties" : {
+          "rules" : {
+            "additionalProperties" : { },
+            "type" : "object"
+          },
+          "version" : {
+            "format" : "int32",
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
       },
       "RunDetail" : {
         "properties" : {
@@ -10423,6 +10479,70 @@
         },
         "summary" : "Issue or rotate the credential of an agent supervisor",
         "tags" : [ "Agent credentials" ]
+      }
+    },
+    "/api/supervisors/{id}/engine/rules" : {
+      "get" : {
+        "operationId" : "rules",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRulesView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Read the rules document of a rules supervisor",
+        "tags" : [ "Supervisors API" ]
+      },
+      "put" : {
+        "description" : "Validates the rules, keeps the supervisor's other settings, saves a new version and swaps the running rules; the common settings (allowedCommands, initiative, ...) change through PUT /api/supervisors/{id}",
+        "operationId" : "saveRules",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "additionalProperties" : { },
+                "type" : "object"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseRulesView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace the rules document of a rules supervisor",
+        "tags" : [ "Supervisors API" ]
       }
     },
     "/api/supervisors/{id}/replay" : {
