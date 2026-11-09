@@ -20,7 +20,7 @@ keywords: ["glossary", "terms", "definitions"]
 | **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it instead of recomputing |
 | **Command** | An instruction to a live execution: pause, resume, step, skip, stop, restart, signal and others. Applied in order and audited |
 | **Control bus** | The live command and event path of the server |
-| **Control plane** | A supervisor that decides one command per event, using rules, a model or both |
+| **Assignment** | What a supervisor owns: a node, the run level of a workflow, or the server. A unit has one owner |
 | **DAG** | Directed acyclic graph: nodes joined by one-way edges with no cycles, so a workflow can never loop back on itself |
 | **Data plane** | The part of the server that moves messages through the workflow graph. The control plane steers it |
 | **Dead letter** | A message that failed after all attempts and was routed to the `error` port instead of being lost |
@@ -53,7 +53,10 @@ keywords: ["glossary", "terms", "definitions"]
 | **Signal** | A named message sent to a waiting node of a running execution, such as an approval |
 | **Slot** | The right to run one execution under the concurrency limits |
 | **SSE** | Server-sent events: a one-way live stream to browsers, scripts and agents |
-| **Supervisor** | A program that watches the event feed of all executions and returns commands |
+| **Supervisor** | The owner of some nodes, run levels or the server. It reports to parents, may send only the commands it lists, and uses an engine to decide |
+| **Engine** | The decision maker of a supervisor: rules, an application on the agent API, an outbound call, a workflow or a program. It returns directives; the supervisor checks each one |
+| **Directive** | What an engine returns: a command with a cause, a verdict on a review, an answer to a delegation, a question for the parents, a note |
+| **Initiative** | A command nobody prompted (a timer, or the engine's own idea). It needs a reason and an entry in the supervisor's `initiative` list |
 | **System One** | A kind of small decision model that answers from your list of options with a calibrated probability, run on your own Ollama |
 | **Terminal** | A node that ends a branch: it consumes messages and has no outputs |
 | **Trigger** | A node that starts a workflow: it has no inputs and emits messages |
