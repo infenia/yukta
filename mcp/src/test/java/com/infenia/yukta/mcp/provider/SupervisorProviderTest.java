@@ -480,7 +480,12 @@ class SupervisorProviderTest {
                     "passphrase",
                     com.infenia.yukta.plugin.core.ConfigField.Type.SECRET,
                     null,
-                    "a secret")));
+                    "a secret"),
+                com.infenia.yukta.plugin.core.ConfigField.optional(
+                    "level",
+                    com.infenia.yukta.plugin.core.ConfigField.Type.NUMBER,
+                    null,
+                    "plain")));
     when(assignments.of("p")).thenReturn(Flux.empty());
 
     StepVerifier.create(provider.details("p"))
@@ -527,5 +532,29 @@ class SupervisorProviderTest {
                 false))
         .expectError(IllegalArgumentException.class)
         .verify();
+  }
+
+  @Test
+  void anAssignmentSwitchedOnExplicitlyIsReadAsOn() {
+    when(assignments.set(any(), any(), org.mockito.ArgumentMatchers.anyBoolean()))
+        .thenReturn(Mono.just(List.of()));
+    final ArgumentCaptor<
+            List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
+        sent = ArgumentCaptor.captor();
+
+    StepVerifier.create(
+            provider.setAssignments(
+                "p",
+                List.of(new com.infenia.yukta.mcp.dto.AssignmentInput("server", true, null)),
+                true))
+        .expectNextCount(1)
+        .verifyComplete();
+    verify(assignments)
+        .set(
+            org.mockito.ArgumentMatchers.eq("p"),
+            sent.capture(),
+            org.mockito.ArgumentMatchers.eq(true));
+    assertThat(sent.getValue().get(0).enabled()).isTrue();
+    assertThat(sent.getValue().get(0).locked()).isFalse();
   }
 }
