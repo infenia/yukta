@@ -1544,6 +1544,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervision/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many workflows nobody owns, and how many assignments conflict */
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisor-contract": {
         parameters: {
             query?: never;
@@ -4133,6 +4150,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSummary: {
+            /** @description The response data */
+            data?: components["schemas"]["Summary"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSupervisorTypeDetails: {
             /** @description The response data */
             data?: components["schemas"]["SupervisorTypeDetails"];
@@ -5593,9 +5643,11 @@ export interface components {
             reason?: string | null;
         };
         Summary: {
-            defaultSupervisor?: boolean;
+            /** Format: int64 */
+            conflicts?: number;
             /** Format: int32 */
-            owners?: number;
+            unowned?: number;
+            unownedWorkflows?: components["schemas"]["WorkflowRef"][];
         };
         SupervisorBody: {
             delegation?: {
@@ -5974,6 +6026,10 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
+            workflowId?: string;
+        };
+        WorkflowRef: {
+            sessionId?: string;
             workflowId?: string;
         };
         /** @description Request object for starting a workflow */
@@ -8240,6 +8296,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseOwnership"];
+                };
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSummary"];
                 };
             };
         };

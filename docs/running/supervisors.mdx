@@ -41,7 +41,7 @@ An **assignment** says what a supervisor owns. The units are a node, the run lev
 
 **Units nobody owns** go to the default supervisor, which lets people act as before. `yukta.supervisor.default.enabled=false` turns that off, so each workflow must name its supervisor.
 
-**People and owners.** A person's command goes to the owner of the unit. The owner's `operatorAccess` (a list of command names, default none) says which commands a person may send through it; any other is `409 CONTROLLED_BY_SUPERVISOR` naming the supervisor. A listed command is reviewed by the owner's engine. Reading is unrestricted. `GET /api/supervision` tells a client which commands are allowed before it sends them.
+**People and owners.** A person's command goes to the owner of the unit. The owner's `operatorAccess` (a list of command names, default none) says which commands a person may send through it; any other is `409 CONTROLLED_BY_SUPERVISOR` naming the supervisor. A listed command is reviewed by the owner's engine. Reading is unrestricted. `GET /api/supervision` tells a client which commands are allowed before it sends them. `GET /api/supervision/summary` counts the workflows nobody owns (the default supervisor carries their run level and every node; internal sessions left out, the first 100 named) and the assignments start-up disabled as conflicts; the Control page's Supervisors tile shows both.
 
 ```bash
 # the supervisor first, then what it owns

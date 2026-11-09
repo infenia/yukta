@@ -7,10 +7,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
+import com.infenia.yukta.service.session.SessionService;
+import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisorService;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** Who carries a command, for a node, a run, a run found by its execution and the server. */
@@ -30,10 +35,11 @@ class SupervisionControllerTest {
   }
 
   private final ControlBusGateway controlBus = mock(ControlBusGateway.class);
-  private final com.infenia.yukta.service.supervisor.OwnershipMap ownership =
-      mock(com.infenia.yukta.service.supervisor.OwnershipMap.class);
+  private final SessionService sessions = mock(SessionService.class);
+  private final SupervisorService supervisors = mock(SupervisorService.class);
+  private final OwnershipMap ownership = mock(OwnershipMap.class);
   private final SupervisionController controller =
-      new SupervisionController(reviewer, controlBus, ownership);
+      new SupervisionController(reviewer, controlBus, ownership, sessions, supervisors);
 
   private static ControlReviewer.Capability allowed() {
     return new ControlReviewer.Capability(true, "default", null);
@@ -134,12 +140,32 @@ class SupervisionControllerTest {
   @Test
   void ownershipComesFromTheMap() {
     final var owned =
-        new com.infenia.yukta.service.supervisor.OwnershipMap.Ownership(
-            "s", "w", true, "default", java.util.Map.of("build.a", "guard"));
+        new OwnershipMap.Ownership("s", "w", true, "default", java.util.Map.of("build.a", "guard"));
     when(ownership.ownersOf("s", "w")).thenReturn(reactor.core.publisher.Mono.just(owned));
 
     StepVerifier.create(controller.ownership("s", "w"))
         .assertNext(r -> assertThat(r.data()).isEqualTo(owned))
+        .verifyComplete();
+  }
+
+  @Test
+  void summaryCountsUnownedWorkflowsAndConflictsButNamesAtMostOneHundred() {
+    final Flux<String> ids = Flux.just("s");
+    when(sessions.getSessionIds(false)).thenReturn(ids);
+    when(ownership.unowned(ids))
+        .thenReturn(Flux.range(0, 101).map(i -> new OwnershipMap.WorkflowRef("s", "w" + i)));
+    final SupervisorAttachment kept = mock(SupervisorAttachment.class);
+    final SupervisorAttachment clash = mock(SupervisorAttachment.class);
+    when(clash.conflict()).thenReturn(true);
+    when(supervisors.attachments()).thenReturn(Flux.just(kept, clash));
+
+    StepVerifier.create(controller.summary())
+        .assertNext(
+            response -> {
+              assertThat(response.data().unowned()).isEqualTo(101);
+              assertThat(response.data().unownedWorkflows()).hasSize(100);
+              assertThat(response.data().conflicts()).isEqualTo(1);
+            })
         .verifyComplete();
   }
 }

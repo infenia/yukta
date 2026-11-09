@@ -4,11 +4,15 @@ package com.infenia.yukta.controller;
 
 import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowProgress;
+import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
+import com.infenia.yukta.service.session.SessionService;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisorService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
@@ -29,6 +33,9 @@ import reactor.core.publisher.Mono;
 @Tag(name = "Supervision API", description = "Who may do what to a node, a run or the server")
 public class SupervisionController {
 
+  /** Most unowned workflows the summary names; {@code unowned} still counts them all. */
+  private static final int MAX_NAMED = 100;
+
   /** The commands of a node, by the name a client shows. */
   private final ControlReviewer reviewer;
 
@@ -36,6 +43,51 @@ public class SupervisionController {
   private final ControlBusGateway controlBus;
 
   private final OwnershipMap ownershipMap;
+
+  /** Lists the sessions whose workflows the summary looks at. */
+  private final SessionService sessions;
+
+  /** Holds the assignments, some of which start-up disabled as conflicts. */
+  private final SupervisorService supervisors;
+
+  /**
+   * What the Control page's tile shows about supervision.
+   *
+   * @param unowned how many workflows nobody owns (the default supervisor carries them)
+   * @param unownedWorkflows the first of them, at most 100
+   * @param conflicts how many assignments start-up disabled because they overlapped another
+   */
+  public record Summary(
+      int unowned, List<OwnershipMap.WorkflowRef> unownedWorkflows, long conflicts) {
+
+    /** Keeps an unmodifiable copy of the workflows. */
+    public Summary {
+      unownedWorkflows = List.copyOf(unownedWorkflows);
+    }
+  }
+
+  /**
+   * How many workflows nobody owns and how many assignments are in conflict. Internal sessions are
+   * left out.
+   *
+   * @return the summary
+   */
+  @GetMapping("/summary")
+  @Operation(summary = "How many workflows nobody owns, and how many assignments conflict")
+  public Mono<ApiResponse<Summary>> summary() {
+    return Mono.zip(
+            ownershipMap.unowned(sessions.getSessionIds(false)).collectList(),
+            supervisors.attachments().filter(SupervisorAttachment::conflict).count())
+        .map(
+            found ->
+                ApiResponse.success(
+                    200,
+                    "Supervision summary",
+                    new Summary(
+                        found.getT1().size(),
+                        found.getT1().subList(0, Math.min(MAX_NAMED, found.getT1().size())),
+                        found.getT2())));
+  }
 
   /**
    * Who owns each part of a workflow.
