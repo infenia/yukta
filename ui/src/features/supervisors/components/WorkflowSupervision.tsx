@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { Link, useSearchParams } from 'react-router';
+import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useOwnership, useSupervision } from '../hooks/useSupervisorTypes';
@@ -62,16 +63,19 @@ export function SupervisionPanel({
     <div className="flex flex-col gap-3">
       <ConflictsBanner session={sessionId} workflow={workflowId} />
       {nobodyOwns && defaultSupervisor && (
-        <p className="text-body-md">
-          No supervisor owns this workflow. People control it directly through
-          Default (people).
-        </p>
+        <StateMessage
+          compact
+          icon="account_tree"
+          title={`Nobody supervises ${workflowId}`}
+        >
+          People control it directly through Default (people).
+        </StateMessage>
       )}
       {!defaultSupervisor && runOwner === 'default' && (
-        <p className="text-body-md text-error">
-          Default (people) is off and nothing owns the run, so nobody can
-          control it. An ADMIN can turn Default on or assign a supervisor.
-        </p>
+        <Callout kind="warning" title="Nobody can control this workflow">
+          Default (people) is off and no supervisor owns {workflowId}. An ADMIN
+          can turn Default on or assign a supervisor.
+        </Callout>
       )}
       <div className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
         <table className="text-body-md w-full">

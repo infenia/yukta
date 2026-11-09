@@ -222,7 +222,7 @@ test.describe('Control page', () => {
           {
             time: new Date().toISOString(),
             supervisorId: 'guard',
-            outcome: 'arbitrated',
+            outcome: 'applied',
             command: 'PauseWorkflowCommand',
             executionId: 'run-9',
             reason: null,
@@ -230,11 +230,22 @@ test.describe('Control page', () => {
         ])
       )
     );
+    await page.route('**/api/supervision/summary', (route) =>
+      route.fulfill(
+        envelope('/supervision/summary', {
+          unowned: 2,
+          unownedWorkflows: [{ sessionId: 's', workflowId: 'w' }],
+          conflicts: 1,
+        })
+      )
+    );
     await page.goto('/control');
 
     const tile = page.getByRole('link', { name: 'Supervisors' }).last();
     await expect(tile).toContainText('1 active');
-    await expect(tile).toContainText('1 conflicts in the last hour');
+    await expect(tile).toContainText(
+      '2 workflows nobody owns · 1 conflict · 0.1 decisions/min'
+    );
     await expect(page.getByRole('article', { name: /Supervisor/ })).toHaveCount(
       0
     );
