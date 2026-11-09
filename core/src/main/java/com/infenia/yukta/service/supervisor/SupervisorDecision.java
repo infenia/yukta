@@ -14,6 +14,11 @@ import org.jspecify.annotations.Nullable;
  * @param command the command name, such as {@code PauseWorkflowCommand}
  * @param executionId the run it addressed
  * @param reason why it was not applied, or null
+ * @param nodeId the node it addressed, or null for a run-level or server command
+ * @param cause what made the supervisor send it: {@code event}, {@code answers}, {@code tick} or
+ *     {@code initiative} (acted on its own); null for a supervisor that gives no cause
+ * @param key the directive's key; the runs of one selector share it before {@code #}
+ * @param because the reason the supervisor gave for sending it, or null
  */
 public record SupervisorDecision(
     Instant time,
@@ -21,4 +26,29 @@ public record SupervisorDecision(
     String outcome,
     String command,
     String executionId,
-    @Nullable String reason) {}
+    @Nullable String reason,
+    @Nullable String nodeId,
+    @Nullable String cause,
+    @Nullable String key,
+    @Nullable String because) {
+
+  /**
+   * A decision with no node, cause, key or given reason.
+   *
+   * @param time when it was decided
+   * @param supervisorId the supervisor
+   * @param outcome the outcome
+   * @param command the command name
+   * @param executionId the run
+   * @param reason why it was not applied, or null
+   */
+  public SupervisorDecision(
+      final Instant time,
+      final String supervisorId,
+      final String outcome,
+      final String command,
+      final String executionId,
+      final @Nullable String reason) {
+    this(time, supervisorId, outcome, command, executionId, reason, null, null, null, null);
+  }
+}

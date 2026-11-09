@@ -76,7 +76,9 @@ public class SupervisorTypesController {
                   service.configSchema(type),
                   SupervisorCommonSettings.SCHEMA,
                   defaults == null ? null : defaults.stream().sorted().toList(),
-                  d.exampleSettings()));
+                  d.exampleSettings(),
+                  service.signals(type),
+                  service.canInitiate(type)));
         });
   }
 

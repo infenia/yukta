@@ -5602,8 +5602,12 @@ export interface components {
             type?: string;
         };
         SupervisorDecision: {
+            because?: string;
+            cause?: string;
             command?: string;
             executionId?: string;
+            key?: string;
+            nodeId?: string;
             outcome?: string;
             reason?: string;
             supervisorId?: string;
@@ -5650,6 +5654,7 @@ export interface components {
         };
         /** @description Details of a decision maker */
         SupervisorTypeDetails: {
+            canInitiate?: boolean;
             category?: string;
             commonSchema?: components["schemas"]["ConfigField"][];
             configSchema?: components["schemas"]["ConfigField"][];
@@ -5660,6 +5665,7 @@ export interface components {
             exampleSettings?: {
                 [key: string]: unknown;
             };
+            signals?: string[];
             type?: string;
             uiDesign?: components["schemas"]["UiDesign"];
             usagePattern?: string;

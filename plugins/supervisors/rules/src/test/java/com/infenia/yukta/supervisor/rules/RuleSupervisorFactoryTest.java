@@ -75,6 +75,11 @@ class RuleSupervisorFactoryTest {
 
     assertThat(described.displayName()).isEqualTo("Rules");
     assertThat(described.category()).isEqualTo(SupervisorCategory.RULES);
+    assertThat(factory.canInitiate()).isTrue();
+    assertThat(factory.signals())
+        .contains(
+            com.infenia.yukta.plugin.control.engine.Signal.Kind.TICK,
+            com.infenia.yukta.plugin.control.engine.Signal.Kind.REVIEW);
     assertThat(described.uiDesign()).isPresent();
     assertThat(described.exampleSettings()).containsKey("rules");
     assertThat(factory.getConfigSchema()).isEqualTo(RuleSupervisor.SCHEMA);

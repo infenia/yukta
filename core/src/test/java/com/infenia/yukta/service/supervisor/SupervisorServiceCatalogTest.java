@@ -80,6 +80,8 @@ class SupervisorServiceCatalogTest {
     assertThat(service.configSchema("nope")).isEmpty();
     assertThat(service.secretSettings("nope")).isEmpty();
     assertThat(service.defaultAllowedCommands("nope")).isNull();
+    assertThat(service.signals("nope")).isEmpty();
+    assertThat(service.canInitiate("nope")).isFalse();
   }
 
   @Test
@@ -92,6 +94,8 @@ class SupervisorServiceCatalogTest {
     assertThat(service.secretSettings("t")).containsExactly("bearer");
     assertThat(service.defaultAllowedCommands("t")).containsExactly("PauseWorkflowCommand");
     assertThat(service.describe("t")).isPresent();
+    assertThat(service.signals("t")).containsExactly("EVENT");
+    assertThat(service.canInitiate("t")).isFalse();
   }
 
   @Test

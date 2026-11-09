@@ -1160,6 +1160,30 @@ public class SupervisorService {
     return factory == null ? List.of() : factory.getConfigSchema();
   }
 
+  /**
+   * The signals a supervisor of a type is told, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return the signal kinds by name, sorted; empty for an unknown type
+   */
+  public List<String> signals(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null
+        ? List.of()
+        : factory.signals().stream().map(Enum::name).sorted().toList();
+  }
+
+  /**
+   * Whether a supervisor of a type may act on its own, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return true if it may; false for an unknown type
+   */
+  public boolean canInitiate(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory != null && factory.canInitiate();
+  }
+
   /** What the supervisor lets its supervisor do; an unknown command name is refused. */
   private SupervisorCapabilities capabilities(final Supervisor supervisor) {
     final SupervisorFactory factory = factory(supervisor);

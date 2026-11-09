@@ -157,7 +157,9 @@ public class SupervisorProvider {
         service.configSchema(type),
         SupervisorCommonSettings.SCHEMA,
         allowed == null ? null : allowed.stream().sorted().toList(),
-        d.exampleSettings());
+        d.exampleSettings(),
+        service.signals(type),
+        service.canInitiate(type));
   }
 
   /**

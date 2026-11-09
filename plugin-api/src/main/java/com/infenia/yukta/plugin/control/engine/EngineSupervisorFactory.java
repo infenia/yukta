@@ -101,6 +101,16 @@ public final class EngineSupervisorFactory implements SupervisorFactory {
   }
 
   @Override
+  public java.util.Set<Signal.Kind> signals() {
+    return engines.describe().drivers();
+  }
+
+  @Override
+  public boolean canInitiate() {
+    return engines.describe().canInitiate();
+  }
+
+  @Override
   public SupervisorDescriptor describe() {
     final EngineDescriptor engine = engines.describe();
     return new SupervisorDescriptor(

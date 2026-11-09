@@ -5573,10 +5573,22 @@
       },
       "SupervisorDecision" : {
         "properties" : {
+          "because" : {
+            "type" : "string"
+          },
+          "cause" : {
+            "type" : "string"
+          },
           "command" : {
             "type" : "string"
           },
           "executionId" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "nodeId" : {
             "type" : "string"
           },
           "outcome" : {
@@ -5692,6 +5704,9 @@
       "SupervisorTypeDetails" : {
         "description" : "Details of a decision maker",
         "properties" : {
+          "canInitiate" : {
+            "type" : "boolean"
+          },
           "category" : {
             "type" : "string"
           },
@@ -5723,6 +5738,12 @@
           "exampleSettings" : {
             "additionalProperties" : { },
             "type" : "object"
+          },
+          "signals" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "type" : {
             "type" : "string"
