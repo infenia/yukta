@@ -3,16 +3,15 @@
 
 import { preText } from '@/test/preText';
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { SupervisorsPage } from '../SupervisorsPage';
-import { SupervisorDetailPage } from '../SupervisorDetailPage';
 import { SupervisorWizardPage } from '../SupervisorWizardPage';
-import { groupNodes } from '../AttachDialog';
+import { groupNodes } from '../../lib/scope';
 import { getAttachments } from '../../api/supervisors';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 
@@ -166,130 +165,13 @@ const renderAt = (url: string) =>
             path="/supervisors/:supervisorId/edit"
             element={<SupervisorWizardPage />}
           />
-          <Route
-            path="/supervisors/:supervisorId"
-            element={<SupervisorDetailPage />}
-          />
         </Routes>
         <Where />
       </MemoryRouter>
     </QueryClientProvider>
   );
 
-describe('the supervisors list', () => {
-  it('lists configured and system supervisors', async () => {
-    renderAt('/supervisors?tab=supervisors');
-
-    expect(await screen.findByText('guard')).toBeInTheDocument();
-    expect(screen.getByText('System · read-only')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'New supervisor' })
-    ).toHaveAttribute('href', '/supervisors/new');
-    expect(screen.getAllByText('2 attached')).toHaveLength(2);
-  });
-
-  it('shows the empty and failed states', async () => {
-    supervisors = [];
-    const first = renderAt('/supervisors?tab=supervisors');
-    expect(await screen.findByText('No supervisors yet')).toBeInTheDocument();
-    first.unmount();
-    server.use(http.get('/api/supervisors', () => envelope({}, 500)));
-    renderAt('/supervisors?tab=supervisors');
-    expect(
-      await screen.findByText('Failed to load the supervisors.')
-    ).toBeInTheDocument();
-  });
-
-  it('marks dry-run supervisors', async () => {
-    supervisors = [{ ...guard, dryRun: true }];
-    renderAt('/supervisors?tab=supervisors');
-    expect(await screen.findByText('Dry run')).toBeInTheDocument();
-  });
-});
-
-describe('the attachments and decisions tabs', () => {
-  const manual = {
-    id: 'a1',
-    supervisorId: 'guard',
-    scope: 'session:s1',
-    enabled: true,
-    source: 'MANUAL',
-    originSessionId: null,
-    originWorkflowId: null,
-  };
-  const declared = {
-    ...manual,
-    id: 'def-1',
-    scope: 'workflow:s1/w1//build.*',
-    source: 'DEFINITION',
-    originSessionId: 's1',
-    originWorkflowId: 'w1',
-  };
-  const sessionLevel = { ...declared, id: 'def-2', originWorkflowId: null };
-  const bean = {
-    ...manual,
-    id: 'rules',
-    scope: 'global',
-    source: 'SYSTEM',
-    enabled: false,
-  };
-
-  it('lists every attachment with its source and origin, and filters', async () => {
-    attachments = [manual, declared, sessionLevel, bean];
-    const user = userEvent.setup();
-    renderAt('/supervisors?tab=attachments');
-
-    expect(await screen.findAllByText('Edit the definition')).toHaveLength(2);
-    expect(screen.getByRole('link', { name: 's1 › w1' })).toHaveAttribute(
-      'href',
-      '/sessions/s1/workflow/w1'
-    );
-    expect(screen.getByRole('link', { name: 's1' })).toHaveAttribute(
-      'href',
-      '/sessions/s1'
-    );
-    expect(screen.getByText('Set by the server')).toBeInTheDocument();
-    expect(screen.getByText(/disabled/)).toBeInTheDocument();
-
-    await user.selectOptions(screen.getByLabelText('Scope'), 'global');
-    expect(screen.queryByText('Edit the definition')).toBeNull();
-    await user.selectOptions(screen.getByLabelText('Scope'), 'session');
-    expect(screen.getAllByRole('row').length).toBeGreaterThan(1);
-    await user.selectOptions(screen.getByLabelText('Scope'), 'workflow');
-    await user.selectOptions(screen.getByLabelText('Source'), 'DEFINITION');
-    await waitFor(() =>
-      expect(screen.queryByText('Set by the server')).toBeNull()
-    );
-  });
-
-  it('pauses and detaches a manual attachment, and says when there are none', async () => {
-    attachments = [manual];
-    const user = userEvent.setup();
-    renderAt('/supervisors?tab=attachments');
-
-    await user.click(await screen.findByRole('button', { name: 'Disable' }));
-    await waitFor(() =>
-      expect(writes).toContain(
-        'assign guard [{"target":"session:s1","enabled":false,"locked":false}]'
-      )
-    );
-    await user.click(screen.getByRole('button', { name: 'Detach' }));
-    await waitFor(() => expect(writes).toContain('assign guard []'));
-  });
-
-  it('says when there are no attachments and when they cannot be read', async () => {
-    const first = renderAt('/supervisors?tab=attachments');
-    expect(await screen.findByText('No attachments.')).toBeInTheDocument();
-    first.unmount();
-    server.use(
-      http.get('/api/supervisors/assignments', () => envelope({}, 500))
-    );
-    renderAt('/supervisors?tab=attachments');
-    expect(
-      await screen.findByText('Failed to load the attachments.')
-    ).toBeInTheDocument();
-  });
-
+describe('the activity tab', () => {
   it('lists decisions, filters them by outcome, and handles the empty and failed cases', async () => {
     decisions = [
       {
@@ -310,7 +192,7 @@ describe('the attachments and decisions tabs', () => {
       },
     ];
     const user = userEvent.setup();
-    const first = renderAt('/supervisors?tab=decisions');
+    const first = renderAt('/supervisors?tab=activity');
 
     expect(await screen.findByText('busy')).toBeInTheDocument();
     await user.selectOptions(screen.getByLabelText('Outcome'), 'applied');
@@ -319,153 +201,13 @@ describe('the attachments and decisions tabs', () => {
     first.unmount();
 
     decisions = [];
-    const second = renderAt('/supervisors?tab=decisions');
+    const second = renderAt('/supervisors?tab=activity');
     expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
     second.unmount();
     server.use(http.get('/api/supervisors/decisions', () => envelope({}, 500)));
-    renderAt('/supervisors?tab=decisions');
+    renderAt('/supervisors?tab=activity');
     expect(
       await screen.findByText('Failed to load the decisions.')
-    ).toBeInTheDocument();
-  });
-});
-
-describe('a supervisor', () => {
-  it('shows its settings, attachments and decisions, and attaches it', async () => {
-    attachments = [
-      {
-        id: 'a1',
-        supervisorId: 'guard',
-        scope: 'global',
-        enabled: true,
-        source: 'MANUAL',
-        originSessionId: null,
-        originWorkflowId: null,
-      },
-    ];
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard');
-
-    expect(
-      await screen.findByRole('heading', { name: 'guard' })
-    ).toBeInTheDocument();
-    expect(screen.getByText(preText(/"token": "\*\*\*"/))).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'attachments' }));
-    expect(await screen.findByText('Global')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'decisions' }));
-    expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Attach' }));
-    const dialog = await screen.findByRole('dialog');
-    // a session: choose it, the scope previews
-    await within(dialog).findByRole('option', { name: 'Alpha' });
-    await user.selectOptions(
-      within(dialog).getByLabelText('Choose session'),
-      's1'
-    );
-    expect(within(dialog).getByLabelText('Scope preview')).toHaveTextContent(
-      'session:s1'
-    );
-    // nodes of a workflow, grouped by prefix
-    await user.click(within(dialog).getByLabelText('Nodes'));
-    await user.selectOptions(
-      await within(dialog).findByLabelText('Choose workflow'),
-      'w1'
-    );
-    await user.click(await within(dialog).findByLabelText('build.a'));
-    await user.click(within(dialog).getByLabelText('build.b'));
-    await user.click(within(dialog).getByLabelText('build.b'));
-    expect(within(dialog).getByText('build.*')).toBeInTheDocument();
-    expect(within(dialog).getByText('No prefix')).toBeInTheDocument();
-    expect(within(dialog).getByLabelText('Scope preview')).toHaveTextContent(
-      'workflow:s1/w1//build.a'
-    );
-    await user.click(within(dialog).getByRole('button', { name: 'Attach' }));
-    await waitFor(() =>
-      expect(writes[0]).toContain('"target":"workflow:s1/w1//build.a"')
-    );
-    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  });
-
-  it('attaches globally, changes kind and cancels', async () => {
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard');
-    await user.click(await screen.findByRole('button', { name: 'Attach' }));
-    const dialog = await screen.findByRole('dialog');
-
-    await user.click(within(dialog).getByLabelText('Workflow'));
-    await within(dialog).findByRole('option', { name: 'Alpha' });
-    await user.selectOptions(
-      within(dialog).getByLabelText('Choose session'),
-      's2'
-    );
-    await user.selectOptions(
-      await within(dialog).findByLabelText('Choose workflow'),
-      'w1'
-    );
-    expect(within(dialog).getByLabelText('Scope preview')).toHaveTextContent(
-      'workflow:s2/w1'
-    );
-    await user.click(within(dialog).getByLabelText('Global'));
-    expect(within(dialog).queryByLabelText('Choose session')).toBeNull();
-    await user.click(within(dialog).getByLabelText('Start now'));
-    await user.click(within(dialog).getByRole('button', { name: 'Attach' }));
-    await waitFor(() => expect(writes[0]).toContain('"target":"global"'));
-    expect(writes[0]).toContain('"enabled":false');
-  });
-
-  it('says when attaching needs an admin key or fails', async () => {
-    server.use(
-      http.put('/api/supervisors/:id/assignments', () => envelope({}, 403))
-    );
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard');
-    await user.click(await screen.findByRole('button', { name: 'Attach' }));
-    const dialog = await screen.findByRole('dialog');
-    await user.click(within(dialog).getByLabelText('Global'));
-    await user.click(within(dialog).getByRole('button', { name: 'Attach' }));
-    expect(
-      await within(dialog).findByText(
-        'Attaching supervisors needs an ADMIN key.'
-      )
-    ).toBeInTheDocument();
-    await user.click(within(dialog).getByRole('button', { name: 'Cancel' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('shows no actions for a system supervisor', async () => {
-    renderAt('/supervisors/rules');
-    expect(await screen.findByText(/read-only/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete' })).toBeNull();
-  });
-
-  it('edits through a link and deletes, going back to the list', async () => {
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard');
-    expect(await screen.findByRole('link', { name: 'Edit' })).toHaveAttribute(
-      'href',
-      '/supervisors/guard/edit'
-    );
-    await user.click(screen.getByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(writes).toContain('delete guard'));
-    await waitFor(() =>
-      expect(screen.getByLabelText('where')).toHaveTextContent(
-        '/supervisors?tab=supervisors'
-      )
-    );
-  });
-
-  it('says why a delete failed and when the supervisor cannot be read', async () => {
-    server.use(http.delete('/api/supervisors/:id', () => envelope({}, 409)));
-    const user = userEvent.setup();
-    const first = renderAt('/supervisors/guard');
-    await user.click(await screen.findByRole('button', { name: 'Delete' }));
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
-    first.unmount();
-    server.use(http.get('/api/supervisors/:id', () => envelope({}, 500)));
-    renderAt('/supervisors/guard');
-    expect(
-      await screen.findByText('Failed to load the supervisor.')
     ).toBeInTheDocument();
   });
 });
@@ -593,46 +335,6 @@ describe('the wizard', () => {
 });
 
 describe('small cases', () => {
-  it('enables a disabled manual attachment', async () => {
-    attachments = [
-      {
-        id: 'a2',
-        supervisorId: 'guard',
-        scope: 'global',
-        enabled: false,
-        source: 'MANUAL',
-        originSessionId: null,
-        originWorkflowId: null,
-      },
-    ];
-    const user = userEvent.setup();
-    renderAt('/supervisors?tab=attachments');
-    await user.click(await screen.findByRole('button', { name: 'Enable' }));
-    await waitFor(() =>
-      expect(writes).toContain(
-        'assign guard [{"target":"global","enabled":true,"locked":false}]'
-      )
-    );
-  });
-
-  it('shows and edits a supervisor without a description', async () => {
-    const first = renderAt('/supervisors/plain');
-    expect(await screen.findByText('failure-guard')).toBeInTheDocument();
-    first.unmount();
-    renderAt('/supervisors/plain/edit');
-    expect(await screen.findByLabelText('Description')).toHaveValue('');
-  });
-
-  it('shows no attachments while they cannot be read', async () => {
-    server.use(
-      http.get('/api/supervisors/:id/assignments', () => envelope({}, 500))
-    );
-    const user = userEvent.setup();
-    renderAt('/supervisors/guard');
-    await user.click(await screen.findByRole('tab', { name: 'attachments' }));
-    expect(await screen.findByText('No attachments.')).toBeInTheDocument();
-  });
-
   it('asks for attachments of a session and workflow by source', async () => {
     let asked = '';
     server.use(

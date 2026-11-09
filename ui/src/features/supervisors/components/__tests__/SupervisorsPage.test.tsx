@@ -107,7 +107,7 @@ function Where() {
   return <output aria-label="location">{search}</output>;
 }
 
-const renderPage = (url = '/supervisors?tab=catalog') =>
+const renderPage = (url = '/supervisors?tab=decision-makers') =>
   render(
     <QueryClientProvider client={createTestQueryClient()}>
       <MemoryRouter initialEntries={[url]}>
@@ -118,16 +118,6 @@ const renderPage = (url = '/supervisors?tab=catalog') =>
   );
 
 describe('SupervisorsPage', () => {
-  it('opens on the coverage tab with the explanation, and the empty state points to the library', async () => {
-    renderPage('/supervisors');
-    expect(
-      screen.getByRole('region', { name: 'How supervision works' })
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByText('Nothing is supervised yet')
-    ).toBeInTheDocument();
-  });
-
   it('lists the types by category and shows the first one', async () => {
     renderPage();
 
@@ -170,22 +160,20 @@ describe('SupervisorsPage', () => {
 
   it('keeps the tab in the URL', async () => {
     const user = userEvent.setup();
-    renderPage('/supervisors?tab=catalog');
+    renderPage('/supervisors?tab=decision-makers');
     await screen.findByText('About failure-guard');
 
     await user.click(screen.getByRole('tab', { name: 'Activity' }));
 
-    expect(screen.getByLabelText('location')).toHaveTextContent(
-      'tab=decisions'
-    );
+    expect(screen.getByLabelText('location')).toHaveTextContent('tab=activity');
     expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Coverage' }));
+    await user.click(screen.getByRole('tab', { name: 'Supervisors' }));
     expect(screen.getByLabelText('location')).not.toHaveTextContent('tab=');
   });
 
   it('opens on the tab the URL names and ignores an unknown one', async () => {
-    renderPage('/supervisors?tab=attachments');
-    expect(await screen.findByText('No attachments.')).toBeInTheDocument();
+    renderPage('/supervisors?tab=activity');
+    expect(await screen.findByText('No decisions yet.')).toBeInTheDocument();
   });
 
   it('says so when a type cannot be loaded or there are none', async () => {

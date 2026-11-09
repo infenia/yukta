@@ -54,3 +54,16 @@ export function buildScope(
     ? null
     : `${workflow}${SECTION}${selectors.join(',')}`;
 }
+
+/** The part of a node id before its first dot: the group the picker puts it under. */
+const prefixOf = (nodeId: string) =>
+  nodeId.includes('.') ? nodeId.slice(0, nodeId.indexOf('.')) : '';
+
+/** Node ids grouped by prefix, in the order they first appear. */
+export function groupNodes(ids: string[]): [string, string[]][] {
+  const groups = new Map<string, string[]>();
+  for (const id of ids) {
+    groups.set(prefixOf(id), [...(groups.get(prefixOf(id)) ?? []), id]);
+  }
+  return [...groups.entries()];
+}

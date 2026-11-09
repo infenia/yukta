@@ -6,6 +6,7 @@ import {
   Navigate,
   RouterProvider,
   useLocation,
+  useParams,
 } from 'react-router';
 import App from '@/App';
 import { SessionListPage } from '@/features/sessions/components/SessionListPage';
@@ -20,6 +21,20 @@ export function HomeRoute() {
 export function HistoryRedirect() {
   const { search } = useLocation();
   return <Navigate to={{ pathname: '/runs', search }} replace />;
+}
+
+/** A supervisor's own page became the Supervisors tab with it selected. */
+export function SupervisorRedirect() {
+  const { supervisorId = '' } = useParams();
+  return (
+    <Navigate
+      to={{
+        pathname: '/supervisors',
+        search: `?supervisor=${encodeURIComponent(supervisorId)}`,
+      }}
+      replace
+    />
+  );
 }
 
 const router = createBrowserRouter([
@@ -110,11 +125,7 @@ const router = createBrowserRouter([
       },
       {
         path: 'supervisors/:supervisorId',
-        lazy: async () => ({
-          Component: (
-            await import('@/features/supervisors/components/SupervisorDetailPage')
-          ).SupervisorDetailPage,
-        }),
+        element: <SupervisorRedirect />,
       },
       {
         path: 'supervisors',

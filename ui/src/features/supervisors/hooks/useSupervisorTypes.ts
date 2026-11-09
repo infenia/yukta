@@ -3,11 +3,9 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getSupervisorType, getSupervisorTypes } from '../api/supervisorTypes';
+import { getOwnership } from '../api/supervision';
 import {
-  attachSupervisor,
   createSupervisor,
-  deleteSupervisor,
-  detachAttachment,
   getAttachments,
   getSupervisor,
   getSupervisorDecisions,
@@ -46,6 +44,14 @@ export const useAttachments = (filter: AttachmentFilter = {}) =>
     queryFn: () => getAttachments(filter),
   });
 
+/** The owners of a workflow's units; off until both ids are known. */
+export const useOwnership = (session: string | null, workflow: string | null) =>
+  useQuery({
+    queryKey: ['supervision', 'ownership', session, workflow],
+    queryFn: () => getOwnership(session as string, workflow as string),
+    enabled: Boolean(session && workflow),
+  });
+
 export const useSupervisorDecisions = (supervisor?: string) =>
   useQuery({
     queryKey: [...ROOT, 'decisions', supervisor ?? null],
@@ -63,9 +69,6 @@ function useWrite<A, R>(fn: (arg: A) => Promise<R>) {
 
 export const useCreateSupervisor = () => useWrite(createSupervisor);
 export const useReplaceSupervisor = () => useWrite(replaceSupervisor);
-export const useDeleteSupervisor = () => useWrite(deleteSupervisor);
-export const useAttachSupervisor = () => useWrite(attachSupervisor);
-export const useDetachAttachment = () => useWrite(detachAttachment);
 export const useSetAttachmentEnabled = () =>
   useWrite((a: { id: string; enabled: boolean }) =>
     setAttachmentEnabled(a.id, a.enabled)

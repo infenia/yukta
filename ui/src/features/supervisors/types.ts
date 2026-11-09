@@ -41,6 +41,19 @@ export interface SupervisorView {
   rejected: number;
   recorded: number;
   rateLimited: number;
+  /** The supervisors it reports to, in the order they are asked. */
+  parents?: string[];
+  /** How each kind of delegation (APPROVAL, INPUT, CONSULT) is asked of the parents. */
+  delegation?: Record<string, { mode: string; timeout?: string | null }>;
+}
+
+/** Who carries each unit of a workflow: a supervisor id, or `default`. */
+export interface Ownership {
+  sessionId: string;
+  workflowId: string;
+  defaultSupervisor: boolean;
+  run: string;
+  nodes: Record<string, string>;
 }
 
 export type AttachmentSource = 'MANUAL' | 'DEFINITION' | 'SYSTEM';

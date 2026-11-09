@@ -30,9 +30,6 @@ export const replaceSupervisor = (draft: SupervisorDraft & { id: string }) =>
     json('PUT', draft)
   );
 
-export const deleteSupervisor = (id: string) =>
-  fetchApi<unknown>(api`/api/supervisors/${id}`, { method: 'DELETE' });
-
 /** Checks a draft without saving it: always answers, look at `valid`. */
 export const validateSupervisor = (draft: SupervisorDraft) =>
   fetchApi<ValidationResult>('/api/supervisors/validate', json('POST', draft));
@@ -96,20 +93,6 @@ const ownerOf = async (id: string) => {
   return found.supervisorId;
 };
 
-/** Adds one target to what a supervisor owns; the server checks the whole list. */
-export const attachSupervisor = async (attachment: {
-  supervisorId: string;
-  scope: string;
-  enabled: boolean;
-}) => {
-  const current = await manualAssignments(attachment.supervisorId);
-  const saved = await putAssignments(attachment.supervisorId, [
-    ...current.filter((a) => a.target !== attachment.scope),
-    { target: attachment.scope, enabled: attachment.enabled, locked: false },
-  ]);
-  return saved.find((a) => a.scope === attachment.scope) ?? saved[0];
-};
-
 export const setAttachmentEnabled = async (id: string, enabled: boolean) => {
   const supervisorId = await ownerOf(id);
   const current = await manualAssignments(supervisorId);
@@ -120,28 +103,11 @@ export const setAttachmentEnabled = async (id: string, enabled: boolean) => {
   return saved.find((a) => a.id === id);
 };
 
-export const detachAttachment = async (id: string) => {
-  const supervisorId = await ownerOf(id);
-  const current = await manualAssignments(supervisorId);
-  return putAssignments(
-    supervisorId,
-    current.filter((a) => a.id !== id)
-  );
-};
-
 export const getSupervisorDecisions = (supervisor?: string, limit = 50) => {
   const query = new URLSearchParams({ limit: String(limit) });
   if (supervisor) query.set('supervisor', supervisor);
   return fetchApi<Decision[]>(`/api/supervisors/decisions?${query}`);
 };
-
-/** The node ids of a workflow, for the node picker. */
-export const getWorkflowNodeIds = async (session: string, workflow: string) =>
-  (
-    await fetchApi<{ nodes: { nodeId: string }[] }>(
-      api`/api/sessions/${session}/workflows/${workflow}`
-    )
-  ).nodes.map((n) => n.nodeId);
 
 /** What the control bus reports about each running supervisor (and control-plane plugin). */
 export interface RunningSupervisor {

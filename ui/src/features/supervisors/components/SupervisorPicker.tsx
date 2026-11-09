@@ -7,7 +7,7 @@ import { NativeSelect } from '@/components/ui/native-select';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useSupervisors } from '../hooks/useSupervisorTypes';
 import type { SupervisorRef } from '../types';
-import { groupNodes } from './AttachDialog';
+import { groupNodes } from '../lib/scope';
 import { NewSupervisorWizard } from './SupervisorWizardPage';
 
 /**
