@@ -62,7 +62,7 @@ class SupervisorCommonSettingsTest {
     assertThat(factory.defaultAllowedCommands(new Supervisor("s", "plain", Map.of(), false)))
         .isNull();
     assertThat(factory.describe().displayName()).isEqualTo("plain");
-    assertThat(factory.describe().category()).isEqualTo(SupervisorCategory.INTEGRATION);
+    assertThat(factory.describe().category()).isEqualTo(SupervisorCategory.ON_THIS_SERVER);
     assertThat(factory.getConfigSchema()).isEqualTo(List.of());
   }
 
@@ -70,7 +70,7 @@ class SupervisorCommonSettingsTest {
   void descriptorKeepsAnImmutableExample() {
     final SupervisorDescriptor descriptor =
         new SupervisorDescriptor(
-            "n", "d", "u", SupervisorCategory.GUARD, java.util.Optional.empty(), null);
+            "n", "d", "u", SupervisorCategory.RULES, java.util.Optional.empty(), null);
 
     assertThat(descriptor.exampleSettings()).isEqualTo(Map.of());
   }

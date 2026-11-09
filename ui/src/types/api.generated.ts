@@ -1544,6 +1544,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/supervision/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** How many workflows nobody owns, and how many assignments conflict */
+        get: operations["summary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/supervisor-contract": {
         parameters: {
             query?: never;
@@ -4133,6 +4150,39 @@ export interface components {
             timestamp?: string;
         };
         /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
+        ApiResponseSummary: {
+            /** @description The response data */
+            data?: components["schemas"]["Summary"];
+            /**
+             * @description The HTTP status error name
+             * @example Bad Request
+             */
+            error?: string;
+            /** @description The list of field validation errors */
+            errors?: components["schemas"]["FieldError"][];
+            /**
+             * @description A human-readable message
+             * @example Operation successful
+             */
+            message?: string;
+            /**
+             * @description The request path
+             * @example /api/files
+             */
+            path?: string;
+            /**
+             * Format: int32
+             * @description The HTTP status code
+             * @example 200
+             */
+            status?: number;
+            /**
+             * Format: date-time
+             * @description The time the response was generated
+             */
+            timestamp?: string;
+        };
+        /** @description Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields. */
         ApiResponseSupervisorTypeDetails: {
             /** @description The response data */
             data?: components["schemas"]["SupervisorTypeDetails"];
@@ -4594,6 +4644,13 @@ export interface components {
              */
             timestamp?: string;
         };
+        Asked: {
+            /** Format: date-time */
+            at?: string;
+            reason?: string;
+            said?: string;
+            who?: string;
+        };
         AssignmentBody: {
             enabled?: boolean;
             locked?: boolean;
@@ -4979,6 +5036,7 @@ export interface components {
         };
         InputRequest: {
             advice?: string;
+            asked?: components["schemas"]["Asked"][];
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -5027,6 +5085,7 @@ export interface components {
         InputRequestView: {
             advice?: string;
             answer?: components["schemas"]["InputAnswerView"];
+            asked?: components["schemas"]["Asked"][];
             audience?: components["schemas"]["Audience"];
             context?: {
                 [key: string]: unknown;
@@ -5584,9 +5643,11 @@ export interface components {
             reason?: string | null;
         };
         Summary: {
-            defaultSupervisor?: boolean;
+            /** Format: int64 */
+            conflicts?: number;
             /** Format: int32 */
-            owners?: number;
+            unowned?: number;
+            unownedWorkflows?: components["schemas"]["WorkflowRef"][];
         };
         SupervisorBody: {
             delegation?: {
@@ -5602,13 +5663,18 @@ export interface components {
             type?: string;
         };
         SupervisorDecision: {
+            because?: string;
+            cause?: string;
             command?: string;
             executionId?: string;
+            key?: string;
+            nodeId?: string;
             outcome?: string;
             reason?: string;
             supervisorId?: string;
             /** Format: date-time */
             time?: string;
+            workflowId?: string;
         };
         SupervisorInfo: {
             /** Format: int64 */
@@ -5648,8 +5714,9 @@ export interface components {
             /** @description The id of a configured supervisor */
             supervisor: string;
         };
-        /** @description Details of a supervisor type */
+        /** @description Details of a decision maker */
         SupervisorTypeDetails: {
+            canInitiate?: boolean;
             category?: string;
             commonSchema?: components["schemas"]["ConfigField"][];
             configSchema?: components["schemas"]["ConfigField"][];
@@ -5660,21 +5727,19 @@ export interface components {
             exampleSettings?: {
                 [key: string]: unknown;
             };
-            kind?: string;
+            signals?: string[];
             type?: string;
             uiDesign?: components["schemas"]["UiDesign"];
             usagePattern?: string;
         };
-        /** @description A supervisor type in the catalog */
+        /** @description A decision maker in the catalog */
         SupervisorTypeSummary: {
-            /** @description The catalog category */
+            /** @description RULES, EXTERNAL_SYSTEM or ON_THIS_SERVER */
             category?: string;
             /** @description The name shown to people */
             displayName?: string;
             /** @description The icon, a Material Symbols name */
             icon?: string;
-            /** @description SUPERVISOR, CONTROL_PLANE or COMPOSITE */
-            kind?: string;
             /** @description The type name */
             type?: string;
         };
@@ -5961,6 +6026,10 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
+            workflowId?: string;
+        };
+        WorkflowRef: {
+            sessionId?: string;
             workflowId?: string;
         };
         /** @description Request object for starting a workflow */
@@ -8227,6 +8296,26 @@ export interface operations {
                 };
                 content: {
                     "*/*": components["schemas"]["ApiResponseOwnership"];
+                };
+            };
+        };
+    };
+    summary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "*/*": components["schemas"]["ApiResponseSummary"];
                 };
             };
         };

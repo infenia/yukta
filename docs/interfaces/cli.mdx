@@ -238,6 +238,7 @@ On failure the command prints `error: <message>` to standard error. An HTTP erro
 | `yukta-cli supervisors rules get\|set\|replay <id>` | The rules document of a `rules` supervisor: show it, replace it from `-f <file>` (the shared settings stay), or try a draft (`-f`) on a past run (`--execution`) in dry run |
 | `yukta-cli supervisors agent --credential-file f --exec prog` | Run a program as the decision maker of an `http` supervisor (signals on its stdin as JSON lines, directives from its stdout) |
 | `yukta-cli ownership --session s --workflow w` | Which supervisor owns the run level and each node |
+| `yukta-cli supervision-summary` | How many workflows nobody owns (the first 100 named) and how many assignments are in conflict |
 | `yukta-cli supervision`, `yukta-cli supervisor-contract` | Who owns a target and what is allowed there; the contract version. A command that a supervisor refuses exits with code 6 |
 
 Run `yukta-cli <command> --help` for flags. Draining the server (`/api/admin/drain`), templates and metrics have no command; use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.

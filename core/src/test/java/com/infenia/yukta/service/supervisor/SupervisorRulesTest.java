@@ -44,7 +44,7 @@ class SupervisorRulesTest {
   @BeforeEach
   void setUp() {
     when(service.supervisors())
-        .thenReturn(Flux.just(RULES, new Supervisor("plain", "callout", Map.of(), false)));
+        .thenReturn(Flux.just(RULES, new Supervisor("plain", "process", Map.of(), false)));
     when(service.versions(ArgumentMatchers.anyString()))
         .thenReturn(Mono.just(List.of(new SupervisorVersions.Version(3, Instant.EPOCH, RULES))));
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));

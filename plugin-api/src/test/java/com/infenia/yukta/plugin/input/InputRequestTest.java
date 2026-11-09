@@ -10,6 +10,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("PMD.TooManyStaticImports")
@@ -40,6 +41,53 @@ class InputRequestTest {
     assertThat(request.id()).isEqualTo("r1");
     assertThat(request.targets()).containsExactly("supervisor:*", "role:OPERATOR");
     assertThat(request.state()).isEqualTo(InputState.OPEN);
+  }
+
+  private static Asked step(final int i) {
+    return new Asked("s" + i, "escalated", null, NOW);
+  }
+
+  @Test
+  void stepsStartEmptyAreAppendedAndKeepOnlyTheNewest() {
+    assertThat(request().asked()).isEmpty();
+    final InputRequest request =
+        IntStream.range(0, Asked.MAX_STEPS + 2)
+            .mapToObj(InputRequestTest::step)
+            .reduce(request(), InputRequest::withAsked, (left, right) -> right);
+    assertThat(request.asked()).hasSize(Asked.MAX_STEPS);
+    assertThat(request.asked().getFirst().who()).isEqualTo("s2");
+    assertThat(request.asked().getLast().who()).isEqualTo("s" + (Asked.MAX_STEPS + 1));
+    assertThat(request.withAsked(new Asked("x", "silent", "why", NOW)).id()).isEqualTo("r1");
+  }
+
+  @Test
+  void stepsAreCheckedAndNullMeansNone() {
+    assertThatThrownBy(() -> new Asked(" ", "silent", null, NOW))
+        .hasMessage("who must not be blank");
+    assertThatThrownBy(() -> new Asked("a", "silent", null, null))
+        .isInstanceOf(NullPointerException.class);
+    final InputRequest plain = request();
+    final InputRequest none =
+        new InputRequest(
+            plain.id(),
+            plain.key(),
+            plain.sessionId(),
+            plain.workflowId(),
+            plain.executionId(),
+            plain.nodeId(),
+            plain.spec(),
+            plain.state(),
+            plain.version(),
+            plain.tier(),
+            plain.targets(),
+            plain.advice(),
+            plain.deadline(),
+            plain.tierDeadline(),
+            plain.votes(),
+            plain.createdAt(),
+            plain.updatedAt(),
+            null);
+    assertThat(none.asked()).isEmpty();
   }
 
   @Test

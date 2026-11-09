@@ -60,7 +60,6 @@ dependencies {
     implementation(project(":plugins:terminals:outcome-terminal"))
     implementation(project(":plugins:terminals:console-terminal"))
     implementation(project(":plugins:supervisors:rules"))
-    implementation(project(":plugins:supervisors:callout"))
     implementation(project(":plugins:supervisors:process-engine"))
 
     selectedPlugins.forEach { implementation(project(optionalPlugins.getValue(it))) }

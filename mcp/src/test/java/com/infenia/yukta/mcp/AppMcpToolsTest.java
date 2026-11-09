@@ -403,24 +403,36 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void supervisionSummaryDelegatesToTheSupervisorProvider() {
+    final var summary =
+        new com.infenia.yukta.mcp.dto.SupervisionSummaryView(
+            2,
+            List.of(new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow("s", "w")),
+            1L);
+    when(supervisorProvider.summary()).thenReturn(Mono.just(summary));
+
+    StepVerifier.create(mcpTools.getSupervisionSummary()).expectNext(summary).verifyComplete();
+  }
+
+  @Test
   void supervisorCatalogToolsDelegateToTheSupervisorProvider() {
     final var types =
         new com.infenia.yukta.mcp.dto.SupervisorTypeList(
             List.of(
-                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry(
-                    "t", "T", "GUARD", "SUPERVISOR", "d")));
+                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry("t", "T", "RULES", "d")));
     final var details =
         new com.infenia.yukta.mcp.dto.SupervisorTypeDetails(
             "t",
             "T",
             "d",
             "u",
-            "GUARD",
-            "SUPERVISOR",
+            "RULES",
             List.of(),
             List.of(),
             null,
-            java.util.Map.of());
+            java.util.Map.of(),
+            List.of(),
+            false);
     final var saved = new com.infenia.yukta.mcp.dto.SupervisorSaved("s", "t", null, true);
     when(supervisorProvider.types()).thenReturn(types);
     when(supervisorProvider.type("t")).thenReturn(details);

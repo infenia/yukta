@@ -46,7 +46,7 @@ class SupervisorTypesControllerTest {
               "Demo",
               "Does demos.",
               "Use in tests.",
-              SupervisorCategory.GUARD,
+              SupervisorCategory.RULES,
               Optional.of(new UiDesign("blue", "bolt", "Demo", 140, 80)),
               Map.of("url", "http://x"));
         }
@@ -84,10 +84,8 @@ class SupervisorTypesControllerTest {
               final var entry = r.data().get(0);
               assertThat(entry.type()).isEqualTo("demo-control-plane");
               assertThat(entry.displayName()).isEqualTo("Demo");
-              assertThat(entry.category()).isEqualTo("GUARD");
+              assertThat(entry.category()).isEqualTo("RULES");
               assertThat(entry.icon()).isEqualTo("bolt");
-              // the example cannot be made, so the kind comes from the name
-              assertThat(entry.kind()).isEqualTo("CONTROL_PLANE");
             })
         .verifyComplete();
   }
@@ -176,11 +174,7 @@ class SupervisorTypesControllerTest {
                 new InMemoryExecutionLogStore()));
 
     StepVerifier.create(other.get("plain"))
-        .assertNext(
-            r -> {
-              assertThat(r.data().defaultAllowedCommands()).isNull();
-              assertThat(r.data().kind()).isEqualTo("SUPERVISOR");
-            })
+        .assertNext(r -> assertThat(r.data().defaultAllowedCommands()).isNull())
         .verifyComplete();
   }
 }

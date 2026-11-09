@@ -147,6 +147,20 @@ func TestSupervisionAndContractRead(t *testing.T) {
 	}
 }
 
+func TestSummaryReadsTheSupervisionSummary(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.URL.RequestURI()
+		_, _ = w.Write([]byte(`{"data":{"unowned":1,"unownedWorkflows":[],"conflicts":0}}`))
+	}))
+	defer srv.Close()
+	cmd := SummaryCmd(client.NewClient(srv.URL))
+	cmd.SetArgs(nil)
+	if err := cmd.Execute(); err != nil || got != "/api/supervision/summary" {
+		t.Errorf("got %q (%v)", got, err)
+	}
+}
+
 func TestOwnershipNeedsASessionAndAWorkflow(t *testing.T) {
 	var got string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

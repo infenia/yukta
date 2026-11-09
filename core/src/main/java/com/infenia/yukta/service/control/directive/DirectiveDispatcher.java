@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.security.AuditRecord;
 import com.infenia.yukta.security.AuditSink;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.archive.ArchivedExecution;
 import com.infenia.yukta.service.archive.ExecutionArchive;
 import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.input.InputRequestStore;
@@ -21,6 +22,7 @@ import com.infenia.yukta.service.review.ControlledBySupervisorException;
 import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.service.review.ReviewVerdict;
 import com.infenia.yukta.service.runtime.ControlAudit;
+import com.infenia.yukta.service.runtime.ExecutionControl;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import com.infenia.yukta.util.CommandSequencer;
 import jakarta.annotation.PostConstruct;
@@ -357,6 +359,20 @@ public class DirectiveDispatcher {
         .findById(requestId)
         .filter(request -> command.executionId().equals(request.executionId()))
         .map(InputRequest::nodeId);
+  }
+
+  /**
+   * The workflow of a run, live or archived.
+   *
+   * @param executionId the run
+   * @return its workflow id, or {@code null} when the run is not known
+   */
+  public @Nullable String workflowOf(final String executionId) {
+    return registry
+        .findByExecutionId(executionId)
+        .map(ExecutionControl::workflowId)
+        .or(() -> archive.find(executionId).map(ArchivedExecution::workflowId))
+        .orElse(null);
   }
 
   /** The session and workflow of the run a command addresses; nulls when the run is not known. */

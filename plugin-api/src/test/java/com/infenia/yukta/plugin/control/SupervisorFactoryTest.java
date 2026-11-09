@@ -53,6 +53,13 @@ class SupervisorFactoryTest {
   }
 
   @Test
+  void byDefaultItIsToldOnlyOfEventsAndCannotInitiate() {
+    org.assertj.core.api.Assertions.assertThat(factory.signals())
+        .containsExactly(com.infenia.yukta.plugin.control.engine.Signal.Kind.EVENT);
+    org.assertj.core.api.Assertions.assertThat(factory.canInitiate()).isFalse();
+  }
+
+  @Test
   void adoptsNothingByDefaultAndAnAdoptionKeepsAnImmutableCopyOfItsNotes() {
     final Supervisor old = new Supervisor("s1", "gone", Map.of(), false);
     org.assertj.core.api.Assertions.assertThat(factory.adopt(old)).isEmpty();

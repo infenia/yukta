@@ -4,6 +4,7 @@ package com.infenia.yukta.mcp.provider;
 
 import com.infenia.yukta.mcp.dto.AssignmentInput;
 import com.infenia.yukta.mcp.dto.SupervisionAnswer;
+import com.infenia.yukta.mcp.dto.SupervisionSummaryView;
 import com.infenia.yukta.mcp.dto.SupervisorAssignmentInfo;
 import com.infenia.yukta.mcp.dto.SupervisorAssignmentList;
 import com.infenia.yukta.mcp.dto.SupervisorCheck;
@@ -33,6 +34,7 @@ import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.review.ControlReviewer;
 import com.infenia.yukta.service.supervisor.OwnershipMap;
+import com.infenia.yukta.service.supervisor.SupervisionSummary;
 import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorRules;
@@ -86,6 +88,9 @@ public class SupervisorProvider {
   /** Finds the session and workflow of a run. */
   private final ControlBusGateway controlBus;
 
+  /** Counts what nobody supervises. */
+  private final SupervisionSummary summary;
+
   /**
    * The supervisors that run, the configured supervisors and the attachments.
    *
@@ -134,11 +139,7 @@ public class SupervisorProvider {
                 type -> {
                   final SupervisorDescriptor d = descriptor(type);
                   return new SupervisorTypeList.Entry(
-                      type,
-                      d.displayName(),
-                      d.category().name(),
-                      service.kind(type),
-                      d.description());
+                      type, d.displayName(), d.category().name(), d.description());
                 })
             .toList());
   }
@@ -158,11 +159,12 @@ public class SupervisorProvider {
         d.description(),
         d.usagePattern(),
         d.category().name(),
-        service.kind(type),
         service.configSchema(type),
         SupervisorCommonSettings.SCHEMA,
         allowed == null ? null : allowed.stream().sorted().toList(),
-        d.exampleSettings());
+        d.exampleSettings(),
+        service.signals(type),
+        service.canInitiate(type));
   }
 
   /**
@@ -578,5 +580,26 @@ public class SupervisorProvider {
                     found.defaultSupervisor(),
                     found.run(),
                     found.nodes()));
+  }
+
+  /**
+   * How many workflows nobody owns and how many assignments are in conflict.
+   *
+   * @return the summary
+   */
+  public Mono<SupervisionSummaryView> summary() {
+    return summary
+        .summarize()
+        .map(
+            found ->
+                new SupervisionSummaryView(
+                    found.unowned(),
+                    found.unownedWorkflows().stream()
+                        .map(
+                            w ->
+                                new SupervisionSummaryView.UnownedWorkflow(
+                                    w.sessionId(), w.workflowId()))
+                        .toList(),
+                    found.conflicts()));
   }
 }

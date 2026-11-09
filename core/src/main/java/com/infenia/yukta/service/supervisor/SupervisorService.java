@@ -5,7 +5,6 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.Delegation;
 import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -1116,35 +1115,6 @@ public class SupervisorService {
   }
 
   /**
-   * The kind of a type: {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found by making a
-   * supervisor from the type's example settings; a type that cannot be made that way (it needs a
-   * model, or other supervisors) is told apart by its name.
-   *
-   * @param type the supervisor type
-   * @return the kind
-   */
-  @SuppressWarnings("PMD.AvoidCatchingGenericException")
-  public String kind(final String type) {
-    final SupervisorFactory factory = factories.get(type);
-    if (factory == null) {
-      return "SUPERVISOR";
-    }
-    try {
-      final ExecutionSupervisor made =
-          factory.create(
-              new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
-      return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
-    } catch (RuntimeException e) { // PMD.AvoidCatchingGenericException: any factory may refuse
-      return kindByName(type);
-    }
-  }
-
-  /** The kind of a type whose example cannot be made: told apart by its name. */
-  private static String kindByName(final String type) {
-    return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
-  }
-
-  /**
    * The commands a supervisor of a type may send when its settings do not say.
    *
    * @param type the supervisor type
@@ -1188,6 +1158,30 @@ public class SupervisorService {
   public List<ConfigField> configSchema(final String type) {
     final SupervisorFactory factory = factories.get(type);
     return factory == null ? List.of() : factory.getConfigSchema();
+  }
+
+  /**
+   * The signals a supervisor of a type is told, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return the signal kinds by name, sorted; empty for an unknown type
+   */
+  public List<String> signals(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory == null
+        ? List.of()
+        : factory.signals().stream().map(Enum::name).sorted().toList();
+  }
+
+  /**
+   * Whether a supervisor of a type may act on its own, for the catalog.
+   *
+   * @param type the supervisor type
+   * @return true if it may; false for an unknown type
+   */
+  public boolean canInitiate(final String type) {
+    final SupervisorFactory factory = factories.get(type);
+    return factory != null && factory.canInitiate();
   }
 
   /** What the supervisor lets its supervisor do; an unknown command name is refused. */

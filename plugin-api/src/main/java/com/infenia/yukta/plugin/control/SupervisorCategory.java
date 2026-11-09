@@ -2,20 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
-/** Groups supervisor types in the catalog. */
+/** Groups the decision makers in the catalog, by where the decision is made. */
 public enum SupervisorCategory {
-  /** Stops or pauses a run when something goes wrong. */
-  GUARD,
-  /** Holds a decision for a person to approve. */
-  GATE,
-  /** Decides by rules. */
+  /** Rules written in the supervisor's settings decide. */
   RULES,
-  /** Decides with a model. */
-  MODEL,
-  /** Talks to a system outside the server. */
-  INTEGRATION,
-  /** Combines other supervisors. */
-  COMPOSITION,
-  /** Is a workflow of an internal session. */
-  WORKFLOW
+  /** A system outside the server decides, over HTTP. */
+  EXTERNAL_SYSTEM,
+  /** Something running on this server decides: a program or a workflow. */
+  ON_THIS_SERVER
 }

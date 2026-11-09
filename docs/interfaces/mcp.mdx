@@ -122,6 +122,7 @@ Tools return structured JSON, except where noted. Every tool that takes an `exec
 | `get_supervision` | `VIEWER` | optional `sessionId`, `workflowId`, `executionId`, `nodeId` | Per command whether people may send it now, the supervisor that carries it (`default` when nobody owns the unit) and why not |
 | `get_supervisor_contract` | `VIEWER` | none | `version` and `operations` of the supervisor contract |
 | `get_ownership` | `VIEWER` | `sessionId`, `workflowId` | `run` and `nodes`: the supervisor that carries the run level and each node, or `default`; `defaultSupervisor` says whether that one is on |
+| `get_supervision_summary` | `VIEWER` | none | `unowned`, `unownedWorkflows` (the first 100: `sessionId`, `workflowId`) and `conflicts`: the workflows nobody owns, internal sessions left out, and the assignments start-up disabled as conflicts |
 | `list_supervisor_presets` | `VIEWER` | `type` | `presets`: ready-made settings (`name`, `description`, `settings`) |
 | `list_supervisor_versions` | `VIEWER` | `supervisorId` | `versions` (`version`, `savedAt`, `type`, `dryRun`, `settingKeys`), newest first; never the values of settings |
 | `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` | The supervisor as restored (saved as a new version) |

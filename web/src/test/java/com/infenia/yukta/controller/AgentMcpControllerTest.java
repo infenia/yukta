@@ -40,7 +40,15 @@ class AgentMcpControllerTest {
 
   private MockServerWebExchange running(
       final com.infenia.yukta.plugin.control.engine.EngineReads reads) {
-    new HttpEngineFactory(hub)
+    new HttpEngineFactory(
+            hub,
+            new com.infenia.yukta.service.supervisor.agent.Outbound(
+                new com.infenia.yukta.service.supervisor.agent.Egress(
+                    com.infenia.yukta.plugin.util.EgressPolicy.OPEN,
+                    com.infenia.yukta.plugin.util.HostAllowList.from(null)),
+                org.springframework.web.reactive.function.client.WebClient.create(),
+                tools.jackson.databind.json.JsonMapper.builder().build(),
+                name -> null))
         .create(
             new EngineConfig(Map.of()),
             new EngineContext() {

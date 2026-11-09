@@ -251,7 +251,8 @@ public class ControlReviewer {
                       new ReviewVerdict.NeedsApproval(
                           needs.need(),
                           needs.reason() + " (asked " + outcome.asked() + ")",
-                          needs.askedBy());
+                          needs.askedBy(),
+                          outcome.asked());
                 });
   }
 

@@ -55,6 +55,7 @@ func TestSupervisorCallsUseTheirPathsAndMethods(t *testing.T) {
 		{"GET /api/supervision", func() (any, error) { return c.GetSupervision("", "", "", "") }},
 		{"GET /api/supervision?execution=e&node=n&session=s&workflow=w", func() (any, error) { return c.GetSupervision("s", "w", "e", "n") }},
 		{"GET /api/supervision/ownership?session=s&workflow=w", func() (any, error) { return c.GetOwnership("s", "w") }},
+		{"GET /api/supervision/summary", func() (any, error) { return c.GetSupervisionSummary() }},
 		{"GET /api/supervisor-contract", c.GetSupervisorContract},
 		{"GET /api/supervisors/decisions", func() (any, error) { return c.GetSupervisorDecisions("", 0) }},
 		{"GET /api/supervisors/decisions?limit=5&supervisor=sup", func() (any, error) { return c.GetSupervisorDecisions("sup", 5) }},

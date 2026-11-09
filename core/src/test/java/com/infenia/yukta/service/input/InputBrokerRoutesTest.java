@@ -604,6 +604,14 @@ class InputBrokerRoutesTest {
     final InputRequest now = current(request);
     assertThat(now.tier()).isEqualTo("above");
     assertThat(now.targets()).containsExactly("supervisor:workflow");
+    assertThat(now.asked())
+        .singleElement()
+        .satisfies(
+            step -> {
+              assertThat(step.who()).isEqualTo("section");
+              assertThat(step.said()).isEqualTo("escalated");
+              assertThat(step.reason()).isEqualTo("unsure");
+            });
   }
 
   @Test
@@ -672,6 +680,9 @@ class InputBrokerRoutesTest {
     broker.escalate(request.id(), "unsure", "ask Ann", null).block();
     assertThat(current(request).state()).isEqualTo(InputState.ESCALATED);
     assertThat(current(request).tier()).isEqualTo("default");
+    assertThat(current(request).asked())
+        .extracting(step -> step.who() + ":" + step.said())
+        .containsExactly("default:escalated");
 
     broker.cancel(request.id(), "gone").block();
     assertThat(broker.escalate(request.id(), "again", null, null).block().state())

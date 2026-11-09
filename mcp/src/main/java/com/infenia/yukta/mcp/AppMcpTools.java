@@ -20,6 +20,7 @@ import com.infenia.yukta.mcp.dto.SessionCreationResult;
 import com.infenia.yukta.mcp.dto.SessionDetails;
 import com.infenia.yukta.mcp.dto.SessionList;
 import com.infenia.yukta.mcp.dto.SupervisionAnswer;
+import com.infenia.yukta.mcp.dto.SupervisionSummaryView;
 import com.infenia.yukta.mcp.dto.SupervisorAssignmentList;
 import com.infenia.yukta.mcp.dto.SupervisorCheck;
 import com.infenia.yukta.mcp.dto.SupervisorContractInfo;
@@ -292,6 +293,24 @@ public class AppMcpTools {
       @McpToolParam(required = true, description = "The session id") final String sessionId,
       @McpToolParam(required = true, description = "The workflow id") final String workflowId) {
     return supervisorProvider.ownership(sessionId, workflowId);
+  }
+
+  /**
+   * How much of the server nobody supervises.
+   *
+   * @return the workflows nobody owns and the assignments in conflict
+   */
+  @McpTool(
+      name = "get_supervision_summary",
+      title = "Get Supervision Summary",
+      description =
+          "How many workflows nobody owns (the default supervisor carries their run level and "
+              + "every node; internal sessions left out; the first 100 named) and how many "
+              + "assignments start-up disabled because they overlapped another.",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<SupervisionSummaryView> getSupervisionSummary() {
+    return supervisorProvider.summary();
   }
 
   /**

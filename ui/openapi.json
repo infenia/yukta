@@ -2440,6 +2440,49 @@
         },
         "type" : "object"
       },
+      "ApiResponseSummary" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "$ref" : "#/components/schemas/Summary",
+            "description" : "The response data"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseSupervisorTypeDetails" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3036,6 +3079,24 @@
           "timestamp" : {
             "description" : "The time the response was generated",
             "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Asked" : {
+        "properties" : {
+          "at" : {
+            "format" : "date-time",
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "said" : {
+            "type" : "string"
+          },
+          "who" : {
             "type" : "string"
           }
         },
@@ -4053,6 +4114,12 @@
           "advice" : {
             "type" : "string"
           },
+          "asked" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Asked"
+            },
+            "type" : "array"
+          },
           "createdAt" : {
             "format" : "date-time",
             "type" : "string"
@@ -4176,6 +4243,12 @@
           },
           "answer" : {
             "$ref" : "#/components/schemas/InputAnswerView"
+          },
+          "asked" : {
+            "items" : {
+              "$ref" : "#/components/schemas/Asked"
+            },
+            "type" : "array"
           },
           "audience" : {
             "$ref" : "#/components/schemas/Audience"
@@ -5528,12 +5601,19 @@
       },
       "Summary" : {
         "properties" : {
-          "defaultSupervisor" : {
-            "type" : "boolean"
+          "conflicts" : {
+            "format" : "int64",
+            "type" : "integer"
           },
-          "owners" : {
+          "unowned" : {
             "format" : "int32",
             "type" : "integer"
+          },
+          "unownedWorkflows" : {
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowRef"
+            },
+            "type" : "array"
           }
         },
         "type" : "object"
@@ -5573,10 +5653,22 @@
       },
       "SupervisorDecision" : {
         "properties" : {
+          "because" : {
+            "type" : "string"
+          },
+          "cause" : {
+            "type" : "string"
+          },
           "command" : {
             "type" : "string"
           },
           "executionId" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "nodeId" : {
             "type" : "string"
           },
           "outcome" : {
@@ -5590,6 +5682,9 @@
           },
           "time" : {
             "format" : "date-time",
+            "type" : "string"
+          },
+          "workflowId" : {
             "type" : "string"
           }
         },
@@ -5690,8 +5785,11 @@
         "type" : "object"
       },
       "SupervisorTypeDetails" : {
-        "description" : "Details of a supervisor type",
+        "description" : "Details of a decision maker",
         "properties" : {
+          "canInitiate" : {
+            "type" : "boolean"
+          },
           "category" : {
             "type" : "string"
           },
@@ -5724,8 +5822,11 @@
             "additionalProperties" : { },
             "type" : "object"
           },
-          "kind" : {
-            "type" : "string"
+          "signals" : {
+            "items" : {
+              "type" : "string"
+            },
+            "type" : "array"
           },
           "type" : {
             "type" : "string"
@@ -5740,10 +5841,10 @@
         "type" : "object"
       },
       "SupervisorTypeSummary" : {
-        "description" : "A supervisor type in the catalog",
+        "description" : "A decision maker in the catalog",
         "properties" : {
           "category" : {
-            "description" : "The catalog category",
+            "description" : "RULES, EXTERNAL_SYSTEM or ON_THIS_SERVER",
             "type" : "string"
           },
           "displayName" : {
@@ -5752,10 +5853,6 @@
           },
           "icon" : {
             "description" : "The icon, a Material Symbols name",
-            "type" : "string"
-          },
-          "kind" : {
-            "description" : "SUPERVISOR, CONTROL_PLANE or COMPOSITE",
             "type" : "string"
           },
           "type" : {
@@ -6474,6 +6571,17 @@
               "$ref" : "#/components/schemas/TaskProgress"
             },
             "type" : "array"
+          },
+          "workflowId" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "WorkflowRef" : {
+        "properties" : {
+          "sessionId" : {
+            "type" : "string"
           },
           "workflowId" : {
             "type" : "string"
@@ -9883,6 +9991,25 @@
           }
         },
         "summary" : "Who owns each part of a workflow",
+        "tags" : [ "Supervision API" ]
+      }
+    },
+    "/api/supervision/summary" : {
+      "get" : {
+        "operationId" : "summary",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "How many workflows nobody owns, and how many assignments conflict",
         "tags" : [ "Supervision API" ]
       }
     },
