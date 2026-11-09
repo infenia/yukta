@@ -165,7 +165,13 @@ public record YuktaProperties(
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
       @Valid @NotNull @DefaultValue TurnAround turnAround,
       @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor,
-      @NotNull @DefaultValue List<String> lockHolders) {}
+      @NotNull @DefaultValue List<String> lockHolders) {
+
+    /** Keeps an unmodifiable copy of the lock holders. */
+    public Supervisor {
+      lockHolders = lockHolders == null ? List.of() : List.copyOf(lockHolders);
+    }
+  }
 
   /**
    * The lenient default supervisor, which lets people control what no supervisor owns. Turn it off

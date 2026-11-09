@@ -337,12 +337,14 @@ public class SupervisorProvider {
     return wanted.stream()
         .map(
             a -> {
-              if (a.target() == null || a.target().isBlank()) {
+              final String target = a.target();
+              if (target == null || target.isBlank()) {
                 throw new IllegalArgumentException("each assignment needs a target");
               }
+              final Boolean enabled = a.enabled();
               return new SupervisorAssignments.Assignment(
-                  SupervisorScope.parse(a.target()),
-                  a.enabled() == null || a.enabled(),
+                  SupervisorScope.parse(target),
+                  enabled == null || enabled,
                   Boolean.TRUE.equals(a.locked()));
             })
         .toList();

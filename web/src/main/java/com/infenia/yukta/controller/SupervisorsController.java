@@ -493,11 +493,17 @@ public class SupervisorsController {
     }
     return body.stream()
         .map(
-            a ->
-                new SupervisorAssignments.Assignment(
-                    SupervisorScope.parse(required("target", a.target())),
-                    a.enabled() == null || a.enabled(),
-                    Boolean.TRUE.equals(a.locked())))
+            a -> {
+              final String target = a.target();
+              if (target == null || target.isBlank()) {
+                throw new IllegalArgumentException("target is required");
+              }
+              final Boolean enabled = a.enabled();
+              return new SupervisorAssignments.Assignment(
+                  SupervisorScope.parse(target),
+                  enabled == null || enabled,
+                  Boolean.TRUE.equals(a.locked()));
+            })
         .toList();
   }
 

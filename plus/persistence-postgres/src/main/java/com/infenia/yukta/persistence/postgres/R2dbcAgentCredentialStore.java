@@ -7,6 +7,7 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -65,8 +66,8 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
   }
 
   /** The column is {@code NOT NULL DEFAULT ''}, so a stored value is never null. */
-  private static Set<String> addressesOf(final String stored) {
-    return stored.isBlank() ? Set.of() : Set.of(stored.split(","));
+  private static Set<String> addressesOf(final @Nullable String stored) {
+    return stored == null || stored.isBlank() ? Set.of() : Set.of(stored.split(","));
   }
 
   @Override
