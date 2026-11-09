@@ -162,4 +162,25 @@ class ProcessEngineFactoryTest {
       engine.close();
     }
   }
+
+  @Test
+  void aLineWithoutEndNeverFillsTheMemoryAndTheNextLineStillCounts() {
+    final SupervisorEngine engine =
+        factory.create(
+            sh(
+                "head -c 300000 /dev/zero | tr '\\0' x; echo; echo '{\"type\":\"command\","
+                    + "\"key\":\"k\",\"cause\":\"tick\",\"reason\":\"r\",\"command\":{\"type\":\"PauseWorkflow\",\"executionId\":\"run1\"}}';"
+                    + " sleep 5"),
+            CONTEXT);
+    try {
+      StepVerifier.create(engine.run(Flux.never()).take(1))
+          .assertNext(
+              d ->
+                  assertThat(((Directive.Command) d).command())
+                      .isEqualTo(new PauseWorkflowCommand("run1")))
+          .verifyComplete();
+    } finally {
+      engine.close();
+    }
+  }
 }

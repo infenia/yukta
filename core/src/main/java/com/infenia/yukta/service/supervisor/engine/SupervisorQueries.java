@@ -132,9 +132,9 @@ public class SupervisorQueries {
       return false; // Global owns nothing, so it reads nothing
     }
     return scope.matches(sessionId, workflowId)
-        || scope instanceof SupervisorScope.Section section
+        || (scope instanceof SupervisorScope.Section section
             && workflowId.equals(section.workflowId())
-            && (section.sessionId() == null || sessionId.equals(section.sessionId()));
+            && (section.sessionId() == null || sessionId.equals(section.sessionId())));
   }
 
   /**

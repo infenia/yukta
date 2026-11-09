@@ -172,8 +172,8 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     try (BufferedReader out =
         new BufferedReader(
             new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-      for (String line = out.readLine(); line != null; line = out.readLine()) {
-        if (line.length() > MAX_LINE || line.isBlank()) {
+      for (String line = boundedLine(out); line != null; line = boundedLine(out)) {
+        if (line.isBlank()) {
           continue;
         }
         try {
@@ -191,6 +191,33 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
     } catch (final IOException e) {
       sink.error(e);
     }
+  }
+
+  /**
+   * Reads one line, keeping at most {@link #MAX_LINE} characters. The rest of a longer line is read
+   * and thrown away, so a program that writes without a newline cannot fill the server's memory.
+   *
+   * @param in the program's output
+   * @return the line (empty when it was too long), or {@code null} at the end
+   * @throws IOException when the output cannot be read
+   */
+  /* default */ static String boundedLine(final BufferedReader in) throws IOException {
+    final StringBuilder line = new StringBuilder();
+    boolean tooLong = false;
+    for (int c = in.read(); c != -1; c = in.read()) {
+      if (c == '\n') {
+        return tooLong ? "" : line.toString();
+      }
+      if (line.length() < MAX_LINE) {
+        line.append((char) c);
+      } else {
+        tooLong = true;
+      }
+    }
+    if (tooLong) {
+      return "";
+    }
+    return line.isEmpty() ? null : line.toString();
   }
 
   private static String executable(final EngineConfig config) {

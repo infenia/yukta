@@ -22,6 +22,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 /**
  * The credential of an agent, one per supervisor: shown once, kept only as a SHA-256 hash, replaced
@@ -158,13 +159,18 @@ public final class AgentCredentials {
   }
 
   private void persist(final Mono<Void> write, final String supervisorId) {
+    // a failed write of a revocation would let the credential come back after a restart, so the
+    // write is tried three times and a failure is an error, not a warning
     write
+        .retryWhen(Retry.fixedDelay(2, Duration.ofMillis(200)))
         .doOnError(
             error ->
-                log.atWarn()
+                log.atError()
                     .setCause(error)
                     .addKeyValue("supervisor", supervisorId)
-                    .log("Could not store an agent credential"))
+                    .log(
+                        "Could not store an agent credential change; after a restart the stored"
+                            + " state returns, so check that a revoked credential is gone"))
         .onErrorResume(error -> Mono.empty())
         .subscribe();
   }

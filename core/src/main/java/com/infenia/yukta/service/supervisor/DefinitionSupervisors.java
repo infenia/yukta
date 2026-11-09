@@ -82,9 +82,6 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /** Keeps what sessions declare for themselves as a whole. */
   private final SupervisorStore store;
 
-  /** Knows which ids belong to supervisors the server configures itself. */
-  private final SupervisorHost host;
-
   /** The workflows of a session. */
   private final WorkflowDefinitionStore definitions;
 
@@ -126,7 +123,6 @@ public class DefinitionSupervisors implements DefinitionUsage {
       final SessionConfigStore sessions) {
     this.service = service;
     this.store = store;
-    this.host = host;
     this.definitions = definitions;
     this.sessions = sessions;
     this.checks = new DefinitionChecks(service, host);
