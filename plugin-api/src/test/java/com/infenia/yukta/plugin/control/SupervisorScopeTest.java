@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for the behaviour described by {@link SupervisorScope}. */
 @NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class SupervisorScopeTest {
 
   @Test

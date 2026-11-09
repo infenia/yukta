@@ -3,6 +3,7 @@
 package com.infenia.yukta.plugin.control.engine;
 
 /** A supervisor that passes questions up to its parents; the server tells it how to ask. */
+@FunctionalInterface
 public interface ConsultAware {
 
   /**

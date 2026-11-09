@@ -178,6 +178,38 @@ public class SupervisorAssignments {
         .map(validator -> problems(supervisorId, wanted, others, validator));
   }
 
+  private static Problems problems(
+      final String supervisorId,
+      final List<Assignment> wanted,
+      final List<SupervisorAttachment> others,
+      final OwnershipValidator validator) {
+    final List<Issue> found = new ArrayList<>();
+    final List<Issue> overlaps = new ArrayList<>();
+    final List<OwnershipConflict> conflicts = new ArrayList<>();
+    final Set<String> seen = new HashSet<>();
+    final List<OwnershipValidator.Claim> claims =
+        others.stream()
+            .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
+            .toList();
+    for (int i = 0; i < wanted.size(); i++) {
+      final Assignment assignment = wanted.get(i);
+      final String field = "assignments[" + i + "]";
+      if (!seen.add(assignment.scope().key())) {
+        found.add(new Issue(field, "is listed twice"));
+      } else if (SupervisorService.groupsWithoutSession(assignment.scope())) {
+        found.add(new Issue(field, SupervisorService.GROUPS_NEED_SESSION));
+      } else if (assignment.enabled()) {
+        for (final OwnershipConflict conflict :
+            validator.conflicts(
+                new OwnershipValidator.Claim(supervisorId, assignment.scope()), claims)) {
+          overlaps.add(new Issue(field, conflict.message()));
+          conflicts.add(conflict);
+        }
+      }
+    }
+    return new Problems(found, overlaps, conflicts);
+  }
+
   /**
    * Makes a supervisor own exactly these targets (its {@code MANUAL} assignments), after every
    * check passed. Assignments that stay the same are left running.
@@ -268,37 +300,5 @@ public class SupervisorAssignments {
         : "Locked assignments ("
             + targets
             + ") change only with unlock, by a key in yukta.supervisor.lock-holders";
-  }
-
-  private static Problems problems(
-      final String supervisorId,
-      final List<Assignment> wanted,
-      final List<SupervisorAttachment> others,
-      final OwnershipValidator validator) {
-    final List<Issue> found = new ArrayList<>();
-    final List<Issue> overlaps = new ArrayList<>();
-    final List<OwnershipConflict> conflicts = new ArrayList<>();
-    final Set<String> seen = new HashSet<>();
-    final List<OwnershipValidator.Claim> claims =
-        others.stream()
-            .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
-            .toList();
-    for (int i = 0; i < wanted.size(); i++) {
-      final Assignment assignment = wanted.get(i);
-      final String field = "assignments[" + i + "]";
-      if (!seen.add(assignment.scope().key())) {
-        found.add(new Issue(field, "is listed twice"));
-      } else if (SupervisorService.groupsWithoutSession(assignment.scope())) {
-        found.add(new Issue(field, SupervisorService.GROUPS_NEED_SESSION));
-      } else if (assignment.enabled()) {
-        for (final OwnershipConflict conflict :
-            validator.conflicts(
-                new OwnershipValidator.Claim(supervisorId, assignment.scope()), claims)) {
-          overlaps.add(new Issue(field, conflict.message()));
-          conflicts.add(conflict);
-        }
-      }
-    }
-    return new Problems(found, overlaps, conflicts);
   }
 }

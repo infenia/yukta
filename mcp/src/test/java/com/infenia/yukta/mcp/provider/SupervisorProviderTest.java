@@ -470,7 +470,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void aSecretFieldOfTheSchemaIsHiddenWhateverItsName() {
+  void secretFieldOfTheSchemaIsHiddenWhateverItsName() {
     when(service.supervisors())
         .thenReturn(Flux.just(new Supervisor("p", "T", Map.of("passphrase", "s3cret"), false)));
     when(service.configSchema("T"))
@@ -489,7 +489,7 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void supervisionOfANodeNamedWithoutAnExecutionUsesTheSessionAndWorkflowGiven() {
+  void supervisionOfNodeNamedWithoutAnExecutionUsesTheSessionAndWorkflowGiven() {
     when(reviewer.capabilities("s", "w", "n")).thenReturn(Map.of());
 
     StepVerifier.create(provider.supervision("s", "w", null, "n"))

@@ -374,7 +374,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aPauseStaysHeldWhenTheOutcomeWasNotAppliedOrIsUnrelated() {
+  void pauseStaysHeldWhenTheOutcomeWasNotAppliedOrIsUnrelated() {
     host.start();
     attach(
         pausing(10),
@@ -435,7 +435,7 @@ class SupervisorHostDirectivesTest {
   }
 
   @Test
-  void aFeedThatFailsDoesNotStopTheHostFromStarting() {
+  void feedThatFailsDoesNotStopTheHostFromStarting() {
     final ExecutionEventFeed broken = mock(ExecutionEventFeed.class);
     when(broken.events()).thenReturn(Flux.error(new IllegalStateException("feed down")));
     final SupervisorHost other =

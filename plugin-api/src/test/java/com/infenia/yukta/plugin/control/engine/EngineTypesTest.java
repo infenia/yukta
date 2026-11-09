@@ -115,4 +115,30 @@ class EngineTypesTest {
     assertThat(Outcome.valueOf("NOT_OWNED")).isEqualTo(Outcome.NOT_OWNED);
     assertThat(Directive.Verdict.values()).hasSize(3);
   }
+
+  @Test
+  void theReadViewsKeepImmutableCopies() {
+    final var run = new EngineReads.RunView("s", "e1", "w", "RUNNING", null);
+    final Map<String, String> nodes =
+        new java.util.concurrent.ConcurrentHashMap<>(Map.of("n", "RUNNING"));
+    final var detail = new EngineReads.RunDetail(run, nodes);
+    nodes.put("later", "x");
+    assertThat(detail.nodes()).containsOnlyKeys("n");
+
+    final List<EngineReads.NodeView> shapeNodes =
+        new java.util.ArrayList<>(List.of(new EngineReads.NodeView("n", "T", null)));
+    final List<EngineReads.EdgeView> shapeEdges =
+        new java.util.ArrayList<>(List.of(new EngineReads.EdgeView("n", "m")));
+    final var view = new EngineReads.WorkflowView("w", shapeNodes, shapeEdges);
+    shapeNodes.clear();
+    shapeEdges.clear();
+    assertThat(view.nodes()).hasSize(1);
+    assertThat(view.edges()).containsExactly(new EngineReads.EdgeView("n", "m"));
+    assertThat(new EngineReads.SchedulerView(4, 2, 1, 0).maxPerWorkflow()).isEqualTo(2);
+    // an engine that reads nothing gets nothing, also from the reads added later
+    assertThat(EngineReads.NONE.execution("e1").blockOptional()).isEmpty();
+    assertThat(EngineReads.NONE.workflow("s", "w").blockOptional()).isEmpty();
+    assertThat(EngineReads.NONE.logs("e1", 5).collectList().block()).isEmpty();
+    assertThat(EngineReads.NONE.scheduler().blockOptional()).isEmpty();
+  }
 }

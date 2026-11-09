@@ -139,7 +139,7 @@ class LegacyGuardsTest {
   }
 
   @Test
-  void aWatchdogWithOnlyARunningLimitNeedsNoSilenceAndAGuardTakesEveryActionName() {
+  void watchdogWithOnlyRunningLimitNeedsNoSilenceAndGuardTakesEveryActionName() {
     assertThat(LegacyGuards.stallWatchdog(Map.of("maxRunningSeconds", 60)).notes()).hasSize(1);
     for (final String action : new String[] {"PAUSE_WORKFLOW", "stop_workflow", "PAUSE_NODE"}) {
       loads(LegacyGuards.failureGuard(Map.of("action", action)).rules());

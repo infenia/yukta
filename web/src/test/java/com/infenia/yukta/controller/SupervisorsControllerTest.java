@@ -626,7 +626,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void aSystemSupervisorIsShownByIdAndAnUnknownOneIsNotFound() {
+  void systemSupervisorIsShownByIdAndAnUnknownOneIsNotFound() {
     when(host.status()).thenReturn(List.of(system("rules", "GLOBAL", null, null)));
     when(host.isBuiltIn("rules")).thenReturn(true);
 
@@ -649,7 +649,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void checkingNothingToOwnIsValidAndAMissingListIsAClientError() {
+  void checkingNothingToOwnIsValidAndMissingListIsClientError() {
     created("s1");
 
     StepVerifier.create(controller.checkAssignments("s1", List.of()))
@@ -665,7 +665,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void aReplayThatFindsDecisionsAnswersWithThem() {
+  void replayThatFindsDecisionsAnswersWithThem() {
     created("s1");
     final SupervisorService spied = org.mockito.Mockito.spy(service);
     org.mockito.Mockito.doReturn(
@@ -684,7 +684,7 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void aMissingIdIsGeneratedAndAMissingTypeIsAClientError() {
+  void missingIdIsGeneratedAndMissingTypeIsClientError() {
     StepVerifier.create(controller.create(body(null, Map.of())))
         .assertNext(r -> assertThat(r.data().id()).isNotBlank())
         .verifyComplete();

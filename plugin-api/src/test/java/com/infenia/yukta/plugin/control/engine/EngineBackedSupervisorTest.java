@@ -427,4 +427,45 @@ class EngineBackedSupervisorTest {
       run.dispose();
     }
   }
+
+  @Test
+  void anAnswerToAnUnknownDelegationChangesNothingAndKeylessQuestionGetsAnId() {
+    final Sinks.Many<Signal> seen = Sinks.many().replay().all();
+    final var child =
+        supervisor(
+            engine(
+                signals ->
+                    Flux.merge(
+                        signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
+                        Flux.<Directive>just(
+                            new Directive.DelegationAnswer("nobody", Map.of("x", 1)),
+                            new Directive.NoOpinion("nobody"),
+                            new Directive.Delegate(DelegationKind.CONSULT, Map.of())))),
+            true);
+    child.consultWith((kind, payload) -> Mono.just(Map.of()));
+    final var run = child.directives(Flux.never()).subscribe();
+    try {
+      StepVerifier.create(seen.asFlux().ofType(Signal.Consulted.class).take(1))
+          .assertNext(c -> assertThat(c.id()).startsWith("c"))
+          .verifyComplete();
+    } finally {
+      run.dispose();
+    }
+  }
+
+  @Test
+  void tooManyOpenConsultationsAreRefusedWithNoAnswer() {
+    final var parent = supervisor(engine(signals -> signals.thenMany(Flux.never())), true);
+    final var run = parent.directives(Flux.never()).subscribe();
+    try {
+      for (int i = 0; i < EngineBackedSupervisor.MAX_OPEN_REVIEWS; i++) {
+        parent.consulted("c", DelegationKind.CONSULT, Map.of(), Duration.ofSeconds(30)).subscribe();
+      }
+      StepVerifier.create(
+              parent.consulted("c", DelegationKind.CONSULT, Map.of(), Duration.ofSeconds(30)))
+          .verifyComplete();
+    } finally {
+      run.dispose();
+    }
+  }
 }

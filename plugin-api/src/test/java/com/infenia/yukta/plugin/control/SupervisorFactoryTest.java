@@ -51,4 +51,17 @@ class SupervisorFactoryTest {
   void defaultAllowedCommands_isUnrestrictedUntilFactoryNarrowsIt() {
     org.assertj.core.api.Assertions.assertThat(factory.defaultAllowedCommands()).isNull();
   }
+
+  @Test
+  void adoptsNothingByDefaultAndAnAdoptionKeepsAnImmutableCopyOfItsNotes() {
+    final Supervisor old = new Supervisor("s1", "gone", Map.of(), false);
+    org.assertj.core.api.Assertions.assertThat(factory.adopt(old)).isEmpty();
+
+    final List<String> notes = new java.util.ArrayList<>(List.of("changed"));
+    final SupervisorFactory.Adoption adoption = new SupervisorFactory.Adoption(old, notes);
+    notes.add("later");
+    org.assertj.core.api.Assertions.assertThat(adoption.notes()).containsExactly("changed");
+    assertThatThrownBy(() -> new SupervisorFactory.Adoption(null, List.of()))
+        .isInstanceOf(NullPointerException.class);
+  }
 }
