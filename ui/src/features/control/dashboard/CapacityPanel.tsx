@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
+import { useSupervision } from '@/features/supervisors/hooks/useSupervisorTypes';
+import { controlledBy } from '@/features/supervisors/components/RequireControl';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ArcGauge } from '@/components/dashboard/Gauges';
@@ -50,8 +52,17 @@ export function CapacityPanel({ live }: { live: boolean }) {
   const [confirmDrain, setConfirmDrain] = useState(false);
   // Shown disabled, with the role it needs, to a key that may not change the limits
   const me = useMe();
-  const mayChange = !me || me.permissions.changeLimits;
-  const needs = mayChange ? undefined : `Needs ${REQUIRED_ROLE.changeLimits}`;
+  // the server's owner may not let people change the limits or drain
+  const server = useSupervision({}).data;
+  const refused = [server?.setLimits, server?.drain].find(
+    (c) => c && !c.allowed
+  );
+  const mayChange = (!me || me.permissions.changeLimits) && !refused;
+  const needs = refused
+    ? (refused.reason ?? controlledBy(refused.via))
+    : mayChange
+      ? undefined
+      : `Needs ${REQUIRED_ROLE.changeLimits}`;
 
   // Both writes show the new value at once; the refetch after each write shows the server's value, so a refusal is undone.
   const changeLimit = useMutation({

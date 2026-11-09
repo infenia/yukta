@@ -4,11 +4,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
-import {
-  attachSupervisor,
-  detachAttachment,
-  setAttachmentEnabled,
-} from '../supervisors';
+import { getSupervisorDecisions, setAttachmentEnabled } from '../supervisors';
 
 const envelope = (data: unknown, status = 200) =>
   HttpResponse.json({ status, message: 'ok', data }, { status });
@@ -46,62 +42,39 @@ afterEach(() => {
 afterAll(() => server.close());
 
 describe('assignments through the supervisor API', () => {
-  it('adds a target to what the supervisor owns and keeps the locked ones locked', async () => {
+  it('enables one assignment by id, leaving the rest and keeping locks', async () => {
     stored = [
       view('a1', 'session:s1', { locked: true }),
-      view('d1', 'session:s2', { source: 'DEFINITION' }),
-    ];
-
-    const saved = await attachSupervisor({
-      supervisorId: 'guard',
-      scope: 'server',
-      enabled: false,
-    });
-
-    expect(puts[0]).toEqual([
-      { target: 'session:s1', enabled: true, locked: true },
-      { target: 'server', enabled: false, locked: false },
-    ]);
-    expect(saved?.scope).toBe('server');
-  });
-
-  it('falls back to the first saved one when the server renames the target', async () => {
-    server.use(
-      http.put('/api/supervisors/:id/assignments', () =>
-        envelope([view('x', 'session:other')])
-      )
-    );
-
-    const saved = await attachSupervisor({
-      supervisorId: 'guard',
-      scope: 'server',
-      enabled: true,
-    });
-
-    expect(saved?.id).toBe('x');
-  });
-
-  it('enables and removes one assignment by id, leaving the rest', async () => {
-    stored = [
-      view('a1', 'session:s1'),
       view('a2', 'server', { enabled: false }),
+      view('a3', 'workflow:w', { source: 'DEFINITION' }),
     ];
 
-    await setAttachmentEnabled('a2', true);
-    await detachAttachment('a1');
+    const saved = await setAttachmentEnabled('a2', true);
 
     expect(puts).toEqual([
       [
-        { target: 'session:s1', enabled: true, locked: false },
+        { target: 'session:s1', enabled: true, locked: true },
         { target: 'server', enabled: true, locked: false },
       ],
-      [{ target: 'server', enabled: false, locked: false }],
     ]);
+    expect(saved).toBeUndefined();
   });
 
   it('says when the assignment is not there', async () => {
-    await expect(detachAttachment('gone')).rejects.toThrow(
+    await expect(setAttachmentEnabled('gone', true)).rejects.toThrow(
       'Assignment gone not found'
     );
+  });
+
+  it('asks for the decisions of one supervisor', async () => {
+    let asked = '';
+    server.use(
+      http.get('/api/supervisors/decisions', ({ request }) => {
+        asked = new URL(request.url).search;
+        return envelope([]);
+      })
+    );
+    await getSupervisorDecisions('guard', 5);
+    expect(asked).toBe('?limit=5&supervisor=guard');
   });
 });

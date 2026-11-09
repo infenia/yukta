@@ -2,16 +2,25 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getSupervisorType, getSupervisorTypes } from '../api/supervisorTypes';
 import {
-  attachSupervisor,
+  getSupervisorType,
+  getSupervisorTypePresets,
+  getSupervisorTypes,
+  getSupervisorTypeUsage,
+} from '../api/supervisorTypes';
+import {
+  getOwnership,
+  getSupervision,
+  type ControlTarget,
+} from '../api/supervision';
+import {
   createSupervisor,
-  deleteSupervisor,
-  detachAttachment,
   getAttachments,
   getSupervisor,
   getSupervisorDecisions,
+  getSupervisorVersions,
   getSupervisors,
+  rollbackSupervisor,
   replaceSupervisor,
   setAttachmentEnabled,
   type AttachmentFilter,
@@ -30,6 +39,27 @@ export const useSupervisorType = (type: string | null) =>
     enabled: Boolean(type),
   });
 
+/** The supervisors wired to a decision maker. */
+export const useSupervisorTypeUsage = (type: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'types', type, 'usage'],
+    queryFn: () => getSupervisorTypeUsage(type),
+  });
+
+/** The presets of a decision maker. */
+export const useSupervisorTypePresets = (type: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'types', type, 'presets'],
+    queryFn: () => getSupervisorTypePresets(type),
+  });
+
+/** The kept versions of a supervisor, newest first. */
+export const useSupervisorVersions = (id: string) =>
+  useQuery({
+    queryKey: [...ROOT, 'versions', id],
+    queryFn: () => getSupervisorVersions(id),
+  });
+
 export const useSupervisors = () =>
   useQuery({ queryKey: [...ROOT, 'list'], queryFn: getSupervisors });
 
@@ -46,10 +76,34 @@ export const useAttachments = (filter: AttachmentFilter = {}) =>
     queryFn: () => getAttachments(filter),
   });
 
+/** The owners of a workflow's units; off until both ids are known. */
+export const useOwnership = (session: string | null, workflow: string | null) =>
+  useQuery({
+    queryKey: ['supervision', 'ownership', session, workflow],
+    queryFn: () => getOwnership(session as string, workflow as string),
+    enabled: Boolean(session && workflow),
+  });
+
+/** Who may send each command to a run, a node or the server; not retried, an old server lacks it. */
+export const useSupervision = (target: ControlTarget, enabled = true) =>
+  useQuery({
+    queryKey: [
+      'supervision',
+      target.execution ?? null,
+      target.node ?? null,
+      target.session ?? null,
+      target.workflow ?? null,
+    ],
+    queryFn: () => getSupervision(target),
+    enabled,
+    retry: false,
+    staleTime: 10_000,
+  });
+
 export const useSupervisorDecisions = (supervisor?: string) =>
   useQuery({
     queryKey: [...ROOT, 'decisions', supervisor ?? null],
-    queryFn: () => getSupervisorDecisions(supervisor),
+    queryFn: () => getSupervisorDecisions(supervisor, 200),
   });
 
 /** A write that refreshes everything about supervisors when it ends. */
@@ -63,10 +117,8 @@ function useWrite<A, R>(fn: (arg: A) => Promise<R>) {
 
 export const useCreateSupervisor = () => useWrite(createSupervisor);
 export const useReplaceSupervisor = () => useWrite(replaceSupervisor);
-export const useDeleteSupervisor = () => useWrite(deleteSupervisor);
-export const useAttachSupervisor = () => useWrite(attachSupervisor);
-export const useDetachAttachment = () => useWrite(detachAttachment);
 export const useSetAttachmentEnabled = () =>
   useWrite((a: { id: string; enabled: boolean }) =>
     setAttachmentEnabled(a.id, a.enabled)
   );
+export const useRollbackSupervisor = () => useWrite(rollbackSupervisor);

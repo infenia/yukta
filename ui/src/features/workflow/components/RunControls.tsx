@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { RequirePermission } from '@/components/common/RequirePermission';
+import { RequireControl } from '@/features/supervisors/components/RequireControl';
 import { buttonVariants } from '@/components/ui/button';
 import { ICON_TONE, iconButton } from '@/components/ui/iconTone';
 import { useState } from 'react';
@@ -51,7 +51,7 @@ function ControlButton({
   label: string;
   tone: string;
   disabled?: boolean;
-  /** Set by RequirePermission ("Needs OPERATOR"); defaults to the label. */
+  /** Set by RequireControl (the reason it is disabled); defaults to the label. */
   title?: string;
   onClick: () => void;
 }) {
@@ -241,7 +241,11 @@ export function RunControls({
           className={`${SEG} ${ICON_TONE.success}`}
           iconOnly
         />
-        <RequirePermission perm="controlRuns">
+        <RequireControl
+          perm="controlRuns"
+          command={category === 'paused' ? 'resume' : 'pause'}
+          target={{ execution: executionId }}
+        >
           {category === 'paused' ? (
             <ControlButton
               icon="play_circle"
@@ -258,9 +262,13 @@ export function RunControls({
               onClick={() => act('pause')}
             />
           )}
-        </RequirePermission>
+        </RequireControl>
         <DropdownMenu>
-          <RequirePermission perm="controlRuns">
+          <RequireControl
+            perm="controlRuns"
+            command="stop"
+            target={{ execution: executionId }}
+          >
             <DropdownMenuTrigger
               className={`${SEG} ${ICON_TONE.destructive}`}
               disabled={!live}
@@ -272,7 +280,7 @@ export function RunControls({
                 arrow_drop_down
               </span>
             </DropdownMenuTrigger>
-          </RequirePermission>
+          </RequireControl>
           <DropdownMenuContent align="end" className="w-max">
             <DropdownMenuItem
               onClick={() =>
@@ -313,7 +321,11 @@ export function RunControls({
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <RequirePermission perm="controlRuns">
+        <RequireControl
+          perm="controlRuns"
+          command="restart"
+          target={{ execution: executionId }}
+        >
           <ControlButton
             icon="restart_alt"
             label="Restart"
@@ -321,10 +333,14 @@ export function RunControls({
             disabled={!canRestart}
             onClick={() => act('restart')}
           />
-        </RequirePermission>
+        </RequireControl>
       </div>
       {canPrioritize && (
-        <RequirePermission perm="controlRuns">
+        <RequireControl
+          perm="controlRuns"
+          command="priority"
+          target={{ execution: executionId }}
+        >
           <Tip label="Change priority">
             <button
               type="button"
@@ -340,7 +356,7 @@ export function RunControls({
               </span>
             </button>
           </Tip>
-        </RequirePermission>
+        </RequireControl>
       )}
       <DropdownMenu>
         <DropdownMenuTrigger

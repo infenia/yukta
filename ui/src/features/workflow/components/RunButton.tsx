@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useRef, useState } from 'react';
-import { RequirePermission } from '@/components/common/RequirePermission';
+import { RequireControl } from '@/features/supervisors/components/RequireControl';
 import { InlineError } from '@/components/common/InlineError';
 import { Modal } from '@/components/common/Modal';
 import { buttonVariants } from '@/components/ui/button';
@@ -106,7 +106,11 @@ export function RunButton({
   const runKey = useRef('');
   return (
     <>
-      <RequirePermission perm="startRuns">
+      <RequireControl
+        perm="startRuns"
+        command="start"
+        target={{ session: sessionId, workflow: workflowId }}
+      >
         <Tip label={iconOnly ? label : undefined}>
           <button
             type="button"
@@ -131,7 +135,7 @@ export function RunButton({
             {!iconOnly && 'Run'}
           </button>
         </Tip>
-      </RequirePermission>
+      </RequireControl>
       {open && (
         <RunDialog
           pending={start.isPending}
