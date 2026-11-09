@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { DecisionMakersTab } from './DecisionMakersTab';
 import { ConflictsBanner } from './ConflictsBanner';
-import { DecisionsTable } from './DecisionsTable';
+import { Activity } from './Activity';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
 
 export const TABS = ['supervisors', 'decision-makers', 'activity'] as const;
@@ -37,6 +37,7 @@ export function SupervisorsPage() {
         actions={
           <div
             role="tablist"
+            aria-label="Supervisors sections"
             className="border-border flex max-w-full gap-4 overflow-x-auto border-b"
           >
             {TABS.map((name) => (
@@ -68,7 +69,7 @@ export function SupervisorsPage() {
       >
         {tab === 'supervisors' && <SupervisorsBrowser />}
         {tab === 'decision-makers' && <DecisionMakersTab />}
-        {tab === 'activity' && <DecisionsTable />}
+        {tab === 'activity' && <Activity />}
       </div>
     </div>
   );

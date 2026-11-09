@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '@/test/utils/testUtils';
@@ -32,7 +32,9 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 describe('SupervisorsTile', () => {
-  it('counts active supervisors, conflicts in the last hour and decisions per minute', async () => {
+  const tile = () => screen.getByRole('link', { name: 'Supervisors' });
+
+  it('counts active supervisors, unowned workflows, conflicts and decisions per minute', async () => {
     server.use(
       http.get('/api/supervisors/status', () =>
         ok([
@@ -44,39 +46,59 @@ describe('SupervisorsTile', () => {
       http.get('/api/supervisors/decisions', () =>
         ok([
           decision('applied', 60_000),
-          decision('arbitrated', 120_000),
-          decision('flapping-blocked', 30 * 60_000),
-          decision('coalesced', 2 * 3_600_000),
-          decision('applied', 2 * 3_600_000),
+          decision('rejected', 120_000),
+          decision('applied', 30 * 60_000),
         ])
+      ),
+      http.get('/api/supervision/summary', () =>
+        ok({
+          unowned: 3,
+          unownedWorkflows: [{ sessionId: 's', workflowId: 'w' }],
+          conflicts: 2,
+        })
       )
     );
     renderWithProviders(<SupervisorsTile />);
     expect(await screen.findByText('2 active')).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        '2 conflicts in the last hour · 0.2 decisions/min'
+    await waitFor(() =>
+      expect(tile()).toHaveTextContent(
+        '3 workflows nobody owns · 2 conflicts · 0.2 decisions/min'
       )
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Supervisors' })).toHaveAttribute(
-      'href',
-      '/supervisors'
     );
+    expect(screen.getByText('2 conflicts')).toHaveClass('text-warning');
+    expect(tile()).toHaveAttribute('href', '/supervisors');
   });
 
-  it('shows placeholders while loading and when nothing came back', async () => {
+  it('says one of each in the singular, and leaves the summary out until it is there', async () => {
     server.use(
       http.get('/api/supervisors/status', () => ok([])),
-      http.get('/api/supervisors/decisions', () => ok([]))
+      http.get('/api/supervisors/decisions', () => ok([])),
+      http.get('/api/supervision/summary', () =>
+        ok({ unowned: 1, unownedWorkflows: [], conflicts: 1 })
+      )
     );
     renderWithProviders(<SupervisorsTile />);
     expect(screen.getByText('– active')).toBeInTheDocument();
-    expect(screen.getByText('loading decisions')).toBeInTheDocument();
-    expect(await screen.findByText('0 active')).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        '0 conflicts in the last hour · 0.0 decisions/min'
+    expect(tile()).toHaveTextContent('loading decisions');
+    expect(tile()).not.toHaveTextContent('nobody owns');
+    await waitFor(() =>
+      expect(tile()).toHaveTextContent(
+        '1 workflow nobody owns · 1 conflict · 0.0 decisions/min'
       )
-    ).toBeInTheDocument();
+    );
+  });
+
+  it('shows no conflicts without the warning colour', async () => {
+    server.use(
+      http.get('/api/supervisors/status', () => ok([])),
+      http.get('/api/supervisors/decisions', () => ok([])),
+      http.get('/api/supervision/summary', () =>
+        ok({ unowned: 0, unownedWorkflows: [], conflicts: 0 })
+      )
+    );
+    renderWithProviders(<SupervisorsTile />);
+    expect(await screen.findByText('0 conflicts')).not.toHaveClass(
+      'text-warning'
+    );
   });
 });

@@ -10,7 +10,7 @@ import {
   afterEach,
   vi,
 } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -21,7 +21,7 @@ import {
 import { ApiError } from '@/lib/apiClient';
 import { setMe, type Me } from '@/lib/identity';
 import { getInput, listInputs, type InputRequest } from '../../api/inputs';
-import { inputErrorMessage, remaining } from '../InputRow';
+import { ApprovalChain, inputErrorMessage, remaining } from '../InputRow';
 import { InputsPanel } from '../InputsPanel';
 
 const ok = (data: unknown) =>
@@ -429,5 +429,39 @@ describe('listInputs', () => {
 describe('getInput', () => {
   it('reads one request', async () => {
     expect((await getInput('e1', 'r1')).id).toBe('r1');
+  });
+});
+
+describe('ApprovalChain', () => {
+  const asked = [
+    { who: 'guard', said: 'asked for approval', reason: null, at: 't' },
+    { who: 'release-lead', said: 'no-opinion', reason: null, at: 't' },
+    { who: 'build-agent', said: 'escalated', reason: 'unsure', at: 't' },
+  ];
+
+  it('says who was asked, then who is asked now', () => {
+    const view = render(<ApprovalChain request={request({ asked })} you />);
+    expect(screen.getByLabelText('Approval chain')).toHaveTextContent(
+      'Asked guard (asked for approval), then release-lead (no opinion), then build-agent (escalated: unsure), now you.'
+    );
+    view.rerender(
+      <ApprovalChain request={request({ asked, tier: 'leads' })} you={false} />
+    );
+    expect(screen.getByLabelText('Approval chain')).toHaveTextContent(
+      /, now tier leads\.$/
+    );
+  });
+
+  it('has no "now" once the request ended, and nothing without steps', () => {
+    const view = render(
+      <ApprovalChain request={request({ asked, state: 'ANSWERED' })} you />
+    );
+    expect(screen.getByLabelText('Approval chain')).not.toHaveTextContent(
+      'now'
+    );
+    view.rerender(<ApprovalChain request={request({ asked: [] })} you />);
+    expect(screen.queryByLabelText('Approval chain')).toBeNull();
+    view.rerender(<ApprovalChain request={request()} you />);
+    expect(screen.queryByLabelText('Approval chain')).toBeNull();
   });
 });
