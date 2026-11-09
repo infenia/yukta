@@ -35,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  * back after a restart. Settings are stored as given, a model API key included.
  */
 @Slf4j
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap", "PMD.CouplingBetweenObjects"})
 public class R2dbcSupervisorStore implements SupervisorStore {
 
   /** The stored settings of a profile. */
@@ -48,6 +48,13 @@ public class R2dbcSupervisorStore implements SupervisorStore {
 
   private static final TypeReference<Map<String, Map<String, Object>>> DELEGATION =
       new TypeReference<>() {};
+
+  // column names, also the keys of a version body
+  private static final String TYPE = "type";
+  private static final String SETTINGS_FIELD = "settings";
+  private static final String DESCRIPTION = "description";
+  private static final String PARENTS_FIELD = "parents";
+  private static final String DELEGATION_FIELD = "delegation";
 
   /** Runs the statements. */
   private final DatabaseClient client;
@@ -111,13 +118,13 @@ public class R2dbcSupervisorStore implements SupervisorStore {
             row ->
                 new Supervisor(
                     row.get("id", String.class),
-                    row.get("type", String.class),
-                    mapper.readValue(row.get("settings", String.class), SETTINGS),
+                    row.get(TYPE, String.class),
+                    mapper.readValue(row.get(SETTINGS_FIELD, String.class), SETTINGS),
                     Boolean.TRUE.equals(row.get("dry_run", Boolean.class)),
-                    row.get("description", String.class),
-                    mapper.readValue(row.get("parents", String.class), PARENTS),
+                    row.get(DESCRIPTION, String.class),
+                    mapper.readValue(row.get(PARENTS_FIELD, String.class), PARENTS),
                     delegationOf(
-                        mapper.readValue(row.get("delegation", String.class), DELEGATION))))
+                        mapper.readValue(row.get(DELEGATION_FIELD, String.class), DELEGATION))))
         .all();
   }
 
@@ -333,24 +340,24 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   /** A supervisor as one JSON document, in the same shape as the columns of its own row. */
   private static Map<String, Object> body(final Supervisor supervisor) {
     final Map<String, Object> body = new java.util.LinkedHashMap<>();
-    body.put("type", supervisor.type());
-    body.put("settings", supervisor.settings());
+    body.put(TYPE, supervisor.type());
+    body.put(SETTINGS_FIELD, supervisor.settings());
     body.put("dryRun", supervisor.dryRun());
-    body.put("description", supervisor.description());
-    body.put("parents", supervisor.parents());
-    body.put("delegation", delegationJson(supervisor.delegation()));
+    body.put(DESCRIPTION, supervisor.description());
+    body.put(PARENTS_FIELD, supervisor.parents());
+    body.put(DELEGATION_FIELD, delegationJson(supervisor.delegation()));
     return body;
   }
 
   private Supervisor fromBody(final String id, final Map<String, Object> body) {
     return new Supervisor(
         id,
-        String.valueOf(body.get("type")),
-        mapper.convertValue(body.get("settings"), SETTINGS),
+        String.valueOf(body.get(TYPE)),
+        mapper.convertValue(body.get(SETTINGS_FIELD), SETTINGS),
         Boolean.TRUE.equals(body.get("dryRun")),
-        (String) body.get("description"),
-        mapper.convertValue(body.get("parents"), PARENTS),
-        delegationOf(mapper.convertValue(body.get("delegation"), DELEGATION)));
+        (String) body.get(DESCRIPTION),
+        mapper.convertValue(body.get(PARENTS_FIELD), PARENTS),
+        delegationOf(mapper.convertValue(body.get(DELEGATION_FIELD), DELEGATION)));
   }
 
   @Override

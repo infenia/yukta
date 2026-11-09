@@ -200,6 +200,20 @@ class SupervisorsControllerTest {
   }
 
   @Test
+  void rulesOfSupervisorWithNoKeptVersionShowVersionZero() {
+    final SupervisorsController rules = withRules();
+    // stored without a save through the service, as an adopted supervisor is
+    StepVerifier.create(
+            store.saveSupervisor(
+                new Supervisor("adopted", "rules", Map.of("rules", List.of()), false)))
+        .verifyComplete();
+
+    StepVerifier.create(rules.rules("adopted"))
+        .assertNext(r -> assertThat(r.data().version()).isZero())
+        .verifyComplete();
+  }
+
+  @Test
   void rulesRefuseCommonSettingsSystemSupervisorsAndOtherEngines() {
     final SupervisorsController rules = withRules();
     created("plain");
