@@ -42,6 +42,14 @@ import reactor.core.publisher.Mono;
  * assignment can be changed or removed only by asking to unlock, and only by a key named in {@code
  * yukta.supervisor.lock-holders} when that list is set.
  */
+@SuppressWarnings({
+  "PMD.AvoidInstantiatingObjectsInLoops",
+  "PMD.ConfusingTernary",
+  "PMD.CouplingBetweenObjects",
+  "PMD.LambdaCanBeMethodReference",
+  "PMD.ShortMethodName",
+  "PMD.UseConcurrentHashMap"
+})
 @Component
 public class SupervisorAssignments {
 

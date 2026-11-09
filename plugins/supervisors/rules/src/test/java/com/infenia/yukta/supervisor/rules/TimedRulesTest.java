@@ -169,9 +169,9 @@ class TimedRulesTest {
             """);
     supervisor.readsFrom(runs("RUNNING", "RUNNING"));
     // run1 just did something; run2 started at the epoch and nothing was seen since
-    final Flux<com.infenia.yukta.plugin.control.ExecutionEvent> events =
-        Flux.<com.infenia.yukta.plugin.control.ExecutionEvent>just(
-                new com.infenia.yukta.plugin.control.ExecutionEvent.WorkflowStatusChanged(
+    final Flux<ExecutionEvent> events =
+        Flux.<ExecutionEvent>just(
+                new ExecutionEvent.WorkflowStatusChanged(
                     "run1", "s", "w", "RUNNING", Instant.now()))
             .concatWith(Flux.never());
 

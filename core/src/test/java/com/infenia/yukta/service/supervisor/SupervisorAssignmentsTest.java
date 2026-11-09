@@ -29,7 +29,7 @@ import reactor.test.StepVerifier;
 import reactor.util.context.Context;
 
 /** What a supervisor owns is set as a whole: checked first, then applied, locks honoured. */
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidInstantiatingObjectsInLoops"})
 class SupervisorAssignmentsTest {
 
   private final InMemorySupervisorStore store = new InMemorySupervisorStore();

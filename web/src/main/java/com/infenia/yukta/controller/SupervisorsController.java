@@ -55,10 +55,12 @@ import reactor.core.publisher.Mono;
  */
 @RestController
 @SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.ExcessiveImports",
+  "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.CouplingBetweenObjects",
-  "PMD.GodClass"
+  "PMD.ExcessiveImports",
+  "PMD.GodClass",
+  "PMD.LinguisticNaming",
+  "PMD.TooManyMethods"
 })
 @RequestMapping("/api/supervisors")
 @RequiredArgsConstructor

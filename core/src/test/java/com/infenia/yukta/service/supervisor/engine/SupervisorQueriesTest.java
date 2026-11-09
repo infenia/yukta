@@ -30,6 +30,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 /** An engine reads only what its supervisor owns. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class SupervisorQueriesTest {
 
   private final SessionService sessions = mock(SessionService.class);

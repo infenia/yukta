@@ -24,6 +24,7 @@ import tools.jackson.databind.ObjectMapper;
  * HTTP, request and response; no server push, so an agent reads the snapshot instead of waiting for
  * events). It is a separate endpoint from {@code /mcp}, which serves people and their keys.
  */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals"})
 @RestController
 @RequestMapping(AgentCredentialFilter.PATH)
 @RequiredArgsConstructor

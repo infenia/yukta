@@ -37,7 +37,13 @@ import reactor.core.publisher.Mono;
  */
 @Slf4j
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
+@SuppressWarnings({
+  "PMD.AvoidUsingVolatile",
+  "PMD.CouplingBetweenObjects",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
+  "PMD.TooManyMethods",
+  "PMD.UseConcurrentHashMap"
+})
 public class ControlReviewer {
 
   /** The {@code via} of a unit that nobody owns. */

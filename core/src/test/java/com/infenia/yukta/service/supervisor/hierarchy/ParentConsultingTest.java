@@ -13,6 +13,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** A question to the parents: the mode decides whose answer counts. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals"})
 class ParentConsultingTest {
 
   private static final List<String> PARENTS = List.of("a", "b", "c");

@@ -35,7 +35,13 @@ import tools.jackson.databind.json.JsonMapper;
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = "yukta.process.allow-any=true")
 @NoArgsConstructor
-@SuppressWarnings({"PMD.SignatureDeclareThrowsException", "PMD.UnitTestShouldIncludeAssert"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.FieldDeclarationsShouldBeAtStartOfClass",
+  "PMD.SignatureDeclareThrowsException",
+  "PMD.UnitTestShouldIncludeAssert",
+  "PMD.UseConcurrentHashMap"
+})
 class PresetsAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);

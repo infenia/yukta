@@ -36,7 +36,13 @@ import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** A supervisor's engine asks its parents a question; the service finds the parents' engines. */
-@SuppressWarnings({"PMD.UnitTestShouldIncludeAssert", "PMD.CloseResource"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.CloseResource",
+  "PMD.ExcessiveImports",
+  "PMD.ShortMethodName",
+  "PMD.TooManyStaticImports",
+})
 class SupervisorServiceConsultTest {
 
   private static final String TYPE = "ask";

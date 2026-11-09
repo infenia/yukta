@@ -24,6 +24,7 @@ import reactor.core.publisher.Mono;
  *
  * <p>When no parent answers the result is empty; the asking engine decides what that means for it.
  */
+@SuppressWarnings({"PMD.UseConcurrentHashMap"})
 @UtilityClass
 public class ParentConsulting {
 

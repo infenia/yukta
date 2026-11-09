@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 /** Who carries a command, for a node, a run, a run found by its execution and the server. */
+@SuppressWarnings({"PMD.NonStaticInitializer"})
 @NoArgsConstructor
 class SupervisionControllerTest {
 
@@ -21,11 +22,10 @@ class SupervisionControllerTest {
 
   {
     // the list of commands is the reviewer's own; each answer comes from capability, stubbed below
-    org.mockito.Mockito.when(
-            reviewer.capabilities(
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any(),
-                org.mockito.ArgumentMatchers.any()))
+    when(reviewer.capabilities(
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any(),
+            org.mockito.ArgumentMatchers.any()))
         .thenCallRealMethod();
   }
 

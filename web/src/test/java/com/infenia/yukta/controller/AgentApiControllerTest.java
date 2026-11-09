@@ -673,16 +673,16 @@ class AgentApiControllerTest {
     running(EngineReads.NONE);
 
     StepVerifier.create(controller.execution(as("a1"), "run1"))
-        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .expectError(NotFoundException.class)
         .verify();
     StepVerifier.create(controller.logs(as("a1"), "run1", 10))
-        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .expectError(NotFoundException.class)
         .verify();
     StepVerifier.create(controller.workflow(as("a1"), "s", "w"))
-        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .expectError(NotFoundException.class)
         .verify();
     StepVerifier.create(controller.scheduler(as("a1")))
-        .expectError(com.infenia.yukta.service.NotFoundException.class)
+        .expectError(NotFoundException.class)
         .verify();
   }
 }

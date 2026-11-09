@@ -46,7 +46,6 @@ import reactor.test.StepVerifier;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
-  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.UseConcurrentHashMap"
 })
 class SupervisorsControllerTest {
@@ -407,9 +406,7 @@ class SupervisorsControllerTest {
   }
 
   private static List<String> ids(
-      final reactor.core.publisher.Mono<
-              com.infenia.yukta.model.api.ApiResponse<List<AssignmentView>>>
-          response) {
+      final Mono<com.infenia.yukta.model.api.ApiResponse<List<AssignmentView>>> response) {
     return java.util.Objects.requireNonNull(response.block()).data().stream()
         .map(AssignmentView::id)
         .toList();

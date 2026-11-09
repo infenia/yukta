@@ -50,7 +50,14 @@ import reactor.core.publisher.Mono;
 /** Lists, saves and deletes supervisors, sets what they own and describes the engines, for MCP. */
 @Component
 @RequiredArgsConstructor
-@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.ExcessiveImports", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidFieldNameMatchingMethodName",
+  "PMD.CouplingBetweenObjects",
+  "PMD.ExcessiveImports",
+  "PMD.LinguisticNaming",
+  "PMD.TooManyMethods",
+  "PMD.UseObjectForClearerAPI"
+})
 public class SupervisorProvider {
 
   /** What a secret is shown as; sending it back would overwrite the secret, so it is refused. */

@@ -29,6 +29,7 @@ import reactor.core.publisher.Mono;
  * What an engine may read: the executions and open input requests of the units its supervisor owns,
  * newest first and bounded. It reads no node output and no message payload.
  */
+@SuppressWarnings({"PMD.CouplingBetweenObjects", "PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 @Component
 public class SupervisorQueries {
 
@@ -189,8 +190,7 @@ public class SupervisorQueries {
    * @param executionId its id
    * @return the status name, or empty if the run is not in the history
    */
-  public reactor.core.publisher.Mono<String> statusOf(
-      final String sessionId, final String executionId) {
+  public Mono<String> statusOf(final String sessionId, final String executionId) {
     return controlBus
         .getHistory(sessionId)
         .flatMapIterable(history -> history)

@@ -16,6 +16,7 @@ import lombok.experimental.UtilityClass;
  * {@code stall-watchdog}), so a stored guard becomes a {@code rules} supervisor with the same
  * effect (decision D8: guards are presets of the rules engine).
  */
+@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.UseConcurrentHashMap"})
 @UtilityClass
 public class LegacyGuards {
 

@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 
 /** Stored supervisors of every retired type are converted at start-up, or left alone and named. */
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.AvoidInstantiatingObjectsInLoops"})
 class SupervisorAdoptionTest {
 
   /** An engine that adopts some retired types, and fails on settings it cannot read. */

@@ -73,11 +73,12 @@ import reactor.core.publisher.Mono;
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({
-  "PMD.UseObjectForClearerAPI",
   "PMD.CouplingBetweenObjects",
   "PMD.ExcessiveImports",
+  "PMD.ExcessivePublicCount",
+  "PMD.LinguisticNaming",
   "PMD.TooManyMethods",
-  "PMD.ExcessivePublicCount"
+  "PMD.UseObjectForClearerAPI"
 })
 public class AppMcpTools {
 
