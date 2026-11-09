@@ -83,7 +83,7 @@ public interface SupervisorFactory {
    */
   default SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
-        type(), "", "", SupervisorCategory.INTEGRATION, Optional.empty(), Map.of());
+        type(), "", "", SupervisorCategory.ON_THIS_SERVER, Optional.empty(), Map.of());
   }
 
   /**

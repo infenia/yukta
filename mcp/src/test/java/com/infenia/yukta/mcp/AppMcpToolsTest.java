@@ -407,20 +407,10 @@ class AppMcpToolsTest {
     final var types =
         new com.infenia.yukta.mcp.dto.SupervisorTypeList(
             List.of(
-                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry(
-                    "t", "T", "GUARD", "SUPERVISOR", "d")));
+                new com.infenia.yukta.mcp.dto.SupervisorTypeList.Entry("t", "T", "RULES", "d")));
     final var details =
         new com.infenia.yukta.mcp.dto.SupervisorTypeDetails(
-            "t",
-            "T",
-            "d",
-            "u",
-            "GUARD",
-            "SUPERVISOR",
-            List.of(),
-            List.of(),
-            null,
-            java.util.Map.of());
+            "t", "T", "d", "u", "RULES", List.of(), List.of(), null, java.util.Map.of());
     final var saved = new com.infenia.yukta.mcp.dto.SupervisorSaved("s", "t", null, true);
     when(supervisorProvider.types()).thenReturn(types);
     when(supervisorProvider.type("t")).thenReturn(details);

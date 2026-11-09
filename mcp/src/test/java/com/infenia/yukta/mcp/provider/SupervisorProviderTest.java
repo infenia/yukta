@@ -157,23 +157,18 @@ class SupervisorProviderTest {
             "T",
             "does t",
             "use t",
-            com.infenia.yukta.plugin.control.SupervisorCategory.GUARD,
+            com.infenia.yukta.plugin.control.SupervisorCategory.RULES,
             java.util.Optional.empty(),
             java.util.Map.of("k", 1));
     when(service.types()).thenReturn(List.of("t"));
     when(service.describe("t")).thenReturn(java.util.Optional.of(descriptor));
     when(service.describe("nope")).thenReturn(java.util.Optional.empty());
-    when(service.kind("t")).thenReturn("SUPERVISOR");
     when(service.configSchema("t")).thenReturn(List.of());
     when(service.defaultAllowedCommands("t")).thenReturn(java.util.Set.of("B", "A"));
 
     assertThat(provider.types().types())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.displayName()).isEqualTo("T");
-              assertThat(e.kind()).isEqualTo("SUPERVISOR");
-            });
+        .satisfies(e -> assertThat(e.displayName()).isEqualTo("T"));
     final var details = provider.type("t");
     assertThat(details.defaultAllowedCommands()).containsExactly("A", "B");
     assertThat(details.commonSchema()).isNotEmpty();
@@ -205,7 +200,6 @@ class SupervisorProviderTest {
             java.util.Optional.empty(),
             java.util.Map.of());
     when(service.describe("t")).thenReturn(java.util.Optional.of(descriptor));
-    when(service.kind("t")).thenReturn("SUPERVISOR");
     when(service.configSchema("t")).thenReturn(List.of());
     when(service.defaultAllowedCommands("t")).thenReturn(null);
 

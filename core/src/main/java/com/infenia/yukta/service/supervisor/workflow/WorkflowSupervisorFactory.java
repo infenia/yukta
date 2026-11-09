@@ -66,10 +66,10 @@ public class WorkflowSupervisorFactory implements SupervisorFactory {
   public SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
         "Workflow",
-        "Makes a supervisor out of a workflow in an internal session, started for each matching"
-            + " event.",
+        "A workflow in an internal session decides: it is started for each matching event, and"
+            + " what its last node returns is the decision.",
         "Use it when the decision needs steps: calling a service, asking a model, or waiting.",
-        SupervisorCategory.WORKFLOW,
+        SupervisorCategory.ON_THIS_SERVER,
         Optional.of(new UiDesign("teal", "schema", "Workflow", 140, 80)),
         Map.of(
             "sessionId",

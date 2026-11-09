@@ -5648,7 +5648,7 @@ export interface components {
             /** @description The id of a configured supervisor */
             supervisor: string;
         };
-        /** @description Details of a supervisor type */
+        /** @description Details of a decision maker */
         SupervisorTypeDetails: {
             category?: string;
             commonSchema?: components["schemas"]["ConfigField"][];
@@ -5660,21 +5660,18 @@ export interface components {
             exampleSettings?: {
                 [key: string]: unknown;
             };
-            kind?: string;
             type?: string;
             uiDesign?: components["schemas"]["UiDesign"];
             usagePattern?: string;
         };
-        /** @description A supervisor type in the catalog */
+        /** @description A decision maker in the catalog */
         SupervisorTypeSummary: {
-            /** @description The catalog category */
+            /** @description RULES, EXTERNAL_SYSTEM or ON_THIS_SERVER */
             category?: string;
             /** @description The name shown to people */
             displayName?: string;
             /** @description The icon, a Material Symbols name */
             icon?: string;
-            /** @description SUPERVISOR, CONTROL_PLANE or COMPOSITE */
-            kind?: string;
             /** @description The type name */
             type?: string;
         };

@@ -12,8 +12,6 @@ import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsValidator;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory;
-import com.infenia.yukta.supervisor.callout.CalloutSupervisorFactory;
-import com.infenia.yukta.supervisor.callout.Egress;
 import com.infenia.yukta.supervisor.rules.RuleSupervisorFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -37,8 +35,18 @@ class SupervisorCatalogTest {
   private static List<SupervisorFactory> factories() {
     return List.of(
         new RuleSupervisorFactory(),
-        new CalloutSupervisorFactory(
-            new Egress(EgressPolicy.OPEN, HostAllowList.from(null)), name -> null),
+        new com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory(
+            new com.infenia.yukta.service.supervisor.agent.HttpEngineFactory(
+                new com.infenia.yukta.service.supervisor.agent.AgentHub(),
+                new com.infenia.yukta.service.supervisor.agent.Outbound(
+                    new com.infenia.yukta.service.supervisor.agent.Egress(
+                        EgressPolicy.OPEN, HostAllowList.from(null)),
+                    org.springframework.web.reactive.function.client.WebClient.create(),
+                    JSON,
+                    name -> null))),
+        new com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory(
+            new com.infenia.yukta.supervisor.process.ProcessEngineFactory(
+                java.util.Set.of(), true)),
         new WorkflowSupervisorFactory(null, null, null));
   }
 

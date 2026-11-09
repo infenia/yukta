@@ -5,7 +5,6 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.config.YuktaProperties;
 import com.infenia.yukta.plugin.control.AttachmentAware;
 import com.infenia.yukta.plugin.control.ControlActor;
-import com.infenia.yukta.plugin.control.ControlPlanePlugin;
 import com.infenia.yukta.plugin.control.Delegation;
 import com.infenia.yukta.plugin.control.DelegationKind;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
@@ -1113,35 +1112,6 @@ public class SupervisorService {
    */
   public Optional<List<SupervisorPreset>> presets(final String type) {
     return Optional.ofNullable(factories.get(type)).map(SupervisorFactory::presets);
-  }
-
-  /**
-   * The kind of a type: {@code CONTROL_PLANE} or {@code SUPERVISOR}. It is found by making a
-   * supervisor from the type's example settings; a type that cannot be made that way (it needs a
-   * model, or other supervisors) is told apart by its name.
-   *
-   * @param type the supervisor type
-   * @return the kind
-   */
-  @SuppressWarnings("PMD.AvoidCatchingGenericException")
-  public String kind(final String type) {
-    final SupervisorFactory factory = factories.get(type);
-    if (factory == null) {
-      return "SUPERVISOR";
-    }
-    try {
-      final ExecutionSupervisor made =
-          factory.create(
-              new Supervisor("catalog-probe", type, factory.describe().exampleSettings(), true));
-      return made instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
-    } catch (RuntimeException e) { // PMD.AvoidCatchingGenericException: any factory may refuse
-      return kindByName(type);
-    }
-  }
-
-  /** The kind of a type whose example cannot be made: told apart by its name. */
-  private static String kindByName(final String type) {
-    return type.endsWith("control-plane") ? "CONTROL_PLANE" : "SUPERVISOR";
   }
 
   /**

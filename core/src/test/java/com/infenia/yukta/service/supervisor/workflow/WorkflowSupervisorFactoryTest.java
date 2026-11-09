@@ -29,7 +29,7 @@ class WorkflowSupervisorFactoryTest {
 
     assertThat(factory.type()).isEqualTo("workflow");
     assertThat(described.displayName()).isEqualTo("Workflow");
-    assertThat(described.category()).isEqualTo(SupervisorCategory.WORKFLOW);
+    assertThat(described.category()).isEqualTo(SupervisorCategory.ON_THIS_SERVER);
     assertThat(described.uiDesign()).isPresent();
     assertThat(described.exampleSettings())
         .containsEntry("sessionId", "supervisors")

@@ -3,23 +3,14 @@
 
 import type { ConfigField } from '@/features/plugins/types';
 
-export type SupervisorCategory =
-  | 'GUARD'
-  | 'GATE'
-  | 'RULES'
-  | 'MODEL'
-  | 'INTEGRATION'
-  | 'COMPOSITION'
-  | 'WORKFLOW';
+/** Where a decision maker decides. */
+export type SupervisorCategory = 'RULES' | 'EXTERNAL_SYSTEM' | 'ON_THIS_SERVER';
 
-export type SupervisorKind = 'SUPERVISOR' | 'CONTROL_PLANE';
-
-/** A supervisor type in the catalog. */
+/** A decision maker in the catalog. */
 export interface SupervisorTypeSummary {
   type: string;
   displayName: string;
   category: SupervisorCategory;
-  kind: SupervisorKind;
   icon: string | null;
 }
 
@@ -29,7 +20,6 @@ export interface SupervisorTypeDetails {
   description: string;
   usagePattern: string;
   category: SupervisorCategory;
-  kind: SupervisorKind;
   configSchema: ConfigField[];
   commonSchema: ConfigField[];
   /** null means every command. */

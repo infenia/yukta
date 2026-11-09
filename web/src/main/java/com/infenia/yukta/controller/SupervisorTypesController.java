@@ -72,7 +72,6 @@ public class SupervisorTypesController {
                   d.description(),
                   d.usagePattern(),
                   d.category().name(),
-                  service.kind(type),
                   d.uiDesign().orElse(null),
                   service.configSchema(type),
                   SupervisorCommonSettings.SCHEMA,
@@ -129,10 +128,6 @@ public class SupervisorTypesController {
   private SupervisorTypeSummary summary(final String type) {
     final SupervisorDescriptor d = descriptor(type);
     return new SupervisorTypeSummary(
-        type,
-        d.displayName(),
-        d.category().name(),
-        service.kind(type),
-        d.uiDesign().map(UiDesign::icon).orElse(null));
+        type, d.displayName(), d.category().name(), d.uiDesign().map(UiDesign::icon).orElse(null));
   }
 }

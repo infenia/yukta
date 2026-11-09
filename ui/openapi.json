@@ -5690,7 +5690,7 @@
         "type" : "object"
       },
       "SupervisorTypeDetails" : {
-        "description" : "Details of a supervisor type",
+        "description" : "Details of a decision maker",
         "properties" : {
           "category" : {
             "type" : "string"
@@ -5724,9 +5724,6 @@
             "additionalProperties" : { },
             "type" : "object"
           },
-          "kind" : {
-            "type" : "string"
-          },
           "type" : {
             "type" : "string"
           },
@@ -5740,10 +5737,10 @@
         "type" : "object"
       },
       "SupervisorTypeSummary" : {
-        "description" : "A supervisor type in the catalog",
+        "description" : "A decision maker in the catalog",
         "properties" : {
           "category" : {
-            "description" : "The catalog category",
+            "description" : "RULES, EXTERNAL_SYSTEM or ON_THIS_SERVER",
             "type" : "string"
           },
           "displayName" : {
@@ -5752,10 +5749,6 @@
           },
           "icon" : {
             "description" : "The icon, a Material Symbols name",
-            "type" : "string"
-          },
-          "kind" : {
-            "description" : "SUPERVISOR, CONTROL_PLANE or COMPOSITE",
             "type" : "string"
           },
           "type" : {

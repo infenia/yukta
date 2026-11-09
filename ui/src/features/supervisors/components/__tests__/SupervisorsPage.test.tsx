@@ -23,22 +23,19 @@ const summaries = [
   {
     type: 'failure-guard',
     displayName: 'Failure guard',
-    category: 'GUARD',
-    kind: 'SUPERVISOR',
+    category: 'RULES',
     icon: 'shield',
   },
   {
     type: 'model-control-plane',
     displayName: 'Model control plane',
-    category: 'MODEL',
-    kind: 'CONTROL_PLANE',
+    category: 'EXTERNAL_SYSTEM',
     icon: null,
   },
   {
     type: 'composite',
     displayName: 'Composite',
-    category: 'COMPOSITION',
-    kind: 'COMPOSITE',
+    category: 'ON_THIS_SERVER',
     icon: 'account_tree',
   },
 ];
@@ -48,8 +45,7 @@ const details = (type: string) => ({
   displayName: summaries.find((s) => s.type === type)?.displayName,
   description: `About ${type}`,
   usagePattern: type === 'composite' ? '' : 'Use it for tests',
-  category: 'GUARD',
-  kind: 'SUPERVISOR',
+  category: 'RULES',
   configSchema: [
     {
       name: 'failures',
@@ -136,9 +132,11 @@ describe('SupervisorsPage', () => {
     renderPage();
 
     expect(
-      await screen.findByRole('heading', { name: 'Guards' })
+      await screen.findByRole('heading', { name: 'Rules' })
     ).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Models' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'External system' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Gates' })
     ).not.toBeInTheDocument();

@@ -16,7 +16,6 @@ import java.util.Map;
  * @param description what it does
  * @param usagePattern when to use it
  * @param category the catalog category
- * @param kind {@code SUPERVISOR}, {@code CONTROL_PLANE} or {@code COMPOSITE}
  * @param uiDesign the icon and colour, or {@code null}
  * @param configSchema the settings of the type
  * @param commonSchema the settings every type takes
@@ -24,7 +23,7 @@ import java.util.Map;
  *     means every command
  * @param exampleSettings settings that pass validation
  */
-@Schema(description = "Details of a supervisor type")
+@Schema(description = "Details of a decision maker")
 @SuppressWarnings("PMD.NullAssignment") // null is the documented value for "every command"
 public record SupervisorTypeDetails(
     String type,
@@ -32,7 +31,6 @@ public record SupervisorTypeDetails(
     String description,
     String usagePattern,
     String category,
-    String kind,
     UiDesign uiDesign,
     List<ConfigField> configSchema,
     List<ConfigField> commonSchema,

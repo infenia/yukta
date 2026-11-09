@@ -19,8 +19,7 @@ All commands, a supervisor's and a person's, go through the same ordered, review
 | Engine | Decides with | Use it when |
 |---|---|---|
 | `rules` | A JSON rules file; presets `failure-guard`, `stall-watchdog`, `approval-gate` | You can state the situations and responses exactly ([Rule files](/running/rule-files)) |
-| `http` | An application or AI agent that connects to `/api/agent/v1` | The logic lives in another service, or you want open-ended judgement |
-| `callout` | An endpoint Yukta posts each signal to | A simple integration without a held connection |
+| `http` | An external system or AI agent: Yukta posts it each signal (`url`) or it reads them from `/api/agent/v1`, and it decides there | The logic lives in another service, or you want open-ended judgement |
 | `workflow` | A workflow in an internal session | The decision should be visible and editable as a workflow |
 | `process` | A program on the server | A script or binary already decides |
 
@@ -141,23 +140,6 @@ Acts on a node that has run too long or written no log line for a while: `maxRun
 ### `approval-gate`
 
 Holds the chosen commands (`StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `SkipNodeCommand`, `StopNodeCommand`, `SetLimitsCommand`) until a person approves them: `commands` (required), `nodes`, `risk` (`HIGH`: only a person), `route`, `ttl`, `reason`. A stop sent by a person is never held, so a person can always stop a run (it runs with a warning); the gate holds what supervisors send and the other commands of a person.
-
-## The `callout` engine
-
-Hands decisions to a web service (it replaces `webhook`; stored `webhook` supervisors are adopted at start-up). It posts `{"kind": "event", "supervisorId", "event": {...}}` for each listed event and, when `review` is on, `{"kind": "review", ..., "request": {...}}` for each command to review. Values under secret-looking keys are masked.
-
-| Setting | Default | Meaning |
-|---|---|---|
-| `url` | required | The endpoint (http or https) |
-| `headers` | – | Headers to send; a value may be `${env.NAME}` |
-| `secretHeaders` | – | Headers with secrets; shown as `***` in every read |
-| `events` | `InputRequested`, `NodeStatusChanged` | The event types to post |
-| `timeoutMs` | `3000` | How long to wait for a reply, at most `10000` |
-| `review` | `false` | Also post the commands to review |
-| `reviewOnError` | `DENY` | A review that fails is refused (`DENY`) or allowed (`ALLOW`) |
-| `maxConcurrent` | `4` | Most calls at once |
-
-A reply of `{"commands": [...]}` is read through the allow-list of [workflow supervisors](#workflow-supervisors), at most 10 commands, and only the commands `allowedCommands` names are sent. A reply of `{"decision": "allow" | "deny" | "requireApproval", "reason": "..."}` answers a review. It is reactive only: a timeout, an error status or an unreadable reply is no opinion. It calls only hosts the deployment allows (`yukta.egress.*`, `yukta.http.allowed-hosts`); a private, loopback or link-local address is refused unless listed, and redirects are not followed.
 
 ## Answer input requests
 

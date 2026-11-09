@@ -16,7 +16,6 @@ import org.jspecify.annotations.Nullable;
  * @param description what it does
  * @param usagePattern when to use it
  * @param category the catalog category
- * @param kind {@code SUPERVISOR}, {@code CONTROL_PLANE} or {@code COMPOSITE}
  * @param configSchema the settings of the type: name, type, required, default, options
  * @param commonSchema the settings every type takes
  * @param defaultAllowedCommands the commands allowed when the settings do not say; absent means
@@ -31,7 +30,6 @@ public record SupervisorTypeDetails(
     String description,
     String usagePattern,
     String category,
-    String kind,
     List<ConfigField> configSchema,
     List<ConfigField> commonSchema,
     @Nullable List<String> defaultAllowedCommands,

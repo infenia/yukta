@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.supervisor.agent;
 
+import com.infenia.yukta.plugin.control.SupervisorCategory;
 import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineConfig;
 import com.infenia.yukta.plugin.control.engine.EngineContext;
@@ -11,7 +12,10 @@ import com.infenia.yukta.plugin.control.engine.SupervisorEngine;
 import com.infenia.yukta.plugin.control.engine.SupervisorEngineFactory;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.ConfigField.Type;
+import com.infenia.yukta.plugin.core.UiDesign;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
@@ -61,7 +65,13 @@ public final class HttpEngineFactory implements SupervisorEngineFactory {
             Signal.Kind.STARTED,
             Signal.Kind.DELEGATED,
             Signal.Kind.CONSULTED),
-        true);
+        true,
+        SupervisorCategory.EXTERNAL_SYSTEM,
+        "Use it when an AI agent or a service you run decides. Set url to have each signal"
+            + " posted to it, or let it read them over /api/agent/v1; either way it decides there,"
+            + " with the credential you issue on the supervisor.",
+        Optional.of(new UiDesign("orange", "api", "External system", 140, 80)),
+        Map.of(Outbound.URL, "https://agent.example.com/yukta/signals"));
   }
 
   @Override

@@ -24,19 +24,14 @@ import type { SupervisorCategory, SupervisorTypeSummary } from '../types';
 import { Tip } from '@/components/ui/tooltip';
 
 const CATEGORIES: { key: SupervisorCategory; label: string }[] = [
-  { key: 'GUARD', label: 'Guards' },
-  { key: 'GATE', label: 'Gates' },
   { key: 'RULES', label: 'Rules' },
-  { key: 'MODEL', label: 'Models' },
-  { key: 'INTEGRATION', label: 'Integrations' },
-  { key: 'COMPOSITION', label: 'Composition' },
-  { key: 'WORKFLOW', label: 'Workflows' },
+  { key: 'EXTERNAL_SYSTEM', label: 'External system' },
+  { key: 'ON_THIS_SERVER', label: 'On this server' },
 ];
 
-const KIND_LABEL = {
-  SUPERVISOR: 'Supervisor',
-  CONTROL_PLANE: 'Control plane',
-} as const;
+const CATEGORY_LABEL = Object.fromEntries(
+  CATEGORIES.map(({ key, label }) => [key, label])
+) as Record<SupervisorCategory, string>;
 
 const defaultText = (value: unknown) =>
   value == null
@@ -59,7 +54,7 @@ function TypeDetail({ type }: { type: string }) {
             {data.displayName}
           </h2>
           <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>{KIND_LABEL[data.kind]}</span>
+            <span>{CATEGORY_LABEL[data.category]}</span>
             <code className="text-code-sm select-all">{data.type}</code>
           </div>
         </div>
@@ -181,7 +176,7 @@ export function CatalogTab() {
                   <span className="flex min-w-0 flex-1 flex-col">
                     <span className="text-body-md">{t.displayName}</span>
                     <span className="text-label-sm text-on-surface-variant">
-                      {KIND_LABEL[t.kind]} · {configured(t.type)} configured
+                      {configured(t.type)} configured
                     </span>
                   </span>
                 </button>

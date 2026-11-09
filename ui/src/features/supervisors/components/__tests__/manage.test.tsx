@@ -61,8 +61,7 @@ const server = setupServer(
       {
         type: 'failure-guard',
         displayName: 'Failure guard',
-        category: 'GUARD',
-        kind: 'SUPERVISOR',
+        category: 'RULES',
         icon: 'shield',
       },
     ])
@@ -73,8 +72,7 @@ const server = setupServer(
       displayName: 'Failure guard',
       description: 'd',
       usagePattern: '',
-      category: 'GUARD',
-      kind: 'SUPERVISOR',
+      category: 'RULES',
       configSchema: [field('failures', 'NUMBER', true)],
       commonSchema: [field('maxRisk')],
       defaultAllowedCommands: null,

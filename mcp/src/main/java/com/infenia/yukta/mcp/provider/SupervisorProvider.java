@@ -134,11 +134,7 @@ public class SupervisorProvider {
                 type -> {
                   final SupervisorDescriptor d = descriptor(type);
                   return new SupervisorTypeList.Entry(
-                      type,
-                      d.displayName(),
-                      d.category().name(),
-                      service.kind(type),
-                      d.description());
+                      type, d.displayName(), d.category().name(), d.description());
                 })
             .toList());
   }
@@ -158,7 +154,6 @@ public class SupervisorProvider {
         d.description(),
         d.usagePattern(),
         d.category().name(),
-        service.kind(type),
         service.configSchema(type),
         SupervisorCommonSettings.SCHEMA,
         allowed == null ? null : allowed.stream().sorted().toList(),
