@@ -191,7 +191,7 @@ describe('WorkflowSupervision', () => {
     capabilities = { stop: { allowed: true, via: 'default', reason: null } };
     const dialog = await open();
     expect(
-      await within(dialog).findByText(/No supervisor owns this workflow/)
+      await within(dialog).findByText('Nobody supervises w')
     ).toBeInTheDocument();
     expect(
       await within(dialog).findByText('People, directly.')
@@ -209,7 +209,10 @@ describe('WorkflowSupervision', () => {
     capabilities = { stop: { allowed: false, via: 'default', reason: null } };
     const dialog = await open();
     expect(
-      await within(dialog).findByText(/Default \(people\) is off/)
+      await within(dialog).findByText('Nobody can control this workflow')
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/Default \(people\) is off/)
     ).toBeInTheDocument();
     expect(
       await within(dialog).findByText('No supervisor can do this here')

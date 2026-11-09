@@ -19,6 +19,7 @@ import type { AttachmentView, SupervisorView } from '../types';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
 import { Activity } from './Activity';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
+import { StaleNotice } from './StaleNotice';
 
 const DETAIL_TABS = [
   'Owns',
@@ -228,14 +229,15 @@ export function SupervisorsBrowser() {
   if (supervisors.isPending) {
     return <StateMessage tone="loading" title="Loading supervisors…" />;
   }
-  if (supervisors.error) {
+  // pending is handled above, so no data means the first fetch failed
+  if (!supervisors.data) {
     return (
       <StateMessage
         tone="error"
         title="Failed to load the supervisors."
         onRetry={() => void supervisors.refetch()}
       >
-        {supervisors.error.message}
+        {supervisors.error?.message}
       </StateMessage>
     );
   }
@@ -269,97 +271,100 @@ export function SupervisorsBrowser() {
   const sub = (s: SupervisorView) => decisionMaker(s.type, types.data).name;
   const byId = new Map(all.map((s) => [s.id, s]));
   return (
-    <div className="flex flex-col gap-6 md:flex-row">
-      <nav
-        aria-label="Supervisors"
-        className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-70 md:self-start md:overflow-y-auto"
-      >
-        <Input
-          type="search"
-          aria-label="Filter supervisors"
-          placeholder="Filter by name"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <div role="group" aria-label="Show" className="flex gap-1">
-          {(['hierarchy', 'workflow'] as const).map((v) => (
-            <button
-              key={v}
-              type="button"
-              aria-pressed={view === v}
-              onClick={() => showView(v)}
-              className={cn(
-                'text-label-md rounded-full px-3 py-1',
-                view === v
-                  ? 'bg-accent text-accent-foreground'
-                  : 'text-on-surface-variant hover:bg-muted'
-              )}
-            >
-              {v === 'hierarchy' ? 'Hierarchy' : 'By workflow'}
-            </button>
-          ))}
-        </div>
-        {view === 'hierarchy' ? (
-          <ul className="flex flex-col gap-0.5">
-            {hierarchyRows(all)
-              .filter((row) => matches(row.id))
-              .map((row, i) => (
-                <li
-                  key={`${row.id}-${i}`}
-                  className={cn(row.depth > 0 && 'border-border border-l')}
-                  style={{ marginLeft: `${Math.max(0, row.depth) * 14}px` }}
-                >
-                  <NavItem
-                    id={row.id}
-                    sub={
-                      sub(byId.get(row.id) as SupervisorView) +
-                      (row.alsoUnder.length > 0
-                        ? ` · also under ${row.alsoUnder.join(', ')}`
-                        : '')
-                    }
-                    selected={row.id === selected.id}
-                    onSelect={select}
-                  />
-                </li>
-              ))}
-          </ul>
-        ) : (
-          byWorkflow(assignments.data ?? []).map(([where, ids]) => (
-            <section key={where}>
-              <h3 className="text-label-md text-on-surface mb-1 truncate">
-                {where}
-              </h3>
-              <ul className="flex flex-col gap-0.5">
-                {[...ids].filter(matches).map((id) => (
-                  <li key={id}>
+    <>
+      <StaleNotice query={supervisors} />
+      <div className="flex flex-col gap-6 md:flex-row">
+        <nav
+          aria-label="Supervisors"
+          className="flex shrink-0 flex-col gap-4 md:sticky md:top-18 md:max-h-[calc(100vh-5.5rem)] md:w-70 md:self-start md:overflow-y-auto"
+        >
+          <Input
+            type="search"
+            aria-label="Filter supervisors"
+            placeholder="Filter by name"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <div role="group" aria-label="Show" className="flex gap-1">
+            {(['hierarchy', 'workflow'] as const).map((v) => (
+              <button
+                key={v}
+                type="button"
+                aria-pressed={view === v}
+                onClick={() => showView(v)}
+                className={cn(
+                  'text-label-md rounded-full px-3 py-1',
+                  view === v
+                    ? 'bg-accent text-accent-foreground'
+                    : 'text-on-surface-variant hover:bg-muted'
+                )}
+              >
+                {v === 'hierarchy' ? 'Hierarchy' : 'By workflow'}
+              </button>
+            ))}
+          </div>
+          {view === 'hierarchy' ? (
+            <ul className="flex flex-col gap-0.5">
+              {hierarchyRows(all)
+                .filter((row) => matches(row.id))
+                .map((row, i) => (
+                  <li
+                    key={`${row.id}-${i}`}
+                    className={cn(row.depth > 0 && 'border-border border-l')}
+                    style={{ marginLeft: `${Math.max(0, row.depth) * 14}px` }}
+                  >
                     <NavItem
-                      id={id}
+                      id={row.id}
                       sub={
-                        byId.has(id)
-                          ? sub(byId.get(id) as SupervisorView)
-                          : 'not configured'
+                        sub(byId.get(row.id) as SupervisorView) +
+                        (row.alsoUnder.length > 0
+                          ? ` · also under ${row.alsoUnder.join(', ')}`
+                          : '')
                       }
-                      selected={id === selected.id}
+                      selected={row.id === selected.id}
                       onSelect={select}
                     />
                   </li>
                 ))}
-              </ul>
-            </section>
-          ))
-        )}
-        <p className="text-body-sm text-muted-foreground px-3">
-          Default (people) owns what nobody owns.
-        </p>
-      </nav>
-      <div className="min-w-0 flex-1">
-        <SupervisorPanel
-          key={selected.id}
-          supervisor={selected}
-          all={all}
-          onSelect={select}
-        />
+            </ul>
+          ) : (
+            byWorkflow(assignments.data ?? []).map(([where, ids]) => (
+              <section key={where}>
+                <h3 className="text-label-md text-on-surface mb-1 truncate">
+                  {where}
+                </h3>
+                <ul className="flex flex-col gap-0.5">
+                  {[...ids].filter(matches).map((id) => (
+                    <li key={id}>
+                      <NavItem
+                        id={id}
+                        sub={
+                          byId.has(id)
+                            ? sub(byId.get(id) as SupervisorView)
+                            : 'not configured'
+                        }
+                        selected={id === selected.id}
+                        onSelect={select}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))
+          )}
+          <p className="text-body-sm text-muted-foreground px-3">
+            Default (people) owns what nobody owns.
+          </p>
+        </nav>
+        <div className="min-w-0 flex-1">
+          <SupervisorPanel
+            key={selected.id}
+            supervisor={selected}
+            all={all}
+            onSelect={select}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }
