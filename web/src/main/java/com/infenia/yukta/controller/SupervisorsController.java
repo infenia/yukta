@@ -289,13 +289,6 @@ public class SupervisorsController {
         .map(found -> ApiResponse.success(200, "Replayed", found));
   }
 
-  /** The document as shown: secrets hidden. */
-  private RulesView view(final SupervisorRules.Document doc) {
-    return new RulesView(
-        doc.version(),
-        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
-  }
-
   /**
    * The rules document of a rules supervisor.
    *
@@ -687,6 +680,13 @@ public class SupervisorsController {
         infos.stream().mapToLong(SupervisorInfo::rateLimited).sum(),
         supervisor.parents(),
         delegationView(supervisor));
+  }
+
+  /** The document as shown: secrets hidden. */
+  private RulesView view(final SupervisorRules.Document doc) {
+    return new RulesView(
+        doc.version(),
+        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
   }
 
   @SuppressWarnings("PMD.UseConcurrentHashMap")

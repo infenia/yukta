@@ -4,10 +4,6 @@ package com.infenia.yukta.service.supervisor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -20,6 +16,8 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -41,13 +39,13 @@ class SupervisorRulesTest {
               "allowedCommands", List.of("PauseWorkflowCommand")),
           false);
 
-  private final SupervisorService service = mock(SupervisorService.class);
+  private final SupervisorService service = Mockito.mock(SupervisorService.class);
 
   @BeforeEach
   void setUp() {
     when(service.supervisors())
         .thenReturn(Flux.just(RULES, new Supervisor("plain", "callout", Map.of(), false)));
-    when(service.versions(anyString()))
+    when(service.versions(ArgumentMatchers.anyString()))
         .thenReturn(Mono.just(List.of(new SupervisorVersions.Version(3, Instant.EPOCH, RULES))));
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
   }
@@ -64,7 +62,7 @@ class SupervisorRulesTest {
   }
 
   @Test
-  void aSupervisorWithoutKeptVersionIsVersionZero() {
+  void supervisorWithoutKeptVersionIsVersionZero() {
     when(service.versions("r")).thenReturn(Mono.just(List.of()));
     StepVerifier.create(SupervisorRules.read(service, "r"))
         .assertNext(doc -> assertThat(doc.version()).isZero())
@@ -82,7 +80,7 @@ class SupervisorRulesTest {
   }
 
   @Test
-  void saveKeepsTheCommonSettingsAndAHiddenSecret() {
+  void saveKeepsTheCommonSettingsAndTheHiddenSecret() {
     StepVerifier.create(
             SupervisorRules.save(service, "r", Map.of("rules", List.of("second"), "token", "***")))
         .expectNextCount(1)
@@ -98,7 +96,7 @@ class SupervisorRulesTest {
   }
 
   @Test
-  void aCommonSettingInTheRulesIsRefused() {
+  void commonSettingInTheRulesIsRefused() {
     StepVerifier.create(SupervisorRules.save(service, "r", Map.of("initiative", List.of())))
         .expectErrorSatisfies(
             e ->
@@ -110,12 +108,13 @@ class SupervisorRulesTest {
             SupervisorRules.replay(service, "r", "e1", Map.of("allowedCommands", List.of())))
         .expectError(IllegalArgumentException.class)
         .verify();
-    verify(service, never()).saveSupervisor(any());
+    verify(service, Mockito.never()).saveSupervisor(any());
   }
 
   @Test
   void replayTriesTheDraftWithTheStoredCommonSettings() {
-    when(service.replay(eq("r"), any(), eq("e1"))).thenReturn(Mono.just(List.of()));
+    when(service.replay(ArgumentMatchers.eq("r"), any(), ArgumentMatchers.eq("e1")))
+        .thenReturn(Mono.just(List.of()));
 
     StepVerifier.create(SupervisorRules.replay(service, "r", "e1", Map.of("rules", List.of("d"))))
         .expectNext(List.of())
@@ -123,7 +122,7 @@ class SupervisorRulesTest {
 
     @SuppressWarnings("unchecked")
     final ArgumentCaptor<Map<String, Object>> tried = ArgumentCaptor.forClass(Map.class);
-    verify(service).replay(eq("r"), tried.capture(), eq("e1"));
+    verify(service).replay(ArgumentMatchers.eq("r"), tried.capture(), ArgumentMatchers.eq("e1"));
     assertThat(tried.getValue())
         .containsOnly(
             Map.entry("rules", List.of("d")),

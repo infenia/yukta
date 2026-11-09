@@ -154,13 +154,11 @@ public class SupervisorRules {
   /** A copy of the settings whose keys pass the test, in their order; null values are kept. */
   private static Map<String, Object> copyWhere(
       final Map<String, Object> settings, final Predicate<String> keep) {
-    final Map<String, Object> copy = new LinkedHashMap<>();
-    settings.forEach(
-        (key, value) -> {
-          if (keep.test(key)) {
-            copy.put(key, value);
-          }
-        });
-    return copy;
+    return settings.entrySet().stream()
+        .filter(entry -> keep.test(entry.getKey()))
+        .collect(
+            LinkedHashMap::new,
+            (copy, entry) -> copy.put(entry.getKey(), entry.getValue()),
+            Map::putAll);
   }
 }
