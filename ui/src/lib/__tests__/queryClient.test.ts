@@ -3,6 +3,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { QueryClient } from '@tanstack/react-query';
+import { ApiError } from '../apiClient';
 import queryClient from '../queryClient';
 
 describe('queryClient', () => {
@@ -28,9 +29,15 @@ describe('queryClient', () => {
       expect(gcTime).toBe(1000 * 60 * 10);
     });
 
-    it('should have retry set to 1', () => {
-      const retry = queryClient.getDefaultOptions().queries?.retry;
-      expect(retry).toBe(1);
+    it('should retry a failed query once, but not a 4xx answer', () => {
+      const retry = queryClient.getDefaultOptions().queries?.retry as (
+        count: number,
+        error: unknown
+      ) => boolean;
+      expect(retry(0, new TypeError('network'))).toBe(true);
+      expect(retry(1, new TypeError('network'))).toBe(false);
+      expect(retry(0, new ApiError(404, 'missing'))).toBe(false);
+      expect(retry(0, new ApiError(500, 'boom'))).toBe(true);
     });
 
     it('should have refetchOnWindowFocus disabled', () => {
@@ -44,7 +51,7 @@ describe('queryClient', () => {
       expect(queryOptions).toEqual({
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 10,
-        retry: 1,
+        retry: expect.any(Function),
         refetchOnWindowFocus: false,
       });
     });
@@ -106,9 +113,13 @@ describe('queryClient', () => {
     });
 
     it('should retry failed queries once and never retry mutations', () => {
-      const queryRetry = queryClient.getDefaultOptions().queries?.retry;
+      const queryRetry = queryClient.getDefaultOptions().queries?.retry as (
+        count: number,
+        error: unknown
+      ) => boolean;
       const mutationRetry = queryClient.getDefaultOptions().mutations?.retry;
-      expect(queryRetry).toBe(1);
+      expect(queryRetry(0, new TypeError('network'))).toBe(true);
+      expect(queryRetry(1, new TypeError('network'))).toBe(false);
       expect(mutationRetry).toBe(0);
     });
 
