@@ -78,8 +78,8 @@ jobs:
   server:
     name: Server ${{ matrix.platform }}
     # GraalVM native-image cannot cross-compile: each platform needs a host of its own architecture
-    # (linux-arm64 would be one more entry here, on ubuntu-24.04-arm). The images, the packages and
-    # the signing happen on the release machine (release/release.sh).
+    # (ubuntu-24.04-arm is free for public repositories). The images, the packages and the signing
+    # happen in the assemble job (release/release.sh).
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -87,6 +87,8 @@ jobs:
         include:
           - platform: linux-amd64
             runner: ubuntu-latest
+          - platform: linux-arm64
+            runner: ubuntu-24.04-arm
     timeout-minutes: 120   # one native build, about 35 min
     permissions:
       contents: read
@@ -187,12 +189,21 @@ jobs:
           name: server-linux-amd64
           path: dist/linux-amd64
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: server-linux-arm64
+          path: dist/linux-arm64
+
+      # build-image.sh smoke tests the arm64 image here, on an amd64 machine, under QEMU.
+      - name: Enable arm64 emulation
+        run: docker run --privileged --rm tonistiigi/binfmt --install arm64
+
       - name: Package, push the image, sign, upload
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
         run: |
-          chmod +x dist/linux-amd64/yukta dist/cli/yukta-cli-*
+          chmod +x dist/linux-*/yukta dist/cli/yukta-cli-*
           # release-please marks every draft a prerelease; only a version with a "-" is one.
           case "$TAG" in *-*) pre=true ;; *) pre=false ;; esac
           gh release edit "$TAG" --prerelease="$pre"
@@ -236,7 +247,7 @@ jobs:
             apt-get update -qq && apt-get install -y -qq curl >/dev/null
             curl -fsSL http://127.0.0.1:8765/$TAG/install.sh | YUKTA_DOWNLOAD_BASE=http://127.0.0.1:8765 sh
             yukta-cli --version   # root installs to /usr/local/bin
-            apt-get install -y -qq /rel/*.deb >/dev/null"
+            apt-get install -y -qq /rel/*_amd64.deb >/dev/null"
 
       - name: Pull the image logged out and run the Quickstart
         run: |
