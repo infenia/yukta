@@ -155,6 +155,19 @@ func TestAgentStopsTheStreamWhenTheProgramCannotTakeASignal(t *testing.T) {
 	}
 }
 
+func TestAgentStopsWhileWaitingToReconnect(t *testing.T) {
+	c := client.NewClient("http://127.0.0.1:1") // down: the stream fails and the agent backs off
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	var log strings.Builder
+	if err := runAgent(ctx, c, "sleep", []string{"5"}, &log); err != nil {
+		t.Fatalf("a stop during the backoff is a clean end, got %v", err)
+	}
+	if !strings.Contains(log.String(), "reconnecting") {
+		t.Errorf("it must have tried to reconnect first: %q", log.String())
+	}
+}
+
 func TestAgentCommandNeedsAReadableCredentialFile(t *testing.T) {
 	cmd := agentCmd(client.NewClient("http://127.0.0.1:1"))
 	cmd.SetArgs([]string{"--credential-file", "/no/such/file", "--exec", "true"})
