@@ -174,7 +174,7 @@ describe('WorkflowSupervision', () => {
     expect(within(dialog).getByText('build.a, build.b')).toBeInTheDocument();
     expect(within(dialog).getByText('Default (people)')).toBeInTheDocument();
     expect(
-      await within(dialog).findByText('People, through lead.')
+      await within(dialog).findByText('you can stop it, through lead.')
     ).toBeInTheDocument();
     await userEvent.setup().keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
@@ -194,7 +194,7 @@ describe('WorkflowSupervision', () => {
       await within(dialog).findByText('Nobody supervises w')
     ).toBeInTheDocument();
     expect(
-      await within(dialog).findByText('People, directly.')
+      await within(dialog).findByText('you can stop this run directly.')
     ).toBeInTheDocument();
   });
 

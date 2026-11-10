@@ -4,6 +4,7 @@
 import { Link, useSearchParams } from 'react-router';
 import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
+import { buttonVariants } from '@/components/ui/button';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useOwnership, useSupervision } from '../hooks/useSupervisorTypes';
 import { ownerLabel } from '../lib/ownership';
@@ -107,11 +108,11 @@ export function SupervisionPanel({
       </div>
       {stop && (
         <p className="text-body-sm text-on-surface-variant">
-          <b>Who can stop this run?</b>{' '}
+          <b>Stop button:</b>{' '}
           {stop.allowed
             ? stop.via === 'default'
-              ? 'People, directly.'
-              : `People, through ${stop.via}.`
+              ? 'you can stop this run directly.'
+              : `you can stop it, through ${stop.via}.`
             : (stop.reason ?? controlledBy(stop.via))}
         </p>
       )}
@@ -144,7 +145,7 @@ export function WorkflowSupervision({
       <button
         type="button"
         onClick={() => show(true)}
-        className="bg-accent text-body-sm text-accent-foreground inline-flex items-center gap-1 rounded-full px-3 py-1"
+        className={buttonVariants({ variant: 'outline', size: 'sm' })}
       >
         <span
           aria-hidden="true"
@@ -153,6 +154,12 @@ export function WorkflowSupervision({
           shield_person
         </span>
         Run owner: {ownerLabel(data?.run)}
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined text-base"
+        >
+          expand_more
+        </span>
       </button>
       {open && (
         <Modal title="Supervision" onClose={() => show(false)} wide>
