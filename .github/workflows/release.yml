@@ -8,6 +8,14 @@ on:
     tags: [ "v*" ]
   # The tag is created by release-please (release-please.yml) when the release PR is merged.
   workflow_dispatch:   # dry run: builds everything, publishes nothing
+    inputs:
+      platforms:
+        description: 'Server platforms to build, comma separated (empty: all), e.g. windows-amd64'
+        default: ''
+      quick:
+        description: 'Build the macOS and Windows servers with -Ob (fast, for finding build problems)'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -75,28 +83,36 @@ jobs:
           path: cli/build/
           if-no-files-found: error
 
+  # The servers to build: all of them, or the ones named in the manual run's "platforms" input.
+  plan:
+    name: Plan
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - id: matrix
+        env:
+          ONLY: ${{ inputs.platforms }}
+        run: |
+          all='[
+            {"platform":"linux-amd64","runner":"ubuntu-latest"},
+            {"platform":"linux-arm64","runner":"ubuntu-24.04-arm"},
+            {"platform":"darwin-arm64","runner":"macos-latest","heap":"5g"},
+            {"platform":"windows-amd64","runner":"windows-latest","heap":"12g"}]'
+          picked="$(jq -c --arg only "$ONLY" '[.[] | . as $p | select($only == "" or ($only | split(",") | index($p.platform)))]' <<<"$all")"
+          [ "$picked" != "[]" ] || { echo "::error::no platform matches '$ONLY'"; exit 1; }
+          echo "matrix={\"include\":$picked}" >> "$GITHUB_OUTPUT"
+
   server:
     name: Server ${{ matrix.platform }}
+    needs: plan
     # GraalVM native-image cannot cross-compile: each platform needs a host of its own architecture
     # (ubuntu-24.04-arm is free for public repositories). The images, the packages and the signing
     # happen in the assemble job (release/release.sh).
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - platform: linux-amd64
-            runner: ubuntu-latest
-          - platform: linux-arm64
-            runner: ubuntu-24.04-arm
-          # macOS and Windows build with the GraalVM on the runner, not in Docker. The macOS runner has
-          # 7 GB of memory, so its builder heap is smaller. Intel macOS and Windows arm64 are not built.
-          - platform: darwin-arm64
-            runner: macos-latest
-            heap: 5g
-          - platform: windows-amd64
-            runner: windows-latest
-            heap: 12g
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     timeout-minutes: 120   # one native build, about 35 min
     defaults:
       run:
@@ -155,7 +171,7 @@ jobs:
         if: runner.os != 'Linux'
         timeout-minutes: 90
         run: |
-          ./gradlew nativeCompile -x test --no-daemon -Pnative.heap=${{ matrix.heap }}
+          ./gradlew nativeCompile -x test --no-daemon -Pnative.heap=${{ matrix.heap }} ${{ inputs.quick && '-Pnative.quick' || '' }}
           source release/lib.sh
           out="dist/${{ matrix.platform }}"
           mkdir -p "$out"
