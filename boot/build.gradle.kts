@@ -160,9 +160,7 @@ graalvmNative {
             buildArgs.add("-Djdk.console=java.base")
             // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs
             // "Support for Arena.ofShared is not active"
-            // Not on Windows: the dry run of the release build crashed there with heap corruption
-            // ("Object with invalid hub type") at startup.
-            if (!System.getProperty("os.name").startsWith("Windows")) buildArgs.add("-H:+SharedArenaSupport")
+            buildArgs.add("-H:+SharedArenaSupport")
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
