@@ -38,7 +38,7 @@ export function SupervisorsPage() {
           <div
             role="tablist"
             aria-label="Supervisors sections"
-            className="border-border flex max-w-full gap-4 overflow-x-auto border-b"
+            className="border-border flex max-w-full flex-wrap gap-x-4 border-b"
           >
             {TABS.map((name) => (
               <button

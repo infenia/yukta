@@ -218,7 +218,7 @@ function DecisionMakerDetail({ type }: { type: string }) {
       <div
         role="tablist"
         aria-label={`${data.displayName} details`}
-        className="border-border flex gap-5 overflow-x-auto border-b"
+        className="border-border flex flex-wrap gap-x-5 border-b"
       >
         {TABS.map((name) => (
           <button
