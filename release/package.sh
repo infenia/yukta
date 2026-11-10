@@ -14,8 +14,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 version="$(normalize_version "$1")"
 platform="$2"
 arch="$(arch_of "$platform")"
-server="$DIST/$platform/yukta"
-cli="$DIST/cli/yukta-cli-$platform"
+server="$DIST/$platform/$(server_name "$platform")"
+cli="$DIST/cli/$(cli_name "$platform")"
 [[ -x "$server" ]] || die "missing $server (run release/build-server.sh on a $platform machine)"
 [[ -x "$cli" ]] || die "missing $cli (run release/build-cli.sh)"
 need go
@@ -26,12 +26,21 @@ name="yukta-$version-$platform"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/$name"
-cp "$server" "$stage/$name/yukta"
-cp "$cli" "$stage/$name/yukta-cli"
+cp "$server" "$stage/$name/$(server_name "$platform")"
+cp "$cli" "$stage/$name/yukta-cli${cli##*-$platform}"   # keeps the .exe on Windows
 cp "$REPO_ROOT/LICENSE" "$REPO_ROOT/NOTICE" "$RELEASE_DIR/yukta.env" "$stage/$name/"
+if [[ "$platform" == windows-* ]]; then
+  need zip
+  # install.ps1 expects yukta-<version>-windows-amd64.zip holding yukta-<version>-windows-amd64/
+  find "$stage/$name" -exec touch -d '2026-01-01 00:00:00 UTC' {} +
+  (cd "$stage" && find "$name" | LC_ALL=C sort | zip -qX "$out/$name.zip" -@)
+  log "$out/$name.zip"
+  exit 0   # no .deb or .rpm
+fi
 tar --sort=name --owner=0 --group=0 --numeric-owner --mtime='2026-01-01 00:00:00 UTC' \
   -C "$stage" -czf "$out/$name.tar.gz" "$name"
 log "$out/$name.tar.gz"
+[[ "$platform" == linux-* ]] || exit 0   # .deb and .rpm are for Linux
 
 for format in deb rpm; do
   (cd "$REPO_ROOT" && VERSION="$version" ARCH="$arch" SERVER_BIN="$server" CLI_BIN="$cli" \
