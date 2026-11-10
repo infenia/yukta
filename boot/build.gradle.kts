@@ -194,7 +194,8 @@ graalvmNative {
 
             // Size-reduction flags (compatible with GraalVM 25)
             buildArgs.add("-H:+RemoveUnusedSymbols")           // Remove unused symbols
-            buildArgs.add("-H:+StripDebugInfo")                // Remove debug information
+            // Remove debug information (the option does not exist on macOS)
+            if (!System.getProperty("os.name").startsWith("Mac")) buildArgs.add("-H:+StripDebugInfo")
             buildArgs.add("-H:-AddAllCharsets")                // Remove unnecessary charsets
             buildArgs.add("-H:IncludeLocales=en")              // English is the only supported locale
 
