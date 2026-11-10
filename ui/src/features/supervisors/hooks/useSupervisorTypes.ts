@@ -32,11 +32,12 @@ const ROOT = ['supervisors'] as const;
 export const useSupervisorTypes = () =>
   useQuery({ queryKey: [...ROOT, 'types'], queryFn: getSupervisorTypes });
 
-export const useSupervisorType = (type: string | null) =>
+/** `enabled` is false for a built-in, which has no engine entry to read. */
+export const useSupervisorType = (type: string | null, enabled = true) =>
   useQuery({
     queryKey: [...ROOT, 'types', type],
     queryFn: () => getSupervisorType(type as string),
-    enabled: Boolean(type),
+    enabled: Boolean(type) && enabled,
   });
 
 /** The supervisors wired to a decision maker. */
@@ -53,11 +54,12 @@ export const useSupervisorTypePresets = (type: string) =>
     queryFn: () => getSupervisorTypePresets(type),
   });
 
-/** The kept versions of a supervisor, newest first. */
-export const useSupervisorVersions = (id: string) =>
+/** The kept versions of a supervisor, newest first; not read for a built-in (`enabled` false). */
+export const useSupervisorVersions = (id: string, enabled = true) =>
   useQuery({
     queryKey: [...ROOT, 'versions', id],
     queryFn: () => getSupervisorVersions(id),
+    enabled,
   });
 
 export const useSupervisors = () =>
