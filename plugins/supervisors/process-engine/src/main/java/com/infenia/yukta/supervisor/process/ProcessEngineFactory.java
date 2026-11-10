@@ -111,7 +111,7 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
   public SupervisorEngine create(final EngineConfig config, final EngineContext context) {
     validate(config);
     final List<String> command = new ArrayList<>();
-    command.add(executable(config));
+    command.add(trusted(executable(config)));
     command.addAll(args(config));
     final Process[] running = new Process[1];
     return new SupervisorEngine() {
@@ -230,6 +230,14 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
       return "";
     }
     return line.isEmpty() ? null : line.toString();
+  }
+
+  /** The allow-list's own entry for the executable, so what runs is never the caller's string. */
+  private String trusted(final String executable) {
+    if (allowed.isEmpty()) {
+      return executable;
+    }
+    return allowed.stream().filter(executable::equals).findFirst().orElseThrow();
   }
 
   private static String executable(final EngineConfig config) {
