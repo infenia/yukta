@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { buttonVariants } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { StatusPill } from './StatusPill';
 import { formatDateTime } from '../lib/timeFormat';
 import type { ExecutionSummary } from '../types/workflow';
@@ -42,7 +43,11 @@ export function RunHistoryDropdown({
   selectedExecutionId: string | null;
   onSelect: (executionId: string) => void;
 }) {
-  const triggerClass = buttonVariants({ variant: 'outline', size: 'sm' });
+  // The run picker sits tight against its label: tighter padding than the other small buttons
+  const triggerClass = cn(
+    buttonVariants({ variant: 'outline', size: 'sm' }),
+    'px-1'
+  );
 
   if (executions.length === 0) {
     return (
