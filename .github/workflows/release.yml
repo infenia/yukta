@@ -99,7 +99,8 @@ jobs:
             {"platform":"linux-arm64","runner":"ubuntu-24.04-arm"},
             {"platform":"darwin-arm64","runner":"macos-latest","heap":"5g"},
             {"platform":"windows-amd64","runner":"windows-latest","heap":"12g"}]'
-          picked="$(jq -c --arg only "$ONLY" '[.[] | . as $p | select($only == "" or ($only | split(",") | index($p.platform)))]' <<<"$all")"
+          picked="$(jq -c --arg only "$ONLY" \
+            '[.[] | . as $p | select($only == "" or ($only | split(",") | index($p.platform)))]' <<<"$all")"
           [ "$picked" != "[]" ] || { echo "::error::no platform matches '$ONLY'"; exit 1; }
           echo "matrix={\"include\":$picked}" >> "$GITHUB_OUTPUT"
 
