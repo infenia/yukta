@@ -14,7 +14,8 @@ read -r -a IMAGES <<< "${YUKTA_IMAGES:-ghcr.io/infenia/yukta}"
 IMAGE_GHCR="${IMAGES[0]}"
 # Pinned like the CLI's lint tools: run with `go run`, so nothing needs installing.
 NFPM="github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0"
-PLATFORMS=(linux-amd64 linux-arm64)
+# Named like the CLI binaries (GOOS-GOARCH). The macOS Intel and Windows arm64 builds are not shipped.
+PLATFORMS=(linux-amd64 linux-arm64 darwin-arm64 windows-amd64)
 
 die() { echo "release: $*" >&2; exit 1; }
 log() { echo "==> $(date -u +%H:%M:%S) $*" >&2; }
@@ -23,6 +24,10 @@ log() { echo "==> $(date -u +%H:%M:%S) $*" >&2; }
 normalize_version() { echo "${1#v}"; }
 
 gradle_version() { sed -n 's/^version=//p' "$REPO_ROOT/gradle.properties"; }
+
+# The file name of the server and of the CLI of a platform inside dist/: Windows adds .exe
+server_name() { [[ "$1" == windows-* ]] && echo yukta.exe || echo yukta; }
+cli_name() { [[ "$1" == windows-* ]] && echo "yukta-cli-$1.exe" || echo "yukta-cli-$1"; }
 
 # Docker's name for the architecture of a platform: linux-arm64 -> arm64
 arch_of() { echo "${1#*-}"; }

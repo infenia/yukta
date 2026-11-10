@@ -58,7 +58,7 @@ if ! $skip_server; then "$RELEASE_DIR/build-server.sh"; fi
 check_build_marker "$DIST/cli" "$version" "$publish"
 
 for platform in "${PLATFORMS[@]}"; do
-  if [[ -x "$DIST/$platform/yukta" ]]; then
+  if [[ -x "$DIST/$platform/$(server_name "$platform")" ]]; then
     check_build_marker "$DIST/$platform" "$version" "$publish"
     "$RELEASE_DIR/package.sh" "$version" "$platform"
   elif $publish; then

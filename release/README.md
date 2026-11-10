@@ -4,8 +4,10 @@ Scripts and the runbook for building, packaging and publishing a Yukta release. 
 same on the release machine and in CI. The plan and the reasons behind it are in
 [`design/plans/releases.md`](../design/plans/releases.md).
 
-**Scope today (alpha):** Linux amd64 and arm64 native server and CLI, `install.sh`, `.deb`/`.rpm`/`.tar.gz`, and a
-multi-architecture (`linux/amd64`, `linux/arm64`) image on GHCR. Windows, macOS and Docker Hub come later.
+**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-arm64 (Apple Silicon) and windows-amd64, `install.sh`,
+`.deb`/`.rpm`/`.tar.gz` (Linux), `.tar.gz` (macOS), `.zip` (Windows), and a multi-architecture
+(`linux/amd64`, `linux/arm64`) image on GHCR. The macOS and Windows builds are not signed or notarized: Gatekeeper and
+SmartScreen warn on a browser download (the install scripts avoid it). macOS Intel, Windows arm64 and Docker Hub come later.
 
 ## Versioning policy
 
@@ -80,7 +82,7 @@ One pull request to approve, one button to press.
      a `Release-As: 0.1.0-beta.1` footer to a commit on `main`.
 3. **CI does the rest** (the **Release** workflow, started by the tag; about an hour):
    - `assemble` refuses a tag whose commit is not on `main`, because it signs as the workflow;
-   - builds the CLI (five platforms) and the linux-amd64 and linux-arm64 servers, runs the Quickstart workflow against the
+   - builds the CLI (five platforms) and the servers for every platform in `PLATFORMS` (the macOS and Windows ones with the GraalVM on the runner, not in Docker), runs the Quickstart workflow against the
      server binary, and attests both (`gh attestation verify`);
    - `assemble` runs `release/release.sh --publish`: packages, `SHA256SUMS`, the image pushed to GHCR,
      and signatures on the checksums and the image. Signing is keyless: cosign signs as the workflow, so
