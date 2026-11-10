@@ -19,7 +19,7 @@ import { useRawLogLines } from '../hooks/useRawLogLines';
 import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
 import { copyIcon, copyTone, useCopyCommand } from '../hooks/useCopyCommand';
-import { runEvents } from '../lib/runEvents';
+import { runEvents, type RunEvent } from '../lib/runEvents';
 import type { LogEntry, WorkflowProgress } from '../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
 
@@ -129,6 +129,15 @@ const LEVEL_TONE: Record<MinLevel, string> = {
   info: 'text-primary',
   warn: 'text-log-warn',
   error: 'text-destructive',
+};
+
+/** The colour of an event's label by status tone, on the terminal's dark ground. */
+const EVENT_TONE: Record<RunEvent['tone'], string> = {
+  primary: 'text-log-info',
+  success: 'text-success',
+  destructive: 'text-log-error',
+  attention: 'text-log-warn',
+  muted: 'text-log-debug',
 };
 
 export function LogsPanel({
@@ -566,7 +575,12 @@ export function LogsPanel({
                 <span className="text-log-debug">
                   {formatLogTimestamp(event.time)}
                 </span>{' '}
-                {event.nodeId ?? 'run'} {event.label}
+                <span className="text-terminal-fg">
+                  {event.nodeId ?? 'run'}
+                </span>{' '}
+                <span className={cn('font-medium', EVENT_TONE[event.tone])}>
+                  {event.label}
+                </span>
               </li>
             ))
           )}

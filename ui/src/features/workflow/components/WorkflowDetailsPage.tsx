@@ -393,6 +393,7 @@ export function WorkflowDetailsPage() {
               {view === 'timeline' && (
                 <RunTimeline
                   tasks={progress?.tasks}
+                  graph={graph}
                   switcher={<ViewSwitch view={view} onChange={setView} />}
                 />
               )}

@@ -31,7 +31,7 @@ const STATUS_GLYPHS: Partial<Record<NodeUiStatus, string>> = {
   completed: 'check',
   failed: 'close',
   paused: 'pause',
-  skipped: 'remove',
+  skipped: 'redo',
 };
 
 const STATUS_BADGE_CLASSES: Record<NodeUiStatus, string> = {

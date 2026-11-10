@@ -188,11 +188,11 @@ const STATUS_DISPLAY: Record<string, StatusDisplay> = {
   CANCELLED: STOPPED_DISPLAY,
   WORKFLOW_STOPPED: STOPPED_DISPLAY,
   NODE_STOPPED: STOPPED_DISPLAY,
-  SKIPPED: { label: 'Skipped', tone: 'muted', icon: 'skip_next', dashed: true },
+  SKIPPED: { label: 'Skipped', tone: 'muted', icon: 'redo', dashed: true },
   NODE_SKIPPED: {
     label: 'Skipped',
     tone: 'muted',
-    icon: 'skip_next',
+    icon: 'redo',
     dashed: true,
   },
   // Input request states (not run statuses)
