@@ -116,6 +116,15 @@ class ProcessEngineFactoryTest {
   }
 
   @Test
+  void withNoListAndAnyAllowedTheProgramStillRuns() {
+    final SupervisorEngine engine =
+        new ProcessEngineFactory(Set.of(), true).create(sh("exit 0"), CONTEXT);
+    StepVerifier.create(engine.run(Flux.never()))
+        .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("ended"))
+        .verify(Duration.ofSeconds(10));
+  }
+
+  @Test
   void programThatCannotStartFailsTheEngine() {
     final ProcessEngineFactory open = new ProcessEngineFactory(Set.of("/no/such/program"), false);
     final SupervisorEngine engine =
