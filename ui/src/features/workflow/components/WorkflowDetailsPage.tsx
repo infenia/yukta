@@ -211,7 +211,7 @@ export function WorkflowDetailsPage() {
                   aria-hidden="true"
                   className="material-symbols-outlined text-base"
                 >
-                  subdirectory_arrow_left
+                  north_west
                 </span>
               </Link>
             </Tip>

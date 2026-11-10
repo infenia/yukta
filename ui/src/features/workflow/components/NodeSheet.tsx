@@ -21,8 +21,25 @@ import type {
   TaskProgress,
   WorkflowGraphNode,
 } from '../types/workflow';
+import { Button } from '@/components/ui/button';
 import { nodeMenuItems, type NodeCommand } from './NodeControlsMenu';
 import { StatusPill } from './StatusPill';
+
+/** The icon on each action button. */
+const ACTION_ICONS: Record<string, string> = {
+  pause: 'pause',
+  resume: 'play_arrow',
+  stop: 'stop',
+  skip: 'skip_next',
+  unskip: 'undo',
+  retry: 'replay',
+  'step/enable': 'footprint',
+  step: 'step',
+  'step/disable': 'footprint',
+  breakpoint: 'adjust',
+  'breakpoint/clear': 'cancel',
+  'restart-from': 'restart_alt',
+};
 
 /** Log lines shown per node; the logs dock holds the full run. */
 const MAX_LINES = 200;
@@ -198,13 +215,20 @@ export function NodeSheet({
                   command={NODE_CAPABILITY[item.command] ?? item.command}
                   target={{ execution: executionId, node: node.nodeId }}
                 >
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => onCommand(node.nodeId, item.command)}
-                    className="border-border text-label-md hover:bg-muted rounded-lg border px-2.5 py-1"
                   >
+                    <span
+                      aria-hidden="true"
+                      className="material-symbols-outlined text-base"
+                    >
+                      {ACTION_ICONS[item.command]}
+                    </span>
                     {item.label}
-                  </button>
+                  </Button>
                 </RequireControl>
               ))}
             </div>

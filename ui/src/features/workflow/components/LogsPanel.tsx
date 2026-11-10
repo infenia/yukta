@@ -355,14 +355,18 @@ export function LogsPanel({
           </div>
         )}
         {isStreaming && (
-          <Tip label="Streaming">
+          <Tip label="Receiving new lines as they are written">
             <span
               role="img"
               aria-label="Streaming"
-              className="text-attention material-symbols-outlined animate-pulse text-base"
               data-testid="streaming-pill"
+              className="bg-attention/10 text-attention text-label-sm inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 tracking-wider"
             >
-              sensors
+              <span
+                aria-hidden="true"
+                className="live-dot bg-attention size-1.5 rounded-full"
+              />
+              LIVE
             </span>
           </Tip>
         )}
@@ -433,18 +437,22 @@ export function LogsPanel({
                   aria-label="Follow new lines"
                   onClick={() => setAutoScroll((value) => !value)}
                   className={cn(
-                    'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                    'focus-visible:ring-ring text-label-sm flex h-6 items-center gap-1 rounded-full border px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none',
                     autoScroll
-                      ? 'bg-primary/10 text-primary'
-                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+                      ? 'border-primary/40 bg-primary/10 text-primary'
+                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface border-transparent'
                   )}
                 >
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined text-base"
+                    className={cn(
+                      'material-symbols-outlined text-base',
+                      autoScroll && 'animate-bounce'
+                    )}
                   >
-                    vertical_align_bottom
+                    keyboard_double_arrow_down
                   </span>
+                  Follow
                 </button>
               </Tip>
               {/* The result shows inside the button: a status beside it would shift the toolbar */}
