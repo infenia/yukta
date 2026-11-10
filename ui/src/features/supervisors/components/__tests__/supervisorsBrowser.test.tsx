@@ -172,7 +172,7 @@ describe('the Supervisors tab', () => {
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: 'External system' })
-    ).toHaveAttribute('href', '?tab=decision-makers&type=http');
+    ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
     // Owns: a run-level target with its nodes, a whole workflow with no session, a conflict, the server
     await expect
       .poll(() => screen.queryAllByText('Run level: lead').length)
@@ -246,6 +246,11 @@ describe('the Supervisors tab', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Built in (read only)')).toBeInTheDocument();
     expect(screen.getByText('2 targets')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '2 targets' }));
+    expect(screen.getByRole('tab', { name: 'Owns' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
     expect(await screen.findByText('owned here')).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Allowed operations' }));
@@ -254,7 +259,7 @@ describe('the Supervisors tab', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('Some').length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
     expect(
       screen.getByText('Asks all: every one must agree')
     ).toBeInTheDocument();
@@ -263,7 +268,7 @@ describe('the Supervisors tab', () => {
       screen.getByText('Asks in order: the first answer decides')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
+      within(screen.getByRole('tabpanel', { name: 'Reports to' })).getByRole(
         'button',
         { name: 'lead' }
       )
@@ -272,12 +277,12 @@ describe('the Supervisors tab', () => {
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
     expect(screen.getByText('1 target')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
     expect(
       screen.getByText('nobody; people answer what it asks in the inbox')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
+      within(screen.getByRole('tabpanel', { name: 'Reports to' })).getByRole(
         'button',
         { name: 'guard' }
       )
@@ -305,7 +310,7 @@ describe('the Supervisors tab', () => {
     expect(
       within(nav()).queryByRole('button', { name: /lead/ })
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Hierarchy' }));
+    await user.click(screen.getByRole('button', { name: 'Reporting tree' }));
     expect(screen.getByLabelText('where')).not.toHaveTextContent('view=');
     expect(
       within(nav()).getByRole('button', { name: /guard/ })
@@ -328,14 +333,14 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('heading', { name: 'bare' })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
     expect(
       screen.getByText('Reports to it:', { exact: false })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Hierarchy' }));
+    await user.click(screen.getByRole('button', { name: 'Reporting tree' }));
     await user.click(within(nav()).getAllByRole('button', { name: /lead/ })[0]);
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
-    const panel = screen.getByRole('tabpanel', { name: 'Hierarchy' });
+    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
+    const panel = screen.getByRole('tabpanel', { name: 'Reports to' });
     expect(
       within(panel).getByRole('button', { name: 'agent' })
     ).toBeInTheDocument();
@@ -343,8 +348,8 @@ describe('the Supervisors tab', () => {
       within(panel).getByRole('button', { name: 'guard' })
     ).toBeInTheDocument();
     await user.click(within(panel).getByRole('button', { name: 'agent' }));
-    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
-    const again = screen.getByRole('tabpanel', { name: 'Hierarchy' });
+    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
+    const again = screen.getByRole('tabpanel', { name: 'Reports to' });
     expect(
       within(again).getByRole('button', { name: 'lead' })
     ).toBeInTheDocument();
@@ -422,7 +427,7 @@ describe('the Supervisors tab', () => {
     await user.click(
       within(screen.getByRole('tablist', { name: 'lead details' })).getByRole(
         'tab',
-        { name: 'Activity' }
+        { name: 'Decisions' }
       )
     );
     expect(await screen.findByText('No activity yet')).toBeInTheDocument();

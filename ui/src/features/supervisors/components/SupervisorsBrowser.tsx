@@ -2,7 +2,8 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
+import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
@@ -20,24 +21,28 @@ import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
 import { Activity } from './Activity';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
 import { StaleNotice } from './StaleNotice';
+import { DefaultPeoplePanel } from './DefaultPeoplePanel';
 
 const DETAIL_TABS = [
   'Owns',
   'Allowed operations',
-  'Hierarchy',
+  'Reports to',
   'Settings',
-  'History',
-  'Activity',
+  'Changes',
+  'Decisions',
 ] as const;
 type DetailTab = (typeof DETAIL_TABS)[number];
 
 function NavItem({
   id,
+  label = id,
   sub,
   selected,
   onSelect,
 }: {
   id: string;
+  /** What is shown when it is not the id itself, such as "Default (people)". */
+  label?: string;
   sub: string;
   selected: boolean;
   onSelect: (id: string) => void;
@@ -54,7 +59,7 @@ function NavItem({
           : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
       )}
     >
-      <span className="block">{id}</span>
+      <span className="block">{label}</span>
       <span className="text-code-sm block text-[11px] opacity-75">{sub}</span>
     </button>
   );
@@ -74,25 +79,40 @@ function byWorkflow(assignments: AttachmentView[]) {
   return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
-/** "Change it from your agent": the commands that make the changes this page only shows. */
-function AgentCommands({ id }: { id: string }) {
+/** Edit link for the supervisor, and the agent or CLI commands for changes made outside the UI. */
+function ChangeSupervisor({ id }: { id: string }) {
   return (
-    <div className="border-border text-body-sm text-on-surface-variant rounded-xl border border-dashed p-3">
-      <p>
-        <b className="text-on-surface">Change it from your agent</b> (the usual
-        way)
-      </p>
-      <div className="mt-2">
-        <CodeBlock
-          label="Commands"
-          code={[
-            `MCP  save_supervisor {"id": "${id}", …}`,
-            `CLI  yukta supervisors show ${id}`,
-            `CLI  yukta supervisors assign ${id} <target>`,
-            `API  GET /api/supervisors/${id}`,
-          ].join('\n')}
-        />
+    <div className="flex flex-col gap-3">
+      <div>
+        <Link
+          to={`/supervisors/${encodeURIComponent(id)}/edit`}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            edit
+          </span>
+          Edit supervisor
+        </Link>
       </div>
+      <details className="text-body-sm text-on-surface-variant">
+        <summary className="cursor-pointer select-none">
+          Other ways to change it
+        </summary>
+        <div className="mt-2">
+          <CodeBlock
+            label="Commands"
+            code={[
+              `MCP  save_supervisor {"id": "${id}", …}`,
+              `CLI  yukta supervisors show ${id}`,
+              `CLI  yukta supervisors assign ${id} <target>`,
+              `API  GET /api/supervisors/${id}`,
+            ].join('\n')}
+          />
+        </div>
+      </details>
     </div>
   );
 }
@@ -115,8 +135,8 @@ function SupervisorPanel({
       <header>
         <h2 className="text-headline-lg text-on-surface">{supervisor.id}</h2>
         <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <a
-            href={`?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
+          <Link
+            to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
             className="text-primary inline-flex items-center gap-2"
           >
             <span
@@ -125,7 +145,7 @@ function SupervisorPanel({
               style={{ background: maker.color }}
             />
             {maker.name}
-          </a>
+          </Link>
           {supervisor.dryRun ? (
             <span className="text-attention inline-flex items-center gap-1">
               <span
@@ -173,16 +193,21 @@ function SupervisorPanel({
         </p>
         <p>
           <span className="text-muted-foreground">Owns </span>
-          <b>
+          <button
+            type="button"
+            className="text-primary font-semibold"
+            title="A target is a workflow, node or session this supervisor is assigned to"
+            onClick={() => setTab('Owns')}
+          >
             {supervisor.attachments}{' '}
             {supervisor.attachments === 1 ? 'target' : 'targets'}
-          </b>
+          </button>
         </p>
       </section>
       <div
         role="tablist"
         aria-label={`${supervisor.id} details`}
-        className="border-border flex gap-5 overflow-x-auto border-b"
+        className="border-border flex flex-wrap gap-x-5 border-b"
       >
         {DETAIL_TABS.map((name) => (
           <button
@@ -207,14 +232,14 @@ function SupervisorPanel({
         {tab === 'Allowed operations' && (
           <OperationsTab supervisor={supervisor} />
         )}
-        {tab === 'Hierarchy' && (
+        {tab === 'Reports to' && (
           <HierarchyTab supervisor={supervisor} all={all} onSelect={onSelect} />
         )}
         {tab === 'Settings' && <SettingsTab supervisor={supervisor} />}
-        {tab === 'History' && <HistoryTab supervisor={supervisor} />}
-        {tab === 'Activity' && <Activity supervisor={supervisor.id} />}
+        {tab === 'Changes' && <HistoryTab supervisor={supervisor} />}
+        {tab === 'Decisions' && <Activity supervisor={supervisor.id} />}
       </div>
-      <AgentCommands id={supervisor.id} />
+      <ChangeSupervisor id={supervisor.id} />
     </article>
   );
 }
@@ -255,6 +280,7 @@ export function SupervisorsBrowser() {
   const view = params.get('view') === 'workflow' ? 'workflow' : 'hierarchy';
   const selectedId = params.get('supervisor') ?? all[0].id;
   const selected = all.find((s) => s.id === selectedId) ?? all[0];
+  const showDefault = selectedId === 'default';
   const select = (id: string) => {
     const next = new URLSearchParams(params);
     next.set('supervisor', id);
@@ -299,10 +325,15 @@ export function SupervisorsBrowser() {
                     : 'text-on-surface-variant hover:bg-muted'
                 )}
               >
-                {v === 'hierarchy' ? 'Hierarchy' : 'By workflow'}
+                {v === 'hierarchy' ? 'Reporting tree' : 'By workflow'}
               </button>
             ))}
           </div>
+          <p className="text-body-sm text-muted-foreground px-3">
+            {view === 'hierarchy'
+              ? 'Who reports to whom.'
+              : 'Which supervisor owns each workflow.'}
+          </p>
           {view === 'hierarchy' ? (
             <ul className="flex flex-col gap-0.5">
               {hierarchyRows(all)
@@ -352,17 +383,25 @@ export function SupervisorsBrowser() {
               </section>
             ))
           )}
-          <p className="text-body-sm text-muted-foreground px-3">
-            Default (people) owns what nobody owns.
-          </p>
-        </nav>
-        <div className="min-w-0 flex-1">
-          <SupervisorPanel
-            key={selected.id}
-            supervisor={selected}
-            all={all}
+          <NavItem
+            id="default"
+            label="Default (people)"
+            sub="People, for workflows nobody owns"
+            selected={selectedId === 'default'}
             onSelect={select}
           />
+        </nav>
+        <div className="min-w-0 flex-1">
+          {showDefault ? (
+            <DefaultPeoplePanel />
+          ) : (
+            <SupervisorPanel
+              key={selected.id}
+              supervisor={selected}
+              all={all}
+              onSelect={select}
+            />
+          )}
         </div>
       </div>
     </>

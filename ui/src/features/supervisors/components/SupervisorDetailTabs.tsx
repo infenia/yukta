@@ -10,6 +10,7 @@ import {
   useSupervisorType,
 } from '../hooks/useSupervisorTypes';
 import { ownerLabel, parseScope, targetLabel } from '../lib/ownership';
+import { HierarchyGraph } from './HierarchyGraph';
 import { operationRows, type Reach } from '../lib/operations';
 import type { AttachmentView, SupervisorView } from '../types';
 
@@ -264,6 +265,7 @@ export function HierarchyTab({
   );
   return (
     <div className="flex flex-col gap-3">
+      <HierarchyGraph supervisor={supervisor} all={all} />
       <div className="border-border bg-card text-body-md shadow-card rounded-xl border p-4">
         <p>
           <b>Reports to: </b>

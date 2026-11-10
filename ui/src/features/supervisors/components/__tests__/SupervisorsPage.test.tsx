@@ -280,7 +280,7 @@ describe('the Decision makers tab', () => {
 });
 
 describe('a supervisor’s Settings and History', () => {
-  const at = async (tab: 'Settings' | 'History') => {
+  const at = async (tab: 'Settings' | 'Changes') => {
     const user = userEvent.setup();
     renderAt('/supervisors');
     await screen.findByRole('heading', { name: 'lead' });
@@ -325,7 +325,7 @@ describe('a supervisor’s Settings and History', () => {
       },
       { version: 1, savedAt: '2026-11-08T10:00:00Z', supervisor: sup('lead') },
     ];
-    const user = await at('History');
+    const user = await at('Changes');
     expect(await screen.findByText('v2')).toBeInTheDocument();
     expect(screen.getByText('current')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Compare' }));
@@ -338,13 +338,13 @@ describe('a supervisor’s Settings and History', () => {
   });
 
   it('says when nothing is kept', async () => {
-    await at('History');
+    await at('Changes');
     expect(await screen.findByText('No versions kept')).toBeInTheDocument();
   });
 
   it('says when the versions cannot be read', async () => {
     server.use(http.get('/api/supervisors/:id/versions', () => failed()));
-    await at('History');
+    await at('Changes');
     expect(
       await screen.findByText('Failed to load the versions.')
     ).toBeInTheDocument();
@@ -356,7 +356,7 @@ describe('a supervisor’s Settings and History', () => {
       { version: 1, savedAt: '2026-11-08T10:00:00Z', supervisor: sup('lead') },
     ];
     server.use(http.post('/api/supervisors/:id/rollback', () => failed()));
-    const user = await at('History');
+    const user = await at('Changes');
     await user.click(await screen.findByRole('button', { name: 'Restore' }));
     expect(await screen.findByText('boom')).toBeInTheDocument();
   });
