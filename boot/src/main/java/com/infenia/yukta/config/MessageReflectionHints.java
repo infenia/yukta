@@ -34,6 +34,18 @@ public class MessageReflectionHints {
               MemberCategory.INVOKE_PUBLIC_METHODS,
               MemberCategory.INVOKE_DECLARED_METHODS,
               MemberCategory.ACCESS_DECLARED_FIELDS);
+      registerFields(hints, YuktaProperties.class);
+    }
+
+    /**
+     * Bean validation reads the record fields of the {@code yukta.*} properties (and their nested
+     * records) reflectively; AOT only registers the constructors.
+     */
+    private static void registerFields(final RuntimeHints hints, final Class<?> type) {
+      hints.reflection().registerType(type, MemberCategory.ACCESS_DECLARED_FIELDS);
+      for (final Class<?> nested : type.getDeclaredClasses()) {
+        registerFields(hints, nested);
+      }
     }
   }
 }
