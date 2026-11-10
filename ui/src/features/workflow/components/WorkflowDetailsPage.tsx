@@ -46,7 +46,7 @@ import { NodeSheet } from './NodeSheet';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
-import { EffectiveSupervision } from '@/features/supervisors/components/EffectiveSupervision';
+import { WorkflowSupervision } from '@/features/supervisors/components/WorkflowSupervision';
 import { Tip } from '@/components/ui/tooltip';
 
 /** The workflow page: the run, its tasks and logs, and the controls. */
@@ -218,10 +218,10 @@ export function WorkflowDetailsPage() {
           )
         }
         meta={
-          <EffectiveSupervision
+          <WorkflowSupervision
             sessionId={sessionId}
             workflowId={workflowId}
-            compact
+            executionId={selectedExecutionId}
           />
         }
         runGroup={

@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.input.InputOption;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputState;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InputRequestQueries;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -52,16 +53,24 @@ public class InputProvider {
   /** Sends the answers and escalations. */
   private final ControlBusGateway controlBus;
 
+  /** Applies the answers and escalations. */
+  private final SupervisedControl control;
+
   /**
    * Creates the provider.
    *
    * @param queries reads the requests
-   * @param controlBus sends the answers and escalations
+   * @param controlBus finds the runs
+   * @param control sends the answers and escalations
    */
   @SuppressFBWarnings("EI_EXPOSE_REP2") // shared Spring beans, held on purpose
-  public InputProvider(final InputRequestQueries queries, final ControlBusGateway controlBus) {
+  public InputProvider(
+      final InputRequestQueries queries,
+      final ControlBusGateway controlBus,
+      final SupervisedControl control) {
     this.queries = queries;
     this.controlBus = controlBus;
+    this.control = control;
   }
 
   /**
@@ -131,7 +140,7 @@ public class InputProvider {
               "ANSWER_INPUT",
               "Answered input request " + requestId + " with " + decision + ".",
               () ->
-                  controlBus.answerInput(
+                  control.answerInput(
                       executionId, requestId, null, decision, text, values, rationale, null));
         });
   }
@@ -164,7 +173,7 @@ public class InputProvider {
               requestId,
               "ESCALATE_INPUT",
               "Escalated input request " + requestId + ".",
-              () -> controlBus.escalateInput(executionId, requestId, reason, advice));
+              () -> control.escalateInput(executionId, requestId, reason, advice));
         });
   }
 

@@ -147,7 +147,7 @@ function Editor({
   const dirty = JSON.stringify(workflow) !== JSON.stringify(initial);
   // problems with the declared supervisors, from Validate or from a refused save
   const supervisorErrors = [
-    ...(result?.problems ?? []).filter((p) => p.startsWith('supervisors[')),
+    ...(result?.problems ?? []).filter((p) => p.startsWith('assignments[')),
     ...saveProblems,
   ];
   // Bumped by Discard, so the inspector's fields drop the text they hold
@@ -337,13 +337,18 @@ function Editor({
       <div className="px-4 py-2 sm:px-6">
         <details open={supervisorErrors.length > 0} className="mb-2">
           <summary className="text-label-md cursor-pointer">
-            Supervisors ({workflow.supervisors?.length ?? 0})
+            Supervisors ({workflow.assignments?.length ?? 0})
           </summary>
           <div className="pt-2">
             <SupervisorPicker
-              value={workflow.supervisors ?? []}
-              onChange={(next) => update({ supervisors: next })}
+              value={workflow.assignments ?? []}
+              onChange={(next) => update({ assignments: next })}
               nodeIds={workflow.nodes.map((n) => n.nodeId)}
+              groupOf={Object.fromEntries(
+                workflow.nodes
+                  .filter((n) => n.group)
+                  .map((n) => [n.nodeId, n.group as string])
+              )}
               errors={supervisorErrors}
             />
           </div>
@@ -757,14 +762,14 @@ export function WorkflowEditorPage() {
     );
   }
   // a new workflow starts with the supervisors the "New workflow" dialog picked
-  const declared = (location.state as { supervisors?: SupervisorRef[] } | null)
-    ?.supervisors;
+  const declared = (location.state as { assignments?: SupervisorRef[] } | null)
+    ?.assignments;
   const initial = session.data.workflows[workflowId] ?? {
     workflowId,
     description: '',
     nodes: [],
     edges: [],
-    ...(declared ? { supervisors: declared } : {}),
+    ...(declared ? { assignments: declared } : {}),
   };
   // Keyed by route so moving to another workflow starts a fresh draft instead of keeping the old one.
   return (

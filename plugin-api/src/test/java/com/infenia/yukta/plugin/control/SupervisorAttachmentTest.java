@@ -27,10 +27,40 @@ class SupervisorAttachmentTest {
   @Test
   void badScopesAreRejected() {
     for (final String bad :
-        new String[] {null, "", "everything", "session:", "run:x", "workflow:/w", "workflow:a/"}) {
+        new String[] {
+          null,
+          "",
+          "everything",
+          "session:",
+          "run:",
+          "run:/w",
+          "servers",
+          "workflow:/w",
+          "workflow:a/"
+        }) {
       assertThatThrownBy(() -> SupervisorScope.parse(bad))
           .isInstanceOf(IllegalArgumentException.class);
     }
+  }
+
+  @Test
+  void attachmentCanBeMarkedAsConflictAndThenIsDisabled() {
+    final SupervisorAttachment declared =
+        new SupervisorAttachment(
+            "a",
+            "p",
+            new SupervisorScope.Run("w", "s"),
+            true,
+            SupervisorSource.DEFINITION,
+            "s",
+            "w");
+
+    assertThat(declared.conflict()).isFalse();
+    final SupervisorAttachment marked = declared.asConflict();
+    assertThat(marked.conflict()).isTrue();
+    assertThat(marked.enabled()).isFalse();
+    assertThat(marked.source()).isEqualTo(SupervisorSource.DEFINITION);
+    assertThat(marked.originWorkflowId()).isEqualTo("w");
   }
 
   @Test
@@ -62,5 +92,26 @@ class SupervisorAttachmentTest {
         .isInstanceOf(NullPointerException.class);
     assertThatThrownBy(() -> new SupervisorAttachment("b", "p", null, true))
         .isInstanceOf(NullPointerException.class);
+  }
+
+  @Test
+  void attachmentsCanBeBuiltWithConflictFlagAndLockedOrNot() {
+    final SupervisorAttachment stored =
+        new SupervisorAttachment(
+            "a",
+            "p",
+            new SupervisorScope.Run("w", "s"),
+            true,
+            SupervisorSource.MANUAL,
+            null,
+            null,
+            true);
+
+    assertThat(stored.conflict()).isTrue();
+    assertThat(stored.locked()).isFalse();
+    final SupervisorAttachment locked = stored.withLocked(true);
+    assertThat(locked.locked()).isTrue();
+    assertThat(locked.conflict()).isTrue();
+    assertThat(locked.withLocked(false).locked()).isFalse();
   }
 }

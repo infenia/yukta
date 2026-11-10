@@ -53,11 +53,26 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `get_scheduler_limits` | `VIEWER` | none |
 | `get_metrics_snapshot` | `VIEWER` | optional `scope` |
 | `list_supervisors` | `VIEWER` | none |
-| `list_supervisor_types` | `VIEWER` | none |
-| `get_supervisor_type` | `VIEWER` | `type` |
+| `list_supervisor_engines` | `VIEWER` | none |
+| `get_supervisor_engine` | `VIEWER` | `type` |
+| `get_supervisor` | `VIEWER` | `id` |
+| `get_supervision` | `VIEWER` | optional `sessionId`, `workflowId`, `executionId`, `nodeId` |
 | `save_supervisor` | `ADMIN` | `type`, optional `id`, `settings`, `dryRun`, `description` |
-| `attach_supervisor` | `ADMIN` | `supervisorId`, `scope`, optional `enabled`, `attachmentId` |
-| `detach_supervisor` | `ADMIN` | `attachmentId` |
+| `check_assignment` | `ADMIN` | `supervisorId`, `assignments` |
+| `set_assignments` | `ADMIN` | `supervisorId`, `assignments`, optional `unlock` |
+| `delete_supervisor` | `ADMIN` | `id` |
+| `get_supervisor_contract` | `VIEWER` | none |
+| `get_ownership` | `VIEWER` | `sessionId`, `workflowId` |
+| `get_supervision_summary` | `VIEWER` | none |
+| `list_supervisor_presets` | `VIEWER` | `type` |
+| `list_supervisor_versions` | `VIEWER` | `supervisorId` |
+| `rollback_supervisor` | `ADMIN` | `supervisorId`, `version` |
+| `replay_supervisor` | `ADMIN` | `supervisorId`, `executionId`, optional `settings` |
+| `get_rules` | `VIEWER` | `supervisorId` |
+| `save_rules` | `ADMIN` | `supervisorId`, `rules` (the document only; shared settings stay) |
+| `replay_rules` | `ADMIN` | `supervisorId`, `executionId`, optional `rules` |
+| `create_credential` | `ADMIN` | `supervisorId`, optional `ttlHours` |
+| `revoke_credential` | `ADMIN` | `supervisorId` |
 | `set_scheduler_limits` | `ADMIN` | `maxConcurrent`, `maxPerWorkflow` |
 | `list_workflow_versions` | `VIEWER` | `sessionId`, `workflowId` |
 | `diff_workflow_versions` | `VIEWER` | `sessionId`, `workflowId`, `olderVersion`, optional `newerVersion` |
@@ -139,3 +154,8 @@ because of it: check the effect with a read tool first (`list_sessions` after a 
 Add the server with its URL and, when it has a key, an `Authorization: Bearer <key>` header. The key is the user's: ask them to set it in the
 client's own configuration, never paste it into a chat or a file in a repository. The address is `http://localhost:9858/mcp` for a local server.
 The page `docs/interfaces/mcp.mdx` of the Yukta repository (docs site: Interfaces, MCP server) has the commands for each client.
+
+## Supervisors (ask the user first)
+
+A supervisor can refuse a command you send: that is the owner's decision, so do not retry it; tell the user which supervisor refused and why. To look: `list_supervisors`, `get_supervisor_contract`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor`, `get_supervision`, `get_supervision_summary`, `list_supervisor_presets`, `list_supervisor_versions` (`VIEWER`). Changing supervision is `ADMIN` and needs the user's yes: `save_supervisor`, `check_assignment` (read only), `set_assignments`, `delete_supervisor`, `rollback_supervisor`, `replay_supervisor` (a dry run, safe), `create_credential`, `revoke_credential`. A credential passes through your context when you create one: prefer to ask the user to make it in the UI or CLI, and never repeat the token. If you are to act as a supervisor yourself, use the `yukta-supervisor` skill.
+

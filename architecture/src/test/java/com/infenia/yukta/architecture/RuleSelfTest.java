@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.architecture.fixture.BadBlocking;
+import com.infenia.yukta.architecture.fixture.BadControlCaller;
 import com.infenia.yukta.architecture.fixture.BadDeprecated;
 import com.infenia.yukta.architecture.fixture.BadFieldInjection;
 import com.infenia.yukta.architecture.fixture.BadLogger;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.Test;
  * A rule that silently matches nothing protects nothing. Each rule here must fail on a small class
  * that breaks it and accept a clean one.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 class RuleSelfTest {
 
   private static final String SELF_TEST = "self-test";
@@ -87,6 +89,12 @@ class RuleSelfTest {
         ReactiveRules.noBlockingCalls(
             Map.of(BadBlocking.class.getName(), SELF_TEST, BadSleep.class.getName(), SELF_TEST));
     assertAccepted(exempt, BadBlocking.class, BadSleep.class);
+  }
+
+  @Test
+  void commandSentAroundTheOneEntryIsCaught() {
+    assertViolated(ControlEntryRules.ONLY_CONTROL_APPLIES_COMMANDS, BadControlCaller.class);
+    assertAccepted(ControlEntryRules.ONLY_CONTROL_APPLIES_COMMANDS, GoodClass.class);
   }
 
   @Test

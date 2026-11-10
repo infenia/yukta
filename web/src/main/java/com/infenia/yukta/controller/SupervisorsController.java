@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
-import com.infenia.yukta.dto.response.AttachmentView;
+import com.infenia.yukta.dto.response.AssignmentView;
 import com.infenia.yukta.dto.response.SupervisorValidation;
 import com.infenia.yukta.dto.response.SupervisorView;
 import com.infenia.yukta.model.api.ApiResponse;
@@ -12,10 +12,13 @@ import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
+import com.infenia.yukta.service.supervisor.SupervisorRules;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.SupervisorSettingsMask;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,7 +38,6 @@ import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -54,20 +56,26 @@ import reactor.core.publisher.Mono;
  */
 @RestController
 @SuppressWarnings({
-  "PMD.TooManyMethods",
-  "PMD.ExcessiveImports",
+  "PMD.AvoidFieldNameMatchingMethodName",
   "PMD.CouplingBetweenObjects",
-  "PMD.GodClass"
+  "PMD.ExcessiveImports",
+  "PMD.GodClass",
+  "PMD.LinguisticNaming",
+  "PMD.TooManyMethods"
 })
 @RequestMapping("/api/supervisors")
 @RequiredArgsConstructor
-@Tag(name = "Supervisors API", description = "Supervisors, their attachments and their decisions")
+@Tag(name = "Supervisors API", description = "Supervisors, what they own and their decisions")
 @RegisterReflectionForBinding({
   SupervisorDecision.class,
   SupervisorInfo.class,
   SupervisorsController.SupervisorBody.class,
-  SupervisorsController.AttachmentBody.class,
-  SupervisorsController.EnabledBody.class
+  SupervisorsController.AssignmentBody.class,
+  SupervisorsController.ValidationView.class,
+  SupervisorsController.VersionView.class,
+  SupervisorsController.RulesView.class,
+  SupervisorsController.ReplayBody.class,
+  SupervisorService.ReplayDecision.class
 })
 public class SupervisorsController {
 
@@ -83,6 +91,9 @@ public class SupervisorsController {
 
   /** Knows what runs and what supervisors decided. */
   private final SupervisorHost host;
+
+  /** What supervisors own, set as a whole. */
+  private final SupervisorAssignments assignments;
 
   /**
    * A supervisor as sent.
@@ -101,7 +112,17 @@ public class SupervisorsController {
       String type,
       String description,
       Map<String, Object> settings,
-      @Nullable Boolean dryRun) {
+      @Nullable Boolean dryRun,
+      @Nullable List<String> parents,
+      @Nullable Map<String, DelegationBody> delegation) {
+
+    /**
+     * How one kind of delegation is asked.
+     *
+     * @param mode ORDERED, ALL or ANY
+     * @param timeoutSeconds how long one parent has to answer; the default when absent
+     */
+    public record DelegationBody(@Nullable String mode, @Nullable Long timeoutSeconds) {}
 
     /** Keeps an immutable copy of the settings. */
     public SupervisorBody {
@@ -112,21 +133,14 @@ public class SupervisorsController {
   }
 
   /**
-   * A manual attachment as sent.
+   * One thing a supervisor should own, as sent.
    *
-   * @param id the attachment id; generated when missing
-   * @param supervisorId the supervisor to run
-   * @param scope the scope key
+   * @param target what it owns: server, session:<id>, workflow:<s>/<w>, run:<s>/<w> or a section
    * @param enabled whether it runs; true when missing
+   * @param locked whether only a lock holder may change or remove it; false when missing
    */
-  public record AttachmentBody(String id, String supervisorId, String scope, Boolean enabled) {}
-
-  /**
-   * A change of an attachment.
-   *
-   * @param enabled whether it runs
-   */
-  public record EnabledBody(Boolean enabled) {}
+  public record AssignmentBody(
+      String target, @Nullable Boolean enabled, @Nullable Boolean locked) {}
 
   // ---- supervisors
 
@@ -224,6 +238,156 @@ public class SupervisorsController {
   }
 
   /**
+   * The rules document of a rules supervisor, with secret settings hidden.
+   *
+   * @param id the supervisor id
+   * @return the rules and the newest version; 404 if unknown, 409 if it has another engine
+   */
+  @GetMapping("/{id}/engine/rules")
+  @Operation(summary = "Read the rules document of a rules supervisor")
+  public Mono<ApiResponse<RulesView>> rules(@PathVariable final String id) {
+    return SupervisorRules.read(service, id)
+        .map(doc -> ApiResponse.success(200, "Rules", view(doc)));
+  }
+
+  /**
+   * Replace the rules of a rules supervisor and swap the running rules.
+   *
+   * @param id the supervisor id
+   * @param rules the new rules document, without the common settings
+   * @return the saved rules and their newest version; 404 if unknown, 409 if built in or when it
+   *     uses another engine
+   */
+  @PutMapping("/{id}/engine/rules")
+  @Operation(
+      summary = "Replace the rules document of a rules supervisor",
+      description =
+          "Validates the rules, keeps the supervisor's other settings, saves a new version and"
+              + " swaps the running rules; the common settings (allowedCommands, initiative, ...)"
+              + " change through PUT /api/supervisors/{id}")
+  public Mono<ApiResponse<RulesView>> saveRules(
+      @PathVariable final String id, @RequestBody final Map<String, Object> rules) {
+    return host.isBuiltIn(id)
+        ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+        : SupervisorRules.save(service, id, rules)
+            .map(doc -> ApiResponse.success(200, "Rules saved", view(doc)));
+  }
+
+  /**
+   * Try a draft rules document on the recorded events of a past run, with the supervisor's stored
+   * common settings, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, in {@code settings}, the draft rules document (none: the stored)
+   * @return what the rules would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/engine/rules/replay")
+  @Operation(summary = "Replay a draft rules document over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replayRules(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return SupervisorRules.replay(service, id, body.executionId(), body.settings())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
+  }
+
+  /**
+   * The rules document of a rules supervisor.
+   *
+   * @param version the newest saved version of the supervisor; 0 when none is kept
+   * @param rules the document ({@code schemaVersion}, {@code rules}), without the common settings
+   */
+  public record RulesView(int version, Map<String, Object> rules) {
+
+    /** Keeps an unmodifiable copy, so the caller's map cannot change the view. */
+    public RulesView {
+      rules = Collections.unmodifiableMap(new LinkedHashMap<>(rules));
+    }
+  }
+
+  /**
+   * The saved versions of a supervisor (the newest 20), newest first.
+   *
+   * @param id the supervisor id
+   * @return the versions, with secret settings hidden; 404 if unknown
+   */
+  @GetMapping("/{id}/versions")
+  @Operation(summary = "List the saved versions of a supervisor")
+  public Mono<ApiResponse<List<VersionView>>> versions(@PathVariable final String id) {
+    return service
+        .versions(id)
+        .map(
+            found ->
+                ApiResponse.success(
+                    200,
+                    "Versions",
+                    found.stream()
+                        .map(v -> new VersionView(v.version(), v.savedAt(), shown(v.supervisor())))
+                        .toList()));
+  }
+
+  /**
+   * Make an earlier version current again; it is saved as a new version and the attachments that
+   * use the supervisor restart with it.
+   *
+   * @param id the supervisor id
+   * @param version the number of the version
+   * @return the supervisor; 404 if the version is no longer kept
+   */
+  @PostMapping("/{id}/rollback")
+  @Operation(summary = "Roll a supervisor back to a saved version")
+  public Mono<ApiResponse<SupervisorView>> rollback(
+      @PathVariable final String id, @RequestParam final int version) {
+    return host.isBuiltIn(id)
+        ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+        : service
+            .rollback(id, version)
+            .map(saved -> ApiResponse.success(200, "Supervisor rolled back", shown(saved)));
+  }
+
+  /**
+   * Try a supervisor on the recorded events of a past run, in dry run: nothing is sent.
+   *
+   * @param id the supervisor id
+   * @param body the past run and, optionally, draft settings to try instead of the stored ones
+   * @return what the supervisor would have done, and whether it would have been allowed
+   */
+  @PostMapping("/{id}/replay")
+  @Operation(summary = "Replay a supervisor over a past run")
+  public Mono<ApiResponse<List<SupervisorService.ReplayDecision>>> replay(
+      @PathVariable final String id, @RequestBody final ReplayBody body) {
+    return service
+        .replay(id, body.settings(), body.executionId())
+        .map(found -> ApiResponse.success(200, "Replayed", found));
+  }
+
+  /**
+   * A replay request.
+   *
+   * @param executionId the past run
+   * @param settings draft settings to try, or {@code null} for the stored ones
+   */
+  @SuppressFBWarnings(
+      value = "EI_EXPOSE_REP",
+      justification = "the compact constructor stores an unmodifiable copy")
+  public record ReplayBody(String executionId, @Nullable Map<String, Object> settings) {
+
+    /** Keeps an unmodifiable copy of the draft settings; a setting may be null. */
+    public ReplayBody {
+      if (settings != null) {
+        settings = Collections.unmodifiableMap(new LinkedHashMap<>(settings));
+      }
+    }
+  }
+
+  /**
+   * A saved version.
+   *
+   * @param version the number
+   * @param savedAt when it was saved
+   * @param supervisor the supervisor as saved
+   */
+  public record VersionView(int version, java.time.Instant savedAt, SupervisorView supervisor) {}
+
+  /**
    * Delete a supervisor that no attachment uses and no definition declares.
    *
    * @param id the supervisor id
@@ -280,117 +444,135 @@ public class SupervisorsController {
         .map(result -> ApiResponse.success(200, "Supervisor checked", result));
   }
 
-  // ---- attachments
+  // ---- assignments
 
   /**
-   * The attachments of one supervisor.
+   * What one supervisor owns: its assignments, whatever made them.
    *
    * @param id the supervisor id
-   * @return its attachments
+   * @return its assignments
    */
-  @GetMapping("/{id}/attachments")
-  @Operation(summary = "List the attachments of a supervisor")
-  public Mono<ApiResponse<List<AttachmentView>>> attachmentsOf(@PathVariable final String id) {
-    return attachmentViews()
+  @GetMapping("/{id}/assignments")
+  @Operation(summary = "List what a supervisor owns")
+  public Mono<ApiResponse<List<AssignmentView>>> assignmentsOf(@PathVariable final String id) {
+    return assignmentViews()
         .map(all -> all.stream().filter(a -> a.supervisorId().equals(id)).toList())
-        .map(list -> ApiResponse.success(200, "Attachments retrieved", list));
+        .map(list -> ApiResponse.success(200, "Assignments retrieved", list));
   }
 
   /**
-   * List attachments. With {@code session} or {@code workflow} it lists the <em>effective</em>
-   * supervisors of that session or workflow: the global ones, those limited to the session, to the
-   * workflow, and to sections of it.
+   * Makes a supervisor own exactly these targets. Everything is checked first (each target, the
+   * one-owner rule, the locks); nothing changes when a check fails.
    *
-   * @param session only attachments that apply to this session
-   * @param workflow only attachments that apply to this workflow
-   * @param source only this source: {@code MANUAL}, {@code DEFINITION} or {@code SYSTEM}
-   * @return the attachments
+   * @param id the supervisor id
+   * @param unlock whether locked assignments may be changed or removed
+   * @param body what it should own
+   * @return what it owns afterwards; 400 for a bad target, 404 for an unknown supervisor, 409 for a
+   *     target another supervisor owns ({@code OWNERSHIP_CONFLICT}) or a locked assignment
    */
-  @GetMapping("/attachments")
-  @Operation(summary = "List attachments")
-  public Mono<ApiResponse<List<AttachmentView>>> attachments(
+  @PutMapping("/{id}/assignments")
+  @Operation(
+      summary = "Set what a supervisor owns",
+      description =
+          "Replaces the assignments made here (MANUAL); those from definitions change with the"
+              + " definition. A target is server, session:<id>, workflow:<s>/<w>, run:<s>/<w> or"
+              + " workflow:<s>/<w>//<selector>,... (node ids, <prefix>.*, group:<name>).")
+  public Mono<ApiResponse<List<AssignmentView>>> setAssignments(
+      @PathVariable final String id,
+      @RequestParam(defaultValue = "false") final boolean unlock,
+      @RequestBody final List<AssignmentBody> body) {
+    if (host.isBuiltIn(id)) {
+      return Mono.error(new ConflictException(SYSTEM_MESSAGE));
+    }
+    return Mono.fromSupplier(() -> wanted(body))
+        .flatMap(wanted -> assignments.set(id, wanted, unlock))
+        .map(
+            saved ->
+                ApiResponse.success(
+                    200,
+                    "Assignments saved",
+                    saved.stream().map(SupervisorsController::assignmentView).toList()));
+  }
+
+  /**
+   * What would be wrong with setting these assignments, without changing anything.
+   *
+   * @param id the supervisor id
+   * @param body what it should own
+   * @return {@code valid} and the problems, each with a field {@code assignments[i]}
+   */
+  @PostMapping("/{id}/assignments/check")
+  @Operation(summary = "Check what a supervisor would own, without saving")
+  public Mono<ApiResponse<ValidationView>> checkAssignments(
+      @PathVariable final String id, @RequestBody final List<AssignmentBody> body) {
+    return Mono.fromSupplier(() -> wanted(body))
+        .flatMap(wanted -> assignments.check(id, wanted))
+        .map(
+            issues ->
+                ApiResponse.success(
+                    200,
+                    issues.isEmpty() ? "No problems" : "Problems found",
+                    new ValidationView(
+                        issues.isEmpty(),
+                        issues.stream().map(i -> i.field() + ": " + i.message()).toList())));
+  }
+
+  /**
+   * Every assignment. With {@code session} or {@code workflow} it lists who owns something there.
+   *
+   * @param session only assignments that apply to this session
+   * @param workflow only assignments that apply to this workflow
+   * @param source only this source: {@code MANUAL}, {@code DEFINITION} or {@code SYSTEM}
+   * @return the assignments
+   */
+  @GetMapping("/assignments")
+  @Operation(summary = "List assignments")
+  public Mono<ApiResponse<List<AssignmentView>>> assignments(
       @RequestParam(required = false) final @Nullable String session,
       @RequestParam(required = false) final @Nullable String workflow,
       @RequestParam(required = false) final @Nullable String source) {
-    return attachmentViews()
+    return assignmentViews()
         .map(
             all ->
                 all.stream()
                     .filter(a -> source == null || a.source().equalsIgnoreCase(source))
                     .filter(a -> applies(SupervisorScope.parse(a.scope()), session, workflow))
                     .toList())
-        .map(list -> ApiResponse.success(200, "Attachments retrieved", list));
+        .map(list -> ApiResponse.success(200, "Assignments retrieved", list));
   }
 
   /**
-   * Attach a supervisor to a scope by hand. An enabled attachment starts at once.
+   * The result of a check.
    *
-   * @param body the attachment
-   * @return the attachment; 404 for an unknown supervisor, 400 for a bad scope, 409 at the limit or
-   *     when the id belongs to a definition or system attachment
+   * @param valid whether nothing is wrong
+   * @param problems each as {@code field: message}
    */
-  @PostMapping("/attachments")
-  @ResponseStatus(HttpStatus.CREATED)
-  @Operation(
-      summary = "Attach a supervisor",
-      description =
-          "Attach a supervisor to a scope. A section scope (workflow:<s>/<w>//build.*,deploy)"
-              + " watches only those nodes and no workflow-wide event or command. Attachments made"
-              + " here are MANUAL; those from a definition are changed by editing the definition.")
-  public Mono<ApiResponse<AttachmentView>> attach(@RequestBody final AttachmentBody body) {
-    return Mono.fromSupplier(
-            () ->
-                new SupervisorAttachment(
-                    idOrNew(body.id()),
-                    required("supervisorId", body.supervisorId()),
-                    SupervisorScope.parse(required("scope", body.scope())),
-                    body.enabled() == null || body.enabled()))
-        .flatMap(
-            attachment ->
-                manual(attachment.id()).then(Mono.defer(() -> service.attach(attachment))))
-        .map(saved -> ApiResponse.success(201, "Supervisor attached", attachmentView(saved)));
+  public record ValidationView(boolean valid, List<String> problems) {
+
+    /** Keeps an immutable copy of the problems. */
+    public ValidationView {
+      problems = List.copyOf(problems);
+    }
   }
 
-  /**
-   * Enable or disable a manual attachment.
-   *
-   * @param id the attachment id
-   * @param body the new state
-   * @return the attachment; 404 if unknown, 409 for a definition or system attachment
-   */
-  @PatchMapping("/attachments/{id}")
-  @Operation(summary = "Enable or disable an attachment")
-  public Mono<ApiResponse<AttachmentView>> patch(
-      @PathVariable final String id, @RequestBody final EnabledBody body) {
-    return manual(id)
-        .then(Mono.defer(() -> service.attachments().filter(a -> a.id().equals(id)).next()))
-        .switchIfEmpty(Mono.error(new NotFoundException("Attachment not found: " + id)))
-        .flatMap(
-            a ->
-                service.attach(
-                    new SupervisorAttachment(
-                        a.id(),
-                        a.supervisorId(),
-                        a.scope(),
-                        Boolean.TRUE.equals(required("enabled", body.enabled())),
-                        a.source(),
-                        a.originSessionId(),
-                        a.originWorkflowId())))
-        .map(saved -> ApiResponse.success(200, "Attachment saved", attachmentView(saved)));
-  }
-
-  /**
-   * Detach a manual attachment; its supervisor stops without a restart.
-   *
-   * @param id the attachment id
-   * @return nothing; 404 if unknown, 409 for a definition or system attachment
-   */
-  @DeleteMapping("/attachments/{id}")
-  @Operation(summary = "Detach a supervisor")
-  public Mono<ApiResponse<Void>> detach(@PathVariable final String id) {
-    return manual(id)
-        .then(Mono.defer(() -> service.detach(id)))
-        .then(Mono.fromSupplier(() -> ApiResponse.success(200, "Supervisor detached", null)));
+  private static List<SupervisorAssignments.Assignment> wanted(final List<AssignmentBody> body) {
+    if (body == null) {
+      throw new IllegalArgumentException("A list of assignments is required");
+    }
+    return body.stream()
+        .map(
+            a -> {
+              final String target = a.target();
+              if (target == null || target.isBlank()) {
+                throw new IllegalArgumentException("target is required");
+              }
+              final Boolean enabled = a.enabled();
+              return new SupervisorAssignments.Assignment(
+                  SupervisorScope.parse(target),
+                  enabled == null || enabled,
+                  Boolean.TRUE.equals(a.locked()));
+            })
+        .toList();
   }
 
   // ---- runtime
@@ -451,30 +633,10 @@ public class SupervisorsController {
     return service.supervisors().filter(s -> s.id().equals(id)).next();
   }
 
-  /** Errors with 409 if the attachment exists and was not made by hand, or is a system one. */
-  private Mono<Void> manual(final String id) {
-    if (host.isBuiltIn(id)) {
-      return Mono.error(new ConflictException(SYSTEM_MESSAGE));
-    }
+  private Mono<List<AssignmentView>> assignmentViews() {
     return service
         .attachments()
-        .filter(a -> a.id().equals(id) && a.source() != SupervisorSource.MANUAL)
-        .next()
-        .flatMap(
-            a ->
-                Mono.<Void>error(
-                    new ConflictException(
-                        "Attachment "
-                            + id
-                            + " comes from a "
-                            + a.source()
-                            + " source; edit the definition that declares it")));
-  }
-
-  private Mono<List<AttachmentView>> attachmentViews() {
-    return service
-        .attachments()
-        .map(SupervisorsController::attachmentView)
+        .map(SupervisorsController::assignmentView)
         .collectList()
         .map(
             stored ->
@@ -515,7 +677,67 @@ public class SupervisorsController {
         infos.stream().mapToLong(SupervisorInfo::applied).sum(),
         infos.stream().mapToLong(SupervisorInfo::rejected).sum(),
         infos.stream().mapToLong(SupervisorInfo::recorded).sum(),
-        infos.stream().mapToLong(SupervisorInfo::rateLimited).sum());
+        infos.stream().mapToLong(SupervisorInfo::rateLimited).sum(),
+        supervisor.parents(),
+        delegationView(supervisor));
+  }
+
+  /** The document as shown: secrets hidden. */
+  private RulesView view(final SupervisorRules.Document doc) {
+    return new RulesView(
+        doc.version(),
+        SupervisorSettingsMask.hide(doc.rules(), service.secretSettings(SupervisorRules.TYPE)));
+  }
+
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  private static Map<String, SupervisorView.DelegationView> delegationView(
+      final Supervisor supervisor) {
+    final Map<String, SupervisorView.DelegationView> view = new java.util.TreeMap<>();
+    supervisor
+        .delegation()
+        .forEach(
+            (kind, d) ->
+                view.put(
+                    kind.name(),
+                    new SupervisorView.DelegationView(d.mode().name(), d.timeout().toSeconds())));
+    return view;
+  }
+
+  @SuppressWarnings("PMD.UseConcurrentHashMap")
+  private static Map<
+          com.infenia.yukta.plugin.control.DelegationKind,
+          com.infenia.yukta.plugin.control.Delegation>
+      delegationOf(final @Nullable Map<String, SupervisorBody.DelegationBody> body) {
+    final Map<
+            com.infenia.yukta.plugin.control.DelegationKind,
+            com.infenia.yukta.plugin.control.Delegation>
+        out = new java.util.EnumMap<>(com.infenia.yukta.plugin.control.DelegationKind.class);
+    if (body != null) {
+      body.forEach(
+          (kind, d) -> {
+            final String mode = d.mode();
+            final Long timeoutSeconds = d.timeoutSeconds();
+            try {
+              out.put(
+                  com.infenia.yukta.plugin.control.DelegationKind.valueOf(
+                      kind.toUpperCase(java.util.Locale.ROOT)),
+                  new com.infenia.yukta.plugin.control.Delegation(
+                      mode == null
+                          ? com.infenia.yukta.plugin.control.DelegationMode.ORDERED
+                          : com.infenia.yukta.plugin.control.DelegationMode.valueOf(
+                              mode.toUpperCase(java.util.Locale.ROOT)),
+                      timeoutSeconds == null
+                          ? com.infenia.yukta.plugin.control.Delegation.DEFAULT_TIMEOUT
+                          : java.time.Duration.ofSeconds(timeoutSeconds)));
+            } catch (IllegalArgumentException e) {
+              throw new IllegalArgumentException(
+                  "delegation: unknown kind or mode, or a bad timeout (kinds APPROVAL, INPUT,"
+                      + " CONSULT; modes ORDERED, ALL, ANY)",
+                  e);
+            }
+          });
+    }
+    return out;
   }
 
   private SupervisorView systemView(final SupervisorInfo info) {
@@ -530,7 +752,9 @@ public class SupervisorsController {
         info.applied(),
         info.rejected(),
         info.recorded(),
-        info.rateLimited());
+        info.rateLimited(),
+        List.of(),
+        Map.of());
   }
 
   /** The supervisor as saved, shown without its secrets and without counts. */
@@ -538,18 +762,20 @@ public class SupervisorsController {
     return view(saved, List.of(), Map.of());
   }
 
-  private static AttachmentView attachmentView(final SupervisorAttachment a) {
-    return new AttachmentView(
+  private static AssignmentView assignmentView(final SupervisorAttachment a) {
+    return new AssignmentView(
         a.id(),
         a.supervisorId(),
         a.scope().key(),
         a.enabled(),
         a.source().name(),
         a.originSessionId(),
-        a.originWorkflowId());
+        a.originWorkflowId(),
+        a.conflict(),
+        a.locked());
   }
 
-  private static AttachmentView systemAttachment(final SupervisorInfo info) {
+  private static AssignmentView systemAttachment(final SupervisorInfo info) {
     final String scope =
         switch (info.scope()) {
           case "SESSION" -> "session:" + info.scopeSessionId();
@@ -559,8 +785,16 @@ public class SupervisorsController {
                   + info.scopeWorkflowId();
           default -> "global";
         };
-    return new AttachmentView(
-        info.id(), info.id(), scope, true, SupervisorSource.SYSTEM.name(), null, null);
+    return new AssignmentView(
+        info.id(),
+        info.id(),
+        scope,
+        true,
+        SupervisorSource.SYSTEM.name(),
+        null,
+        null,
+        false,
+        false);
   }
 
   /** Whether runs of the session and workflow fall in the scope; no filter means everything. */
@@ -572,16 +806,26 @@ public class SupervisorsController {
       return true;
     }
     final String scopeSession = scope.sessionId();
-    final String scopeWorkflow = scope.workflowId();
     return switch (scope.kind()) {
       case GLOBAL -> true;
       case SESSION -> session != null && session.equals(scopeSession);
-      case WORKFLOW, SECTION ->
-          workflow == null
-              ? scopeSession != null && scopeSession.equals(session)
-              : workflow.equals(scopeWorkflow)
-                  && (scopeSession == null || session == null || scopeSession.equals(session));
+      case SERVER -> false;
+      case WORKFLOW, RUN, SECTION ->
+          inWorkflow(scopeSession, scope.workflowId(), session, workflow);
     };
+  }
+
+  /** Whether a workflow scope falls in the filter; a session-only filter takes its workflows. */
+  private static boolean inWorkflow(
+      final @Nullable String scopeSession,
+      final @Nullable String scopeWorkflow,
+      final @Nullable String session,
+      final @Nullable String workflow) {
+    if (workflow == null) {
+      return scopeSession != null && scopeSession.equals(session);
+    }
+    return workflow.equals(scopeWorkflow)
+        && (scopeSession == null || session == null || scopeSession.equals(session));
   }
 
   private static Supervisor draft(
@@ -591,7 +835,9 @@ public class SupervisorsController {
         required("type", body.type()),
         settings,
         Boolean.TRUE.equals(body.dryRun()),
-        body.description());
+        body.description(),
+        body.parents() == null ? List.of() : body.parents(),
+        delegationOf(body.delegation()));
   }
 
   private static String idOrNew(final @Nullable String id) {
@@ -599,8 +845,8 @@ public class SupervisorsController {
   }
 
   /** A missing or blank field is a client error, not a server one. */
-  private static <T> T required(final String name, final @Nullable T value) {
-    if (value == null || value instanceof String text && text.isBlank()) {
+  private static String required(final String name, final @Nullable String value) {
+    if (value == null || value.isBlank()) {
       throw new IllegalArgumentException(name + " is required");
     }
     return value;

@@ -27,7 +27,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** Tests how the verdicts of several supervisors combine, with a need for approval. */
-@SuppressWarnings({"PMD.AvoidInstantiatingObjectsInLoops", "PMD.TooManyMethods"})
+@SuppressWarnings("PMD.TooManyMethods")
 @NoArgsConstructor
 class ControlReviewerApprovalTest {
 
@@ -63,7 +63,7 @@ class ControlReviewerApprovalTest {
 
   private static Mono<ReviewVerdict> verdict(
       final ControlRequest request, final Set<String> satisfied, final ExecutionSupervisor... all) {
-    return new ControlReviewer(providerOf(all), Duration.ofMillis(200))
+    return ControlReviewerFixture.pipeline(providerOf(all), Duration.ofMillis(200))
         .verdict(request, satisfied)
         .contextWrite(context -> context.put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR));
   }
@@ -160,7 +160,8 @@ class ControlReviewerApprovalTest {
   void stopFromPersonIsNeverParked() {
     for (final ControlRequest stop : new ControlRequest[] {STOP, STOP_NODE}) {
       final Mono<ReviewVerdict> byPerson =
-          new ControlReviewer(providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
+          ControlReviewerFixture.pipeline(
+                  providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
               .verdict(stop, Set.of());
       StepVerifier.create(byPerson).expectNext(ReviewVerdict.ALLOWED).verifyComplete();
       StepVerifier.create(
@@ -174,7 +175,7 @@ class ControlReviewerApprovalTest {
   @Test
   void stopFromPersonIsStillDeniedByDenial() {
     StepVerifier.create(
-            new ControlReviewer(
+            ControlReviewerFixture.pipeline(
                     providerOf(new Fake("a", 1, Decision.deny("no")), need("b", 2, LOW_ROUTE)),
                     Duration.ofMillis(200))
                 .verdict(STOP, Set.of()))
@@ -185,7 +186,8 @@ class ControlReviewerApprovalTest {
   @Test
   void personsOtherCommandCanBeParked() {
     StepVerifier.create(
-            new ControlReviewer(providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
+            ControlReviewerFixture.pipeline(
+                    providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
                 .verdict(PAUSE, Set.of()))
         .expectNextMatches(ReviewVerdict.NeedsApproval.class::isInstance)
         .verifyComplete();
@@ -208,20 +210,21 @@ class ControlReviewerApprovalTest {
   @Test
   void reviewTreatsNeedAsRefusal() {
     StepVerifier.create(
-            new ControlReviewer(providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
+            ControlReviewerFixture.pipeline(
+                    providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
                 .review(PAUSE))
         .expectErrorMatches(
             error ->
                 error instanceof ControlRejectedException && error.getMessage().contains("a wants"))
         .verify();
     StepVerifier.create(
-            new ControlReviewer(
+            ControlReviewerFixture.pipeline(
                     providerOf(new Fake("a", 1, Decision.deny("no"))), Duration.ofMillis(200))
                 .review(PAUSE))
         .expectErrorMatches(error -> error.getMessage().contains("a: no"))
         .verify();
     StepVerifier.create(
-            new ControlReviewer(
+            ControlReviewerFixture.pipeline(
                     providerOf(new Fake("a", 1, Decision.ALLOW)), Duration.ofMillis(200))
                 .review(PAUSE))
         .verifyComplete();
@@ -230,7 +233,8 @@ class ControlReviewerApprovalTest {
   @Test
   void dryRunNeedIsRecordedNotEnforced() {
     final ControlReviewer reviewer =
-        new ControlReviewer(providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200));
+        ControlReviewerFixture.pipeline(
+            providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200));
     final DryRunRecorder host = mock(DryRunRecorder.class);
     final StaticListableBeanFactory beans = new StaticListableBeanFactory();
     beans.addBean("host", host);

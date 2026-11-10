@@ -5,23 +5,14 @@ package com.infenia.yukta;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-import com.infenia.yukta.controlplane.composite.RulesFirstControlPlaneFactory;
-import com.infenia.yukta.controlplane.model.ModelControlPlaneFactory;
-import com.infenia.yukta.controlplane.rules.RuleControlPlaneFactory;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorFactory;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.util.EgressPolicy;
 import com.infenia.yukta.plugin.util.HostAllowList;
 import com.infenia.yukta.service.supervisor.SupervisorSettingsValidator;
-import com.infenia.yukta.service.supervisor.composite.CompositeSupervisorFactory;
 import com.infenia.yukta.service.supervisor.workflow.WorkflowSupervisorFactory;
-import com.infenia.yukta.supervisor.guards.ApprovalGateFactory;
-import com.infenia.yukta.supervisor.guards.FailureGuardFactory;
-import com.infenia.yukta.supervisor.guards.StallWatchdogFactory;
 import com.infenia.yukta.supervisor.rules.RuleSupervisorFactory;
-import com.infenia.yukta.supervisor.webhook.Egress;
-import com.infenia.yukta.supervisor.webhook.WebhookSupervisorFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -44,15 +35,18 @@ class SupervisorCatalogTest {
   private static List<SupervisorFactory> factories() {
     return List.of(
         new RuleSupervisorFactory(),
-        new FailureGuardFactory(),
-        new ApprovalGateFactory(),
-        new StallWatchdogFactory(),
-        new WebhookSupervisorFactory(
-            new Egress(EgressPolicy.OPEN, HostAllowList.from(null)), name -> null),
-        new RuleControlPlaneFactory(),
-        new ModelControlPlaneFactory(null),
-        new RulesFirstControlPlaneFactory(null),
-        new CompositeSupervisorFactory(null),
+        new com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory(
+            new com.infenia.yukta.service.supervisor.agent.HttpEngineFactory(
+                new com.infenia.yukta.service.supervisor.agent.AgentHub(),
+                new com.infenia.yukta.service.supervisor.agent.Outbound(
+                    new com.infenia.yukta.service.supervisor.agent.Egress(
+                        EgressPolicy.OPEN, HostAllowList.from(null)),
+                    org.springframework.web.reactive.function.client.WebClient.create(),
+                    JSON,
+                    name -> null))),
+        new com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory(
+            new com.infenia.yukta.supervisor.process.ProcessEngineFactory(
+                java.util.Set.of(), true)),
         new WorkflowSupervisorFactory(null, null, null));
   }
 
@@ -93,8 +87,7 @@ class SupervisorCatalogTest {
 
   @Test
   void ruleSupervisorExampleFileValidatesAsSettings() throws Exception {
-    final Map<String, Object> rules =
-        read("plugins/supervisors/rule-supervisor/rules.example.json");
+    final Map<String, Object> rules = read("plugins/supervisors/rules/rules.example.json");
 
     assertThatCode(
             () ->

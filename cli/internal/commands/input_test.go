@@ -76,6 +76,42 @@ func TestExitCode_apiStatus(t *testing.T) {
 	}
 }
 
+func TestExitCode_refusedBySupervisor(t *testing.T) {
+	bodies := map[string]string{
+		"owner":    `{"message":"guard controls this. People cannot do this directly.","errors":[{"field":"code","message":"CONTROLLED_BY_SUPERVISOR"},{"field":"supervisor","message":"guard"}]}`,
+		"rejected": `{"message":"guard: closed","errors":[{"field":"code","message":"CONTROL_REJECTED"}]}`,
+	}
+	for name, body := range bodies {
+		status := 409
+		if name == "rejected" {
+			status = 403
+		}
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			http.Error(w, body, status)
+		}))
+		_, err := client.NewClient(srv.URL).GetSessionDetails("s")
+		srv.Close()
+		if got := ExitCode(err, false); got != ExitRefused {
+			t.Errorf("%s: exit %d, want %d (%v)", name, got, ExitRefused, err)
+		}
+		if !client.IsRefusal(err) {
+			t.Errorf("%s: not a refusal: %v", name, err)
+		}
+	}
+	// a plain 409 (no supervisor code) and a non-API error are not refusals
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, `{"message":"busy"}`, http.StatusConflict)
+	}))
+	_, err := client.NewClient(srv.URL).GetSessionDetails("s")
+	srv.Close()
+	if client.IsRefusal(err) || ExitCode(err, false) != ExitFailure {
+		t.Errorf("plain conflict taken for a refusal: %v", err)
+	}
+	if client.IsRefusal(context.Canceled) {
+		t.Error("a non-API error is not a refusal")
+	}
+}
+
 func TestRootCmd_rejectsUnknownOutput(t *testing.T) {
 	defer SetTestOutputFormat("table")
 	cmd := RootCmd(client.NewClient(""))

@@ -4,7 +4,7 @@
 import type { ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CodeBlock } from '@/components/common/CodeBlock';
-import { RequirePermission } from '@/components/common/RequirePermission';
+import { RequireControl } from '@/features/supervisors/components/RequireControl';
 import {
   Sheet,
   SheetClose,
@@ -119,6 +119,17 @@ function Results({
  * its configuration (secrets masked by the server), its log lines and, for a terminal, what it
  * received. Opened by `?node=<id>` on the run page.
  */
+/** The capability the server names for each node action (others are checked by role only). */
+const NODE_CAPABILITY: Record<string, string> = {
+  pause: 'pauseNode',
+  resume: 'resumeNode',
+  stop: 'stopNode',
+  skip: 'skipNode',
+  step: 'stepNode',
+  'step/enable': 'stepNode',
+  'step/disable': 'stepNode',
+};
+
 export function NodeSheet({
   node,
   task,
@@ -198,7 +209,12 @@ export function NodeSheet({
           <Section title="Actions">
             <div className="flex flex-wrap gap-1.5">
               {actions.map((item) => (
-                <RequirePermission key={item.command} perm="controlRuns">
+                <RequireControl
+                  key={item.command}
+                  perm="controlRuns"
+                  command={NODE_CAPABILITY[item.command] ?? item.command}
+                  target={{ execution: executionId, node: node.nodeId }}
+                >
                   <Button
                     type="button"
                     variant="outline"
@@ -213,7 +229,7 @@ export function NodeSheet({
                     </span>
                     {item.label}
                   </Button>
-                </RequirePermission>
+                </RequireControl>
               ))}
             </div>
           </Section>

@@ -8,6 +8,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorCommonSettings;
 import com.infenia.yukta.plugin.control.SupervisorDescriptor;
+import com.infenia.yukta.plugin.control.SupervisorPreset;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.supervisor.SupervisorService;
@@ -24,7 +25,7 @@ import reactor.core.publisher.Mono;
 
 /** The catalog of supervisor types, like the plugin catalog. Reading needs a viewer key. */
 @RestController
-@RequestMapping("/api/supervisor-types")
+@RequestMapping("/api/supervisor-engines")
 @RequiredArgsConstructor
 @Tag(name = "Supervisor types API", description = "The catalog of supervisor types")
 public class SupervisorTypesController {
@@ -71,12 +72,13 @@ public class SupervisorTypesController {
                   d.description(),
                   d.usagePattern(),
                   d.category().name(),
-                  service.kind(type),
                   d.uiDesign().orElse(null),
                   service.configSchema(type),
                   SupervisorCommonSettings.SCHEMA,
                   defaults == null ? null : defaults.stream().sorted().toList(),
-                  d.exampleSettings()));
+                  d.exampleSettings(),
+                  service.signals(type),
+                  service.canInitiate(type)));
         });
   }
 
@@ -99,6 +101,26 @@ public class SupervisorTypesController {
         .map(ids -> ApiResponse.success(200, "Supervisors retrieved", ids));
   }
 
+  /**
+   * The presets of a type: settings to start from.
+   *
+   * @param type the type name
+   * @return the presets, possibly none; 404 if the type is unknown
+   */
+  @GetMapping("/{type}/presets")
+  @Operation(summary = "List the presets of a supervisor type")
+  public Mono<ApiResponse<List<SupervisorPreset>>> presets(@PathVariable final String type) {
+    return Mono.fromSupplier(
+        () ->
+            ApiResponse.success(
+                200,
+                "Presets retrieved",
+                service
+                    .presets(type)
+                    .orElseThrow(
+                        () -> new NotFoundException("Supervisor type not found: " + type))));
+  }
+
   private SupervisorDescriptor descriptor(final String type) {
     return service
         .describe(type)
@@ -108,10 +130,6 @@ public class SupervisorTypesController {
   private SupervisorTypeSummary summary(final String type) {
     final SupervisorDescriptor d = descriptor(type);
     return new SupervisorTypeSummary(
-        type,
-        d.displayName(),
-        d.category().name(),
-        service.kind(type),
-        d.uiDesign().map(UiDesign::icon).orElse(null));
+        type, d.displayName(), d.category().name(), d.uiDesign().map(UiDesign::icon).orElse(null));
   }
 }

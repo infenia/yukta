@@ -614,7 +614,7 @@ Found by comparing the web controllers with the commands. Each is a candidate fo
 | Server endpoint | What it does | Why a user might want it |
 |---|---|---|
 | GET /api/supervisors/status | Lists automated watchers. | Seeing what is watching a run. |
-| GET /api/supervisor-types, GET /api/supervisors, GET /api/supervisors/\{id\} | The supervisor catalog and the configured supervisors (`yukta supervisors types\|list\|show`). | Choosing and inspecting supervisors. |
+| GET /api/supervisor-engines, GET /api/supervisors, GET /api/supervisors/\{id\}, GET and PUT /api/supervisors/\{id\}/assignments | The engine catalog, the configured supervisors and what they own (`yukta supervisors engines\|list\|show\|assignments\|assign\|unassign`). | Choosing, inspecting and assigning supervisors. |
 | POST /api/sessions/validate | Checks a workflow definition without saving it. | A CI check before applying a config. |
 | GET /api/sessions/\{sid\}/config, GET /api/sessions/\{sid\}/workflows | Full session config and workflow list. | Exporting a session. |
 | POST /api/executions/\{eid\}/priority | Change a queued run's priority. | Queue management. |

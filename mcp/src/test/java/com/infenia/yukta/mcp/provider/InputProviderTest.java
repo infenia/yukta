@@ -25,6 +25,7 @@ import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.input.InMemoryInputRequestStore;
 import com.infenia.yukta.service.input.InputAnsweredException;
@@ -55,7 +56,10 @@ class InputProviderTest {
 
   /** The provider under test. */
   private final InputProvider provider =
-      new InputProvider(new InputRequestQueries(store), controlBus);
+      new InputProvider(
+          new InputRequestQueries(store),
+          controlBus,
+          new SupervisedControl(controlBus, null, null, null));
 
   private static InputRequestSpec spec(
       final String id, final InputKind kind, final String prompt, final String schema) {

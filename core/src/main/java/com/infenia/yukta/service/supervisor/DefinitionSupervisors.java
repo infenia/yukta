@@ -5,13 +5,13 @@ package com.infenia.yukta.service.supervisor;
 import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
-import com.infenia.yukta.plugin.control.Supervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.leader.LeaderElection;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException.Issue;
+import com.infenia.yukta.service.supervisor.ownership.NodeGroupIndex;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import io.micrometer.core.instrument.Metrics;
 import jakarta.annotation.PostConstruct;
@@ -21,7 +21,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -57,7 +56,6 @@ import reactor.core.scheduler.Schedulers;
 @Slf4j
 @Component
 @SuppressWarnings({
-  "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects",
@@ -75,11 +73,11 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /** How often failed declarations are tried again. */
   private static final Duration RETRY_EVERY = Duration.ofMinutes(1);
 
+  /** How often a declaration that could not be applied is tried again; shortened by tests. */
+  private Duration retryEvery = RETRY_EVERY;
+
   /** Hex digits of the hash kept in an id. */
   private static final int HASH_DIGITS = 16;
-
-  /** Field name of the supervisor id in a declaration. */
-  private static final String SUPERVISOR_FIELD = "supervisors[%d].supervisor";
 
   /** Attaches and detaches. */
   private final SupervisorService service;
@@ -87,14 +85,14 @@ public class DefinitionSupervisors implements DefinitionUsage {
   /** Keeps what sessions declare for themselves as a whole. */
   private final SupervisorStore store;
 
-  /** Knows which ids belong to supervisors the server configures itself. */
-  private final SupervisorHost host;
-
   /** The workflows of a session. */
   private final WorkflowDefinitionStore definitions;
 
   /** The sessions. */
   private final SessionConfigStore sessions;
+
+  /** The validation of declarations, kept apart from the reconciling. */
+  private final DefinitionChecks checks;
 
   /** The last reconcile of each session in progress, so reconciles of one session run in turn. */
   private final Map<String, Mono<Void>> tails = new ConcurrentHashMap<>();
@@ -104,6 +102,9 @@ public class DefinitionSupervisors implements DefinitionUsage {
 
   /** True when a declaration failed to attach or detach since the last retry. */
   private final AtomicBoolean anyFailed = new AtomicBoolean();
+
+  /** The groups of the stored workflows, kept current on every reconcile. */
+  @Nullable private NodeGroupIndex nodeGroups;
 
   /** The periodic retry; null until the server is up. */
   @Nullable private Disposable retry;
@@ -125,15 +126,25 @@ public class DefinitionSupervisors implements DefinitionUsage {
       final SessionConfigStore sessions) {
     this.service = service;
     this.store = store;
-    this.host = host;
     this.definitions = definitions;
     this.sessions = sessions;
+    this.checks = new DefinitionChecks(service, host);
   }
 
   /** Lets the service ask who declares a supervisor before it is deleted. */
   @PostConstruct
   /* default */ void register() {
     service.setDefinitionUsage(this);
+  }
+
+  /**
+   * Keeps the groups of the stored workflows current, for {@code group:} selectors.
+   *
+   * @param groups the index
+   */
+  @Autowired(required = false)
+  public void setNodeGroups(final NodeGroupIndex groups) {
+    this.nodeGroups = groups;
   }
 
   /**
@@ -147,12 +158,16 @@ public class DefinitionSupervisors implements DefinitionUsage {
     leaderElection.onTakeover(this::reconcileAllInBackground);
   }
 
+  /* default */ void useRetryPeriod(final Duration period) {
+    this.retryEvery = period;
+  }
+
   /** Reconciles every session once the server is up, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void onReady() {
     reconcileAllInBackground();
     // ponytail: a fixed minute; make it a setting if operators need to tune it
-    retry = Flux.interval(RETRY_EVERY, Schedulers.parallel()).subscribe(_ -> retryFailed());
+    retry = Flux.interval(retryEvery, Schedulers.parallel()).subscribe(_ -> retryFailed());
   }
 
   /** Stops the retry. */
@@ -193,27 +208,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
    *     empty when all is well
    */
   public Mono<List<Issue>> check(final SessionConfigData data) {
-    return service
-        .supervisors()
-        .map(Supervisor::id)
-        .collect(Collectors.toSet())
-        .map(
-            known -> {
-              final List<Issue> issues = new ArrayList<>();
-              checkRefs(data.supervisors(), "", known, null, null, data.sessionId(), issues);
-              data.workflows()
-                  .forEach(
-                      (key, workflow) ->
-                          checkRefs(
-                              workflow.supervisors(),
-                              "workflows." + key + ".",
-                              known,
-                              workflow,
-                              key,
-                              data.sessionId(),
-                              issues));
-              return issues;
-            });
+    return checks.check(data);
   }
 
   /**
@@ -223,17 +218,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return the problems, with fields such as {@code supervisors[0].supervisor}
    */
   public Mono<List<Issue>> check(final WorkflowDefinition workflow) {
-    return service
-        .supervisors()
-        .map(Supervisor::id)
-        .collect(Collectors.toSet())
-        .map(
-            known -> {
-              final List<Issue> issues = new ArrayList<>();
-              checkRefs(
-                  workflow.supervisors(), "", known, workflow, workflow.workflowId(), null, issues);
-              return issues;
-            });
+    return checks.check(workflow);
   }
 
   /**
@@ -244,62 +229,30 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return completes when it checks out; errors with {@link SettingsValidationException}
    */
   public Mono<Void> require(final WorkflowDefinition workflow) {
-    return check(workflow)
+    return checks.require(workflow);
+  }
+
+  /**
+   * Refuses a new version of one workflow, such as a rollback, as a session save would: a missing
+   * or misused supervisor, or ownership that would overlap with this version in place.
+   *
+   * @param sessionId the session
+   * @param workflow the new version
+   * @return completes when it may be saved; errors with {@link SettingsValidationException}
+   */
+  public Mono<Void> require(final String sessionId, final WorkflowDefinition workflow) {
+    return Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
+        .flatMap(
+            stored -> {
+              final Map<String, WorkflowDefinition> workflows = new LinkedHashMap<>(stored.getT2());
+              workflows.put(workflow.workflowId(), workflow);
+              return checks.check(sessionId, stored.getT1(), workflows, workflow);
+            })
         .flatMap(
             issues ->
                 issues.isEmpty()
                     ? Mono.<Void>empty()
                     : Mono.error(new SettingsValidationException(issues)));
-  }
-
-  private void checkRefs(
-      final List<SupervisorRef> refs,
-      final String prefix,
-      final Set<String> known,
-      final @Nullable WorkflowDefinition workflow,
-      final @Nullable String workflowId,
-      final @Nullable String sessionId,
-      final List<Issue> issues) {
-    final Set<String> seen = new HashSet<>();
-    for (int i = 0; i < refs.size(); i++) {
-      final SupervisorRef ref = refs.get(i);
-      final String field = prefix + SUPERVISOR_FIELD.formatted(i);
-      final String nodesField = prefix + "supervisors[" + i + "].nodes";
-      if (host.isBuiltIn(ref.supervisor())) {
-        issues.add(new Issue(field, "is configured by the server and cannot be declared"));
-      } else if (!known.contains(ref.supervisor())) {
-        issues.add(new Issue(field, "no supervisor '" + ref.supervisor() + "'"));
-      }
-      if (workflow == null && ref.nodes() != null) {
-        issues.add(new Issue(nodesField, "is not allowed in a session; declare it in a workflow"));
-      } else if (workflow != null && ref.nodes() != null) {
-        checkNodes(ref.nodes(), workflow, workflowId, sessionId, nodesField, issues);
-      }
-      if (!seen.add(ref.supervisor() + "\n" + sorted(ref.nodes()))) {
-        issues.add(new Issue(field, "is declared twice with the same nodes"));
-      }
-    }
-  }
-
-  private static void checkNodes(
-      final List<String> nodes,
-      final WorkflowDefinition workflow,
-      final @Nullable String workflowId,
-      final @Nullable String sessionId,
-      final String field,
-      final List<Issue> issues) {
-    try {
-      final SupervisorScope.Section section =
-          new SupervisorScope.Section(workflow.workflowId(), sessionId, Set.copyOf(nodes));
-      final boolean any =
-          workflow.nodes().stream()
-              .anyMatch(node -> section.matches(sessionId, workflow.workflowId(), node.nodeId()));
-      if (!any) {
-        issues.add(new Issue(field, "selects no node of workflow '" + workflowId + "'"));
-      }
-    } catch (IllegalArgumentException e) {
-      issues.add(new Issue(field, e.getMessage()));
-    }
   }
 
   // ---- reconcile
@@ -367,6 +320,10 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return completes when done
    */
   public Mono<Void> forget(final String sessionId) {
+    final NodeGroupIndex groups = nodeGroups;
+    if (groups != null) {
+      groups.forget(sessionId);
+    }
     return store.saveSessionRefs(sessionId, List.of()).then(reconcile(sessionId));
   }
 
@@ -418,7 +375,12 @@ public class DefinitionSupervisors implements DefinitionUsage {
                       .filter(a -> !a.equals(existing.get(a.id())))
                       .concatMap(a -> attachQuietly(sessionId, a))
                       .then();
-              return detach.then(attach);
+              final NodeGroupIndex groups = nodeGroups;
+              final Mono<Void> regroup =
+                  groups != null && groups.put(sessionId, tuple.getT2())
+                      ? service.regroup(sessionId)
+                      : Mono.empty();
+              return regroup.then(detach).then(attach);
             });
   }
 
@@ -462,7 +424,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
   }
 
   /** The attachments the declarations ask for, by id. */
-  private static Map<String, SupervisorAttachment> desired(
+  /* default */ static Map<String, SupervisorAttachment> desired(
       final String sessionId,
       final List<SupervisorRef> sessionRefs,
       final Map<String, WorkflowDefinition> workflows) {
@@ -541,7 +503,7 @@ public class DefinitionSupervisors implements DefinitionUsage {
     }
   }
 
-  private static String sorted(final @Nullable List<String> nodes) {
+  /* default */ static String sorted(final @Nullable List<String> nodes) {
     return nodes == null ? "" : String.join(",", new TreeSet<>(nodes));
   }
 

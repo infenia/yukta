@@ -2,9 +2,11 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.control;
 
+import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.core.ConfigField;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -82,7 +84,26 @@ public interface SupervisorFactory {
    */
   default SupervisorDescriptor describe() {
     return new SupervisorDescriptor(
-        type(), "", "", SupervisorCategory.INTEGRATION, Optional.empty(), Map.of());
+        type(), "", "", SupervisorCategory.ON_THIS_SERVER, Optional.empty(), Map.of());
+  }
+
+  /**
+   * The signals a supervisor of this type is told, for the catalog. The default is events only.
+   *
+   * @return the signal kinds
+   */
+  default Set<Signal.Kind> signals() {
+    return Set.of(Signal.Kind.EVENT);
+  }
+
+  /**
+   * Whether a supervisor of this type may act on its own (with no triggering signal), for the
+   * catalog. The default is no.
+   *
+   * @return true if it may
+   */
+  default boolean canInitiate() {
+    return false;
   }
 
   /**
@@ -93,4 +114,42 @@ public interface SupervisorFactory {
    * @return the fields
    */
   List<ConfigField> getConfigSchema();
+
+  /**
+   * Ready-made settings for this type.
+   *
+   * @return the presets; none by default
+   */
+  default List<SupervisorPreset> presets() {
+    return List.of();
+  }
+
+  /**
+   * A supervisor of a retired type that this engine takes over, with what could not be carried over
+   * exactly.
+   *
+   * @param supervisor the supervisor as this engine runs it: same id, description, dry run and
+   *     parents, this engine's type and settings
+   * @param notes what changed in meaning, for the log; empty when nothing did
+   */
+  record Adoption(Supervisor supervisor, List<String> notes) {
+
+    /** Keeps an immutable copy of the notes. */
+    public Adoption {
+      Objects.requireNonNull(supervisor, "supervisor");
+      notes = List.copyOf(notes);
+    }
+  }
+
+  /**
+   * Takes over a stored supervisor of a type that no longer exists, when this engine replaces it.
+   * The server asks every engine at start-up for each stored supervisor whose type is gone, keeps
+   * the first answer and logs the notes; a supervisor nobody adopts stays stored and does not run.
+   *
+   * @param legacy the stored supervisor of the retired type
+   * @return the adoption, or empty when this engine does not replace that type
+   */
+  default Optional<Adoption> adopt(final Supervisor legacy) {
+    return Optional.empty();
+  }
 }

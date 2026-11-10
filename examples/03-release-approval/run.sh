@@ -84,7 +84,7 @@ check() {  # NAME [!] COMMAND...: fail the example when the command's result is 
 require_process
 # The supervisor must exist before a session declares it. session.json stays a plain template; the declaration is added here.
 apply_supervisor supervisor.json
-jq '.workflows.release.supervisors = [{supervisor: "example-03-release-guard"}]' session.json >"$STATE/supervised.json"
+jq '.workflows.release.assignments = [{supervisor: "example-03-release-guard"}]' session.json >"$STATE/supervised.json"
 apply_session "$STATE/supervised.json"
 
 echo "--> happy path: build, test, staging, approve, deploy, smoke check"

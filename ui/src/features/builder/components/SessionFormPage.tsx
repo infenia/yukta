@@ -178,7 +178,7 @@ function SessionForm({
     projectPath: loaded?.projectPath ?? '',
   });
   const [supervisors, setSupervisors] = useState<SupervisorRef[]>(
-    loaded?.supervisors ?? template?.session.supervisors ?? []
+    loaded?.assignments ?? template?.session.assignments ?? []
   );
   const [rows, setRows] = useState<TagRow[]>(
     toRows(loaded?.tags ?? template?.session.tags ?? {})
@@ -223,8 +223,8 @@ function SessionForm({
         ...fields,
         tags: toTags(rows),
         // sent when there are some, or when removing the last ones from a stored session
-        ...(supervisors.length > 0 || loaded?.supervisors
-          ? { supervisors }
+        ...(supervisors.length > 0 || loaded?.assignments
+          ? { assignments: supervisors }
           : {}),
       };
       if (loaded) {

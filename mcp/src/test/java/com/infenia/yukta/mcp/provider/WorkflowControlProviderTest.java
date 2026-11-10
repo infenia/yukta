@@ -17,6 +17,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.ExecutionResumer;
@@ -45,7 +46,14 @@ class WorkflowControlProviderTest {
     controlBus = mock(ControlBusGateway.class);
     resumer = mock(ExecutionResumer.class);
     tracker = mock(TaskTrackerService.class);
-    provider = new WorkflowControlProvider(controlBus, resumer, new TreeControl(tracker), tracker);
+    when(controlBus.reviewedAdmin(any(), any(), any()))
+        .thenAnswer(call -> ((java.util.function.Supplier<Mono<?>>) call.getArgument(2)).get());
+    provider =
+        new WorkflowControlProvider(
+            controlBus,
+            new SupervisedControl(controlBus, null, null, resumer),
+            new TreeControl(tracker),
+            tracker);
     when(controlBus.getProgress(SESSION, EXECUTION)).thenReturn(progressOwnedBy(SESSION));
   }
 

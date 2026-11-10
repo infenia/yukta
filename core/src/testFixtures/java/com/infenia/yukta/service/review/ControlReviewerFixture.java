@@ -16,6 +16,32 @@ public final class ControlReviewerFixture {
 
   /** A ControlReviewer with the default for what the parameters leave out. */
   public static ControlReviewer create(final ObjectProvider<ExecutionSupervisor> supervisors) {
-    return new ControlReviewer(supervisors, Duration.ofSeconds(5));
+    return pipeline(supervisors, Duration.ofSeconds(5));
+  }
+
+  /**
+   * A reviewer that asks every matching supervisor, with a chosen timeout; see {@link
+   * PipelineReviewer}.
+   *
+   * @param supervisors the supervisors to ask
+   * @param timeout longest a supervisor may take to answer
+   * @return the reviewer
+   */
+  public static ControlReviewer pipeline(
+      final ObjectProvider<ExecutionSupervisor> supervisors, final Duration timeout) {
+    return new PipelineReviewer(supervisors, timeout);
+  }
+
+  /**
+   * A reviewer that asks every matching supervisor, with the review timeout of the settings.
+   *
+   * @param supervisors the supervisors to ask
+   * @param properties the settings
+   * @return the reviewer
+   */
+  public static ControlReviewer pipeline(
+      final ObjectProvider<ExecutionSupervisor> supervisors,
+      final com.infenia.yukta.config.YuktaProperties properties) {
+    return pipeline(supervisors, properties.supervisor().reviewTimeout());
   }
 }

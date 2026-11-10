@@ -47,11 +47,6 @@ class ControlReviewerTest {
     }
 
     @Override
-    public int order() {
-      return order;
-    }
-
-    @Override
     public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
       return Flux.empty();
     }
@@ -94,7 +89,7 @@ class ControlReviewerTest {
   @Test
   void settingsBuildReviewerThatStillRefusesWhenNotDryRun() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Scoped(SESSION_A, new SupervisorScope.Session("A"), new ArrayList<>())),
             YuktaSettings.bind(Map.of("yukta.supervisor.review-timeout", "2s")));
     final ControlRequest request =
@@ -164,8 +159,8 @@ class ControlReviewerTest {
     final ControlReviewer reviewer =
         ControlReviewerFixture.create(
             providerOf(
-                new Reviewer("late", 5, _ -> Mono.just(Decision.ALLOW), asked),
                 new Reviewer("strict", 1, _ -> Mono.just(Decision.deny("nope")), asked),
+                new Reviewer("late", 5, _ -> Mono.just(Decision.ALLOW), asked),
                 new Reviewer("never", 9, _ -> Mono.just(Decision.ALLOW), asked)));
 
     StepVerifier.create(reviewer.review(REQUEST))
@@ -209,7 +204,7 @@ class ControlReviewerTest {
   @Test
   void review_hungSupervisor_refusesTheCommandAfterTheTimeout() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
             Duration.ofMillis(50));
 
@@ -221,7 +216,7 @@ class ControlReviewerTest {
   @Test
   void review_hungSupervisor_stillLetsStopThrough() {
     final ControlReviewer reviewer =
-        new ControlReviewer(
+        ControlReviewerFixture.pipeline(
             providerOf(new Reviewer("hung", 0, _ -> Mono.never(), new ArrayList<>())),
             Duration.ofMillis(50));
 

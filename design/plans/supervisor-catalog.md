@@ -123,7 +123,7 @@ New module `plugins/supervisors/guards` (in `settings.gradle.kts`, added to `boo
 
 ## S7. Webhook supervisor type (plugins), security
 
-`webhook` (category INTEGRATION), new module `plugins/supervisors/webhook`.
+`webhook` (category INTEGRATION), new module `plugins/supervisors/callout`.
 
 - Settings:
   - `url` (required), `headers` (MAP; values may be `${env.X}`), `secretHeaders` (SECRET MAP)

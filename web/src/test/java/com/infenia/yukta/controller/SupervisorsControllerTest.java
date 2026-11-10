@@ -3,13 +3,13 @@
 package com.infenia.yukta.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.infenia.yukta.controller.SupervisorsController.AttachmentBody;
-import com.infenia.yukta.controller.SupervisorsController.EnabledBody;
+import com.infenia.yukta.controller.SupervisorsController.AssignmentBody;
 import com.infenia.yukta.controller.SupervisorsController.SupervisorBody;
-import com.infenia.yukta.dto.response.AttachmentView;
+import com.infenia.yukta.dto.response.AssignmentView;
 import com.infenia.yukta.dto.response.SupervisorValidation;
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
@@ -25,16 +25,19 @@ import com.infenia.yukta.service.NotFoundException;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
 import com.infenia.yukta.service.supervisor.InMemorySupervisorStore;
 import com.infenia.yukta.service.supervisor.SettingsValidationException;
+import com.infenia.yukta.service.supervisor.SupervisorAssignments;
 import com.infenia.yukta.service.supervisor.SupervisorDecision;
 import com.infenia.yukta.service.supervisor.SupervisorHost;
 import com.infenia.yukta.service.supervisor.SupervisorInfo;
 import com.infenia.yukta.service.supervisor.SupervisorService;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 /** The supervisor endpoints, run against a real service and an in-memory store. */
@@ -43,7 +46,7 @@ import reactor.test.StepVerifier;
   "PMD.TooManyMethods",
   "PMD.AvoidDuplicateLiterals",
   "PMD.ExcessiveImports",
-  "PMD.AvoidInstantiatingObjectsInLoops"
+  "PMD.UseConcurrentHashMap"
 })
 class SupervisorsControllerTest {
 
@@ -87,14 +90,190 @@ class SupervisorsControllerTest {
   private final SupervisorService service =
       new SupervisorService(store, List.of(factory), host, new InMemoryExecutionLogStore());
 
-  private final SupervisorsController controller = new SupervisorsController(service, host);
+  private final SupervisorsController controller =
+      new SupervisorsController(service, host, new SupervisorAssignments(service));
+
+  /** Attaches straight through the service, as definitions do; the endpoint sets assignments. */
+  private Mono<SupervisorAttachment> attach(
+      final String id, final String supervisor, final String scope, final Boolean enabled) {
+    return service.attach(
+        new SupervisorAttachment(
+            id, supervisor, SupervisorScope.parse(scope), enabled == null || enabled));
+  }
 
   private static SupervisorBody body(final String id, final Map<String, Object> settings) {
-    return new SupervisorBody(id, TYPE, "for tests", settings, false);
+    return new SupervisorBody(id, TYPE, "for tests", settings, false, null, null);
   }
 
   private void created(final String id) {
     StepVerifier.create(controller.create(body(id, Map.of()))).expectNextCount(1).verifyComplete();
+  }
+
+  @Test
+  void versionsAreListedWithSecretsHiddenAndRollbackRestoresOne() {
+    StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u1"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replace("s1", body("s1", Map.of("bearer", "***", "url", "u2"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.versions("s1"))
+        .assertNext(
+            r -> {
+              assertThat(r.data()).hasSize(2);
+              assertThat(r.data().get(0).version()).isEqualTo(2);
+              assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.rollback("s1", 1))
+        .assertNext(r -> assertThat(r.data().settings().get("url")).isEqualTo("u1"))
+        .verifyComplete();
+  }
+
+  /** A controller that also knows a rules engine with a secret setting. */
+  private SupervisorsController withRules() {
+    final SupervisorFactory rules =
+        new SupervisorFactory() {
+          @Override
+          public String type() {
+            return "rules";
+          }
+
+          @Override
+          public List<ConfigField> getConfigSchema() {
+            return List.of(
+                ConfigField.optional("rules", ConfigField.Type.LIST, null, "the rules"),
+                ConfigField.optional("token", ConfigField.Type.SECRET, null, "credential"));
+          }
+
+          @Override
+          public ExecutionSupervisor create(final Supervisor supervisor) {
+            return factory.create(supervisor);
+          }
+        };
+    final SupervisorService both =
+        new SupervisorService(
+            store, List.of(factory, rules), host, new InMemoryExecutionLogStore());
+    StepVerifier.create(
+            both.saveSupervisor(
+                new Supervisor(
+                    "r",
+                    "rules",
+                    Map.of(
+                        "rules",
+                        List.of("first"),
+                        "token",
+                        "abc",
+                        "allowedCommands",
+                        List.of("PauseWorkflowCommand")),
+                    false)))
+        .expectNextCount(1)
+        .verifyComplete();
+    return new SupervisorsController(both, host, new SupervisorAssignments(both));
+  }
+
+  @Test
+  void rulesAreReadWithoutCommonSettingsAndReplacedKeepingThem() {
+    final SupervisorsController rules = withRules();
+
+    StepVerifier.create(rules.rules("r"))
+        .assertNext(
+            r -> {
+              assertThat(r.data().version()).isEqualTo(1);
+              assertThat(r.data().rules())
+                  .containsOnly(Map.entry("rules", List.of("first")), Map.entry("token", "***"));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(rules.saveRules("r", Map.of("rules", List.of("second"), "token", "***")))
+        .assertNext(r -> assertThat(r.data().version()).isEqualTo(2))
+        .verifyComplete();
+    StepVerifier.create(store.supervisors().filter(found -> "r".equals(found.id())))
+        .assertNext(
+            saved ->
+                assertThat(saved.settings())
+                    .containsOnly(
+                        Map.entry("rules", List.of("second")),
+                        Map.entry("token", "abc"),
+                        Map.entry("allowedCommands", List.of("PauseWorkflowCommand"))))
+        .verifyComplete();
+  }
+
+  @Test
+  void rulesReplayOfRunWithoutRecordedEventsIsNotFound() {
+    final SupervisorsController rules = withRules();
+
+    StepVerifier.create(
+            rules.replayRules(
+                "r",
+                new SupervisorsController.ReplayBody("gone", Map.of("rules", List.of("draft")))))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void rulesOfSupervisorWithNoKeptVersionShowVersionZero() {
+    final SupervisorsController rules = withRules();
+    // stored without a save through the service, as an adopted supervisor is
+    StepVerifier.create(
+            store.saveSupervisor(
+                new Supervisor("adopted", "rules", Map.of("rules", List.of()), false)))
+        .verifyComplete();
+
+    StepVerifier.create(rules.rules("adopted"))
+        .assertNext(r -> assertThat(r.data().version()).isZero())
+        .verifyComplete();
+  }
+
+  @Test
+  void rulesRefuseCommonSettingsSystemSupervisorsAndOtherEngines() {
+    final SupervisorsController rules = withRules();
+    created("plain");
+    when(host.isBuiltIn("sys")).thenReturn(true);
+
+    StepVerifier.create(rules.saveRules("r", Map.of("initiative", List.of())))
+        .expectErrorSatisfies(
+            e ->
+                assertThat(e)
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("initiative"))
+        .verify();
+    StepVerifier.create(rules.saveRules("sys", Map.of()))
+        .expectError(ConflictException.class)
+        .verify();
+    StepVerifier.create(rules.rules("plain")).expectError(ConflictException.class).verify();
+    StepVerifier.create(rules.saveRules("gone", Map.of()))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void replayOfAnUnknownRunIsNotFound() {
+    StepVerifier.create(controller.create(body("s1", Map.of("url", "u"))))
+        .expectNextCount(1)
+        .verifyComplete();
+    StepVerifier.create(controller.replay("s1", new SupervisorsController.ReplayBody("gone", null)))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
+
+  @Test
+  void replayDraftIsKeptAsUnmodifiableCopy() {
+    final Map<String, Object> draft = new java.util.HashMap<>();
+    draft.put("url", null);
+    final SupervisorsController.ReplayBody body = new SupervisorsController.ReplayBody("e", draft);
+    draft.put("other", "x");
+    final Map<String, Object> kept = java.util.Objects.requireNonNull(body.settings());
+    assertThat(kept).containsOnlyKeys("url");
+    assertThatThrownBy(() -> kept.put("y", 1)).isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void systemSupervisorCannotBeRolledBack() {
+    when(host.isBuiltIn("sys")).thenReturn(true);
+    StepVerifier.create(controller.rollback("sys", 1))
+        .expectError(ConflictException.class)
+        .verify();
   }
 
   @Test
@@ -107,9 +286,7 @@ class SupervisorsControllerTest {
               assertThat(r.data().description()).isEqualTo("for tests");
             })
         .verifyComplete();
-    StepVerifier.create(controller.attach(new AttachmentBody("a1", "s1", "global", false)))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(controller.list())
         .assertNext(
@@ -177,7 +354,6 @@ class SupervisorsControllerTest {
             "rules",
             "SUPERVISOR",
             "RuleSupervisor",
-            0,
             false,
             20,
             3,
@@ -188,10 +364,7 @@ class SupervisorsControllerTest {
             null,
             null,
             null,
-            0,
-            0,
-            0,
-            null);
+            0);
     when(host.status()).thenReturn(List.of(info));
     when(host.isBuiltIn("rules")).thenReturn(true);
 
@@ -207,8 +380,10 @@ class SupervisorsControllerTest {
         .expectError(ConflictException.class)
         .verify();
     StepVerifier.create(controller.delete("rules")).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.detach("rules")).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.attachments(null, null, "SYSTEM"))
+    StepVerifier.create(controller.setAssignments("rules", false, List.of()))
+        .expectError(ConflictException.class)
+        .verify();
+    StepVerifier.create(controller.assignments(null, null, "SYSTEM"))
         .assertNext(
             r -> {
               assertThat(r.data()).hasSize(1);
@@ -235,13 +410,24 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void manualAttachmentsCanBeChangedAndDefinitionOnesCannot() {
+  void assignmentsAreSetAsWholeAndDefinitionOnesStay() {
     created("s1");
-    StepVerifier.create(controller.attach(new AttachmentBody("a1", "s1", "session:A", true)))
-        .assertNext(r -> assertThat(r.data().source()).isEqualTo("MANUAL"))
+    StepVerifier.create(
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("session:A", true, null))))
+        .assertNext(
+            r -> {
+              assertThat(r.data())
+                  .singleElement()
+                  .extracting(AssignmentView::source)
+                  .isEqualTo("MANUAL");
+              assertThat(r.data().get(0).id()).startsWith(SupervisorAssignments.ID_PREFIX);
+            })
         .verifyComplete();
-    StepVerifier.create(controller.patch("a1", new EnabledBody(false)))
-        .assertNext(r -> assertThat(r.data().enabled()).isFalse())
+    StepVerifier.create(
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("session:A", false, null))))
+        .assertNext(r -> assertThat(r.data().get(0).enabled()).isFalse())
         .verifyComplete();
     StepVerifier.create(
             store.saveAttachment(
@@ -255,17 +441,56 @@ class SupervisorsControllerTest {
                     null)))
         .verifyComplete();
 
-    StepVerifier.create(controller.patch("def-1", new EnabledBody(false)))
+    // an empty list removes the assignments made here; the definition's stays
+    StepVerifier.create(controller.setAssignments("s1", false, List.of()))
+        .assertNext(
+            r -> assertThat(r.data()).extracting(AssignmentView::id).containsExactly("def-1"))
+        .verifyComplete();
+  }
+
+  @Test
+  void targetAnotherSupervisorOwnsIsRefusedAndCheckSaysWhyWithoutSaving() {
+    created("s1");
+    created("s2");
+    controller
+        .setAssignments("s1", false, List.of(new AssignmentBody("workflow:A/w1", true, null)))
+        .block();
+
+    StepVerifier.create(
+            controller.checkAssignments(
+                "s2", List.of(new AssignmentBody("workflow:A/w1//build", true, null))))
+        .assertNext(
+            r -> {
+              assertThat(r.data().valid()).isFalse();
+              assertThat(r.data().problems())
+                  .singleElement()
+                  .asString()
+                  .startsWith("assignments[0]");
+            })
+        .verifyComplete();
+    StepVerifier.create(
+            controller.setAssignments(
+                "s2", false, List.of(new AssignmentBody("workflow:A/w1//build", true, null))))
+        .expectError(OwnershipConflictException.class)
+        .verify();
+    StepVerifier.create(controller.assignmentsOf("s2"))
+        .assertNext(r -> assertThat(r.data()).isEmpty())
+        .verifyComplete();
+  }
+
+  @Test
+  void lockedAssignmentChangesOnlyWhenTheRequestAsksToUnlock() {
+    created("s1");
+    controller
+        .setAssignments("s1", false, List.of(new AssignmentBody("session:A", true, true)))
+        .block();
+
+    StepVerifier.create(controller.setAssignments("s1", false, List.of()))
         .expectError(ConflictException.class)
         .verify();
-    StepVerifier.create(controller.detach("def-1")).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.attach(new AttachmentBody("def-1", "s1", "global", true)))
-        .expectError(ConflictException.class)
-        .verify();
-    StepVerifier.create(controller.patch("missing", new EnabledBody(true)))
-        .expectError(NotFoundException.class)
-        .verify();
-    StepVerifier.create(controller.detach("a1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(controller.setAssignments("s1", true, List.of()))
+        .assertNext(r -> assertThat(r.data()).isEmpty())
+        .verifyComplete();
   }
 
   @Test
@@ -281,39 +506,33 @@ class SupervisorsControllerTest {
           {"wother", "workflow:A/w2"},
           {"sec", "workflow:A/w1//build.*"}
         }) {
-      StepVerifier.create(controller.attach(new AttachmentBody(a[0], "s1", a[1], false)))
-          .expectNextCount(1)
-          .verifyComplete();
+      StepVerifier.create(attach(a[0], "s1", a[1], false)).expectNextCount(1).verifyComplete();
     }
 
-    assertThat(ids(controller.attachments("A", "w1", null)))
+    assertThat(ids(controller.assignments("A", "w1", null)))
         .containsExactlyInAnyOrder("g", "sa", "wa", "wany", "sec");
-    assertThat(ids(controller.attachments("A", null, null)))
+    assertThat(ids(controller.assignments("A", null, null)))
         .containsExactlyInAnyOrder("g", "sa", "wa", "wother", "sec");
-    assertThat(ids(controller.attachments(null, "w1", null)))
+    assertThat(ids(controller.assignments(null, "w1", null)))
         .containsExactlyInAnyOrder("g", "wa", "wany", "sec");
-    assertThat(ids(controller.attachments(null, null, "manual"))).hasSize(7);
-    assertThat(ids(controller.attachments(null, null, "DEFINITION"))).isEmpty();
-    StepVerifier.create(controller.attachmentsOf("s1"))
+    assertThat(ids(controller.assignments(null, null, "manual"))).hasSize(7);
+    assertThat(ids(controller.assignments(null, null, "DEFINITION"))).isEmpty();
+    StepVerifier.create(controller.assignmentsOf("s1"))
         .assertNext(r -> assertThat(r.data()).hasSize(7))
         .verifyComplete();
   }
 
   private static List<String> ids(
-      final reactor.core.publisher.Mono<
-              com.infenia.yukta.model.api.ApiResponse<List<AttachmentView>>>
-          response) {
+      final Mono<com.infenia.yukta.model.api.ApiResponse<List<AssignmentView>>> response) {
     return java.util.Objects.requireNonNull(response.block()).data().stream()
-        .map(AttachmentView::id)
+        .map(AssignmentView::id)
         .toList();
   }
 
   @Test
   void decisionsFilterByAttachmentOrSupervisorAndAreCapped() {
     created("s1");
-    StepVerifier.create(controller.attach(new AttachmentBody("a1", "s1", "global", false)))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
     final Instant now = Instant.now();
     final SupervisorDecision older =
         new SupervisorDecision(
@@ -347,22 +566,29 @@ class SupervisorsControllerTest {
   @Test
   void deletingSupervisorThatIsStillAttachedConflicts() {
     created("s1");
-    StepVerifier.create(controller.attach(new AttachmentBody("a1", "s1", "global", false)))
-        .expectNextCount(1)
-        .verifyComplete();
+    StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(controller.delete("s1")).expectError(ConflictException.class).verify();
-    StepVerifier.create(controller.detach("a1")).expectNextCount(1).verifyComplete();
+    StepVerifier.create(controller.setAssignments("s1", false, List.of()))
+        .expectNextCount(1)
+        .verifyComplete();
     StepVerifier.create(controller.delete("s1")).expectNextCount(1).verifyComplete();
     StepVerifier.create(controller.delete("s1")).expectError(NotFoundException.class).verify();
   }
 
   @Test
   void missingRequiredFieldsAreClientErrors() {
-    StepVerifier.create(controller.attach(new AttachmentBody("a", null, "global", true)))
+    StepVerifier.create(
+            controller.setAssignments("s1", false, List.of(new AssignmentBody(null, true, null))))
         .expectError(IllegalArgumentException.class)
         .verify();
-    StepVerifier.create(controller.create(new SupervisorBody("x", " ", null, null, null)))
+    StepVerifier.create(
+            controller.checkAssignments(
+                "nobody", List.of(new AssignmentBody("server", true, null))))
+        .expectError(NotFoundException.class)
+        .verify();
+    StepVerifier.create(
+            controller.create(new SupervisorBody("x", " ", null, null, null, null, null)))
         .expectError(IllegalArgumentException.class)
         .verify();
   }
@@ -370,24 +596,7 @@ class SupervisorsControllerTest {
   private static SupervisorInfo system(
       final String id, final String scope, final String session, final String workflow) {
     return new SupervisorInfo(
-        id,
-        "SUPERVISOR",
-        "T",
-        0,
-        false,
-        20,
-        0,
-        0,
-        0,
-        0,
-        scope,
-        session,
-        workflow,
-        null,
-        0,
-        0,
-        0,
-        null);
+        id, "SUPERVISOR", "T", false, 20, 0, 0, 0, 0, scope, session, workflow, null, 0);
   }
 
   @Test
@@ -402,11 +611,11 @@ class SupervisorsControllerTest {
                 system("sc", "SECTION", "A", "w")));
     when(host.isBuiltIn(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
 
-    StepVerifier.create(controller.attachments(null, null, "SYSTEM"))
+    StepVerifier.create(controller.assignments(null, null, "SYSTEM"))
         .assertNext(
             r ->
                 assertThat(r.data())
-                    .extracting(AttachmentView::scope)
+                    .extracting(AssignmentView::scope)
                     .containsExactly(
                         "global", "session:A", "workflow:A/w", "workflow:w", "workflow:A/w"))
         .verifyComplete();
@@ -436,14 +645,16 @@ class SupervisorsControllerTest {
   }
 
   @Test
-  void attachDefaultsToEnabledAndAnIdIsGeneratedWhenMissing() {
+  void assignmentDefaultsToEnabledAndUnlocked() {
     created("s1");
 
-    StepVerifier.create(controller.attach(new AttachmentBody(null, "s1", "global", null)))
+    StepVerifier.create(
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("server", null, null))))
         .assertNext(
             r -> {
-              assertThat(r.data().enabled()).isTrue();
-              assertThat(r.data().id()).isNotBlank();
+              assertThat(r.data().get(0).enabled()).isTrue();
+              assertThat(r.data().get(0).locked()).isFalse();
             })
         .verifyComplete();
   }
@@ -459,18 +670,156 @@ class SupervisorsControllerTest {
           {"sec", "workflow:A/w1//x"},
           {"se", "session:A"}
         }) {
-      StepVerifier.create(controller.attach(new AttachmentBody(a[0], "s1", a[1], false)))
-          .expectNextCount(1)
-          .verifyComplete();
+      StepVerifier.create(attach(a[0], "s1", a[1], false)).expectNextCount(1).verifyComplete();
     }
 
-    assertThat(ids(controller.attachments(null, "w1", null)))
+    assertThat(ids(controller.assignments(null, "w1", null)))
         .containsExactlyInAnyOrder("w1", "w1b", "any", "sec");
-    assertThat(ids(controller.attachments("A", "w1", null)))
+    assertThat(ids(controller.assignments("A", "w1", null)))
         .containsExactlyInAnyOrder("w1", "any", "sec", "se");
-    assertThat(ids(controller.attachments("B", "w1", null)))
+    assertThat(ids(controller.assignments("B", "w1", null)))
         .containsExactlyInAnyOrder("w1b", "any");
-    assertThat(ids(controller.attachments("B", null, null))).containsExactly("w1b");
-    assertThat(ids(controller.attachments(null, "w2", null))).isEmpty();
+    assertThat(ids(controller.assignments("B", null, null))).containsExactly("w1b");
+    assertThat(ids(controller.assignments(null, "w2", null))).isEmpty();
+  }
+
+  @Test
+  void serverAttachmentsListedOnlyWithoutFilter() {
+    created("s1");
+    StepVerifier.create(attach("srv", "s1", "server", false)).expectNextCount(1).verifyComplete();
+
+    assertThat(ids(controller.assignments(null, null, "manual"))).containsExactly("srv");
+    assertThat(ids(controller.assignments("A", null, "manual"))).isEmpty();
+    assertThat(ids(controller.assignments(null, "w1", "manual"))).isEmpty();
+  }
+
+  @Test
+  void parentsAndDelegationModesAreReadFromTheBodyAndShownInTheView() {
+    controller.create(body("boss", Map.of())).block();
+    final SupervisorBody withParents =
+        new SupervisorBody(
+            "child",
+            TYPE,
+            "reports up",
+            Map.of(),
+            false,
+            List.of("boss"),
+            Map.of(
+                "approval",
+                new SupervisorBody.DelegationBody("all", 45L),
+                "input",
+                new SupervisorBody.DelegationBody(null, null)));
+
+    StepVerifier.create(controller.create(withParents))
+        .assertNext(
+            r -> {
+              assertThat(r.data().parents()).containsExactly("boss");
+              assertThat(r.data().delegation())
+                  .containsEntry(
+                      "APPROVAL",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))
+                  .containsEntry(
+                      "INPUT",
+                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView(
+                          "ORDERED", 30));
+            })
+        .verifyComplete();
+
+    StepVerifier.create(
+            controller.create(
+                new SupervisorBody(
+                    "bad",
+                    TYPE,
+                    null,
+                    Map.of(),
+                    false,
+                    null,
+                    Map.of("nonsense", new SupervisorBody.DelegationBody("ALL", 1L)))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void systemSupervisorIsShownByIdAndAnUnknownOneIsNotFound() {
+    when(host.status()).thenReturn(List.of(system("rules", "GLOBAL", null, null)));
+    when(host.isBuiltIn("rules")).thenReturn(true);
+
+    StepVerifier.create(controller.get("rules"))
+        .assertNext(r -> assertThat(r.data().system()).isTrue())
+        .verifyComplete();
+    StepVerifier.create(controller.get("ghost")).expectError(NotFoundException.class).verify();
+  }
+
+  @Test
+  void twoRunningSupervisorsWithOneIdAreShownOnce() {
+    when(host.status())
+        .thenReturn(
+            List.of(system("dup", "SESSION", "A", null), system("dup", "SESSION", "B", null)));
+    created("dup");
+
+    StepVerifier.create(controller.get("dup"))
+        .assertNext(r -> assertThat(r.data().id()).isEqualTo("dup"))
+        .verifyComplete();
+  }
+
+  @Test
+  void checkingNothingToOwnIsValidAndMissingListIsClientError() {
+    created("s1");
+
+    StepVerifier.create(controller.checkAssignments("s1", List.of()))
+        .assertNext(
+            r -> {
+              assertThat(r.data().valid()).isTrue();
+              assertThat(r.message()).isEqualTo("No problems");
+            })
+        .verifyComplete();
+    StepVerifier.create(controller.checkAssignments("s1", null))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void replayThatFindsDecisionsAnswersWithThem() {
+    created("s1");
+    final SupervisorService spied = org.mockito.Mockito.spy(service);
+    org.mockito.Mockito.doReturn(
+            Mono.just(
+                List.of(
+                    new SupervisorService.ReplayDecision(
+                        "PauseWorkflowCommand", "e1", null, "event:e1", "ok", true))))
+        .when(spied)
+        .replay("s1", null, "e1");
+    final SupervisorsController replaying =
+        new SupervisorsController(spied, host, new SupervisorAssignments(spied));
+
+    StepVerifier.create(replaying.replay("s1", new SupervisorsController.ReplayBody("e1", null)))
+        .assertNext(r -> assertThat(r.data()).hasSize(1))
+        .verifyComplete();
+  }
+
+  @Test
+  void missingIdIsGeneratedAndMissingTypeIsClientError() {
+    StepVerifier.create(controller.create(body(null, Map.of())))
+        .assertNext(r -> assertThat(r.data().id()).isNotBlank())
+        .verifyComplete();
+    StepVerifier.create(
+            controller.create(new SupervisorBody("x", null, null, null, null, null, null)))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+  }
+
+  @Test
+  void assignmentNeedsTargetAndCanBeSwitchedOffAndLocked() {
+    created("s1");
+
+    StepVerifier.create(
+            controller.setAssignments("s1", false, List.of(new AssignmentBody(" ", true, null))))
+        .expectError(IllegalArgumentException.class)
+        .verify();
+    StepVerifier.create(
+            controller.setAssignments(
+                "s1", false, List.of(new AssignmentBody("server", false, true))))
+        .assertNext(r -> assertThat(r.data()).singleElement().matches(AssignmentView::locked))
+        .verifyComplete();
   }
 }

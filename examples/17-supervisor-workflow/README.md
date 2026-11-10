@@ -8,10 +8,10 @@ starts the workflow with the event (secrets masked) and reads what the workflow 
 |---|---|
 | `session.json` | The internal session `supervisors` and its workflow `low-risk-answers`. |
 | `supervisor.json` | A supervisor of type `workflow` that starts it on `InputRequested`. It may send only `AnswerInputCommand` and `EscalateInputCommand`; a workflow supervisor sends nothing until its profile names commands. |
-| `attachment.json` | Attaches the supervisor to one session (change `my-session`). |
-| `section-supervisor.json`, `section-attachment.json` | A second, narrower supervisor: the workflow `section-triage` bound to the section `build.*` of `my-workflow`. It only escalates. |
+| `assignments.json` | What the supervisor owns: one session (change `my-session`). |
+| `section-supervisor.json`, `section-assignments.json` | A second, narrower supervisor: the workflow `section-triage` owning the nodes `build.*` of `my-workflow`. It only escalates. |
 
-The workflow ends in an `OUTCOME_TERMINAL`:
+The workflow starts at a `SUPERVISOR_SIGNAL` and ends in a `SUPERVISOR_DECISION` (the same exits as `OUTCOME_TERMINAL`, and a command the contract cannot read fails the run instead of being dropped):
 
 - `SUCCESS` with a payload `{"commands": [{"type": "AnswerInput", "requestId": ..., "decision": ...}]}` sends those commands.
   Types that can always be sent: `AnswerInput`, `EscalateInput`, `PauseWorkflow`, `ResumeWorkflow`, `PauseNode`, `ResumeNode`, `SetPriority`.
@@ -20,18 +20,17 @@ The workflow ends in an `OUTCOME_TERMINAL`:
 - `RETRY` runs it once more. `FAILED`, a timeout or an unreadable result mean no opinion.
 
 **The chain.** A request from a node `build.test` goes to the section supervisor first. It ends with `ESCALATE`, so the request moves
-to the next tier, where `supervisor:above` selects the supervisors whose scope strictly covers the section: here the session
-supervisor `low-risk-workflow`, which approves a LOW risk request. Anything else goes on to a person. A scope that strictly
-covers another cannot be covered back, so the chain cannot loop. Route the request with
-`yukta.input.routes.default` tiers `supervisor:*`, `supervisor:above`, then a `HUMAN` tier (see `docs/building/input-requests.mdx`).
+to the next tier, where `supervisor:parent` selects the parents of the section supervisor (give `section-supervisor.json` `"parents": ["low-risk-workflow"]`): here the session
+supervisor `low-risk-workflow`, which approves a LOW risk request. Anything else goes on to a person. A supervisor cannot be its own ancestor (saving refuses a cycle), so the chain cannot loop. Route the request with
+`yukta.input.routes.default` tiers `supervisor:*`, `supervisor:parent`, then a `HUMAN` tier (see `docs/building/input-requests.mdx`).
 
 ```bash
 # the session is internal, so ask for it with includeInternal
 curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
 curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @supervisor.json
-curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @attachment.json
+curl -X PUT localhost:9858/api/supervisors/low-risk-workflow/assignments -H 'Content-Type: application/json' -d @assignments.json
 curl -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @section-supervisor.json
-curl -X POST localhost:9858/api/supervisors/attachments -H 'Content-Type: application/json' -d @section-attachment.json
+curl -X PUT localhost:9858/api/supervisors/section-workflow/assignments -H 'Content-Type: application/json' -d @section-assignments.json
 curl 'localhost:9858/api/sessions?includeInternal=true'
 ```
 

@@ -128,7 +128,7 @@ A rule or model supervisor answers when its profile allows it. The profile setti
 }
 ```
 
-The rule format is in [Rule files](/running/rule-files#answer-and-escalate-input-requests); the model control plane's behavior is in [Control planes](/running/control-planes#input-requests). A complete profile, which also escalates everything else with advice, is `examples/16-supervisor-profiles/input-requests.json` in the repository.
+The rule format is in [Rule files](/running/rule-files#answer-and-escalate-input-requests). A complete profile, which also escalates everything else with advice, is `examples/16-supervisor-profiles/input-requests.json` in the repository.
 
 ## A worked example
 
@@ -163,16 +163,18 @@ A request picks its route in this order: the `routeName` of the asking node (the
 
 | Tier setting | Meaning |
 |---|---|
-| `responders` | Selectors: `supervisor:*`, `supervisor:<id>`, `supervisor:above`, `role:OPERATOR`, `key:<name>`, `external:<responder>[:<name>]` |
+| `responders` | Selectors: `supervisor:*`, `supervisor:<id>`, `supervisor:parent`, `role:OPERATOR`, `key:<name>`, `external:<responder>[:<name>]` |
 | `timeout` | How long the tier waits; none by default. The request's own deadline still ends it |
 | `mode` | `FIRST` (the first valid answer wins, default), `QUORUM` or `UNANIMOUS` |
 | `quorum` | Equal votes that win in `QUORUM` mode, at least 2 |
 | `min-confidence` | A supervisor answer below this is advice for the next tier, not an answer; no confidence counts as 0 |
 | `type` | `AUTO` or `HUMAN`; derived from the responders when left out |
 
-`supervisor:*` and `supervisor:<id>` reach only the attached supervisors that watch the request's node, so a section supervisor answers the requests of its own nodes. `supervisor:above` reaches the supervisors that watch strictly more than the supervisor that handed the request up (or, without one, than the supervisors of the tier before). A tier with nobody to ask is skipped at once, and so is a `QUORUM` tier with fewer matching supervisors than its quorum.
+`supervisor:*` and `supervisor:<id>` reach only the attached supervisors that watch the request's node, so a section supervisor answers the requests of its own nodes. `supervisor:parent` reaches the parents (the supervisors named in `parents`) of the supervisor that handed the request up, or, without one, of the supervisors of the tier before; a parent must also watch the request's node. A tier with nobody to ask is skipped at once, and so is a `QUORUM` tier with fewer matching supervisors than its quorum.
 
 In a `QUORUM` or `UNANIMOUS` tier the supervisors **vote**: each votes once, the request is answered when enough agree and the rationale names the voters, and a split vote hands the request up. A person's answer always decides at once and is never a vote.
+
+A request keeps the way it came to its current tier in `asked` (oldest first, the newest 20): each hand-up as `{who, said: "escalated", reason, at}`, where `who` is the supervisor or key that handed it up, or the tier when it timed out or split. A command waiting for approval starts with the supervisors that asked for it (`said: "asked for approval"`) and the parents asked before a person (`allow`, `deny`, `no-opinion` or `silent`). The web UI shows it as the request's approval chain.
 
 Metrics: `yukta.input.escalations{tier}`. A request raised by a run that a supervisor started goes only to a person and to supervisors that strictly cover the starter's scope (see [Workflow supervisors](/running/supervisors#workflow-supervisors)).
 

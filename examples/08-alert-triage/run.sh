@@ -68,7 +68,7 @@ hasnt() { ! grep -qF -- "$2" "$1" 2>/dev/null; }
 
 # The supervisor must exist before a session declares it. session.json stays a plain template; the declaration is added here.
 apply_supervisor supervisor.json
-jq '.workflows.alert.supervisors = [{supervisor: "example-08-ack-advice", nodes: ["wait-ack"]}]' session.json > "$TMPD/supervised.json"
+jq '.workflows.alert.assignments = [{supervisor: "example-08-ack-advice", nodes: ["wait-ack"]}]' session.json > "$TMPD/supervised.json"
 apply_session "$TMPD/supervised.json"
 
 echo "== 1. low and unknown severity are only logged"

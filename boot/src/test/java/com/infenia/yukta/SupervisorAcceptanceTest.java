@@ -3,7 +3,6 @@
 package com.infenia.yukta;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition.Edge;
@@ -13,10 +12,8 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.log.ExecutionLogEvent;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
-import com.infenia.yukta.service.review.ControlRejectedException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.testing.Fixtures;
-import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -39,7 +36,6 @@ import org.springframework.test.context.DynamicPropertySource;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
 @NoArgsConstructor
-@ExpectedErrorLog("ERROR com.infenia.yukta.service.control.gateway.DefaultControlBusGateway - ")
 class SupervisorAcceptanceTest {
 
   private static final Duration WAIT = Duration.ofSeconds(30);
@@ -68,7 +64,7 @@ class SupervisorAcceptanceTest {
   }
 
   @Test
-  void rule_pausesRunningWorkflow_andDeniesKill() {
+  void rule_pausesRunningWorkflow() {
     final String session = "sup-" + UUID.randomUUID();
     final String workflowId = "wf-" + UUID.randomUUID();
     final Node step =
@@ -94,10 +90,8 @@ class SupervisorAcceptanceTest {
     // the rule pauses the run once the node is running
     await()
         .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId(executionId).controlState())
-                    .isEqualTo("PAUSED"));
+        .until(() -> "PAUSED".equals(tracker.getProgressByExecutionId(executionId).controlState()));
+    assertThat(tracker.getProgressByExecutionId(executionId).controlState()).isEqualTo("PAUSED");
     // the control log entry is written after the state flips, so wait for it too
     await()
         .atMost(WAIT)
@@ -112,11 +106,8 @@ class SupervisorAcceptanceTest {
                           assertThat(event.status()).isEqualTo("PauseWorkflowCommand [by rules]");
                         }));
 
-    // the same rule file refuses a kill, from anyone
-    assertThatThrownBy(() -> gateway.stopWorkflow(session, workflowId, "x", StopMode.KILL).block())
-        .isInstanceOf(ControlRejectedException.class)
-        .hasMessageContaining("use DRAIN or CANCEL");
-
+    // a supervisor from a rules file is a bean: it owns nothing, so it no longer reviews other
+    // senders' commands (owner-only review); its refusals return with the rules engine
     gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
   }
 }

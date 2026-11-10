@@ -1,0 +1,129 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.plugin.control.engine;
+
+import com.infenia.yukta.plugin.control.ExecutionSupervisor;
+import com.infenia.yukta.plugin.control.Supervisor;
+import com.infenia.yukta.plugin.control.SupervisorDescriptor;
+import com.infenia.yukta.plugin.control.SupervisorFactory;
+import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.input.InputRequest;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
+import reactor.core.publisher.Flux;
+
+/**
+ * Offers a {@link SupervisorEngineFactory} as a {@link SupervisorFactory}, so an engine is saved,
+ * attached and hosted like every other supervisor type. Register one bean per engine.
+ */
+public final class EngineSupervisorFactory implements SupervisorFactory {
+
+  private final SupervisorEngineFactory engines;
+
+  /**
+   * Wraps an engine factory.
+   *
+   * @param engines the engine factory
+   */
+  public EngineSupervisorFactory(final SupervisorEngineFactory engines) {
+    this.engines = engines;
+  }
+
+  @Override
+  public String type() {
+    return engines.type();
+  }
+
+  @Override
+  public void validate(final Supervisor profile) {
+    engines.validate(new EngineConfig(profile.settings()));
+  }
+
+  @Override
+  public ExecutionSupervisor create(final Supervisor profile) {
+    final Map<String, Object> state = new ConcurrentHashMap<>();
+    final AtomicReference<EngineReads> reads = new AtomicReference<>(EngineReads.NONE);
+    final EngineReads delegating =
+        new EngineReads() {
+          @Override
+          public Flux<RunView> executions(final String status, final int limit) {
+            return reads.get().executions(status, limit);
+          }
+
+          @Override
+          public Flux<InputRequest> openInputs(final int limit) {
+            return reads.get().openInputs(limit);
+          }
+
+          @Override
+          public Flux<String> held() {
+            return reads.get().held();
+          }
+        };
+    final EngineContext context =
+        new EngineContext() {
+          @Override
+          public String self() {
+            return profile.id();
+          }
+
+          @Override
+          public Flux<Instant> ticks(final Duration period) {
+            return Flux.interval(period).map(n -> Instant.now());
+          }
+
+          @Override
+          @SuppressFBWarnings(
+              value = "EI_EXPOSE_REP",
+              justification = "the engine's own state store, which it is meant to change")
+          public Map<String, Object> state() {
+            return state;
+          }
+
+          @Override
+          public EngineReads reads() {
+            return delegating;
+          }
+        };
+    return new EngineBackedSupervisor(
+        profile.id(),
+        new SupervisorScope.Global(),
+        engines.create(new EngineConfig(profile.settings()), context),
+        engines.describe().drivers().contains(Signal.Kind.REVIEW),
+        Duration.ofSeconds(10),
+        reads::set);
+  }
+
+  @Override
+  public java.util.Set<Signal.Kind> signals() {
+    return engines.describe().drivers();
+  }
+
+  @Override
+  public boolean canInitiate() {
+    return engines.describe().canInitiate();
+  }
+
+  @Override
+  public SupervisorDescriptor describe() {
+    final EngineDescriptor engine = engines.describe();
+    return new SupervisorDescriptor(
+        engine.name(),
+        engine.description(),
+        engine.usagePattern(),
+        engine.category(),
+        engine.uiDesign(),
+        engine.exampleSettings());
+  }
+
+  @Override
+  public List<ConfigField> getConfigSchema() {
+    return engines.getConfigSchema();
+  }
+}

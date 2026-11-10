@@ -361,10 +361,25 @@ export const test = base.extend<TestFixtures>({
     await quiet(/\/api\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/workers$/, 200, []);
     await quiet(/\/api\/supervisors$/, 200, []);
-    await quiet(/\/api\/supervisors\/attachments(\?|$)/, 200, []);
+    await quiet(/\/api\/supervisors\/assignments(\?|$)/, 200, []);
+    await quiet(/\/api\/supervisors\/[^/]+\/assignments$/, 200, []);
     await quiet(/\/api\/supervisors\/status$/, 200, []);
     await quiet(/\/api\/supervisors\/decisions(\?|$)/, 200, []);
-    await quiet(/\/api\/supervisors\/types$/, 200, ['rule-supervisor']);
+    await quiet(/\/api\/supervisor-engines$/, 200, []);
+    // Supervision: nobody owns anything, people may do what their role allows
+    await quiet(/\/api\/supervision(\?|$)/, 200, {});
+    await quiet(/\/api\/supervision\/ownership(\?|$)/, 200, {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: {},
+    });
+    await quiet(/\/api\/supervision\/summary$/, 200, {
+      unowned: 0,
+      unownedWorkflows: [],
+      conflicts: 0,
+    });
     await quiet(/\/api\/control\/heartbeats$/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/inputs(\?|$)/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/workflows\/[^/]+\/versions/, 200, []);

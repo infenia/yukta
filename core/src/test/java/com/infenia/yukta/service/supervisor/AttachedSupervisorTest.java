@@ -6,6 +6,7 @@ import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.provide
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,14 +18,20 @@ import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.service.control.directive.CommandTarget;
+import com.infenia.yukta.service.control.directive.DirectiveDispatcher;
 import com.infenia.yukta.service.log.InMemoryExecutionLogStore;
+import com.infenia.yukta.service.review.AttachedSupervisors;
 import com.infenia.yukta.service.review.BoundSupervisor;
 import com.infenia.yukta.service.review.ControlRejectedException;
 import com.infenia.yukta.service.review.ControlReviewer;
 import com.infenia.yukta.service.review.ControlReviewerFixture;
+import com.infenia.yukta.service.review.ExecutionEventFeed;
 import com.infenia.yukta.testing.Fixtures;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Instant;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.AfterEach;
@@ -36,64 +43,116 @@ import reactor.test.StepVerifier;
 /** Attaching and detaching supervisors at run time. */
 @NoArgsConstructor
 @SuppressWarnings({
-  "PMD.TooManyStaticImports",
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.ExcessiveImports",
+  "PMD.NonStaticInitializer",
   "PMD.ShortMethodName",
   "PMD.TooManyMethods",
-  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyStaticImports",
   "PMD.UnitTestShouldIncludeAssert"
 })
 class AttachedSupervisorTest {
 
-  private final AttachedHarness harness = AttachedHarness.create();
+  private final ExecutionEventFeed feed = new ExecutionEventFeed();
+
+  private final DirectiveDispatcher dispatcher = mock(DirectiveDispatcher.class);
+
+  {
+    // the supervisors own session A; every command targets a run in it
+    when(dispatcher.target(any())).thenReturn(Mono.just(new CommandTarget("A", "w", null)));
+  }
+
+  private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
+
+  private final AttachedSupervisors attached = new AttachedSupervisors();
+
+  private final SupervisorHost host =
+      SupervisorHostFixture.create(
+          providerOf(), feed, dispatcher, new InMemoryExecutionLogStore(), meters, false, 10, 1000);
+
+  private final List<String> seen = new CopyOnWriteArrayList<>();
+
+  /** Records the runs it sees and pauses every run it sees; denies every review. */
+  private final ExecutionSupervisor observer =
+      new ExecutionSupervisor() {
+        @Override
+        public String id() {
+          return "made";
+        }
+
+        @Override
+        public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+          return events
+              .doOnNext(e -> seen.add(e.executionId()))
+              .map(e -> new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()));
+        }
+
+        @Override
+        public Mono<Decision> review(final ControlRequest request) {
+          return Mono.just(Decision.deny("no"));
+        }
+      };
+
+  private BoundSupervisor bound(final String id, final SupervisorScope scope, final boolean dry) {
+    return Fixtures.boundSupervisor(new SupervisorAttachment(id, "p", scope, true), observer, dry);
+  }
 
   @AfterEach
   void tearDown() {
-    harness.host().stop();
+    host.stop();
+  }
+
+  private void publishUntilSeen(final String execution, final String session) {
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      execution, session, "w", "RUNNING", Instant.now()));
+              assertThat(seen).contains(execution);
+            });
   }
 
   @Test
   void detachAllStopsEveryAttachedSupervisor() {
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Session("A"), false));
-    harness.host().attach(harness.bound("b2", new SupervisorScope.Global(), false));
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
+    host.attach(bound("b2", new SupervisorScope.Session("A"), false));
 
-    harness.host().detachAll();
+    host.detachAll();
 
-    assertThat(harness.host().detach("b1")).isFalse();
-    assertThat(harness.host().detach("b2")).isFalse();
+    assertThat(host.detach("b1")).isFalse();
+    assertThat(host.detach("b2")).isFalse();
   }
 
   @Test
   void attachedSupervisorSeesOnlyItsScopeUntilDetached() {
-    when(harness.dispatcher().dispatchOrdered(any())).thenReturn(Mono.empty());
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Session("A"), false));
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
 
-    harness.publishUntilSeen("in-A", "A");
-    assertThat(harness.host().status().getFirst().dryRun()).isFalse();
-    harness
-        .feed()
-        .publish(
-            new ExecutionEvent.WorkflowStatusChanged("in-B", "B", "w", "RUNNING", Instant.now()));
-    assertThat(harness.host().detach("b1")).isTrue();
-    harness
-        .feed()
-        .publish(
-            new ExecutionEvent.WorkflowStatusChanged("after", "A", "w", "RUNNING", Instant.now()));
+    publishUntilSeen("in-A", "A");
+    assertThat(host.status().getFirst().dryRun()).isFalse();
+    feed.publish(
+        new ExecutionEvent.WorkflowStatusChanged("in-B", "B", "w", "RUNNING", Instant.now()));
+    assertThat(host.detach("b1")).isTrue();
+    feed.publish(
+        new ExecutionEvent.WorkflowStatusChanged("after", "A", "w", "RUNNING", Instant.now()));
 
-    assertThat(harness.seen()).doesNotContain("in-B", "after");
-    assertThat(harness.host().detach("b1")).isFalse();
-    verify(harness.dispatcher(), never())
+    assertThat(seen).doesNotContain("in-B", "after");
+    assertThat(host.detach("b1")).isFalse();
+    verify(dispatcher, never())
         .dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("after"));
   }
 
   @Test
   void reattachingReplacesTheRunningSupervisorAndStatusShowsIt() {
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Session("A"), false));
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Workflow("w", "A"), true));
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
+    host.attach(bound("b1", new SupervisorScope.Workflow("w", "A"), true));
 
-    assertThat(harness.host().status())
+    assertThat(host.status())
         .singleElement()
         .satisfies(
             info -> {
@@ -107,40 +166,33 @@ class AttachedSupervisorTest {
 
   @Test
   void detachingRemovesTheCommandCountersOfTheBinding() {
-    when(harness.dispatcher().dispatchOrdered(any())).thenReturn(Mono.empty());
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Global(), false));
-    harness.publishUntilSeen("r1", "A");
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
+    publishUntilSeen("r1", "A");
     await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(
-                        harness
-                            .meters()
-                            .find("yukta.supervisor.commands")
-                            .tag("id", "b1")
-                            .counters())
+                assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters())
                     .isNotEmpty());
 
-    harness.host().detach("b1");
+    host.detach("b1");
 
-    assertThat(harness.meters().find("yukta.supervisor.commands").tag("id", "b1").counters())
-        .isEmpty();
+    assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters()).isEmpty();
   }
 
   @Test
   void attachedDryRunSupervisorOnlyRecords() {
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Global(), true));
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), true));
 
-    harness.publishUntilSeen("e1", "A");
+    publishUntilSeen("e1", "A");
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(harness.host().status().getFirst().recorded()).isPositive());
-    verify(harness.dispatcher(), never()).dispatchOrdered(any());
+        .untilAsserted(() -> assertThat(host.status().getFirst().recorded()).isPositive());
+    verify(dispatcher, never()).dispatchOrdered(any());
   }
 
   @Test
@@ -148,15 +200,15 @@ class AttachedSupervisorTest {
     final SupervisorHost recordingHost =
         SupervisorHostFixture.create(
             providerOf(),
-            harness.feed(),
-            harness.dispatcher(),
+            feed,
+            dispatcher,
             new InMemoryExecutionLogStore(),
             new SimpleMeterRegistry(),
             true,
             10,
             1000);
     try {
-      recordingHost.attach(harness.bound("b1", new SupervisorScope.Global(), false));
+      recordingHost.attach(bound("b1", new SupervisorScope.Session("A"), false));
 
       assertThat(recordingHost.status().getFirst().dryRun()).isTrue();
     } finally {
@@ -166,19 +218,19 @@ class AttachedSupervisorTest {
 
   @Test
   void stopEndsAttachedSupervisorsToo() {
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Global(), false));
-    harness.host().stop();
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
+    host.stop();
 
-    assertThat(harness.host().detach("b1")).isTrue();
+    assertThat(host.detach("b1")).isTrue();
   }
 
   @Test
   void theReviewerAsksAttachedSupervisorsWhoseScopeCoversTheRun() {
     final ControlReviewer reviewer = ControlReviewerFixture.create(providerOf());
-    reviewer.setAttachedSupervisors(harness.attached());
-    harness.attached().put(harness.bound("b1", new SupervisorScope.Session("A"), false));
-    harness.attached().put(harness.bound("b2", new SupervisorScope.Session("B"), false));
+    reviewer.setAttachedSupervisors(attached);
+    attached.put(bound("b1", new SupervisorScope.Session("A"), false));
+    attached.put(bound("b2", new SupervisorScope.Session("B"), false));
 
     final ControlRequest inA =
         new ControlRequest(new ExecutionControlCommand.PauseWorkflowCommand("e"), null, "A", "w");
@@ -187,16 +239,15 @@ class AttachedSupervisorTest {
 
     StepVerifier.create(reviewer.review(inA)).expectError(ControlRejectedException.class).verify();
     StepVerifier.create(reviewer.review(inC)).verifyComplete();
-    assertThat(harness.attached().remove("b1")).isNotNull();
+    assertThat(attached.remove("b1")).isNotNull();
     StepVerifier.create(reviewer.review(inA)).verifyComplete();
   }
 
   @Test
   void boundSupervisorAnswersToItsBindingAndDoesWhatTheDelegateDoes() {
-    final BoundSupervisor supervisor = harness.bound("b1", new SupervisorScope.Session("A"), false);
+    final BoundSupervisor supervisor = bound("b1", new SupervisorScope.Session("A"), false);
 
     assertThat(supervisor.id()).isEqualTo("b1");
-    assertThat(supervisor.order()).isZero();
     assertThat(supervisor.scope()).isEqualTo(new SupervisorScope.Session("A"));
     StepVerifier.create(
             supervisor.review(
@@ -208,27 +259,27 @@ class AttachedSupervisorTest {
 
   @Test
   void decisionsRecordWhatBecameOfEachCommandNewestFirst() {
-    when(harness.dispatcher().dispatchOrdered(any())).thenReturn(Mono.empty());
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("live", new SupervisorScope.Global(), false));
-    harness.host().attach(harness.bound("dry", new SupervisorScope.Global(), true));
+    when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("live", new SupervisorScope.Session("A"), false));
+    host.attach(bound("dry", new SupervisorScope.Session("A"), true));
 
-    harness.publishUntilSeen("e1", "A");
+    publishUntilSeen("e1", "A");
 
     await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              assertThat(harness.host().decisions("live", 10))
+              assertThat(host.decisions("live", 10))
                   .extracting(SupervisorDecision::outcome)
                   .contains("applied");
-              assertThat(harness.host().decisions("dry", 10))
+              assertThat(host.decisions("dry", 10))
                   .extracting(SupervisorDecision::outcome)
                   .contains("dry-run");
             });
-    assertThat(harness.host().decisions(null, 1)).hasSize(1);
-    assertThat(harness.host().decisions("nobody", 10)).isEmpty();
-    assertThat(harness.host().decisions(null, 0)).isEmpty();
+    assertThat(host.decisions(null, 1)).hasSize(1);
+    assertThat(host.decisions("nobody", 10)).isEmpty();
+    assertThat(host.decisions(null, 0)).isEmpty();
   }
 
   @Test
@@ -250,43 +301,40 @@ class AttachedSupervisorTest {
                             .map(i -> new ExecutionControlCommand.PauseWorkflowCommand("e" + i)));
           }
         };
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness
-        .host()
-        .attach(
-            Fixtures.boundSupervisor(
-                new SupervisorAttachment("chatty", "p", new SupervisorScope.Global(), true),
-                chatty,
-                true));
+    host.setAttachedSupervisors(attached);
+    host.attach(
+        Fixtures.boundSupervisor(
+            new SupervisorAttachment("chatty", "p", new SupervisorScope.Session("A"), true),
+            chatty,
+            true));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              harness
-                  .feed()
-                  .publish(
-                      new ExecutionEvent.WorkflowStatusChanged(
-                          "x", "A", "w", "RUNNING", Instant.now()));
-              assertThat(harness.host().decisions("chatty", 1000)).hasSize(500);
+              feed.publish(
+                  new ExecutionEvent.WorkflowStatusChanged(
+                      "x", "A", "w", "RUNNING", Instant.now()));
+              assertThat(host.decisions("chatty", 1000)).hasSize(500);
+              // the commands land one by one: wait for the last before reading the newest
+              assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
             });
-    assertThat(harness.host().decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
   }
 
   @Test
   void rejectedCommandsAreRecordedWithTheirReason() {
-    when(harness.dispatcher().dispatchOrdered(any()))
+    when(dispatcher.dispatchOrdered(any()))
         .thenReturn(Mono.error(new ControlRejectedException("no")));
-    harness.host().setAttachedSupervisors(harness.attached());
-    harness.host().attach(harness.bound("b1", new SupervisorScope.Global(), false));
+    host.setAttachedSupervisors(attached);
+    host.attach(bound("b1", new SupervisorScope.Session("A"), false));
 
-    harness.publishUntilSeen("e1", "A");
+    publishUntilSeen("e1", "A");
 
     await()
         .atMost(3, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(harness.host().decisions("b1", 10))
+                assertThat(host.decisions("b1", 10))
                     .anySatisfy(
                         d -> {
                           assertThat(d.outcome()).isEqualTo("rejected");

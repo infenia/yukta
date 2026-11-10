@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
 class SupervisorCapabilitiesTest {
 
   private static Supervisor profile(final Map<String, Object> settings) {
@@ -101,7 +101,61 @@ class SupervisorCapabilitiesTest {
                     java.util.Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
                         .map(Class::getSimpleName)
                         .toList())));
-    assertThat(caps.allowedCommands()).hasSize(17);
+    assertThat(caps.allowedCommands()).hasSize(20);
+  }
+
+  @Test
+  void operatorAccessIsNoneUnlessCommandsAreListed() {
+    final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
+    final SupervisorCapabilities listed =
+        SupervisorCapabilities.from(
+            profile(Map.of("operatorAccess", List.of("PauseWorkflowCommand"))));
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+    final ExecutionControlCommand resume = new ExecutionControlCommand.ResumeWorkflowCommand("e");
+
+    assertThat(none.operatorAccess()).isEmpty();
+    assertThat(none.allowsOperator(pause)).isFalse();
+    assertThat(listed.allowsOperator(pause)).isTrue();
+    assertThat(listed.allowsOperator(resume)).isFalse();
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW).operatorAccess()).isEmpty();
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW, null).operatorAccess())
+        .isEmpty();
+  }
+
+  @Test
+  void initiativeIsNoneUnlessCommandsAreListedAndTheLimitHasDefault() {
+    final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
+    final SupervisorCapabilities listed =
+        SupervisorCapabilities.from(
+            profile(
+                Map.of(
+                    "initiative", List.of("PauseWorkflowCommand"), "maxInitiativePerMinute", 3)));
+    final ExecutionControlCommand pause = new ExecutionControlCommand.PauseWorkflowCommand("e");
+
+    assertThat(none.initiative()).isEmpty();
+    assertThat(none.mayInitiate(pause)).isFalse();
+    assertThat(none.maxInitiativePerMinute())
+        .isEqualTo(SupervisorContract.DEFAULT_INITIATIVE_PER_MINUTE);
+    assertThat(listed.mayInitiate(pause)).isTrue();
+    assertThat(listed.maxInitiativePerMinute()).isEqualTo(3);
+    assertThatThrownBy(
+            () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", 0))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(
+            () -> SupervisorCapabilities.from(profile(Map.of("maxInitiativePerMinute", "ten"))))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 0))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThat(new SupervisorCapabilities(null, false, InputRisk.LOW, null, null, 1).initiative())
+        .isEmpty();
+  }
+
+  @Test
+  void channelsAreNamed() {
+    assertThat(ControlActor.CHANNEL_KEY).isEqualTo("yukta.control.channel");
+    assertThat(ControlActor.Channel.values())
+        .extracting(Enum::name)
+        .containsExactly("OPERATOR", "ENGINE", "SYSTEM");
   }
 
   @Test

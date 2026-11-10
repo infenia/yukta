@@ -14,6 +14,8 @@ import org.jspecify.annotations.Nullable;
  * @param actor who sent it ({@code key:<name>} or a supervisor id), or null when unknown
  * @param reason why it was not applied, or null
  * @param timestamp when it was recorded
+ * @param channel how the command arrived ({@code OPERATOR}, {@code ENGINE}, {@code SYSTEM}), or
+ *     null when not recorded
  */
 public record AuditRecord(
     boolean applied,
@@ -21,4 +23,26 @@ public record AuditRecord(
     String command,
     @Nullable String actor,
     @Nullable String reason,
-    Instant timestamp) {}
+    Instant timestamp,
+    @Nullable String channel) {
+
+  /**
+   * A record with no channel recorded.
+   *
+   * @param applied whether the command was applied
+   * @param executionId the run
+   * @param command the command name
+   * @param actor who sent it, or null
+   * @param reason why it was not applied, or null
+   * @param timestamp when it was recorded
+   */
+  public AuditRecord(
+      final boolean applied,
+      final String executionId,
+      final String command,
+      @Nullable final String actor,
+      @Nullable final String reason,
+      final Instant timestamp) {
+    this(applied, executionId, command, actor, reason, timestamp, null);
+  }
+}

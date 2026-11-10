@@ -20,6 +20,11 @@ for dir in "$root"/[0-9][0-9]-*/; do
     rows+=("SKIP  $name")
     continue
   fi
+  if [[ ! -f "$dir/run.sh" ]]; then
+    echo "SKIP: no run.sh (a walkthrough in its README)"
+    rows+=("SKIP  $name")
+    continue
+  fi
   bash "$dir/run.sh"
   code=$?
   case $code in

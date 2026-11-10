@@ -103,7 +103,7 @@ All paths are relative to `examples/dogfood/`. Package: Bun + TypeScript, `ajv` 
 | `heal.json`                          | Policy: efforts, triage model and ladders, budgets, give-up rule, extra tool variants.                               |
 | `rules.json`                         | Server-side supervisor rule `no-kill`: denies `StopWorkflow` with `mode == 'KILL'`.                                  |
 | `project.json`                       | Project facts for the ticket pipeline (commands per role, budgets, high-risk paths, shared files).                   |
-| `supervisor/`                        | `supervisor.json` + `attachment.json` + `session.json`: the advice supervisor (§11.8).                               |
+| `supervisor/`                        | `supervisor.json` + `assignments.json` + `session.json`: the advice supervisor (§11.8).                              |
 | `fixer-rules.md`, `fixer-rules/*.md` | System prompt for fixers (constant) plus per-kind and per-ticket-role additions.                                     |
 | `schemas/`, `fixtures/`              | JSON Schemas for ticket role contracts; each schema has a `valid.json` and `invalid-*.json` fixture.                 |
 | `ticket-template.md`                 | The issue body template `yk ticket new` fills.                                                                       |

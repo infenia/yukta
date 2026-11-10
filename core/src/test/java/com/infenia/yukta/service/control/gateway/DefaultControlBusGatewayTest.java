@@ -2923,6 +2923,90 @@ class DefaultControlBusGatewayTest {
                 "SetPriority(5): Execution running is not waiting for a slot"));
   }
 
+  private DefaultControlBusGateway auditedGateway(
+      final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog) {
+    return new DefaultControlBusGateway(
+        controlBusService,
+        taskTracker,
+        executionControlStore,
+        archive,
+        orchestrator,
+        workflowDefinitionStore,
+        preparedWorkflowCache,
+        ExecutionSchedulerFixture.create(1, 0, 10, OnLimit.QUEUE, java.time.Duration.ofSeconds(1)),
+        StartIdempotencyFixture.create(java.time.Duration.ofMinutes(1)),
+        auditLog);
+  }
+
+  @Test
+  void reviewedAdminAsksAboutTheLiveRunThenActsAndAudits() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+    final DefaultControlBusGateway audited = auditedGateway(auditLog);
+    final com.infenia.yukta.service.review.ControlReviewer reviewer =
+        mock(com.infenia.yukta.service.review.ControlReviewer.class);
+    when(reviewer.review(any())).thenReturn(Mono.empty());
+    audited.setReviewer(reviewer);
+    final ExecutionControl control = mock(ExecutionControl.class);
+    when(control.sessionId()).thenReturn("s");
+    when(control.workflowId()).thenReturn("w");
+    when(executionControlStore.findByExecutionId("e1")).thenReturn(Optional.of(control));
+
+    StepVerifier.create(
+            audited
+                .reviewedAdmin(
+                    new com.infenia.yukta.plugin.control.ExecutionControlCommand.RecoverCommand(
+                        "e1"),
+                    "Recover",
+                    () -> Mono.just("done"))
+                .contextWrite(
+                    ctx ->
+                        ctx.put(
+                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+        .expectNext("done")
+        .verifyComplete();
+
+    verify(reviewer)
+        .review(
+            org.mockito.ArgumentMatchers.argThat(
+                request ->
+                    "s".equals(request.sessionId())
+                        && "w".equals(request.workflowId())
+                        && "key:bob".equals(request.actor())));
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.type())
+                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_APPLIED);
+              assertThat(e.status()).isEqualTo("Recover [by key:bob]");
+            });
+  }
+
+  @Test
+  void reviewedAdminWithoutReviewerAuditsFailedAction() {
+    final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =
+        new com.infenia.yukta.service.log.InMemoryExecutionLogStore();
+
+    StepVerifier.create(
+            auditedGateway(auditLog)
+                .reviewedAdmin(
+                    new com.infenia.yukta.plugin.control.ExecutionControlCommand.DrainCommand(true),
+                    "Drain",
+                    () -> Mono.<Void>error(new IllegalStateException("busy"))))
+        .expectErrorMessage("busy")
+        .verify();
+
+    assertThat(auditLog.readAll())
+        .singleElement()
+        .satisfies(
+            e -> {
+              assertThat(e.type())
+                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
+              assertThat(e.status()).isEqualTo("Drain: busy");
+            });
+  }
+
   @Test
   void recordAdminAction_isAuditedWithTheActor() {
     final com.infenia.yukta.service.log.InMemoryExecutionLogStore auditLog =

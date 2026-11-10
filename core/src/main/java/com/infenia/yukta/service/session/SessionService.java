@@ -9,6 +9,7 @@ import com.infenia.yukta.model.session.SessionSnapshot;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.preparator.WorkflowPreparator;
 import com.infenia.yukta.service.sessionstore.InternalSessions;
@@ -47,6 +48,9 @@ public class SessionService {
 
   /** The control bus gateway for managing workflow execution control. */
   private final ControlBusGateway controlBus;
+
+  /** Applies the commands the session service sends. */
+  private final SupervisedControl control;
 
   /** The workflow definition store for accessing workflow definitions. */
   private final WorkflowDefinitionStore workflowDefinitionStore;
@@ -266,7 +270,7 @@ public class SessionService {
                 new NotFoundException(
                     "Workflow not found: " + workflowId + " in session " + sessionId)))
         .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, workflowId))
-        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, sessionId, workflowId, force)))
+        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, control, sessionId, workflowId, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.remove(sessionId, workflowId)))
         .doOnSuccess(_ -> preparedWorkflowCache.invalidate(sessionId, workflowId))
         .then(Mono.defer(() -> reconcileDeclared(sessionId)))
@@ -296,7 +300,7 @@ public class SessionService {
                     ? Mono.<Void>empty()
                     : Mono.error(new NotFoundException("Session not found: " + sessionId)))
         .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, null))
-        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, sessionId, null, force)))
+        .then(Mono.defer(() -> ActiveRuns.clear(controlBus, control, sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
         .then(
@@ -322,13 +326,13 @@ public class SessionService {
 
   /** Records that the delete happened. */
   private Mono<Void> audited(final String command, final String target) {
-    return controlBus.recordAdminAction(command, target, true, null);
+    return control.recordAdminAction(command, target, true, null);
   }
 
   /** Records a delete that was refused or failed, then lets the error through. */
   private Mono<Void> auditedFailure(
       final Throwable error, final String command, final String target) {
-    return controlBus
+    return control
         .recordAdminAction(command, target, false, error.getMessage())
         .then(Mono.error(error));
   }

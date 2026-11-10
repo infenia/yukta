@@ -15,7 +15,9 @@ import com.infenia.yukta.service.input.token.InvalidAnswerTokenException;
 import com.infenia.yukta.service.leader.NotLeaderException;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.review.ControlRejectedException;
+import com.infenia.yukta.service.review.ControlledBySupervisorException;
 import com.infenia.yukta.service.supervisor.SettingsValidationException;
+import com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException;
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
 import java.util.Locale;
@@ -276,6 +278,44 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   }
 
   /**
+   * Handles a command that a supervisor owns and does not let people send: {@code 409
+   * CONTROLLED_BY_SUPERVISOR} with the owner named in the {@code errors}.
+   *
+   * @param exception the refusal
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(ControlledBySupervisorException.class)
+  public ResponseEntity<ApiResponse<Object>> handleControlled(
+      final ControlledBySupervisorException exception, final ServerHttpRequest request) {
+    final List<ApiResponse.FieldError> errors = new java.util.ArrayList<>();
+    errors.add(new ApiResponse.FieldError("code", ControlledBySupervisorException.CODE));
+    if (exception.getSupervisorId() != null) {
+      errors.add(new ApiResponse.FieldError("supervisor", exception.getSupervisorId()));
+    }
+    return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request, errors);
+  }
+
+  /**
+   * Handles a save that would give one unit to two supervisors: {@code 409 OWNERSHIP_CONFLICT} with
+   * the other supervisors named in the {@code errors}.
+   *
+   * @param exception the conflict
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(OwnershipConflictException.class)
+  public ResponseEntity<ApiResponse<Object>> handleOwnershipConflict(
+      final OwnershipConflictException exception, final ServerHttpRequest request) {
+    final List<ApiResponse.FieldError> errors = new java.util.ArrayList<>();
+    errors.add(new ApiResponse.FieldError("code", OwnershipConflictException.CODE));
+    exception
+        .getConflicts()
+        .forEach(c -> errors.add(new ApiResponse.FieldError("supervisor", c.otherSupervisorId())));
+    return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request, errors);
+  }
+
+  /**
    * Handles a command refused by a supervisor as forbidden.
    *
    * @param exception the refusal
@@ -285,7 +325,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
   @ExceptionHandler(ControlRejectedException.class)
   public ResponseEntity<ApiResponse<Object>> handleControlRejected(
       final ControlRejectedException exception, final ServerHttpRequest request) {
-    return buildErrorResponse(HttpStatus.FORBIDDEN, exception.getMessage(), request);
+    return buildErrorResponse(
+        HttpStatus.FORBIDDEN,
+        exception.getMessage(),
+        request,
+        List.of(new ApiResponse.FieldError("code", "CONTROL_REJECTED")));
   }
 
   /**

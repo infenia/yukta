@@ -145,12 +145,9 @@ describe('router', () => {
       expect(await load('sessions/:sessionId/edit')).toBe('SessionFormPage');
       expect(await load('plugins')).toBe('PluginsPage');
       expect(await load('supervisors')).toBe('SupervisorsPage');
-      expect(await load('supervisors/new')).toBe('SupervisorWizardPage');
-      expect(await load('supervisors/:supervisorId')).toBe(
-        'SupervisorDetailPage'
-      );
+      expect(await load('supervisors/new')).toBe('SupervisorEditPage');
       expect(await load('supervisors/:supervisorId/edit')).toBe(
-        'SupervisorWizardPage'
+        'SupervisorEditPage'
       );
       expect(await load('control')).toBe('ControlPage');
       expect(await load('runs')).toBe('RunsPage');
@@ -209,6 +206,41 @@ describe('home route', () => {
     first.unmount();
     at('/');
     expect(screen.getByText('sessions list')).toBeInTheDocument();
+  });
+});
+
+describe('supervisor redirect', () => {
+  it('sends /supervisors/<id> to the Supervisors tab with it selected', async () => {
+    const { SupervisorRedirect } = await import('../router');
+    const { MemoryRouter, Routes, Route, useLocation } =
+      await import('react-router');
+    const { render, screen } = await import('@testing-library/react');
+    const { createElement } = await import('react');
+    function Where() {
+      const { pathname, search } = useLocation();
+      return createElement('p', null, pathname + search);
+    }
+    render(
+      createElement(
+        MemoryRouter,
+        { initialEntries: ['/supervisors/a b'] },
+        createElement(
+          Routes,
+          null,
+          createElement(Route, {
+            path: '/supervisors',
+            element: createElement(Where),
+          }),
+          createElement(Route, {
+            path: '/supervisors/:supervisorId',
+            element: createElement(SupervisorRedirect),
+          })
+        )
+      )
+    );
+    expect(
+      screen.getByText('/supervisors?supervisor=a%20b')
+    ).toBeInTheDocument();
   });
 });
 

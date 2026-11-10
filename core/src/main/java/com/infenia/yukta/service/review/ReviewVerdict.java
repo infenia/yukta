@@ -4,6 +4,7 @@ package com.infenia.yukta.service.review;
 
 import com.infenia.yukta.plugin.control.ApprovalNeed;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * What the supervisors together say about a control command: it may run, it is refused, or it may
@@ -26,24 +27,48 @@ public sealed interface ReviewVerdict {
   record Denied(String reason) implements ReviewVerdict {}
 
   /**
+   * People may not send this command for what the supervisor owns, or nobody owns it and the
+   * default supervisor is off.
+   *
+   * @param supervisorId the owner, or {@code null} when nobody owns the unit
+   * @param reason why, for the person
+   */
+  record Controlled(@Nullable String supervisorId, String reason) implements ReviewVerdict {}
+
+  /**
    * One or more supervisors want the command approved first, and none refused it.
    *
    * @param need the merged need: the highest risk, the first route named and the shortest ttl
    * @param reason the reasons, each as {@code <supervisor>: <reason>}, joined with {@code "; "}
    * @param askedBy the ids of the supervisors that asked, in review order
+   * @param parents the parents asked before a person, each as {@code <parent>:<ANSWER>} ({@code
+   *     silent} for none), in the order they were asked
    */
-  record NeedsApproval(ApprovalNeed need, String reason, List<String> askedBy)
+  record NeedsApproval(ApprovalNeed need, String reason, List<String> askedBy, List<String> parents)
       implements ReviewVerdict {
 
     /**
-     * Copies the list.
+     * A need no parent was asked about.
      *
      * @param need the merged need
      * @param reason the joined reasons
      * @param askedBy the supervisors that asked
      */
+    public NeedsApproval(final ApprovalNeed need, final String reason, final List<String> askedBy) {
+      this(need, reason, askedBy, List.of());
+    }
+
+    /**
+     * Copies the lists.
+     *
+     * @param need the merged need
+     * @param reason the joined reasons
+     * @param askedBy the supervisors that asked
+     * @param parents the parents asked, with their answers
+     */
     public NeedsApproval {
       askedBy = List.copyOf(askedBy);
+      parents = List.copyOf(parents);
     }
   }
 }

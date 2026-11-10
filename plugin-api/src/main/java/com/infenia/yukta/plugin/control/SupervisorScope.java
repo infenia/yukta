@@ -29,7 +29,8 @@ public sealed interface SupervisorScope {
 
   /** Message for a scope text that cannot be read. */
   String BAD_SCOPE =
-      "Scope must be global, session:<id>, workflow:<id>, workflow:<sessionId>/<workflowId>, or a"
+      "Scope must be global, server, session:<id>, workflow:<id>,"
+          + " workflow:<sessionId>/<workflowId>, run:<id> or run:<sessionId>/<workflowId>, or a"
           + " section workflow:[<sessionId>/]<workflowId>//<selector>,<selector> where a selector"
           + " is a node id or <prefix>.* (1 to 50 selectors, each at most 256 characters, no"
           + " comma)";
@@ -43,7 +44,11 @@ public sealed interface SupervisorScope {
     /** The runs of one workflow. */
     WORKFLOW,
     /** Some nodes of the runs of one workflow. */
-    SECTION
+    SECTION,
+    /** The run level of one workflow: start, pause, resume, stop, restart, priority. */
+    RUN,
+    /** The server: scheduler limits and drain. */
+    SERVER
   }
 
   /**
@@ -92,6 +97,35 @@ public sealed interface SupervisorScope {
   }
 
   /**
+   * Whether this scope owns what a command acts on, the way the server enforces ownership: a
+   * server-level command belongs only to a {@link Server} scope, a {@link Server} scope owns
+   * nothing else, a {@link Global} scope owns nothing, and a command whose run could not be looked
+   * up (no session and no workflow) is owned by nobody.
+   *
+   * @param command the command
+   * @param runSessionId the session of its run, or {@code null} when unknown
+   * @param runWorkflowId the workflow of its run, or {@code null} when unknown
+   * @param nodeId its node, or {@code null} for a run-level command
+   * @return true if this scope owns it
+   */
+  default boolean owns(
+      final ExecutionControlCommand command,
+      final @Nullable String runSessionId,
+      final @Nullable String runWorkflowId,
+      final @Nullable String nodeId) {
+    if (command.serverLevel()) {
+      return this instanceof Server;
+    }
+    if (this instanceof Server || this instanceof Global) {
+      return false;
+    }
+    if (runSessionId == null && runWorkflowId == null) {
+      return false;
+    }
+    return matches(runSessionId, runWorkflowId, nodeId);
+  }
+
+  /**
    * Tells whether this scope contains another: every run and node the other matches, this one
    * matches too. A scope covers itself.
    *
@@ -122,6 +156,8 @@ public sealed interface SupervisorScope {
   default String key() {
     return switch (this) {
       case Global _ -> "global";
+      case Server _ -> "server";
+      case Run run -> "run:" + ids(run.sessionId(), run.workflowId());
       case Session session -> "session:" + session.sessionId();
       case Workflow workflow -> workflowKey(workflow.sessionId(), workflow.workflowId());
       case Section section ->
@@ -132,9 +168,11 @@ public sealed interface SupervisorScope {
   }
 
   private static String workflowKey(final @Nullable String sessionId, final String workflowId) {
-    return sessionId == null
-        ? "workflow:" + workflowId
-        : "workflow:" + sessionId + "/" + workflowId;
+    return "workflow:" + ids(sessionId, workflowId);
+  }
+
+  private static String ids(final @Nullable String sessionId, final String workflowId) {
+    return sessionId == null ? workflowId : sessionId + "/" + workflowId;
   }
 
   /**
@@ -152,6 +190,11 @@ public sealed interface SupervisorScope {
     final String id = parts.length == 2 ? parts[1] : "";
     return switch (parts[0]) {
       case "global" -> new Global();
+      case "server" -> new Server();
+      case "run" -> {
+        final Workflow workflow = workflowScope(requireId(id));
+        yield new Run(Objects.requireNonNull(workflow.workflowId()), workflow.sessionId());
+      }
       case "session" -> new Session(requireId(id));
       case "workflow" -> workflowOrSection(requireId(id));
       default -> throw new IllegalArgumentException(BAD_SCOPE);
@@ -190,6 +233,83 @@ public sealed interface SupervisorScope {
       return new Workflow(id, null);
     }
     return new Workflow(requireId(id.substring(slash + 1)), requireId(id.substring(0, slash)));
+  }
+
+  /**
+   * The run level of one workflow: the commands and events that are about the run as a whole, and
+   * no node. It is the part of a {@link Workflow} that a {@link Section} never covers, so a
+   * workflow can be split between a run owner and node owners.
+   *
+   * @param workflowId the workflow
+   * @param sessionId the session that owns it; {@code null} for the workflow of that id in any
+   *     session
+   */
+  record Run(String workflowId, @Nullable String sessionId) implements SupervisorScope {
+
+    /** Rejects a missing workflow id. */
+    public Run {
+      Objects.requireNonNull(workflowId, "workflowId");
+    }
+
+    @Override
+    public Kind kind() {
+      return Kind.RUN;
+    }
+
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId, final @Nullable String runWorkflowId) {
+      return workflowId.equals(runWorkflowId)
+          && (sessionId == null || sessionId.equals(runSessionId));
+    }
+
+    /** Only the run level: an item about a node is not the run owner's. */
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId,
+        final @Nullable String runWorkflowId,
+        final @Nullable String nodeId) {
+      return nodeId == null && matches(runSessionId, runWorkflowId);
+    }
+
+    /** Covers the run level of its workflow, not its nodes. */
+    @Override
+    public boolean covers(final SupervisorScope other) {
+      return other instanceof Run run
+          && workflowId.equals(run.workflowId())
+          && (sessionId == null || sessionId.equals(run.sessionId()));
+    }
+  }
+
+  /** The server: the commands that belong to no run, such as scheduler limits and drain. */
+  record Server() implements SupervisorScope {
+
+    @Override
+    public Kind kind() {
+      return Kind.SERVER;
+    }
+
+    @Override
+    public @Nullable String sessionId() {
+      return null;
+    }
+
+    @Override
+    public @Nullable String workflowId() {
+      return null;
+    }
+
+    /** Only an item that belongs to no run. */
+    @Override
+    public boolean matches(
+        final @Nullable String runSessionId, final @Nullable String runWorkflowId) {
+      return runSessionId == null && runWorkflowId == null;
+    }
+
+    @Override
+    public boolean covers(final SupervisorScope other) {
+      return other instanceof Server;
+    }
   }
 
   /** Every run, and the commands that belong to no run. */
@@ -302,9 +422,15 @@ public sealed interface SupervisorScope {
    *     session
    * @param nodes the selectors, 1 to {@value #MAX_SELECTORS}, each non-blank, without a comma and
    *     at most {@value #MAX_SELECTOR_LENGTH} characters
+   * @param groupMembers the nodes its {@code group:} selectors stand for in the workflow as it is
+   *     now, resolved by the server; empty until then, never stored and not in {@link #key()}
    */
-  record Section(String workflowId, @Nullable String sessionId, Set<String> nodes)
+  record Section(
+      String workflowId, @Nullable String sessionId, Set<String> nodes, Set<String> groupMembers)
       implements SupervisorScope {
+
+    /** The prefix of a selector that names a group of the workflow. */
+    public static final String GROUP_PREFIX = "group:";
 
     /** Most selectors in a section. */
     public static final int MAX_SELECTORS = 50;
@@ -316,15 +442,30 @@ public sealed interface SupervisorScope {
     private static final String PREFIX_SUFFIX = ".*";
 
     /**
+     * A section as written: its {@code group:} selectors match nothing until the server resolves
+     * them ({@link #withGroupMembers}).
+     *
+     * @param workflowId the workflow
+     * @param sessionId the session, or {@code null} for the workflow in any session
+     * @param nodes the selectors
+     */
+    public Section(
+        final String workflowId, final @Nullable String sessionId, final Set<String> nodes) {
+      this(workflowId, sessionId, nodes, Set.of());
+    }
+
+    /**
      * Checks the parts and keeps an unmodifiable copy of the selectors, in their order.
      *
      * @param workflowId the workflow
      * @param sessionId the session, or {@code null}
      * @param nodes the selectors
+     * @param groupMembers the nodes the {@code group:} selectors stand for, resolved by the server
      */
     public Section {
       Objects.requireNonNull(workflowId, "workflowId");
       Objects.requireNonNull(nodes, "nodes");
+      groupMembers = Set.copyOf(Objects.requireNonNull(groupMembers, "groupMembers"));
       if (nodes.isEmpty() || nodes.size() > MAX_SELECTORS) {
         throw new IllegalArgumentException(
             "A section needs 1 to " + MAX_SELECTORS + " node selectors");
@@ -368,7 +509,29 @@ public sealed interface SupervisorScope {
       return nodeId != null
           && workflowId.equals(runWorkflowId)
           && (sessionId == null || sessionId.equals(runSessionId))
-          && nodes.stream().anyMatch(selector -> selects(selector, nodeId));
+          && (groupMembers.contains(nodeId)
+              || nodes.stream().anyMatch(selector -> selects(selector, nodeId)));
+    }
+
+    /**
+     * Whether a selector names a group ({@code group:<name>}).
+     *
+     * @return true if any does
+     */
+    public boolean hasGroups() {
+      return nodes.stream().anyMatch(selector -> selector.startsWith(GROUP_PREFIX));
+    }
+
+    /**
+     * The section with the nodes its {@code group:} selectors stand for in the workflow as it is
+     * now, resolved by the server from the workflow definition. They are not part of the text form
+     * ({@link #key()}) and are never stored.
+     *
+     * @param members the node ids of the named groups
+     * @return the resolved section
+     */
+    public Section withGroupMembers(final Set<String> members) {
+      return new Section(workflowId, sessionId, nodes, members);
     }
 
     /** Covers a section of its workflow whose every selector one of its own covers. */
@@ -383,6 +546,9 @@ public sealed interface SupervisorScope {
 
     /** Whether a selector takes a node. */
     private static boolean selects(final String selector, final String nodeId) {
+      if (selector.startsWith(GROUP_PREFIX)) {
+        return false; // a group matches through groupMembers once the server resolves it
+      }
       return isPrefix(selector) ? nodeId.startsWith(prefixOf(selector)) : selector.equals(nodeId);
     }
 

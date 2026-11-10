@@ -109,7 +109,9 @@
               "running/observability",
               "running/control-dashboard",
               "running/supervisors",
-              "running/control-planes",
+              "running/supervisor-contract",
+              "running/supervisor-engines",
+              "running/writing-a-supervisor",
               "running/rule-files"
             ]
           },

@@ -45,6 +45,43 @@ const server = setupServer(
 beforeAll(() => server.listen());
 afterAll(() => server.close());
 
+describe('PluginsPage keyboard', () => {
+  it('moves focus between the plugins with the arrow keys, and stops at the ends', async () => {
+    const user = userEvent.setup();
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter>
+          <PluginsPage />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    await screen.findByRole('button', { name: /ShellProcessor/ });
+    const nav = screen.getByRole('navigation', { name: 'Plugins' });
+    const items = [
+      ...nav.querySelectorAll<HTMLButtonElement>('button[aria-current]'),
+    ];
+    expect(items).toHaveLength(2);
+    const [first, second] = items;
+
+    first.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(second).toHaveFocus();
+    await user.keyboard('{ArrowDown}');
+    expect(second).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(first).toHaveFocus();
+    await user.keyboard('{ArrowUp}');
+    expect(first).toHaveFocus();
+    await user.keyboard('a');
+    expect(first).toHaveFocus();
+
+    const filter = screen.getByRole('searchbox', { name: 'Filter plugins' });
+    filter.focus();
+    await user.keyboard('{ArrowDown}');
+    expect(filter).toHaveFocus();
+  });
+});
+
 describe('PluginsPage', () => {
   it('lists plugins by category, shows details and canvas preview, and filters', async () => {
     render(

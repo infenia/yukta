@@ -35,14 +35,14 @@ expect 'mcp/src/A.java' "$affected" '":architecture :boot :mcp :plus:plus-archit
 expect 'core/src/A.java' "$affected" \
   '":architecture :boot :core :mcp :plus :plus:persistence-postgres :plus:plus-architecture :plus:workers :web"'
 expect 'core/src/A.java' "$shards" '"platform infra postgres-acceptance workers-acceptance plus-acceptance"'
-expect 'messaging/src/A.java' '.affected | length' '34'
+expect 'messaging/src/A.java' '.affected | length' '30'
 expect 'messaging/src/A.java' '.affected | index(":cli")' 'null'
 
 # Plugin-to-plugin dependencies are followed transitively.
 expect 'plugins/processors/llm-call/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:model-control-plane :plugins:control-planes:rules-first-control-plane :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
-expect 'plugins/supervisors/rule-supervisor/src/A.java' "$affected" \
-  '":architecture :boot :plugins:control-planes:rule-control-plane :plugins:control-planes:rules-first-control-plane :plugins:supervisors:guards :plugins:supervisors:rule-supervisor :plus:plus-architecture"'
+  '":architecture :boot :plugins:processors:decision :plugins:processors:llm-call :plus:plus-architecture"'
+expect 'plugins/supervisors/rules/src/A.java' "$affected" \
+  '":architecture :boot :plugins:supervisors:rules :plus:plus-architecture"'
 expect 'plugins/processors/internal/internal-core/src/A.java' "$affected" \
   '":architecture :boot :plugins:processors:internal:internal-core :plugins:processors:internal:script-js :plus:plus-architecture"'
 expect 'plugins/processors/http-request/src/A.java' "$shards" '"platform infra plugins"'
@@ -88,7 +88,7 @@ expect 'core/gradle.lockfile' '.full' 'false'
 
 # FULL=true (main, schedule, dispatch, `ci:full` label) runs every shard and E2E.
 got=$(FULL=true "$planner" </dev/null | jq -c '[([.shards[].name] | join(" ")), (.affected | length), .e2e]')
-want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",37,true]'
+want='["platform infra plugins cli ui postgres-acceptance workers-acceptance plus-acceptance",33,true]'
 [ "$got" = "$want" ] || fail "FULL=true" "$want" "$got"
 
 # A dependency on a module missing from settings.gradle.kts must fail loudly, not be skipped.

@@ -155,6 +155,7 @@ public class ApiKeyFilter implements WebFilter {
   }
 
   @Override
+  @SuppressWarnings("PMD.CyclomaticComplexity")
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
     if (authenticator.isOpen(Scope.REST)) {
@@ -168,6 +169,10 @@ public class ApiKeyFilter implements WebFilter {
       return reject(exchange, HttpStatus.BAD_REQUEST, "Ambiguous request path");
     }
     final String path = RequestPaths.decoded(raw);
+    if (AgentCredentialFilter.isAgentPath(path)) {
+      // a supervisor's credential, checked by AgentCredentialFilter; no human key works there
+      return chain.filter(exchange);
+    }
     if (isTokenAnswer(exchange, path)) {
       // the one /api/inputs call that needs no key: a one-time token stands for the tier; the
       // controller limits it per address and per request

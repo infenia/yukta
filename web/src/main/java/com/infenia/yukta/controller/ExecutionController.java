@@ -7,6 +7,7 @@ import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.plugin.control.StopMode;
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.service.control.TreeControl;
 import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
@@ -44,6 +45,9 @@ public class ExecutionController {
   /** The control bus. */
   private final ControlBusGateway controlBus;
 
+  /** Applies the commands. */
+  private final SupervisedControl control;
+
   /** The access. */
   private final ExecutionAccess access;
 
@@ -79,7 +83,7 @@ public class ExecutionController {
           @RequestParam(defaultValue = "DRAIN")
           final StopMode mode) {
     return treeControl
-        .apply(executionId, tree, id -> controlBus.stopExecution(id, "Stopped via REST API", mode))
+        .apply(executionId, tree, id -> control.stopExecution(id, "Stopped via REST API", mode))
         .thenReturn(started("Execution stop signal accepted", executionId));
   }
 
@@ -116,9 +120,7 @@ public class ExecutionController {
               + " Legacy path: /api/workflow/executions/{executionId}/restart (deprecated)")
   public Mono<ApiResponse<WorkflowStartResponse>> restartWorkflow(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
-    return controlBus
-        .restartWorkflow(executionId)
-        .map(id -> started("Workflow restart accepted", id));
+    return control.restartWorkflow(executionId).map(id -> started("Workflow restart accepted", id));
   }
 
   /**
@@ -140,7 +142,7 @@ public class ExecutionController {
   public Mono<ApiResponse<WorkflowStartResponse>> restartFromNode(
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId,
       @Parameter(description = "Node ID to restart from") @PathVariable final String fromNodeId) {
-    return controlBus
+    return control
         .restartFromNode(executionId, fromNodeId)
         .map(id -> started("Workflow restart from node accepted", id));
   }

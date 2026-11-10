@@ -14,6 +14,7 @@ import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.UnaryOperator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.Disposable;
@@ -54,10 +55,23 @@ class WorkflowStarter {
       final String workflowId,
       final Map<String, Object> payload,
       final String idempotencyKey) {
+    return start(sessionId, workflowId, payload, idempotencyKey, UnaryOperator.identity());
+  }
+
+  /**
+   * Starts once per idempotency key. {@code guard} wraps the start (review and audit); it runs only
+   * for a start that is new, so a repeated key returns the first run without being reviewed again.
+   */
+  /* default */ Mono<String> start(
+      final String sessionId,
+      final String workflowId,
+      final Map<String, Object> payload,
+      final String idempotencyKey,
+      final UnaryOperator<Mono<String>> guard) {
     return idempotency.once(
         sessionId + "\0" + workflowId,
         idempotencyKey,
-        () -> startOnce(sessionId, workflowId, payload));
+        () -> guard.apply(Mono.defer(() -> startOnce(sessionId, workflowId, payload))));
   }
 
   /** The version a start asks for with the payload key {@code yukta.version}, or null. */

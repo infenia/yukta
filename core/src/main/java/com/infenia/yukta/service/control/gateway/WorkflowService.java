@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.service.control.gateway;
 
+import com.infenia.yukta.service.control.SupervisedControl;
 import com.infenia.yukta.validation.SessionId;
 import com.infenia.yukta.validation.WorkflowId;
 import java.util.Map;
@@ -28,7 +29,7 @@ public class WorkflowService {
   private static final String LOG_KEY_EXECUTION_ID = "executionId";
 
   /** The control bus gateway for orchestrating workflow execution. */
-  private final ControlBusGateway controlBus;
+  private final SupervisedControl control;
 
   /**
    * Starts a workflow, safely retryable with an idempotency key.
@@ -50,7 +51,7 @@ public class WorkflowService {
         .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
         .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
         .log("Starting workflow");
-    return controlBus
+    return control
         .startWorkflow(sessionId, workflowId, payload, idempotencyKey)
         .doOnSuccess(
             executionId ->

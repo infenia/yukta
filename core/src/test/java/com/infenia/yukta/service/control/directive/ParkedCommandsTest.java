@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control.directive;
 
 import static com.infenia.yukta.service.supervisor.SupervisorTestSupport.providerOf;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
@@ -21,6 +22,7 @@ import com.infenia.yukta.plugin.control.ExecutionControlCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.ExecutionSupervisor;
 import com.infenia.yukta.plugin.control.SupervisorScope;
+import com.infenia.yukta.plugin.input.Asked;
 import com.infenia.yukta.plugin.input.InputKind;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.InputResponse;
@@ -160,7 +162,6 @@ class ParkedCommandsTest {
     when(guard.scope()).thenReturn(new SupervisorScope.Global());
     when(guard.review(any())).thenAnswer(_ -> Mono.just(asker.get()));
     when(other.id()).thenReturn("other");
-    when(other.order()).thenReturn(2);
     when(other.scope()).thenReturn(new SupervisorScope.Global());
     when(other.review(any()))
         .thenReturn(
@@ -506,6 +507,28 @@ class ParkedCommandsTest {
                     .isInstanceOf(ControlRejectedException.class)
                     .hasMessageContaining("cannot ask for"))
         .verify();
+  }
+
+  @Test
+  void requestRecordsWhoAskedAndWhatEachParentSaid() {
+    final ReviewVerdict.NeedsApproval needs =
+        new ReviewVerdict.NeedsApproval(
+            ApprovalNeed.DEFAULT,
+            "why",
+            List.of("guard"),
+            List.of("release-lead:NO_OPINION", "ops-lead:silent"));
+
+    StepVerifier.create(
+            parked.park(STOP, new CommandTarget("s", "wf", null), Context.empty(), needs))
+        .expectNextCount(1)
+        .verifyComplete();
+
+    assertThat(only().asked())
+        .extracting(Asked::who, Asked::said)
+        .containsExactly(
+            tuple("guard", "asked for approval"),
+            tuple("release-lead", "no-opinion"),
+            tuple("ops-lead", "silent"));
   }
 
   @Test

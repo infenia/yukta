@@ -14,6 +14,7 @@ import java.util.Map;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import org.springframework.boot.context.properties.bind.Name;
 import org.springframework.validation.annotation.Validated;
 
 /**
@@ -151,6 +152,10 @@ public record YuktaProperties(
    * @param bufferSize events a supervisor may have waiting before events are dropped for it
    * @param reviewTimeout longest a supervisor may take to answer a review
    * @param maxAttachments most attachments at once, manual and from definitions together
+   * @param turnAround the guard against a supervisor flapping against itself
+   * @param defaultSupervisor the lenient default supervisor
+   * @param lockHolders names of the API keys that may change or remove a locked assignment; empty
+   *     lets any administrator do it, but only by asking to unlock
    */
   public record Supervisor(
       @DefaultValue("false") boolean dryRun,
@@ -158,33 +163,45 @@ public record YuktaProperties(
       @Min(1) @DefaultValue("10000") int bufferSize,
       @NotNull @DurationMin(nanos = 0) @DefaultValue("5s") Duration reviewTimeout,
       @Min(1) @DefaultValue(DEFAULT_CAP) int maxAttachments,
-      @Valid @NotNull @DefaultValue Arbiter arbiter) {}
+      @Valid @NotNull @DefaultValue TurnAround turnAround,
+      @Name("default") @Valid @NotNull @DefaultValue DefaultSupervisor defaultSupervisor,
+      @NotNull @DefaultValue List<String> lockHolders) {
+
+    /** Keeps an unmodifiable copy of the lock holders. */
+    public Supervisor {
+      lockHolders = List.copyOf(lockHolders);
+    }
+  }
 
   /**
-   * How commands of supervisors that act on the same target are ordered.
+   * The lenient default supervisor, which lets people control what no supervisor owns. Turn it off
+   * in production so that every workflow must name its supervisor; an unowned workflow then runs
+   * without one and people cannot control it.
    *
-   * @param window how long conflicting commands wait for each other; zero turns the arbiter off
-   * @param flapPeriod the period in which turn-arounds are counted
-   * @param flapLimit most turn-arounds of one target by one supervisor in the period
-   * @param flapCooldown how long a supervisor over the limit is blocked
+   * @param enabled whether people may control units that nobody owns
    */
-  public record Arbiter(
-      @NotNull @DefaultValue("500ms") Duration window,
-      @NotNull @DefaultValue("60s") Duration flapPeriod,
-      @Min(1) @DefaultValue("4") int flapLimit,
-      @NotNull @DefaultValue("5m") Duration flapCooldown) {
+  public record DefaultSupervisor(@DefaultValue("true") boolean enabled) {}
 
-    /** Checks that the window is not negative and the other durations are positive. */
-    public Arbiter {
-      if (window.isNegative()) {
-        throw new IllegalArgumentException("yukta.supervisor.arbiter.window must not be negative");
+  /**
+   * The guard against a supervisor flapping against itself.
+   *
+   * @param period the period in which turn-arounds of a target are counted
+   * @param limit most turn-arounds of one target by one supervisor in the period
+   * @param cooldown how long a supervisor over the limit is blocked on that target
+   */
+  public record TurnAround(
+      @NotNull @DefaultValue("60s") Duration period,
+      @Min(1) @DefaultValue("4") int limit,
+      @NotNull @DefaultValue("5m") Duration cooldown) {
+
+    /** Checks that the durations are positive. */
+    public TurnAround {
+      if (period.isZero() || period.isNegative()) {
+        throw new IllegalArgumentException("yukta.supervisor.turn-around.period must be positive");
       }
-      if (flapPeriod.isZero() || flapPeriod.isNegative()) {
-        throw new IllegalArgumentException("yukta.supervisor.arbiter.flap-period must be positive");
-      }
-      if (flapCooldown.isZero() || flapCooldown.isNegative()) {
+      if (cooldown.isZero() || cooldown.isNegative()) {
         throw new IllegalArgumentException(
-            "yukta.supervisor.arbiter.flap-cooldown must be positive");
+            "yukta.supervisor.turn-around.cooldown must be positive");
       }
     }
   }

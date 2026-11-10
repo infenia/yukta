@@ -9,6 +9,7 @@ import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
 import com.infenia.yukta.service.supervisor.SupervisorStore;
+import com.infenia.yukta.service.supervisor.agent.AgentCredentialStore;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
 import com.infenia.yukta.startup.DefaultsAutoConfiguration;
 import org.springframework.beans.factory.annotation.Value;
@@ -195,5 +196,16 @@ public class PostgresPersistenceAutoConfiguration {
   @Bean
   public SupervisorStore supervisorStore(final DatabaseClient client, final ObjectMapper mapper) {
     return new R2dbcSupervisorStore(client, mapper);
+  }
+
+  /**
+   * The hashes of the agent credentials, so they survive a restart.
+   *
+   * @param client runs the statements
+   * @return the store
+   */
+  @Bean
+  public AgentCredentialStore agentCredentialStore(final DatabaseClient client) {
+    return new R2dbcAgentCredentialStore(client);
   }
 }

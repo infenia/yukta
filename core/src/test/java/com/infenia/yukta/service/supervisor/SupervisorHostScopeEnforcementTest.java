@@ -40,7 +40,8 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyStaticImports",
   "PMD.ExcessiveImports",
   "PMD.AvoidFieldNameMatchingMethodName",
-  "PMD.ShortMethodName"
+  "PMD.ShortMethodName",
+  "PMD.TooManyMethods"
 })
 @NoArgsConstructor
 class SupervisorHostScopeEnforcementTest {
@@ -89,6 +90,7 @@ class SupervisorHostScopeEnforcementTest {
   @BeforeEach
   void setUp() {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
+    org.mockito.Mockito.lenient().when(dispatcher.workflowOf(MINE)).thenReturn("w");
     when(dispatcher.target(any()))
         .thenAnswer(
             call -> {
@@ -152,6 +154,8 @@ class SupervisorHostScopeEnforcementTest {
         .extracting(SupervisorDecision::outcome)
         .containsExactly("applied", OUT_OF_SCOPE, OUT_OF_SCOPE, OUT_OF_SCOPE, OUT_OF_SCOPE);
     assertThat(decisions.get(1).reason()).isEqualTo("target outside scope workflow:s/w//build.*");
+    assertThat(decisions.get(0).workflowId()).isEqualTo("w");
+    assertThat(decisions.get(3).workflowId()).isNull();
     verify(dispatcher).dispatchOrdered(new PauseNodeCommand(MINE, "build.compile"));
     verify(dispatcher, never()).dispatchOrdered(new PauseWorkflowCommand(MINE));
     assertThat(counted("build", OUT_OF_SCOPE)).isEqualTo(4);
@@ -224,5 +228,38 @@ class SupervisorHostScopeEnforcementTest {
             1);
 
     assertThat(decisions).extracting(SupervisorDecision::outcome).containsExactly(OUT_OF_SCOPE);
+  }
+
+  @Test
+  void attachedGlobalSupervisorOwnsNothing() {
+    host =
+        SupervisorHostFixture.create(
+            providerOf(), new ExecutionEventFeed(), dispatcher, log, meters, false, 100, 1_000);
+    final SupervisorScope global = new SupervisorScope.Global();
+    host.attach(
+        com.infenia.yukta.testing.Fixtures.boundSupervisor(
+            new com.infenia.yukta.plugin.control.SupervisorAttachment("g", "p", global, true),
+            new Sender("g", global, List.of(new StopWorkflowCommand(MINE, "x"))),
+            false));
+
+    await().atMost(3, TimeUnit.SECONDS).until(() -> host.decisions("g", 10).size() == 1);
+    assertThat(host.decisions("g", 10))
+        .extracting(SupervisorDecision::outcome)
+        .containsExactly(OUT_OF_SCOPE);
+    verify(dispatcher, never()).dispatchOrdered(any());
+  }
+
+  @Test
+  void supervisorThatKeepsTurningRunAroundIsBlocked() {
+    final List<ExecutionControlCommand> flapping = new java.util.ArrayList<>();
+    for (int i = 0; i < 5; i++) {
+      flapping.add(new PauseWorkflowCommand(MINE));
+      flapping.add(new ExecutionControlCommand.ResumeWorkflowCommand(MINE));
+    }
+
+    final List<SupervisorDecision> decisions =
+        run(new Sender("flap", new SupervisorScope.Session("s"), flapping), false, 10);
+
+    assertThat(decisions).extracting(SupervisorDecision::outcome).contains("flapping-blocked");
   }
 }
