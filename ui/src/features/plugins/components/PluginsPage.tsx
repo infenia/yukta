@@ -13,7 +13,11 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import { pluginLabel } from '@/features/workflow/lib/pluginIcons';
 import type { PluginCategory } from '@/features/workflow/types/workflow';
-import { useCopyCommand } from '@/features/workflow/hooks/useCopyCommand';
+import {
+  copyIcon,
+  copyTone,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
 import { usePlugin, usePlugins } from '../hooks/usePlugins';
 import { nodeExample } from '../lib/nodeExample';
 import { getPluginUsage } from '../api/plugins';
@@ -186,8 +190,9 @@ function PluginDetail({ type }: { type: string }) {
                 A minimal node you can paste into a workflow's JSON.
               </p>
               <IconButton
-                icon="data_object"
+                icon={copyIcon(copied, 'data_object')}
                 label="Copy node JSON"
+                className={copyTone(copied)}
                 onClick={() => copy(example)}
               />
             </div>

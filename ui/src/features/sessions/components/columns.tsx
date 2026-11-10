@@ -11,6 +11,44 @@ import {
 import { slugify } from '@/features/builder/components/SessionFormPage.helpers';
 import type { SessionListItem } from '../types/session';
 import { Tip } from '@/components/ui/tooltip';
+import {
+  copyIcon,
+  copyTone,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
+import { cn } from '@/lib/utils';
+
+/** The working directory as a button that copies it and turns green for a moment. */
+function CopyPathCell({ path }: { path: string }) {
+  const { status, copy } = useCopyCommand();
+  return (
+    <Tip label="Copy working directory">
+      <button
+        type="button"
+        aria-label={`Copy working directory ${path}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          copy(path);
+        }}
+        className={cn(
+          'text-code-sm inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left transition-colors',
+          status ? copyTone(status) : 'text-on-surface hover:bg-muted'
+        )}
+      >
+        <span className="truncate">{path}</span>
+        <span
+          aria-hidden="true"
+          className={cn(
+            'material-symbols-outlined text-sm',
+            !status && 'text-muted-foreground'
+          )}
+        >
+          {copyIcon(status)}
+        </span>
+      </button>
+    </Tip>
+  );
+}
 
 /** A session row, with its newest run when the list found one. */
 export type SessionRow = SessionListItem;
@@ -92,26 +130,6 @@ export const columns: LegacyColumnDef<SessionRow>[] = [
   {
     accessorKey: 'projectPath',
     header: 'Working directory',
-    cell: ({ row }) => (
-      <Tip label="Copy working directory">
-        <button
-          type="button"
-          aria-label={`Copy working directory ${row.original.projectPath}`}
-          onClick={(e) => {
-            e.stopPropagation();
-            void navigator.clipboard?.writeText(row.original.projectPath);
-          }}
-          className="text-code-sm text-on-surface hover:bg-muted inline-flex max-w-full items-center gap-1 rounded-md px-1 py-0.5 text-left"
-        >
-          <span className="truncate">{row.getValue('projectPath')}</span>
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-muted-foreground text-sm"
-          >
-            content_copy
-          </span>
-        </button>
-      </Tip>
-    ),
+    cell: ({ row }) => <CopyPathCell path={row.original.projectPath} />,
   },
 ];

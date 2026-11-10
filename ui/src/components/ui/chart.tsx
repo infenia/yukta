@@ -33,7 +33,7 @@ export function ChartContainer({
       role="img"
       aria-label={label}
       className={cn(
-        'h-48 w-full text-label-sm text-muted-foreground [&_.recharts-cartesian-axis-tick_text]:fill-current [&_.recharts-cartesian-grid_line]:stroke-border',
+        'text-label-sm text-muted-foreground [&_.recharts-cartesian-grid_line]:stroke-border h-48 w-full [&_.recharts-cartesian-axis-tick_text]:fill-current',
         className
       )}
       style={style}

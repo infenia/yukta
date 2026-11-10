@@ -10,6 +10,8 @@
     "lint": "eslint .",
     "api:types": "node scripts/generate-api-types.mjs",
     "icons": "node scripts/subset-icons.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "lint:headers": "node scripts/validate-headers.js",
     "test": "vitest",
     "test:e2e": "playwright test",

@@ -18,6 +18,7 @@ import { downloadText } from '../lib/downloadFile';
 import { useRawLogLines } from '../hooks/useRawLogLines';
 import { formatLogTimestamp } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
+import { copyIcon, copyTone, useCopyCommand } from '../hooks/useCopyCommand';
 import { runEvents } from '../lib/runEvents';
 import type { LogEntry, WorkflowProgress } from '../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
@@ -205,9 +206,7 @@ export function LogsPanel({
   const [rawRuns, setRawRuns] = useState(0);
   const rawLines = useRawLogLines(sessionId, executionId, rawRun);
   const raw = rawRun !== null;
-  const [copyStatus, setCopyStatus] = useState<'copied' | 'failed' | null>(
-    null
-  );
+  const { status: copyStatus, copy } = useCopyCommand();
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastTop = useRef(0);
   // Scrolling up leaves the newest line: stop following. Growth of the content never lowers
@@ -271,20 +270,7 @@ export function LogsPanel({
       'application/x-ndjson'
     );
 
-  const copyLogs = () => {
-    const done = (next: 'copied' | 'failed') => {
-      setCopyStatus(next);
-      setTimeout(() => setCopyStatus(null), 1500);
-    };
-    if (!navigator.clipboard) {
-      done('failed');
-      return;
-    }
-    navigator.clipboard.writeText(visibleEntries.map(lineText).join('\n')).then(
-      () => done('copied'),
-      () => done('failed')
-    );
-  };
+  const copyLogs = () => copy(visibleEntries.map(lineText).join('\n'));
 
   // turning auto-scroll on scrolls to the end (the effect below)
   const jumpToLatest = () => setAutoScroll(true);
@@ -459,19 +445,13 @@ export function LogsPanel({
                   aria-label="Copy logs"
                   className={cn(
                     'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
-                    copyStatus === 'copied' && 'bg-success/10 text-success',
-                    copyStatus === 'failed' &&
-                      'bg-destructive/10 text-destructive',
-                    !copyStatus &&
-                      'text-on-surface-variant hover:bg-muted hover:text-on-surface'
+                    copyStatus
+                      ? copyTone(copyStatus)
+                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                   )}
                 >
                   <span className="material-symbols-outlined text-base">
-                    {copyStatus === 'copied'
-                      ? 'check'
-                      : copyStatus === 'failed'
-                        ? 'error'
-                        : 'content_copy'}
+                    {copyIcon(copyStatus)}
                   </span>
                 </button>
               </Tip>

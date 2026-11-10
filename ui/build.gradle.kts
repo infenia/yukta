@@ -103,6 +103,22 @@ val pnpmLint = tasks.register<PnpmTask>("pnpmLint") {
     outputs.upToDateWhen { true }
 }
 
+// Formatting: unformatted UI code fails the build (`pnpm format` fixes it).
+val pnpmFormatCheck = tasks.register<PnpmTask>("pnpmFormatCheck") {
+    description = "Check that the UI sources are formatted with Prettier"
+    dependsOn("pnpmInstall")
+    workingDir.set(layout.projectDirectory)
+    pnpmCommand.set(listOf("run", "format:check"))
+    inputs.dir(layout.projectDirectory.dir("src"))
+    inputs.dir(layout.projectDirectory.dir("e2e"))
+    inputs.files(
+        layout.projectDirectory.file(".prettierrc.json"),
+        layout.projectDirectory.file(".prettierignore"),
+        layout.projectDirectory.file("package.json"),
+    )
+    outputs.upToDateWhen { true }
+}
+
 // E2E tests (Playwright) — gated behind a Gradle property
 val pnpmTestE2e = tasks.register<PnpmTask>("pnpmTestE2e") {
     description = "Run Playwright E2E tests"
@@ -131,7 +147,7 @@ val apiTypesCheck = tasks.register<PnpmTask>("apiTypesCheck") {
 
 // Wire header validation and tests into Gradle's check task
 tasks.named("check") {
-    dependsOn(validateHeaders, verifyPackageVersion, apiTypesCheck, pnpmLint, pnpmTest)
+    dependsOn(validateHeaders, verifyPackageVersion, apiTypesCheck, pnpmLint, pnpmFormatCheck, pnpmTest)
 }
 
 // Disable Spring Boot JAR/bootRun on this module

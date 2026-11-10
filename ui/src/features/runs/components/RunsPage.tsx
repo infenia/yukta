@@ -48,6 +48,29 @@ import {
   type RunFilters,
 } from '../lib/filters';
 import { Tip } from '@/components/ui/tooltip';
+import {
+  copyIcon,
+  copyTone,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
+
+/** Copies a run's full id; the icon turns green for a moment. */
+function CopyRunId({ executionId }: { executionId: string }) {
+  const { status, copy } = useCopyCommand();
+  return (
+    <button
+      type="button"
+      aria-label={`Copy run id ${executionId}`}
+      onClick={() => copy(executionId)}
+      className={cn(
+        'material-symbols-outlined ml-1 rounded align-middle text-sm transition-colors',
+        status ? copyTone(status) : 'text-on-surface-variant'
+      )}
+    >
+      {copyIcon(status)}
+    </button>
+  );
+}
 
 /** Runs fetched first, and added by each "Load more". */
 const PAGE = 100;
@@ -314,16 +337,7 @@ function Runs() {
                           {run.executionId.slice(0, 8)}
                         </Link>
                       </Tip>
-                      <button
-                        type="button"
-                        aria-label={`Copy run id ${run.executionId}`}
-                        onClick={() =>
-                          void navigator.clipboard.writeText(run.executionId)
-                        }
-                        className="material-symbols-outlined text-on-surface-variant ml-1 align-middle text-sm"
-                      >
-                        content_copy
-                      </button>
+                      <CopyRunId executionId={run.executionId} />
                     </TableCell>
                     <TableCell
                       data-label="Session / workflow"

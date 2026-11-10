@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { RequirePermission } from '@/components/common/RequirePermission';
+import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { NodeAction } from '../api/executionControl';
-import { useCopyCommand } from '../hooks/useCopyCommand';
+import { copyIcon, copyTone, useCopyCommand } from '../hooks/useCopyCommand';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import type { NodeUiStatus } from '../types/workflow';
 
@@ -123,10 +124,15 @@ export function NodeControlsMenu({
         <RequirePermission perm="controlRuns">
           <DropdownMenuTrigger
             aria-label={`Actions for ${nodeId}`}
-            className="text-on-surface-variant hover:text-on-surface flex size-6 items-center justify-center"
+            className={cn(
+              'flex size-6 items-center justify-center rounded-md',
+              copied
+                ? copyTone(copied)
+                : 'text-on-surface-variant hover:text-on-surface'
+            )}
           >
             <span className="material-symbols-outlined text-base">
-              more_vert
+              {copyIcon(copied, 'more_vert')}
             </span>
           </DropdownMenuTrigger>
         </RequirePermission>

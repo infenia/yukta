@@ -12,14 +12,20 @@ const budgets = [
   { pattern: /^(?!charts-).*\.js$/, max: 300 * 1000, label: 'JS chunk' },
   // recharts and d3, loaded only when a dashboard chart shows (see the `charts` group in vite.config.ts)
   { pattern: /^charts-.*\.js$/, max: 450 * 1000, label: 'charts chunk' },
-  { pattern: /^material-symbols.*\.woff2$/, max: 100 * 1000, label: 'icon font' },
+  {
+    pattern: /^material-symbols.*\.woff2$/,
+    max: 100 * 1000,
+    label: 'icon font',
+  },
 ];
 
 const failures = fs.readdirSync(dir).flatMap((file) => {
   const size = fs.statSync(path.join(dir, file)).size;
   return budgets
     .filter((b) => b.pattern.test(file) && size > b.max)
-    .map((b) => `${file}: ${size} B exceeds the ${b.label} budget of ${b.max} B`);
+    .map(
+      (b) => `${file}: ${size} B exceeds the ${b.label} budget of ${b.max} B`
+    );
 });
 
 if (failures.length > 0) {

@@ -192,7 +192,9 @@ describe('WorkflowEditorPage stages', () => {
 
     // unit is in stage test: its stage color is set, then cleared again
     await user.click(within(stageColors()).getByRole('radio', { name: 'sky' }));
-    await user.click(within(nodeColors()).getByRole('radio', { name: 'violet' }));
+    await user.click(
+      within(nodeColors()).getByRole('radio', { name: 'violet' })
+    );
     await user.click(within(nodeColors()).getByRole('radio', { name: 'none' }));
 
     // alone is in stage alone: it keeps stage test’s color when its own is set and cleared
@@ -201,11 +203,15 @@ describe('WorkflowEditorPage stages', () => {
       within(stageColors()).getByRole('radio', { name: 'magenta' })
     );
     await user.click(within(nodeColors()).getByRole('radio', { name: 'teal' }));
-    await user.click(within(stageColors()).getByRole('radio', { name: 'none' }));
+    await user.click(
+      within(stageColors()).getByRole('radio', { name: 'none' })
+    );
 
     // the last stage color cleared leaves no groupColors in the saved JSON
     await user.click(await screen.findByRole('button', { name: /^unit/ }));
-    await user.click(within(stageColors()).getByRole('radio', { name: 'none' }));
+    await user.click(
+      within(stageColors()).getByRole('radio', { name: 'none' })
+    );
 
     await user.click(screen.getByRole('button', { name: 'Save version' }));
     await waitFor(() => expect(saved).toHaveLength(1));
