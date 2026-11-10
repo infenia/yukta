@@ -301,6 +301,20 @@ describe('WorkflowNodeCard', () => {
       expect(await screen.findByText(LONG)).toHaveClass('whitespace-pre-line');
     });
 
+    it('keeps the open description on screen when it is clicked', async () => {
+      renderCard({
+        node: createMockGraphNode({ nodeId: 'repair', description: LONG }),
+        status: 'pending',
+      });
+      await userEvent.click(
+        screen.getByRole('button', {
+          name: 'Show the description of repair',
+        })
+      );
+      await userEvent.click(await screen.findByText(LONG));
+      expect(screen.getByText(LONG)).toBeInTheDocument();
+    });
+
     it('has no info button without a description', () => {
       renderCard({
         node: createMockGraphNode({ description: '' }),
