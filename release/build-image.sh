@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 # Build the runtime image for each platform that has a server binary in dist/, smoke test it, and
-# optionally push one manifest (a single platform today, linux-amd64) to the registries in IMAGES
+# optionally push one multi-architecture manifest (linux-amd64 and linux-arm64) to the registries in IMAGES
 # (GHCR; Docker Hub too when YUKTA_IMAGES lists it).
 #
 # Usage: release/build-image.sh <version> [--push | --promote]
@@ -65,6 +65,7 @@ smoke_test() {
 
 built=()
 for platform in "${PLATFORMS[@]}"; do
+  [[ "$platform" == linux-* ]] || continue   # macOS and Windows have no image
   arch="$(arch_of "$platform")"
   if [[ ! -x "$DIST/$platform/yukta" ]]; then
     log "skipping $platform: no server binary in $DIST/$platform"

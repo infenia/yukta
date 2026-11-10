@@ -14,8 +14,8 @@
 #
 # Before this: set the version in gradle.properties and ui/package.json, merge to main, wait for CI,
 # push the tag, and check it out. install.ps1 is not attached until it has run on a real Windows machine.
-# The server binary comes from the release workflow run for the tag (artifact server-linux-amd64).
-# Only linux-amd64 is published (PLATFORMS in lib.sh); arm64 returns when its runner build is proven.
+# The server binaries come from the release workflow run for the tag (artifacts server-<platform>,
+# one per entry of PLATFORMS in lib.sh).
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -58,7 +58,7 @@ if ! $skip_server; then "$RELEASE_DIR/build-server.sh"; fi
 check_build_marker "$DIST/cli" "$version" "$publish"
 
 for platform in "${PLATFORMS[@]}"; do
-  if [[ -x "$DIST/$platform/yukta" ]]; then
+  if [[ -x "$DIST/$platform/$(server_name "$platform")" ]]; then
     check_build_marker "$DIST/$platform" "$version" "$publish"
     "$RELEASE_DIR/package.sh" "$version" "$platform"
   elif $publish; then

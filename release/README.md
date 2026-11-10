@@ -4,8 +4,10 @@ Scripts and the runbook for building, packaging and publishing a Yukta release. 
 same on the release machine and in CI. The plan and the reasons behind it are in
 [`design/plans/releases.md`](../design/plans/releases.md).
 
-**Scope today (alpha):** Linux amd64 native server and CLI, `install.sh`, `.deb`/`.rpm`/`.tar.gz`, and a
-`linux/amd64` image on GHCR. arm64, Windows, macOS and Docker Hub come later.
+**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-arm64 (Apple Silicon) and windows-amd64, `install.sh`,
+`.deb`/`.rpm`/`.tar.gz` (Linux), `.tar.gz` (macOS), `.zip` (Windows), and a multi-architecture
+(`linux/amd64`, `linux/arm64`) image on GHCR. The macOS and Windows builds are not signed or notarized: Gatekeeper and
+SmartScreen warn on a browser download (the install scripts avoid it). macOS Intel, Windows arm64 and Docker Hub come later.
 
 ## Versioning policy
 
@@ -29,7 +31,7 @@ same on the release machine and in CI. The plan and the reasons behind it are in
 | Script | What it does | Runs on |
 |---|---|---|
 | `build-cli.sh` | `yukta-cli` for Linux, macOS and Windows, version taken from `gradle.properties` | any machine with Go |
-| `build-server.sh` | Native `yukta` server for **this machine's** architecture, inside the pinned GraalVM image | amd64 machine for `linux-amd64` |
+| `build-server.sh` | Native `yukta` server for **this machine's** architecture, inside the pinned GraalVM image | a machine of that architecture (`ubuntu-24.04-arm` for `linux-arm64`) |
 | `package.sh` | `.tar.gz`, `.deb`, `.rpm` for one platform | any machine with Go |
 | `build-image.sh` | Runtime image, smoke test (health and version), optional push to the registries in `YUKTA_IMAGES` | machine with Docker |
 | `sign.sh` | One keyless Sigstore signature on `SHA256SUMS` (`SHA256SUMS.sigstore.json`), plus the image, with `cosign` | CI, or a machine with `cosign` |
@@ -80,7 +82,7 @@ One pull request to approve, one button to press.
      a `Release-As: 0.1.0-beta.1` footer to a commit on `main`.
 3. **CI does the rest** (the **Release** workflow, started by the tag; about an hour):
    - `assemble` refuses a tag whose commit is not on `main`, because it signs as the workflow;
-   - builds the CLI (five platforms) and the linux-amd64 server, runs the Quickstart workflow against the
+   - builds the CLI (five platforms) and the servers for every platform in `PLATFORMS` (the macOS and Windows ones with the GraalVM on the runner, not in Docker), runs the Quickstart workflow against the
      server binary, and attests both (`gh attestation verify`);
    - `assemble` runs `release/release.sh --publish`: packages, `SHA256SUMS`, the image pushed to GHCR,
      and signatures on the checksums and the image. Signing is keyless: cosign signs as the workflow, so
