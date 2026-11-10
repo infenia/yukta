@@ -18,7 +18,10 @@ import { glob } from 'glob';
 const PLUGIN_ICONS = ['expand_more', 'expand_less'];
 
 const root = path.resolve(import.meta.dirname, '..');
-const dts = fs.readFileSync(path.join(root, 'node_modules/material-symbols/index.d.ts'), 'utf8');
+const dts = fs.readFileSync(
+  path.join(root, 'node_modules/material-symbols/index.d.ts'),
+  'utf8'
+);
 const known = new Set([...dts.matchAll(/"([a-z0-9_]+)"/g)].map((m) => m[1]));
 
 const files = await glob('src/**/*.{ts,tsx}', {
@@ -27,7 +30,9 @@ const files = await glob('src/**/*.{ts,tsx}', {
 });
 const used = new Set(PLUGIN_ICONS);
 for (const file of files) {
-  for (const [token] of fs.readFileSync(path.join(root, file), 'utf8').matchAll(/[a-z][a-z0-9_]*/g)) {
+  for (const [token] of fs
+    .readFileSync(path.join(root, file), 'utf8')
+    .matchAll(/[a-z][a-z0-9_]*/g)) {
     if (known.has(token)) used.add(token);
   }
 }
@@ -38,11 +43,17 @@ const cssUrl =
   'https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20,300,0,0' +
   `&icon_names=${names}&display=block`;
 // A modern user agent makes Google Fonts answer with woff2.
-const headers = { 'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36' };
+const headers = {
+  'User-Agent':
+    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+};
 const css = await (await fetch(cssUrl, { headers })).text();
 const fontUrl = css.match(/url\((https:[^)]+)\)/)?.[1];
 if (!fontUrl) throw new Error(`No font URL in Google Fonts response:\n${css}`);
 
 const font = Buffer.from(await (await fetch(fontUrl)).arrayBuffer());
-fs.writeFileSync(path.join(root, 'src/assets/material-symbols-subset.woff2'), font);
+fs.writeFileSync(
+  path.join(root, 'src/assets/material-symbols-subset.woff2'),
+  font
+);
 console.log(`${used.size} icons, ${font.length} bytes`);

@@ -2,7 +2,12 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import BreadcrumbNav from '@/components/layout/BreadcrumbNav';
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
+import {
+  copyIcon,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
 import { Badge } from '@/components/ui/badge';
 import type { SessionDetails } from '../types/session';
 
@@ -26,17 +31,7 @@ export function SessionInfoPanel({
   actions,
   workflows,
 }: SessionInfoPanelProps) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopyPath = async () => {
-    try {
-      await navigator.clipboard.writeText(session.projectPath);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
-    }
-  };
+  const { status: copied, copy } = useCopyCommand();
 
   const initials = getInitials(session.initiator);
 
@@ -106,9 +101,11 @@ export function SessionInfoPanel({
         <div className="min-w-0 space-y-1">
           <h3 className={label}>Working Directory</h3>
           <button
-            onClick={handleCopyPath}
+            onClick={() => copy(session.projectPath)}
             aria-label={
-              copied ? 'Working directory copied' : 'Copy working directory'
+              copied === 'copied'
+                ? 'Working directory copied'
+                : 'Copy working directory'
             }
             className="group border-border bg-card shadow-card transition-standard hover:border-ring flex w-full items-center justify-between rounded-lg border p-2"
           >
@@ -116,11 +113,13 @@ export function SessionInfoPanel({
               {session.projectPath}
             </code>
             <span
-              className="material-symbols-outlined group-hover:text-primary text-sm transition-colors"
+              className={cn(
+                'material-symbols-outlined text-sm transition-colors',
+                copied ? 'text-success' : 'group-hover:text-primary'
+              )}
               aria-hidden="true"
-              style={{ color: copied ? 'var(--color-primary)' : undefined }}
             >
-              {copied ? 'check' : 'content_copy'}
+              {copyIcon(copied)}
             </span>
           </button>
         </div>

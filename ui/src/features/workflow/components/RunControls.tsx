@@ -15,7 +15,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import type { StopMode } from '../api/executionControl';
-import { useCopyCommand } from '../hooks/useCopyCommand';
+import { cn } from '@/lib/utils';
+import { copyIcon, copyTone, useCopyCommand } from '../hooks/useCopyCommand';
 import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { CopyAsMenu, type CopyChoice } from './CopyAsMenu';
 import { RunButton } from './RunButton';
@@ -360,12 +361,12 @@ export function RunControls({
       )}
       <DropdownMenu>
         <DropdownMenuTrigger
-          className={iconButton('primary')}
+          className={cn(iconButton('primary'), copyTone(copied))}
           aria-label="Copy as"
           title="Copy as…"
         >
           <span className="material-symbols-outlined text-base">
-            content_copy
+            {copyIcon(copied)}
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-max">

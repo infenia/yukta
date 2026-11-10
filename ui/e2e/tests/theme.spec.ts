@@ -15,7 +15,10 @@ test.describe('Theme Switching', () => {
 
   test('should start with system theme', async ({ page }) => {
     await expect(themeToggle(page)).toBeVisible();
-    await expect(themeToggle(page)).toHaveAttribute('aria-description', /Current: system/);
+    await expect(themeToggle(page)).toHaveAttribute(
+      'aria-description',
+      /Current: system/
+    );
   });
 
   test('should switch between light and dark mode', async ({ page }) => {
@@ -42,7 +45,10 @@ test.describe('Theme Switching', () => {
     await page.reload();
     await waitForLoadingComplete(page);
 
-    await expect(themeToggle(page)).toHaveAttribute('aria-description', 'Current: light');
+    await expect(themeToggle(page)).toHaveAttribute(
+      'aria-description',
+      'Current: light'
+    );
   });
 
   test('should have proper color contrast in both modes', async ({ page }) => {
@@ -56,7 +62,10 @@ test.describe('Theme Switching', () => {
       if (title === 'Current: light') break;
       await themeToggle(page).click();
     }
-    await expect(themeToggle(page)).toHaveAttribute('aria-description', 'Current: light');
+    await expect(themeToggle(page)).toHaveAttribute(
+      'aria-description',
+      'Current: light'
+    );
     await expect(page.locator('html')).not.toHaveClass(/dark/);
 
     const cell = table.locator('td').first();

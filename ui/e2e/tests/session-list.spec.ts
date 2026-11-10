@@ -49,12 +49,7 @@ test.describe('Session List Page - Mocked API', () => {
     });
 
     test('should display table headers', async ({ page }) => {
-      const expectedHeaders = [
-        'Name',
-        'Creator',
-        'Tags',
-        'Working Directory',
-      ];
+      const expectedHeaders = ['Name', 'Creator', 'Tags', 'Working Directory'];
       await assertTableColumns(page, expectedHeaders);
     });
 

@@ -86,8 +86,7 @@ describe('SessionInfoPanel', () => {
     expect(codeBlock.tagName).toBe('CODE');
   });
 
-  it('logs and keeps going when the clipboard is not available', async () => {
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+  it('shows the failure when the clipboard refuses', async () => {
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockRejectedValue(new Error('denied')) },
     });
@@ -95,13 +94,7 @@ describe('SessionInfoPanel', () => {
     render(<SessionInfoPanel session={mockSession} />);
     fireEvent.click(screen.getByRole('button'));
 
-    await waitFor(() => {
-      expect(error).toHaveBeenCalledWith(
-        'Failed to copy to clipboard:',
-        expect.any(Error)
-      );
-    });
-    error.mockRestore();
+    expect(await screen.findByText('error')).toBeInTheDocument();
   });
 
   it('resets the copied state after two seconds', async () => {

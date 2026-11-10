@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, type ReactNode } from 'react';
+import {
+  copyTone,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
+import { cn } from '@/lib/utils';
 
 const JSON_TOKEN =
   /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/g;
@@ -39,28 +44,19 @@ function highlightJson(code: string): ReactNode {
 
 /** Mono, scrollable block with a copy button, for JSON and usage patterns. */
 export function CodeBlock({ code, label }: { code: string; label?: string }) {
-  const [status, setStatus] = useState<'copied' | 'failed' | null>(null);
-  const copy = () => {
-    const done = (next: 'copied' | 'failed') => {
-      setStatus(next);
-      setTimeout(() => setStatus(null), 1500);
-    };
-    if (!navigator.clipboard) {
-      done('failed');
-      return;
-    }
-    navigator.clipboard.writeText(code).then(
-      () => done('copied'),
-      () => done('failed')
-    );
-  };
+  const { status, copy } = useCopyCommand();
   return (
     <div className="border-border bg-muted/50 shadow-card relative overflow-hidden rounded-xl border">
       <button
         type="button"
-        onClick={copy}
+        onClick={() => copy(code)}
         aria-label={label ? `Copy ${label}` : 'Copy'}
-        className="border-border bg-card/80 text-label-sm text-on-surface-variant transition-standard hover:bg-surface-container-high hover:text-on-surface absolute top-1.5 right-1.5 rounded-lg border px-2 py-1"
+        className={cn(
+          'border-border text-label-sm transition-standard absolute top-1.5 right-1.5 rounded-lg border px-2 py-1',
+          status
+            ? copyTone(status)
+            : 'bg-card/80 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
+        )}
       >
         {status === 'copied'
           ? 'Copied'

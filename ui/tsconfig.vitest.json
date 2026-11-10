@@ -7,8 +7,5 @@
   "compilerOptions": {
     "types": ["vite/client", "@testing-library/jest-dom", "vitest/globals"]
   },
-  "include": [
-    "src",
-    "vitest.config.ts"
-  ]
+  "include": ["src", "vitest.config.ts"]
 }
