@@ -327,6 +327,10 @@ test.describe('Supervision on a workflow', () => {
     await expect(page.getByText('Run owner: release-lead')).toBeVisible();
     await page.keyboard.press('Control+k');
     await page.getByRole('combobox').fill('who owns');
+    // The palette filters a deferred query, so Enter must wait for the filtered list
+    await expect(page.getByRole('option').first()).toContainText(
+      'Who owns this workflow'
+    );
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/supervision=1/);
     await expect(

@@ -360,7 +360,7 @@ export function LogsPanel({
               role="img"
               aria-label="Streaming"
               data-testid="streaming-pill"
-              className="bg-attention/10 text-attention text-label-sm inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 tracking-wider"
+              className="bg-attention/10 text-label-sm text-attention inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 tracking-wider"
             >
               <span
                 aria-hidden="true"
@@ -437,22 +437,18 @@ export function LogsPanel({
                   aria-label="Follow new lines"
                   onClick={() => setAutoScroll((value) => !value)}
                   className={cn(
-                    'focus-visible:ring-ring text-label-sm flex h-6 items-center gap-1 rounded-full border px-2 transition-colors focus-visible:ring-2 focus-visible:outline-none',
+                    'focus-visible:ring-ring flex size-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:outline-none',
                     autoScroll
-                      ? 'border-primary/40 bg-primary/10 text-primary'
-                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface border-transparent'
+                      ? 'bg-primary/10 text-primary'
+                      : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
                   )}
                 >
                   <span
                     aria-hidden="true"
-                    className={cn(
-                      'material-symbols-outlined text-base',
-                      autoScroll && 'animate-bounce'
-                    )}
+                    className="material-symbols-outlined text-base"
                   >
                     keyboard_double_arrow_down
                   </span>
-                  Follow
                 </button>
               </Tip>
               {/* The result shows inside the button: a status beside it would shift the toolbar */}
@@ -634,7 +630,7 @@ export function LogsPanel({
                 type="button"
                 onClick={jumpToLatest}
                 aria-label="Jump to latest"
-                className="bg-primary text-on-primary focus-visible:ring-ring shadow-raised absolute right-4 bottom-3 flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
+                className="bg-primary text-on-primary shadow-raised focus-visible:ring-ring absolute right-4 bottom-3 flex size-8 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:outline-none"
               >
                 <span
                   aria-hidden="true"

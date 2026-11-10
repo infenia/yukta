@@ -42,9 +42,10 @@ export function SettingsTab({ supervisor }: { supervisor: SupervisorView }) {
 }
 
 function GenericSettings({ supervisor }: { supervisor: SupervisorView }) {
-  const type = useSupervisorType(supervisor.type);
+  const type = useSupervisorType(supervisor.type, !supervisor.system);
   const external = supervisor.type === 'http';
-  if (type.isPending) return <StateMessage tone="loading" title="Loading…" />;
+  if (type.isPending && !supervisor.system)
+    return <StateMessage tone="loading" title="Loading…" />;
   const schema = type.data?.configSchema ?? [];
   return (
     <div className="flex flex-col gap-3">
@@ -117,9 +118,20 @@ const settingsText = (s: SupervisorView) =>
 
 /** The kept versions with their time; compare one with the newest; restore one. */
 export function HistoryTab({ supervisor }: { supervisor: SupervisorView }) {
-  const { data, isPending, error } = useSupervisorVersions(supervisor.id);
+  const { data, isPending, error } = useSupervisorVersions(
+    supervisor.id,
+    !supervisor.system
+  );
   const restore = useRollbackSupervisor();
   const [comparing, setComparing] = useState<number | null>(null);
+  if (supervisor.system) {
+    return (
+      <StateMessage title="Built in, no stored versions" compact>
+        This supervisor comes with the server and is not stored, so it keeps no
+        versions. Its rules come from the rules engine.
+      </StateMessage>
+    );
+  }
   if (isPending)
     return <StateMessage tone="loading" title="Loading versions…" />;
   if (error)

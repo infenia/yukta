@@ -10,6 +10,7 @@ import {
   useSupervisorType,
 } from '../hooks/useSupervisorTypes';
 import { ownerLabel, parseScope, targetLabel } from '../lib/ownership';
+import { HierarchyGraph } from './HierarchyGraph';
 import { operationRows, type Reach } from '../lib/operations';
 import type { AttachmentView, SupervisorView } from '../types';
 
@@ -184,8 +185,9 @@ const ReachCell = ({ reach }: { reach: Reach }) => (
 
 /** What it may send, what it sends on its own, and what people may still send through it. */
 export function OperationsTab({ supervisor }: { supervisor: SupervisorView }) {
-  const type = useSupervisorType(supervisor.type);
-  if (type.isPending) return <StateMessage tone="loading" title="Loading…" />;
+  const type = useSupervisorType(supervisor.type, !supervisor.system);
+  if (type.isPending && !supervisor.system)
+    return <StateMessage tone="loading" title="Loading…" />;
   const rows = operationRows(
     supervisor.settings,
     type.data?.defaultAllowedCommands ?? null
@@ -264,6 +266,7 @@ export function HierarchyTab({
   );
   return (
     <div className="flex flex-col gap-3">
+      <HierarchyGraph supervisor={supervisor} all={all} />
       <div className="border-border bg-card text-body-md shadow-card rounded-xl border p-4">
         <p>
           <b>Reports to: </b>
