@@ -533,7 +533,7 @@ class SupervisorHostTest {
   }
 
   @Test
-  void statusReportsTheEngineTypeOfASupervisorThatNamesOne() {
+  void statusReportsTheEngineTypeWhenTheSupervisorNamesOne() {
     final ExecutionSupervisor named =
         new ExecutionSupervisor() {
           @Override
