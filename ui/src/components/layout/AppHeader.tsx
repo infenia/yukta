@@ -95,7 +95,7 @@ export default function AppHeader() {
         className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-[linear-gradient(90deg,var(--primary)_0_94%,var(--attention)_94%_100%)]"
       />
       {/* As on the artboards: logo; then search, account, theme */}
-      <div className="px-spacing-md flex h-13 w-full items-center pr-2 sm:px-6">
+      <div className="px-spacing-md flex h-13 w-full items-center pr-2 sm:px-6 sm:pl-2.5">
         <HeaderLogo />
         <div className="flex-1" />
         <button
