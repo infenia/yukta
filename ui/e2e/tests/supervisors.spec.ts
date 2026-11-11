@@ -324,7 +324,9 @@ test.describe('Supervision on a workflow', () => {
 
   test('the palette answers who owns this workflow', async ({ page }, info) => {
     await page.goto(WORKFLOW_URL);
-    await expect(page.getByText('Run owner: release-lead')).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: 'Run owner: release-lead' })
+    ).toBeVisible();
     await page.keyboard.press('Control+k');
     await page.getByRole('combobox').fill('who owns');
     // The palette filters a deferred query, so Enter must wait for the filtered list
@@ -334,7 +336,7 @@ test.describe('Supervision on a workflow', () => {
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/supervision=1/);
     await expect(
-      page.getByRole('dialog', { name: 'Supervision' })
+      page.getByRole('dialog', { name: 'Who controls this workflow' })
     ).toBeVisible();
     await shot(page, info, 'supervision-dialog');
   });

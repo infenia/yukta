@@ -14,11 +14,24 @@ import { StatusPill } from './StatusPill';
 import { BAR_COLOR, buildTimeline, type TimelineRow } from '../lib/timeline';
 import { aggregateStatus, groupNodes } from '../lib/groups';
 import { SubWorkflowLinks } from '../hooks/useSubWorkflowLinks';
-import { toNodeStatusLabel } from '../lib/statusMapper';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
-import type { TaskProgress, WorkflowGraph } from '../types/workflow';
+import type {
+  NodeUiStatus,
+  TaskProgress,
+  WorkflowGraph,
+} from '../types/workflow';
 import { Tip } from '@/components/ui/tooltip';
+
+/** A stage's aggregate as the raw status the pill shows. */
+const STAGE_RAW: Record<NodeUiStatus, string> = {
+  completed: 'COMPLETED',
+  running: 'RUNNING',
+  pending: 'PENDING',
+  failed: 'FAILED',
+  paused: 'PAUSED',
+  skipped: 'SKIPPED',
+};
 
 /** How often a running node's bar grows between status updates. */
 const TICK_MS = 1000;
@@ -146,7 +159,7 @@ export function RunTimeline({
               <th scope="col" className="w-48 pb-1 font-normal">
                 Node
               </th>
-              <th scope="col" className="w-28 pb-1 font-normal">
+              <th scope="col" className="w-16 pb-1 font-normal">
                 Status
               </th>
               <th scope="col" className="w-20 pb-1 font-normal">
@@ -286,7 +299,7 @@ function NodeRow({
         </Tip>
       </th>
       <td className="py-1.5 pr-2">
-        <StatusPill status={row.status} scope="node" />
+        <StatusPill status={row.status} scope="node" iconOnly />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
         {clock(row.startMs)}
@@ -359,7 +372,7 @@ function StageRow({
         </button>
       </th>
       <td className="text-body-sm text-on-surface-variant py-1.5 pr-2">
-        {toNodeStatusLabel(status)}
+        <StatusPill status={STAGE_RAW[status]} scope="node" iconOnly />
       </td>
       <td className="text-body-sm num text-on-surface-variant py-1.5 pr-2">
         {clock(startMs)}
