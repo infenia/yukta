@@ -1,0 +1,8 @@
+plugins/overview	reference/plugins/overview
+plugins/triggers	reference/plugins/triggers
+plugins/routing-and-flow	reference/plugins/routing-and-flow
+plugins/transform	reference/plugins/transform
+plugins/external-io	reference/plugins/external-io
+plugins/ai	reference/plugins/ai
+plugins/decisions	reference/plugins/decisions
+plugins/terminals	reference/plugins/terminals

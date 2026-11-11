@@ -1,0 +1,85 @@
+---
+title: "Set token budgets"
+sidebarTitle: "Set token budgets"
+description: "Cap the tokens, cost and tool calls of a model-driven run with a shared budget, and end the whole run when it is used up."
+keywords: ["budget", "tokens", "cost", "hardStop", "maxCalls", "LLM_CALL", "MCP_TOOL_CALL", "guardrails"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to stop a runaway agent before it runs up a bill"
+  time="10 minutes"
+  need="a workflow with LLM_CALL nodes (see Call an LLM) and the provider's current prices"
+  end="a budget shared by the model and tool nodes of a run, with a hard stop"
+/>
+
+**Use this when** a workflow calls a model, possibly in a loop of agent rounds, and you want a ceiling on tokens, money or tool calls.
+
+**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you. Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+<Diagram name="guide-set-token-budgets" alt="Every model and tool node that shares an agent name draws on one budget. Without hardStop the next call fails like any failed call; with hardStop the whole run ends." caption="All the nodes that share an agent name spend from one ledger. hardStop turns a used-up budget from a failed node into an ended run." />
+
+## Steps
+
+<Steps>
+  <Step title="Add a budget to each model node">
+    `budget` is a map on `LLM_CALL`: `maxTokens` (input plus output), `maxCost` (needs `prices`), `maxCalls` counts tool calls (for `MCP_TOOL_CALL`), `agent` names a shared ledger and `hardStop` decides what happens when it is used up.
+
+    ```json
+    {
+      "nodeId": "plan",
+      "type": "LLM_CALL",
+      "config": {
+        "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+        "prompt": "${payload.text}",
+        "maxTokens": 1024,
+        "prices": { "input": 3.0, "output": 15.0 },
+        "budget": { "maxTokens": 20000, "maxCost": 0.5, "agent": "triage", "hardStop": true }
+      }
+    }
+    ```
+
+    `prices` are per million tokens, in your own currency; use your provider's current rates. With `prices` set, the node's output also carries a `cost`.
+  </Step>
+
+  <Step title="Share one ledger across nodes">
+    Every model and tool node of a run shares the budget. Give the same `agent` name to the nodes that belong together, and each agent is counted apart. Without `agent`, a run has one budget for all its nodes. `MCP_TOOL_CALL` supports `maxCalls`, `agent` and `hardStop` (no tokens or cost):
+
+    ```json
+    { "nodeId": "act", "type": "MCP_TOOL_CALL",
+      "config": { "url": "https://issues.example.com/mcp", "tool": "${payload.tool}",
+                  "budget": { "maxCalls": 4, "agent": "triage", "hardStop": true } } }
+    ```
+  </Step>
+
+  <Step title="Choose soft or hard">
+    Without `hardStop`, the next call after the budget is used up fails like any failed call, so retries, `failureMode`, fallback ports and error routing still apply. With `hardStop: true` the next call ends the **whole run**: it is not retried, dropped, routed or absorbed by `failureMode`. Use `hardStop` when overspend must never be absorbed.
+  </Step>
+
+  <Step title="Test the ceiling with a tiny budget">
+    Set `"budget": {"maxTokens": 1, "hardStop": true}` on a second `LLM_CALL` chained after the first, start the workflow and watch the run end at the second call. Then restore your real numbers.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s localhost:9858/api/executions/$EXEC
+curl -s "localhost:9858/api/executions/$EXEC/nodes/plan/output?tail=20"
+```
+
+With the tiny test budget, the first call succeeds and the second does not run: the run ends in a failed status with a budget error in the log, and no further model call is billed. Without `hardStop`, the second node ends `FAILURE` and the rest of the graph reacts as for any failure. With your real budget the node output includes `usage` and, with `prices`, `cost`. The **Control** dashboard shows tokens and spend per provider: [Use the Control dashboard](/guides/supervise/use-the-control-dashboard).
+
+## Variations
+
+- **Know what counts.** The check runs before a call and the usage is added after it, so one call can overshoot, and calls running at the same time can each pass the check. `maxCalls` counts tool calls only.
+- **Budgets are in memory.** They start again from zero after a restart or a resume.
+- **Other guardrails.** A per-provider rate limit, prompt and answer filters and tool allow-lists are server and node settings: [Call an LLM](/guides/ai/call-an-llm), [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
+- **Cheaper decisions.** Small routing and gating choices cost far fewer tokens with a decision model: [Classify, gate and score](/guides/ai/classify-gate-and-score).
+
+## Related
+
+- [AI plugins reference](/reference/plugins/ai) for the `budget` and `prices` fields.
+- [Configuration](/reference/configuration) for `yukta.llm.*`.

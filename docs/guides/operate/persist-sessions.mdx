@@ -1,0 +1,186 @@
+---
+title: "Persist sessions across restarts"
+sidebarTitle: "Persist sessions"
+description: "Keep workflows, run history and checkpoints through a restart: load session files at start-up, store state on disk, or move it to PostgreSQL, and resume the runs a restart interrupted."
+keywords: ["persistence", "bootstrap", "file store", "PostgreSQL", "resume", "restart", "durability"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to make workflows and run history survive a restart, and how to continue the runs a restart cut off"
+  time="15 minutes"
+  need="a running server, and for the second and third option a build you make yourself"
+  end="a server whose sessions are back after a restart, and a way to resume interrupted runs"
+/>
+
+**Use this when** a restart must not cost you your workflows or your run history. By default Yukta keeps everything in memory, and a restart gives a clean server.
+
+**Prerequisites:** pick the option that fits your edition. The release binaries, the Docker image and the packages are the Community edition and can use option 1 only.
+
+| Option | Edition | What survives a restart |
+|---|---|---|
+| 1. Session files loaded at start-up | Community and Plus | Your workflow definitions. Run history does not |
+| 2. State on disk | Plus (AGPL-3.0-only) | Definitions and versions, run history, checkpoints, chat history |
+| 3. PostgreSQL | Plus (AGPL-3.0-only) | The same, shared between servers, plus input requests and `KV_STORE` state |
+
+How the stores work and what each keeps is in [How durability and high availability work](/concepts/durability-and-high-availability). The licence terms are in [Licensing and editions](/reference/licensing).
+
+<Diagram
+  name="ops-persist-sessions"
+  alt="Memory keeps nothing across a restart, session files keep definitions, and only disk and PostgreSQL also keep run history and resume checkpoints."
+  caption="Pick the row that fits your edition; each store beyond memory is a separate switch."
+/>
+
+## Option 1: load session files at start-up
+
+<Steps>
+  <Step title="Write your sessions as files">
+    A session file is the body of `POST /api/sessions`, one session per `*.json` file. Keep the folder in git.
+
+    ```json hello.json
+    {
+      "sessionId": "hello",
+      "name": "Hello",
+      "projectPath": "/tmp",
+      "workflows": {
+        "greet": {
+          "workflowId": "greet",
+          "nodes": [
+            { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [{ "source": "start", "target": "end" }]
+        }
+      }
+    }
+    ```
+
+    The fastest way to get a valid file is to export an existing session from the [web UI](/guides/operate/use-the-web-ui) (**Export JSON**) or to adapt one from the [examples](https://github.com/infenia/yukta/tree/main/examples).
+  </Step>
+  <Step title="Point the server at the folder">
+    ```bash
+    YUKTA_BOOTSTRAP_DIR=/etc/yukta/sessions yukta
+    ```
+
+    With the Linux package, add the line to `/etc/yukta/yukta.env`. In a container, mount the folder and set the variable. At start-up the server applies every `*.json` file in name order, the same way `yukta-cli session apply` would.
+  </Step>
+  <Step title="Optional: pick up changes without a restart">
+    ```bash
+    YUKTA_BOOTSTRAP_WATCH=true
+    YUKTA_BOOTSTRAP_WATCH_INTERVAL=5s
+    ```
+
+    The server then polls the folder, and a new or changed file is applied again. A file you remove from the folder stays on the server as a session until you delete it.
+  </Step>
+</Steps>
+
+A file that cannot be read, is invalid or cannot be applied is logged and skipped. It never stops the server.
+
+## Option 2: keep state on disk (Plus)
+
+<Steps>
+  <Step title="Build the Plus edition">
+    ```bash
+    ./gradlew :boot:bootJar -Pyukta.edition=plus
+    ```
+
+    The Community build refuses these settings at start-up and names the build switch it needs.
+  </Step>
+  <Step title="Choose directories the server can write">
+    ```properties
+    yukta.session.store-type=file
+    yukta.session.base-dir=/var/lib/yukta
+    yukta.execution-log.dir=/var/lib/yukta/log
+    yukta.restart.dir=/var/lib/yukta/checkpoints
+    yukta.session-memory.dir=/var/lib/yukta/chat
+    ```
+
+    As environment variables, replace each dot and dash with `_` and upper-case the name, for example `YUKTA_SESSION_STORE_TYPE=file`. Use one server per set of directories: do not share them. In Docker, mount a host folder that user 65532 can write and point the directories at it.
+  </Step>
+  <Step title="Decide how much a power cut may cost">
+    Without `yukta.execution-log.fsync=true`, a process crash loses nothing but a power loss can lose the last few log events.
+  </Step>
+</Steps>
+
+## Option 3: use PostgreSQL (Plus)
+
+<Steps>
+  <Step title="Build with the PostgreSQL switch">
+    ```bash
+    ./gradlew :boot:bootJar -Pyukta.persistence=postgres
+    ```
+
+    Use the archive build for PostgreSQL. The native binary is not covered.
+  </Step>
+  <Step title="Start with the postgres profile and two URLs">
+    Migrations and run-time access use different connections to the same database:
+
+    ```bash
+    SPRING_R2DBC_URL=r2dbc:postgresql://db:5432/yukta \
+    SPRING_R2DBC_USERNAME=yukta_app SPRING_R2DBC_PASSWORD=... \
+    SPRING_FLYWAY_URL=jdbc:postgresql://db:5432/yukta \
+    SPRING_FLYWAY_USER=yukta_migrate SPRING_FLYWAY_PASSWORD=... \
+    java -jar boot/build/libs/boot-*.jar --spring.profiles.active=prod,postgres
+    ```
+
+    The profile sets `yukta.session.store-type=postgres`. Give the migration account the right to change the schema, and the run-time account the right to read and write the tables. The server applies migrations first and does not start if one fails.
+  </Step>
+  <Step title="Move the other data you need">
+    Sessions, workflows and the execution log move with the profile. Each of these is a separate switch:
+
+    ```properties
+    yukta.restart.store-type=postgres        # checkpoints, needed to resume runs
+    yukta.kv.store-type=postgres             # KV_STORE node state
+    yukta.session-memory.store-type=postgres # SESSION_MEMORY chat history
+    yukta.input.store-type=postgres          # open input requests and their deliveries
+    ```
+
+    A half-durable setup is allowed, so check each switch: a PostgreSQL log with in-memory checkpoints keeps run history but leaves nothing to resume from.
+  </Step>
+</Steps>
+
+## Resume runs after a restart
+
+A restart marks every run that was in flight `ABORTED` at the next start, when the execution log is durable. Resume continues such a run as a new run: nodes that finished are not run again, and the others get the recorded outputs and run.
+
+You need a durable execution log (a log directory or PostgreSQL) and a durable checkpoint store (`yukta.restart.dir` or PostgreSQL). Then:
+
+```bash
+yukta-cli workflow executions recover <execution-id>
+```
+
+In the web UI, open the aborted run and select **Recover**. Over REST, call `POST /api/executions/{id}/recover`; the answer holds the new execution id.
+
+To resume interrupted runs on their own, set `yukta.restart.auto-resume=true`. Each recovery then resumes them one after another, and a run that cannot be resumed is logged and skipped.
+
+A run resumes once, and only if its workflow definition is unchanged. A node that waited for an approval when the server stopped asks again.
+
+## Verify it worked
+
+1. Start a workflow so there is something to keep, and note its execution id.
+2. Restart the server.
+3. List sessions and runs:
+
+    ```bash
+    yukta-cli session list
+    yukta-cli workflow history <session-id>
+    ```
+
+With option 1 the session is back and the history is empty. With options 2 and 3 the history is back too, and a run that was going when you stopped the server shows `ABORTED`. The server also logs once at start-up when state is in memory only.
+
+## Variations that matter
+
+- **Trim what the log keeps.** The log keeps the newest `yukta.execution-log.retained-runs` runs and checkpoints the newest `yukta.restart.retained-executions`. The defaults and the other bounds are in [Configuration reference](/reference/configuration).
+- **Delete a session.** A session stays until you delete it: `yukta-cli session delete <session-id>` (needs `ADMIN`), the **Delete** action in the web UI, or `DELETE /api/sessions/{id}`.
+- **Share state between servers.** That is [high availability](/guides/operate/run-highly-available), and it needs PostgreSQL.
+- **Back up.** Back up every table or directory together: the log, the checkpoints and the definitions refer to each other.
+
+## Related
+
+- [Run highly available](/guides/operate/run-highly-available)
+- [Upgrade and roll back](/guides/operate/upgrade-and-roll-back)
+- [How durability and high availability work](/concepts/durability-and-high-availability)
+- [Configuration reference](/reference/configuration)
+- [Troubleshoot](/guides/operate/troubleshoot)

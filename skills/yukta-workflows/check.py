@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
-"""Checks skills/yukta-workflows/SKILL.md against docs/interfaces/mcp.mdx (the tool reference): exits 1 with the problems, 0 when it holds.
+"""Checks skills/yukta-workflows/SKILL.md against docs/reference/mcp-tools.mdx (the tool reference): exits 1 with the problems, 0 when it holds.
 
   python3 skills/yukta-workflows/check.py        (from anywhere; paths are found from this file)
 
@@ -15,11 +15,11 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SKILL = HERE / "SKILL.md"
-DOCS = HERE.parents[1] / "docs/interfaces/mcp.mdx"
+DOCS = HERE.parents[1] / "docs/reference/mcp-tools.mdx"
 ROLES = {"VIEWER", "OPERATOR", "ADMIN"}
 TICK = re.compile(r"`([^`]+)`")
-# a row of a tool table: | `tool` | `ROLE` | arguments | ...
-ROW = re.compile(r"^\|\s*`([a-z]+(?:_[a-z]+)+|whoami)`\s*\|\s*`(VIEWER|OPERATOR|ADMIN)`\s*\|([^|]*)\|")
+# a row of a tool table: | `tool` | ROLE (backticks optional) | arguments | ...
+ROW = re.compile(r"^\|\s*`([a-z]+(?:_[a-z]+)+|whoami)`\s*\|\s*`?(VIEWER|OPERATOR|ADMIN)`?\s*\|([^|]*)\|")
 CONFIRM = ["create_session", "delete_session", "delete_workflow", "STOP_ALL", "rollback_workflow", "set_scheduler_limits", "answer_input", "force"]
 FORBIDDEN = [
     (re.compile(r"/(home|Users|media|mnt)/\w"), "a personal path"),
@@ -35,7 +35,7 @@ def table(text):
     for line in text.splitlines():
         m = ROW.match(line)
         if m:
-            out[m.group(1)] = (m.group(2), set(TICK.findall(m.group(3))))
+            out[m.group(1)] = (m.group(2), {a.rstrip("?") for a in TICK.findall(m.group(3))})
     return out
 
 

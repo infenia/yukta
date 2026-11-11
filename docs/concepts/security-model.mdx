@@ -1,0 +1,84 @@
+---
+title: "The security model"
+sidebarTitle: "Security model"
+description: "Who can do what in Yukta: the default posture, API key roles and session limits, why authoring a workflow is a trusted act, how supervisors fit in, and what Yukta does not protect against."
+keywords: ["security", "roles", "API keys", "VIEWER", "OPERATOR", "ADMIN", "threat model", "least privilege"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="the trust model behind Yukta: what is closed by default, how roles divide power, and where the real risks are"
+  time="12 minutes"
+  need="no prior Yukta knowledge beyond what a workflow and a run are"
+  end="a threat picture you can use to decide how to expose and who gets which key"
+/>
+
+Yukta runs things on your behalf: commands, scripts, SQL, calls to models and other services. That makes it a powerful target and a powerful tool. This page explains how its security is shaped, so that the settings in the guides make sense.
+
+## Closed by default
+
+A fresh server is reachable only from the machine it runs on. It listens on loopback and takes no key, so only local processes can reach it. It will not execute commands on the host until you allow them, and workflows can read only a short list of environment variables. While no key is set, a host and origin check protects the local server from other web pages and DNS rebinding.
+
+The principle: safe defaults, explicit opt-in. To listen on a network address, you must also configure at least one key. The server refuses to start otherwise. Yukta serves plain HTTP, so put a TLS-terminating proxy in front when clients are not local, because keys travel in headers.
+
+Be aware of what "local only" really means. Loopback trusts **every process on the machine**. On a shared machine, set a key even for local use.
+
+## One kind of credential, three roles
+
+Clients authenticate with an API key, the same for REST, MCP and the management endpoints. Each key has a role.
+
+<Diagram name="concept-key-roles" alt="An API key has one of three roles, each adding power to the last: a viewer reads, an operator also starts and steers runs, and only an admin defines workflows." caption="Each role includes the one before it. Defining a workflow sits at the top because a workflow can run code on the server." />
+
+| Role | Power | Why this line |
+|---|---|---|
+| `VIEWER` | Read everything, change nothing | Safe to give to dashboards, auditors and debugging assistants |
+| `OPERATOR` | Also start and steer runs, answer questions | Operating a workflow is not the same as defining one |
+| `ADMIN` | Everything, including defining sessions and workflows and changing limits | Defining a workflow is the most trusted act |
+
+The reasoning behind the highest line: a workflow can run commands, scripts and SQL, so whoever can define one can effectively run code on the server. That is why authoring is `ADMIN`, even though starting a run is only `OPERATOR`. An `OPERATOR` can do harm only through workflows an admin already approved.
+
+A key can additionally be **limited to some sessions**, so it reaches only those, and a key can be marked as held by an AI agent. A non-admin key must name its sessions; a misspelt field cannot silently widen it. Keys may be stored as hashes, may expire, and can be rotated without downtime by having two valid at once. Revoking one still takes a configuration change.
+
+Every control command (pause, stop, answer, restart and others) is audited with who sent it, as `key:<name>`, a supervisor's id, or a one-time token. Ordinary reads and starts are not audited by key.
+
+## Who may answer a question
+
+A running workflow can ask for a decision. The server decides, on every answer, whether the answerer may give it, based on risk, audience, scope and separation. A high-risk request is answered by a person and never by a supervisor or an agent key. See [Who decides](/concepts/who-decides).
+
+## Supervisors add an owner, not a new trust level
+
+A supervisor limits who may steer a unit of work and lets an engine, which may be an AI, steer it under checks. It is an *additional* control on top of roles. It does not replace them.
+
+- A person's key does not become a supervisor's. A supervisor's outside application has its own credential, shown once and stored only as a hash, that works on the agent API and nowhere else, and a person's key does not work there.
+- The shell checks ownership on the server from the command's real target, requires a reason for self-initiated commands, rate-limits, and never lets an engine reach the stores or dispatcher.
+- Outside engines (`http`, `process`, `workflow`) are treated as untrusted by design: they reach the server only through directives.
+
+See [How supervisors work](/concepts/supervisors).
+
+## Containing what a workflow can touch
+
+Roles say who may define and run workflows. Other controls bound what a workflow can *do*.
+
+- **Process execution** is off until you allow-list executables. The list names a program, not what the program does with its arguments, so it is **not a sandbox**: allowing an interpreter or a shell allows any code. Allow only programs you wrote.
+- **Outbound calls** go through an egress policy and host allow-lists; private and loopback addresses are refused unless listed, and redirects are not followed.
+- **Secrets** are referenced, not embedded: a workflow names a secret, which is read from the environment, and secret-looking values are masked in reads and logs.
+- **AI steps** have a tool allow-list, budgets, and prompt and answer filters. See [AI and deterministic work](/concepts/ai-and-deterministic-work).
+
+## What it does not protect against
+
+Honesty about limits is part of the model.
+
+- **A malicious admin.** An admin can run code by design. Admin keys are as sensitive as shell access.
+- **An allow-listed interpreter.** See above.
+- **Prompt injection.** Text from users, web pages and tools goes into prompts. A model can be talked into asking for a tool you did not expect. Allow-lists and approvals bound the damage; they do not prevent the attempt.
+- **A proxy that hides callers.** Rate limits and address lists use the address the connection comes from. Behind a proxy that is the proxy.
+- **Instant revocation across servers.** With several servers on one database, others stop a revoked credential at their next reload, not at once.
+- **Stability.** Yukta is alpha. Setting names and access rules may change before 1.0.
+
+## Related
+
+- [Secure the server](/guides/operate/secure-the-server): the how-to.
+- [Security reference](/reference/security): roles, headers and key fields.
+- [How AI-assisted configuration works](/concepts/ai-assisted-configuration) and [Supervisors](/concepts/supervisors).

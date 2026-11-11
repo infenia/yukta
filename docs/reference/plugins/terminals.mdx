@@ -1,0 +1,78 @@
+---
+title: "Terminal reference"
+sidebarTitle: "Terminals"
+description: "Options and behaviour of CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL and SUPERVISOR_DECISION."
+keywords: ["CONSOLE_TERMINAL", "NOTIFY_TERMINAL", "OUTCOME_TERMINAL", "SUPERVISOR_DECISION", "terminals"]
+---
+
+# Terminal reference
+
+A terminal consumes messages and ends a branch; it has no output ports and nothing can be wired from it. All terminals are always part of the server. The default node timeout is 30 seconds idle.
+
+## `CONSOLE_TERMINAL`
+
+Logs each payload.
+
+- **Options:** none.
+- **Behaviour:** writes the payload at `DEBUG`; at `INFO` only a message count appears. Payloads can carry personal data or secrets, so leave `DEBUG` off for sensitive branches.
+
+```json
+{ "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+```
+
+## `NOTIFY_TERMINAL`
+
+Sends each message as a JSON webhook (`POST {"text": "..."}`, Slack-compatible), one at a time, in order.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `url` | string | none | yes | Webhook URL; `https`, or `http` for localhost only. Used as written; `${...}` is not resolved. |
+| `text` | string | none | no | Fixed text; otherwise the payload's `text` field, or the payload as a string. |
+| `timeoutMs` | number | `10000` | no | Request timeout in milliseconds. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `ERROR` fails the node on a non-2xx response (a redirect counts, and is never followed); `CONTINUE` logs it and keeps sending. |
+
+- **Egress:** the URL is checked against `yukta.egress.*`.
+- **Errors:** `url is not a valid URL`; `url must be https (http only for localhost)`.
+
+```json
+{ "nodeId": "alert", "type": "NOTIFY_TERMINAL", "config": { "url": "https://hooks.slack.com/services/T000/B000/XXXX", "text": "Quality gate failed", "failureMode": "CONTINUE" } }
+```
+
+## `OUTCOME_TERMINAL`
+
+Names the exit a run took so a supervisor (or a parent `SUB_WORKFLOW`) can act on it. Put one at the end of each exit.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `outcome` | `SUCCESS`, `RETRY`, `ESCALATE` or `FAILED` | none | yes | `SUCCESS`: all done; `RETRY`: the cause was repaired, run again; `ESCALATE`: needs a fixer; `FAILED`: give up. |
+| `restartFrom` | string | start of the workflow | no | For `RETRY` and `ESCALATE`: the node to restart from. |
+| `reason` | string | none | no | Free text for the supervisor and the log. |
+
+- **Behaviour:** the outcome, `restartFrom` and `reason` are added to the metadata of the node's `SUCCESS` status event, only when the run reached the node.
+- **Errors:** `outcome must be one of [ESCALATE, FAILED, RETRY, SUCCESS]`.
+
+```json
+{ "nodeId": "give-up", "type": "OUTCOME_TERMINAL", "config": { "outcome": "ESCALATE", "restartFrom": "build", "reason": "needs a fixer" } }
+```
+
+## `SUPERVISOR_DECISION`
+
+Ends a workflow that decides for a supervisor with its commands. The message it receives holds `{"commands": [{"type": "PauseWorkflow", "executionId": "..."}]}`; every command must be one the [supervisor contract](/reference/supervisors/contract) reads, or the run fails.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `outcome` | `SUCCESS`, `RETRY`, `ESCALATE` or `FAILED` | `SUCCESS` | no | `SUCCESS` sends the commands; `ESCALATE` hands the request up; `RETRY` runs once more; `FAILED` means no opinion. |
+| `restartFrom` | string | start of the workflow | no | As for `OUTCOME_TERMINAL`. |
+| `reason` | string | none | no | As for `OUTCOME_TERMINAL`. |
+
+- **Limit:** a decision holds at most 10 commands (`A decision holds at most 10 commands, not <n>`).
+
+```json
+{ "nodeId": "decide", "type": "SUPERVISOR_DECISION", "config": {} }
+```
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview)
+- [Triggers](/reference/plugins/triggers)
+- [Status values](/reference/status-values)

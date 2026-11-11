@@ -1,0 +1,192 @@
+---
+title: "MCP tools reference"
+sidebarTitle: "MCP tools"
+description: "The endpoint, authentication, every tool with its role and arguments, the prompts and the resources of Yukta's MCP server."
+keywords: ["MCP", "Model Context Protocol", "tools", "roles", "reference"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# MCP tools reference
+
+Yukta's MCP server exposes 53 tools, 2 prompts and 3 resources at `/mcp`; this page lists each with its role and arguments. The tool count is taken from the `@McpTool` annotations in `AppMcpTools`.
+
+<Diagram
+  name="ref-mcp-tools"
+  alt="The 53 MCP tools fall in seven groups behind one endpoint, and the key role decides which of them a client may call."
+  caption="Counts and role ranges are per group; the tables below list every tool."
+/>
+
+## Endpoint
+
+### Transport
+- **Path:** `/mcp` on the same address and port as the REST API, for example `http://localhost:9858/mcp`. `/sse` is accepted as an alias.
+- **Protocol:** streamable HTTP, stateless: each request stands alone. There is no standard-input transport.
+- **Request size:** a body above 1 MB is refused with HTTP `413`.
+
+**Example**
+```bash
+claude mcp add --transport http yukta http://localhost:9858/mcp \
+  --header "Authorization: Bearer <key>"
+```
+
+### Authentication
+- **Header:** `Authorization: Bearer <key>` or `X-API-Key: <key>`, checked against the same `yukta.api-keys` as the REST API.
+- **No key configured:** the server accepts loopback requests only, and the effective role is `ADMIN`.
+- **Refusal:** a tool call the key's role does not allow is refused with HTTP `403`.
+- **Session keys:** a key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. Tools that name no session and are open to such a key: `list_plugins`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor_contract`, `list_supervisor_presets`, `whoami`.
+- **Audit:** control commands sent over MCP with a named key are recorded as `key:<name>`.
+
+### Roles
+| Role | Tools |
+|---|---|
+| `VIEWER` | Every tool marked `VIEWER` below (reads). |
+| `OPERATOR` | Everything `VIEWER` can, plus the tools marked `OPERATOR`. |
+| `ADMIN` | Everything. A tool that has no role entry in `McpToolAccess` needs `ADMIN`; the tools marked `ADMIN` below are those. |
+
+Over MCP, `rollback_workflow` and `note_workflow_version` need `OPERATOR`; check the [REST API](/api/workflows) for the role of the equivalent REST calls.
+
+## Conventions
+
+- Tools return structured JSON. Every tool that takes an `executionId` also takes the `sessionId` that owns it; an unknown execution and an execution of another session give the same error.
+- Arguments in the tables: `name` is required, `name?` is optional.
+- A failed call returns a tool result marked as an error, with a message that names the problem and, where it helps, the next tool to use.
+- A refusal that names a supervisor is a decision of the owner, not an error to retry.
+- Text read from runs (`get_execution_logs`, `get_execution_result`, `get_node_output`, input requests) is untrusted data produced by plugins, workflows or agents; tool descriptions tell the client not to follow instructions found in it.
+
+## Author
+
+Create, read and version sessions and workflows, and discover plugins.
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `get_session_creation_instructions` | VIEWER | none | The format of a session configuration. |
+| `create_session` | ADMIN | `config` (sessionId, name, description, workflows, ...) | Creates a session, overwriting one with the same `sessionId`. Its workflows can run commands, so confirm first. |
+| `list_sessions` | VIEWER | `includeInternal?` | Lists sessions with workflow counts; internal (supervisor) sessions only when asked. |
+| `get_session_details` | VIEWER | `sessionId` | One session with its workflow ids. |
+| `get_workflow_details` | VIEWER | `sessionId`, `workflowId` | The full definition: nodes and edges. |
+| `list_workflow_versions` | VIEWER | `sessionId`, `workflowId` | Saved versions, newest first (the newest 20 saves are kept). |
+| `diff_workflow_versions` | VIEWER | `sessionId`, `workflowId`, `olderVersion`, `newerVersion?` | Nodes and edges added, removed or changed; the newer side defaults to the current definition. |
+| `rollback_workflow` | OPERATOR | `sessionId`, `workflowId`, `version` | Makes a saved version current, as a new save. Running runs keep their version. |
+| `note_workflow_version` | OPERATOR | `sessionId`, `workflowId`, `version`, `note` | Writes a note on a version; blank clears it. |
+| `delete_session` | ADMIN | `sessionId`, `force?` | Deletes a session and its workflows; run history stays. Refused while runs are active unless `force` cancels them. |
+| `delete_workflow` | ADMIN | `sessionId`, `workflowId`, `force?` | Deletes one workflow and its versions; run history stays. Same `force` rule. |
+| `list_plugins` | VIEWER | none | Lists plugins with categories. |
+| `get_plugin_details` | VIEWER | `type` | One plugin with its usage pattern. |
+| `get_plugin_creation_guide` | VIEWER | `templateType?` (`trigger`, `processor`, `terminal` or `all`) | Guide and templates for writing a plugin. |
+
+## Run
+
+Start runs and read their state, logs, output and result.
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `start_workflow` | OPERATOR | `sessionId`, `workflowId`, `idempotencyKey?` | Starts a run and returns its id. The same key for the same workflow returns the first run (remembered for `yukta.start.idempotency-ttl`, 10 minutes by default). Without a key, a repeat start within `yukta.mcp.start-dedupe-window` (30 seconds by default) returns the earlier run with `reusedExecution: true`. |
+| `get_workflow_status` | VIEWER | `sessionId`, `executionId` | Overall status, per-node progress, start and end times. |
+| `get_workflow_history` | VIEWER | `sessionId` | Runs of a session with status and times. |
+| `get_execution_tree` | VIEWER | `sessionId`, `executionId` | A run and every sub-workflow run it started, oldest first, with `parentExecutionId` and status. |
+| `get_execution_logs` | VIEWER | `sessionId`, `executionId`, `tailLines?`, `filterPattern?`, `afterCursor?` | Persisted plugin logs. `filterPattern` is a regex; pass the previous `nextCursor` as `afterCursor` to read newer lines. |
+| `get_execution_result` | VIEWER | `sessionId`, `executionId`, `afterCursor?`, `include?` | Every message that reached a terminal node as events (`RESULT`, `NODE_END`, `EXECUTION_END`); `complete` is true once the run ended. `stdout` and `stderr` are left out unless named in `include`. |
+| `get_node_output` | VIEWER | `sessionId`, `executionId`, `nodeId`, `stream?`, `tail?`, `head?`, `offset?`, `limit?`, `grep?`, `context?` | A slice of one node's output: last or first N lines, a page (`limit` default 50, at most 500) or regex matches (at most 200 characters) with up to 20 context lines. |
+
+## Steer
+
+Pause, stop, restart and step runs and nodes.
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `control_workflow` | OPERATOR | `sessionId`, `action`, `executionId?`, `workflowId?`, `fromNodeId?`, `reason?`, `tree?`, `mode?` | `action` is `PAUSE`, `RESUME`, `STOP`, `STOP_ALL`, `RESTART`, `RESTART_FROM_NODE` or `RECOVER`. `executionId` is required except for `STOP_ALL` (which needs `workflowId`); `RESTART_FROM_NODE` needs `fromNodeId`. `tree` extends `PAUSE`, `RESUME` and `STOP` to sub-workflow runs. `mode` for `STOP` and `STOP_ALL` is `DRAIN` (default), `CANCEL` or `KILL`. Restart and recover return new ids in `resultExecutionIds`. |
+| `control_node` | OPERATOR | `sessionId`, `executionId`, `nodeId`, `action`, `immediate?`, `reason?` | `action` is `PAUSE`, `RESUME`, `STOP`, `STEP`, `STEP_ENABLE`, `STEP_DISABLE`, `SKIP`, `UNSKIP`, `RETRY` or `BREAKPOINT_CLEAR`. `immediate` applies to `STOP`. `RETRY` restarts from a failed node as a new run. |
+| `set_node_breakpoint` | OPERATOR | `sessionId`, `executionId`, `nodeId`, `field`, `equalsValue` | Pauses a node when a payload field equals a value, for example `payload.status` and `error`. |
+
+## Supervisors
+
+Configure supervisors, what they own, and who may send commands. See [Supervisor shell](/reference/supervisors/shell).
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `list_supervisors` | VIEWER | none | Running supervisors with scope and command counts, configured supervisors, attachments (`MANUAL`, `DEFINITION`, `SYSTEM`) and type names. |
+| `list_supervisor_engines` | VIEWER | none | Engines a supervisor can have, with category and purpose. |
+| `get_supervisor_engine` | VIEWER | `type` | One engine: `configSchema`, `commonSchema`, default commands and a valid example. |
+| `list_supervisor_presets` | VIEWER | `type` | Ready-made settings of an engine type (for `rules`: `failure-guard`, `approval-gate`, `too-many-running`). |
+| `get_supervisor` | VIEWER | `id` | Engine, settings (secrets as `***`), parents and assignments. |
+| `save_supervisor` | ADMIN | `type`, `id?`, `settings?`, `dryRun?`, `description?` | Creates or replaces a supervisor. Settings are validated and unknown keys refused; assignments restart. |
+| `delete_supervisor` | ADMIN | `id` | Deletes a supervisor that owns nothing, is named by no definition and has no child supervisors; revokes its credential. |
+| `list_supervisor_versions` | VIEWER | `supervisorId` | Newest saved states since the server started. |
+| `rollback_supervisor` | ADMIN | `supervisorId`, `version` | Makes an earlier version current, as a new version. |
+| `replay_supervisor` | ADMIN | `supervisorId`, `executionId`, `settings?` | Dry-run of what the supervisor would have done on a past run's recorded events; only statuses were recorded. |
+| `get_rules` | VIEWER | `supervisorId` | The rules document of a `rules` supervisor and its newest version. |
+| `save_rules` | ADMIN | `supervisorId`, `rules` | Replaces the rules document; naming a shared setting is refused; keeps a new version. |
+| `replay_rules` | ADMIN | `supervisorId`, `executionId`, `rules?` | Dry-run of a draft (or the stored) rules on a past run. |
+| `check_assignment` | ADMIN | `supervisorId`, `assignments` | Checks targets and the one-owner rule without saving. |
+| `set_assignments` | ADMIN | `supervisorId`, `assignments`, `unlock?` | Makes a supervisor own exactly these manual targets. Each assignment is `{target, enabled, locked}`. All checks pass or nothing changes; a taken target is `OWNERSHIP_CONFLICT`. |
+| `get_ownership` | VIEWER | `sessionId`, `workflowId` | Which supervisor carries the run level and each node, or `default`. |
+| `get_supervision` | VIEWER | `sessionId?`, `workflowId?`, `executionId?`, `nodeId?` | Per command: may people send it now, which supervisor carries it, and why not. With no session and workflow it answers for the server. |
+| `get_supervision_summary` | VIEWER | none | Workflows nobody owns (first 100 named) and assignments disabled at start-up for overlap. |
+| `get_supervisor_contract` | VIEWER | none | The contract version and operation names. |
+
+## Inputs
+
+Read and answer the typed questions that nodes ask. See [Glossary](/reference/glossary#input-request).
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `list_pending_inputs` | VIEWER | `sessionId?`, `state?` | Input requests, newest first, at most 50, with kind, risk, options, tier and deadline. `state` is a comma-separated subset of `OPEN`, `ESCALATED`, `ANSWERED`, `EXPIRED`, `CANCELLED` (default `OPEN,ESCALATED`). Prompt, context and schema are cut to 2000 characters. Omitting `sessionId` is not allowed for a key limited to sessions. |
+| `answer_input` | OPERATOR | `sessionId`, `executionId`, `requestId`, `decision`, `text?`, `data?`, `rationale?` | Answers a waiting request. `decision` is an option id or a decision such as `approve`; `text` for text requests; `data` (a JSON object) for structured ones. The engine's rules decide who may answer; `HIGH` risk is for people only. |
+| `escalate_input` | OPERATOR | `sessionId`, `executionId`, `requestId`, `reason`, `advice?` | Hands a waiting request up to the next tier. |
+
+## Credentials
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `create_credential` | ADMIN | `supervisorId`, `ttlHours?` | Issues the credential of an `http` supervisor; an earlier one stops working. The token is shown once. |
+| `revoke_credential` | ADMIN | `supervisorId` | Cuts the credential at once. |
+
+## Operate
+
+| Tool | Role | Arguments | Purpose |
+|---|---|---|---|
+| `whoami` | VIEWER | none | Name, role and sessions of the calling key, and what it may do. With no key configured the role is `ADMIN` and `authEnabled` is `false`. |
+| `get_metrics_snapshot` | VIEWER | `scope?` (`global`, `session:<id>`, `workflow:<id>`) | Newest server metrics, or run counts, failures and p95 duration of the last hour for a scope. Counters are rates per second, timers milliseconds. |
+| `get_scheduler_limits` | VIEWER | none | Execution limits (`0` is unlimited) and how many runs run and wait. |
+| `set_scheduler_limits` | ADMIN | `maxConcurrent`, `maxPerWorkflow` | Changes the limits; raising one admits waiting starts at once. |
+| `get_control_bus_status` | VIEWER | `filterType?` (`sessions`, `plugins`, `health`, `executions`) | Control bus status; lists the 20 most recent runs. |
+
+Calls that count as heavy for rate limiting: `start_workflow`, and `get_execution_logs` with a `filterPattern`.
+
+## Prompts
+
+| Name | Arguments | Purpose |
+|---|---|---|
+| `debug-workflow` | `sessionId`, `executionId` | Helps the agent debug a failing run. |
+| `create-session-config` | none | Helps the agent produce a valid session configuration. |
+
+## Resources
+
+| URI | Content |
+|---|---|
+| `yukta://overview` | Overview of Yukta's capabilities and architecture. Open to any key. |
+| `yukta://architecture` | The DAG and reactive architecture. Open to any key. |
+| `yukta://sessions/{sessionId}/executions/{executionId}/logs` | Persisted plugin logs of a run. Needs the `VIEWER` role and, for a session key, that session. |
+
+Any other resource needs an unrestricted `ADMIN` key.
+
+## Limits
+
+| Limit | Value |
+|---|---|
+| Request body | 1 MB |
+| Pending inputs listed | 50 |
+| Input prompt, context, schema | 2000 characters |
+| Log line length returned | `yukta.mcp.log-max-line-chars`, default 2000 |
+| Log characters returned | `yukta.mcp.log-max-chars`, default 200000 |
+| Node output page | default 50 lines, at most 500 |
+| Recent runs in `get_control_bus_status` | 20 |
+| Saved versions per workflow | 20 |
+
+## Related
+
+- [CLI reference](/reference/cli)
+- [Client parity](/reference/client-parity)
+- [Configuration reference](/reference/configuration)
+- [Connect an assistant](/guides/ai/connect-an-assistant)

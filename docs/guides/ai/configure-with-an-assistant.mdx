@@ -1,0 +1,296 @@
+---
+title: "Configure Yukta by asking"
+sidebarTitle: "Configure by asking"
+description: "A recipe book of ten prompts for configuring workflows, supervisors, ownership, approvals, replay, versions and credentials through an AI assistant, with the MCP tools it calls and what to check."
+keywords: ["MCP", "AI assistant", "Claude Code", "prompts", "recipes", "supervisor", "assignments", "rollback", "credential", "dry run"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="which prompt to type for each configuration job, which MCP tools the assistant calls, what to check, and which role the key needs"
+  time="15 minutes to read; each recipe is one to four prompts"
+  need="an assistant connected to Yukta's MCP server (see Connect an assistant) and the yukta-workflows skill installed"
+  end="ten jobs you can hand to an assistant, and a habit of reviewing before you approve"
+/>
+
+**Use this when** you want to change Yukta by describing the change instead of writing JSON or calling REST. Each recipe below is a prompt to type, plus what happens behind it: a handful of prompts, usually one to four, and the assistant makes the tool calls.
+
+**Prerequisites:** [Connect an assistant](/guides/ai/connect-an-assistant) done, with the skill installed. Tool names and arguments here come from the server's MCP tools, listed in the [MCP tools reference](/reference/mcp-tools).
+
+The prompts are examples. Rephrase them freely; what matters is that you name the session, the workflow and the outcome. The assistant's own wording will differ, and so may the order of some read calls.
+
+## The three-step habit
+
+Every recipe follows the same shape.
+
+1. **Ask.** Describe the result and say "show me before you apply it".
+2. **Review.** Read the JSON or the plan the assistant shows. Ask it to explain anything you do not follow.
+3. **Apply.** Say yes. Then check the result with a different client, such as `yukta-cli`, as each recipe suggests.
+
+<Diagram name="guide-configure-with-an-assistant" alt="Every change made through an assistant follows one habit: ask for the result and a preview, review what it shows, apply only after you say yes, then check with a different client." caption="Nothing is applied until you have reviewed it and said yes; the check uses a different client so the assistant does not grade its own work." />
+
+## Which role each recipe needs
+
+| Recipe | Role of the key |
+|---|---|
+| 1 Create a workflow, 2 Change one node, 3 Add a retry or a branch, 5 Schedule it | `ADMIN` (they call `create_session`) |
+| 4 Validate and roll back | `VIEWER` to look, `OPERATOR` to roll back |
+| 6 Failure-guard supervisor, 7 Parent, 8 Ownership, 10 Credential | `ADMIN` |
+| 9 Replay a supervisor | `ADMIN` |
+| 9b Route approvals | `ADMIN` to save the supervisor; the route itself is server configuration |
+
+`whoami` tells the assistant its role. A call the role does not allow is refused with HTTP `403`, and the assistant should tell you which role it needs instead of trying.
+
+## 1. Create a workflow from a description
+
+**Prompt:**
+
+```text
+Use the yukta server. Check my role first. Create a session "release-checks"
+with a workflow "gate": a CONSTANT_SOURCE with service=billing and coverage=72,
+a BRANCH that sends coverage >= 80 to a MAPPER that outputs verdict "pass" and
+everything else to one that outputs verdict "fail", both ending in one
+CONSOLE_TERMINAL. Show me the JSON before you install it.
+```
+
+**Tools, in order:** `whoami`, `get_session_creation_instructions`, `list_plugins`, `get_plugin_details` (once per node type it is unsure about), `list_sessions` (to see whether the id exists), `create_session`, then `start_workflow` and `get_workflow_status` or `get_execution_result` if you ask it to run the workflow.
+
+**Check:** the node types, the condition `coverage >= 80`, no keys or passwords in the JSON, and the `warnings` field of the `create_session` answer. Then compare with `yukta-cli workflow history release-checks` after a run.
+
+**Role:** `ADMIN` to create, `OPERATOR` to start.
+
+This is the walk-through in [Let an assistant build a workflow](/learn/let-an-assistant-build-a-workflow).
+
+## 2. Change one node
+
+**Prompt:**
+
+```text
+In session release-checks, workflow gate, change the coverage bar from 80 to
+70. Show me the diff of the node before you apply it, and tell me what else
+in the session the change touches.
+```
+
+**Tools, in order:** `get_workflow_details` (the current definition), then `create_session` with the changed session. There is no tool that edits a single node: `create_session` replaces the whole session, so the assistant sends the full session with one node changed. It can show you the difference first, and after the save `diff_workflow_versions` shows what changed.
+
+**Check:** that only the node you named changed. Ask the assistant to list `list_workflow_versions` and `diff_workflow_versions` for `gate` after the save.
+
+**Role:** `ADMIN`. The assistant must ask before it replaces the session (see [Review before you approve](#review-before-you-approve)).
+
+## 3. Add a retry or a branch
+
+**Prompt:**
+
+```text
+In release-checks/gate, make the node that calls the coverage service retry
+up to three times with a backoff, and send a final failure out of its error
+port to a second terminal. Explain how the retry works before you change
+anything.
+```
+
+**Tools, in order:** `get_workflow_details`, `get_plugin_details` for the node involved, then `create_session`. A retry is an `engine.retry` object on the node (`maxAttempts`, `backoffMs`) with `onError` set to `ROUTE` and an edge from the `error` port. For a branch, the same: it adds a `BRANCH` node and edges, and shows you the new graph.
+
+**Check:** the new edges and the port each one leaves through. Read the [Loop and retry](/guides/build/loop-and-retry) and [Route and branch](/guides/build/route-and-branch) guides if a port name is unfamiliar.
+
+**Role:** `ADMIN`.
+
+## 4. Validate and roll back a bad edit
+
+**Prompt, to look:**
+
+```text
+Something broke after my last change to release-checks/gate. List its
+versions, diff the newest against the one before, and tell me what changed.
+```
+
+**Tools, in order:** `list_workflow_versions`, `diff_workflow_versions` (with `olderVersion`, and `newerVersion` left out to compare with the current definition).
+
+**Prompt, to undo:**
+
+```text
+Roll gate back to the version before my last change. Ask me first, then add a
+note on the restored version saying why.
+```
+
+**Tools, in order:** `list_workflow_versions`, `rollback_workflow` (with `version`), `note_workflow_version`.
+
+**Check:** `yukta-cli session workflow versions release-checks gate` shows the restored definition as a new version on top. Runs that already started keep the version they use. A workflow keeps its newest 20 versions.
+
+**Role:** `VIEWER` to list and diff, `OPERATOR` to roll back or add a note. Validation itself happens when you save: `create_session` checks the session and returns `warnings`, and the assistant should act on them before it starts a run.
+
+## 5. Schedule it
+
+**Prompt:**
+
+```text
+Make release-checks/gate run on weekdays at 09:00 Berlin time. Use Yukta's
+own clock if that is suitable, and tell me what happens after a server
+restart before you apply it.
+```
+
+**Tools, in order:** `get_plugin_details` with `SCHEDULE_TRIGGER`, `get_workflow_details`, `create_session`, then `start_workflow`.
+
+**Check:** the trigger has exactly one of `intervalMs` and `cron`, and `timeoutSeconds` is longer than the gap between ticks. A schedule lives inside one long-running run and does not survive a server restart; a good assistant says so. See [Schedule a workflow](/guides/build/schedule-a-workflow).
+
+**Role:** `ADMIN` to save, `OPERATOR` to start.
+
+## 6. Add a failure-guard supervisor
+
+**Prompt:**
+
+```text
+Create a rules supervisor "release-guard" from the failure-guard preset, in
+dry run. It should pause workflows when nodes fail repeatedly. Check what it
+would own if it owned session release-checks, show me the plan, and wait for
+my yes before you assign it.
+```
+
+**Tools, in order:** `list_supervisor_presets` (type `rules`), `get_supervisor_engine` (type `rules`, for the settings shape), `save_supervisor` (type `rules`, `id`, `settings`, `dryRun` true), `check_assignment` (read only), then, after your yes, `set_assignments` with `[{"target":"session:release-checks"}]`.
+
+**Check:** `get_supervisor` shows `dryRun` true, the rules and the assignment. The guide asks you to name the commands the supervisor may send in `allowedCommands` (here `PauseWorkflowCommand`), so check that the settings contain it. Dry run means its commands are only recorded; read them with `yukta-cli supervisors decisions --supervisor release-guard`, which lists outcomes such as `dry-run`.
+
+**Role:** `ADMIN`. `set_assignments` takes direct control of the unit away from people unless the supervisor lists the command in `operatorAccess`, so the assistant must ask first.
+
+See [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor) and [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+
+## 7. Give a supervisor a parent, or build a reporting chain
+
+**Prompt:**
+
+```text
+I want release-guard to report to a second supervisor "policy", so a held
+restart is judged by policy before a person is asked. Create "policy" as a
+rules supervisor with a rule that denies Restart on workflow gate, let it
+watch with a global assignment, and show me the command to make it
+release-guard's parent.
+```
+
+**Tools, in order:** `get_supervisor_engine`, `save_supervisor` for `policy`, `check_assignment` and `set_assignments` (target `global`), `get_supervisor` for `release-guard` to read its parents.
+
+**The catch:** the MCP `save_supervisor` tool has no `parents` or `delegation` argument, and it creates the supervisor without parents. The assistant cannot set a parent over MCP. It runs the CLI command for you, or hands it to you:
+
+```bash
+yukta-cli supervisors parents set release-guard --parent policy --mode approval=all
+```
+
+`PUT /api/supervisors/release-guard` with a `parents` list does the same over REST. Run it after any later `save_supervisor` of the child, and confirm with `get_supervisor` that `parents` still lists `policy`.
+
+**Check:** `get_supervisor` for `release-guard` shows `policy` under parents. A supervisor cannot be its own ancestor and a chain has at most four levels. See [Build a hierarchy](/guides/supervise/build-a-hierarchy).
+
+**Role:** `ADMIN`.
+
+## 8. Assign or move ownership, and handle OWNERSHIP_CONFLICT
+
+**Prompt:**
+
+```text
+Who owns release-checks/gate right now? Then move that ownership to
+release-guard. Check the move first, and tell me what people can still do
+afterwards.
+```
+
+**Tools, in order:** `get_ownership` (`sessionId`, `workflowId`), `check_assignment`, then, after your yes, `set_assignments` for the new owner. To remove it from the old owner, the assistant sends that supervisor's remaining targets (an empty list owns nothing) with `set_assignments`.
+
+**Check:** one unit has one owner. A target another supervisor owns is refused with `OWNERSHIP_CONFLICT` and nothing changes: every check passes or none is applied. Read the owner named in the refusal, then either change the other supervisor's assignments first or pick a different target. A locked assignment changes only with `unlock` true, by a lock holder. `get_ownership` and `get_supervision` confirm the result.
+
+**Role:** `ADMIN`.
+
+## 9. Replay a supervisor before you enable it
+
+**Prompt:**
+
+```text
+Before I enable release-guard, replay it on this finished run of gate:
+<executionId>. Then try a draft where it needs 2 failures instead of 3 and
+compare. Do not save the draft.
+```
+
+**Tools, in order:** `get_workflow_history` (to pick a run), `replay_supervisor` (`supervisorId`, `executionId`), then `replay_supervisor` again with `settings` set to the draft. For a `rules` supervisor, `get_rules` and `replay_rules` with a `rules` draft do the same on the rules document alone.
+
+**Check:** each decision has `command`, `executionId`, `cause`, `reason` and `allowed`. An empty list means the supervisor would have done nothing. A replay rebuilds only the status events of the run, so a rule that depends on log lines or node metadata will not fire in a replay even if it would live. Nothing is sent to any run. See [Replay a supervisor](/guides/supervise/replay-a-supervisor).
+
+**Role:** `ADMIN`.
+
+### 9b. Route approvals to an agent, keep HIGH risk with people
+
+**Prompt:**
+
+```text
+I want an AI supervisor to answer low-risk approvals on release-checks, but a
+person to decide anything of HIGH risk. Show me what is configurable through
+your tools and what is server configuration, and propose the route.
+```
+
+**Tools, in order:** `list_pending_inputs` (to see the requests that exist), `list_supervisor_engines` and `get_supervisor_engine` for the `http` engine, `save_supervisor` for the agent supervisor.
+
+**The split:** who is asked, in which order, is a **route** in server configuration (`yukta.input.routes.*`), not an MCP tool. The assistant proposes the YAML and you apply it; a restart is needed. The risk rule is enforced by the server, not by the route or the prompt: an agent can never answer a request of `HIGH` risk, whatever the assistant sets up. See [Route input requests](/guides/supervise/route-input-requests) and [Who decides](/concepts/who-decides).
+
+**Check:** `list_pending_inputs` shows each request with its risk, tier and deadline. Answering stays your call: the skill tells the assistant never to send `approve` or `reject` with `answer_input` without your yes.
+
+**Role:** `ADMIN` to save the supervisor; `VIEWER` to list requests.
+
+## 10. Create an agent credential
+
+**Prompt:**
+
+```text
+Create an http supervisor "triage-agent" that may only send PauseWorkflowCommand,
+in dry run. Do not create its credential yourself: tell me the command to run.
+```
+
+**Tools, in order:** `get_supervisor_engine` (type `http`), `save_supervisor` (`dryRun` true), `check_assignment`, `set_assignments`.
+
+**The credential:** `create_credential` (`supervisorId`, optional `ttlHours`) exists and issues the token once, but the token then passes through the assistant's context. The skill prefers that you make it in the UI or CLI, so ask for the command:
+
+```bash
+yukta-cli supervisors credential create triage-agent --ttl-hours 24
+```
+
+**Check:** `yukta-cli supervisors credential show triage-agent` shows when it was issued and last used, never the secret. An agent holding the token works only on `/api/agent/v1`, and no person's API key works there. See [Write an agent supervisor](/guides/supervise/write-an-agent-supervisor).
+
+**Role:** `ADMIN`.
+
+## Review before you approve
+
+An assistant is fast, and a fast mistake is still a mistake. Four habits keep you in charge.
+
+**Know what it will ask you about.** The `yukta-workflows` skill tells the assistant to stop and get an explicit yes, naming what will happen, before it does any of these:
+
+- `create_session` when the session id already exists: it replaces that session. A new session is also code that runs on the server.
+- `delete_session`, `delete_workflow`, and any call with `force` set, which cancels active runs.
+- `control_workflow` with `STOP_ALL`, and any stop with mode `KILL` or `CANCEL`.
+- `rollback_workflow` and `set_scheduler_limits`.
+- `answer_input` with `approve` or `reject`: that is your decision, never the assistant's.
+
+Supervisor changes (`save_supervisor`, `set_assignments`, `delete_supervisor`, `rollback_supervisor`, `create_credential`, `revoke_credential`) also need your yes, according to the skill. A skill is good manners, not a lock; the role on the key is the lock.
+
+**Dry run first.** Save a new supervisor with `dryRun` true, and use `replay_supervisor` on a past run before you turn it on. Dry run records what it would have done and sends nothing. When you have read the decisions and agree, ask the assistant to save the supervisor again with `dryRun` false.
+
+**Give the key the least role that works.** `VIEWER` to look and explain, `OPERATOR` to start and steer, `ADMIN` only for the moment you want it to write, ideally with a separate key. A key can also be limited to sessions.
+
+**Ask it to explain before it applies.** "What will this change, what could go wrong, and how do I undo it?" is a good last prompt before every yes. The answer should name `rollback_workflow` or `rollback_supervisor` as the undo.
+
+<Warning>
+  Text the assistant reads from runs, logs or input requests is data that someone else wrote, not instructions. If the assistant proposes a change because a log line told it to, stop and ask why.
+</Warning>
+
+## Verify it worked
+
+For any recipe, check the result with a client the assistant did not use:
+
+```bash
+yukta-cli supervisors list
+yukta-cli supervisors decisions --supervisor release-guard
+yukta-cli workflow history release-checks
+```
+
+The supervisor you saved appears with its settings, the decisions show outcomes such as `dry-run`, and the history shows the runs the assistant started.
+
+## Related
+
+- [Set up supervision with an assistant](/learn/set-up-supervision-with-an-assistant): a guided walk through recipes 6 and 9 on the tutorial workflow.
+- [Connect an assistant](/guides/ai/connect-an-assistant) and [AI-assisted configuration](/concepts/ai-assisted-configuration).
+- [MCP tools reference](/reference/mcp-tools) and [Client parity](/reference/client-parity).
+- [How supervisors work](/concepts/supervisors).

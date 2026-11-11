@@ -1,0 +1,103 @@
+---
+title: "AI and deterministic work in one graph"
+sidebarTitle: "AI and deterministic work"
+description: "Why Yukta puts rule-based steps and AI steps in the same workflow, where each belongs, and how gates, approvals and supervisors keep the AI part on a leash."
+keywords: ["AI agents", "deterministic", "LLM", "guardrails", "gates", "supervisors", "human in the loop"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="why one workflow can mix fixed steps and model-driven steps, and how to decide which kind each step should be"
+  time="12 minutes"
+  need="you have read How Yukta works, or know what a node and a port are"
+  end="a rule of thumb for placing AI in a workflow, and the three ways to fence it in"
+/>
+
+Most automation has two kinds of work in it, and most tools make you choose one.
+
+**Deterministic work** gives the same output for the same input. Run the tests, call an API, query a database, compare a number with a threshold, route by exit code. You can predict it, test it and replay it.
+
+**AI work** gives an answer that depends on a model's judgement. Summarise this log, decide whether this diff is risky, pick the next tool. It handles input no rule anticipated, and it can be wrong in ways a rule cannot.
+
+Real processes need both. Yukta's bet is that they belong in the same graph, so that a deterministic step can check an AI step, and an AI step can be limited by a deterministic one. Both are nodes.
+
+## Why one graph, not two systems
+
+Teams often glue an agent framework to a CI pipeline with a script. The seam is where things go wrong: nobody can see the whole process, and the agent can step around the part that was supposed to be mandatory.
+
+When both live in one chart, three things follow.
+
+- **The process is the part you drew.** An AI step suggests; the next node acts. An LLM node does not run the tool it asks for. It returns the request, and a `MCP_TOOL_CALL` node you placed runs it, against an allow-list. The control flow stays in the graph, not in the model.
+- **Every step looks the same from outside.** An AI step has ports, statuses, retries, time limits and logs like any other node. You can pause before it, skip it, restart from it, or read its output.
+- **A check is one arrow away.** Putting a deterministic gate after an AI step is a single edge, not a new system.
+
+## Where each kind of step belongs
+
+A useful rule: **use the least flexible thing that does the job.** Reach for AI only where the input is open-ended or the judgement cannot be written down.
+
+<Diagram name="concept-step-types" alt="Start from the task: an exact rule uses a deterministic node, a choice among known options uses a decision node, an open task uses an AI step, and anything risky from the last two goes to a person." caption="Start from the task, not the technology. Notice the last gate: the riskier the effect, the more it is a human's decision, whatever produced the suggestion." />
+
+### Deterministic steps
+
+Use them for everything you can state exactly: running a build, calling a service, checking a status code, comparing a score with a threshold, reshaping data. They are cheap, fast, and testable without a model. They are also the right *consumer* of an AI step's output: a branch node that tests `payload.actions.size() > 0` turns a model's free text into a decision the chart can follow.
+
+### Decision steps
+
+Between "a rule" and "a chat" sits a small, useful category: **choosing among options you provided**. Is this message a bug, a question or spam? Is it safe to run this command? How urgent is this, from one to five?
+
+The decision plugins (`CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE`) answer in a fixed shape: one of your labels, a probability, a score. That makes them simple to route on, and an uncertain answer has its own exit instead of being quietly guessed. By default they use a small decision model on your own Ollama; they can also use a chat model. The probabilities from the default backend are calibrated; from a chat model they are the model's own estimate, so do not treat the two as equally trustworthy. Paying a chat model to emit one word on every message also adds up, which is the practical reason this category exists.
+
+### AI steps
+
+Use a chat model (`LLM_CALL`) where the output is open: drafting, summarising, planning, or choosing which tool to try. Give it tools by listing them from an MCP server and letting it ask; the model proposes, your nodes dispose.
+
+Be honest about what this costs you. The output is not repeatable. It can be fluent and wrong. Text that came from users, web pages or tools goes straight into the prompt, so a model can be talked into asking for something you did not expect. Everything in the next section exists because of that.
+
+## Fencing the AI part in
+
+There are three layers, and they compose. Use more of them as the stakes rise.
+
+### 1. Limit what a step can do
+
+Per node, before the model runs. A tool allow-list means the model can never reach a tool you did not name, even by choosing its name. Budgets on tokens, cost and calls end a runaway agent; with `hardStop` they end the whole run. Time limits and retries bound each call. Prompt and answer filters refuse input or output that matches a pattern.
+
+These are cheap and always on. Their limit: budgets live in server memory and start from zero after a restart, and one call can overshoot because the check runs before the call.
+
+### 2. Put a gate after it
+
+In the graph, after the model. A deterministic gate verifies what the AI claimed: the tests passed, the diff touches only allowed paths, the arguments match a schema. A decision node can ask a second, narrower question ("are these arguments safe?") before the tool node runs. A failing gate sends the message down a different arrow, to a fix-up step or a dead letter.
+
+Gates are the strongest answer to "my agent reports done when it never ran the tests": the process, not the agent, decides whether the tests ran. The cost is that you have to know what to check.
+
+### 3. Hand risky choices to a person, or put a supervisor around the run
+
+Some decisions should not be automated, however good the model. A step can ask a typed question and wait, and the answer rules depend on risk: a low-risk question may be answered by a rule or an agent you trust, but a high-risk one only ever by a person. See [Who decides](/concepts/who-decides).
+
+When the thing to watch is the run itself rather than one step (it loops, stalls, fails repeatedly, or drifts), a **supervisor** owns that part of the run, watches it and steps in. The supervisor can itself be driven by rules or by a model. Yukta checks every directive it sends. See [Supervisors](/concepts/supervisors).
+
+<Diagram name="concept-ai-fences" alt="Three fences around one AI step: a gate checks what it proposes, a person approves what is risky, and a supervisor beside the graph watches." caption="Three fences around one AI step. Notice that the supervisor's lines are dashed: it sits beside the graph and watches, rather than being another step in it." />
+
+## AI outside the graph
+
+AI does not have to be a step. Two other roles are worth separating from the above:
+
+- **AI as author.** An assistant creates and edits workflows, and starts them, over the MCP server. The graph it writes is still data that you review. See [AI-assisted configuration](/concepts/ai-assisted-configuration).
+- **AI as supervisor.** A model decides, for a supervisor, when to pause or answer. Yukta still checks ownership and allowed commands on every action.
+
+The distinction matters for trust. An AI step is bounded by its place in the chart. An AI author is bounded by its role and key. An AI supervisor is bounded by what it owns.
+
+## When not to use AI in a workflow
+
+- **When a rule would do.** A threshold, a regular expression or a status code is cheaper, faster and testable. Reaching for a model there adds cost and variance for nothing.
+- **When you need the same answer twice.** If a process must be replayable and auditable by its output, keep the decision deterministic, or record the AI's answer as data and branch on the record.
+- **When a wrong answer is expensive and quick.** A model that can be wrong should not be the last check before an irreversible action.
+- **When the loop is open-ended.** The graph has no cycles, so an agent that "keeps trying until it works" has to be bounded by design: a fixed number of unrolled rounds, or a sub-workflow with a depth limit. That limit is a feature, but plan for it.
+
+## Related
+
+- [Mix rules and AI](/learn/mix-rules-and-ai): build a workflow that does both.
+- [Classify, gate and score](/guides/ai/classify-gate-and-score) and [Call an LLM](/guides/ai/call-an-llm): the how-to for each kind of step.
+- [Set token budgets](/guides/ai/set-token-budgets) and [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
+- [Decision plugins reference](/reference/plugins/decisions) and [AI plugins reference](/reference/plugins/ai).

@@ -1,0 +1,150 @@
+---
+title: "Observe runs: progress, logs, metrics and traces"
+sidebarTitle: "Observe runs"
+description: "Follow a run while it goes, read its logs and results, scrape the server's metrics and export traces to your own tools."
+keywords: ["observability", "logs", "metrics", "Prometheus", "OpenTelemetry", "tracing", "alerts"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to watch one run, find a failure, and wire the server into your metrics and tracing"
+  time="20 minutes"
+  need="a running server, a key that can read (VIEWER is enough for runs), and an ADMIN key for metrics"
+  end="a way to see any run live, a metrics scrape, and an alert list"
+/>
+
+**Use this when** you need to see what a run is doing now or did, or you run the server for others and need to know it is healthy.
+
+**Prerequisites:** a server and the CLI set up as in [Deploy Yukta](/guides/operate/deploy). Everything below also works with `curl`.
+
+Every event of a run goes into one ordered queue, and progress, history, logs, the live streams, MCP and the web UI all read from it, so they agree. To see why, read [How runs work](/concepts/runs).
+
+<Diagram
+  name="ops-observe-runs"
+  alt="Every run event goes through one ordered queue that status, logs and the live feed read, while metrics and traces leave the server separately."
+  caption="Status, logs and the live feed agree because they share one queue. Prometheus and OTLP are off until you enable them."
+/>
+
+## Watch one run
+
+<Steps>
+  <Step title="Start with the status">
+    ```bash
+    yukta-cli workflow status <session-id> <execution-id>
+    ```
+
+    This shows the run's status and times. Add `-o json` for every node's status. A node that ended `FAILURE` or `TIMED_OUT` carries its reason, so you can often skip the logs. Nodes behind a failed one end `UPSTREAM_FAILED`: look for the node that failed, not for them. Over REST this is `GET /api/executions/{executionId}`.
+  </Step>
+  <Step title="Follow it live">
+    ```bash
+    yukta-cli controlbus watch --execution <execution-id> --until-done
+    ```
+
+    You get one line per event: `NODE compile RUNNING`, `LOG compile: ...`, `WORKFLOW SUCCESS`. Add `--quiet` to see only problems and the end. Start the watch before the run: the feed does not replay old events. `--until-done` exits with `0` whatever the outcome, so read the last `WORKFLOW` line. For a progress snapshot at every change, use `yukta-cli workflow status-stream <session-id> <execution-id>` (REST: `GET /api/executions/{executionId}/status/stream`).
+  </Step>
+  <Step title="Read the logs">
+    ```bash
+    yukta-cli logs <session-id> <execution-id>
+    yukta-cli logs <session-id> <execution-id> --node build --tail 50 --grep ERROR
+    ```
+
+    The first command streams stored lines, then live ones. With `--node`, you read part of what one node wrote: `--tail`, `--head`, `--offset` with `--limit`, `--grep` with `--context`, and `--stream stdout|stderr|all`.
+  </Step>
+  <Step title="Read the results">
+    Logs are text. Results are what reached each terminal node, whole and typed:
+
+    ```bash
+    yukta-cli result <session-id> <execution-id>
+    ```
+
+    One JSON event per line, ending with `EXECUTION_END`. Results live in memory, so they are gone after a restart and bounded per run.
+  </Step>
+  <Step title="Watch everything at once">
+    ```bash
+    yukta-cli controlbus watch
+    ```
+
+    This is the server-wide event feed (`GET /api/events/stream?executionId=&type=`, both filters optional). Supervisors and external tools use it. Delivery is best effort and never holds up a run.
+  </Step>
+</Steps>
+
+In the [web UI](/guides/operate/use-the-web-ui), the workflow page shows the same: the graph with node states, a progress panel, a logs panel and the result.
+
+## Scrape the metrics
+
+The server publishes metrics for every governance and execution decision: node executions, durations and retries, execution duration and queue wait, scheduler gauges, refused starts, dropped events, checkpoint bytes and errors, worker and leader gauges, and model usage.
+
+<Steps>
+  <Step title="Read them once by hand">
+    ```bash
+    curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics"
+    curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics/yukta.executions.queued"
+    ```
+
+    With a key set, everything under `/actuator` except `/actuator/health` needs an unrestricted `ADMIN` key. With no key set, it is refused, so the server's dev-only endpoints stay closed.
+  </Step>
+  <Step title="Expose a Prometheus endpoint">
+    The build includes the Prometheus registry, but the endpoint is off until you add it to the exposed list (the default is `health,info,metrics`):
+
+    ```bash
+    MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE=health,info,metrics,prometheus
+    ```
+
+    Point Prometheus at `/actuator/prometheus` and give it the key as a bearer token (`authorization` in the scrape config).
+  </Step>
+  <Step title="Alert on the signals that matter">
+    | Signal | What it tells you |
+    |---|---|
+    | `yukta.tracker.queue.depth` growing | The tracker cannot keep up, and memory grows with it. This queue never drops events |
+    | `yukta.executions.queued` high for long, or `yukta.execution.queue.wait` rising | Your limits are lower than demand |
+    | `yukta.executions.rejected` rising | Clients get refused. The `reason` tag says why |
+    | `yukta.tracker.dropped` above 0 | Log lines or supervisor events were lost |
+    | `yukta.tracker.log.append.failed` above 0 | The execution log is missing entries |
+    | `yukta.checkpoint.errors` above 0 | Some nodes cannot be resumed and run again on resume |
+    | `yukta.execution.log.lost` above 0 (PostgreSQL) | Log events never reached the database. A lost start or end event stops a run from being resumed |
+    | `yukta.node.executions` with `status` `FAILURE` or `TIMED_OUT` | The node failure rate |
+    | `yukta.leader` not exactly one `1` across servers | No leader, or more than one |
+    | `yukta.worker.slots` at 0 | Placed nodes will fail until workers free up |
+    | Process memory or threads rising without leveling off | Something is growing |
+
+    `GET /actuator/metrics` lists every meter the server has, and `GET /actuator/metrics/{name}` shows one with its tags.
+  </Step>
+</Steps>
+
+## Export traces and metrics
+
+Each run is an observation named `yukta.run`, the parent of one `yukta.node` observation per node. Export both traces and metrics over OTLP to Jaeger, Tempo, Honeycomb or an OpenTelemetry collector. Both exports are **off by default**: the server sends nothing until you turn them on.
+
+```bash
+MANAGEMENT_TRACING_EXPORT_ENABLED=true
+MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://collector:4318/v1/traces
+MANAGEMENT_TRACING_SAMPLING_PROBABILITY=1.0
+MANAGEMENT_OTLP_METRICS_EXPORT_ENABLED=true
+MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://collector:4318/v1/metrics
+```
+
+The sampling default is `0.1`, which records one run in ten; `1.0` records every run. The trace id is added to log lines, and outbound calls made through Yukta's HTTP clients carry a W3C `traceparent` header.
+
+## Verify it worked
+
+- Start a run and watch it with `controlbus watch --until-done`. You see its nodes and the final `WORKFLOW` line.
+- `curl` the metrics endpoint with your `ADMIN` key. You see `yukta.node.executions` after any run.
+- With the Prometheus endpoint on, `GET /actuator/prometheus` returns text lines that start with `yukta_`.
+- With tracing on, a trace named `yukta.run` appears in your collector within a minute of a sampled run.
+
+## Variations that matter
+
+- **A log line is missing.** Node log lines stay in memory for 30 minutes by default (`yukta.logs.store.retention.default-period-minutes`, from 1 minute to 24 hours) and are lost on restart. When more than 10,000 lines wait to be recorded, the extra ones are dropped and counted in `yukta.tracker.dropped{type=log}`. A node that wrote no live logs has its output logged cut to 2,048 characters. Lines a plugin writes on a [remote worker](/guides/operate/add-remote-workers) do not reach the stream.
+- **An event stream disconnects.** A restart or takeover drops every open stream. Reconnect with the `Last-Event-ID` header. Streams send a keep-alive comment every 15 seconds, so a proxy idle timeout above that keeps them open. A client that connects late catches up from a history kept for 5 minutes.
+- **Keep ended runs in memory longer.** Live state of ended runs is kept 10 minutes (`yukta.tracker.cleanup-ttl`). See [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
+- **Who steered it.** `GET /api/control/audit` lists control commands newest first, with the sender. See [Secure the server](/guides/operate/secure-the-server).
+
+## Related
+
+- [Troubleshoot](/guides/operate/troubleshoot)
+- [Tune capacity and limits](/guides/operate/tune-capacity-and-limits)
+- [How runs work](/concepts/runs)
+- [REST streams](/api/streams)
+- [Configuration reference](/reference/configuration): the tracker, streaming, results and log retention settings

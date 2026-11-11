@@ -1,0 +1,92 @@
+---
+title: "How AI-assisted configuration works"
+sidebarTitle: "AI-assisted configuration"
+description: "How an AI assistant builds, runs and steers Yukta through its MCP server and skills, what each role lets it do, and why you stay in control."
+keywords: ["MCP server", "skills", "AI assistant", "Claude Code", "roles", "API keys", "least privilege"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="what an assistant can author, run and steer in Yukta, what stops it overreaching, and how to give it the right amount of power"
+  time="10 minutes"
+  need="a rough idea of what an MCP client such as Claude Code is"
+  end="a mental model for trusting an assistant with Yukta: what you hand over, and what you keep"
+/>
+
+There are two ways an AI can relate to a workflow. It can be a **step** inside the graph, which [AI and deterministic work](/concepts/ai-and-deterministic-work) covers. Or it can sit **outside** the graph and use Yukta as a tool: it writes the workflow, starts it, reads the result and fixes what failed. This page is about the second.
+
+## Why an assistant can do this at all
+
+Two design decisions make it work.
+
+First, **a workflow is data**. It is a JSON graph with named plugins, so an assistant can write one without a special editor, and you can read what it wrote, diff it against the last version and roll it back. The assistant does not run a hidden program; it produces something you can inspect.
+
+Second, **Yukta speaks MCP**. The Model Context Protocol is a standard way for an assistant to call outside tools. Yukta's server exposes its operations at `/mcp` as tools the assistant can call: list sessions, read a workflow, start a run, read logs and a node's output, pause a node, answer a question. Anything an MCP client can connect to, an assistant using that client can drive.
+
+## What an assistant can do
+
+Think of the tools in three groups, by how much damage a mistake could do.
+
+| Group | Examples | Effect |
+|---|---|---|
+| **Look** | list sessions, read a workflow and its versions, read a run's status, logs, node output and result, list plugins, see who owns what | Nothing changes |
+| **Run and steer** | start a workflow, pause, resume, stop or restart a run, pause a node, set a breakpoint, answer or escalate an input request, roll back a version | Changes a run, or restores an earlier definition |
+| **Author and administer** | create or replace a session of workflows, delete a session or workflow, change scheduler limits, save a supervisor and its assignments | Changes what the server can run |
+
+The assistant also gets help getting started. The server offers tools that describe the session format and the available plugins, two prompts (debug a run, draft a session config) and a few resources. So "build me a workflow that runs the release checks and tells me what failed" is a request the assistant can complete: read the plugin list, draft the graph, create the session, start the run, read the result.
+
+Creating a session replaces any session with the same id, and workflows can run commands and reach other systems. That is why authoring is the most sensitive group.
+
+## Roles: the main lever
+
+Every call is checked against the role of the API key the assistant connects with. There are three roles, and each includes the one before.
+
+| Role | May | Typical use |
+|---|---|---|
+| `VIEWER` | Everything in **Look** | "Explain why last night's run failed" |
+| `OPERATOR` | **Look**, plus **Run and steer** | "Run the release workflow and watch it" |
+| `ADMIN` | Everything, including authoring and supervisors | "Build me a workflow" |
+
+The guidance is the usual one for any credential: **give the assistant the lowest role that does its job.** A debugging session needs `VIEWER`. A key that starts and steers runs needs `OPERATOR`. Reserve `ADMIN` for the moments you want it to author, and prefer a short-lived or separate key for that. A refused call is refused with `403`, and a well-behaved assistant reads its own role first with the `whoami` tool, so it plans with what it may do rather than trying.
+
+A key can also be **limited to sessions**. A session-limited key reaches only those sessions: it must name one of them in every call, and anything global (the plugin catalogue aside) is refused. Use this to give a build-bot access to the build session and nothing else.
+
+One distinction is worth knowing. A key can be marked as held by an **agent**. When an agent answers an input request, it answers like a person except for one thing: it can never answer a request of high risk. That stays a human decision. See [Who decides](/concepts/who-decides).
+
+Control commands sent through MCP are audited with the key's name, the same as REST.
+
+## Skills: teaching the assistant, not trusting it
+
+Tools say *what* can be called. They do not say *how to behave*. A **skill** is a short Markdown file that an assistant loads to learn how to use a system well. Yukta ships two:
+
+- **`yukta-workflows`** is the working knowledge for driving Yukta over MCP. It tells the assistant to check its role first, lists which tool needs which role, gives recipes for creating, running, debugging and steering, and tells it to ask you before it does something hard to undo: replacing or deleting a session, force-stopping runs, rolling back, changing limits, or answering an approval.
+- **`yukta-supervisor`** is for an assistant that acts as the decision-maker of an `http` supervisor, using the supervisor's own credential on a separate agent endpoint.
+
+Be clear about what a skill is. It is good manners, not a guard. A skill makes an assistant polite and effective; it does not stop a misbehaving one. The guard is the role on the key, the session limit and, for supervisors, the shell described in [How supervisors work](/concepts/supervisors). Design as if the assistant might ignore the skill, and let the skill make it a better colleague.
+
+## The loop you end up with
+
+<Diagram name="concept-ask-review-apply" alt="You ask, the assistant drafts, you review, the assistant runs it and reads the result; a failed run loops back to drafting." caption="Notice where you sit: before the first run, reviewing a document, and again at the end. The assistant loops on its own only between drafting and reading results." />
+
+The human review step is the point. Because a workflow is data, reviewing is cheap: you read a graph, not a transcript.
+
+<Tip>
+  **Ask, review, apply.** Every change, from a workflow to a supervisor, takes the same three steps. **Ask** for the result and say "show me before you apply it", with a dry run for anything that acts on live runs. **Review** the JSON or plan, and ask the assistant to explain it. **Apply** with a yes, then check the result with a client the assistant did not use. Ten worked prompts are in [Configure Yukta by asking](/guides/ai/configure-with-an-assistant).
+</Tip>
+
+## Trade-offs and limits
+
+- **A loopback server trusts everything on the machine.** With no key configured, the server accepts requests only from the same machine, and that means any process on it. A process that can create a session can install workflows that run code. Set a key whenever the machine is shared.
+- **Authoring is powerful by design.** A workflow can run a program, call a database or reach the network, subject to server settings that are off or allow-listed by default. Review what an assistant authors, as you would a pull request.
+- **Tools change before 1.0.** Names, arguments and results may change in alpha releases, so an assistant's skill and the server should be kept at matching versions.
+- **Assistants misread results too.** A tool result such as a log line or a model's output is text someone else wrote. Treat it as data, not instructions. This is true for you and for the assistant.
+
+## Related
+
+- [Let an assistant build a workflow](/learn/let-an-assistant-build-a-workflow): the tutorial.
+- [Set up supervision with an assistant](/learn/set-up-supervision-with-an-assistant) and [Configure Yukta by asking](/guides/ai/configure-with-an-assistant).
+- [Connect an assistant](/guides/ai/connect-an-assistant): Claude Code, Gemini CLI or any MCP client.
+- [MCP tools reference](/reference/mcp-tools) and [Client parity](/reference/client-parity): every tool, role and argument.
+- [Security model](/concepts/security-model): roles, keys and what they protect.

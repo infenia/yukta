@@ -1,0 +1,163 @@
+---
+title: "Let an assistant build a workflow"
+sidebarTitle: "Let an assistant build one"
+description: "Connect Claude Code to Yukta's MCP server, install the yukta-workflows skill, and watch the assistant create, run and read a workflow while you review each step."
+keywords: ["MCP", "Claude Code", "yukta-workflows", "skill", "AI assistant", "create_session", "whoami", "tutorial"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how an AI assistant builds, starts and reads a Yukta workflow over MCP, and where you stay in control"
+  time="about 10 minutes"
+  need="a running server, Claude Code (or another MCP client), and finished Your first workflow"
+  end="an assistant-built workflow that you reviewed, ran and verified yourself"
+/>
+
+## What we're building
+
+We will not write a workflow ourselves this time. We connect an assistant to Yukta's **MCP server**, the endpoint at `/mcp` that lets an assistant call Yukta's operations as tools. Then we ask it to build a small release gate, run it, and tell us the result.
+
+<Diagram name="learn-let-an-assistant-build-a-workflow" alt="You describe the gate, the assistant looks up what Yukta offers and shows the workflow JSON, you approve it, and only then does the assistant install and run it and read the result back from Yukta." caption="Notice where you sit. You approve the workflow before it is installed, and the assistant reads the result from Yukta, not from memory." />
+
+<Warning>
+  On a server with no API key, anything on your machine may call `/mcp` as an `ADMIN`, including `create_session`, which installs workflows that run code. This tutorial uses a throwaway local server for that reason. For anything real, give the assistant a key with the lowest role that does its job, see [Connect an assistant](/guides/ai/connect-an-assistant).
+</Warning>
+
+<Steps titleSize="h2">
+  <Step title="Connect the assistant">
+    With your server running, add it to Claude Code:
+
+    ```bash
+    claude mcp add --transport http yukta http://localhost:9858/mcp
+    ```
+
+    If the server has an API key, send it as a header. Keep the key in an environment variable, not in a file you commit:
+
+    ```bash
+    claude mcp add --transport http yukta http://localhost:9858/mcp \
+      --header "Authorization: Bearer $YUKTA_API_KEY"
+    ```
+
+    Check that it is connected:
+
+    ```bash
+    claude mcp list
+    ```
+
+    You should see a `yukta` line marked as connected.
+
+    > **Stuck?** `Failed to connect` usually means the server is not running or the URL is wrong. Run `curl http://localhost:9858/actuator/health` first. A `401` means the server needs the key header.
+  </Step>
+
+  <Step title="Install the skill">
+    The tools say what the assistant can call. A **skill** says how to behave: check your role first, which tool needs which role, and which actions to ask you about before it does them. Yukta ships one called `yukta-workflows`. Put it where Claude Code reads skills:
+
+    ```bash
+    mkdir -p ~/.claude/skills/yukta-workflows
+    curl -fsSL https://raw.githubusercontent.com/infenia/yukta/main/skills/yukta-workflows/SKILL.md \
+      -o ~/.claude/skills/yukta-workflows/SKILL.md
+    ```
+
+    You should see no output, and the file exists:
+
+    ```bash
+    head -3 ~/.claude/skills/yukta-workflows/SKILL.md
+    ```
+
+    ```text
+    ---
+    name: yukta-workflows
+    description: Use Yukta, a workflow server, through its MCP tools. ...
+    ```
+
+    A skill is good manners, not a lock. It makes the assistant polite and effective, but what limits it is the role on its key.
+
+    > **Stuck?** Start a new Claude Code session after you add the skill, because it reads skills at start. The skill follows the main branch, so on an older release some tool names may not exist yet: the assistant will say so.
+  </Step>
+
+  <Step title="Ask for a workflow">
+    Start `claude` and send this prompt. It names every fact, so the answer is the same on every run:
+
+    ```text
+    Use the yukta MCP server. Check my role first. Then create a session
+    "release-checks" with one workflow "gate". The workflow starts from a
+    CONSTANT_SOURCE node with the variables service=billing and coverage=72.
+    A BRANCH node sends coverage >= 80 to a MAPPER that outputs verdict "pass",
+    and everything else to a MAPPER that outputs verdict "fail" with a "why"
+    field. Both end in one CONSOLE_TERMINAL. Show me the JSON before you
+    install it, then start the workflow and tell me the verdict.
+    ```
+
+    You should see the assistant call `whoami`, then ask Yukta how a session is written (`get_session_creation_instructions`) and which plugins exist (`list_plugins`). Then it shows you the workflow JSON. On a local server with no key, `whoami` reports:
+
+    ```json
+    {"authenticated":false,"role":"ADMIN","authEnabled":false}
+    ```
+
+    Read the JSON it shows. The things to check are the node types, that `coverage >= 80` is the condition, and that no key or password appears in it. Then answer yes.
+
+    > **Stuck?** If the call to `create_session` fails with `Record components not available for record class ...SessionConfigData`, your server is a native build with a known gap in this tool. Ask the assistant to save the JSON to `release-checks.json`, apply it yourself with `yukta-cli session apply release-checks.json`, and carry on from the next step. Starting and reading runs over MCP is not affected.
+  </Step>
+
+  <Step title="Watch it run and read the verdict">
+    After your yes, the assistant installs the session, starts `gate` with `start_workflow`, and reads the run with `get_workflow_status` and `get_execution_result`. It should end with an answer like this:
+
+    ```text
+    The gate ran and finished SUCCESS. The verdict is "fail": billing has
+    coverage 72, which is below 80.
+    ```
+
+    The run status is `SUCCESS` even though the verdict is `fail`. The run succeeded in doing its job, which was to reach a verdict. The raw result the assistant read is:
+
+    ```json
+    {"service":"billing","verdict":"fail","why":"coverage 72 is below 80"}
+    ```
+
+    > **Stuck?** `start_workflow` takes no payload, which is why the prompt put the facts inside the workflow. If a status call is refused with `output validation failed` while the run is still going, ask the assistant to wait a few seconds and read it again. And if you start the same workflow twice within 30 seconds, you get the earlier run back (`reusedExecution: true`), not a new one.
+  </Step>
+
+  <Step title="Check it yourself">
+    Do not take the assistant's word for it. Look at what it installed, with the client it did not use:
+
+    ```bash
+    yukta-cli workflow history release-checks
+    ```
+
+    You should see one run of `gate` with status `SUCCESS`. Open `http://localhost:9858/`, choose the `release-checks` session, and compare the graph with the JSON you approved. This is the point of a workflow being data: you review a graph, not a transcript.
+  </Step>
+
+  <Step title="Change it, and meet the approval prompt">
+    Ask for a change:
+
+    ```text
+    Lower the coverage bar to 70 and run it again.
+    ```
+
+    Creating a session with an id that already exists **replaces** it. The skill tells the assistant to stop and ask you before it does that, naming what will happen. You should see a question such as "this replaces the session release-checks, shall I go ahead?". Say yes. The new run reports `pass`, because 72 is at least 70.
+
+    The same rule covers deleting a session or workflow, force-stopping runs, rolling back a version, changing the scheduler limits, and answering an approval. Those are your decisions, and we meet the last one in [Ask for approval](/learn/ask-for-approval).
+  </Step>
+</Steps>
+
+## What you just did
+
+We gave an assistant the tools to author and run a workflow, and a skill that tells it when to ask us first. We reviewed a graph before anything was installed, then checked the run with a different client. The assistant had no more power than the role on its key allows, and a request your role does not allow is refused with `403`.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Add a supervisor" icon="shield-halved" href="/learn/add-a-supervisor">
+    Next tutorial: put a rule between everyone, assistant included, and a dangerous command.
+  </Card>
+  <Card title="Connect an assistant" icon="plug" href="/guides/ai/connect-an-assistant">
+    Other clients, API keys, and the lowest role for each job.
+  </Card>
+  <Card title="How AI-assisted configuration works" icon="lightbulb" href="/concepts/ai-assisted-configuration">
+    Roles, skills and why you stay in control.
+  </Card>
+  <Card title="MCP tools reference" icon="book" href="/reference/mcp-tools">
+    Every tool with its role and arguments.
+  </Card>
+</CardGroup>

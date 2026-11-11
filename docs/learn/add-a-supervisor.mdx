@@ -1,0 +1,209 @@
+---
+title: "Add a supervisor"
+sidebarTitle: "Add a supervisor"
+description: "Put a rules supervisor in charge of a workflow so a dangerous command is refused for everyone, with the reason, while safe commands go through."
+keywords: ["supervisor", "rules supervisor", "deny", "KILL", "assignments", "tutorial", "control"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="what a supervisor is for, by making one that refuses a dangerous command and then watching it do so"
+  time="about 10 minutes"
+  need="a running server, curl, and finished Your first workflow; an ADMIN key if the server has keys"
+  end="a rules supervisor that owns a session and refuses KILL stops with a reason you wrote"
+/>
+
+## What we're building
+
+A workflow that exports data overnight must not be killed half way: a killed export leaves a half-written file. People and AI assistants can both stop runs. So we will not rely on everyone remembering. We will put a **supervisor** in charge of the workflow: an owner that reviews every command sent to it and can refuse one.
+
+<Diagram name="learn-add-a-supervisor" alt="A stop command from a person or an assistant passes the supervisor no-kill, which owns the session nightly. KILL is refused with a 403 and your reason; DRAIN or CANCEL stops the job." caption="Notice that the check sits in front of the workflow, not inside it. The caller cannot skip it, whoever the caller is." />
+
+A supervisor has two layers. The **shell** is what Yukta enforces: what the supervisor owns and which commands may pass. The **engine** is what decides. We use the `rules` engine, which decides with a small JSON document and needs no code and no model.
+
+<Steps titleSize="h2">
+  <Step title="Save a workflow that takes a while">
+    The workflow starts, waits two minutes in a `DELAY` node, and ends. That gives us time to try stopping it. Create `nightly.json`:
+
+    ```json nightly.json
+    {
+      "sessionId": "nightly",
+      "name": "Nightly job",
+      "workflows": {
+        "job": {
+          "workflowId": "job",
+          "description": "A slow job we do not want killed half way",
+          "nodes": [
+            { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": { "variables": { "job": "nightly-export" } } },
+            { "nodeId": "work", "type": "DELAY", "config": { "delayMs": 120000 } },
+            { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "start", "target": "work" },
+            { "source": "work", "target": "done" }
+          ]
+        }
+      }
+    }
+    ```
+
+    ```bash
+    curl -X POST http://localhost:9858/api/sessions \
+      -H "Content-Type: application/json" -d @nightly.json
+    ```
+
+    You should see:
+
+    ```json
+    {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
+    ```
+
+    With an API key on the server, add `-H "X-API-Key: <your key>"` to every call in this tutorial. Saving sessions and supervisors needs an `ADMIN` key.
+  </Step>
+
+  <Step title="See the problem: with no supervisor, KILL goes through">
+    Start a run, then kill it:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"nightly","workflowId":"job"}'
+    ```
+
+    Put the `executionId` from the answer in a variable, then stop the run with mode `KILL`:
+
+    ```bash
+    EXEC=<the executionId you got>
+    curl -i -X POST "http://localhost:9858/api/executions/$EXEC/stop?mode=KILL"
+    ```
+
+    You should see the server accept it. Nobody owns this workflow yet, so the **default supervisor** carried the command: it lets people act as they always could. The `Yukta-Via` header says who carried it:
+
+    ```text
+    HTTP/1.1 200 OK
+    Yukta-Via: default
+    ...
+    {"status":200,"message":"Execution stop signal accepted","data":{"executionId":"..."}}
+    ```
+
+    A moment later the run is `STOPPED` and the `work` node is `CANCELLED`. That is the half-written export we wanted to prevent.
+  </Step>
+
+  <Step title="Write the supervisor">
+    A rules supervisor is a JSON document with a `deny` rule. Create `no-kill.json`:
+
+    ```json no-kill.json
+    {
+      "id": "no-kill",
+      "type": "rules",
+      "settings": {
+        "rules": [
+          {
+            "id": "no-kill-nightly",
+            "deny": {
+              "command": "StopWorkflow",
+              "if": "mode == 'KILL'",
+              "reason": "KILL can leave the export half written: use DRAIN or CANCEL"
+            }
+          }
+        ]
+      }
+    }
+    ```
+
+    The rule reads: refuse a `StopWorkflow` command when its `mode` is `KILL`, and tell the caller why. Save it:
+
+    ```bash
+    curl -X PUT http://localhost:9858/api/supervisors/no-kill \
+      -H "Content-Type: application/json" -d @no-kill.json
+    ```
+
+    You should see the saved supervisor in the answer. Settings are checked against the engine, so a misspelt key is a `400` that names it, for example `settings.rules`.
+
+    > **Stuck?** `403` means your key is not `ADMIN`. `400` with a `settings.<key>` field names the setting the engine did not accept: fix that line and save again.
+  </Step>
+
+  <Step title="Give it the session to own">
+    A supervisor reviews only what it **owns**. An **assignment** says what: here, every workflow of the session `nightly`.
+
+    ```bash
+    curl -X PUT http://localhost:9858/api/supervisors/no-kill/assignments \
+      -H "Content-Type: application/json" \
+      -d '[{"target":"session:nightly"}]'
+    ```
+
+    You should see the assignment listed in the answer. One unit has one owner: a save that would give `nightly` to a second supervisor is refused with `409 OWNERSHIP_CONFLICT`, naming the other one.
+
+    <UiShot name="supervisor-details" alt="The page of the no-kill supervisor showing its rules engine, the session nightly it owns, and its recent decisions." caption="Notice the three things the page shows: the engine, what the supervisor owns, and what it decided." />
+  </Step>
+
+  <Step title="Try the same kill again">
+    Start a new run, set `EXEC` to its id, and send the same command:
+
+    ```bash
+    curl -i -X POST "http://localhost:9858/api/executions/$EXEC/stop?mode=KILL"
+    ```
+
+    You should see the refusal, with your reason in the message, and the supervisor's name in `Yukta-Via` (the body is shortened):
+
+    ```text
+    HTTP/1.1 403 Forbidden
+    Yukta-Via: no-kill
+    ...
+    {"status":403,"message":"KILL can leave the export half written: use DRAIN or CANCEL", ...}
+    ```
+
+    The run keeps going. Now stop it the way the reason suggests:
+
+    ```bash
+    curl -X POST "http://localhost:9858/api/executions/$EXEC/stop?mode=CANCEL"
+    ```
+
+    ```json
+    {"status":200,"message":"Execution stop signal accepted","data":{"executionId":"..."}}
+    ```
+
+    The same rule holds for every client. A script, the web UI, `yukta-cli` and an assistant over MCP all send the same command through the same review, and each is refused alike.
+
+    > **Stuck?** If the `KILL` still succeeds, the assignment is missing: `Yukta-Via: default` in the response means nobody owns the workflow. Repeat step 4 and check that the session id in `session:nightly` is spelled exactly like the session.
+  </Step>
+</Steps>
+
+<Accordion title="The same two steps with the CLI or an assistant" icon="terminal">
+  With the command-line client:
+
+  ```bash
+  yukta-cli supervisors save -f no-kill.json
+  yukta-cli supervisors assign no-kill session:nightly
+  ```
+
+  An assistant with an `ADMIN` key uses the MCP tools `save_supervisor` (with `type`, `id` and `settings`) and `set_assignments` (with `supervisorId` and `assignments`). The `yukta-workflows` skill tells it to ask you before it changes supervision. `check_assignment` shows what a supervisor would own without saving.
+</Accordion>
+
+<Warning>
+  Supervisors and assignments are kept in memory, like sessions: they are gone after a restart. To keep the guard with the workflow, name it in the workflow's `assignments` block, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+</Warning>
+
+## What you just did
+
+We made a rule that no caller can skip. We saw the default supervisor let a `KILL` through, wrote a `rules` supervisor that refuses it, gave that supervisor the session to own, and saw the refusal carry our reason. The supervisor never ran any of our workflow: it reviewed commands, and the server checked what it could send.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Ask for approval" icon="hand" href="/learn/ask-for-approval">
+    Next tutorial: a step that waits for a person, and what a supervisor may not answer.
+  </Card>
+  <Card title="How supervisors work" icon="shield-halved" href="/concepts/supervisors">
+    Shell and engine, ownership, operator access and hierarchy.
+  </Card>
+  <Card title="Write a rules supervisor" icon="list-check" href="/guides/supervise/write-a-rules-supervisor">
+    More rules: advise, answer, hold a command for approval.
+  </Card>
+  <Card title="Rule files" icon="book" href="/reference/supervisors/rule-files">
+    Every field of a rules document.
+  </Card>
+</CardGroup>

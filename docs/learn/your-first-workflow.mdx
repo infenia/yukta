@@ -1,0 +1,253 @@
+---
+title: "Your first workflow"
+sidebarTitle: "Your first workflow"
+description: "Save a three-step workflow, start a run, and read what each step did, in about ten minutes."
+keywords: ["first workflow", "tutorial", "quickstart", "run", "session", "get started"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+
+<ReaderState
+  learn="the loop you use for every job in Yukta: save a workflow, start a run, read the result"
+  time="about 10 minutes"
+  need="a running server (see Install) and curl"
+  end="a finished run whose result and per-step status you have read"
+/>
+
+## What we're building
+
+We will build a workflow that takes a name and returns a greeting. It has three steps: a trigger that receives the name, a mapper that builds the greeting, and a terminal that ends the path.
+
+It is small on purpose. A CI pipeline and a team of AI agents use the same loop, and we will meet both in the next tutorials.
+
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+
+*Figure 1: Notice that the message moves left to right, and that each box does one job.*
+
+<Note>
+  We have not installed Yukta yet? Follow [Install Yukta](/get-started/install) first and leave the server running. If your server needs an API key (a Docker server does), add `-H "X-API-Key: <your key>"` to every `curl` below.
+</Note>
+
+<Steps titleSize="h2">
+  <Step title="Check the server is up">
+    We confirm the server answers before we send it anything.
+
+    ```bash
+    curl http://localhost:9858/actuator/health
+    ```
+
+    You should see:
+
+    ```json
+    {"groups":["liveness","readiness"],"status":"UP"}
+    ```
+
+    > **Stuck?** `Connection refused` means the server is not running. Start it with `yukta` in another terminal, or see [Install Yukta](/get-started/install).
+  </Step>
+
+  <Step title="Save the workflow">
+    A **session** is a folder of workflows. We save ours in a session called `demo`. Create a file named `session.json`:
+
+    ```json session.json
+    {
+      "sessionId": "demo",
+      "name": "Quickstart",
+      "workflows": {
+        "greet": {
+          "workflowId": "greet",
+          "description": "Map the request payload into a greeting",
+          "nodes": [
+            { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "map",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": { "greeting": "'Hello, ' + payload.name" }
+              }
+            },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "trigger", "target": "map" },
+            { "source": "map", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    Each box in the picture is a **node**, with a `type` that says what it does. Each arrow is an **edge**. The mapper's `mapping` builds a new message from the old one: `payload.name` is the name we will send in, and the text in single quotes is a literal. Now send it to the server:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/sessions \
+      -H "Content-Type: application/json" -d @session.json
+    ```
+
+    You should see:
+
+    ```json
+    {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
+    ```
+
+    > **Stuck?** A `400` names the field it did not accept, for example `workflows.greet.nodes[1]`. Compare that node with the file above.
+  </Step>
+
+  <Step title="Start a run">
+    A **run** is one execution of a workflow. We start one and hand it a name:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
+    ```
+
+    The server answers `202 Accepted` at once and keeps running the workflow in the background. You should see an **execution id**, which is your ticket number for this run:
+
+    ```json
+    {
+      "status": 202,
+      "message": "Workflow start accepted",
+      "data": { "executionId": "f6409682-9b20-42c0-b1e5-514ab97ab0de" }
+    }
+    ```
+
+    Keep it in a variable, using your own id:
+
+    ```bash
+    EXEC=f6409682-9b20-42c0-b1e5-514ab97ab0de
+    ```
+  </Step>
+
+  <Step title="Read the status of every step">
+    We ask the server how the run went:
+
+    ```bash
+    curl http://localhost:9858/api/executions/$EXEC
+    ```
+
+    You should see the run `SUCCESS` and one entry per node, each with its own status (shortened here):
+
+    ```json
+    {
+      "status": 200,
+      "data": {
+        "executionId": "f6409682-9b20-42c0-b1e5-514ab97ab0de",
+        "sessionId": "demo",
+        "workflowId": "greet",
+        "status": "SUCCESS",
+        "tasks": [
+          { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS" },
+          { "nodeId": "map", "module": "MAPPER", "status": "SUCCESS" },
+          { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS" }
+        ]
+      }
+    }
+    ```
+
+    > **Stuck?** `404` right after the start can mean the run is not registered yet. Wait a second and ask again. A status of `RUNNING` means it is still going: ask again.
+  </Step>
+
+  <Step title="Read the result">
+    The terminal node is where a run ends. What reaches it is the run's result:
+
+    ```bash
+    curl -H "Accept: application/json" \
+      http://localhost:9858/api/sessions/demo/executions/$EXEC/results
+    ```
+
+    You should see the greeting in the first event (shortened):
+
+    ```json
+    {
+      "complete": true,
+      "status": "SUCCESS",
+      "events": [
+        { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } },
+        { "kind": "NODE_END", "nodeId": "end", "status": "SUCCESS" },
+        { "kind": "EXECUTION_END", "status": "SUCCESS" }
+      ]
+    }
+    ```
+
+    The log shows what each node saw and sent on. The nodes log in no fixed order, so read it by node name:
+
+    ```bash
+    curl -N http://localhost:9858/api/sessions/demo/executions/$EXEC/logs
+    ```
+
+    ```text
+    data:[2026-11-10T17:52:02.828Z] [INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
+    data:[2026-11-10T17:52:02.825Z] [INFO] [trigger/API_TRIGGER] STDOUT: {name=Ada}
+    ```
+
+    The stream closes by itself when the run has ended.
+  </Step>
+
+  <Step title="Run it again with another name">
+    The workflow is saved, so we do not repeat step 2. We start a second run:
+
+    ```bash
+    yukta-cli workflow start demo greet --payload '{"name":"Grace"}'
+    ```
+
+    You should see a new execution id:
+
+    ```text
+    Workflow started with execution ID: 287dac6b-2e0f-429f-a790-1591d3c48dc3
+    ```
+
+    Then read its status with the id you got. The client prints a small table:
+
+    ```bash
+    yukta-cli workflow status demo 287dac6b-2e0f-429f-a790-1591d3c48dc3
+    ```
+
+    ```text
+    Execution Status
+      ID:       287dac6b-2e0f-429f-a790-1591d3c48dc3
+      Workflow: greet
+      Status:   SUCCESS
+      Tasks:    3
+    Node     Module            Status   BP
+    trigger  API_TRIGGER       SUCCESS
+    map      MAPPER            SUCCESS
+    end      CONSOLE_TERMINAL  SUCCESS
+    ```
+
+    > **Stuck?** `yukta-cli` talks to `http://localhost:9858` unless you set `YUKTA_SERVER_URL`. With an API key, set `YUKTA_TOKEN` as well.
+  </Step>
+
+  <Step title="See the same run in the web UI">
+    Open `http://localhost:9858/` and pick the `demo` session. Each run shows the graph with the status of every node.
+
+    <UiShot name="workflow-canvas" alt="The workflow page showing the greet workflow as three connected boxes, all marked as succeeded." caption="Notice that the three boxes match the three nodes in session.json, and each carries the status of its own step." />
+  </Step>
+</Steps>
+
+<Warning>
+  Sessions are kept in memory. If you stop the server, apply `session.json` again after you start it.
+</Warning>
+
+## What you just did
+
+We wrote a workflow down once, as JSON. We sent it to the server, which ran every step for us, and we read the status of each step and the result. A person, a script or an AI assistant can start the same definition and gets the same steps in the same order. On a longer run you can also pause, stop or retry it while it runs.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Mix rules and AI" icon="scale-balanced" href="/learn/mix-rules-and-ai">
+    Next tutorial: put a rule and an AI step in one workflow, with a fallback that works offline.
+  </Card>
+  <Card title="Let an assistant build it" icon="plug" href="/learn/let-an-assistant-build-a-workflow">
+    Connect Claude Code and let it build and run a workflow for you.
+  </Card>
+  <Card title="How Yukta works" icon="diagram-project" href="/concepts/how-it-works">
+    Why a workflow is a graph of nodes, edges and messages.
+  </Card>
+  <Card title="Define a workflow" icon="pen-ruler" href="/guides/build/define-a-workflow">
+    Write your own workflow JSON for a real job.
+  </Card>
+</CardGroup>

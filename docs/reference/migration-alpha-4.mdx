@@ -1,0 +1,52 @@
+---
+title: "Migrate to alpha.4"
+sidebarTitle: "Migrate to alpha.4"
+description: "What breaks when you upgrade from the previous alpha, and what to change: the signal API, control planes, deprecated API aliases and the removed Overview page."
+keywords: ["migration", "upgrade", "breaking changes", "signal API", "input requests"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx"
+
+<ReaderState learn="what to change in your workflows, scripts and clients" time="about 10 minutes" need="the workflows and scripts you ran on the previous alpha" end="a workflow that runs on alpha.4" />
+
+Before you start, take a copy of your sessions (`GET /api/sessions/{id}/config`) and read [Upgrade and roll back](/guides/operate/upgrade-and-roll-back).
+
+## The signal API is gone: use input requests
+
+`WAIT_FOR_SIGNAL` and tool approvals now raise an **input request** (a high-risk approval) instead of a signal.
+
+| Before | Now |
+|---|---|
+| `POST /api/executions/{executionId}/nodes/{nodeId}/signal` | `POST /api/executions/{executionId}/inputs/{requestId}/answer` |
+| MCP `signal_node` | MCP `answer_input` |
+| MCP `list_pending_approvals` | MCP `list_pending_inputs` |
+| `yukta-cli workflow node signal` | `yukta-cli inputs show` and `inputs answer` |
+| Plugin API `SignalWaits` | `InputGateway.ask` / `InputAsk.ask` |
+
+Find waiting questions with `GET /api/inputs` or `GET /api/sessions/{sessionId}/inputs`. See [Ask for input](/guides/ai/ask-for-input) and [Who decides](/concepts/who-decides).
+
+<Note>
+  Answers to high-risk requests must come from a person. An agent's API key cannot answer them.
+</Note>
+
+## Control planes are retired: use supervisors
+
+The model and rules-first control planes are gone. A stored supervisor of those types stays stored, does not start, and is named in a warning at start-up. Create a [supervisor](/guides/supervise/assign-a-supervisor) with the `rules` engine (see [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)), or an `http` supervisor that calls your model, instead.
+
+Direct steering also changes. A person can only steer a unit that a supervisor owns if that supervisor lists the command in `operatorAccess`; the default is none. Otherwise you get `409 CONTROLLED_BY_SUPERVISOR`. Units with no owner fall to the default supervisor (`yukta.supervisor.default.enabled`). See [How supervisors work](/concepts/supervisors).
+
+## Deprecated API aliases
+
+Older paths such as `/api/workflow/{sessionId}/{executionId}/pause` still answer but are marked deprecated. Move to the paths in the [API reference](/api/control).
+
+## The Overview page is removed
+
+`/` now redirects to `/sessions`. Update any bookmark that pointed at the Overview.
+
+## Check your upgrade
+
+1. Start the new server and open `/sessions`.
+2. Run one workflow that contains an approval. You should see an input request, not a signal wait.
+3. Open the supervisors page and confirm the supervisors you expect are listed.
+
+If something fails, [Troubleshoot](/guides/operate/troubleshoot) lists the common causes.
