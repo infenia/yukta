@@ -347,6 +347,13 @@ main() {
 
   keep_prev() { if [ -f "$dir/$1" ]; then cp -p "$dir/$1" "$dir/$1.prev"; prev_kept=1; fi; }
   prev_kept=0
+  # The macOS server is built for Intel only; Apple silicon runs it through Rosetta 2.
+  if [ "$os-$arch" = darwin-arm64 ] && [ "$do_server" = "1" ] &&
+    ! listed "yukta-$version-darwin-arm64.tar.gz" && listed "yukta-$version-darwin-amd64.tar.gz"; then
+    say "Note: no Apple silicon build in this release; installing the Intel build (needs Rosetta 2:
+  softwareupdate --install-rosetta)."
+    arch=amd64
+  fi
   archive="yukta-$version-$os-$arch.tar.gz"
   cli_asset="yukta-cli-$os-$arch"
   installed_server=0

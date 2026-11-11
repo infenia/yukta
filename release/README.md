@@ -4,10 +4,10 @@ Scripts and the runbook for building, packaging and publishing a Yukta release. 
 same on the release machine and in CI. The plan and the reasons behind it are in
 [`design/plans/releases.md`](../design/plans/releases.md).
 
-**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-arm64 (Apple Silicon) and windows-amd64, `install.sh`,
+**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-amd64 (Intel; Apple silicon runs it through Rosetta 2) and windows-amd64, `install.sh`,
 `.deb`/`.rpm`/`.tar.gz` (Linux), `.tar.gz` (macOS), `.zip` (Windows), and a multi-architecture
 (`linux/amd64`, `linux/arm64`) image on GHCR. The macOS and Windows builds are not signed or notarized: Gatekeeper and
-SmartScreen warn on a browser download (the install scripts avoid it). macOS Intel, Windows arm64 and Docker Hub come later.
+SmartScreen warn on a browser download (the install scripts avoid it). A native macOS arm64 server (needs a runner with more than 7 GB), Windows arm64 and Docker Hub come later.
 
 ## Versioning policy
 
