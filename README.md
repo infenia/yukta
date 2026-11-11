@@ -1,13 +1,12 @@
 # Yukta
 
-**Define the process once. Make sure it is followed every time, and keep control while it runs.**
+**Describe a multi-step job once as a flowchart. Yukta runs every step as written, whether it is a script, a rule or an AI model, and lets you pause, steer or hand control to a supervisor while it runs.**
 
-Yukta is a reactive, DAG-based workflow orchestration server. A workflow is a JSON graph that scripts, CI pipelines, people and AI agents all run the same way.
+Yukta is a reactive, DAG-based workflow orchestration server. You start the same workflow from a script, the web UI, a CLI or an AI assistant.
 
 [Docs](https://yukta.infenia.com/) ·
 [Install](#install) ·
-[Quick start](#quick-start) ·
-[Interfaces](#interfaces) ·
+[30-second win](#try-it-in-two-minutes) ·
 [Examples](examples/README.md) ·
 [Contributing](#contributing)
 
@@ -18,161 +17,100 @@ Yukta is a reactive, DAG-based workflow orchestration server. A workflow is a JS
 [![Release](https://img.shields.io/github/v/release/infenia/yukta?include_prereleases)](https://github.com/infenia/yukta/releases)
 [![License: Apache 2.0 / AGPL-3.0](https://img.shields.io/badge/license-Apache%202.0%20%2B%20AGPL--3.0-blue)](LICENSING.md)
 
-## The problem
 
-You know how the work should go: build, test, review, get approval, deploy. You write it down in a wiki page, a README, a prompt or a script. Then the work runs, and the process quietly stops being followed.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/workflow-canvas.dark.png">
+  <img alt="The Yukta web UI showing a release workflow mid-run: a validate step, a branch, an AI step that drafts release notes, and an approval that is waiting for a person." src="docs/images/ui/workflow-canvas.light.png">
+</picture>
 
-- **Steps get skipped.** A check is "optional this once". A validation is assumed to have passed. Something reports "done" when it never ran the verification you asked for.
-- **Instructions are suggestions.** A process written in a document or a prompt relies on whoever (or whatever) reads it to comply. Nothing enforces the order, and nothing proves a step happened.
-- **A running job is a black box.** When something looks wrong halfway through, you can usually only wait or kill it. You cannot pause it, look at what it has done, fix the input and carry on from where it stopped.
-- **It gets worse with more actors.** The moment several scripts, services or AI agents share one process, nobody can say who owns which step, or what state the whole thing is in.
+*A release workflow mid-run. Notice that the AI step is one box among rule-based steps, and that the run waits at an approval until someone answers.*
 
-If you have ever re-run a pipeline from the start because you could not resume it, or found out later that a gate was never checked, this is that problem.
+## Why it exists
 
-## What Yukta does
+You know how the work should go: build, test, review, approve, deploy. Written down in a wiki, a prompt or a script, the process quietly stops being followed. A check gets skipped, an agent decides a step is not needed this time, and nobody can say what state the work is in. Yukta keeps the process in a server, as a graph, and enforces it.
 
-Yukta separates *what must happen* from *who does the work*. The process lives in the server as a graph, and the server enforces it.
+## What makes it different
 
-- **The workflow is the source of truth.** A workflow is a JSON graph of nodes and edges. Steps run in the order the graph says, nothing is skipped by accident, and routing (for example `success` and `failure` paths, or one path per `BRANCH` case) is part of the definition. There is no DSL to learn, and a graph is easy for people, tools and AI agents to generate and review.
-- **Quality gates are nodes, not hopes.** Tests, checks, approvals and model-based decisions (`GATE`, `CLASSIFY`, `SCORE`, `ASK`) sit in the graph. Work that fails a gate does not reach the next step.
-- **Full control while it runs.** Pause, resume, stop, restart, skip, retry, step through, and set breakpoints, on a whole run or on a single node. Inspect any node's output, then continue.
-- **Agents are first-class.** An AI agent can start workflows, watch them, pause or restart them and answer approvals through the built-in [MCP](https://modelcontextprotocol.io/) server. The agent runs inside the process you defined, and still has the controls it needs.
-- **From a script to many agents.** The same engine runs a three-step shell pipeline, a CI/CD flow, a data pipeline or several cooperating agents. Fan out, wait for signals, route by result, loop until ready.
-- **One definition, many callers.** Start the same workflow from REST, the web UI, the Go CLI or an MCP client such as Claude.
-- **Observable.** Live DAG view with progress, SSE log and status streams, and run history.
-- **Reactive end to end.** Built on Spring WebFlux and Project Reactor. Nodes are non-blocking streams, and I/O runs on virtual threads.
-- **Extensible.** Plugins are Spring beans implementing a small interface from `plugin-api`. Adding one does not touch `core`.
-- **Safe to start with.** It binds to loopback by default, and an API key guards `/api/**` and `/mcp` when you expose it.
+- **Workflows are flowcharts (DAGs).** Steps, arrows and named outcomes, with branches, joins, retries and sub-workflows. No cycles, so no accidental loops. [How it works](https://yukta.infenia.com/concepts/how-it-works)
+- **AI and deterministic work in one graph.** Scripts, HTTP, SQL and rules sit beside model calls and agent loops. Use AI where judgement helps; use rules where the answer must always be the same. [Why](https://yukta.infenia.com/concepts/ai-and-deterministic-work)
+- **Supervisors.** Every part of a run can have an owner (rules, an AI agent, another workflow or a program) that watches, steps in, and decides who may steer. [Supervisors](https://yukta.infenia.com/concepts/supervisors)
+- **AI-assisted setup over MCP.** An assistant such as Claude Code can write the workflow, start it, watch it and steer it, within the role you give it. [AI-assisted configuration](https://yukta.infenia.com/concepts/ai-assisted-configuration)
 
-> **Alpha (`0.1.0-alpha.2`).** The engine, plugins, REST API, MCP server, web UI and CLI run and are covered by tests. Expect breaking changes to the workflow JSON and the APIs before `0.1.0`. The native server is Linux amd64 only for now; macOS and Windows run it with Docker. See [Releases](https://yukta.infenia.com/reference/releases).
+```mermaid
+flowchart LR
+    T[Trigger] --> V[Validate: rule]
+    V -->|valid| C[Classify: AI]
+    V -->|invalid| R[Reject]
+    C --> A{Approval: person or agent}
+    A -->|approved| D[Deploy: script]
+    A -->|rejected| R
+```
+
+*Figure 1: One workflow, two kinds of step. The AI step proposes; a rule gates it; a person or supervisor decides the risky part.*
 
 ## Install
 
-> **Tested on Linux amd64 only.** The install methods below have been verified on Linux amd64. The Windows, macOS, Docker, Debian/RPM and from-source routes are provided but have not been tested on other machines or architectures, so they may not work as described. If you hit a problem, please [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
+> **Alpha.** The engine, plugins, REST API, MCP server, web UI and CLI run and are covered by tests. Expect breaking changes to the workflow JSON and the APIs before 1.0. The native server is Linux amd64 only for now; on macOS and Windows run it with Docker. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
 
 | Platform | Command |
 |----------|---------|
-| Linux (server + CLI) | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.2/install.sh \| sh` |
+| Linux (server + CLI) | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh \| sh` |
+| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:0.1.0-alpha.3` |
 | Windows (CLI) | `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 \| iex` |
-| macOS (CLI) | download `yukta-cli-darwin-arm64` or `-amd64` from the [release](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.2) |
-| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:0.1.0-alpha.2` |
-| Debian / RPM | `.deb` and `.rpm` packages on the [releases page](https://github.com/infenia/yukta/releases) |
-| From source | JDK 25, then `./gradlew bootRun` (see [Develop](#develop)) |
+| macOS (CLI) | download `yukta-cli-darwin-arm64` or `-amd64` from the [release](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.3) |
+| Debian / RPM, source | [Deploy guide](https://yukta.infenia.com/guides/operate/deploy) |
 
-Release files carry `SHA256SUMS` and a Sigstore signature. See [Deployment](https://yukta.infenia.com/operations/deployment) for upgrades, packages and verification.
+Tested on Linux amd64. If another platform fails, please [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
 
-### Run modes
+## Try it in two minutes
 
-`yukta` starts with a live terminal dashboard (health, run counts, recent runs and logs) when it runs in a terminal, and with plain log lines otherwise (service, container, pipe). Set the mode with `--mode=console|plain`, `--plain` or `YUKTA_MODE`; `NO_COLOR` turns the colors off. To run it in the background:
+Start the server (`yukta`), then in another terminal:
 
 ```bash
-yukta start      # detached; waits until healthy
-yukta status     # also: stop, restart, logs [-f]
+curl http://localhost:9858/actuator/health
 ```
 
-Under systemd or in Docker the server uses plain mode on its own. See [Run modes](https://yukta.infenia.com/running/run-modes).
-
-## Quick start
-
-Start the server (`yukta`, or the Docker command above), then open the web UI at <http://localhost:9858/> or the API docs at <http://localhost:9858/swagger-ui.html>. With the Docker command, add `-H "X-API-Key: change-me"` to each `curl`.
-
-Create a session with one workflow, start it and read the result:
-
-```bash
-# 1. Create a session containing a workflow
-curl -X POST http://localhost:9858/api/sessions -H "Content-Type: application/json" -d '{
-  "sessionId": "demo",
-  "name": "Quick demo",
-  "description": "Quick demo",
-  "initiator": "me",
-  "projectPath": "/tmp/demo",
-  "workflows": {
-    "hello": {
-      "workflowId": "hello",
-      "description": "Echo a greeting",
-      "nodes": [
-        { "nodeId": "start", "type": "CONSTANT_SOURCE", "config": {} },
-        { "nodeId": "echo",  "type": "PROCESS_EXECUTOR", "config": { "command": ["echo", "Hello from Yukta!"] } },
-        { "nodeId": "done",  "type": "CONSOLE_TERMINAL", "config": {} }
-      ],
-      "edges": [
-        { "source": "start", "target": "echo" },
-        { "source": "echo",  "target": "done" }
-      ]
-    }
-  }
-}'
-
-# 2. Start it (returns 202 with data.executionId)
-curl -X POST http://localhost:9858/api/workflow/start -H "Content-Type: application/json" \
-  -d '{ "sessionId": "demo", "workflowId": "hello" }'
-
-# 3. Check the status, or follow it live over SSE
-curl http://localhost:9858/api/executions/{executionId}
-curl -N http://localhost:9858/api/executions/{executionId}/status/stream
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
 ```
 
-Sessions are held in memory, so apply them again after a restart. For a longer walk-through see the [Quickstart](https://yukta.infenia.com/quickstart).
+Then follow [Your first workflow](https://yukta.infenia.com/learn/your-first-workflow): save a small flowchart, start it, and read each step's result. In a container, add `-H "X-API-Key: <key>"` to each request.
 
-## Interfaces
-
-| Interface | What it is | Guide |
-|-----------|------------|-------|
-| **REST API** | `/api`, with Swagger UI at `/swagger-ui.html`; SSE for status, logs and events | [API reference](https://yukta.infenia.com/api/overview) |
-| **MCP server** | `/mcp` in the same process: 30 tools, 2 prompts and 3 resources so an agent can create sessions, start workflows and read logs | [MCP guide](https://yukta.infenia.com/interfaces/mcp) |
-| **Web UI** | React 19 + Vite + Tailwind CSS 4 at `/`: live DAG view with progress and logs, run history, control console, plugin catalogue and a form-based workflow editor | [Web UI guide](https://yukta.infenia.com/interfaces/web-ui) |
-| **CLI** | `yukta-cli`, a single static Go binary for Linux, macOS and Windows | [CLI guide](https://yukta.infenia.com/interfaces/cli), [`cli/`](cli/README.md) |
-| **Claude Code plugin** | `/yukta` pane for running executions and approvals, toasts, and the MCP server inside Claude Code | [`claude-mods/yukta`](claude-mods/yukta/README.md) |
-
-Connect Claude Code to the MCP server:
+Connect an AI assistant in one line:
 
 ```bash
 claude mcp add --transport http yukta http://localhost:9858/mcp
-# with an API key:
-claude mcp add --transport http yukta http://localhost:9858/mcp --header "Authorization: Bearer <key>"
 ```
 
-Or install the plugin, which adds the live view as well (set `server_url` to `http://localhost:9858` in `/config`; the plugin defaults to the dev server on `:9858`):
+Then follow [Let an assistant build a workflow](https://yukta.infenia.com/learn/let-an-assistant-build-a-workflow).
 
-```
-/plugin marketplace add infenia/yukta
-/plugin install yukta@yukta
-```
+## Configure it by asking
 
-## How it works
+Connect an assistant once, then describe what you want in plain words:
 
-A **session** groups workflows. A **workflow** is a DAG of nodes and edges. Each node is a plugin instance with its own `config`. A run is an **execution** that you can watch, pause, stop and restart.
+> Build a workflow that validates a release ticket, asks a model to draft the notes, and waits for my approval before deploying.
+>
+> Add a supervisor that pauses the release when three deploys fail in a row. Start it in dry run.
+>
+> Replay that supervisor on yesterday's failed run and show me what it would have done.
 
-Every workflow needs at least one **trigger** (no inbound edges) and at least one **terminal** (no outbound edges), with **processors** in between. The orchestrator checks reachability, cycles and entry points before it runs anything. Processors can expose named output ports (for example `success` and `failure`, or one port per `BRANCH` case), so one node can route messages down different paths. See [How it works](https://yukta.infenia.com/concepts/how-it-works).
+The assistant writes the workflow and the supervisor over MCP, assigns it and checks the result. You review each change before it applies, and a role on your API key limits what it may do. See [Configure Yukta by asking](https://yukta.infenia.com/guides/ai/configure-with-an-assistant).
 
-### Plugins
+## Find your way
 
-37 built-in plugins, grouped as:
+| I want to... | Go to |
+|---|---|
+| **Learn** by doing | [Tutorials](https://yukta.infenia.com/learn/your-first-workflow): first workflow, rules plus AI, an assistant as author, a supervisor, an approval |
+| **Do** a task | [Guides](https://yukta.infenia.com/guides/build/define-a-workflow): build, work with AI, supervise, deploy and operate |
+| **Look up** a fact | [Reference](https://yukta.infenia.com/reference/workflow-json) and the [API](https://yukta.infenia.com/api/overview): plugins, JSON, MCP tools, CLI, configuration |
+| **Understand** why | [Concepts](https://yukta.infenia.com/concepts/how-it-works): the mental model, supervisors, who decides |
+| Start from something **ready-made** | [`examples/`](examples/README.md): 17 runnable workflows |
 
-- **Triggers:** `API_TRIGGER`, `WEBHOOK_TRIGGER`, `SCHEDULE_TRIGGER`, `CONSTANT_SOURCE`
-- **Processors:** run processes and HTTP, SQL and file I/O; route (`BRANCH`, `FILTER`, `SPLITTER`, `RECIPIENT_LIST`, loops); transform (`MAPPER`, `AGGREGATE`); wait for signals and approvals; call LLMs and MCP tools; make model decisions (`CLASSIFY`, `GATE`, `SCORE`, `ASK`)
-- **Terminals:** `CONSOLE_TERMINAL`, `NOTIFY_TERMINAL`
-- **Supervisors and control planes:** declarative rules, or a model, that gate and decide on control-bus events (opt-in)
+## Honest limits
 
-Browse them in the [plugin docs](https://yukta.infenia.com/plugins/overview), with `GET /api/plugins/{type}`, or in the web UI. To write your own, implement `TriggerPlugin`, `ProcessorPlugin` or `TerminalPlugin` from `plugin-api` and register it as a Spring bean ([guide](https://yukta.infenia.com/plugins/writing-a-plugin)).
-
-### Examples
-
-[`examples/`](examples/README.md) has ready-to-run workflows, each with a config, a trigger and a test script. Ten are templates for a real pain point in a different software domain: an agent that must not skip verification, release approval (DevOps), a PR risk gate, dependency-update triage, crash-report triage, an event data pipeline (data engineering), alert triage (SRE), model promotion (MLOps), security-finding triage (AppSec) and a multi-agent team. The rest show the basics, an LLM chat agent, driving Yukta over MCP, and how Yukta checks its own code. Run them all against a local server with `examples/run-all.sh`.
-
-## Security
-
-The server listens on `127.0.0.1` by default. To expose it, set `YUKTA_SERVER_ADDRESS=0.0.0.0` **and** `yukta.api-keys` (a named key with a role); the server refuses to start on another address without a key. Keys have roles (`VIEWER`, `OPERATOR`, `ADMIN`). `PROCESS_EXECUTOR` refuses every command until you allow some, and workflows can run processes, scripts and SQL, so treat workflow authorship as a trusted operation. See [Security](https://yukta.infenia.com/operations/security) and report vulnerabilities as described in [`SECURITY.md`](SECURITY.md).
-
-## Documentation
-
-Everything else is at **[yukta.infenia.com](https://yukta.infenia.com/)**:
-[Concepts](https://yukta.infenia.com/concepts/how-it-works) ·
-[Building workflows](https://yukta.infenia.com/building/defining-a-workflow) ·
-[Plugins](https://yukta.infenia.com/plugins/overview) ·
-[Running and controlling](https://yukta.infenia.com/running/run-controls) ·
-[Operations](https://yukta.infenia.com/operations/deployment) (configuration, persistence, high availability) ·
-[Reference](https://yukta.infenia.com/reference/limits-and-defaults)
+- Alpha: APIs and the workflow JSON can change before 1.0.
+- One server by default. High availability, durable stores and remote workers are in the [Plus build](LICENSING.md).
+- Workflows can run processes, scripts and SQL. Treat authorship as a trusted operation; the server binds to loopback and refuses to listen elsewhere without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
 
 ## Develop
 
@@ -187,13 +125,13 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 
 **Developing Yukta with Yukta.** Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `examples/dogfood/yk`: each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See [`examples/dogfood/README.md`](examples/dogfood/README.md).
 
-**Persistence.** Sessions, workflows and the execution log live in memory by default. File storage is in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only); PostgreSQL is `./gradlew bootJar -Pyukta.persistence=postgres`. See [Persistence](https://yukta.infenia.com/operations/persistence).
+**Persistence.** Sessions, workflows and the execution log live in memory by default. File storage is in the Plus build (`-Pyukta.edition=plus`, AGPL-3.0-only); PostgreSQL is `./gradlew bootJar -Pyukta.persistence=postgres`. See [Persistence](https://yukta.infenia.com/guides/operate/persist-sessions).
 
 | Module | Purpose |
 |--------|---------|
 | `core` | DAG orchestration engine, plugin registry |
 | `plugin-api` | Plugin interfaces and store abstractions |
-| `plugins` | Built-in triggers, processors, terminals, supervisors, control planes |
+| `plugins` | Built-in triggers, processors, terminals and supervisor engines |
 | `web` / `mcp` | REST controllers / MCP server |
 | `ui` / `cli` | React frontend / Go command-line client |
 | `boot` | Spring Boot entry point, native image config |
