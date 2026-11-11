@@ -163,6 +163,11 @@ graalvmNative {
             // Not on Windows: with it the Windows image fails at startup with heap corruption
             // ("Object with invalid hub type" in the GC), with -O3 and with -Ob.
             if (!System.getProperty("os.name").startsWith("Windows")) buildArgs.add("-H:+SharedArenaSupport")
+            // Windows: the JDK DNS lookup caches JNI field ids in its static initializer (init0); they must
+            // be taken in the running process, or loadDNSconfig0 segfaults when Netty asks for the name servers.
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                buildArgs.add("--initialize-at-run-time=sun.net.dns.ResolverConfigurationImpl")
+            }
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns
