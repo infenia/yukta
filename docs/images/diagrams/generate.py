@@ -695,3 +695,11 @@ if __name__ == "__main__":
     for fn in (workflow_anatomy, quickstart_greet, examples_ci_gate, status_model, architecture, backpressure, agent_loop, scheduling,
                module_map, feature_map, remote_workers, high_availability):
         fn()
+    import generate_paths
+
+    generate_paths.main()
+    # Per-page concept diagrams: every gen_<area>.py exposes main() and writes its own SVG pairs.
+    import importlib
+
+    for mod in sorted(OUT.glob("gen_*.py")):
+        importlib.import_module(mod.stem).main()
