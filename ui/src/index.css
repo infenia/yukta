@@ -650,9 +650,32 @@
   }
 }
 
-/* A closed stage reads as a pile of cards */
+/* A closed stage reads as a pile of cards: two narrower cards peek out below, so the stack is as
+   wide as a single card */
 .stage-stack {
-  filter: drop-shadow(3px 0 0 var(--border)) drop-shadow(6px 0 0 var(--muted));
+  isolation: isolate;
+}
+
+.stage-stack::before,
+.stage-stack::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border: 1px solid var(--border);
+  border-top: 0;
+  border-radius: 0 0 0.75rem 0.75rem;
+}
+
+.stage-stack::before {
+  inset: auto 0.5rem -0.3125rem;
+  height: 0.5rem;
+  background: color-mix(in oklab, var(--muted), var(--border) 60%);
+}
+
+.stage-stack::after {
+  inset: auto 1rem -0.625rem;
+  height: 0.5rem;
+  background: var(--muted);
 }
 
 .react-flow__node {

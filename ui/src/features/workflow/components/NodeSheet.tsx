@@ -30,7 +30,7 @@ const ACTION_ICONS: Record<string, string> = {
   pause: 'pause',
   resume: 'play_arrow',
   stop: 'stop',
-  skip: 'skip_next',
+  skip: 'redo',
   unskip: 'undo',
   retry: 'replay',
   'step/enable': 'footprint',

@@ -4,7 +4,14 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router';
 import { RunTimeline, ViewSwitch } from '../RunTimeline';
+import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
+import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
+import {
+  createMockGraph,
+  createMockGraphNode,
+} from '@/test/factories/workflowFactory';
 import type { TaskProgress } from '../../types/workflow';
 
 const task = (
@@ -41,11 +48,41 @@ describe('RunTimeline', () => {
     const rows = within(screen.getByRole('table')).getAllByRole('row').slice(1);
     expect(
       rows.map((r) => within(r).getAllByRole('rowheader')[0].textContent)
-    ).toEqual(['first', 'later']);
+    ).toEqual(['firstM', 'laterM']);
     expect(within(rows[0]).getByText('5s')).toBeInTheDocument();
     expect(screen.getByTestId('timeline-bar-later').className).toContain(
       'bg-destructive'
     );
+  });
+
+  it('marks the row of a supervised node with its supervisor, and no other row', () => {
+    render(
+      <NodeSupervisors value={new Map([['first', 'ops-supervisor']])}>
+        <RunTimeline
+          switcher={null}
+          tasks={[
+            task(
+              'first',
+              'SUCCESS',
+              '2026-01-01T10:00:00',
+              '2026-01-01T10:00:05'
+            ),
+            task(
+              'second',
+              'SUCCESS',
+              '2026-01-01T10:00:05',
+              '2026-01-01T10:00:09'
+            ),
+          ]}
+        />
+      </NodeSupervisors>
+    );
+    expect(screen.getAllByRole('img', { name: /Supervised by/ })).toHaveLength(
+      1
+    );
+    expect(
+      screen.getByRole('img', { name: 'Supervised by ops-supervisor' })
+    ).toBeInTheDocument();
   });
 
   it('says so before any node has started', () => {
@@ -95,5 +132,56 @@ describe('ViewSwitch', () => {
     expect(screen.getByRole('radio', { name: 'Graph' })).toBeChecked();
     await userEvent.click(screen.getByRole('radio', { name: 'Timeline' }));
     expect(onChange).toHaveBeenCalledWith('timeline');
+  });
+
+  describe('with the workflow', () => {
+    const tasks = [
+      task('lint.a', 'SUCCESS', '2026-01-01T10:00:00', '2026-01-01T10:00:02'),
+      task('lint.b', 'SUCCESS', '2026-01-01T10:00:02', '2026-01-01T10:00:04'),
+      task('deploy', 'SUCCESS', '2026-01-01T10:00:04', '2026-01-01T10:00:06'),
+    ];
+    const graph = createMockGraph({
+      nodes: [
+        createMockGraphNode({ nodeId: 'lint.a', type: 'SHELL' }),
+        createMockGraphNode({ nodeId: 'lint.b', type: 'SHELL' }),
+        createMockGraphNode({
+          nodeId: 'deploy',
+          type: 'SUB_WORKFLOW',
+          subWorkflowId: 'release',
+        }),
+      ],
+    });
+    const renderTimeline = () =>
+      render(
+        <MemoryRouter>
+          <SubWorkflowLinks
+            value={new Map([['deploy', '/sessions/s/workflow/release']])}
+          >
+            <RunTimeline switcher={null} tasks={tasks} graph={graph} />
+          </SubWorkflowLinks>
+        </MemoryRouter>
+      );
+
+    it('groups the nodes of a stage under a header that folds them away', async () => {
+      renderTimeline();
+      expect(screen.getAllByText('SHELL')).toHaveLength(2);
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Collapse stage lint' })
+      );
+      expect(screen.queryByText('lint.a')).not.toBeInTheDocument();
+      expect(screen.getByText('deploy')).toBeInTheDocument();
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Expand stage lint' })
+      );
+      expect(screen.getByText('lint.a')).toBeInTheDocument();
+    });
+
+    it('shows the node type and links a sub-workflow node to its page', () => {
+      renderTimeline();
+      expect(screen.getByText('SUB_WORKFLOW')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: 'Open sub-workflow of deploy' })
+      ).toHaveAttribute('href', '/sessions/s/workflow/release');
+    });
   });
 });

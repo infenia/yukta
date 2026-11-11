@@ -6,6 +6,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { SubWorkflowLinks } from '../../../hooks/useSubWorkflowLinks';
+import { NodeSupervisors } from '../../../hooks/useNodeSupervisors';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { WorkflowNodeCard } from '../WorkflowNodeCard';
@@ -15,7 +16,11 @@ import {
 } from '@/test/factories/workflowFactory';
 import type { WorkflowFlowNode, WorkflowNodeData } from '../../../lib/layout';
 
-function renderCard(data: WorkflowNodeData, selected = false) {
+function renderCard(
+  data: WorkflowNodeData,
+  selected = false,
+  supervised: ReadonlyMap<string, string> = new Map()
+) {
   const props = {
     id: data.node.nodeId,
     data,
@@ -25,11 +30,13 @@ function renderCard(data: WorkflowNodeData, selected = false) {
   return render(
     <MemoryRouter>
       <ReactFlowProvider>
-        <SubWorkflowLinks
-          value={new Map([['sub', '/sessions/s/workflow/fix']])}
-        >
-          <WorkflowNodeCard {...props} />
-        </SubWorkflowLinks>
+        <NodeSupervisors value={supervised}>
+          <SubWorkflowLinks
+            value={new Map([['sub', '/sessions/s/workflow/fix']])}
+          >
+            <WorkflowNodeCard {...props} />
+          </SubWorkflowLinks>
+        </NodeSupervisors>
       </ReactFlowProvider>
     </MemoryRouter>
   );
@@ -272,6 +279,24 @@ describe('WorkflowNodeCard', () => {
         .getByTestId('progress-ring')
         .style.getPropertyValue('--node-progress')
     ).toBe('61.4%');
+  });
+
+  it('shows the supervisor of a node on the card, and none for a node nobody supervises', () => {
+    const { unmount } = renderCard(
+      { node: createMockGraphNode({ nodeId: 'p5' }), status: 'pending' },
+      false,
+      new Map([['p5', 'ops-supervisor']])
+    );
+    expect(
+      screen.getByRole('img', { name: 'Supervised by ops-supervisor' })
+    ).toBeInTheDocument();
+    unmount();
+
+    renderCard({
+      node: createMockGraphNode({ nodeId: 'p6' }),
+      status: 'pending',
+    });
+    expect(screen.queryByRole('img', { name: /Supervised by/ })).toBeNull();
   });
 
   it('shows no progress for a running node without a task', () => {

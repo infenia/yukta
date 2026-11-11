@@ -36,6 +36,10 @@ import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import { useStageView } from '../hooks/useStageView';
 import {
+  NodeSupervisors,
+  useNodeSupervisors,
+} from '../hooks/useNodeSupervisors';
+import {
   SubWorkflowLinks,
   useSubWorkflowLinks,
 } from '../hooks/useSubWorkflowLinks';
@@ -158,6 +162,7 @@ export function WorkflowDetailsPage() {
     selectedExecutionId,
     live
   );
+  const nodeSupervisors = useNodeSupervisors(sessionId, workflowId);
   // A sub-workflow run links back to the run that started it, which may be another workflow
   const parentId = progress?.parentExecutionId ?? null;
   const parent = useQuery({
@@ -386,88 +391,91 @@ export function WorkflowDetailsPage() {
       {/* The workspace fills the rest of the screen: the canvas over the logs dock, the progress
           panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
-      <SubWorkflowLinks value={subWorkflowLinks}>
-        <div className="flex min-h-0 flex-1">
-          <div className="flex min-w-0 flex-1 flex-col">
-            <div className="relative min-h-0 flex-1">
-              {view === 'timeline' && (
-                <RunTimeline
-                  tasks={progress?.tasks}
-                  switcher={<ViewSwitch view={view} onChange={setView} />}
-                />
-              )}
-              {view === 'graph' && (
-                <WorkflowCanvas
-                  graph={graph}
-                  tasksByNode={tasksByNode}
-                  stageView={stages.stageView}
-                  onNodeClick={setOpenNode}
-                  follow={follow && followable}
-                  find={findQuery}
-                />
-              )}
-              {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
-              {view === 'graph' && (
-                <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
-                  <ViewSwitch
-                    view={view}
-                    onChange={setView}
-                    className="pointer-events-auto"
+      <NodeSupervisors value={nodeSupervisors}>
+        <SubWorkflowLinks value={subWorkflowLinks}>
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="relative min-h-0 flex-1">
+                {view === 'timeline' && (
+                  <RunTimeline
+                    tasks={progress?.tasks}
+                    graph={graph}
+                    switcher={<ViewSwitch view={view} onChange={setView} />}
                   />
-                  <input
-                    type="search"
-                    aria-label="Find node on canvas"
-                    placeholder="Find node"
-                    value={findQuery}
-                    onChange={(event) => setFindQuery(event.target.value)}
-                    className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                )}
+                {view === 'graph' && (
+                  <WorkflowCanvas
+                    graph={graph}
+                    tasksByNode={tasksByNode}
+                    stageView={stages.stageView}
+                    onNodeClick={setOpenNode}
+                    follow={follow && followable}
+                    find={findQuery}
                   />
-                  {stages.hasStages && (
-                    <GroupingSwitch
-                      grouped={stages.grouped}
-                      onChange={stages.setGrouped}
+                )}
+                {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
+                {view === 'graph' && (
+                  <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                    <ViewSwitch
+                      view={view}
+                      onChange={setView}
                       className="pointer-events-auto"
                     />
-                  )}
-                  {followable && (
-                    <button
-                      type="button"
-                      aria-pressed={follow}
-                      onClick={() => setFollow((value) => !value)}
-                      className={cn(
-                        'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
-                        follow
-                          ? 'bg-accent text-accent-foreground'
-                          : 'text-on-surface-variant hover:text-on-surface'
-                      )}
-                    >
-                      Follow running nodes
-                    </button>
-                  )}
-                </div>
-              )}
+                    <input
+                      type="search"
+                      aria-label="Find node on canvas"
+                      placeholder="Find node"
+                      value={findQuery}
+                      onChange={(event) => setFindQuery(event.target.value)}
+                      className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                    />
+                    {stages.hasStages && (
+                      <GroupingSwitch
+                        grouped={stages.grouped}
+                        onChange={stages.setGrouped}
+                        className="pointer-events-auto"
+                      />
+                    )}
+                    {followable && (
+                      <button
+                        type="button"
+                        aria-pressed={follow}
+                        onClick={() => setFollow((value) => !value)}
+                        className={cn(
+                          'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                          follow
+                            ? 'bg-accent text-accent-foreground'
+                            : 'text-on-surface-variant hover:text-on-surface'
+                        )}
+                      >
+                        Follow running nodes
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <LogsPanel
+                sessionId={sessionId}
+                executionId={selectedExecutionId}
+                entries={logs.entries}
+                dropped={logs.dropped}
+                isStreaming={isStreaming || logs.isStreaming}
+                progress={progress}
+              />
             </div>
-            <LogsPanel
-              sessionId={sessionId}
-              executionId={selectedExecutionId}
-              entries={logs.entries}
-              dropped={logs.dropped}
-              isStreaming={isStreaming || logs.isStreaming}
-              progress={progress}
-            />
+            {panelOpen && (
+              <ProgressPanel
+                graph={graph}
+                progress={progress}
+                tasksByNode={tasksByNode}
+                sessionId={sessionId}
+                onClose={() => setPanelOpen(false)}
+                onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
+              />
+            )}
           </div>
-          {panelOpen && (
-            <ProgressPanel
-              graph={graph}
-              progress={progress}
-              tasksByNode={tasksByNode}
-              sessionId={sessionId}
-              onClose={() => setPanelOpen(false)}
-              onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
-            />
-          )}
-        </div>
-      </SubWorkflowLinks>
+        </SubWorkflowLinks>
+      </NodeSupervisors>
     </div>
   );
 }

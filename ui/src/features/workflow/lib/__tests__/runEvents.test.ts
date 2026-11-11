@@ -57,7 +57,34 @@ describe('runEvents', () => {
       ],
     });
     expect(runEvents(progress)).toEqual([
-      { time: '2026-10-30T10:00:00Z', nodeId: 'a', label: 'Started' },
+      {
+        time: '2026-10-30T10:00:00Z',
+        nodeId: 'a',
+        label: 'Started',
+        tone: 'primary',
+      },
+    ]);
+  });
+
+  it('gives each event the tone of its status', () => {
+    const progress = createMockProgress({
+      status: 'FAILURE',
+      startTime: '2026-10-30T10:00:00Z',
+      endTime: '2026-10-30T10:00:05Z',
+      tasks: [
+        createMockTask({
+          nodeId: 'a',
+          status: 'SUCCESS',
+          startTime: '2026-10-30T10:00:01Z',
+          endTime: '2026-10-30T10:00:02Z',
+        }),
+      ],
+    });
+    expect(runEvents(progress).map((e) => e.tone)).toEqual([
+      'primary',
+      'primary',
+      'success',
+      'destructive',
     ]);
   });
 });

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import type { WorkflowProgress } from '../types/workflow';
-import { toStatusDisplay } from './statusMapper';
+import { toStatusDisplay, type StatusDisplay } from './statusMapper';
 
 /** One status transition of a run or one of its nodes. */
 export interface RunEvent {
@@ -11,6 +11,8 @@ export interface RunEvent {
   nodeId: string | null;
   /** "Started", or the status it ended in ("Succeeded", "Failed", …). */
   label: string;
+  /** How the label is coloured: the status's tone, primary for a start. */
+  tone: StatusDisplay['tone'];
 }
 
 /**
@@ -19,15 +21,24 @@ export interface RunEvent {
  */
 export function runEvents(progress: WorkflowProgress): RunEvent[] {
   const events: RunEvent[] = [];
-  const add = (time: string | null, nodeId: string | null, label: string) => {
-    if (time) events.push({ time, nodeId, label });
+  const add = (
+    time: string | null,
+    nodeId: string | null,
+    label: string,
+    tone: RunEvent['tone']
+  ) => {
+    if (time) events.push({ time, nodeId, label, tone });
   };
-  add(progress.startTime, null, 'Started');
+  const end = (time: string | null, nodeId: string | null, raw: string) => {
+    const { label, tone } = toStatusDisplay(raw, nodeId ? 'node' : 'run');
+    add(time, nodeId, label, tone);
+  };
+  add(progress.startTime, null, 'Started', 'primary');
   for (const task of progress.tasks) {
-    add(task.startTime, task.nodeId, 'Started');
-    add(task.endTime, task.nodeId, toStatusDisplay(task.status, 'node').label);
+    add(task.startTime, task.nodeId, 'Started', 'primary');
+    end(task.endTime, task.nodeId, task.status);
   }
-  add(progress.endTime, null, toStatusDisplay(progress.status).label);
+  end(progress.endTime, null, progress.status);
   // a stable sort keeps the run's own start first and its end last at equal times
   return events.sort((a, b) => Date.parse(a.time) - Date.parse(b.time));
 }
