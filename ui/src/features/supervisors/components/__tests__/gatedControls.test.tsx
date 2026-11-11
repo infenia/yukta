@@ -29,6 +29,7 @@ const failed = () =>
 
 let capabilities: Record<string, unknown> = {};
 let ownership: Record<string, unknown> = {};
+let supervisors: unknown[] = [];
 let asked = '';
 const server = setupServer(
   http.get('/api/supervision', ({ request }) => {
@@ -36,6 +37,10 @@ const server = setupServer(
     return ok(capabilities);
   }),
   http.get('/api/supervision/ownership', () => ok(ownership)),
+  http.get('/api/supervisors', () => ok(supervisors)),
+  http.get('/api/supervisor-engines', () =>
+    ok([{ type: 'RULES', displayName: 'Rules', category: 'RULES', icon: null }])
+  ),
   http.get('/api/supervisors/assignments', () => ok([]))
 );
 beforeAll(() => server.listen());
@@ -43,6 +48,7 @@ afterEach(() => {
   server.resetHandlers();
   setMe(null);
   capabilities = {};
+  supervisors = [];
   asked = '';
 });
 afterAll(() => server.close());
@@ -160,9 +166,19 @@ describe('WorkflowSupervision', () => {
       workflowId: 'w',
       defaultSupervisor: true,
       run: 'lead',
-      nodes: { 'build.a': 'agent', 'build.b': 'agent', smoke: 'default' },
+      nodes: { 'build.a': 'lead', 'build.b': 'lead', smoke: 'default' },
     };
     capabilities = { stop: { allowed: true, via: 'lead', reason: null } };
+    supervisors = [
+      {
+        id: 'lead',
+        type: 'RULES',
+        description: 'Keeps the release gates.',
+        dryRun: true,
+        system: true,
+        parents: ['boss', 'chief'],
+      },
+    ];
     const dialog = await open();
     expect(
       screen.getByRole('button', { name: 'Run owner: lead' })
@@ -171,11 +187,23 @@ describe('WorkflowSupervision', () => {
       'href',
       '/supervisors?supervisor=lead'
     );
-    expect(within(dialog).getByText('build.a, build.b')).toBeInTheDocument();
-    expect(within(dialog).getByText('Default (people)')).toBeInTheDocument();
+    expect(within(dialog).getByText('build.a')).toBeInTheDocument();
+    expect(within(dialog).getByText('build.b')).toBeInTheDocument();
+    expect(await within(dialog).findByText('Rules')).toBeInTheDocument();
+    expect(within(dialog).getByText('Dry run')).toBeInTheDocument();
+    expect(within(dialog).getByText('Built in')).toBeInTheDocument();
     expect(
-      await within(dialog).findByText('Yes, through lead.')
+      within(dialog).getByText('Keeps the release gates.')
     ).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'boss' })).toHaveAttribute(
+      'href',
+      '/supervisors?supervisor=boss'
+    );
+    expect(
+      within(dialog).getByText('Controls the whole run and 2 nodes')
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Controls 1 node')).toBeInTheDocument();
+    expect(await within(dialog).findByText('via lead')).toBeInTheDocument();
     await userEvent.setup().keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
@@ -191,10 +219,88 @@ describe('WorkflowSupervision', () => {
     capabilities = { stop: { allowed: true, via: 'default', reason: null } };
     const dialog = await open();
     expect(
-      await within(dialog).findByText('Nobody supervises w')
+      await within(dialog).findByText('Controls the whole run and 1 node')
+    ).toBeInTheDocument();
+    expect(await within(dialog).findByText('Stop')).toBeInTheDocument();
+    expect(within(dialog).queryByText(/controllers/)).not.toBeInTheDocument();
+  });
+
+  it('lists each command: allowed, refused by the supervisor, or blocked by the role', async () => {
+    setMe({
+      role: 'VIEWER',
+      permissions: { startRuns: true, controlRuns: false },
+    } as unknown as Me);
+    capabilities = {
+      start: { allowed: true, via: 'default', reason: null },
+      pause: { allowed: true, via: 'lead', reason: null },
+      stop: { allowed: false, via: 'lead', reason: 'Held by lead' },
+    };
+    const dialog = await open();
+    expect(
+      await within(dialog).findByText('Needs OPERATOR; your key is VIEWER.')
+    ).toBeInTheDocument();
+    expect(within(dialog).getByText('Held by lead')).toBeInTheDocument();
+    expect(within(dialog).getByText('Start a new run')).toBeInTheDocument();
+    expect(within(dialog).queryByText('Restart')).not.toBeInTheDocument();
+  });
+
+  it('lists every node by name and finds one by search', async () => {
+    const names = Array.from({ length: 13 }, (_, i) => `node${i}`);
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: Object.fromEntries(
+        [...names, 'node0.fail'].map((id) => [id, 'default'])
+      ),
+    };
+    const dialog = await open();
+    expect(await within(dialog).findByText('node1')).toBeInTheDocument();
+    expect(within(dialog).getByText('node0.fail')).toBeInTheDocument();
+    const user = userEvent.setup();
+    const search = within(dialog).getByLabelText('Find a node');
+    await user.type(search, 'fail');
+    expect(within(dialog).queryByText('node1')).not.toBeInTheDocument();
+    await user.clear(search);
+    await user.type(search, 'zzz');
+    expect(
+      within(dialog).getByText('No node matches “zzz”.')
+    ).toBeInTheDocument();
+  });
+
+  it('puts the run controller on top and the others below', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'lead',
+      nodes: { a: 'lead', b: 'agent', c: 'default' },
+    };
+    const dialog = await open();
+    expect(
+      await within(dialog).findByText('Run controlled by')
     ).toBeInTheDocument();
     expect(
-      await within(dialog).findByText('Yes, directly.')
+      within(dialog).getByText('2 others controlling nodes')
+    ).toBeInTheDocument();
+    expect(within(dialog).getByRole('link', { name: 'agent' })).toHaveAttribute(
+      'href',
+      '/supervisors?supervisor=agent'
+    );
+  });
+
+  it('says one other controller in the singular', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'lead',
+      nodes: { b: 'agent' },
+    };
+    const dialog = await open();
+    expect(
+      await within(dialog).findByText('Also controlling nodes')
     ).toBeInTheDocument();
   });
 
@@ -257,5 +363,45 @@ describe('WorkflowSupervision', () => {
       .setup()
       .click(screen.getByRole('button', { name: /Run owner/ }));
     expect(screen.getByText('Loading who owns what…')).toBeInTheDocument();
+  });
+
+  it('says the server named no commands when a run is open', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: {},
+    };
+    capabilities = {};
+    const dialog = await open();
+    expect(
+      await within(dialog).findByText(
+        'The server did not say which commands are allowed.'
+      )
+    ).toBeInTheDocument();
+  });
+
+  it('asks for a run to be opened when none is open', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: {},
+    };
+    capabilities = {};
+    wrap(
+      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />
+    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: /Run owner/ }));
+    const dialog = screen.getByRole('dialog');
+    expect(
+      await within(dialog).findByText(
+        'Open a run to see which commands you can send to it.'
+      )
+    ).toBeInTheDocument();
   });
 });
