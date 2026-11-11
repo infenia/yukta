@@ -128,7 +128,12 @@
 
     # Only 64-bit Intel/AMD Windows builds are published.
     $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
-    if ($arch -ne 'AMD64') { Fail "unsupported processor: $arch (only 64-bit Intel/AMD is published; use Docker)" }
+    # Windows 11 on ARM (build 22000 and later) runs 64-bit Intel programs through emulation.
+    if ($arch -eq 'ARM64' -and [Environment]::OSVersion.Version.Build -ge 22000) {
+        Say 'Note: no ARM build is published; installing the 64-bit Intel/AMD build (runs through emulation).'
+    } elseif ($arch -ne 'AMD64') {
+        Fail "unsupported processor: $arch (only 64-bit Intel/AMD is published; use Docker)"
+    }
 
     $version = $env:YUKTA_VERSION
     if (-not $version -and $defaultVersion -ne '@VERSION@') { $version = $defaultVersion }

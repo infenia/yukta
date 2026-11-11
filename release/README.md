@@ -4,10 +4,10 @@ Scripts and the runbook for building, packaging and publishing a Yukta release. 
 same on the release machine and in CI. The plan and the reasons behind it are in
 [`design/plans/releases.md`](../design/plans/releases.md).
 
-**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-arm64 (Apple Silicon) and windows-amd64, `install.sh`,
+**Scope today (alpha):** Native server and CLI for linux-amd64, linux-arm64, darwin-amd64 (Intel; Apple silicon runs it through Rosetta 2) and windows-amd64, `install.sh`,
 `.deb`/`.rpm`/`.tar.gz` (Linux), `.tar.gz` (macOS), `.zip` (Windows), and a multi-architecture
 (`linux/amd64`, `linux/arm64`) image on GHCR. The macOS and Windows builds are not signed or notarized: Gatekeeper and
-SmartScreen warn on a browser download (the install scripts avoid it). macOS Intel, Windows arm64 and Docker Hub come later.
+SmartScreen warn on a browser download (the install scripts avoid it). A native macOS arm64 server (needs a runner with more than 7 GB), Windows arm64 and Docker Hub come later.
 
 ## Versioning policy
 
@@ -68,7 +68,8 @@ rehearsals; `release.sh --publish` refuses it.
 
 One pull request to approve, one button to press.
 
-1. **Rehearse first.** Run **Release** by hand on `main` (Actions → Release → Run workflow, or
+1. **Rehearse first.** The **Release** workflow rehearses itself on `main` every week (Sunday morning
+   IST); if `main` has changed since, run it by hand (Actions → Release → Run workflow, or
    `gh workflow run release.yml --ref main`). It builds everything and publishes nothing. Merge the release
    PR only when it is green. *Why:* the tag cannot be deleted, so a release that fails after tagging costs a
    version number (`alpha.3` stalled in the native build and the next release became `alpha.4`).
@@ -86,9 +87,11 @@ One pull request to approve, one button to press.
      server binary, and attests both (`gh attestation verify`);
    - `assemble` runs `release/release.sh --publish`: packages, `SHA256SUMS`, the image pushed to GHCR,
      and signatures on the checksums and the image. Signing is keyless: cosign signs as the workflow, so
-     there is no browser sign-in and no key to store;
+     there is no browser sign-in and no key to store; it then attests the image's build provenance;
    - uploads everything to the **draft** release release-please created;
-   - `verify` downloads the draft, checks the checksums and signature, installs it with `install.sh` and
+   - `verify` downloads the draft, checks the checksums and signature, the build provenance of the CLI and
+     server binaries, and the image's signature and provenance, rebuilds the CLI and compares it with
+     the released files (it is reproducible), installs it with `install.sh` and
      the `.deb` on a clean Ubuntu container, pulls the image logged out and runs the Quickstart on it.
    The server job does not record a PGO profile: the instrumented build ran out of memory in
    `0.1.0-alpha.2` and hung in `0.1.0-alpha.3` on the hosted runner (4 vCPU, 16 GB). The binary is `-O3` with
@@ -99,7 +102,9 @@ One pull request to approve, one button to press.
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
    the point of no return; from here the assets and tag cannot change. Release notes are also an
    OpenSSF Best Practices requirement.
-5. **Approve the docs PR.** Publishing opens `chore(docs): install the X.Y.Z release`, which points the install
+5. **Approve the docs PR, once the canary is green.** Publishing starts **Release follow-up**, whose
+   `canary` job installs the release with `install.sh` / `install.ps1` on Linux (both architectures),
+   macOS (both) and Windows and runs the Quickstart. Publishing also opens `chore(docs): install the X.Y.Z release`, which points the install
    commands at the new release and has auto-merge on. Approve it, then check the Mintlify deployment is
    live. *Why after publishing:* Mintlify publishes `docs/` from `main` immediately, so merged earlier,
    the install commands would point at a release that does not exist yet.
@@ -151,6 +156,17 @@ cosign verify-blob --bundle SHA256SUMS.sigstore.json SHA256SUMS \
   --certificate-identity-regexp '^https://github.com/infenia/yukta/.github/workflows/release.yml@refs/tags/v' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta               # CI-built files
+gh attestation verify oci://ghcr.io/infenia/yukta:X.Y.Z -R infenia/yukta   # the image (after 0.1.0-alpha.3)
+cosign verify ghcr.io/infenia/yukta:X.Y.Z \
+  --certificate-identity-regexp '^https://github.com/infenia/yukta/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
+
+Each server binary has a CycloneDX SBOM: embedded in it (`native-image-inspect --sbom yukta`), attached as
+`yukta-X.Y.Z-<platform>.sbom.json`, and attested (`gh attestation verify yukta -R infenia/yukta
+--predicate-type https://cyclonedx.org/bom`). Scan it with `trivy sbom <file>`.
+
+The CLI binaries are reproducible: at the tag, with the Go toolchain named in `cli/go.mod`,
+`make -C cli build-all VERSION=X.Y.Z` gives files with the hashes in `SHA256SUMS`.
 
 `dist/` is not committed.

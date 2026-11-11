@@ -5,7 +5,8 @@ name: Release follow-up
 
 # When a release is published (release.yml creates it as a draft; a person publishes it), tell every
 # issue it fixed and close its milestone (.github/scripts/released.sh), and open the pull request that
-# points the docs at it (.github/scripts/bump-docs.sh).
+# points the docs at it (.github/scripts/bump-docs.sh). It also installs the release on every system the
+# installers support (the canary job).
 on:
   release:
     types: [published]
@@ -35,6 +36,57 @@ jobs:
           TAG: ${{ github.event.release.tag_name }}
           RELEASE_URL: ${{ github.event.release.html_url }}
         run: .github/scripts/released.sh
+
+  # Installs the published release with the command the docs give, then runs the Quickstart against the
+  # installed server. The draft is tested on Linux amd64 only (release.yml verify): this covers the
+  # other systems, the real download URLs and the installers' own platform detection (Apple silicon
+  # gets the Intel server through Rosetta 2). A failure here means the public release is broken for
+  # that system: fix it in the next release, and say so in this one's notes.
+  canary:
+    name: Install on ${{ matrix.runner }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-15-intel, windows-latest]
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash   # also on Windows (Git Bash)
+    permissions:
+      contents: read
+    env:
+      REPO: ${{ github.repository }}
+      TAG: ${{ github.event.release.tag_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          sparse-checkout: release   # smoke-test.sh, from the released tag
+
+      # With cosign present the installers also verify the signature of SHA256SUMS.
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Install directory
+        run: echo "YUKTA_INSTALL_DIR=$RUNNER_TEMP/yukta" >> "$GITHUB_ENV"
+
+      - name: Install (install.sh)
+        if: runner.os != 'Windows'
+        run: curl -fsSL "https://github.com/$REPO/releases/download/$TAG/install.sh" | sh
+
+      - name: Install (install.ps1)
+        if: runner.os == 'Windows'
+        shell: powershell   # Windows PowerShell 5.1, what `irm | iex` runs in for most users
+        run: irm "https://github.com/$env:REPO/releases/download/$env:TAG/install.ps1" | iex
+
+      - name: Version and Quickstart
+        run: |
+          exe=""; [ "$RUNNER_OS" != Windows ] || exe=.exe
+          "$YUKTA_INSTALL_DIR/yukta-cli$exe" --version | grep -F "${TAG#v}"
+          "$YUKTA_INSTALL_DIR/yukta$exe" &
+          pid=$!
+          trap 'kill "$pid" || true' EXIT
+          release/smoke-test.sh http://127.0.0.1:9858
 
   docs:
     name: Point the docs at the release

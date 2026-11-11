@@ -80,6 +80,12 @@ for platform in "${PLATFORMS[@]}"; do
   if [[ -s "$DIST/$platform/yukta.iprof" ]]; then
     gzip -9c "$DIST/$platform/yukta.iprof" > "$assets/pgo-profile-$platform.iprof.gz"
   fi
+  # The bill of materials native-image wrote for this server binary (CycloneDX; the same one is embedded).
+  if [[ -s "$DIST/$platform/yukta.sbom.json" ]]; then
+    cp "$DIST/$platform/yukta.sbom.json" "$assets/yukta-$version-$platform.sbom.json"
+  elif $publish; then
+    die "no SBOM for $platform: $DIST/$platform/yukta.sbom.json is missing"
+  fi
 done
 # The install scripts attached to a release install exactly that release.
 sed "s/^DEFAULT_VERSION=\"@VERSION@\"/DEFAULT_VERSION=\"$version\"/" "$RELEASE_DIR/install.sh" > "$assets/install.sh"
