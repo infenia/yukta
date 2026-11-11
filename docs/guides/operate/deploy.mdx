@@ -27,10 +27,10 @@ import { Diagram } from "/snippets/diagram.jsx";
 
 | Method | Platforms | Choose it when |
 |---|---|---|
-| Docker image `ghcr.io/infenia/yukta` | Linux, and macOS or Windows through Docker Desktop (`linux/amd64`) | You already run containers. The image holds the native server and nothing else |
-| `.deb` or `.rpm` package | Linux `amd64` | You want a `systemd` service, a service user and a settings file |
-| Install script (`install.sh`) | Linux `amd64`; on macOS it installs the client only | You want the binaries in `/usr/local/bin` with checked checksums |
-| Archive (`.tar.gz`) | Linux `amd64` | You manage the service yourself |
+| Docker image `ghcr.io/infenia/yukta` | Linux, and macOS or Windows through Docker Desktop (`linux/amd64`; `linux/arm64` from the release after `0.1.0-alpha.3`) | You already run containers. The image holds the native server and nothing else |
+| `.deb` or `.rpm` package | Linux `amd64` (`arm64` from the release after `0.1.0-alpha.3`) | You want a `systemd` service, a service user and a settings file |
+| Install script (`install.sh`) | Linux and macOS; with `0.1.0-alpha.3` only Linux `amd64` gets the server | You want the binaries in `/usr/local/bin` with checked checksums |
+| Archive (`.tar.gz`, `.zip` on Windows) | Linux, macOS and Windows, from the release after `0.1.0-alpha.3` (`0.1.0-alpha.3`: Linux `amd64`) | You manage the service yourself |
 | From source | Anything with JDK 25 | You need a Plus build, extra plugins or a custom plugin. See [Write a plugin](/guides/extend/write-a-plugin) |
 
 <Diagram
