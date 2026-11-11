@@ -1,353 +1,253 @@
 ---
-title: "Routing and flow control plugins"
+title: "Routing and flow reference"
 sidebarTitle: "Routing and flow"
-description: "BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, loops, SUB_WORKFLOW and WAIT_FOR_SIGNAL: plugins that decide where messages go and when."
-keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "routing plugins"]
+description: "Options, ports and errors of BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, the loop processors, SUB_WORKFLOW, WAIT_FOR_SIGNAL, ASK_INPUT and KV_STORE."
+keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "RECIPIENT_LIST", "DELAY", "LOOP_PREDICATE", "LOOP_STREAM", "SUB_WORKFLOW", "WAIT_FOR_SIGNAL", "ASK_INPUT", "KV_STORE"]
 ---
 
-<Info>
-  **In plain terms:** these are the traffic controllers of a workflow. They send each item down the right path, split a big item into many small ones (or gather them back), spread work to several places, wait, repeat a step, run another workflow, or hold until a person approves.
-</Info>
+# Routing and flow reference
 
-These ten processors are always part of the server. They route messages by port, split and batch them, pace them, repeat other plugins, run other workflows and wait for people.
+These processors are always part of the server; they choose ports, split and batch messages, pace them, repeat a step, run another workflow or wait for an answer.
 
-Routing works by port name: a message leaves a node on one port, and the engine delivers it only along edges whose `sourcePort` names that port. An edge with no `sourcePort` receives every message of the node except those on the `error` port. See [Nodes, edges and ports](/concepts/nodes-edges-ports) and [Routing and branching](/building/routing-and-branching).
+Options typed `EXPRESSION` are SpEL evaluated against the message: `payload.x` reads a payload field and `metadata.x` a metadata entry. These plugins do not resolve `${...}` in their options unless a row says so. Default node timeout is 30 seconds unless stated.
 
-Options marked "expression" take the expression language described in [Variables and expressions](/building/variables-and-expressions). Inside an expression the message is the root, so `payload.status` reads a payload field and `metadata.key` reads a metadata entry. These plugins do not resolve `${...}` variables in their options.
+## `BRANCH`
 
-Unless a section says otherwise, the default timeout is the engine default of 30 seconds idle (see [Time limits](/concepts/time-limits)).
+Routes each message to the port named by the first matching case.
 
-## BRANCH
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `mode` | `SELECT_KEY` or `EXPRESSION` | `SELECT_KEY` | yes | `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; `EXPRESSION` evaluates each case key as a predicate. |
+| `selector` | expression | none | yes (mode `SELECT_KEY`) | Key to match. |
+| `cases` | map | none | yes, not empty | Match value (or predicate) to port name. |
+| `defaultPort` | string | none | no | Port used when no case matches. |
+| `allowMultipleMatches` | boolean | `false` | no | Emit on every matching case. |
+| `strictMode` | boolean | `true` | no | Fail when nothing matches and there is no `defaultPort`, and on evaluation errors. |
+| `errorPort` | string | none | no | Port for messages whose evaluation failed. |
 
-Sends each message to one port, or several, chosen by an exact match or by conditions.
-
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `mode` | `SELECT_KEY` or `EXPRESSION` | none, required | `SELECT_KEY` evaluates `selector` and looks the result up in `cases`. `EXPRESSION` evaluates each key of `cases` as a yes/no condition |
-| `selector` | expression | none | The value to match. Required in `SELECT_KEY` mode, unused in `EXPRESSION` mode |
-| `cases` | map | none, required, not empty | In `SELECT_KEY` mode: value to port name. In `EXPRESSION` mode: condition to port name |
-| `defaultPort` | string | none | Port for messages that match no case |
-| `allowMultipleMatches` | boolean | `false` | `EXPRESSION` mode only: send the message to every matching case instead of the first |
-| `strictMode` | boolean | `true` | Fail when nothing matches and there is no `defaultPort`, and when an expression fails |
-| `errorPort` | string | none | Port that receives messages whose evaluation failed, with the failure details attached |
-
-Output ports: every port named in `cases`, plus `defaultPort` and `errorPort` when set. Each port named in `cases` or `defaultPort` must have an outgoing edge, or the workflow is rejected at validation.
-
-In `SELECT_KEY` mode the selector result is compared as text, so a number `3` matches the case key `"3"`. In `EXPRESSION` mode cases are tried in the order written. With `strictMode` on, a message that matches nothing and has no `defaultPort` is an error, so a typo in a case cannot silently lose data. With `strictMode` off such a message is dropped.
-
-This node routes a quality gate on two payload fields:
+- **Output ports:** the distinct values of `cases`, plus `defaultPort` and `errorPort`; `default` when none are set.
+- **Errors:** `Invalid or missing mode. Must be SELECT_KEY or EXPRESSION`; `selector is mandatory for SELECT_KEY mode`; `cases map is mandatory and cannot be empty`. Validation in a workflow fails when a case routes to a port that has no outgoing edge.
 
 ```json
 {
   "nodeId": "decide",
   "type": "BRANCH",
-  "config": {
-    "mode": "EXPRESSION",
-    "cases": {
-      "payload.coverage >= 80 && payload.lintErrors == 0": "pass",
-      "payload.coverage < 80 || payload.lintErrors > 0": "fail"
-    },
-    "strictMode": true
-  }
+  "config": { "mode": "EXPRESSION", "cases": { "payload.coverage < 80": "fail" }, "defaultPort": "pass" }
 }
 ```
 
-```json
-[
-  { "source": "decide", "target": "report-pass", "sourcePort": "pass" },
-  { "source": "decide", "target": "report-fail", "sourcePort": "fail" }
-]
-```
+## `FILTER`
 
-## FILTER
+Passes a message when a predicate is true; otherwise drops it or routes it to `discardPort`.
 
-Keeps messages that match a condition. A message that does not match is dropped, or sent to a second port.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `condition` | expression | none | yes | Keep messages where true. |
+| `engine` | `SpEL` or `SIMPLE` | `SpEL` | no | Expression engine. |
+| `language` | `SpEL` or `SIMPLE` | none | no | Same as `engine`, for a node that also sets the `engine` policy object. |
+| `strictMode` | boolean | `true` | no | Fail on an evaluation error; when `false` the message is dropped. |
+| `discardPort` | string | none | no | Port for rejected messages. |
+| `allowAfterHeavy` | boolean | `false` | no | Suppress the advisory warning that a filter placed after heavy computation is better placed near the trigger. |
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `condition` | expression | none, required | The test. It must give true for the message to pass; any other result counts as false |
-| `engine` | `SpEL` or `SIMPLE` | `SpEL` | `SpEL` selects the full expression language. `SIMPLE` selects a small language described below |
-| `strictMode` | boolean | `true` | Fail the node on an evaluation error. When `false`, the message is dropped quietly |
-| `discardPort` | string | none | Port for messages that do not match. Without it they are dropped |
-| `allowAfterHeavy` | boolean | `false` | Suppress the advisory warning that a filter is better placed close to the trigger |
-
-Output ports: `default`, plus `discardPort` when set.
-
-The `SIMPLE` engine accepts one test of the form `path operator value`, where the path starts with `payload.` or `metadata.`:
-
-| Test | Passes when |
-|---|---|
-| `payload.status == 'ok'` | the value, compared as text, equals the quoted text |
-| `payload.email exists` | the path is present and not null |
-| `payload.email matches '.*@example\.com'` | the whole value matches the regular expression |
-
-The engine value `REGO` is not supported and is rejected at validation.
+- **Output ports:** `default`, plus `discardPort` when set.
+- **Errors:** `condition is mandatory for Filter plugin`; `Unsupported engine: <name>`; the engine `REGO` is reserved and rejected with `REGO engine is reserved for future use and not yet implemented.`; an evaluation error is `Filter evaluation failed for condition: <condition>`.
 
 ```json
-{
-  "nodeId": "keep-active",
-  "type": "FILTER",
-  "config": { "condition": "payload.active == true" }
-}
+{ "nodeId": "only-failures", "type": "FILTER", "config": { "condition": "payload.exitCode != 0", "discardPort": "ok" } }
 ```
 
-## SPLITTER
+## `SPLITTER`
 
-Splits one message that holds a list into one message per item.
+Splits a composite message into one message per item.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `itemsPath` | expression | none, required | Expression that returns the list, for example `payload.records`. A value that is not a list is treated as a list of one |
-| `headerMapping` | map | none | Metadata key to expression, evaluated against the parent message, set on every item message |
-| `parallel` | boolean | `true` | Split several incoming messages at the same time. When `false`, one at a time |
-| `concurrency` | number | `1024` | How many incoming messages are split at once when `parallel` is on |
-| `strictMode` | boolean | `true` | Fail when `itemsPath` gives nothing, or a mapping fails. When `false`, the message is dropped or the mapping skipped |
-| `errorPort` | string | none | Port that receives the parent message when splitting fails, with the failure details attached |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `itemsPath` | expression | none | yes | Path to the items to split. |
+| `headerMapping` | map | none | no | Header name to expression, evaluated per item. |
+| `parallel` | boolean | `true` | no | Emit items concurrently. |
+| `concurrency` | number | `1024` | no | Items processed concurrently. |
+| `strictMode` | boolean | `true` | no | Fail when `itemsPath` gives nothing or a mapping fails; when `false` the message is dropped. |
+| `errorPort` | string | none | no | Port for the parent message when splitting fails. |
 
-Output ports: `default`, plus `errorPort` when set.
-
-Each item message has a new id and the item as its payload. It keeps the parent's metadata, trace id and priority, and carries the position of the item in the batch (`sequenceNumber` from 1, and `sequenceSize`) with the parent's id as its correlation id. Items of one parent are emitted in order.
+- **Output ports:** `default`, plus `errorPort` when set.
+- **Errors:** `itemsPath mandatory`; `itemsPath null`; `Mapping failed`.
 
 ```json
-{
-  "nodeId": "split",
-  "type": "SPLITTER",
-  "config": { "itemsPath": "payload.records" }
-}
+{ "nodeId": "each-file", "type": "SPLITTER", "config": { "itemsPath": "payload.files" } }
 ```
 
-## AGGREGATE
+## `AGGREGATE`
 
-Batches messages into one message that holds a list. It is the reverse of `SPLITTER`. The result carries a `sourceIds` header listing the ids of the batched messages; each child of a `SPLITTER` carries a `parentId` header, so lineage can be followed across both.
+Batches messages into one message holding the list of their payloads; the reverse of `SPLITTER`.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `size` | number | none, required | Most messages per batch, a positive whole number |
-| `timeoutMs` | number | none | Send a partial batch this many milliseconds after it started, if it is not full by then |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `size` | number | none | yes | Most messages per batch, a positive whole number. |
+| `timeoutMs` | number | none | no | Flush a partial batch this many milliseconds after it started. |
 
-Output port: `default`.
-
-The batch message has a new id, the trace id of its first message, and the payload `{"items": [...], "count": n, "sources": [...]}`, where `items` holds the payloads in arrival order and `sources` the node each one came from, in the same order (useful after a join with `engine.trigger: ALL_DONE`, to see which branches delivered). Batching is by arrival only: messages are not grouped by correlation id. A partial batch is always sent when the input ends. Without `timeoutMs`, a partial batch waits in memory until it fills or the input ends.
+- **Output port:** `default`. The remainder is flushed when the stream completes.
+- **Errors:** `size must be a positive number`.
 
 ```json
-{
-  "nodeId": "collect",
-  "type": "AGGREGATE",
-  "config": { "size": 3, "timeoutMs": 2000 }
-}
+{ "nodeId": "collect", "type": "AGGREGATE", "config": { "size": 3, "timeoutMs": 2000 } }
 ```
 
-## RECIPIENT_LIST
+## `RECIPIENT_LIST`
 
-Copies one message to several ports at once.
+Copies one message to several ports.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `mode` | `STATIC`, `DYNAMIC` or `EXTERNAL` | `DYNAMIC` | How the recipients are chosen |
-| `recipients` | list | none | `STATIC` mode: the port names. Required in that mode |
-| `expression` | expression | none | `DYNAMIC` mode: expression that returns a port name or a list of port names. Required in that mode |
-| `sourceField` | expression | none | `EXTERNAL` mode: expression that reads the list of port names from the message, for example `metadata.recipients` or `payload.targets`. Required in that mode |
-| `parallel` | boolean | `true` | Handle several incoming messages at the same time. When `false`, one at a time |
-| `strictMode` | boolean | `true` | Fail the node when the recipients cannot be worked out. When `false`, the message is dropped |
-| `errorPort` | string | none | Port that receives the message when the recipients cannot be worked out |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `mode` | `STATIC`, `DYNAMIC` or `EXTERNAL` | `DYNAMIC` | no | How recipients are chosen. |
+| `recipients` | list | none | mode `STATIC` | Port names. |
+| `expression` | expression | none | mode `DYNAMIC` | Computes the port names. |
+| `sourceField` | string | none | mode `EXTERNAL` | Header or payload path holding the list. |
+| `parallel` | boolean | `true` | no | Dispatch concurrently. |
+| `errorPort` | string | none | no | Port for evaluation failures. |
+| `strictMode` | boolean | `true` | no | Fail on evaluation errors. |
 
-Output ports: in `STATIC` mode the names in `recipients` plus `errorPort`. In the other modes the plugin can emit on any port name, so the engine accepts whatever the expression returns. A result that is empty or null sends nothing.
-
-Each recipient receives its own copy of the message on the port of that name.
+- **Output ports:** the `recipients` plus `errorPort` in `STATIC` mode; `*` (any port) in the other modes; `default` for an empty `STATIC` list.
+- **Errors:** `recipients list is mandatory for STATIC mode`; `expression is mandatory for DYNAMIC mode`; `sourceField is mandatory for EXTERNAL mode`; `Invalid mode: <mode>`.
 
 ```json
-{
-  "nodeId": "fan-out",
-  "type": "RECIPIENT_LIST",
-  "config": { "mode": "STATIC", "recipients": ["slack", "email", "pager"], "parallel": true }
-}
+{ "nodeId": "fan-out", "type": "RECIPIENT_LIST", "config": { "mode": "STATIC", "recipients": ["lint", "test"] } }
 ```
 
-## DELAY
+## `DELAY`
 
-Holds each message for a fixed time and releases them one at a time, in order.
+Delays each message by a fixed time; messages are released one at a time, in order.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `delayMs` | number | none, required | Delay per message in milliseconds, a positive number |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `delayMs` | number | none | yes | Positive delay per message in milliseconds. |
 
-Output port: `default`. Ten messages with `delayMs` 100 take about a second, which makes `DELAY` a simple way to stay under an outside rate limit. Because the node's idle timeout is 30 seconds, set `timeoutSeconds` on the node when `delayMs` is close to or above 30000.
+- **Output port:** `default`.
+- **Errors:** `delayMs must be a positive number`.
 
 ```json
-{ "nodeId": "pace", "type": "DELAY", "config": { "delayMs": 250 } }
+{ "nodeId": "pause", "type": "DELAY", "config": { "delayMs": 1000 } }
 ```
 
-## LOOP_PREDICATE and LOOP_STREAM
+## `LOOP_PREDICATE` and `LOOP_STREAM`
 
-Run another processor again and again on a message. This is how Yukta polls and retries until a condition holds without breaking the rule that a workflow has no cycles. `LOOP_PREDICATE` emits only the final result. `LOOP_STREAM` emits every message that every iteration produced.
+Run a target processor repeatedly until a condition is met. `LOOP_PREDICATE` emits only the final successful message; `LOOP_STREAM` flattens every message the iterations produce into one stream. Both take the same options.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `targetPluginId` | string | none, required | The type string of the processor to run in each iteration, for example `HTTP_REQUEST` |
-| `targetConfig` | map | empty | The `config` of that processor |
-| `exitCondition` | expression | none | Ends the loop when true. Can use `#iterationCount` and `#elapsedTimeMs`, and reads the latest result as the message. With no condition the loop stops after the first iteration |
-| `maxIterations` | number | `10` | Most iterations |
-| `maxDuration` | ISO-8601 duration | `PT1M` | Longest total time. Checked before each iteration, not during one |
-| `delayInterval` | ISO-8601 duration | `PT0S` | Wait between iterations |
-| `failureStrategy` | `ABORT`, `RETRY`, `SKIP` or `ESCALATE` | `ABORT` | What a failing iteration does |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `targetPluginId` | string | none | yes | Processor type to run each iteration. |
+| `targetConfig` | map | none | no | Configuration of the target processor. |
+| `exitCondition` | expression | none | no | Ends the loop when true; variables `#iterationCount` and `#elapsedTimeMs`. |
+| `maxIterations` | number | `10` | no | Most iterations. |
+| `maxDuration` | string | `PT1M` | no | ISO-8601 duration limit. |
+| `delayInterval` | string | `PT0S` | no | ISO-8601 wait between iterations. |
+| `failureStrategy` | `ABORT`, `RETRY`, `SKIP` or `ESCALATE` | `ABORT` | no | What a failing iteration does. |
 
-Output port: `default`.
+`failureStrategy`: `ABORT` aborts the run; `RETRY` repeats the iteration with the same input; `SKIP` drops the failed iteration and goes on; `ESCALATE` ends the whole run with a `RunAbortedException` that nothing retries or routes. `RETRY` and `SKIP` each use up an iteration, so `maxIterations` and `maxDuration` bound them.
 
-Each iteration runs the target on the current message. The target's result becomes the input of the next iteration. The loop ends when `exitCondition` is true, when `maxIterations` is reached or when `maxDuration` has passed; reaching a limit is not an error. For `LOOP_PREDICATE`, an iteration uses the last message the target emitted.
-
-| `failureStrategy` | A failing iteration |
-|---|---|
-| `ABORT` | Fails the node |
-| `RETRY` | Goes on with the next iteration, using the same message, after `delayInterval` |
-| `SKIP` | Behaves the same as `RETRY`: a failed iteration produces nothing, so the next one starts from the same message |
-| `ESCALATE` | Ends the whole run: the node fails with a `RunAbortedException` that no retry, `onError` policy or dead letter absorbs |
-
-Every strategy except `ABORT` and `ESCALATE` uses up an iteration for the failed attempt, so `maxIterations` and `maxDuration` bound them. If the target itself ends the run (for example `LLM_CALL` with `budget.hardStop`), the loop passes that on whatever the strategy is.
-
-`targetConfig` is checked when the workflow is validated: the loop runs the target's own config check on it, and the target's setup (`initialize` and `prepare`) runs when the workflow is prepared. The target must be an installed processor; an unknown or non-processor target fails validation. These nodes emit nothing until the loop ends, so set `timeoutSeconds` on the node to at least `maxDuration` when a loop can run longer than 30 seconds.
-
-This node checks a command up to five times, one second apart, and stops after the third check:
+- **Output port:** `default`.
+- **Errors:** `Target plugin not found: <id>`; `Target plugin must be a ProcessorPlugin: <id>`.
 
 ```json
 {
   "nodeId": "poll",
   "type": "LOOP_PREDICATE",
   "config": {
-    "targetPluginId": "PROCESS_EXECUTOR",
-    "targetConfig": { "command": ["echo", "checking readiness"], "failureMode": "CONTINUE" },
-    "exitCondition": "#iterationCount >= 3",
-    "maxIterations": 5,
-    "maxDuration": "PT1M",
-    "delayInterval": "PT1S",
-    "failureStrategy": "ABORT",
-    "timeoutSeconds": 90
+    "targetPluginId": "HTTP_REQUEST",
+    "targetConfig": { "url": "https://example.com/status" },
+    "exitCondition": "payload.body.state == 'done'",
+    "delayInterval": "PT5S"
   }
 }
 ```
 
-See [Loops and retries](/building/loops-and-retries) for choosing between a loop and the engine's own retry.
+## `SUB_WORKFLOW`
 
-## SUB_WORKFLOW
+Runs another workflow of the same session for each message and emits its results.
 
-Runs another workflow of the same session for each message and emits what that workflow produced.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `workflowId` | string | none | yes | Workflow to run; it must exist in the same session. |
+| `payload` | map | the message payload | no | Start payload of the child; values may use `${...}` (for example `${payload.id}`). |
+| `timeoutSeconds` | number | `300` | no | Longest the child may run. |
+| `routeByOutcome` | boolean | `false` | no | Route on how the child ended instead of failing this node when it fails. |
+| `concurrency` | number | `1` | no | Messages whose child runs at once, 1 to 16; results keep message order. |
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `workflowId` | string | none, required | The workflow to run. It must exist in the same session |
-| `payload` | map | the message payload | The start payload of the child. Its values may use `${...}` variables, for example `${start.project}` or `${payload.id}`; a value that resolves to nothing is left out. When omitted, the message payload is used if it is an object, otherwise `{"input": <payload>}` |
-| `timeoutSeconds` | number | `300` | Longest time the child may run |
-| `routeByOutcome` | boolean | `false` | Route on how the child ended instead of failing when it fails |
-| `concurrency` | number | `1` | How many messages run their child at the same time, up to 16; the results keep the order of the messages |
-
-Output port: `default`, or with `routeByOutcome` one of `success`, `failure`, `retry`, `escalate`: the outcome of the [outcome terminal](/plugins/terminals) the child reached (`FAILED` goes to `failure`), `failure` for a child that failed or timed out, and `success` for one that reached no outcome terminal. Messages are handled one at a time unless `concurrency` says otherwise. The output payload is `{"executionId": "...", "results": [...], "status": "...", "outcome": "...", "reason": "..."}`: the child's own execution id, the payload of every message that reached a terminal node of the child, in order, how the child ended (`SUCCESS`, `FAILURE` or `TIMED_OUT`), and the outcome and reason of its outcome terminal (absent when it reached none). Without `routeByOutcome` the node fails when the child fails; in either case it fails when the workflow does not exist or `timeoutSeconds` passes.
-
-The child is a normal execution with its own id. It is tracked and controllable like any other. It does not take an execution slot of its own: it uses the slot its parent holds, so it does not count towards the admission limits. The child's start payload also carries `yukta.depth` and `yukta.parentExecutionId`. Workflows can nest at most 5 levels deep, which stops a workflow from starting itself forever.
-
-Default timeout: `timeoutSeconds` plus 10 seconds, so 310 seconds with the default.
+- **Output ports:** `default`; with `routeByOutcome`, `success`, `failure`, `retry`, `escalate`.
+- **Payload:** `{executionId, results[], status, outcome?, reason?}`. `outcome` is the one the child's `OUTCOME_TERMINAL` reached (`SUCCESS`, `RETRY`, `ESCALATE`, `FAILED`) and is absent when it reached none.
+- **Limits:** nesting is limited to 5 levels. `yukta.execution.max-concurrent` must allow the parent and its children together. Default node timeout is `timeoutSeconds` plus 10 seconds.
+- **Errors:** `workflowId must be a non-empty workflow id`; `payload must be a map`; `timeoutSeconds must be a positive number`; `concurrency must be a number from 1 to 16`.
 
 ```json
-{
-  "nodeId": "enrich-order",
-  "type": "SUB_WORKFLOW",
-  "config": { "workflowId": "enrich", "timeoutSeconds": 120 }
-}
+{ "nodeId": "build", "type": "SUB_WORKFLOW", "config": { "workflowId": "build-module", "payload": { "module": "${payload.module}" }, "routeByOutcome": true } }
 ```
 
-See [Sub-workflows](/concepts/sub-workflows).
+## `WAIT_FOR_SIGNAL`
 
-## ASK_INPUT
+Holds a message until a person answers. The wait is an input request of kind `APPROVAL` and risk `HIGH`, so only a person can answer it.
 
-Asks a supervisor, a person or an agent a question per message and waits for the answer. The message goes on tagged with `input.requestId`, `input.decision`, `input.text`, `input.data`, `input.responder` and `input.confidence`; branch on `input.decision`. An answer is text someone wrote, not an instruction.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `signal` | string | none | yes | Name of the signal, at most 128 characters. |
+| `timeoutSeconds` | number | `3600` | no | Longest wait; must not exceed `yukta.input.max-ttl` (default 24 hours) or the wait is refused with an input limit error. |
+| `onTimeout` | `FAIL` or `CONTINUE` | `FAIL` | no | `CONTINUE` goes on with metadata `signal.decision=timeout`. |
+| `onReject` | `FAIL` or `CONTINUE` | `FAIL` | no | Action on a `reject` decision; `CONTINUE` drops the message. |
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `prompt` | string | required | The question; may use `${...}` expressions |
-| `kind` | `APPROVAL`, `CHOICE`, `TEXT`, `STRUCTURED` | `APPROVAL` | What is asked for |
-| `options` | list | `approve`, `reject` for `APPROVAL` | Answers on offer, ids or `{id, label}`; at least two for `CHOICE` |
-| `risk` | `LOW`, `MEDIUM`, `HIGH` | `MEDIUM` | `HIGH` is answered by a person only |
-| `ttlSeconds` | number | `3600` | How long the question lives, at most `yukta.input.max-ttl` |
-| `onTimeout` | `FAIL`, `CONTINUE`, `USE_DEFAULT` | `FAIL` | `CONTINUE` releases the message with `input.decision=timeout`; `USE_DEFAULT` answers with `defaultDecision` |
-| `defaultDecision` | string | none | Required for `USE_DEFAULT` |
-| `responseSchema` | JSON Schema | none | Required for `STRUCTURED` |
-| `audience` | list | current tier | `supervisor:<id>`, `supervisor:*`, `role:OPERATOR`, `role:ADMIN`, `key:<name>`, `external:<tier>` |
-| `name` | string | node id | Part of the request key |
-| `route` | string | none | Route name (read once routes exist) |
-
-An AI agent asks through the tool `ask_for_input`: set `allowAskInput: true` on the `LLM_CALL` node (it offers the tool) and on the `MCP_TOOL_CALL` node that runs the action. The model cannot lower the risk below `inputRiskFloor` (default `MEDIUM`) or set the audience, ttl or route; `inputAudience`, `inputTtlSeconds`, `inputRoute` and `inputMaxAsks` (default 3 per node run) come from the node.
-
-## WAIT_FOR_SIGNAL
-
-Holds each message until a named signal arrives. Use it for approvals and for waiting on a person or another system.
-
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `signal` | string | none, required | The name of the signal to wait for |
-| `timeoutSeconds` | number | `3600` | Longest wait per message. Must not exceed `yukta.input.max-ttl` (default 24h); a longer wait is refused at runtime |
-| `onTimeout` | `FAIL` or `CONTINUE` | `FAIL` | `FAIL` fails the node. `CONTINUE` releases the message with the decision `timeout` |
-| `onReject` | `FAIL` or `CONTINUE` | `FAIL` | What a `reject` decision does: `FAIL` fails the node, `CONTINUE` drops the message |
-
-Output port: `default`. Messages are held one at a time, in order. When a signal arrives the plugin releases the message with three metadata entries added: `signal.name`, `signal.decision` and `signal.data`. Read them in a later node, for example with `metadata['signal.decision']` in a `BRANCH` expression.
-
-A decision of `reject` (any capitalisation) is a rejection. Any other decision, such as `approve`, releases the message.
-
-The wait is an input request (kind `APPROVAL`, risk `HIGH`), so it is listed with the pending inputs and only a person can answer it. Without an input gateway the node fails with a clear message.
-
-Answer the input request of the waiting node:
-
-```http
-POST /api/executions/{executionId}/inputs/{requestId}/answer
-
-{"decision": "approve", "text": "ok"}
-```
-
-The request answers `409` when it is no longer open. List the open requests with `GET /api/sessions/{sessionId}/inputs?state=OPEN`.
-
-Signal behaviour:
-
-- A signal that arrives before its wait is kept for 10 minutes, at most 100 at a time, and is taken by the wait that follows.
-- A second signal for the same node and name within 5 seconds of an accepted one counts as a double submit and is answered as not waiting.
-- The answer is recorded with the node's checkpoint, so a resumed execution reuses it for the same message instead of waiting again.
-- Waits are held in memory. After a server restart, an execution that is resumed waits for a new signal.
-
-Default timeout: `timeoutSeconds` plus 30 seconds, so 3630 seconds with the default.
+- **Output port:** `default`. Any decision other than `reject` lets the message through; it is in metadata `signal.decision`.
+- **Default node timeout:** `timeoutSeconds` plus 30 seconds.
+- **Errors:** `signal must be a non-empty name of at most 128 characters`; `timeoutSeconds must be a positive number`.
 
 ```json
-{
-  "nodeId": "approve-deploy",
-  "type": "WAIT_FOR_SIGNAL",
-  "config": { "signal": "approve", "timeoutSeconds": 900, "onTimeout": "FAIL", "onReject": "FAIL" }
-}
+{ "nodeId": "approve", "type": "WAIT_FOR_SIGNAL", "config": { "signal": "release", "timeoutSeconds": 1800 } }
 ```
 
-See [Approvals and signals](/building/approvals-and-signals).
+## `ASK_INPUT`
 
-## Limits and defaults
+Asks a supervisor, a person or an agent a typed question per message and waits for the answer. Needs the control plane.
 
-| Item | Value |
-|---|---|
-| `SPLITTER` `concurrency` | 1024 incoming messages at once |
-| `LOOP_*` `maxIterations`, `maxDuration` | 10 iterations, `PT1M` |
-| `SUB_WORKFLOW` nesting | 5 levels |
-| `SUB_WORKFLOW` `timeoutSeconds` | 300, node timeout 310 |
-| `WAIT_FOR_SIGNAL` `timeoutSeconds` | 3600, node timeout 3630 |
-| Early signal kept | 10 minutes, at most 100 |
-| Duplicate signal window | 5 seconds |
-| All other plugins on this page | 30 seconds idle timeout |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `prompt` | string | none | yes | The question; may use `${...}` over the message. |
+| `kind` | `APPROVAL`, `CHOICE`, `TEXT` or `STRUCTURED` | `APPROVAL` | no | What is asked for. |
+| `options` | list | `approve`, `reject` for `APPROVAL` | `CHOICE`: at least two | Answers on offer, ids or `{id, label}`. |
+| `risk` | `LOW`, `MEDIUM` or `HIGH` | `MEDIUM` | no | Risk of the question; `HIGH` is answered by a person only. |
+| `ttlSeconds` | number | `3600` | no | Lifetime of the question; at most `yukta.input.max-ttl`. |
+| `onTimeout` | `FAIL`, `CONTINUE` or `USE_DEFAULT` | `FAIL` | no | `CONTINUE` goes on with `input.decision=timeout`; `USE_DEFAULT` answers with `defaultDecision` as the system. |
+| `defaultDecision` | string | none | with `USE_DEFAULT` | One of the options. |
+| `responseSchema` | string | none | with `STRUCTURED` | JSON Schema of the structured answer. |
+| `audience` | list | current tier | no | Who may answer: `supervisor:<id>`, `supervisor:*`, `role:OPERATOR`, `role:ADMIN`, `key:<name>`, `external:<tier>`. |
+| `name` | string | the node id | no | Part of the request key; set it when one node asks several questions about the same message. |
+| `route` | string | none | no | Name of a route; ignored until the route exists. |
+| `context` | map | none | no | Text facts that help answer: at most 16 entries, each cut to 200 bytes; values may use `${...}`. |
 
-## Next steps
+- **Output port:** `default`. Metadata gains `input.requestId`, `input.decision`, `input.text`, `input.data`, `input.responder`, `input.confidence`. A rejection is a decision, not an error.
+- **Replay:** the answer is recorded under the node `input:<node>`; a resumed run replays only finished nodes, so a re-produced message asks again.
+- **Default node timeout:** `ttlSeconds` plus 30 seconds.
+- **Errors:** `The prompt of ASK_INPUT is empty`; `ttlSeconds must be a positive number`; `kind must be APPROVAL, CHOICE, TEXT or STRUCTURED`; `onTimeout must be FAIL, CONTINUE or USE_DEFAULT`; `context must be a map of at most 16 entries`.
 
-<Card title="Routing and branching" icon="code-branch" horizontal href="/building/routing-and-branching">
-  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
-</Card>
+```json
+{ "nodeId": "ok-to-deploy", "type": "ASK_INPUT", "config": { "prompt": "Deploy ${payload.version}?", "risk": "HIGH", "ttlSeconds": 900 } }
+```
 
-<Card title="Loops and retries" icon="repeat" horizontal href="/building/loops-and-retries">
-  Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
-</Card>
+## `KV_STORE`
 
-<Card title="Approvals and signals" icon="hand" horizontal href="/building/approvals-and-signals">
-  Hold a message until a person or another system sends a named signal, with a timeout and an accept or reject decision.
-</Card>
+A shared in-memory key-value store for state across runs. Needs the control plane.
 
-<Card title="Sub-workflows" icon="sitemap" horizontal href="/concepts/sub-workflows">
-  Run another stored workflow from inside a node, once per message.
-</Card>
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `op` | `get`, `put`, `incr` or `delete` | none | yes | Operation. `put` stores `payload.value`; `incr` adds `payload.value` (default 1) to a number. |
+| `key` | string | `payload.key` | no | Key to use. |
+| `namespace` | string | the workflow id | no | Prefix isolating keys; give two workflows the same value to share keys. |
+| `maxEntries` | number | `10000` | no | Most distinct keys; new keys beyond it fail. |
+
+- **Output port:** `default`; payload `{key, value}`, `value` is `null` when absent.
+- **Errors:** `op must be one of [...]`; `key is required (config or payload.key)`; `put requires payload.value`; `incr requires a whole-number payload.value`.
+
+```json
+{ "nodeId": "counter", "type": "KV_STORE", "config": { "op": "incr", "key": "builds" } }
+```
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview)
+- [Node options](/reference/node-options)
+- [Expressions](/reference/expressions)

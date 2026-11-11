@@ -1,0 +1,147 @@
+---
+title: "Plugin contract reference"
+sidebarTitle: "Plugin contract"
+description: "What a trigger, processor or terminal plugin declares and which operations it implements, with the default of each."
+keywords: ["plugin contract", "plugin-api", "Plugin", "forNode", "requiresControlPlane", "ConfigField", "PluginDescriptor"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Plugin contract reference
+
+A plugin is the implementation behind a node `type`; it implements `Plugin` through one role interface (`TriggerPlugin`, `ProcessorPlugin` or `TerminalPlugin`) from the `plugin-api` module.
+
+<Diagram
+  name="ref-plugin-contract"
+  alt="A plugin runs its operations in a fixed order: validate, compile, assemble, then run by role."
+  caption="Override only the operations you need; each has a default."
+/>
+
+## Roles
+
+| Role | Interface | Required operation | Input | Output |
+|---|---|---|---|---|
+| Trigger | `TriggerPlugin` | `start(config)` returns `Flux<Message<?>>` | none | stream of messages |
+| Processor | `ProcessorPlugin` | `process(input, config)` returns `Flux<Message<?>>` | stream of messages | stream of messages on named ports |
+| Terminal | `TerminalPlugin` | `consume(input, config)` returns `Mono<Void>` | stream of messages | none |
+
+Each role interface fixes `getCategory()`. `TerminalPlugin` adds the optional `completionMetadata(config)`: extra metadata for the terminal's `SUCCESS` status event, added only when a message reached the terminal; default is an empty map.
+
+## Declarations
+
+| Declaration | Operation | Type | Default |
+|---|---|---|---|
+| Type id | `getType()` | `String`, unique across the server | required |
+| Category | `getCategory()` | `PluginCategory`: `TRIGGER`, `PROCESSOR`, `TERMINAL` | set by the role interface |
+| Descriptor | `describe()` | `PluginDescriptor` | `PluginDescriptor.EMPTY` |
+| Config schema | `getConfigSchema()` | `List<ConfigField>` | empty list |
+| Output ports | `getOutputPorts()` | `List<String>` | `["default"]` |
+| Output ports for a config | `getOutputPorts(config)` | `List<String>` | `getOutputPorts()` |
+| Default timeout | `getDefaultTimeout()` | `Duration` | 30 seconds |
+| Default timeout for a config | `getDefaultTimeout(config)` | `Duration` | `getDefaultTimeout()` |
+| Default buffer size | `getDefaultBufferSize()` | `int` | 1024 |
+
+Two plugins with the same type id stop the server at startup (`IllegalStateException`, "Duplicate plugin type").
+
+### Descriptor
+
+`PluginDescriptor(description, usagePattern, uiDesign)`.
+
+| Field | Type | Meaning |
+|---|---|---|
+| `description` | `String` | Short text for the plugin catalogue |
+| `usagePattern` | `String` | Usage text shown beside the schema |
+| `uiDesign` | `Optional<UiDesign>` | How the canvas draws the node |
+
+`UiDesign(color, icon, label, width, height)`:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `color` | `String` | Tailwind palette name, for example `blue` |
+| `icon` | `String` | Material Symbols name, for example `filter_alt` |
+| `label` | `String` | Short title on the node |
+| `width`, `height` | `int` | Preferred size in pixels |
+
+### Config schema
+
+`ConfigField(name, type, required, defaultValue, options, description)`. `options` is copied and never null. Factories: `required(name, type, description)`, `optional(name, type, defaultValue, description)`, `choice(name, required, defaultValue, description, options...)`.
+
+| `type` | Edited as |
+|---|---|
+| `STRING` | free text; variable expressions allowed |
+| `NUMBER` | a number |
+| `BOOLEAN` | a switch |
+| `ENUM` | one of `options` |
+| `LIST` | a list of values |
+| `MAP` | a map of string keys to values |
+| `EXPRESSION` | an expression (SpEL or a template) in a monospace editor |
+| `SECRET` | a credential; the value should be a `decrypted:<key>` reference |
+
+With an empty schema the web UI falls back to a raw JSON editor.
+
+## Optional operations
+
+Every operation has a default; override only what the plugin needs.
+
+| Operation | Purpose | Default |
+|---|---|---|
+| `validateConfig(config)` | Checks a node's config when the workflow is validated; an error rejects it | accepts |
+| `validateInContext(context, config)` | Checks the node's place in the graph from its `WorkflowContext` (incoming and outgoing edges) | accepts |
+| `initialize(config)` | One-time setup; runs many times, with different configs, on a shared instance, so it must be idempotent and limited to warming caches | does nothing |
+| `prepare(config)` | Pre-execution step run for every node right after `initialize`, typically to pre-parse expressions | does nothing |
+| `forNode(config)` | Returns the object that serves one node. Called once per node when a run is assembled; per-node state lives in that object's fields | returns `this`; `null` also means `this` |
+| `shutdown(config)` | Releases resources. The engine does not call it, because instances are shared | does nothing |
+| `isBlocking()` | The plugin does blocking I/O or long synchronous work and needs a dedicated thread pool | `false` |
+| `requiresControlPlane()` | The plugin keeps state in the server process or calls back into it, so a node of this type cannot be placed on a worker | `false` |
+| `onControlSignal(message)` | Handles a control-bus command addressed to this node; returns `Mono<Message<?>>` | empty |
+| `isComputationallyHeavy(config)` | Hint for the workflow validator | `false` |
+| `suppressOptimizationHint(config)` | Placement is intentional; suppresses the validator's optimization hints | `false` |
+
+Order for one node: `validateConfig` and `validateInContext` at validation, `initialize` and `prepare` at compile, `forNode` when the run is assembled, then `start`, `process` or `consume`.
+
+`forNode` returns an instance of the plugin's own kind; the engine casts it to the role interface it runs.
+
+## Failure mode
+
+`FailureMode.from(value)` parses a config value, trimmed and case-insensitive; null yields `ERROR`; an unknown value throws `IllegalArgumentException`.
+
+| Value | Behaviour |
+|---|---|
+| `ERROR` | The failure fails the node; the node's `engine` policy then applies |
+| `CONTINUE` | The failure is emitted as a result so downstream nodes can route on it |
+
+## Run context
+
+The engine supplies these through the Reactor context; both are absent outside a workflow run.
+
+| Key | Constant | Value |
+|---|---|---|
+| `yukta.heartbeat` | `WorkflowContext.HEARTBEAT_KEY` | A `Runnable`; calling it restarts the node's idle timeout |
+| `yukta.log-sink` | `WorkflowContext.LOG_SINK_KEY` | A `PluginLogSink`: `line(stream, line, level)`, with `stream` `"stdout"` or `"stderr"` and a nullable `LogLevel` |
+
+## Shared helpers
+
+| Helper | Package | Purpose |
+|---|---|---|
+| `PluginMetricsReporter` | `plugin.core` | `increment(nodeId, metric, tag)`: a per-node outcome counter; `NOOP` drops counts. Surfaces as `yukta.plugin.events` in [the metrics reference](/reference/metrics) |
+| `RunBudgets` | `plugin.util` | Per-run ledger of tokens, cost and call count; `shared()`, `exceeded(...)`, `add(...)`, `addCall(...)`, `validate(config)`; kept in server memory |
+| `InputAsk`, `InputGateway`, `InputRequestSpec` | `plugin.input` | Ask an input request and wait for the answer |
+| `RunAbortedException` | `plugin.exception` | Ends the whole run; found anywhere in a cause chain up to depth 8 |
+| `VariableResolver`, `ConfigValidation`, `EgressPolicy` | `plugin.util` | Option resolution, config checks, outbound host rules |
+
+## Control-plane variant
+
+`ControlPlanePlugin` extends `ExecutionSupervisor`, not `Plugin`.
+
+| Operation | Purpose | Default |
+|---|---|---|
+| `decide(event)` | Returns `Mono<ControlDecision>` for one `ExecutionEvent`; an error counts as no opinion | required |
+| `decisionTimeout()` | Longest the host waits for `decide` on one event | 10 seconds |
+
+## Related
+
+- [Built-in plugins](/reference/plugins/overview)
+- [Node options](/reference/node-options)
+- [Messages](/reference/messages)
+- [Failure model](/concepts/failure-model)
+- [Write a plugin](/guides/extend/write-a-plugin)

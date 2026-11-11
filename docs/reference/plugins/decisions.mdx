@@ -1,241 +1,148 @@
 ---
-title: "Decision plugins: classify, gate and score with a model"
-sidebarTitle: "Decision plugins"
-description: "CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE: constrained model decisions that return a label, a yes or no, or a score you can route a workflow on."
+title: "Decision plugin reference"
+sidebarTitle: "Decisions"
+description: "Shared options, ports and result shapes of CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE."
 tag: "Optional"
-keywords: ["CLASSIFY", "GATE", "SCORE", "model decisions"]
+keywords: ["CLASSIFY", "GATE", "SCORE", "ASK", "ANOMALY", "DEDUPE", "decision model", "System One"]
 ---
 
-<Info>
-  **In plain terms:** use these when a workflow needs judgement that a simple rule cannot make, such as "is this message an urgent complaint?". A model answers a tightly framed question (pick a label, say yes or no, give a score) and the answer comes back in a predictable form you can route on.
-</Info>
+# Decision plugin reference
 
-<Tip>
-  **Why not just use an LLM?** You can: set `backend` to `LLM`. But a decision is a small output, a label and a probability, and paying a chat model to generate it on every message adds up. The default `SYSTEMONE` backend uses a [System One](https://systemonemodels.org/) decision model, which answers from your list of options with a calibrated probability and runs on your own Ollama. Use it for high-volume routing, gating and monitoring, and keep LLMs for work that needs open-ended text.
-</Tip>
+A decision plugin asks a model a constrained question about a message and writes the answer to a metadata key; the payload is not changed. All six are in module `decision`, which depends on `llm-call`.
 
-A decision plugin asks a model a constrained question about a message and records the answer in the message metadata. The answer is always in a known shape: a label from your list, a probability, or a score. You route on it with the plugin's own ports or with a `BRANCH` node.
+## Options every decision plugin accepts
 
-All six need the optional `decision` module, which also brings in `LLM_CALL`. See [Built-in plugins](/plugins/overview) for how a build selects it. Use them to classify, to gate on a yes/no judgement, to rate on a scale, to ask several questions in one call, or to spot unusual and repeated messages.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `backend` | `SYSTEMONE` or `LLM` | `SYSTEMONE` | no | `SYSTEMONE` calls Ollama's System One endpoint (calibrated probabilities); `LLM` asks any chat model. |
+| `provider` | `openai`, `anthropic` or `ollama` | none | with `backend: LLM` | Chat provider. |
+| `model` | string | none | yes | Model name. |
+| `baseUrl` | string | `http://localhost:11434` for `SYSTEMONE` | no | Endpoint override. |
+| `keepAlive` | string | none | no | `SYSTEMONE` only: how long Ollama keeps the model loaded. |
+| `numCtx` | number | none | no | `SYSTEMONE` only: context size to load the model with. |
+| `apiKey` | secret | none | no | API key, `decrypted:<key>`. |
+| `timeout` | number | `30` | no | Seconds. |
+| `state` | expression | `payload` | no | What the model sees. |
+| `maxStateChars` | number | `15000` | no | Most characters the model sees; `15000` is also the highest value. |
+| `stateKeep` | `head`, `tail` or `headTail` | `head` | no | Which part of a state over the cap is kept. |
+| `onOverflow` | `truncate` or `fail` | `truncate` | no | `fail` rejects a state over `maxStateChars`. |
+| `into` | string | per plugin | no | Metadata key for the result. |
+| `concurrency` | number | `16` | no | Model calls in flight at once. |
 
-## Common options
+- **Default node timeout:** `timeout` plus 5 seconds.
+- **Errors:** `Decision model failed: <cause>`; `The model gave no usable answer to '<question>'`; `The state is <n> characters, over maxStateChars <max> (onOverflow is fail)`. A failed decision fails the message; use the node's `engine` policy to retry or route it (see [Node options](/reference/node-options)).
 
-Every decision plugin takes these options in addition to its own.
+## Window options (`ANOMALY`, `DEDUPE`)
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `backend` | `SYSTEMONE` or `LLM` | `SYSTEMONE` | The kind of model, see below |
-| `provider` | `openai`, `anthropic` or `ollama` | none | The chat provider. Required when `backend` is `LLM` |
-| `model` | string | none, required | The model name. Variables allowed |
-| `baseUrl` | string | `http://localhost:11434` for `SYSTEMONE` | Endpoint override. Variables allowed |
-| `keepAlive` | string | none | `SYSTEMONE` only. How long Ollama keeps the model loaded after a call, such as `30m` or `-1`, so an idle model is not reloaded on the next call. Unset leaves it to Ollama (5 minutes). Variables allowed |
-| `numCtx` | number | none | `SYSTEMONE` only. Context size to load the model with. Decision input is capped at 15,000 characters, so a few thousand tokens is enough; the model default can be far larger and slower. Unset leaves it to Ollama |
-| `apiKey` | string | none | API key. Use `decrypted:<key>`. Variables allowed |
-| `timeout` | number | `30` | Seconds to wait for the model |
-| `concurrency` | number | `16` | Model calls in flight at once for this node. Positive |
-| `state` | expression | `payload` | What the model sees. A text result is used as is, any other value is turned into JSON. It is cut to `maxStateChars` (15,000 by default) |
-| `maxStateChars` | number | `15000` | Most characters the model sees; 15,000 is also the highest value. A decision model should judge small input, so lower this to what the question needs |
-| `stateKeep` | `head`, `tail` or `headTail` | `head` | Which part of a state over the cap is kept. `tail` suits build and test output, where the cause is last; `headTail` keeps both ends and marks the cut with `... [N characters omitted] ...` |
-| `onOverflow` | `truncate` or `fail` | `truncate` | `fail` rejects a state over `maxStateChars` with an error instead of cutting it, so the node's `engine.onError` (for example `ROUTE`) takes over |
-| `into` | string | per plugin | The metadata key that receives the result |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `persist` | `none`, `execution` or `session` | `none` | no | `none`: one window per node and run; `execution`: nodes with one `windowKey` share it within the execution; `session`: shared across the executions of the session. |
+| `windowKey` | string | the node id | no | With `persist` `execution` or `session`: nodes with the same key share a window. |
 
-The two backends:
+Shared windows are kept in memory, at most 1000 at a time (least recently used dropped first).
 
-| Backend | How it works |
-|---|---|
-| `SYSTEMONE` | Calls Ollama's System One endpoint (`/v1/systemone`). It needs an Ollama server that serves that endpoint, with a decision model loaded. The probabilities are calibrated |
-| `LLM` | Uses any chat model through the same model access as `LLM_CALL`, so the `yukta.llm.*` settings apply. The model is asked for JSON, and the probabilities are its own estimates and are not calibrated |
+## `CLASSIFY`
 
-The decision is written to `metadata[into]`. The payload is not changed. A model failure, a reply that is not valid, or a label that is not among the options fails the message. Use the node's `engine` policy (retry and error routing) to retry or send failures to a dead letter: see [Failure handling](/concepts/failure-handling).
+Picks one label.
 
-Describe each label, level and criterion explicitly. A small decision model depends on those descriptions.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `labels` | map | none | yes, at least two | Label to a description of when it applies. |
+| `question` | string | `Which label fits this?` | no | What is asked. |
+| `minProbability` | number | `0.6` | no | Below this the answer is uncertain. |
+| `routeByLabel` | boolean | `false` | no | Emit on a port per label. |
 
-Default timeout: `timeout` plus 5 seconds, so 35 seconds with the default. `CLASSIFY`, `GATE`, `SCORE` and `ASK` handle up to `concurrency` messages (default 16) at once, with results emitted in order. `ANOMALY` and `DEDUPE` handle one at a time.
-
-## CLASSIFY
-
-Picks one label for the message.
-
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `labels` | map | none, required | Label to a description of when it applies. At least two |
-| `question` | string | `Which label fits this?` | What is asked |
-| `minProbability` | number | `0.6` | Below this probability the answer is uncertain |
-| `routeByLabel` | boolean | `false` | Emit on a port per label |
-
-`into` defaults to `classification`. The result is `{"choice", "probability", "probabilities", "label", "uncertain"}`: the chosen label, its probability, the probability of every label, and whether the answer counts as uncertain (a probability below `minProbability`).
-
-Output ports: `default`, or with `routeByLabel` one port named like each label plus `uncertain`. A message leaves on its label's port, or on `uncertain` when it is uncertain. Label names therefore become port names.
+- **Output ports:** `default`; with `routeByLabel`, one port per label plus `uncertain`.
+- **Result** (`into` default `classification`): `{choice, probability, probabilities, label, uncertain}`.
 
 ```json
-{
-  "nodeId": "triage",
-  "type": "CLASSIFY",
-  "config": {
-    "model": "tev1:0.8b",
-    "state": "payload.text",
-    "labels": {
-      "bug": "The user reports something that is broken or behaves wrongly",
-      "feature": "The user asks for new behaviour",
-      "question": "The user asks how something works"
-    },
-    "routeByLabel": true,
-    "minProbability": 0.6
-  }
-}
+{ "nodeId": "triage", "type": "CLASSIFY", "config": { "model": "llama3", "routeByLabel": true, "labels": { "bug": "a defect report", "idea": "a feature request" } } }
 ```
 
-## GATE
+## `GATE`
 
-Asks a yes/no question and routes on the answer.
+Asks a yes/no question.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `question` | string | none, required | A yes/no question, for example `Is this message safe to send to a customer?` |
-| `threshold` | number | `0.5` | The probability of yes needed to pass |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `question` | string | none | yes | A yes/no question. |
+| `threshold` | number | `0.5` | no | Probability of yes needed to pass. |
 
-`into` defaults to `gate`. The result is `{"probability", "passed"}`. Output ports: `pass` when the probability of yes is at or above `threshold`, otherwise `reject`.
+- **Output ports:** `pass`, `reject`.
+- **Result** (`into` default `gate`): `{probability, passed}`.
 
 ```json
-{
-  "nodeId": "safe-to-send",
-  "type": "GATE",
-  "config": {
-    "backend": "LLM",
-    "provider": "anthropic",
-    "model": "claude-sonnet-5-5",
-    "apiKey": "decrypted:anthropic",
-    "question": "Is this reply polite and free of personal data?",
-    "state": "payload.reply",
-    "threshold": 0.8
-  }
-}
+{ "nodeId": "safe", "type": "GATE", "config": { "model": "llama3", "question": "Is this safe to send to a customer?" } }
 ```
 
-## SCORE
+## `SCORE`
 
 Rates the message on an ordered scale.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `question` | string | none, required | What is rated |
-| `levels` | list | none, required | The levels, lowest first. From 2 to 26 entries |
-| `threshold` | number | none | The score from which a message counts as high |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `question` | string | none | yes | What is rated. |
+| `levels` | list | none | yes, 2 to 26 entries | Levels, lowest first. |
+| `threshold` | number | none | no | Score from which a message is `high`. |
 
-`into` defaults to `score`. The result is `{"score", "level"}`. The score runs from 0 to the number of levels minus one and is weighted by the model's probabilities. `level` is the nearest named level. Output ports: `default`, or `high` and `low` when `threshold` is set (`high` at or above it).
-
-```json
-{
-  "nodeId": "urgency",
-  "type": "SCORE",
-  "config": {
-    "model": "tev1:0.8b",
-    "question": "How urgent is this ticket?",
-    "levels": ["can wait", "this week", "today", "now"],
-    "threshold": 2
-  }
-}
-```
-
-## ASK
-
-Asks several questions about one message in a single model call.
-
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `questions` | map | none, required | Question name to its definition. Up to 64 |
-
-Each definition is `{"type", "instructions", "criteria"}`:
-
-| `type` | `criteria` | Answer |
-|---|---|---|
-| `choice` | a map of option to description, at least two | `{"choice", "probability", "probabilities"}` |
-| `yesno` | not used | `{"probability"}` |
-| `score` | a list of levels, lowest first, at least two | `{"score"}` |
-
-`into` defaults to `answers`. The result is an object with one entry per question name. Output port: `default`. Route on the answers with a `BRANCH` node, for example on `metadata['answers']['sentiment']['choice']`.
+- **Output ports:** `default` without `threshold`; `high`, `low` with it.
+- **Result** (`into` default `score`): `{score, level}`; `score` runs from 0 to levels-1, probability weighted, and `level` is the nearest level.
+- **Errors:** `levels needs 2 to 26 entries`.
 
 ```json
-{
-  "nodeId": "review",
-  "type": "ASK",
-  "config": {
-    "model": "tev1:0.8b",
-    "state": "payload.text",
-    "questions": {
-      "sentiment": {
-        "type": "choice",
-        "instructions": "What is the sentiment of the text?",
-        "criteria": { "positive": "Happy or satisfied", "negative": "Angry or disappointed", "neutral": "Neither" }
-      },
-      "contains_pii": { "type": "yesno", "instructions": "Does the text contain personal data?" }
-    }
-  }
-}
+{ "nodeId": "urgency", "type": "SCORE", "config": { "model": "llama3", "question": "How urgent is this?", "levels": ["low", "medium", "high"], "threshold": 1.5 } }
 ```
 
-## ANOMALY
+## `ASK`
 
-Judges whether each message is unusual compared with the recent ones.
+Asks up to 64 named questions in one model call.
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `window` | number | `20` | How many recent messages are kept for comparison. At least 1 |
-| `minHistory` | number | `5` | Messages seen before judging starts. At least 0 |
-| `threshold` | number | `0.5` | The probability from which a message is anomalous |
-| `question` | string | `Is the current item unusual compared with the recent items?` | What is asked |
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `questions` | map | none | yes, at most 64 | Question name to `{type: choice\|yesno\|score, instructions, criteria}`; `criteria` is a map `{option: description}` for `choice` and a list of levels for `score`. |
 
-`into` defaults to `anomaly`. The result is `{"probability", "warmup"}`. Output ports: `normal` and `anomalous`. The first `minHistory` messages are always `normal`, with `warmup` true and probability 0.
+- **Output port:** `default`.
+- **Result** (`into` default `answers`): one entry per question name, shaped like the `CLASSIFY`, `GATE` and `SCORE` answers. Route on it with `BRANCH`.
+- **Errors:** `At most 64 questions`; `Question '<name>' must be a map`; `Question '<name>' needs two or more criteria`; `Question '<name>' needs two or more levels`; `Question '<name>' has unknown type '<type>' (choice, yesno or score)`.
 
-## DEDUPE
+```json
+{ "nodeId": "review", "type": "ASK", "config": { "model": "llama3", "questions": { "toxic": { "type": "yesno", "instructions": "Is the text abusive?" } } } }
+```
 
-Judges whether a message means the same as a recent one.
+## `ANOMALY`
 
-| Option | Type | Default | Meaning |
-|---|---|---|---|
-| `window` | number | `10` | How many recent unique messages are kept for comparison. At least 1 |
-| `minProbability` | number | `0.6` | The probability needed to call a message a repeat |
+Judges whether a message is unusual compared with the last `window` messages.
 
-`into` defaults to `dedupe`. The result is `{"duplicate": false}` for a unique message, and `{"duplicate": true, "duplicateOf": "<message id>", "probability": ...}` for a repeat. Output ports: `unique` and `duplicate`. Only unique messages enter the window. The first message is always unique.
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `window` | number | `20` | no | Recent messages kept; 1 or more. |
+| `minHistory` | number | `5` | no | Messages seen before judging starts; the first ones are `normal`. 0 or more. |
+| `threshold` | number | `0.5` | no | Probability from which a message is anomalous. |
+| `question` | string | `Is the current item unusual compared with the recent items?` | no | What is asked. |
 
-For both `ANOMALY` and `DEDUPE`, the window holds each message as text cut to 500 characters. By default (`persist: none`) it belongs to one node in one execution, is kept in memory and starts empty in every execution, so a workflow that is started again for every event never builds history and every message looks normal or unique.
+Window options apply.
 
-To keep history, set `persist`:
+- **Output ports:** `normal`, `anomalous`.
+- **Result** (`into` default `anomaly`): `{probability, warmup}`.
+- **Errors:** `window must be 1 or more and minHistory 0 or more`.
 
-| Setting | Meaning |
-|---|---|
-| `persist` | `none` (default): one window per run of the node. `execution`: the window is shared by the nodes of the execution that have the same `windowKey`. `session`: the window is shared across the executions of the session, so a second execution flags a repeat of an item from the first |
-| `windowKey` | With `persist` `execution` or `session`: nodes with the same key share one window. Default the node id. `DEDUPE` and `ANOMALY` never share a window |
+## `DEDUPE`
 
-Shared windows are kept in memory, at most 1,000 at a time (the least recently used is dropped first), and are lost on restart. Nodes that write to one window at the same time lose no entries; each decision sees the entries recorded before it began. Use one `windowKey` for the attempts of a retry ladder, where each attempt is its own node.
+Judges whether a message means the same as one of the last `window` unique messages.
 
-## Limits and defaults
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `window` | number | `10` | no | Unique messages kept; 1 or more. |
+| `minProbability` | number | `0.6` | no | Probability needed to call a repeat. |
 
-| Item | Value |
-|---|---|
-| Text shown to the model (`state`) | 15,000 characters |
-| `timeout` | 30 s; node timeout 35 s |
-| `CLASSIFY` `minProbability`, `GATE` `threshold` | 0.6, 0.5 |
-| `SCORE` levels | 2 to 26 |
-| `ASK` questions | up to 64 |
-| `ANOMALY` `window`, `minHistory`, `threshold` | 20, 5, 0.5 |
-| `DEDUPE` `window`, `minProbability` | 10, 0.6 |
-| Window text per message | 500 characters |
+Window options apply.
 
-## Next steps
+- **Output ports:** `unique`, `duplicate`.
+- **Result** (`into` default `dedupe`): `{duplicate}` for a unique message; `{duplicate, duplicateOf, probability}` for a repeat.
+- **Errors:** `window must be 1 or more`.
 
-<Card title="AI plugins" icon="brain" horizontal href="/plugins/ai">
-  LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY: call a model, give it tools and keep conversation history.
-</Card>
+## Related
 
-<Card title="AI and agents" icon="robot" horizontal href="/building/ai-and-agents">
-  Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails.
-</Card>
-
-<Card title="Routing and branching" icon="code-branch" horizontal href="/building/routing-and-branching">
-  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
-</Card>
-
-<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
-  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
-</Card>
+- [Plugin reference](/reference/plugins/overview)
+- [AI plugins](/reference/plugins/ai)
+- [Expressions](/reference/expressions)

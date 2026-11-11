@@ -1,0 +1,152 @@
+---
+title: "Secure the server"
+sidebarTitle: "Secure the server"
+description: "Give each person and agent their own API key with a role and a session list, then limit what workflows may run, call and read."
+keywords: ["security", "API keys", "roles", "hardening", "process execution", "egress", "secrets"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to hand out API keys by role, rotate them, and limit commands, outbound hosts and secrets"
+  time="25 minutes"
+  need="a deployed server (see Deploy Yukta) and an ADMIN key"
+  end="named keys in use, commands and outbound hosts on an allow-list, and secrets out of workflow definitions"
+/>
+
+**Use this when** more than one person, script or agent will call the server, or when workflows run commands, SQL or HTTP calls you want to bound. A fresh server listens on `127.0.0.1` only and takes no key. These steps assume you opened it as described in [Deploy Yukta](/guides/operate/deploy).
+
+**Prerequisites:** an `ADMIN` key and the ability to change the server's settings and restart it. For who can do what and why, read [The security model](/concepts/security-model). Every setting named here is listed with its default in [Security reference](/reference/security).
+
+<Warning>
+  Whoever can define a workflow decides what its nodes do: run commands, scripts and SQL, call HTTP endpoints, read files. Give the `ADMIN` role, and with it the right to define workflows, only to people you would let run code on the server. Without any key, everyone who can reach the server has that right. That is why the default is loopback only.
+</Warning>
+
+<Diagram
+  name="ops-secure-the-server"
+  alt="A key role adds reach (read, then steer, then define and configure), and allow-lists separately bound what workflows may run, call and read."
+  caption="Roles limit who may call the server; the three lists limit what a workflow can do once it runs."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Give each caller a named key with a role">
+    Keys are a list in `yukta.api-keys`. Each entry has a `name` (used in the audit), a `key`, a `role` (`VIEWER`, `OPERATOR` or `ADMIN`) and, for the first two, the sessions it may reach:
+
+    ```properties
+    yukta.api-keys[0].name=admin
+    yukta.api-keys[0].key=sha256:<digest of the real key>
+    yukta.api-keys[0].role=ADMIN
+    yukta.api-keys[1].name=ci
+    yukta.api-keys[1].key=sha256:<digest of the CI key>
+    yukta.api-keys[1].role=OPERATOR
+    yukta.api-keys[1].sessions[0]=build
+    yukta.api-keys[2].name=dashboards
+    yukta.api-keys[2].key=sha256:<digest of the viewer key>
+    yukta.api-keys[2].role=VIEWER
+    yukta.api-keys[2].sessions[0]=*
+    ```
+
+    In a container or `systemd` file, use the same list as `YUKTA_API_KEYS_0_NAME`, `YUKTA_API_KEYS_0_KEY`, `YUKTA_API_KEYS_0_ROLE`, `YUKTA_API_KEYS_1_...` and so on.
+
+    - A `VIEWER` reads. An `OPERATOR` also starts, stops and steers runs, and answers input requests. Defining sessions and workflows, changing scheduler limits and reading `/actuator/**` need `ADMIN`.
+    - A `VIEWER` or `OPERATOR` key with no `sessions` is refused at start-up. Write `*` to allow every session, so a misspelt `session` can never widen a key.
+    - The same secret in two entries is refused at start-up.
+  </Step>
+  <Step title="Store the digest, not the key">
+    A key that starts with `sha256:` followed by 64 hex digits is the SHA-256 digest of the real key. The server then never holds the plain key, and clients still send the plain one.
+
+    ```bash
+    key="$(openssl rand -hex 32)"
+    printf '%s' "$key" | sha256sum
+    ```
+
+    Give the person or system `$key`, and the server `sha256:<the digest>`. Keys shorter than 32 characters get a warning in the log.
+  </Step>
+  <Step title="Rotate and expire keys">
+    Several keys are valid at once. To rotate with no downtime, add the new key as another entry, move the clients over, then remove the old entry and restart. Set an expiry on a short-lived key:
+
+    ```properties
+    yukta.api-keys[3].expires=2026-12-31T00:00:00Z
+    ```
+
+    After that instant the key is refused with `401`. Revoking a key still needs a settings change and a restart.
+  </Step>
+  <Step title="Allow only the commands you mean">
+    `PROCESS_EXECUTOR` runs nothing until you allow commands. List the executables:
+
+    ```properties
+    yukta.process.allowed-commands=git,npm,mvn
+    yukta.process.working-dir-root=/srv/work
+    ```
+
+    While the list is set, shell mode (`useShell`) is refused, a node's `workingDir` must stay inside the root, and a node cannot set environment variables such as `PATH`, `LD_*` or `JAVA_TOOL_OPTIONS`. The list names an executable, not what it does with its arguments, so it is not a sandbox: never allow a shell or an interpreter such as `python3`. Use `yukta.process.allow-any=true` only when every workflow author is fully trusted.
+  </Step>
+  <Step title="Limit the hosts a workflow may call">
+    By default `HTTP_REQUEST`, `MCP_TOOL_CALL` and `NOTIFY_TERMINAL` may call any host except link-local and cloud metadata addresses. Narrow it:
+
+    ```properties
+    yukta.egress.allowed-hosts=api.example.com,hooks.slack.com,*.internal.example
+    yukta.egress.by-workflow.nightly-report=api.example.com
+    ```
+
+    A call must pass every list that applies, so a per-workflow or per-session list only narrows what the deployment allows. `*.example.com` matches subdomains but not `example.com`. The list works on the name in the URL: it does not look up what a name resolves to, so keep listed names under your control. Per-plugin lists also exist: `yukta.http.allowed-hosts` and `yukta.mcp-client.allowed-hosts`.
+  </Step>
+  <Step title="Keep secrets out of workflow definitions">
+    A definition that holds a literal secret is refused when it is saved or run. Write a reference and set the value on the server:
+
+    ```json
+    { "apiKey": "decrypted:slack.token" }
+    ```
+
+    ```bash
+    export YUKTA_SECRET_SLACK_TOKEN=xoxb-...
+    ```
+
+    `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`: upper-case the name and replace every character that is not a letter or digit with `_`. Each read is logged with the key name, never the value. Placeholders such as `${env.NAME}` read only variables that start with `YUKTA_VAR_`, a short safe list, or names you list in `YUKTA_VARIABLES_ALLOWED`; names that contain `PASSWORD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` stay blocked.
+  </Step>
+  <Step title="Read who did what">
+    Control commands (pause, stop, skip, answer an input request, change limits and others) are recorded with the sender: `key:<name>` for a named key, the supervisor's id for a supervisor.
+
+    ```bash
+    curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" \
+      "$YUKTA_SERVER_URL/api/control/audit?limit=20"
+    ```
+
+    The list is newest first, with whether each command was applied or refused and why. Add `executionId=<id>` to follow one run. The web UI shows the same list on the Control page, on its **Audit** tab.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Call the server with each key and with none:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' "$YUKTA_SERVER_URL/api/sessions"
+curl -s -H "Authorization: Bearer $CI_KEY" "$YUKTA_SERVER_URL/api/me"
+curl -s -o /dev/null -w '%{http_code}\n' -X POST -H "Authorization: Bearer $VIEWER_KEY" \
+  "$YUKTA_SERVER_URL/api/executions/none/restart"
+```
+
+The first prints `401` (no key). The second shows the CI key's name, role and sessions. The third prints `403`, because a `VIEWER` may not change anything. `yukta-cli whoami` shows the same as the second call. A refusal carries no JSON body: handle it by status code. `401` means no key or a wrong key, `403` means the role or session list does not allow the request, and `429` means the key made too many calls.
+
+## Variations that matter
+
+- **Behind a proxy with no key.** With no key set, the server accepts only the host names `localhost`, `127.0.0.1` and `[::1]`, and a changing request with a foreign `Origin` is refused with `403` and no body. List your host with `yukta.allowed-hosts` and `yukta.allowed-origins`. The check is off once any key is set, so prefer a key.
+- **Rate limits.** Each key may make 1200 `/api` requests per minute, and a wrong or missing key counts against the caller's address (20 per minute), after which the address gets `429`. Behind a proxy all callers share the proxy's address. These are JVM system properties (`-Dyukta.rate-limit-per-minute`, `-Dyukta.auth-failures-per-minute`); `0` turns a limit off. Turn the first off for a load test.
+- **The API description.** The `prod` profile serves no Swagger UI and no `/v3/api-docs`. To turn them on behind the key, set `SPRINGDOC_API_DOCS_ENABLED=true` and `SPRINGDOC_SWAGGER_UI_ENABLED=true`. A browser cannot send the key header to the Swagger page, so fetch `/v3/api-docs` with a key.
+- **LLM and MCP call filters.** To refuse prompts or answers that match a pattern, cap prompt size, or restrict the tools a workflow may call, set the `yukta.llm.*` and `yukta.mcp-client.*` filters. They apply to every node whatever the node says. See [Security reference](/reference/security).
+- **Supervisors and agent credentials.** A supervisor of type `http` has its own credential. See [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+- **Remote workers.** A worker runs plugins in its own process with its own settings; secure it like the server. See [Add remote workers](/guides/operate/add-remote-workers).
+
+To report a vulnerability, use the repository's [security policy](https://github.com/infenia/yukta/security/policy) and not a public issue.
+
+## Related
+
+- [The security model](/concepts/security-model)
+- [Security reference](/reference/security)
+- [Deploy Yukta](/guides/operate/deploy)
+- [Route input requests](/guides/supervise/route-input-requests)
+- [Troubleshoot](/guides/operate/troubleshoot)

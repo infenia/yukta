@@ -1,0 +1,171 @@
+---
+title: "Troubleshoot a Yukta server"
+sidebarTitle: "Troubleshoot"
+description: "Find the cause of a run stuck in QUEUED, a timeout, a 403, a refused resume or a server that will not start, from what you can see on the running server."
+keywords: ["troubleshooting", "errors", "429", "403", "QUEUED", "TIMED_OUT", "resume", "debugging"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to go from a symptom you can see to its cause and fix"
+  time="5 to 15 minutes"
+  need="the CLI or curl, and a key that can read (an ADMIN key for the audit and metrics)"
+  end="the cause of the problem and the change that fixes it"
+/>
+
+**Use this when** something on a running server does not work: a start is refused, a run does not finish, a command is rejected, or the server will not start.
+
+**Prerequisites:** a key for the server (see [Secure the server](/guides/operate/secure-the-server)). For every status code the REST API returns, see [Errors](/api/errors).
+
+<Diagram
+  name="ops-troubleshoot"
+  alt="Start from the run status: each status or code points to a different cause."
+  caption="Read the status first, then follow the section for that cause."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Look at the run, not the log">
+    ```bash
+    yukta-cli workflow status <session-id> <execution-id> -o json
+    ```
+
+    Only the node that failed ends `FAILURE`. Every node behind it, and any node that had not started when the run failed, ends `UPSTREAM_FAILED`, which means "not reached because the run failed". The first terminal that fails ends the run and cancels the other branches. Find the node with `FAILURE` or `TIMED_OUT`, read its reason, then its logs (`yukta-cli logs <session-id> <execution-id> --node <node> --tail 50`). A node with several parents fails when one parent fails; set `engine.trigger` to `ALL_DONE` or `ONE_SUCCESS` if it should carry on. See [Handle failures](/guides/build/handle-failures).
+  </Step>
+  <Step title="Match the symptom">
+    Use the table below, then read the section it names.
+  </Step>
+  <Step title="Check what was refused, and by whom">
+    A refused control command is in the audit with its reason:
+
+    ```bash
+    yukta-cli controlbus audit --execution <execution-id>
+    ```
+  </Step>
+</Steps>
+
+## Symptoms
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Start answered `429` "Execution limit reached" | `yukta.execution.on-limit=REJECT` and every slot is taken | Raise the limits, or set `on-limit=QUEUE` |
+| Start answered `429` "...the queue is full" | The queue holds `yukta.execution.queue-capacity` starts | Raise the capacity or the limits, or slow the clients |
+| Start answered `429` "The server is shutting down" | The server is stopping | Retry against the restarted server |
+| Start answered `429` "The server is draining for a restart" | Someone drained the server | Wait for the restart, or `DELETE /api/admin/drain` (ADMIN) |
+| Start, restart or resume answered `503` "This server is a standby" | [High availability](/guides/operate/run-highly-available) is on and you reached a standby | Send the request to the leader |
+| A run stays `QUEUED` | All slots are taken | [A run stays QUEUED](#a-run-stays-queued) |
+| A run ends `TIMED_OUT` | A queue, run or node clock ran out | [A node or run times out](#a-node-or-run-times-out) |
+| Command answered `403` | Role or session of the key, Host or Origin check, or a supervisor refused | [A command is rejected with 403](#a-command-is-rejected-with-403) |
+| Request answered `401` | No key or a wrong key | Send `Authorization: Bearer <key>` or `X-API-Key` |
+| Request answered `429` on any `/api` call | The key made more than 1200 requests a minute, or a wrong key was tried too often from the address | Slow the client. See [Secure the server](/guides/operate/secure-the-server) |
+| `400` with no body on a keyed server | The path is ambiguous (`;`, `//`, `..`, backslash, an encoded slash) | Send a clean path |
+| `400` "unknown field" | Requests reject unknown JSON fields | Remove or correct the field |
+| `413` | The body is larger than `spring.codec.max-in-memory-size` (1 MB; `YUKTA_LIMITS_MAX_BODY`) | Send less, or raise it |
+| A workflow is refused as too large | More than 500 nodes or 2000 edges | Split it into sub-workflows |
+| Resume answered `409` or `404` | The run is not eligible | [Resume is refused](#resume-is-refused) |
+| Restart answered `404` "no longer restartable" | The run left the archive of the newest 10, or the server restarted | Resume it if it was aborted, or start a new run |
+| Restart from a node answered `400` "incomplete" | The node's output went over the in-memory caps | Use `yukta.restart.dir`, PostgreSQL checkpoints or `yukta.restart.spill-dir` |
+| Retry answered `400` "did not fail" | Only `FAILURE` and `TIMED_OUT` nodes can be retried | Pick the failed node |
+| Pending approvals gone after a restart | Open waits live in memory | [Approvals disappear after a restart](#approvals-disappear-after-a-restart) |
+| Runs marked `ABORTED` after a restart | They were in flight when the server stopped | [Resume them](/guides/operate/persist-sessions#resume-runs-after-a-restart) |
+| A process node is refused | No command is allowed | [A process node is refused](#a-process-node-is-refused) |
+| The server will not start on `0.0.0.0` | No API key is set | [The server refuses to start](#the-server-refuses-to-start) |
+| Log lines are missing | Retention, dropped lines or a placed node | [Observe runs](/guides/operate/observe-runs#variations-that-matter) |
+| An event stream disconnects | Restart, proxy idle timeout or a slow reader | [Observe runs](/guides/operate/observe-runs#variations-that-matter) |
+| UI or API answers `403` with no body behind a proxy | The Host check, with no key set | Set a key, or add the host to `yukta.allowed-hosts` |
+| A placed node fails "No connected worker in pool" | No worker serves that pool and type with a free slot | [Add remote workers](/guides/operate/add-remote-workers#verify-it-worked) |
+| A workflow with `engine.placement` fails to prepare | The build has no workers module | Build with `-Pyukta.workers=true` |
+| A worker is refused | Wrong token, wrong protocol version, or the server is a standby | Check `yukta.workers.token`, the versions, and list every control plane |
+| The server will not start with PostgreSQL | A migration failed, or a URL is missing | [PostgreSQL does not start](#postgresql-does-not-start) |
+| The server will not start and names a build switch | A Plus setting on a Community build | Build with the switch it names, or remove the setting. See [Licensing and editions](/reference/licensing) |
+
+## A run stays QUEUED
+
+A run is `QUEUED` while it waits for a slot. Check:
+
+1. `yukta.executions.running` against `yukta.execution.max-concurrent`, `max-concurrent-per-session` and `max-concurrent-per-workflow`.
+2. Whether running runs are stuck. A run holds its slot until it ends, and a paused run keeps its slot with its clocks frozen. Stop or resume stuck runs.
+3. The queue order: higher priority first, then the session with the fewest running runs, then arrival. Change a waiting run's priority with `yukta-cli workflow executions priority <execution-id> <n>`.
+
+To raise limits without a restart, use `yukta-cli scheduler limits set` (ADMIN). Set `yukta.execution.queue-timeout` so a start that waits too long ends `TIMED_OUT`. See [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
+
+## A node or run times out
+
+`TIMED_OUT` has one cause per clock:
+
+| Where | Cause | Fix |
+|---|---|---|
+| Run, before it ran | It waited longer than `yukta.execution.queue-timeout` | Raise limits or the timeout |
+| Run | The deadline passed (`yukta.execution.timeout`, 1 hour by default) | Raise it, or split the work |
+| Node, idle | No input, output, retry or heartbeat for the node's idle timeout (`timeoutSeconds`, else the plugin default, 30 seconds for many) | Set `timeoutSeconds`. Long silent work needs the plugin to send heartbeats |
+| Node, deadline | `engine.deadlineMs` passed | Raise it |
+| One message | `engine.elementTimeoutMs` passed. The attempt fails, so retry and `onError` apply | Raise it, or add retries |
+| `WAIT_FOR_SIGNAL` | No answer within its `timeoutSeconds` (default 3600) | Answer in time, or raise the timeout |
+
+Pausing freezes every clock, so a pause never causes a timeout. See [How time limits work](/concepts/time-limits).
+
+## A command is rejected with 403
+
+Several checks answer `403`:
+
+- **Role.** A `VIEWER` cannot change anything. An `OPERATOR` reaches only paths under `/api/executions/` and `/api/workflow/`. Defining workflows and changing scheduler limits need `ADMIN`.
+- **Session list.** A key limited to sessions reaches only its own.
+- **Host or Origin.** With no key set, an unknown `Host`, or a foreign `Origin` on a changing request, is refused with no body.
+- **A supervisor.** A supervisor that reviews commands can refuse one with `403` (`CONTROL_REJECTED`). A person's command to a run that a supervisor owns gets `409` (`CONTROLLED_BY_SUPERVISOR`) unless the supervisor's operator access allows it. The CLI exits with code 6 for both. Check `yukta-cli ownership --session <s> --workflow <w>` and the audit.
+
+The audit entry for a refused command shows the command and the reason: `yukta-cli controlbus audit --execution <id>`. See [Secure the server](/guides/operate/secure-the-server).
+
+## Resume is refused
+
+`POST /api/executions/{id}/recover` (and `yukta-cli workflow executions recover`) answers `409` when:
+
+- The run was not aborted. Only a run that a restart aborted can be resumed.
+- The run is being resumed, or was already resumed. A run resumes once.
+- The workflow changed since the run started.
+- The start payload was not recorded.
+- Every node had already finished.
+
+It answers `404` when the run is unknown (for example after a restart with the in-memory log) or its workflow no longer exists, and `429` when the new run gets no slot (nothing is recorded, so try again). Resume needs a durable execution log and a durable checkpoint store. See [Persist sessions](/guides/operate/persist-sessions).
+
+## Approvals disappear after a restart
+
+Open approval waits live in memory. After a restart or a [high availability](/guides/operate/run-highly-available) takeover, an open request is gone, and it reappears only when its node waits again, for example in a resumed run. An approval that was already answered is recorded with the checkpoints, and a resumed run reuses the answer. Input requests can be kept in PostgreSQL with `yukta.input.store-type=postgres`.
+
+## A process node is refused
+
+`PROCESS_EXECUTOR` refuses with one of these messages:
+
+| Message | Fix |
+|---|---|
+| "Process execution is off: set yukta.process.allowed-commands (or ..." | Set `yukta.process.allowed-commands`, or `yukta.process.allow-any=true` for fully trusted authors |
+| "useShell is not allowed while yukta.process.allowed-commands is set" | Call the executable directly, or remove the list |
+| "Command 'x' is not in yukta.process.allowed-commands" | Add the exact executable name |
+
+On a placed node, set the allow-list on the worker. See [Secure the server](/guides/operate/secure-the-server).
+
+## The server refuses to start
+
+The message reads "Refusing to listen on '...' without an API key". The server refuses any address but loopback unless a key exists. Set `yukta.api-keys` (the container image listens on `0.0.0.0`, so it always needs `YUKTA_API_KEYS_0_NAME`, `_KEY` and `_ROLE`), or set `YUKTA_SERVER_ADDRESS=127.0.0.1`. See [Deploy Yukta](/guides/operate/deploy).
+
+## PostgreSQL does not start
+
+The server applies schema migrations first and does not start if one fails. Check:
+
+- Both URLs are set: `spring.flyway.url` for migrations (`jdbc:postgresql://...`) and `spring.r2dbc.url` for run-time access (`r2dbc:postgresql://...`). They are different URL forms for the same database.
+- The migration account may change the schema.
+- The `postgres` profile is active, and the build used `-Pyukta.persistence=postgres`. See [Persist sessions](/guides/operate/persist-sessions).
+
+## Verify it worked
+
+Repeat the call that failed. A start returns an execution id, a refused command no longer appears in `yukta-cli controlbus audit`, or the server logs "Started" and `GET /actuator/health` returns `{"status":"UP"}`. If the symptom is not in the table, copy the exact error message, the status code and the execution id into an issue on the [repository](https://github.com/infenia/yukta/issues).
+
+## Related
+
+- [Errors](/api/errors)
+- [Observe runs](/guides/operate/observe-runs)
+- [Tune capacity and limits](/guides/operate/tune-capacity-and-limits)
+- [How failures are handled](/concepts/failure-model)
+- [Status values reference](/reference/status-values)

@@ -1,107 +1,79 @@
 ---
-title: "Failure handling: retries, error routes and budgets"
-sidebarTitle: "Failure handling"
-description: "Per-node retry with backoff, error routing, failure budgets and join rules, all set with the engine object in a node's configuration, and how failures spread."
-keywords: ["failure handling", "retry", "error routing", "failure budget"]
+title: "The failure model"
+sidebarTitle: "Failure model"
+description: "Why retries, error routes and time limits live in the engine around every node, how a failure is absorbed or spreads, and how to choose between failing loudly and carrying on."
+keywords: ["failure handling", "retry", "error routing", "failure budget", "dead letter", "join rules"]
 ---
 
-<Info>
-  **In plain terms:** in real systems calls fail and services go down. Instead of making every plugin handle that, Yukta wraps every step in the same safety net, which you tune per step: try again a few times with waiting in between, send failures down a dedicated "error" path, or give up after too many failures. No step can hang forever either, because time limits apply to every step.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
 
-Retries, error routing and time limits are not plugin features. They are applied by the engine around every node, and you control them with a reserved `engine` object inside a node's `config`. The plugin never sees it.
+<ReaderState
+  learn="how Yukta treats failure as a normal event, and how to decide what each failure should mean for your workflow"
+  time="10 minutes"
+  need="you have read How Yukta works"
+  end="a way of choosing between retrying, routing, absorbing and failing a step"
+/>
 
-<Note>
-  The workflow schema is in alpha. The `engine` option names may change before v0.1.0.
-</Note>
+In real systems calls fail, services go down and models return nonsense. A workflow engine's quality shows in what it does *next*. Yukta's position: failure is an ordinary event with a few well-defined outcomes, and the engine, not each plugin, owns them.
 
-## The engine object
+## The engine owns failure, plugins do not
 
-```json
-{
-  "nodeId": "classify",
-  "type": "LLM_CALL",
-  "config": {
-    "engine": {
-      "retry": { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
-      "onError": "ROUTE",
-      "trigger": "ALL_DONE",
-      "elementTimeoutMs": 20000,
-      "deadlineMs": 600000,
-      "failureBudget": { "maxFailures": 10, "windowMs": 60000 },
-      "edgeBuffer": { "size": 100, "overflow": "DROP_OLDEST" },
-      "placement": { "pool": "default" }
-    }
-  }
-}
-```
+Retries, error routing and time limits are not features of a particular plugin. The engine applies them around every node, and you control them with a reserved `engine` object in the node's configuration, which the plugin never sees.
 
-| Key | Applies to | Behaviour |
+The benefit is consistency. An HTTP call, a script and a model call all retry the same way, time out the same way and route errors the same way. Plugin authors write business logic only. The cost is that the policy is per node and per message, so it is blunt: it cannot know that a 404 is final but a 503 is not unless you tell it which errors to retry.
+
+## Four things a failed message can become
+
+When a step cannot handle a message, one of four things happens, and you choose which per node.
+
+| Outcome | What it means | Pick it when |
 |---|---|---|
-| `retry` | Processors | Re-runs the node for the failing message with exponential backoff and jitter. Every attempt counts as node activity |
-| `onError` | Processors | `FAIL` (default) ends the node. `CONTINUE` drops the message. `ROUTE` sends it to the `error` port |
-| `failureBudget` | Needs `CONTINUE` or `ROUTE` | When more than `maxFailures` messages fail within `windowMs`, the node fails instead of dropping or routing the next one |
-| `trigger` | Nodes with several parents | Join rule; see [Nodes, edges and ports](/concepts/nodes-edges-ports) |
-| `elementTimeoutMs`, `deadlineMs` | Processors, any node | Time limits; see [Time limits](/concepts/time-limits) |
-| `edgeBuffer` | Any node with a processor | Drop instead of slowing producers; see [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
-| `echoOutput` | Processors | `false` keeps the node's output message out of the run log (a plugin that did not log live has its output logged, cut to 2 KB). The default is `true`, but `false` for a node with secret config (a field the plugin declares secret, or a key named like password, token, api key, authorization or credential); set `true` to log it anyway |
-| `stallAfterMs` | Processors and triggers | Logs one `NodeStalled` warning when a running node shows no activity for this long. It does not fail or pause the node. Off by default |
-| `concurrencyGroup` | Processors | Joins a named group; at most `yukta.concurrency.groups.<name>` of its nodes run at once, the others wait as `QUEUED` |
-| `placement` | Processors | Run on a remote worker pool; see [Remote workers](/operations/remote-workers) |
+| **Retry** | Try the same message again, with growing waits | The cause is likely transient: a timeout, a rate limit, a flaky service |
+| **Fail** (the default) | End the node as failed; the failure spreads | A wrong result is worse than no result |
+| **Route** | Send the message down the node's `error` exit, with the reason attached | You want a dead-letter step, a fix-up, or an alert, and want the rest to continue |
+| **Continue** | Drop the message and carry on | The message is genuinely disposable |
 
-A malformed policy is rejected when the workflow is validated, with the node id and the option at fault. Unknown keys are rejected, `maxBackoffMs` must be below the node timeout, `retryOn` and `noRetryOn` must not share an entry, and `deadlineMs` must be above `elementTimeoutMs`.
+Retry combines with the others: a message is retried, and only when it still fails is it failed, routed or dropped. A step reporting invalid input (a bad request, not a transient fault) is never retried, because retrying cannot help.
 
-## Retry
+<Diagram name="concept-failure-path" alt="A failing step first retries; when retries run out you choose to route the message to the error port, fail the node, or drop the message." caption="The safety net of one node. Routing to the error port is a last resort after retries, not the first move." />
 
-Retry is per message, so use it on processors that handle one message at a time. A node with `retry`, `onError` or `elementTimeoutMs` calls its plugin once per message, and the message carries an `attempt` label (`1`, `2`, ...).
 
-- A plugin that reports invalid input (a bad request, not a transient fault) is never retried.
-- `retryOn` and `noRetryOn` list error type names to include or exclude. Subclasses and causes match, and `noRetryOn` wins.
-- A retried plugin can see the same message twice, so de-duplicate on the message id.
+### Why all-or-nothing output matters
 
-## Error routing
+With retry or error routing on, whatever an attempt emitted before it failed is held back and dropped. A retry or a dead letter therefore never lands on top of a half-finished result. You pay by buffering one message's output until its attempt ends, which is a good trade for correctness.
 
-With `onError: ROUTE`, a message that fails all its attempts is sent to the node's `error` port, tagged with `failure.attempts`, `failure.exception` and `failure.time` (plus `origDest` and `failureReason`). Wire an edge with `"sourcePort": "error"` to a dead-letter node:
+## Absorbing failure can hide a problem
 
-```json
-{ "source": "classify", "target": "dead-letter", "sourcePort": "error" }
-```
+`Route` and `continue` keep a flow alive. That is useful and dangerous: if a service is down, they will quietly shunt every message to a dead letter and the run will report success. A **failure budget** caps it. Once more than a set number of messages fail within a window, the node fails instead. Think of it as the difference between "a few bad records" and "something is broken". Use route or continue together with a budget unless losing messages is truly fine.
 
-An edge without a port never carries dead letters.
+## How a failure spreads
 
-### All-or-nothing output
+A node that fails ends `FAILURE`. Nodes behind it end `UPSTREAM_FAILED`. The first terminal to fail ends the whole run and cancels the other branches.
 
-With `retry` or `onError` of `CONTINUE` or `ROUTE`, whatever an attempt emitted before it failed is held back and dropped. A retry or a dead letter therefore never lands on top of a partial result. The cost is that one message's output is buffered until its attempt ends.
+You can change this at a join. When a node has several parents, its **join rule** says what a failed parent means:
 
-### Failure budget
-
-`CONTINUE` and `ROUTE` keep a flow alive by absorbing failures, which can hide a systematic problem. A failure budget caps that: once more than `maxFailures` messages fail inside `windowMs` in one execution, the node fails instead, so silent data loss cannot continue unnoticed.
-
-## How failures propagate
-
-| Situation | Outcome |
+| Join rule | Meaning |
 |---|---|
-| A processor fails with `onError: FAIL` | The node ends `FAILURE`; nodes after it end `UPSTREAM_FAILED` unless a join rule lets them carry on |
-| A branch fails before a join with `trigger: ALL_DONE` (or `ONE_SUCCESS` with another branch working) | The failed node stays `FAILURE`, the join carries on with what the other branches sent, and the execution can end `SUCCESS`. Check the node statuses, or the `sources` of an `AGGREGATE` join, to see which branches delivered |
-| A terminal fails | The execution ends at once and the other branches are `CANCELLED` |
-| A time limit expires | The node ends `TIMED_OUT` (or the attempt fails, for the element timeout, so retry and error routing apply) |
-| A node's configuration cannot be resolved | That message fails like any plugin failure, so retry and error routing apply |
-| A failure budget is exceeded | The node fails instead of dropping or routing the message that goes over the budget |
+| All success (default) | One failed parent fails the node |
+| All done | Carry on with the parents that worked |
+| One success | Carry on, but fail if every parent failed |
 
-## Next steps
+This is how you build "send the report even if one optional check failed". The consequence to keep in mind: a run can end `SUCCESS` with a failed branch inside it. Look at node statuses, not only the run status.
 
-<Card title="Time limits" icon="clock" horizontal href="/concepts/time-limits">
-  The five independent clocks that bound an execution, and how pausing and long-running work interact with them.
-</Card>
+## Failure is not only errors: time
 
-<Card title="Routing and branching" icon="code-branch" horizontal href="/building/routing-and-branching">
-  Patterns for sending messages down different paths: by exit code, HTTP status, expression, validation result, recipient list and error.
-</Card>
+A step that hangs is a failure too. Yukta bounds every run and node with clocks that you do not have to implement. See [Time limits](/concepts/time-limits).
 
-<Card title="Loops and retries" icon="repeat" horizontal href="/building/loops-and-retries">
-  Repeat work until a condition holds, within bounds, and choose between a loop, an engine retry and a polling loop.
-</Card>
+## Design advice
 
-<Card title="Status values" icon="tags" horizontal href="/reference/status-values">
-  Every execution and node status, and the enumerated values used by node options, limits and roles.
-</Card>
+- **Retry the transient, route the bad data, fail the broken.** Most designs want all three on different steps.
+- **Put side effects behind idempotence.** A retried or resumed step can see a message twice. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+- **Give errors somewhere to go.** An `error` exit with no edge drops the message. Wire a dead-letter step so a failure is visible.
+- **Do not retry AI calls blindly.** A model that returned something wrong may return it again, and each retry costs tokens. Prefer a gate after the model, or a fallback to a different model. See [AI and deterministic work](/concepts/ai-and-deterministic-work).
+
+## Related
+
+- [Handle failures](/guides/build/handle-failures): configure retries, routes and budgets.
+- [Node options reference](/reference/node-options): the `engine` keys and their defaults.
+- [Runs](/concepts/runs): the statuses a failure produces.

@@ -1,0 +1,5 @@
+operations/deployment	guides/operate/deploy
+operations/remote-workers	guides/operate/add-remote-workers
+operations/troubleshooting	guides/operate/troubleshoot
+running/observability	guides/operate/observe-runs
+interfaces/web-ui	guides/operate/use-the-web-ui

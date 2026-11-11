@@ -6,3 +6,4 @@ superpowers/
 internal/
 # Module guides are repo docs for contributors (linked from each module CLAUDE.md), not pages.
 contributing/
+internal-style/

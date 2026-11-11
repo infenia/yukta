@@ -1,70 +1,59 @@
 ---
-title: "Quickstart: install Yukta and run your first workflow"
-sidebarTitle: "Quickstart"
-description: "Install Yukta, save a small greeting workflow, start a run and read its result: the same save, start and read loop you use for every job. Takes five minutes."
-keywords: ["quickstart", "install", "get started", "first workflow"]
+title: "Your first workflow"
+sidebarTitle: "Your first workflow"
+description: "Save a three-step workflow, start a run, and read what each step did, in about ten minutes."
+keywords: ["first workflow", "tutorial", "quickstart", "run", "session", "get started"]
 ---
 
-You will run a tiny workflow that takes a name and returns a greeting. It shows the loop you will use for every job: **save the flowchart, start a run, read the result.**
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
 
-It is small, but it is the same thing Yukta does for a CI pipeline or a team of AI agents: you write the steps down once, and the server runs every one of them, in order, every time, while you watch.
+<ReaderState
+  learn="the loop you use for every job in Yukta: save a workflow, start a run, read the result"
+  time="about 10 minutes"
+  need="a running server (see Install) and curl"
+  end="a finished run whose result and per-step status you have read"
+/>
 
-<img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
-<img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The quickstart workflow: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+## What we're building
 
-## Before you begin
+We will build a workflow that takes a name and returns a greeting. It has three steps: a trigger that receives the name, a mapper that builds the greeting, and a terminal that ends the path.
 
-You need a terminal and `curl`.
+It is small on purpose. A CI pipeline and a team of AI agents use the same loop, and we will meet both in the next tutorials.
+
+<img className="yk-diagram block dark:hidden" src="/images/diagrams/quickstart-greet.light.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+<img className="yk-diagram hidden dark:block" src="/images/diagrams/quickstart-greet.dark.svg" alt="The workflow we build: an API trigger receives a name, a mapper builds a greeting, and a console terminal shows Hello, Ada." loading="lazy" />
+
+*Figure 1: Notice that the message moves left to right, and that each box does one job.*
 
 <Note>
-  Yukta `0.1.0-alpha.3` ships a native server for Linux (amd64), a Docker image, and the command-line client for Linux, macOS and Windows. Native installers for macOS and Windows are coming soon; until then, run the server there with Docker. See [Releases](/reference/releases).
+  We have not installed Yukta yet? Follow [Install Yukta](/get-started/install) first and leave the server running. If your server needs an API key (a Docker server does), add `-H "X-API-Key: <your key>"` to every `curl` below.
 </Note>
 
 <Steps titleSize="h2">
-  <Step title="Install and start the server">
-    <Tabs>
-      <Tab title="Linux" icon="terminal">
-        ```bash
-        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
-        yukta
-        ```
-
-        The script checks file checksums (and the Sigstore signature when `cosign` is installed), never uses `sudo`, upgrades in place when run again (see [Upgrade and roll back](/operations/deployment#upgrade-and-roll-back)), and installs `yukta` (server) and `yukta-cli` (client) into `/usr/local/bin` as root or `~/.local/bin` otherwise.
-      </Tab>
-      <Tab title="Docker" icon="docker">
-        ```bash
-        docker run --rm -p 127.0.0.1:9858:9858 \
-          -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-          ghcr.io/infenia/yukta:0.1.0-alpha.3
-        ```
-
-        A container needs an API key. Add `-H "X-API-Key: change-me"` to every `curl` below. The web UI asks for the same key on first use.
-      </Tab>
-    </Tabs>
-
-    In a second terminal, check that it is up:
+  <Step title="Check the server is up">
+    We confirm the server answers before we send it anything.
 
     ```bash
     curl http://localhost:9858/actuator/health
     ```
 
+    You should see:
+
     ```json
     {"groups":["liveness","readiness"],"status":"UP"}
     ```
 
-    Prefer packages, archives or building from source? See [Deployment](/operations/deployment).
+    > **Stuck?** `Connection refused` means the server is not running. Start it with `yukta` in another terminal, or see [Install Yukta](/get-started/install).
   </Step>
 
   <Step title="Save the workflow">
-    A **session** is a folder of workflows. Save this one as `session.json`:
+    A **session** is a folder of workflows. We save ours in a session called `demo`. Create a file named `session.json`:
 
     ```json session.json
     {
       "sessionId": "demo",
       "name": "Quickstart",
-      "description": "Greet a user",
-      "initiator": "me",
-      "projectPath": "/tmp",
       "workflows": {
         "greet": {
           "workflowId": "greet",
@@ -90,97 +79,175 @@ You need a terminal and `curl`.
     }
     ```
 
-    `description`, `initiator` and `projectPath` are optional. They default to the name, `anonymous` and `.`, and each workflow's `description` defaults to its id.
-
-    Three nodes, one of each kind: the trigger receives your input, the mapper builds the greeting, and the terminal ends the path. Send it to the server:
+    Each box in the picture is a **node**, with a `type` that says what it does. Each arrow is an **edge**. The mapper's `mapping` builds a new message from the old one: `payload.name` is the name we will send in, and the text in single quotes is a literal. Now send it to the server:
 
     ```bash
     curl -X POST http://localhost:9858/api/sessions \
       -H "Content-Type: application/json" -d @session.json
     ```
+
+    You should see:
+
+    ```json
+    {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
+    ```
+
+    > **Stuck?** A `400` names the field it did not accept, for example `workflows.greet.nodes[1]`. Compare that node with the file above.
   </Step>
 
   <Step title="Start a run">
+    A **run** is one execution of a workflow. We start one and hand it a name:
+
     ```bash
     curl -X POST http://localhost:9858/api/workflow/start \
       -H "Content-Type: application/json" \
       -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
     ```
 
-    The server answers `202 Accepted` at once and keeps running the workflow in the background. The **execution id** is your ticket number for this run:
+    The server answers `202 Accepted` at once and keeps running the workflow in the background. You should see an **execution id**, which is your ticket number for this run:
 
     ```json
     {
       "status": 202,
       "message": "Workflow start accepted",
-      "data": { "executionId": "550e8400-e29b-41d4-a716-446655440000" }
+      "data": { "executionId": "f6409682-9b20-42c0-b1e5-514ab97ab0de" }
     }
     ```
 
-    Keep it in a variable for the next step, using your own id:
+    Keep it in a variable, using your own id:
 
     ```bash
-    EXEC=550e8400-e29b-41d4-a716-446655440000
+    EXEC=f6409682-9b20-42c0-b1e5-514ab97ab0de
     ```
   </Step>
 
-  <Step title="Read the result">
+  <Step title="Read the status of every step">
+    We ask the server how the run went:
+
     ```bash
     curl http://localhost:9858/api/executions/$EXEC
+    ```
+
+    You should see the run `SUCCESS` and one entry per node, each with its own status (shortened here):
+
+    ```json
+    {
+      "status": 200,
+      "data": {
+        "executionId": "f6409682-9b20-42c0-b1e5-514ab97ab0de",
+        "sessionId": "demo",
+        "workflowId": "greet",
+        "status": "SUCCESS",
+        "tasks": [
+          { "nodeId": "trigger", "module": "API_TRIGGER", "status": "SUCCESS" },
+          { "nodeId": "map", "module": "MAPPER", "status": "SUCCESS" },
+          { "nodeId": "end", "module": "CONSOLE_TERMINAL", "status": "SUCCESS" }
+        ]
+      }
+    }
+    ```
+
+    > **Stuck?** `404` right after the start can mean the run is not registered yet. Wait a second and ask again. A status of `RUNNING` means it is still going: ask again.
+  </Step>
+
+  <Step title="Read the result">
+    The terminal node is where a run ends. What reaches it is the run's result:
+
+    ```bash
     curl -H "Accept: application/json" \
       http://localhost:9858/api/sessions/demo/executions/$EXEC/results
     ```
 
-    The first call returns the status, `SUCCESS` once every node has finished. The second returns what reached the terminal:
+    You should see the greeting in the first event (shortened):
 
     ```json
-    { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } }
+    {
+      "complete": true,
+      "status": "SUCCESS",
+      "events": [
+        { "kind": "RESULT", "nodeId": "end", "payload": { "greeting": "Hello, Ada" } },
+        { "kind": "NODE_END", "nodeId": "end", "status": "SUCCESS" },
+        { "kind": "EXECUTION_END", "status": "SUCCESS" }
+      ]
+    }
     ```
 
-    <Tip>
-      Sessions are held in memory, so apply them again after a restart. To follow a run live, use `/api/executions/$EXEC/status/stream` or the logs endpoint.
-    </Tip>
+    The log shows what each node saw and sent on. The nodes log in no fixed order, so read it by node name:
+
+    ```bash
+    curl -N http://localhost:9858/api/sessions/demo/executions/$EXEC/logs
+    ```
+
+    ```text
+    data:[2026-11-10T17:52:02.828Z] [INFO] [map/MAPPER] STDOUT: {greeting=Hello, Ada}
+    data:[2026-11-10T17:52:02.825Z] [INFO] [trigger/API_TRIGGER] STDOUT: {name=Ada}
+    ```
+
+    The stream closes by itself when the run has ended.
+  </Step>
+
+  <Step title="Run it again with another name">
+    The workflow is saved, so we do not repeat step 2. We start a second run:
+
+    ```bash
+    yukta-cli workflow start demo greet --payload '{"name":"Grace"}'
+    ```
+
+    You should see a new execution id:
+
+    ```text
+    Workflow started with execution ID: 287dac6b-2e0f-429f-a790-1591d3c48dc3
+    ```
+
+    Then read its status with the id you got. The client prints a small table:
+
+    ```bash
+    yukta-cli workflow status demo 287dac6b-2e0f-429f-a790-1591d3c48dc3
+    ```
+
+    ```text
+    Execution Status
+      ID:       287dac6b-2e0f-429f-a790-1591d3c48dc3
+      Workflow: greet
+      Status:   SUCCESS
+      Tasks:    3
+    Node     Module            Status   BP
+    trigger  API_TRIGGER       SUCCESS
+    map      MAPPER            SUCCESS
+    end      CONSOLE_TERMINAL  SUCCESS
+    ```
+
+    > **Stuck?** `yukta-cli` talks to `http://localhost:9858` unless you set `YUKTA_SERVER_URL`. With an API key, set `YUKTA_TOKEN` as well.
+  </Step>
+
+  <Step title="See the same run in the web UI">
+    Open `http://localhost:9858/` and pick the `demo` session. Each run shows the graph with the status of every node.
+
+    <UiShot name="workflow-canvas" alt="The workflow page showing the greet workflow as three connected boxes, all marked as succeeded." caption="Notice that the three boxes match the three nodes in session.json, and each carries the status of its own step." />
   </Step>
 </Steps>
 
-<Accordion title="Prefer the command line?" icon="terminal">
-  The Linux installer also put `yukta-cli` on your path. The same steps without `curl`:
-
-  ```bash
-  yukta-cli session apply session.json
-  yukta-cli workflow start demo greet --payload '{"name":"Ada"}'
-  yukta-cli workflow status demo <execution-id>
-  ```
-
-  See [Command-line client](/interfaces/cli) for watching runs live and controlling them.
-</Accordion>
+<Warning>
+  Sessions are kept in memory. If you stop the server, apply `session.json` again after you start it.
+</Warning>
 
 ## What you just did
 
-- **Defined the steps once.** The workflow JSON is the single source of truth. A person, a script or an AI agent starts the same definition and gets the same steps.
-- **Let the server run them.** Nothing depended on remembering what comes next.
-- **Read the outcome.** Status, logs and results are always available, live or after the run.
+We wrote a workflow down once, as JSON. We sent it to the server, which ran every step for us, and we read the status of each step and the result. A person, a script or an AI assistant can start the same definition and gets the same steps in the same order. On a longer run you can also pause, stop or retry it while it runs.
 
-On a longer run you can also **pause, step, stop, restart or retry** it while it runs, and turn on a [supervisor](/running/supervisors) that does this for you, with rules or an AI model.
+## Where to go next
 
-## Next steps
-
-<Card title="Examples" icon="flask" horizontal href="/examples">
-  Ten workflows for CI, data, alerts and agents.
-</Card>
-
-<Card title="Control a live run" icon="sliders" horizontal href="/running/run-controls">
-  Pause, step, stop, restart and retry a run or a single node.
-</Card>
-
-<Card title="Add AI to a workflow" icon="robot" horizontal href="/building/ai-and-agents">
-  Model calls, agent loops and decision models as workflow steps.
-</Card>
-
-<Card title="Connect an AI agent" icon="plug" horizontal href="/interfaces/mcp">
-  Let an AI assistant create, run and watch workflows over MCP.
-</Card>
-
-<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
-  Apply sessions and follow runs without `curl`.
-</Card>
+<CardGroup cols={2}>
+  <Card title="Mix rules and AI" icon="scale-balanced" href="/learn/mix-rules-and-ai">
+    Next tutorial: put a rule and an AI step in one workflow, with a fallback that works offline.
+  </Card>
+  <Card title="Let an assistant build it" icon="plug" href="/learn/let-an-assistant-build-a-workflow">
+    Connect Claude Code and let it build and run a workflow for you.
+  </Card>
+  <Card title="How Yukta works" icon="diagram-project" href="/concepts/how-it-works">
+    Why a workflow is a graph of nodes, edges and messages.
+  </Card>
+  <Card title="Define a workflow" icon="pen-ruler" href="/guides/build/define-a-workflow">
+    Write your own workflow JSON for a real job.
+  </Card>
+</CardGroup>

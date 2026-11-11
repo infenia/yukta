@@ -1,185 +1,252 @@
 ---
-title: "Rule files: react to events and veto commands"
+title: "Rule files reference"
 sidebarTitle: "Rule files"
-description: "The declarative JSON format used by the rule supervisor and the rule control plane: react to events with commands, veto commands, and catch typos at load time."
-tag: "Optional"
-keywords: ["rule files", "rules JSON", "veto commands"]
+description: "The JSON format of the rules engine: reactions, timed rules, input answers, vetoes and approval gates, with the fields a SpEL condition can read and the presets."
+keywords: ["rule files", "rules JSON", "SpEL", "every", "presets", "failure-guard", "stall-watchdog", "approval-gate", "reference"]
 ---
 
-<Info>
-  **In plain terms:** rule files let you write that safety net as data: "when this happens, do that" (a reaction) or "never allow this command" (a veto). Yukta checks the file when it loads, so a typo is caught before it can cause trouble.
-</Info>
+# Rule files reference
 
-A rule file is a JSON document with a `rules` list. Each rule is either a **reaction** (`when` an event matches, `then` send a command) or a **veto** (`deny` a command). Rules are checked when the file is loaded, so a mistake such as an invalid condition or an unknown command stops the server from using the file and reports which rule is wrong.
+A rule document is the `settings` of a `rules` supervisor: a JSON object with a `rules` list, checked when it is loaded. A load error names the rule that is wrong and stops the document from being used.
 
+A rule has an `id` and exactly one of: `when` with `then` (a reaction), `deny` (a veto) or `requireApproval` (a gate).
+
+**Example**
 ```json
 {
+  "schemaVersion": 1,
   "rules": [
-    {
-      "id": "pause-on-repeated-http-failure",
-      "when": {
-        "event": "NodeStatusChanged",
-        "status": "FAILURE",
-        "module": "HTTP_REQUEST",
-        "count": 3,
-        "withinSeconds": 60
-      },
-      "then": { "command": "PauseWorkflow" }
-    },
-    {
-      "id": "stop-node-on-server-error",
-      "when": { "event": "NodeStatusChanged", "status": "FAILURE", "if": "metadata['code'] == 500" },
-      "then": { "command": "StopNode", "immediate": true, "reason": "server error" }
-    },
-    {
-      "id": "no-kill",
-      "deny": { "command": "StopWorkflow", "if": "mode == 'KILL'", "reason": "use DRAIN or CANCEL" }
-    }
+    { "id": "pause-on-repeated-http-failure",
+      "when": { "event": "NodeStatusChanged", "status": "FAILURE", "module": "HTTP_REQUEST",
+                "count": 3, "withinSeconds": 60 },
+      "then": { "command": "PauseWorkflow" } },
+    { "id": "no-kill",
+      "deny": { "command": "StopWorkflow", "if": "mode == 'KILL'", "reason": "use DRAIN or CANCEL" } }
   ]
 }
 ```
 
-## Rule fields
+## Document
 
-| Field | Meaning |
+### `schemaVersion`
+- **Type:** number
+- **Default:** `1`
+- **Required:** no
+- **Description:** Version of the document; any value other than `1` is refused.
+
+### `rules`
+- **Type:** list of rules
+- **Default:** empty
+- **Required:** yes
+- **Description:** Rules, in order.
+
+### `id`
+- **Type:** string
+- **Default:** none
+- **Required:** yes
+- **Description:** Names the rule in logs and errors.
+
+## `when`
+
+Every field that is set must match; an omitted field matches any value.
+
+### `event`
+- **Type:** string
+- **Default:** none
+- **Required:** no, except that a rule with `every` must not have it
+- **Description:** `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired` or `InputCancelled`.
+
+### `status`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** Status of a status event, for example `FAILURE`.
+
+### `module`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** The node's plugin type, for node events, for example `HTTP_REQUEST`.
+
+### `nodeId`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** A specific node, for node and log events.
+
+### `workflowId`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** A specific workflow, for status events.
+
+### `if`
+- **Type:** SpEL expression
+- **Default:** none
+- **Required:** no
+- **Description:** Condition over the event's fields ([below](#condition-fields)). One that cannot be evaluated counts as not matching.
+
+### `count`
+- **Type:** integer
+- **Default:** `1`
+- **Required:** no
+- **Description:** How many matching events trigger the rule.
+
+### `withinSeconds`
+- **Type:** integer
+- **Default:** `60`
+- **Required:** no
+- **Description:** Window in which `count` events must occur, counted per execution.
+
+### `every`
+- **Type:** duration text
+- **Default:** none
+- **Required:** no
+- **Description:** Makes the rule timed: it runs on that period over the executions the supervisor owns. Forms `30s`, `5m`, `2h`; at least one second. A timed rule needs a `command` in `then` and a `reason`, takes no `event`, and its `if` can read `read.<STATUS>` (the number of owned executions in that status; a status nobody has is `0`). It acts on its own, so the command must be in the supervisor's `initiative` list. One tick looks at no more than 200 executions.
+
+**Example**
+```json
+{ "id": "too-many-running",
+  "when": { "every": "30s", "status": "RUNNING", "if": "read.RUNNING > 10" },
+  "then": { "command": "PauseWorkflow", "reason": "more than 10 runs are running" } }
+```
+
+## `then`
+
+Exactly one of `command`, `answer` and `escalate`.
+
+### `command`
+- **Type:** string
+- **Default:** none
+- **Required:** one of the three
+- **Description:** `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow`, `PauseNode`, `ResumeNode`, `StopNode`, `Restart` or `RestartFromNode`. Node commands address the node that triggered the rule; the command goes to the execution that produced the event.
+
+### `mode`
+- **Type:** `DRAIN`, `CANCEL` or `KILL`
+- **Default:** `DRAIN`
+- **Required:** no
+- **Description:** For `StopWorkflow`.
+
+### `reason`
+- **Type:** string
+- **Default:** `Stopped by rule` for a stop
+- **Required:** only for a timed rule
+- **Description:** Recorded with a stop and shown in the audit.
+
+### `immediate`
+- **Type:** boolean
+- **Default:** `false`
+- **Required:** no
+- **Description:** For `StopNode`: interrupt instead of draining.
+
+### `from`
+- **Type:** string
+- **Default:** the node that triggered the rule
+- **Required:** no
+- **Description:** For `RestartFromNode`: a node id, or `metadata.<key>` of the event. `START`, or a key the event lacks, restarts the whole run.
+
+A restart starts a new run; in that run's events `attempt` counts the restarts the rules made (0 for a run nobody restarted), so `"if": "attempt < 2"` bounds a retry loop. The count is kept in memory for the newest 1000 restarted runs.
+
+### `answer`
+- **Type:** object
+- **Default:** none
+- **Required:** one of the three
+- **Description:** Answers the input request of an `InputRequested` or `InputEscalated` event. The rule must name one of those events, or none (then it matches only those two).
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `answer.decision` | string | none (required) | The decision; for `APPROVAL` with options and `CHOICE` it must be one of the request's option ids. |
+| `answer.text` | string | none | Free text for `TEXT` requests. |
+| `answer.rationale` | string | none | Why; recorded as `rule <id>: <rationale>`. |
+| `answer.confidence` | number 0 to 1 | `1` | Confidence of the answer. |
+
+The server decides whether an answer counts: the supervisor needs `canAnswer: true` and a `maxRisk` that reaches the request's risk, and a `HIGH` request is answered by people only. The answer names the request version the rule saw and is refused if the request changed.
+
+### `escalate`
+- **Type:** object
+- **Default:** none
+- **Required:** one of the three
+- **Description:** Hands the input request up, on the same events as `answer`.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `escalate.reason` | string | `escalated by rule <id>` | Why it is handed up. |
+| `escalate.advice` | string | none | A recommendation for whoever answers next. |
+
+## `deny`
+
+Refuses matching commands before they run.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `command` | string | none (required) | Command name, with or without the `Command` suffix, for example `StopWorkflow`. |
+| `if` | SpEL | always | Condition over the [command fields](#condition-fields). A condition that cannot be evaluated refuses the command. |
+| `reason` | string | `denied by rule <id>` | Shown to the caller. |
+
+## `requireApproval`
+
+Parks matching commands and raises an `APPROVAL` input request. A matching `deny` wins.
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `command` | string | none (required) | Command name, as in `deny`. |
+| `if` | SpEL | always | Condition over the command fields. |
+| `risk` | `LOW`, `MEDIUM`, `HIGH` | `HIGH` | Who may approve; `HIGH` only a person. |
+| `route` | string | the default route | The input route that decides. |
+| `reason` | string | `approval required by rule <id>` | Shown to whoever approves. |
+| `ttl` | integer (seconds) | the server's default | How long the request waits. |
+
+**Example**
+```json
+{ "id": "prod-stop",
+  "requireApproval": { "command": "StopWorkflow", "if": "workflowId == 'prod-deploy'",
+                       "risk": "HIGH", "reason": "production stop" } }
+```
+
+## Condition fields
+
+A condition is a read-only SpEL expression over one map of fields: no method calls, no types, no assignment. Every field of the kind is present, with `null` when it does not apply.
+
+| Source | Fields |
 |---|---|
-| `id` | Names the rule in logs and errors |
-| `when` | The events that trigger a reaction |
-| `then` | The command to send when triggered |
-| `deny` | A command to refuse. A rule has either `when` and `then`, or `deny`, or `requireApproval` |
-| `requireApproval` | A command to hold until someone approves it |
-| `then` | The command to send when triggered, or the answer or escalation of an input request |
-| `deny` | A command to refuse. A rule has either `when` and `then`, or `deny` |
-
-## `when`: which events
-
-Every field you set must match. Omit a field to match any value.
-
-| Field | Meaning |
-|---|---|
-| `event` | `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed`, or an input request event: `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled` |
-| `status` | The status, for status events, for example `FAILURE` |
-| `module` | The node's plugin type, for node events, for example `HTTP_REQUEST` |
-| `nodeId` | A specific node, for node and log events |
-| `workflowId` | A specific workflow, for status events |
-| `if` | A condition expression over the event's fields |
-| `count` | How many matching events trigger the rule. Default `1` |
-| `withinSeconds` | The window in which `count` events must occur, counted per execution. Default `60` |
-
-### Event fields available to `if`
-
-| Event | Fields |
-|---|---|
-| All events | `executionId` |
-| `NodeStatusChanged` | `workflowId`, `nodeId`, `module`, `status`, `metadata` (a map, for example `metadata['code']`) |
+| Every event | `executionId`, `sessionId`, `nodeId`, `status`, `module`, `workflowId` |
+| `NodeStatusChanged` | `workflowId`, `nodeId`, `module`, `status`, `metadata` (a map: `metadata['code']`) |
 | `WorkflowStatusChanged` | `workflowId`, `status` |
 | `ControlOutcome` | `command`, `actor`, `applied`, `reason` |
-| `LogLine` | `nodeId`, `line`, `level` (`DEBUG`, `INFO`, `WARN` or `ERROR`) |
-| `InputRequested`, `InputEscalated` | `sessionId`, `workflowId`, `nodeId`, `requestId`, `status` (`INPUT_REQUESTED` or `INPUT_ESCALATED`), `kind`, `risk`, `state`, `tier`, `prompt`, `context` (a map: `context['environment']` or `context.environment`), `options` (the option ids), `requesterType` (the asking plugin, such as `ASK_INPUT`; also `requester`), `advice`; and `reason` for `InputEscalated` |
+| `LogLine` | `nodeId`, `line`, `level` (`DEBUG`, `INFO`, `WARN`, `ERROR`) |
+| `EventsMissed` | `status` (`EVENTS_MISSED`), `missed` |
+| `InputRequested`, `InputEscalated` | `sessionId`, `workflowId`, `nodeId`, `requestId`, `status` (`INPUT_REQUESTED` or `INPUT_ESCALATED`), `kind`, `risk`, `state`, `tier`, `requester`, `requesterType`, `prompt`, `context`, `options` (option ids), `advice`; `reason` for `InputEscalated` |
 | `InputAnswered` | `workflowId`, `requestId`, `decision`, `responder`, `responderType` |
-| `InputExpired`, `InputCancelled` | `workflowId`, `requestId`; and `reason` for `InputCancelled` |
+| `InputExpired`, `InputCancelled` | `workflowId`, `requestId`; `reason` for `InputCancelled` |
+| A command under review (`deny`, `requireApproval`) | `executionId`, `actor`, `sessionId`, `workflowId`, `nodeId`, `mode`, `reason`, `immediate` |
+| A timed rule | `read.<STATUS>` |
+| A restarted run | `attempt` |
 
-Every event also has `sessionId`. The prompt and context of a request were written by the asking step, often an AI agent: compare them, but do not base an approval on their claims alone. `context['key']` is `null` when the key is missing; `context.key` cannot be evaluated then, so the condition does not match.
+The `prompt` and `context` of a request were written by the asking step, often an AI agent, and are redacted; a condition may compare them but their content is untrusted. `context['key']` is `null` when the key is missing.
 
-A condition that cannot be evaluated counts as not matching, so a faulty reaction never fires.
+## Presets
 
-## `then`: which command
+Complete rule documents, from `GET /api/supervisor-engines/rules/presets` and `list_supervisor_presets`.
 
-| Field | Meaning |
+| Preset | Behaviour |
 |---|---|
-| `command` | `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow`, `PauseNode`, `ResumeNode`, `StopNode`, `Restart` or `RestartFromNode`. Node commands address the node that triggered the rule |
-| `mode` | For `StopWorkflow`: `DRAIN` (default), `CANCEL` or `KILL` |
-| `reason` | Recorded with a stop. Default `Stopped by rule` |
-| `immediate` | For `StopNode`: interrupt instead of draining |
-| `from` | For `RestartFromNode`: the node to restart from, as a literal or `metadata.<key>` of the event (for example `metadata.restartFrom` of an [`OUTCOME_TERMINAL`](/plugins/terminals)). `START`, or a key the event lacks, restarts the whole run. Default: the node that triggered the rule |
+| `failure-guard` | Pauses a workflow when 3 nodes fail within 60 seconds. |
+| `approval-gate` | A `StopWorkflow` waits for a person to approve it (`risk` `HIGH`). |
+| `stall-watchdog` | Every 30 seconds, pauses a running workflow that has done nothing for 10 minutes. Needs `PauseWorkflowCommand` in `initiative`. |
+| `too-many-running` | Every 30 seconds, pauses each running workflow while more than 10 are running. Needs `PauseWorkflowCommand` in `initiative`. |
 
-The command is addressed to the execution that produced the event. A restart starts a new run (the rule engine picks its id), and that run's events see `attempt`, the number of restarts the rules made to get there (0 for a run nobody restarted). Use `"if": "attempt < 2"` to bound a retry loop; when the budget is spent the rule stays silent and the last outcome is the signal for whoever watches the event stream. The count lives in memory (the newest 1,000 restarted runs): after a server restart, or once a chain has been pushed out by 1,000 newer restarts, it starts again at 0, so a retry chain gets a fresh budget.
+## Where a rule document is read
 
-## Answer and escalate input requests
-
-Instead of a `command`, a rule's `then` can hold `answer` or `escalate`, which act on the [input request](/building/input-requests) of an `InputRequested` or `InputEscalated` event. Such a rule must name one of these events in `when.event`, or name none (it then matches only these two). A rule has exactly one of `command`, `answer` and `escalate`.
-
-```json
-{
-  "rules": [
-    {
-      "id": "approve-low-risk-staging",
-      "when": { "event": "InputRequested", "if": "risk == 'LOW' and context['environment'] == 'staging'" },
-      "then": { "answer": { "decision": "approve", "rationale": "policy 7: low risk deploys", "confidence": 1.0 } }
-    },
-    {
-      "id": "escalate-the-rest",
-      "when": { "event": "InputRequested", "if": "not (risk == 'LOW' and context['environment'] == 'staging')" },
-      "then": { "escalate": { "reason": "not covered by policy 7", "advice": "check the target environment" } }
-    }
-  ]
-}
-```
-
-| Field | Meaning |
+| Source | Notes |
 |---|---|
-| `answer.decision` | Required. The decision; for `APPROVAL` with options and for `CHOICE` it must be one of the request's option ids, or the answer is refused |
-| `answer.text` | Free text, for `TEXT` requests |
-| `answer.rationale` | Why. Recorded as `rule <id>: <rationale>` |
-| `answer.confidence` | From 0 to 1. Default `1` |
-| `escalate.reason` | Why it is handed up. Default `escalated by rule <id>` |
-| `escalate.advice` | A recommendation for whoever answers next |
+| The `settings` of a `rules` supervisor | `PUT /api/supervisors/{id}`; the document alone with `PUT /api/supervisors/{id}/engine/rules`, `save_rules`, `supervisors rules set`. The shared settings stay. |
+| `yukta.supervisor.rules.file` | A JSON file read at start-up by a bean supervisor. |
 
-The answer names the version of the request the rule saw, so it is refused if the request changed in between. The server decides whether the answer counts: the supervisor needs a profile with `canAnswer: true` and a `maxRisk` that reaches the request's risk, and a request of risk `HIGH` is answered by people only. A rules file set with `yukta.supervisor.rules.file` or `yukta.control-plane.rules.file` can therefore escalate but never answer: attach the rules as a [profile](/running/supervisors#answer-input-requests) instead. When the rules contain an `answer` and the supervisor may not answer, a warning naming the rules is logged when they are loaded; their answers are denied and counted in `yukta.input.denied{rule}`.
+Try a draft on a past run in dry run with `replay_rules`, `supervisors rules replay` or `POST /api/supervisors/{id}/engine/rules/replay`.
 
-Answer and escalation fields are checked when the rules are loaded: a missing `decision`, a confidence outside 0 to 1, an unknown field or an `answer` on another event kind stops the file from loading.
+## Related
 
-## `deny`: which commands to refuse
-
-A deny rule makes the rule engine act as a [reviewer](/running/supervisors): matching commands are refused before they run.
-
-| Field | Meaning |
-|---|---|
-| `command` | The command name, with or without the `Command` suffix, for example `StopWorkflow` |
-| `if` | A condition over the command's fields. Omit it to always refuse |
-| `reason` | Shown to the caller. Default `denied by rule <id>` |
-
-Command fields available to `if`: `executionId`, `actor`, `nodeId`, `mode`, `reason` and `immediate`.
-
-A deny condition that cannot be evaluated **refuses** the command, so a faulty rule never lets a forbidden command through.
-
-## `requireApproval`: which commands to hold
-
-A `requireApproval` rule parks matching commands until an input request is approved (see [Ask for approval](/running/supervisors#ask-for-approval)). A deny rule still wins over it.
-
-| Field | Meaning |
-|---|---|
-| `command` | The command name, as in `deny` |
-| `if` | A condition over the command's fields, which also include `workflowId`. Omit it to always ask |
-| `risk` | `LOW`, `MEDIUM` or `HIGH`. Default `HIGH`, which only a person can approve |
-| `route` | The input route that decides. Default: the default route |
-| `reason` | Shown to whoever approves. Default `approval required by rule <id>` |
-
-```json
-{ "id": "prod-stop", "requireApproval": { "command": "StopWorkflow", "if": "workflowId == 'prod-deploy'", "risk": "HIGH", "reason": "production stop" } }
-```
-
-A bad `risk` or `route` stops the file from loading.
-
-## Enabling a rule file
-
-| To use it as | Set |
-|---|---|
-| A supervisor | `yukta.supervisor.rules.file` |
-| A control plane | `yukta.control-plane.rules.file` |
-
-Both read the same format.
-
-## Next steps
-
-<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
-  Who owns which nodes of a run, and the engines that decide for them: rules, an application, an outbound call, a workflow or a program.
-</Card>
-
-<Card title="Supervisor engines" icon="gears" horizontal href="/running/supervisor-engines">
-  The other engines a supervisor can have: an application, an outbound call, a workflow or a program.
-</Card>
-
-<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
-  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
-</Card>
+- [Supervisor engines](/reference/supervisors/engines)
+- [Supervisor shell](/reference/supervisors/shell)
+- [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)
+- [Expressions reference](/reference/expressions)

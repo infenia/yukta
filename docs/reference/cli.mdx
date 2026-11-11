@@ -1,258 +1,225 @@
 ---
-title: "yukta-cli: the Yukta command-line client"
-sidebarTitle: "Command-line client"
-description: "Use the yukta-cli binary to apply sessions, start and control runs, and watch logs and events live from a terminal or a CI job, with no runtime to install."
-keywords: ["CLI", "command line", "yukta command", "CI"]
+title: "CLI reference"
+sidebarTitle: "CLI"
+description: "Every command, argument and flag of the yukta-cli client, with its environment variables and exit codes."
+keywords: ["CLI", "yukta-cli", "commands", "flags", "exit codes", "reference"]
 ---
 
-<Info>
-  **In plain terms:** the `yukta-cli` command lets you do everything from a terminal: load a workflow file, start it, follow its logs, steer it. It is a single small program with nothing else to install, which makes it handy in scripts and CI jobs.
-</Info>
+# CLI reference
 
-The `yukta-cli` command is a thin client for a running Yukta server. It is a single static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer, which makes it useful in shell scripts, CI jobs and quick checks at a terminal.
+`yukta-cli` is a single binary that calls the [REST API](/api/overview) of a Yukta server; this page lists its commands, flags, environment variables and exit codes.
 
-Use it when you want to apply a session file, start a workflow, follow its logs and result, or steer a run, without writing HTTP calls.
+Syntax: `yukta-cli [global flags] <command> [subcommand] [arguments] [flags]`. Global flags may come before or after the command. `<x>` is a required argument, `[x]` an optional one. `yukta-cli <command> --help` prints the flags of one command.
 
-## Install
+## Global flags
 
-The Linux archives, `.deb` and `.rpm` packages of a release include `yukta-cli` next to the server. Every release also lists the client on its own for each platform, so you can install it on a laptop that only talks to a remote server:
+### `--url`
+- **Type:** string
+- **Default:** `http://localhost:9858`
+- **Environment:** `YUKTA_SERVER_URL`
+- **Description:** Base address of the server.
 
-| Platform | File |
-|---|---|
-| Linux | `yukta-cli-linux-amd64`, `yukta-cli-linux-arm64` |
-| macOS | `yukta-cli-darwin-amd64` (Intel), `yukta-cli-darwin-arm64` (Apple silicon) |
-| Windows | `yukta-cli-windows-amd64.exe` |
+### `--token`
+- **Type:** string
+- **Default:** none
+- **Environment:** `YUKTA_TOKEN`
+- **Description:** API key, sent as `Authorization: Bearer <key>`. Mutually exclusive with `--token-file`.
 
-Download the file for your platform, check it against the release's `SHA256SUMS`, make it executable (`chmod +x`) and put it on your `PATH`, for example as `/usr/local/bin/yukta-cli`.
+### `--token-file`
+- **Type:** path
+- **Default:** none
+- **Description:** File that holds the API key; surrounding whitespace is trimmed.
 
-To build the client yourself, run `make build-all` in the `cli` folder, or `./gradlew :cli:goBuildAll`; the binaries are written to `cli/build/`. Check an install with `yukta-cli --version`. See [Deployment](/operations/deployment).
+### `--insecure-token`
+- **Type:** boolean
+- **Default:** `false`
+- **Environment:** `YUKTA_INSECURE_TOKEN`
+- **Description:** Allows sending the token over plain `http` to a host that is not loopback; refused otherwise.
 
-## Configure
+### `--timeout`
+- **Type:** duration
+- **Default:** `30s`
+- **Description:** Time limit of each non-streaming request; `0` disables it. Streaming commands are not limited by it.
 
-Four global flags apply to every command. Flags go before or after the command name.
+### `--retries`
+- **Type:** integer
+- **Default:** `0`
+- **Description:** Extra attempts for reads, and for starts (an idempotency key is generated), on network errors, `429` and `502` to `504`.
 
-| Flag | Environment variable | Default | Meaning |
+### `--retry-wait`
+- **Type:** duration
+- **Default:** `1s`
+- **Description:** First pause between retries; it doubles each time, and a longer `Retry-After` from the server wins.
+
+### `-o`, `--output`
+- **Type:** `table` or `json`
+- **Default:** `table`
+- **Description:** Output format of every command; any other value is a usage error.
+
+### Environment-only settings
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `--url` | `YUKTA_SERVER_URL` | `http://localhost:9858` | Base address of the server |
-| `--token` | `YUKTA_TOKEN` | none | API key, sent as `Authorization: Bearer <key>` |
-| `--timeout` | none | `30s` | Time limit for each non-streaming request. `0` disables it. Streaming commands are not limited |
-| `--token-file` | none | none | Read the API key from a file instead of the command line |
-| `--insecure-token` | `YUKTA_INSECURE_TOKEN` | `false` | Allow sending the token over plain http to a host that is not loopback. Refused otherwise |
-| `--retries` | none | `0` | Extra attempts for reads, and for starts (a key is generated for each), on network errors, `429` and `502`–`504` |
-| `--retry-wait` | none | `1s` | First pause between retries. It doubles each time, and a `Retry-After` from the server wins if it is longer |
-| `-o`, `--output` | none | `table` | `table` or `json` |
+| `YUKTA_STREAM_IDLE` | duration | `45s` | How long a followed stream may be silent before it counts as dropped; `0` turns the check off. |
+| `YUKTA_STREAM_RECONNECTS` | integer | `5` | Reconnects in a row before a followed stream gives up. |
 
-Stream limits are set only with environment variables: `YUKTA_STREAM_IDLE` (a duration; `0` turns the idle check off) and `YUKTA_STREAM_RECONNECTS` (a count of reconnects).
-
-A flag overrides the environment variable. The client reads no configuration file.
-
-```bash
-export YUKTA_SERVER_URL=https://yukta.example.com
-export YUKTA_TOKEN=<key>
-yukta-cli session list
-```
-
-The server's role and session rules apply to the key you give; see [REST API overview](/api/overview#roles). The client sends the key only as a bearer token.
-
-## Output formats
-
-| Format | What you get |
-|---|---|
-| `table` | Lists as aligned columns, single objects as field and value rows, and actions as one confirmation line such as `Execution paused: <id>` |
-| `json` | The server's data as indented JSON. For actions, the response object, for example `{ "executionId": "..." }` |
-
-Some commands print JSON in both formats because their data is nested: `session summaries`, `session workflow get`, `session workflow graph`, `session workflow executions`. The live commands print one item per line, as described under [Watch live](#watch-live).
-
-## Sessions
-
-| Command | Does |
-|---|---|
-| `yukta-cli session list` | List session ids |
-| `yukta-cli session get <session-id>` | Show a session's id and workflow ids |
-| `yukta-cli session summaries` | List sessions with their workflow counts, as JSON |
-| `yukta-cli session apply <json-or-file>` | Create or replace a session from a JSON file, or from inline JSON if no such file exists |
-| `yukta-cli session delete <session-id> [--force] [--yes]` | Delete a session with its workflows and versions; run history stays. Asks first unless `--yes`. `--force` cancels active runs. Needs the `ADMIN` role |
-| `yukta-cli session workflow delete <session-id> <workflow-id> [--force] [--yes]` | Delete one workflow, the same way |
-| `yukta-cli session workflow get <session-id> <workflow-id>` | Print a workflow definition as JSON |
-| `yukta-cli session workflow graph <session-id> <workflow-id>` | Print the nodes and edges with plugin metadata |
-| `yukta-cli session workflow executions <session-id> <workflow-id>` | List the runs of one workflow, newest first |
-
-`session apply` sends the same body as [`POST /api/sessions`](/api/sessions#apply-a-session) and needs a key with the `ADMIN` role. It checks that the text is valid JSON before sending it.
-
-```bash
-yukta-cli session apply session.json
-yukta-cli session get demo
-```
-
-## Start and stop workflows
-
-| Command | Does |
-|---|---|
-| `yukta-cli workflow start <session-id> <workflow-id>` | Start a run and print its execution id |
-| `yukta-cli workflow stop <session-id> <workflow-id> [--mode DRAIN\|CANCEL\|KILL]` | Stop every active run of the workflow; the default `DRAIN` lets work in flight finish |
-| `yukta-cli workflow executions stop <execution-id> [--tree]` | Stop one run; `--tree` also the runs it started as sub-workflows |
-| `yukta-cli workflow tree <execution-id>` | The run and every run it started, one line each: id, workflow, status, `parent=` |
-| `yukta-cli workflow executions restart <execution-id> [from-node-id]` | Restart a run from the beginning, or from a node, as a new run |
-
-`workflow start` takes the trigger input with one of two flags:
-
-| Flag | Meaning |
-|---|---|
-| `--payload <json>` | Inline JSON object |
-| `--payload-file <path>` | File that holds a JSON object |
-| `--idempotency-key <key>` | A repeated start with the same key, session and workflow returns the first execution id instead of a second run. Use it when a start may be retried |
-
-The two flags cannot be combined, and the payload must be a JSON object.
-
-```bash
-yukta-cli workflow start demo greet --payload '{"name":"Ada"}'
-```
-
-```text
-Workflow started with execution ID: 550e8400-e29b-41d4-a716-446655440000
-```
-
-## Inspect runs
-
-| Command | Does |
-|---|---|
-| `yukta-cli workflow status <session-id> <execution-id>` | Show the run's status, times and the number of nodes |
-| `yukta-cli workflow history <session-id>` | List the runs of a session with status and times |
-
-Use `-o json` with `status` to get the full snapshot, including every node's status. The server may keep only the newest runs; see the [REST history call](/api/workflows#list-the-runs-of-a-session).
-
-## Control a run
-
-| Command | Does |
-|---|---|
-| `yukta-cli workflow pause <session-id> <execution-id> [--tree]` | Pause a run; `--tree` also the runs it started as sub-workflows, which pausing the parent alone leaves running |
-| `yukta-cli workflow resume <session-id> <execution-id> [--tree]` | Resume a paused run (`--tree`: with the runs it started) |
-
-## Control nodes
-
-Node commands act on one node of a live run. The role they need is `OPERATOR`.
-
-| Command | Does |
-|---|---|
-| `yukta-cli workflow node pause <session-id> <execution-id> <node-id>` | Pause a node |
-| `yukta-cli workflow node resume <session-id> <execution-id> <node-id>` | Resume a node |
-| `yukta-cli workflow node stop <session-id> <execution-id> <node-id>` | Stop a node. `--immediate` stops without draining; `--reason <text>` records a reason |
-| `yukta-cli workflow node skip <session-id> <execution-id> <node-id>` | Skip a node so it passes its input through. `--skip=false` unskips it |
-| `yukta-cli workflow node step enable <session-id> <execution-id> <node-id>` | Turn on step mode |
-| `yukta-cli workflow node step disable <session-id> <execution-id> <node-id>` | Turn off step mode |
-| `yukta-cli workflow node step next <session-id> <execution-id> <node-id>` | Let one element through |
-| `yukta-cli workflow node retry <execution-id> <node-id>` | Restart from a node that failed, as a new run, and print the new id |
-| `yukta-cli workflow node breakpoint <execution-id> <node-id> --field <f> --equals <v>` | Hold a node before the first element whose field equals a value |
-| `yukta-cli workflow node breakpoint <execution-id> <node-id> --clear` | Remove the node's breakpoint |
-
-`retry` and `breakpoint` take no session id. These commands map to the calls on the [Control API](/api/control) page.
-
-## Watch live
-
-These commands stay connected until the run ends or you press Ctrl-C. A Ctrl-C ends them cleanly with exit code `0`.
-
-| Command | Prints |
-|---|---|
-| `yukta-cli logs <session-id> <execution-id>` | One log line per line, stored lines first, then live. `--entries` prints each entry as one JSON object |
-| `yukta-cli logs <session-id> <execution-id> --node <node>` | Part of what one node wrote instead of a stream, as `<line number>: <text>`: `--tail N`, `--head N`, `--offset N --limit N` (at most 500), `--grep REGEX` with `--context N`, `--stream stdout\|stderr\|all`. A note on stderr says when lines were left out and where the next page starts |
-| `yukta-cli result <session-id> <execution-id>` | One JSON event per line as results reach the terminal nodes, ending with `EXECUTION_END`. `--node <id>` follows one terminal node. Works after the run ended, while the server keeps the result |
-| `yukta-cli workflow status-stream <session-id> <execution-id>` | A JSON progress snapshot at every change. `--include-history` replays recent updates first |
-| `yukta-cli controlbus watch` | One line per event of all runs |
-
-`controlbus watch` follows the server-wide [event feed](/api/streams#stream-events-of-all-runs) and prints one line per event:
-
-```text
-NODE compile RUNNING
-LOG compile: compiling 12 files
-NODE compile SUCCESS
-CONTROL PauseWorkflowCommand applied=true
-WORKFLOW SUCCESS
-```
-
-| Flag | Meaning |
-|---|---|
-| `--execution <id>` | Only events of this run |
-| `--type <kind>` | Only `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome` or `LogLine` |
-| `--no-logs` | Leave out log lines |
-| `--quiet` | Show only problems and the end: final node statuses other than `SUCCESS` with the reason each node reports, the error and warning lines of the output (each once, at most 20 per node, written as `ERROR <node>: <line>` or `WARN <node>: <line>`), control commands that were not applied, and the final workflow status |
-| `--until-done` | Exit when the run has ended. Needs `--execution`. It also checks the run's status while it waits, so it ends correctly even if the run finished before the watch began |
-| `--tree` | With `--execution`, also watch the runs it starts as sub-workflows, at any depth. On by default (`--tree=false` turns it off). Their lines name the child workflow, for example `NODE check/style FAILURE` or `WORKFLOW check FAILURE`; with `--quiet` a child that ends `SUCCESS` is not shown. `--until-done` still ends with the watched run itself |
-| `--follow-restarts` | With `--until-done`: when the run ends, go on with the run that restarted it (if one starts within a few seconds), after a `RESTARTED <old> <new>` line |
-
-With `-o json`, `controlbus watch` prints each event as one JSON object per line. The feed does not replay past events, so start the watch before the run, or use `--until-done`.
-
-`--until-done` exits with `0` whatever the final status of the run. Read the last `WORKFLOW` line, or the run's status, to see the outcome.
-
-```bash
-EXEC=$(yukta-cli workflow start demo build -o json | jq -r .executionId)
-yukta-cli controlbus watch --execution "$EXEC" --quiet --until-done
-```
-
-## Discover plugins
-
-| Command | Does |
-|---|---|
-| `yukta-cli plugin list` | List plugin types with their category |
-| `yukta-cli plugin get <type>` | Show a plugin's description, usage pattern and output ports. `-o json` adds the full details |
-
-## Control bus
-
-The control bus commands address nodes by workflow id rather than by run. See the [REST control bus calls](/api/control#send-a-command-to-a-node).
-
-| Command | Does |
-|---|---|
-| `yukta-cli whoami` | Show the name, role and sessions of the API key in use and what it may do |
-| `yukta-cli scheduler limits` | Show the execution limits (`0` is no limit) and how many runs execute and wait |
-| `yukta-cli scheduler limits set --max-concurrent N --max-per-workflow M` | Change the execution limits. Needs the `ADMIN` role |
-| `yukta-cli controlbus command --session <id> [--execution <id>] <workflow-id> <node-id> <json-or-file>` | Send a command to a node, as inline JSON or from a file. Needs the `ADMIN` role. `--session` is required; give `--execution` when the session has several live runs of the workflow |
-| `yukta-cli controlbus watch` | Stream events, described above |
-
-## Access
-
-Give the client a key with `--token` or `YUKTA_TOKEN` when the server requires one. A key with the `VIEWER` role can run the read commands and the live commands. Starting, stopping and controlling runs needs `OPERATOR`, and applying sessions and sending control bus commands needs `ADMIN`. A refused request prints the server's answer, for example `API error: status 403: ...`.
+A flag overrides its environment variable. The client reads no configuration file.
 
 ## Exit codes
 
 | Code | Meaning |
 |---|---|
-| `0` | The command succeeded, or a live command was stopped with Ctrl-C |
-| `1` | The command failed: a bad argument, a connection problem, a timeout, or an HTTP error from the server |
+| `0` | Success, or a live command stopped with Ctrl-C. |
+| `1` | Any other failure (connection problem, other HTTP error). |
+| `2` | Usage error: unknown command, missing argument or flag. |
+| `3` | Not found (HTTP `404`). |
+| `4` | Server error (HTTP `5xx`). |
+| `5` | Timeout (client timeout, or HTTP `504`). |
+| `6` | Refused by a supervisor (`409 CONTROLLED_BY_SUPERVISOR` or `403 CONTROL_REJECTED`). |
 
-On failure the command prints `error: <message>` to standard error. An HTTP error includes the status code and the response body.
+On failure the command prints `error: <message>` to standard error.
 
-## Other commands
+## Server and identity
 
-| Command | What it does |
+| Command | Description |
 |---|---|
-| `yukta-cli workflow executions recover <execution-id>` | Continue an aborted run as a new run |
-| `yukta-cli workflow executions priority <execution-id> <priority>` | Change the priority of a queued run |
-| `yukta-cli workflow executions search` | Search runs across sessions |
-| `yukta-cli session workflow versions\|diff\|rollback\|note <session-id> <workflow-id> …` | Saved versions of a workflow |
-| `yukta-cli session validate <json-or-file>` | Validate a workflow definition without saving it |
-| `yukta-cli session config <session-id>` | A session's configuration |
-| `yukta-cli inputs list [--session ID]`, `inputs show`, `inputs answer`, `inputs escalate` | Input requests: list the open ones, read, answer or escalate one |
-| `yukta-cli controlbus audit` | Control commands sent, newest first |
-| `yukta-cli supervisors`, `yukta-cli workers` | Supervisors and remote workers |
-| `yukta-cli supervisors engines\|list\|show\|save -f\|validate -f\|delete\|presets\|versions\|rollback --version\|replay --execution\|decisions` | Manage supervisors and their decision engines |
-| `yukta-cli supervisors credential create\|revoke <id>` | The credential of an `http` supervisor; the token is printed once |
-| `yukta-cli supervisors rules get\|set\|replay <id>` | The rules document of a `rules` supervisor: show it, replace it from `-f <file>` (the shared settings stay), or try a draft (`-f`) on a past run (`--execution`) in dry run |
-| `yukta-cli supervisors agent --credential-file f --exec prog` | Run a program as the decision maker of an `http` supervisor (signals on its stdin as JSON lines, directives from its stdout) |
-| `yukta-cli ownership --session s --workflow w` | Which supervisor owns the run level and each node |
-| `yukta-cli supervision-summary` | How many workflows nobody owns (the first 100 named) and how many assignments are in conflict |
-| `yukta-cli supervision`, `yukta-cli supervisor-contract` | Who owns a target and what is allowed there; the contract version. A command that a supervisor refuses exits with code 6 |
+| `version` | Prints the client version (`{"version": ...}` with `-o json`). `--version` also works. |
+| `whoami` | The name, role and sessions of the key, as the server sees it. |
+| `workers` | Lists remote workers. |
+| `plugin list` | Lists all plugins. |
+| `plugin get <type>` | Details of one plugin. |
+| `scheduler limits` | Shows the execution limits and the slots in use. |
+| `scheduler set --max-concurrent N --max-per-workflow M` | Changes the limits; both flags are required, `0` is unlimited. |
 
-Run `yukta-cli <command> --help` for flags. Draining the server (`/api/admin/drain`), templates and metrics have no command; use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.
+## Sessions and workflow definitions
 
-## Next steps
+| Command | Description |
+|---|---|
+| `session list` | Lists sessions. |
+| `session summaries` | Lists sessions with their workflow summaries. |
+| `session get <session-id>` | Details of one session. |
+| `session config <session-id>` | The configuration a session was created from. |
+| `session apply <json-or-file>` | Creates or replaces a session from a configuration. |
+| `session validate <json-or-file>` | Validates a workflow definition without saving it. |
+| `session delete <session-id>` | Deletes a session; flags `--force` (cancel active runs first instead of refusing), `-y`/`--yes` (no confirmation). |
+| `session workflow get <session-id> <workflow-id>` | The workflow definition. |
+| `session workflow graph <session-id> <workflow-id>` | Nodes and edges. |
+| `session workflow executions <session-id> <workflow-id>` | Runs of a workflow, newest first. |
+| `session workflow versions <session-id> <workflow-id>` | Saved versions. |
+| `session workflow diff <session-id> <workflow-id> --from V [--to V]` | Compares two versions; `--to` defaults to the current definition. |
+| `session workflow rollback <session-id> <workflow-id> <version>` | Makes a saved version current. |
+| `session workflow note <session-id> <workflow-id> <version> --text T` | Writes a note on a version. |
+| `session workflow delete <session-id> <workflow-id>` | Deletes a workflow; flags `--force`, `-y`/`--yes` as for `session delete`. |
 
-<Card title="REST API overview" icon="code" horizontal href="/api/overview">
-  Base path, authentication, response envelope, paging, idempotency and stream conventions shared by every endpoint.
-</Card>
+## Runs
 
-<Card title="MCP server" icon="plug" horizontal href="/interfaces/mcp">
-  Let an AI agent create sessions, run workflows, watch them and steer them through the Model Context Protocol.
-</Card>
+| Command | Description |
+|---|---|
+| `workflow start <session-id> <workflow-id>` | Starts a run. Flags: `--payload <json>`, `--payload-file <file>`, `--idempotency-key <key>`. |
+| `workflow stop <session-id> <workflow-id>` | Stops every active run of a workflow. Flag: `--mode DRAIN\|CANCEL\|KILL` (default `DRAIN`). |
+| `workflow pause <session-id> <execution-id>` | Pauses a run. Flag: `--tree` (also its sub-workflow runs). |
+| `workflow resume <session-id> <execution-id>` | Resumes a paused run. Flag: `--tree`. |
+| `workflow status <session-id> <execution-id>` | Progress snapshot of a run. |
+| `workflow status-stream <session-id> <execution-id>` | Streams the status. Flag: `--include-history`. |
+| `workflow history <session-id>` | Runs of a session. |
+| `workflow tree <execution-id>` | A run and the runs it started. |
+| `workflow executions stop <execution-id>` | Stops one run. Flags: `--tree`, `--mode DRAIN\|CANCEL\|KILL`. |
+| `workflow executions restart <execution-id> [from-node-id]` | Restarts a run, optionally from a node. |
+| `workflow executions recover <execution-id>` | Continues a run that a server restart aborted. |
+| `workflow executions priority <execution-id> <priority>` | Changes the priority of a queued run (a whole number). |
+| `workflow executions search` | Searches runs across sessions. Flags: `--session`, `--filter <expr>`, `--limit N`. |
+| `result <session-id> <execution-id>` | Streams the result. Flag: `--node <id>` (one terminal node). |
+| `logs <session-id> <execution-id>` | Streams the logs. See below for flags. |
 
-<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
-  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
-</Card>
+### `logs` flags
+| Flag | Type | Description |
+|---|---|---|
+| `--entries` | boolean | Streams structured log entries as JSON. |
+| `--node <id>` | string | Reads the output of one node instead of streaming. The flags below apply only with `--node`. |
+| `--stream` | string | `stdout`, `stderr` or `all` (default `all`). |
+| `--tail N` | integer | The last N lines. |
+| `--head N` | integer | The first N lines. |
+| `--offset N` | integer | First line of a page, 0-based. |
+| `--limit N` | integer | Page size; default 50, at most 500. |
+| `--grep <regex>` | string | Only matching lines. |
+| `--context N` | integer | Lines around each match; at most 20. |
+
+## Nodes
+
+All take `<session-id> <execution-id> <node-id>` except where noted.
+
+| Command | Description |
+|---|---|
+| `workflow node pause` / `resume` | Pauses or resumes a node. |
+| `workflow node stop` | Stops a node. Flags: `--immediate`, `--reason <text>`. |
+| `workflow node skip` | Skips a node. Flag: `--skip=false` to unskip (default `true`). |
+| `workflow node retry <execution-id> <node-id>` | Restarts from a failed node as a new run. |
+| `workflow node breakpoint <execution-id> <node-id>` | Sets a breakpoint with `--field <path> --equals <value>`, or removes it with `--clear`. |
+| `workflow node step enable` / `disable` / `next` | Turns step-through mode on or off, or runs one step. |
+
+## Control bus
+
+| Command | Description |
+|---|---|
+| `controlbus command --session ID [--execution ID] <workflow-id> <node-id> <json-or-file>` | Sends a command to a node. `--session` is required; `--execution` is needed only when the workflow has several live runs. |
+| `controlbus watch` | Streams control-bus events. Flags below. |
+| `controlbus audit` | Lists control commands, newest first. Flags: `--limit N`, `--execution <id>`. |
+
+### `controlbus watch` flags
+| Flag | Default | Description |
+|---|---|---|
+| `--execution <id>` | none | Only events of this run. |
+| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`. |
+| `--until-done` | `false` | Exits when the run has ended; needs `--execution`. |
+| `--tree` | `true` | With `--execution`, also watches sub-workflow runs at any depth. |
+| `--follow-restarts` | `false` | With `--until-done`, continues with the run that restarts the execution. |
+| `--no-logs` | `false` | Leaves out log lines. |
+| `--quiet` | `false` | Prints only problems and the final status. |
+
+## Input requests
+
+| Command | Description |
+|---|---|
+| `inputs list` | Lists requests. Flags: `--session <id>`, `--state <list>` (default `OPEN,ESCALATED`). |
+| `inputs show <execution-id> <request-id>` | One request and its answer. |
+| `inputs answer <execution-id> <request-id> --decision D` | Answers. `--decision` is required; optional `--text`, `--data <json-or-file>`, `--rationale`, `--expected-version N` (refuse if the request changed). |
+| `inputs escalate <execution-id> <request-id> --reason R` | Hands the request up. `--reason` is required; optional `--advice`. |
+
+## Supervisors
+
+| Command | Description |
+|---|---|
+| `supervisors` | What runs: scope and command counts. |
+| `supervisors engines [type]` | Lists engines, or describes one with its settings. |
+| `supervisors list` / `show <id>` | Configured supervisors. |
+| `supervisors presets <engine>` | Ready-made settings of an engine. |
+| `supervisors save -f <file>` / `validate -f <file>` | Creates or replaces a supervisor, or checks a draft. |
+| `supervisors delete <id>` | Deletes a supervisor that owns nothing. |
+| `supervisors versions <id>` | Saved versions, newest first. |
+| `supervisors rollback <id> --version N` | Restores a version. |
+| `supervisors replay <id> --execution E [--settings <json>]` | Dry-run replay on a past run. |
+| `supervisors decisions [--supervisor ID] [--limit N]` | Newest decisions; `--limit` defaults to 50. |
+| `supervisors assignments <id>` | What a supervisor owns. |
+| `supervisors assign <id> <target> [--disabled] [--locked]` | Adds an owned target. |
+| `supervisors unassign <id> <target> [--unlock]` | Removes a manual target. |
+| `supervisors check-assign <id> <target>...` | Checks targets without saving. |
+| `supervisors set-assignments <id> -f <file> [--unlock]` | Replaces the manual targets with a JSON list of `{target, enabled, locked}`. |
+| `supervisors parents set <id> --parent P [--mode kind=policy]` | Sets the supervisors it reports to; both flags repeat. `kind` is `approval`, `input` or `consult`; `policy` is `ordered`, `all` or `any`. |
+| `supervisors rules get <id>` | The rules document and its newest version. |
+| `supervisors rules set <id> -f <file>` | Replaces the rules; the shared settings stay. |
+| `supervisors rules replay <id> --execution E [-f <file>]` | Dry-run replay of stored or draft rules. |
+| `supervisors credential create <id> [--ttl-hours N]` / `show <id>` / `revoke <id>` | The credential of an `http` supervisor; the token is printed once. |
+| `supervisors agent --credential-file <file> --exec <program> [-- args...]` | Runs a program as the decision maker of an `http` supervisor: signals on its standard input as JSON lines, directives from its standard output. |
+| `supervision [--session S] [--workflow W] [--execution E] [--node N]` | Who owns a target and which commands people may send. |
+| `ownership --session S --workflow W` | Which supervisor owns the run level and each node; both flags required. |
+| `supervision-summary` | Workflows nobody owns and assignments in conflict. |
+| `supervisor-contract` | The contract version and its operations. |
+
+## Not in the CLI
+
+The CLI has no command for draining the server (`/api/admin/drain`), templates or metrics. Use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.
+
+## Related
+
+- [MCP tools reference](/reference/mcp-tools)
+- [Client parity](/reference/client-parity)
+- [Use the CLI](/guides/operate/use-the-cli)

@@ -1,0 +1,229 @@
+---
+title: "Supervisor shell reference"
+sidebarTitle: "Supervisor shell"
+description: "The fields of a configured supervisor, the common settings every engine takes, assignment targets, ownership rules, error codes and the server properties that bound supervisors."
+keywords: ["supervisor", "shell", "assignments", "allowedCommands", "operatorAccess", "initiative", "ownership", "reference"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Supervisor shell reference
+
+The shell is the part of a supervisor that Yukta enforces: it holds the common settings, the assignments, the parents and the limits around an [engine](/reference/supervisors/engines). The rules an engine follows are in [Supervisor contract](/reference/supervisors/contract).
+
+<Diagram
+  name="ref-supervisor-shell"
+  alt="The shell is the fence Yukta enforces around a supervisor engine: which commands it may send, which of people it reviews, and which inputs it may answer."
+  caption="Each label on a dashed line is a setting of the supervisor that bounds that path."
+/>
+
+## Supervisor object
+
+Body of `PUT /api/supervisors/{id}`, and the arguments of `save_supervisor`.
+
+### `id`
+- **Type:** string
+- **Default:** generated when missing on create
+- **Required:** no
+- **Description:** Identifier of the supervisor.
+
+### `type`
+- **Type:** string
+- **Default:** none
+- **Required:** yes
+- **Description:** The engine: `rules`, `http`, `workflow` or `process`.
+
+### `description`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** What the supervisor is for.
+
+### `settings`
+- **Type:** object
+- **Default:** `{}`
+- **Required:** depends on the engine
+- **Description:** The engine's own settings plus the [common settings](#common-settings). Unknown keys are refused. A secret value of `***` keeps the stored secret.
+
+### `dryRun`
+- **Type:** boolean
+- **Default:** `false`
+- **Required:** no
+- **Description:** Records the supervisor's commands without applying them. `yukta.supervisor.dry-run` sets it for every supervisor.
+
+### `parents`
+- **Type:** list of supervisor ids
+- **Default:** none
+- **Required:** no
+- **Description:** The supervisors it reports to, in the order they are asked. Each must exist; no cycle; not itself; a chain is at most 4 supervisors long.
+
+### `delegation`
+- **Type:** object keyed by kind (`APPROVAL`, `INPUT`, `CONSULT`), each `{mode, timeoutSeconds}`
+- **Default:** `mode` `ORDERED`, `timeoutSeconds` `30`
+- **Required:** no
+- **Description:** How parents are asked for each kind of delegation. `mode` is `ORDERED`, `ALL` or `ANY`; a refusal from any parent asked is final in every mode.
+
+**Example**
+```json
+{
+  "id": "guard",
+  "type": "rules",
+  "description": "Pause on repeated failures",
+  "settings": { "rules": [], "allowedCommands": ["PauseWorkflowCommand"] },
+  "dryRun": false,
+  "parents": ["lead"],
+  "delegation": { "APPROVAL": { "mode": "ANY", "timeoutSeconds": 60 } }
+}
+```
+
+## Common settings
+
+Keys in `settings` that the server reads for every engine type.
+
+### `allowedCommands`
+- **Type:** list of command names
+- **Default:** the engine's default: every command for `rules`, `http` and `process`; none for `workflow`
+- **Required:** no
+- **Description:** Command types the supervisor may send. Names are those under [Command names](#command-names).
+
+### `operatorAccess`
+- **Type:** list of command names
+- **Default:** none
+- **Required:** no
+- **Description:** Command types that people may send through it; the engine reviews each. A command not listed is refused with `409 CONTROLLED_BY_SUPERVISOR`.
+
+### `initiative`
+- **Type:** list of command names
+- **Default:** none
+- **Required:** no
+- **Description:** Command types it may send with no triggering signal (a timer or its own initiative). Each such command also needs a `reason`.
+
+### `maxInitiativePerMinute`
+- **Type:** integer, at least 1
+- **Default:** `10`
+- **Required:** no
+- **Description:** Most commands without a triggering signal per minute.
+
+### `canAnswer`
+- **Type:** boolean
+- **Default:** `false`
+- **Required:** no
+- **Description:** Whether it may answer input requests.
+
+### `maxRisk`
+- **Type:** `LOW`, `MEDIUM` or `HIGH`
+- **Default:** `LOW`
+- **Required:** no
+- **Description:** The highest risk of an input request it may answer. A `HIGH` request is for people only.
+
+### `observeInternal`
+- **Type:** boolean
+- **Default:** `false`
+- **Required:** no
+- **Description:** Whether it sees events of internal sessions that its scope names.
+
+### Command names
+
+`PauseWorkflowCommand`, `ResumeWorkflowCommand`, `StopWorkflowCommand`, `RestartCommand`, `RestartFromNodeCommand`, `StartWorkflowCommand`, `RecoverCommand`, `SetPriorityCommand`, `PauseNodeCommand`, `ResumeNodeCommand`, `StopNodeCommand`, `SkipNodeCommand`, `EnableStepModeCommand`, `DisableStepModeCommand`, `StepNodeCommand`, `SetBreakpointCommand`, `AnswerInputCommand`, `EscalateInputCommand`, `SetLimitsCommand`, `DrainCommand`.
+
+## Assignments
+
+An assignment says what a supervisor owns. Body of `PUT /api/supervisors/{id}/assignments` is a list of these.
+
+### `target`
+- **Type:** string
+- **Required:** yes
+- **Description:** What is owned; the forms are in the table below.
+
+### `enabled`
+- **Type:** boolean
+- **Default:** `true`
+- **Required:** no
+- **Description:** Whether the assignment runs.
+
+### `locked`
+- **Type:** boolean
+- **Default:** `false`
+- **Required:** no
+- **Description:** Only a lock holder may change or remove it; see `yukta.supervisor.lock-holders`.
+
+### Targets
+
+| Target | Owns |
+|---|---|
+| `server` | Scheduler limits and drain (the server unit). |
+| `session:<id>` | Every workflow of the session, now and later. |
+| `workflow:<session>/<workflow>` | The run level and every node of the workflow. |
+| `run:<session>/<workflow>` | The run level only: start, pause, resume, stop, restart, priority and workflow-wide events. |
+| `workflow:<session>/<workflow>//<selector>,...` | The nodes the selectors match. A selector is a node id, `<prefix>.*` or `group:<name>`. |
+
+A node's group is its `group` option, or the part of its id before the first dot.
+
+### Sources
+
+| Source | Meaning |
+|---|---|
+| `MANUAL` | Set through the API, MCP, CLI or UI. Changed with `set_assignments`. |
+| `DEFINITION` | Declared in the `assignments` block of a session or workflow definition (at most 20 entries, each `{supervisor, nodes?, enabled?}`; `nodes` only in a workflow). Changes with the definition. |
+| `SYSTEM` | Set by the server. Listed, not editable. |
+
+## Ownership rules
+
+- A unit is a node, the run level of a workflow, or the server. No unit may belong to two assignments.
+- The check runs when a supervisor, an assignment or a workflow definition is saved. A violation is `409 OWNERSHIP_CONFLICT` naming the other supervisor and the units.
+- A `workflow` assignment forbids any other assignment on that workflow. A `session` assignment forbids any assignment inside the session.
+- Two selectors that match no node yet overlap if one prefix begins with the other.
+- A node with no owner is carried by the default supervisor, while `yukta.supervisor.default.enabled` is `true`.
+- At start-up, assignments that overlap another are saved disabled with `conflict: true`; the first by supervisor id stays on.
+- A locked assignment changes only by a lock holder, and removing it needs `unlock`.
+- A supervisor can be deleted only when it owns nothing, no definition names it and no supervisor reports to it.
+
+## Errors
+
+| Status and code | Meaning |
+|---|---|
+| `409 CONTROLLED_BY_SUPERVISOR` | The owner does not list the command in `operatorAccess`. |
+| `409 OWNERSHIP_CONFLICT` | A save would give a unit to two supervisors. |
+| `202 AWAITING_APPROVAL` | The command is held until a parent or a person approves it. |
+| `403 CONTROL_REJECTED` | The owner or a parent refused the command. |
+
+The CLI exits with code `6` for the last two refusals and for `CONTROLLED_BY_SUPERVISOR`.
+
+## Server properties
+
+| Property | Default | Description |
+|---|---|---|
+| `yukta.supervisor.dry-run` | `false` | Record commands instead of applying them, for every supervisor. |
+| `yukta.supervisor.max-commands-per-second` | `20` | Most commands one supervisor may issue per second. |
+| `yukta.supervisor.buffer-size` | `10000` | Events a supervisor may have waiting before events are dropped for it. |
+| `yukta.supervisor.review-timeout` | `5s` | Longest a supervisor may take to answer a review. On a timeout a stop is allowed and any other command refused. |
+| `yukta.supervisor.max-attachments` | `200` | Most attachments at once, manual and from definitions together. |
+| `yukta.supervisor.turn-around.period` | `60s` | Window in which turn-arounds of a target are counted. |
+| `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target by one supervisor in the period. |
+| `yukta.supervisor.turn-around.cooldown` | `5m` | How long a supervisor over the limit is blocked on that target. |
+| `yukta.supervisor.default.enabled` | `true` | Whether people may control units that nobody owns. |
+| `yukta.supervisor.lock-holders` | empty | API key names that may change or remove a locked assignment. Empty lets any administrator do it, by asking to unlock. |
+
+See [Configuration reference](/reference/configuration) for every property.
+
+## REST endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/supervisors`, `GET /api/supervisors/{id}` | List and read. |
+| `PUT /api/supervisors/{id}`, `DELETE /api/supervisors/{id}` | Save and delete. |
+| `POST /api/supervisors/validate` | Check a draft without saving. |
+| `GET\|PUT /api/supervisors/{id}/assignments`, `POST /api/supervisors/{id}/assignments/check`, `GET /api/supervisors/assignments` | Assignments. |
+| `GET /api/supervisors/{id}/versions`, `POST /api/supervisors/{id}/rollback` | Versions. |
+| `POST /api/supervisors/{id}/replay` | Dry-run replay on a past run. |
+| `GET\|PUT /api/supervisors/{id}/engine/rules`, `POST /api/supervisors/{id}/engine/rules/replay` | Rules document of a `rules` supervisor. |
+| `POST\|GET\|DELETE /api/supervisors/{id}/credential` | Credential of an `http` supervisor. |
+| `GET /api/supervisors/decisions`, `GET /api/supervisors/status` | Recent decisions; running supervisors. |
+| `GET /api/supervisor-contract` | Contract version and operation names. |
+
+## Related
+
+- [Supervisor engines reference](/reference/supervisors/engines)
+- [Supervisor contract](/reference/supervisors/contract)
+- [Rule files reference](/reference/supervisors/rule-files)
+- [How supervisors work](/concepts/supervisors)

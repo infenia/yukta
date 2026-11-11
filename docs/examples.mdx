@@ -1,7 +1,7 @@
 ---
 title: "Example workflows for real jobs: approvals, pipelines and AI agents"
 sidebarTitle: "Examples"
-description: "Fourteen ready-to-run example workflows. Ten are templates for a real pain point in a different domain; the rest show the building blocks, MCP and how Yukta checks itself."
+description: "Seventeen ready-to-run example workflows. Ten are templates for a real pain point in a different domain; the rest show the building blocks, MCP and how Yukta checks itself."
 keywords: ["examples", "sample workflows", "templates", "approval", "data pipeline", "agents"]
 ---
 
@@ -20,7 +20,7 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 ```
 
 <Note>
-  Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 08 also needs `python3`. Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key. See [Security](/operations/security).
+  Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`; each README names its set. Example 08 also needs `python3`. Example 09 needs an LLM endpoint (OpenAI-compatible, Anthropic or Ollama). Set `YUKTA_API_KEY` if your server requires a key. See [Security](/guides/operate/secure-the-server).
 </Note>
 
 ## Use-case templates
@@ -29,8 +29,8 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 |---|---|---|
 | [02](https://github.com/infenia/yukta/tree/main/examples/02-agent-verification) | An AI coding agent skips tests and says "done" | Verification gates and a bounded fix loop before "done" exists |
 | [03](https://github.com/infenia/yukta/tree/main/examples/03-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
-| [04](https://github.com/infenia/yukta/tree/main/examples/04-pr-risk-gate) | Merging risky PRs, or reviewing every trivial one | Risk scoring, reviewer gate, secrets stripped from messages |
-| [05](https://github.com/infenia/yukta/tree/main/examples/05-dependency-updates) | Dependency bumps that are either trivial or dangerous | Risk routing, maintainer review queue, changelog |
+| [04](https://github.com/infenia/yukta/tree/main/examples/04-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
+| [05](https://github.com/infenia/yukta/tree/main/examples/05-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |
 | [06](https://github.com/infenia/yukta/tree/main/examples/06-crash-report-triage) | The same crash reported hundreds of times | Fingerprint, dedupe, auto-link known issues, escalate new ones |
 | [07](https://github.com/infenia/yukta/tree/main/examples/07-event-data-pipeline) | A nightly event load that lets bad rows into the warehouse | Schedule, validate, dedupe, quarantine, fail above a limit |
 | [08](https://github.com/infenia/yukta/tree/main/examples/08-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
@@ -53,14 +53,14 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 
 ## Next steps
 
-<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
+<Card title="Defining a workflow" icon="file-code" horizontal href="/reference/workflow-json">
   The complete JSON shape of a session and its workflows.
 </Card>
 
-<Card title="Plugin overview" icon="puzzle-piece" horizontal href="/plugins/overview">
+<Card title="Plugin overview" icon="puzzle-piece" horizontal href="/reference/plugins/overview">
   Every trigger, processor and terminal that ships with Yukta.
 </Card>
 
-<Card title="AI and agents" icon="robot" horizontal href="/building/ai-and-agents">
+<Card title="AI and agents" icon="robot" horizontal href="/concepts/ai-and-deterministic-work">
   Model calls, agent loops, approvals and budgets as workflow steps.
 </Card>

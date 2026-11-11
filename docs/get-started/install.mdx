@@ -1,0 +1,115 @@
+---
+title: "Install Yukta"
+sidebarTitle: "Install"
+description: "Install the Yukta server and the yukta-cli client on Linux with one script, with Docker, or with the client alone, and check that the server is up."
+keywords: ["install", "Linux", "Docker", "yukta-cli", "install.sh", "get started"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to get a Yukta server and its command-line client running on your machine"
+  time="3 minutes"
+  need="a terminal and curl; Docker if you are not on Linux amd64"
+  end="a server answering on http://localhost:9858 and yukta-cli on your path"
+/>
+
+<Note>
+  Yukta is in **alpha**. The current release ships a native server for Linux `amd64` and a Docker image. The command-line client exists for Linux, macOS and Windows. Native servers for ARM Linux, macOS and Windows are not in the current release: run the Docker image there. Breaking changes to the workflow JSON, the API and the MCP tools are still possible before 1.0. See [Releases](/reference/releases) for what each release contains.
+</Note>
+
+By default the server keeps sessions, workflows and run history **in memory**, so they are gone when it stops. Storing them on disk is part of the Plus edition, see [Licensing and editions](/reference/licensing).
+
+## Prerequisites
+
+- A terminal and `curl`.
+- Linux `amd64` for the install script, or Docker for any other system.
+- Port `9858` free on your machine.
+
+## Install the server and the client on Linux
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+```
+
+The script downloads the files for your system, checks their SHA-256 checksums, and stops without installing anything if one does not match. When `cosign` is installed it also checks the Sigstore signature and tells you it did. It never uses `sudo` and does not edit your shell profile. It puts `yukta` (the server) and `yukta-cli` (the client) in `/usr/local/bin` when you run it as root, or in `~/.local/bin` otherwise.
+
+You should see the installer name the version and the folder, then end with:
+
+```text
+Installed: /home/you/.local/bin/yukta (server) <version>
+Installed: /home/you/.local/bin/yukta-cli (client) <version>
+```
+
+Your folder differs, and `<version>` is the release you installed. If the script prints `is not on your PATH`, add the folder it names to `PATH`.
+
+Start the server:
+
+```bash
+yukta
+```
+
+It stays in the foreground and listens on `127.0.0.1:9858`, so only your machine can reach it.
+
+## Install the server with Docker
+
+Use this on macOS, Windows or ARM Linux, or when you prefer a container.
+
+```bash
+docker run --rm -p 127.0.0.1:9858:9858 \
+  -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+  ghcr.io/infenia/yukta:0.1.0-alpha.3
+```
+
+A container listens on all its interfaces, so the server refuses to start without an API key. Replace `change-me` with a long random value. Every `curl` call to this server then needs `-H "X-API-Key: <your key>"`, `yukta-cli` reads the key from `YUKTA_TOKEN`, and the web UI asks for it on first use. The image has no shell, runs as an unprivileged user and keeps data in memory unless you mount a folder, see [Deploy Yukta](/guides/operate/deploy).
+
+## Install only the client
+
+If a server already runs somewhere, install the client alone:
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh -s -- --cli-only
+```
+
+On macOS the script installs only the client for you and prints the Docker command for the server. On Windows, use `install.ps1` from the same release page.
+
+Point the client at your server with `--url` or `YUKTA_SERVER_URL`, and give it a key with `YUKTA_TOKEN` or `--token-file`. The client sends the key as a bearer token and refuses to send it over plain `http` to another host unless you pass `--insecure-token`.
+
+## Check that it works
+
+In a second terminal:
+
+```bash
+curl http://localhost:9858/actuator/health
+```
+
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
+```
+
+Add the `X-API-Key` header when you started the container with a key. Then check the client:
+
+```bash
+yukta-cli --version
+yukta-cli session list
+```
+
+```text
+yukta-cli version <version>
+Session ID
+```
+
+A new server has no sessions, so the second command prints only the column heading. Open `http://localhost:9858/` for the web UI.
+
+> **Stuck?** If `yukta: command not found`, the install folder is not on your `PATH`. Run `~/.local/bin/yukta`, or add that folder. If the server says the address is in use, another program holds port `9858`: stop it, or start Yukta with `--server.port=<other>` and pass `--url` to the client. If Docker exits at once with a message about an API key, you left out one of the three `YUKTA_API_KEYS_0_*` variables.
+
+## What you just did
+
+You installed one program that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins, plus a small client for it. Nothing was installed system-wide and nothing leaves your machine except the download.
+
+## Where to go next
+
+- **Run a workflow now:** [Your first workflow](/learn/your-first-workflow).
+- **Upgrade, uninstall or pin a version:** [Deploy Yukta](/guides/operate/deploy) and [Upgrade and roll back](/guides/operate/upgrade-and-roll-back).
+- **Verify a download yourself:** [Releases](/reference/releases#verify-a-download).
+- **Keep sessions across restarts:** [Persist sessions](/guides/operate/persist-sessions).

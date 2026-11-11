@@ -1,0 +1,147 @@
+---
+title: "Add remote workers"
+sidebarTitle: "Add remote workers"
+description: "Run selected processor nodes on other machines in named worker pools, secure the worker connection with a token and mutual TLS, and check that a placed node runs there."
+keywords: ["remote workers", "worker pools", "placement", "RSocket", "mutual TLS", "distributed execution"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to connect a worker to the server and place a node on it"
+  time="30 minutes"
+  need="a Plus build with workers, two machines (or two ports on one), and TLS certificates if the network is not private"
+  end="a node that runs on a worker in a named pool, with the connection protected"
+/>
+
+**Use this when** a step is heavy, must run next to a private resource (a database, a GPU host, an internal network) or should not compete with the engine for CPU and memory. The server that admits and tracks runs is the control plane. It still sees every message of a placed node, so placement moves the work, not the data.
+
+**Prerequisites:**
+
+- A Plus build (AGPL-3.0-only) with the workers module: `-Pyukta.workers=true`. The release binaries and the Docker image do not include it. See [Licensing and editions](/reference/licensing).
+- The same build on the control plane and every worker, and the plugin types a worker will run built into that worker.
+- A long random token.
+
+<Note>
+  A native binary fixes its role when you build it. Build it with `-Pyukta.workers.native=control-plane` or `-Pyukta.workers.native=worker`. With the archive (jar) build, the settings choose the role.
+</Note>
+
+<Diagram
+  name="remote-workers"
+  alt="The control plane opens one channel per attempt to each worker, and workers register and renew a lease with it."
+  caption="Workers connect to the control plane; it decides where a placed node runs."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Build with workers">
+    ```bash
+    ./gradlew :boot:bootJar -Pyukta.workers=true
+    ```
+
+    Without the switch, a workflow that places a node fails to prepare with an error that names it.
+  </Step>
+  <Step title="Configure the control plane">
+    The control plane is the server that has `yukta.workers.token` and no `yukta.workers.control-plane`:
+
+    ```properties
+    yukta.workers.token=<long random token>
+    spring.rsocket.server.port=7000
+    ```
+
+    This opens a second port, 7000, for workers. Workers connect out to it, so a worker needs no inbound port.
+  </Step>
+  <Step title="Secure the connection">
+    Without TLS the token, node configurations and payloads cross the network in clear text. A control plane with no SSL bundle, or a worker whose control plane is not on its own machine and has no bundle, refuses to start unless you set `yukta.workers.allow-insecure=true`. Use that only on a network you trust.
+
+    For mutual TLS, give the control plane a certificate and require a client certificate:
+
+    ```properties
+    spring.rsocket.server.ssl.bundle=server
+    spring.rsocket.server.ssl.client-auth=need
+    spring.ssl.bundle.jks.server.keystore.location=file:/etc/yukta/server.p12
+    spring.ssl.bundle.jks.server.keystore.password=<password>
+    spring.ssl.bundle.jks.server.keystore.type=PKCS12
+    spring.ssl.bundle.jks.server.truststore.location=file:/etc/yukta/client-trust.p12
+    spring.ssl.bundle.jks.server.truststore.password=<password>
+    spring.ssl.bundle.jks.server.truststore.type=PKCS12
+    ```
+
+    Give each worker its own certificate in a bundle that the worker names with `yukta.workers.ssl-bundle` (next step). The worker checks the control plane's host name against its certificate.
+  </Step>
+  <Step title="Start a worker">
+    A worker is a full Yukta process. Its settings:
+
+    ```properties
+    yukta.workers.control-plane=cp1.internal:7000
+    yukta.workers.token=<long random token>
+    yukta.workers.id=worker-a
+    yukta.workers.pools=private-net
+    yukta.workers.plugin-types=HTTP_REQUEST,SQL_QUERY
+    yukta.workers.capacity=8
+    yukta.workers.ssl-bundle=client
+    spring.ssl.bundle.jks.client.keystore.location=file:/etc/yukta/worker.p12
+    spring.ssl.bundle.jks.client.keystore.password=<password>
+    spring.ssl.bundle.jks.client.keystore.type=PKCS12
+    spring.ssl.bundle.jks.client.truststore.location=file:/etc/yukta/server-trust.p12
+    spring.ssl.bundle.jks.client.truststore.password=<password>
+    spring.ssl.bundle.jks.client.truststore.type=PKCS12
+    ```
+
+    `yukta.workers.id` is required. A worker with an empty `yukta.workers.plugin-types` runs nothing, so list every type it may run. When you run several workers on one machine, give each its own `server.port`. The defaults for pools (`default`), capacity (`4`) and the other settings are in [Configuration reference](/reference/configuration).
+  </Step>
+  <Step title="Place a node">
+    Add `placement` to the node's `engine` object. A placement without `pool` uses the pool `default`. This node calls an internal service on a worker in `private-net`, with up to three attempts:
+
+    ```json
+    {
+      "nodeId": "fetch-inventory",
+      "type": "HTTP_REQUEST",
+      "config": {
+        "url": "http://inventory.internal/api/stock",
+        "method": "GET",
+        "engine": {
+          "placement": { "pool": "private-net" },
+          "retry": { "maxAttempts": 3, "backoffMs": 500 },
+          "onError": "ROUTE"
+        }
+      }
+    }
+    ```
+
+    Only processors can be placed. `SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL` and `SUB_WORKFLOW` keep state on the control plane and refuse a placement. Triggers and terminals always run locally.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+List the workers the control plane knows:
+
+```bash
+curl -fsS -H "Authorization: Bearer $YUKTA_TOKEN" "$YUKTA_SERVER_URL/api/workers"
+```
+
+Each entry shows the worker's id, pools, plugin types, capacity, used slots, whether it is draining, and when its lease ends. Start the workflow with the placed node and read the node's result. The gauges `yukta.workers` (connected workers) and `yukta.worker.slots` (free slots) show capacity on the metrics endpoint.
+
+If no worker qualifies, the attempt fails at once with "No connected worker in pool 'private-net' can run HTTP_REQUEST right now". The error is retryable, so the node's `retry` policy applies. A worker qualifies when it is connected, not draining, serves the pool, lists the plugin type and has a free slot.
+
+## Variations that matter
+
+- **A secret per worker.** Give the control plane `yukta.workers.tokens.<worker-id>=<secret>` for each worker (write `yukta.workers.tokens[my.id]` when the id has dots). As soon as one is set, only the listed workers are admitted, and the shared token stops working. To remove one compromised worker, delete its entry and restart the control plane.
+- **Several control planes (high availability).** Set `yukta.workers.control-plane` to every server, comma separated. A standby refuses the worker with "this server is not the leader". See [Run highly available](/guides/operate/run-highly-available).
+- **Rolling restart of workers.** A worker that stops tells the control plane it is draining and waits up to `yukta.workers.drain-timeout` (30 seconds by default) for running attempts. Anything still running fails and the engine retries it on another worker. A worker that loses the control plane reconnects with a pause that grows from 1 to 30 seconds.
+- **Upgrade together.** A worker that registers with another protocol version is refused and gets no jobs. Upgrade the control plane and the workers to the same release.
+- **Make placed steps safe to repeat.** Delivery is at least once. If a worker dies after an effect and before the attempt completes, the effect can happen twice. Use the message id as an idempotency key.
+- **Configure workers like the server.** A plugin runs inside the worker process, so the worker's own allow-lists apply (commands, hosts, variables, secrets). See [Secure the server](/guides/operate/secure-the-server).
+
+What works differently on a worker: run budgets and rate limits (for example for `LLM_CALL`) are counted inside each worker, not for the whole run. Live log lines written on the worker do not reach the run's log stream. Messages cross as plain JSON values.
+
+## Related
+
+- [Run highly available](/guides/operate/run-highly-available)
+- [Secure the server](/guides/operate/secure-the-server)
+- [Handle failures](/guides/build/handle-failures): retry and error routing for a placed node
+- [Node options reference](/reference/node-options): the `engine` object
+- [Configuration reference](/reference/configuration)

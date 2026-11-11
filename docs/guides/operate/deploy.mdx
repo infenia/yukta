@@ -1,0 +1,192 @@
+---
+title: "Deploy Yukta for a team"
+sidebarTitle: "Deploy"
+description: "Run Yukta beyond your laptop with Docker, a Linux package, an archive or a source build, put TLS in front of it and protect it with an API key."
+keywords: ["deploy", "Docker", "systemd", "Linux package", "TLS", "reverse proxy", "API key"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to run one Yukta server that a team can reach, with a key and TLS"
+  time="20 minutes"
+  need="a Linux host or Docker, and a name for the server (for example yukta.example.com)"
+  end="a server that answers over HTTPS, refuses callers without a key and restarts on its own"
+/>
+
+**Use this when** you move Yukta from your laptop to a machine other people or other systems call. For a first install on a laptop, start with [Install Yukta](/get-started/install).
+
+**Prerequisites:** you know which install method fits (the table below), and you can run a reverse proxy that ends TLS, such as nginx or Caddy.
+
+<Warning>
+  Yukta is in alpha. The release server and the Docker image are the **Community** edition: they keep sessions and run history in memory. Storing state on disk, PostgreSQL, high availability and remote workers need a build you make yourself. See [Persist sessions](/guides/operate/persist-sessions) before you promise anyone that a restart keeps their workflows.
+</Warning>
+
+## Pick how to install it
+
+| Method | Platforms | Choose it when |
+|---|---|---|
+| Docker image `ghcr.io/infenia/yukta` | Linux, and macOS or Windows through Docker Desktop (`linux/amd64`) | You already run containers. The image holds the native server and nothing else |
+| `.deb` or `.rpm` package | Linux `amd64` | You want a `systemd` service, a service user and a settings file |
+| Install script (`install.sh`) | Linux `amd64`; on macOS it installs the client only | You want the binaries in `/usr/local/bin` with checked checksums |
+| Archive (`.tar.gz`) | Linux `amd64` | You manage the service yourself |
+| From source | Anything with JDK 25 | You need a Plus build, extra plugins or a custom plugin. See [Write a plugin](/guides/extend/write-a-plugin) |
+
+<Diagram
+  name="ops-deploy"
+  alt="Clients reach Yukta over HTTPS through a reverse proxy on the same host; Yukta itself listens on loopback and checks the API key."
+  caption="Only the proxy faces the network. The probe goes straight to Yukta, and state is in memory unless you build a Plus edition."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Make a key for the first administrator">
+    A server that listens on anything but loopback refuses to start without an API key. Make a long random one now and keep it in your secret store:
+
+    ```bash
+    export YUKTA_KEY="$(openssl rand -hex 32)"
+    ```
+
+    The server warns about a key shorter than 32 characters. To keep the plain key off the server, give it the SHA-256 digest instead, written `sha256:<64 hex digits>`; clients still send the plain key. See [Secure the server](/guides/operate/secure-the-server).
+  </Step>
+  <Step title="Start the server">
+    <Tabs>
+      <Tab title="Docker" icon="docker">
+        The image listens on `0.0.0.0` inside the container, so it always needs a key. Publish the port on loopback and let the reverse proxy in step 3 face the network:
+
+        ```bash
+        docker run -d --name yukta --restart unless-stopped \
+          -p 127.0.0.1:9858:9858 \
+          -e YUKTA_API_KEYS_0_NAME=admin \
+          -e YUKTA_API_KEYS_0_KEY="$YUKTA_KEY" \
+          -e YUKTA_API_KEYS_0_ROLE=ADMIN \
+          ghcr.io/infenia/yukta:0.1.0-alpha.3
+        ```
+
+        The image has no shell and no `curl`. It runs as the unprivileged user 65532.
+      </Tab>
+      <Tab title="Linux package" icon="linux">
+        Install the `.deb` or `.rpm` from the release page. The package adds a `yukta` user and a `systemd` unit, and leaves the service stopped. Put the address and the key in `/etc/yukta/yukta.env`:
+
+        ```bash
+        sudo tee -a /etc/yukta/yukta.env >/dev/null <<EOF
+        YUKTA_API_KEYS_0_NAME=admin
+        YUKTA_API_KEYS_0_KEY=$YUKTA_KEY
+        YUKTA_API_KEYS_0_ROLE=ADMIN
+        EOF
+        sudo systemctl enable --now yukta
+        ```
+
+        Leave `YUKTA_SERVER_ADDRESS` unset so the server stays on `127.0.0.1` behind the proxy. The package sets the file to mode `0640`, so other users cannot read the key. Follow the logs with `journalctl -u yukta -f`.
+      </Tab>
+      <Tab title="Install script" icon="terminal">
+        ```bash
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+        ```
+
+        This puts `yukta` and `yukta-cli` in `/usr/local/bin` (as root) or `~/.local/bin`, after checking their checksums. It starts nothing. Run the server under a service manager of your choice, with the same three `YUKTA_API_KEYS_0_*` variables:
+
+        ```bash
+        YUKTA_API_KEYS_0_NAME=admin YUKTA_API_KEYS_0_KEY="$YUKTA_KEY" YUKTA_API_KEYS_0_ROLE=ADMIN yukta
+        ```
+      </Tab>
+      <Tab title="Archive" icon="box-archive">
+        Unpack the `.tar.gz` from the release page. It holds the native `yukta` server and `yukta-cli`. Run `yukta` as in the install-script tab, under your own service manager.
+      </Tab>
+      <Tab title="From source" icon="code">
+        ```bash
+        ./gradlew :boot:bootJar
+        YUKTA_API_KEYS_0_NAME=admin YUKTA_API_KEYS_0_KEY="$YUKTA_KEY" YUKTA_API_KEYS_0_ROLE=ADMIN \
+          java -jar boot/build/libs/boot-*.jar
+        ```
+
+        A jar started with no flags runs the `prod` profile. `./gradlew bootRun` runs `dev` instead, which logs more and is for development only. For a native binary, `./gradlew :boot:nativeCompile` needs GraalVM 25.
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Check the server on the host">
+    ```bash
+    curl -fsS http://127.0.0.1:9858/actuator/health
+    curl -fsS -H "Authorization: Bearer $YUKTA_KEY" http://127.0.0.1:9858/api/me
+    ```
+
+    The first call returns `{"status":"UP"}` and needs no key. The second shows the name and role of your key.
+  </Step>
+  <Step title="Put TLS in front of it">
+    Yukta serves plain HTTP, and keys travel in request headers, so end TLS in a reverse proxy on the same host. Two things matter in the proxy: do not buffer event streams, and do not close idle ones early (the server sends a keep-alive comment every 15 seconds).
+
+    <Tabs>
+      <Tab title="nginx">
+        ```nginx
+        server {
+          listen 443 ssl;
+          server_name yukta.example.com;
+          # ssl_certificate and ssl_certificate_key go here
+
+          location / {
+            proxy_pass http://127.0.0.1:9858;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Forwarded-For $remote_addr;
+            proxy_buffering off;
+            proxy_read_timeout 1h;
+          }
+        }
+        ```
+      </Tab>
+      <Tab title="Caddy">
+        ```text
+        yukta.example.com {
+          reverse_proxy 127.0.0.1:9858 {
+            flush_interval -1
+          }
+        }
+        ```
+      </Tab>
+    </Tabs>
+
+    These are examples; adapt them to your proxy. When you set a key, the `Host` and `Origin` check that protects a keyless local server is off, so no extra setting is needed for the host name. The one-time-token answer path (`/api/inputs/token-answer`) rate-limits by caller address; for that to be the caller and not the proxy, set `server.forward-headers-strategy=framework` and make the proxy replace `X-Forwarded-For` as shown.
+  </Step>
+  <Step title="Tell clients where the server is">
+    ```bash
+    export YUKTA_SERVER_URL=https://yukta.example.com
+    export YUKTA_TOKEN="$YUKTA_KEY"
+    yukta-cli whoami
+    ```
+
+    For named keys with limited roles per person or agent, see [Secure the server](/guides/operate/secure-the-server). Do not hand the first administrator key to every client.
+  </Step>
+  <Step title="Give it time to stop">
+    On a stop signal the server refuses new starts and gives running runs `yukta.execution.shutdown-timeout` (30 seconds by default) to finish. The packaged `systemd` unit waits 45 seconds. In an orchestrator, set the stop grace period above 30 seconds. Use `GET /actuator/health` as the probe: the image has no shell for an exec probe.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+From another machine:
+
+```bash
+curl -fsS https://yukta.example.com/actuator/health
+curl -s -o /dev/null -w '%{http_code}\n' https://yukta.example.com/api/sessions
+curl -fsS -H "Authorization: Bearer $YUKTA_KEY" https://yukta.example.com/api/me
+```
+
+The health call returns `{"status":"UP"}`. The second call prints `401`, because it sent no key. The third returns your key's name and role. If the container or service exits at start, read its log: "Refusing to listen on ... without an API key" means no key reached the server. See [Troubleshoot](/guides/operate/troubleshoot).
+
+## Variations that matter
+
+- **Choose the plugins you ship.** Optional plugins are chosen when you build, with `-Pyukta.plugins=default`, `all`, `none` or a comma-separated list. A running server cannot add or remove them. The settings and the plugin names are in [Configuration reference](/reference/configuration) and the [plugin reference](/reference/plugins/overview).
+- **Run more than one server.** Failover needs a Plus build and PostgreSQL. See [Run highly available](/guides/operate/run-highly-available).
+- **Install on a machine with no internet.** Copy a release's files to a web server laid out as `<base>/vX.Y.Z/<file>`, then run `install.sh` with `YUKTA_DOWNLOAD_BASE=<base>`. Read the script first if you need to audit it.
+- **Check a download.** Every release publishes `SHA256SUMS` and a Sigstore signature for it. See [Releases](/reference/releases).
+- **Publish the API description.** The `prod` profile serves no Swagger UI or `/v3/api-docs`. To turn them on behind your key, see [Secure the server](/guides/operate/secure-the-server).
+
+## Related
+
+- [Install Yukta](/get-started/install): the first install, on a laptop
+- [Upgrade and roll back](/guides/operate/upgrade-and-roll-back)
+- [Secure the server](/guides/operate/secure-the-server)
+- [Configuration reference](/reference/configuration): every setting, its default and its environment variable
+- [How durability and high availability work](/concepts/durability-and-high-availability)

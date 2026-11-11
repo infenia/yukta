@@ -1,0 +1,187 @@
+---
+title: "Assign a supervisor"
+sidebarTitle: "Assign a supervisor"
+description: "Create a supervisor, give it a server, session, workflow, run level or some nodes to own, and decide which commands people may still send."
+keywords: ["supervisor", "assignment", "ownership", "OWNERSHIP_CONFLICT", "operatorAccess", "CONTROLLED_BY_SUPERVISOR", "locked"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to make a supervisor the owner of part of your runs and see who may steer what"
+  time="15 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, and the steer/slow workflow from Control a run"
+  end="a supervisor that owns a workflow, with a deliberate list of commands people may still send"
+/>
+
+**Use this when** you want one accountable owner for a unit of work: a supervisor that watches it, may step in, and decides whether people steer it directly. A [supervisor](/concepts/supervisors) has a shell (what it owns, what it may send, whether people may steer through it) and an engine that decides.
+
+**Prerequisites:** a server on `http://localhost:9858` and the `steer` session with workflow `slow` from [Control a run](/guides/build/control-a-run). Creating supervisors and assignments needs an `ADMIN` key; add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys.
+
+<Diagram name="guide-assign-a-supervisor" alt="An assignment names the unit a supervisor owns: the whole server, a session, a workflow, only its run level, or chosen nodes. Every unit has exactly one owner." caption="Pick the smallest unit that fits. A second supervisor cannot own a unit that already has an owner." />
+
+## Steps
+
+<Steps>
+  <Step title="Create the supervisor">
+    A supervisor has an `id` (letters, digits, `.`, `_`, `-`, up to 64), an engine `type` (`rules`, `http`, `workflow` or `process`) and `settings`. This one uses the `rules` engine with no rules yet, so it reviews and allows. Save as `release-guard.json`:
+
+    ```json release-guard.json
+    {
+      "id": "release-guard",
+      "type": "rules",
+      "description": "Owns the slow workflow; people may pause and resume it",
+      "settings": {
+        "rules": [],
+        "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
+        "operatorAccess": ["PauseWorkflowCommand", "ResumeWorkflowCommand"]
+      }
+    }
+    ```
+
+    - `allowedCommands` is what the supervisor itself may send. Name them, whatever the engine's default is.
+    - `operatorAccess` is what a **person** may send for what it owns (default none). A listed command is reviewed by the owner's engine.
+
+    Check the draft without saving, then save:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors/validate -H 'Content-Type: application/json' -d @release-guard.json
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @release-guard.json
+    ```
+
+    Validation answers `200` with `"valid": false` and a `settings.<key>` field for an unknown key or wrong type. Saving answers `201`; a second save of the same id with `POST` is `409`, so use `PUT /api/supervisors/{id}` to replace it.
+
+    <UiShot name="supervisors-catalogue" alt="The Supervisors page catalogue listing the rules, http, workflow and process engines with their settings" caption="The catalogue lists the four engines with their settings and an example; the create wizard checks settings before it saves." />
+  </Step>
+
+  <Step title="Say what it owns">
+    An **assignment** targets one unit:
+
+    | Target | Owns |
+    |---|---|
+    | `server` | Server-wide commands: scheduler limits, drain, recover |
+    | `session:<id>` | Every workflow of the session, run level and nodes |
+    | `workflow:<s>/<w>` | The run level and all nodes of one workflow |
+    | `run:<s>/<w>` | The run level only: start, pause, resume, stop, restart, priority |
+    | `workflow:<s>/<w>//<selector>,...` | Some nodes: a node id, `<prefix>.*` or `group:<stage>` |
+
+    Check first (it saves nothing), then set:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors/release-guard/assignments/check \
+      -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow"}]'
+    curl -s -X PUT localhost:9858/api/supervisors/release-guard/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow"}]'
+    ```
+
+    The check answers `{"valid": true, "problems": []}`. Setting replaces the assignments you made by hand, checks everything first and changes nothing if one check fails. CLI: `yukta-cli supervisors save -f release-guard.json`, `yukta-cli supervisors assign release-guard workflow:steer/slow`. MCP: `save_supervisor`, `check_assignment`, `set_assignments`.
+  </Step>
+
+  <Step title="Try the one-owner rule">
+    Every unit has one owner. Save a second supervisor and give it the same workflow:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' \
+      -d '{"id":"other-guard","type":"rules","settings":{"rules":[]}}'
+    curl -s -X PUT localhost:9858/api/supervisors/other-guard/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow//wait"}]'
+    ```
+
+    The save is refused with `409` and the code `OWNERSHIP_CONFLICT`, naming the other supervisor and the units in dispute (the `message` reads like `<unit> already owned by release-guard`):
+
+    ```json
+    {
+      "status": 409,
+      "message": "node wait of steer/slow already owned by release-guard",
+      "error": "Conflict",
+      "errors": [ { "field": "code", "message": "OWNERSHIP_CONFLICT" }, { "field": "supervisor", "message": "release-guard" } ]
+    }
+    ```
+
+    Nothing is inherited and nothing is overridden. To give one node to a specialist, narrow the first supervisor's assignment (for example to `workflow:steer/slow//go`) before assigning the node.
+  </Step>
+
+  <Step title="See what people may still do">
+    With a run going (`yukta-cli workflow start steer slow` or the start call from the control guide), ask the server before you send:
+
+    ```bash
+    curl -s "localhost:9858/api/supervision?execution=$EXEC"
+    curl -s "localhost:9858/api/supervision/ownership?session=steer&workflow=slow"
+    ```
+
+    The first lists each command with `allowed`, `via` (the carrying supervisor, or `default`) and `reason`. The second names the owner of the run level and of each node. Now send commands as a person:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/executions/$EXEC/pause        # in operatorAccess: allowed, reviewed by release-guard
+    curl -s -X POST "localhost:9858/api/executions/$EXEC/stop"       # not listed
+    ```
+
+    ```json
+    {
+      "status": 409,
+      "message": "release-guard controls this. People cannot do this directly.",
+      "errors": [ { "field": "code", "message": "CONTROLLED_BY_SUPERVISOR" }, { "field": "supervisor", "message": "release-guard" } ]
+    }
+    ```
+  </Step>
+
+  <Step title="Declare ownership in the workflow">
+    A session or workflow can name its supervisors, so imports, templates and every saved version carry them. The supervisor must exist when the definition is saved, and the one-owner rule runs first.
+
+    ```json
+    "workflows": {
+      "slow": {
+        "workflowId": "slow",
+        "assignments": [
+          { "supervisor": "release-guard", "nodes": ["wait"] },
+          { "supervisor": "other-guard", "enabled": false }
+        ],
+        "nodes": [ "..." ],
+        "edges": [ "..." ]
+      }
+    }
+    ```
+
+    A session-level `assignments` covers the whole session; a workflow-level one covers the workflow or only the listed `nodes` (ids, `<prefix>.*` or `group:<name>`). `enabled: false` declares and keeps it off. These assignments have source `DEFINITION`: saving the definition takes up what is declared and releases what is no longer declared, never touching hand-made ones. A supervisor a definition names cannot be deleted.
+  </Step>
+
+  <Step title="Lock it">
+    `"locked": true` on an assignment means only a lock holder may change or remove it (any admin, or the keys in `yukta.supervisor.lock-holders`). To change it, add `?unlock=true`:
+
+    ```bash
+    curl -s -X PUT localhost:9858/api/supervisors/release-guard/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow","locked":true}]'
+    curl -s -X PUT "localhost:9858/api/supervisors/release-guard/assignments?unlock=true" \
+      -H 'Content-Type: application/json' -d '[]'
+    ```
+
+    Without `unlock`, the second call is `409`.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s "localhost:9858/api/supervisors/assignments?session=steer"
+curl -s localhost:9858/api/supervision/summary
+```
+
+The list shows `release-guard` with target `workflow:steer/slow` and its `source` (`MANUAL`, `DEFINITION` or `SYSTEM`). The summary counts workflows nobody owns and assignments that start-up disabled as conflicts. Stopping the run as a person is refused with `409 CONTROLLED_BY_SUPERVISOR`, pausing it works, and `GET /api/control/audit` records both.
+
+<UiShot name="supervisor-details" alt="A supervisor's page showing its settings, what it owns and its recent decisions" caption="A supervisor's page: its settings (secrets shown as ***), what it owns and what became of its commands." />
+
+## Variations
+
+- **Units nobody owns** go to the default supervisor, which lets people act as before. Set `yukta.supervisor.default.enabled=false` in production so every workflow must name its owner; a person's command for an unowned unit is then `409 CONTROLLED_BY_SUPERVISOR` with no supervisor named.
+- **Commands that need approval.** A rule's `requireApproval` parks a command and answers `202` with `{"status":"AWAITING_APPROVAL","requestId":"..."}`: [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor).
+- **A veto** is a `403` with code `CONTROL_REJECTED` and the rule's reason.
+- **Which engine?** `rules` for exact cases, `http` for an agent or another service, `workflow` for a decision you edit as a workflow, `process` for a local program: [Supervisor engines](/reference/supervisors/engines).
+- **Delete.** A supervisor can be deleted only when it owns nothing, no definition names it and no supervisor reports to it (`409` otherwise).
+
+## Related
+
+- [Supervisors](/concepts/supervisors) for the shell and engine model.
+- [Supervisor shell reference](/reference/supervisors/shell) for every setting.
+- [Use the Control dashboard](/guides/supervise/use-the-control-dashboard) for the supervisors tile and the unowned count.

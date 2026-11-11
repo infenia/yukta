@@ -219,7 +219,7 @@ Returns numbered lines of what one node wrote, so a client does not have to stre
 
 `POST /api/executions/{executionId}/stop`
 
-Stops one run; with `?tree=true` also every unfinished run it started as a [sub-workflow](/concepts/sub-workflows), at any depth. `?mode=DRAIN` (default), `CANCEL` or `KILL` picks how it ends, as for [stopping a workflow](/running/run-controls). To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
+Stops one run; with `?tree=true` also every unfinished run it started as a [sub-workflow](/concepts/sub-workflows), at any depth. `?mode=DRAIN` (default), `CANCEL` or `KILL` picks how it ends, as for [stopping a workflow](/guides/build/control-a-run). To stop every active run of a workflow, use [`POST /api/workflow/{sessionId}/{workflowId}/stop`](/api/workflows#stop-all-runs-of-a-workflow).
 
 **Response `data`**: `executionId` of the stopped run.
 
@@ -260,7 +260,7 @@ Starts a new run from one node. The nodes before it replay their last recorded o
 
 `POST /api/executions/{executionId}/recover`
 
-Continues a run that a server restart aborted, as a new run. Nodes that finished are replayed from their recorded output and the rest run again. It needs the execution log and checkpoints to be kept on disk; see [Checkpoints and resume](/operations/checkpoints-and-resume).
+Continues a run that a server restart aborted, as a new run. Nodes that finished are replayed from their recorded output and the rest run again. It needs the execution log and checkpoints to be kept on disk; see [Checkpoints and resume](/concepts/durability-and-high-availability).
 
 **Response `data`**: `executionId` of the new run.
 
@@ -290,7 +290,7 @@ Changes the priority of a run that waits for an execution slot. Higher values ar
 
 `POST /api/scheduler/limits?maxConcurrent={n}&maxPerWorkflow={n}`
 
-Changes how many runs may execute at once on the running server. Raising a limit admits waiting starts immediately. Lowering it lets running runs finish and holds new starts back. The `yukta.execution.*` settings themselves are not changed. See [Admission and limits](/running/admission-and-limits).
+Changes how many runs may execute at once on the running server. Raising a limit admits waiting starts immediately. Lowering it lets running runs finish and holds new starts back. The `yukta.execution.*` settings themselves are not changed. See [Admission and limits](/guides/operate/tune-capacity-and-limits).
 
 | Query parameter | Required | Meaning |
 |---|---|---|
@@ -334,10 +334,10 @@ Use a drain to swap the server without cutting off runs. While it is on, new sta
   Follow a run live over server-sent events: status, logs, results and the server-wide event feed.
 </Card>
 
-<Card title="Executions" icon="play" horizontal href="/concepts/executions">
+<Card title="Executions" icon="play" horizontal href="/concepts/runs">
   The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
 </Card>
 
-<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+<Card title="Run controls" icon="sliders" horizontal href="/guides/build/control-a-run">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
 </Card>

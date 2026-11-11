@@ -1,0 +1,98 @@
+---
+title: "Status values reference"
+sidebarTitle: "Status values"
+description: "Every run and node status, control state, stop mode, input request state and the other enumerated values used by node options, settings and roles."
+keywords: ["status", "TaskStatus", "control state", "stop mode", "enums"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Status values reference
+
+The enumerated values the API, the UI and the settings use. Statuses are from `TaskStatus`; other enums are from the classes named in each section.
+
+<Diagram
+  name="ref-status-values"
+  alt="A status only moves forward from PENDING to RUNNING and ends in one final status."
+  caption="The final statuses fall in four groups; the table below gives the meaning of each."
+/>
+
+## Run and node status
+
+Statuses only move forward: `PENDING`, then `QUEUED`, then `RUNNING`, then one terminal status. A status that would reopen an ended node or step back is ignored (its metadata is still merged). A node becomes `RUNNING` at its first activity.
+
+| Status | Terminal | Meaning |
+|---|---|---|
+| `PENDING` | no | Created, not started. |
+| `QUEUED` | no | Waiting for a free slot under a concurrency limit. |
+| `RUNNING` | no | Active. |
+| `SUCCESS` | yes | Finished normally. |
+| `FAILURE` | yes | Failed; the reason is in the node's `error` metadata. |
+| `STOPPED` | yes | Ended by a stop command. |
+| `CANCELLED` | yes | Cancelled before it finished: by a stop, a timeout or a failing sibling. |
+| `TIMED_OUT` | yes | A time limit expired: queue wait, run deadline, node idle timeout or node deadline. |
+| `SKIPPED` | yes | The node never ran because the run finished without giving it input. An operator skip shows as control state `NODE_SKIPPED`, not this status. |
+| `UPSTREAM_FAILED` | yes | The node never ran because the run failed before it got input. |
+| `ABORTED` | yes | The server stopped or crashed while the run was going; assigned on the next boot. |
+
+`TaskStatus.isTerminal()` is true for every status except `PENDING`, `QUEUED` and `RUNNING`.
+
+## Control state
+
+`controlState` in progress snapshots.
+
+`PAUSED`, `RESUMED`, `NODE_PAUSED`, `NODE_RESUMED`, `NODE_STEPPED`, `NODE_STOPPED`, `NODE_SKIPPED`, `NODE_UNSKIPPED`, `STEP_MODE_ENABLED`, `STEP_MODE_DISABLED`, `STOPPING`.
+
+## Stop modes
+
+| Mode | Effect |
+|---|---|
+| `DRAIN` (default) | Stops the triggers and lets work in flight finish; cancelled if it does not finish within `yukta.stop.drain-timeout`. |
+| `CANCEL` | Cancels every node's subscription at once so plugins can clean up. |
+| `KILL` | Cancels immediately and removes the run; no further commands are accepted for it. |
+
+## Input requests
+
+| Enum | Values |
+|---|---|
+| State (`InputState`) | `OPEN`, `ESCALATED`, `ANSWERED` (terminal), `EXPIRED` (terminal), `CANCELLED` (terminal) |
+| Kind (`InputKind`) | `APPROVAL`, `CHOICE`, `TEXT`, `STRUCTURED` |
+| Risk (`InputRisk`) | `LOW`, `MEDIUM`, `HIGH` |
+| On timeout (`TimeoutAction`) | `FAIL`, `USE_DEFAULT` |
+| Tier mode | `FIRST`, `QUORUM`, `UNANIMOUS` |
+| Tier type | `HUMAN`, `AUTO` |
+| Route final action | `FAIL`, `USE_DEFAULT` |
+
+## Node option values
+
+| Option | Values |
+|---|---|
+| `engine.onError` | `FAIL` (default), `CONTINUE`, `ROUTE` |
+| `engine.trigger` | `ALL_SUCCESS` (default), `ALL_DONE`, `ONE_SUCCESS` |
+| `engine.checkpoint` | `ALL` (default), `LAST`, `NONE` |
+| `engine.edgeBuffer.overflow` | `DROP_OLDEST` (default), `DROP_NEWEST` |
+
+## Server setting values
+
+| Setting | Values |
+|---|---|
+| `yukta.execution.on-limit` | `QUEUE` (default), `REJECT` |
+| `yukta.session.store-type` | `in-memory` (default), `file`, `postgres` |
+| Decision model backend (`ModelSpec.Backend`) | `SYSTEMONE`, `LLM` |
+
+## API roles
+
+| Role | Allows |
+|---|---|
+| `VIEWER` | Read. |
+| `OPERATOR` | Also start, control and answer runs. |
+| `ADMIN` | Everything. |
+
+Details are in the [Security reference](/reference/security).
+
+## Related
+
+- [Node options reference](/reference/node-options)
+- [Configuration reference](/reference/configuration)
+- [Runs](/concepts/runs)
+- [Control a run](/guides/build/control-a-run)
