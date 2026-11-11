@@ -374,7 +374,7 @@ export function RunControls({
         </DropdownMenuContent>
       </DropdownMenu>
       {copied && (
-        <span role="status" className="text-label-sm text-on-surface-variant">
+        <span role="status" className="sr-only">
           {copied === 'copied' ? 'Copied' : 'Copy failed'}
         </span>
       )}

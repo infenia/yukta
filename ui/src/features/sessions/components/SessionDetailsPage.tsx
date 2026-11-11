@@ -22,12 +22,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { iconButton } from '@/components/ui/iconTone';
+import { cn } from '@/lib/utils';
 import { getSessionDraft } from '@/features/builder/api';
 import {
   CopyAsMenu,
   type CopyChoice,
 } from '@/features/workflow/components/CopyAsMenu';
-import { useCopyCommand } from '@/features/workflow/hooks/useCopyCommand';
+import {
+  copyIcon,
+  copyTone,
+  useCopyCommand,
+} from '@/features/workflow/hooks/useCopyCommand';
 
 /** Asks for the new workflow's ID, then opens the editor on it. */
 function NewWorkflowDialog({
@@ -113,7 +118,7 @@ function SessionCopyAs({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          className={iconButton('primary')}
+          className={cn(iconButton('primary'), copyTone(status))}
           aria-label="Copy as"
           title="Copy as…"
         >
@@ -121,7 +126,7 @@ function SessionCopyAs({
             aria-hidden="true"
             className="material-symbols-outlined text-base"
           >
-            content_copy
+            {copyIcon(status)}
           </span>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
@@ -129,7 +134,7 @@ function SessionCopyAs({
         </DropdownMenuContent>
       </DropdownMenu>
       {status && (
-        <span role="status" className="text-label-sm text-on-surface-variant">
+        <span role="status" className="sr-only">
           {status === 'copied' ? 'Copied' : 'Copy failed'}
         </span>
       )}

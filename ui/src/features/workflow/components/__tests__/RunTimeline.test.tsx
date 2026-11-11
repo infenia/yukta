@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { RunTimeline, ViewSwitch } from '../RunTimeline';
 import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
+import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
 import {
   createMockGraph,
   createMockGraphNode,
@@ -52,6 +53,36 @@ describe('RunTimeline', () => {
     expect(screen.getByTestId('timeline-bar-later').className).toContain(
       'bg-destructive'
     );
+  });
+
+  it('marks the row of a supervised node with its supervisor, and no other row', () => {
+    render(
+      <NodeSupervisors value={new Map([['first', 'ops-supervisor']])}>
+        <RunTimeline
+          switcher={null}
+          tasks={[
+            task(
+              'first',
+              'SUCCESS',
+              '2026-01-01T10:00:00',
+              '2026-01-01T10:00:05'
+            ),
+            task(
+              'second',
+              'SUCCESS',
+              '2026-01-01T10:00:05',
+              '2026-01-01T10:00:09'
+            ),
+          ]}
+        />
+      </NodeSupervisors>
+    );
+    expect(screen.getAllByRole('img', { name: /Supervised by/ })).toHaveLength(
+      1
+    );
+    expect(
+      screen.getByRole('img', { name: 'Supervised by ops-supervisor' })
+    ).toBeInTheDocument();
   });
 
   it('says so before any node has started', () => {

@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 import {
   copyIcon,
+  copyTone,
   useCopyCommand,
 } from '@/features/workflow/hooks/useCopyCommand';
 import { Badge } from '@/components/ui/badge';
@@ -56,14 +57,12 @@ export function SessionInfoPanel({
         {actions}
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[2fr_1fr_1fr_1fr_1.5fr]">
-        <div className="space-y-1">
-          <h3 className={label}>Description</h3>
-          <p className="text-body-md text-on-surface max-w-prose">
-            {session.description}
-          </p>
-        </div>
+      <div className="mb-6 space-y-1">
+        <h3 className={label}>Description</h3>
+        <p className="text-body-md text-on-surface">{session.description}</p>
+      </div>
 
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.5fr]">
         <div className="space-y-1">
           <h3 className={label}>Tags</h3>
           <div className="flex flex-wrap gap-2">
@@ -114,8 +113,8 @@ export function SessionInfoPanel({
             </code>
             <span
               className={cn(
-                'material-symbols-outlined text-sm transition-colors',
-                copied ? 'text-success' : 'group-hover:text-primary'
+                'material-symbols-outlined flex size-6 shrink-0 items-center justify-center rounded-md text-base transition-colors',
+                copied ? copyTone(copied) : 'group-hover:text-primary'
               )}
               aria-hidden="true"
             >
