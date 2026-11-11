@@ -1,0 +1,83 @@
+---
+title: "Messages reference"
+sidebarTitle: "Messages"
+description: "Every field of the message envelope, the labels the engine adds and resets, identity rules and size limits."
+keywords: ["messages", "payload", "metadata", "envelope", "headers"]
+---
+
+# Messages reference
+
+A message is a payload plus labels, the unit of data on an edge. Messages are immutable: a node builds a new message from the one it received. Immutability is shallow; values inside a payload are shared, so treat received payloads as read-only.
+
+## Fields
+
+| Field | Type | Description |
+|---|---|---|
+| `payload` | any JSON-like value | The data moved. No fixed schema. Read in config as `${payload.field}`. |
+| `metadata` | map | Free key-value labels set by plugins. Read as `${metadata.key}`. |
+| `id` | string | Identifier of one logical message; kept by retries and derived messages. |
+| `traceId` | string | Shared by every message derived from one request. |
+| `correlationId` | string | A splitter sets it to the parent's id on each child. |
+| `timestamp` | instant | When the message was created. |
+| `sourceNodeId` | string | Node that emitted it. Set by the engine on every edge. |
+| `sourcePort` | string | Output port it left through. |
+| `workflowId` | string | Running workflow. Set by the engine on every edge. |
+| `messageHistory` | list of string | Ids of the last 64 nodes it passed through (`MAX_HISTORY`, not configurable). |
+| `sequenceId`, `sequenceNumber`, `sequenceSize` | string, int, int | Position in a group produced by a splitter. |
+| `expiration` | long | The engine drops an inbound message once this time has passed. |
+| `priority`, `replyTo`, `formatIndicator`, `retryCount`, `controlMessage` | various | Carried along; they change no behaviour except as stated for `controlMessage`. `replyTo` routes nothing. |
+| `origDest`, `failureReason`, `exceptionDetail` | string | Set by plugins such as `VALIDATE` and `BRANCH`, and by error routing. |
+
+Run priority is a different mechanism: `yukta.priority` in the start payload (needs the ADMIN role).
+
+## Identity across nodes
+
+| Node behaviour | Result |
+|---|---|
+| A processor transforms a message | Same `id` and `traceId`, new payload. |
+| A splitter turns one message into several | New ids; each child keeps the parent's `traceId` and carries the parent's id as `correlationId` and its position in the group. |
+| An aggregator merges several messages | One new message with the `traceId` of the first. |
+| A trigger creates a message | New `id`, `traceId` and `timestamp`. |
+
+A message may be delivered more than once after a retry or resume; side-effecting plugins de-duplicate on `id`.
+
+## Labels the engine adds
+
+| Label | Added when | Content |
+|---|---|---|
+| `attempt` | The node has `retry`, `onError` or `elementTimeoutMs` | `1`, `2`, ... for each attempt at one message. |
+| `failure.attempts` | The message is routed to the `error` port | Number of attempts made. |
+| `failure.exception` | Same | Exception class name. |
+| `failure.message` | Same | Error text. |
+| `failure.time` | Same | ISO-8601 time of the failure. |
+| `origDest`, `failureReason` | Same | Node it was heading for; why it failed. |
+
+## Fields only the engine writes
+
+On every edge the engine resets these, whatever a plugin put on its output.
+
+| Field | Reset to |
+|---|---|
+| `sourceNodeId` | The node the edge comes from. |
+| `workflowId` | The id of the running workflow. |
+| `controlMessage` | `false`. |
+| `attempt` | Removed; the retry loop sets it before each call. |
+| `failure.*` | Removed unless the message is on the `error` port. |
+
+`origDest`, `failureReason` and `exceptionDetail` are not reset. `id`, `traceId`, `correlationId`, `replyTo`, sequence fields, `priority`, `expiration` and custom labels are plugin-written and passed on; they are not proof of origin.
+
+## Limits
+
+| Item | Value | Changed by |
+|---|---|---|
+| History length | 64 nodes | fixed |
+| Payload per message at a node boundary | 67108864 bytes (64 MiB); larger fails the node with `PayloadTooLargeException`. `0` turns the check off. | `yukta.messaging.max-payload-bytes` |
+| Request body (start payload) | 1 MiB; larger is answered `413` | `spring.codec.max-in-memory-size` |
+| Log line echoed from an output | 2,048 characters | fixed |
+
+## Related
+
+- [Expressions reference](/reference/expressions)
+- [Node options reference](/reference/node-options)
+- [How Yukta works](/concepts/how-it-works)
+- [Delivery and back-pressure](/concepts/delivery-and-backpressure)

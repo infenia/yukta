@@ -64,7 +64,7 @@ Out of scope:
 
 * Anything that requires the `ADMIN` role, or access to a server that has no API key. Defining a
   workflow is a trusted operation by design, because a workflow can run commands, scripts and SQL.
-  See [Security](docs/operations/security.mdx) for the trust model.
+  See [Security](docs/concepts/security-model.mdx) for the trust model.
 * Findings that need a deployment we document as unsafe, for example exposing the server on a
   network without an API key or without TLS in front of it.
 * Denial of service by resource exhaustion from an authenticated `ADMIN` user.
@@ -72,7 +72,7 @@ Out of scope:
 ## Hardening Guidance
 
 How to expose the server safely, how roles and API keys work, and the settings that bound what a
-workflow may do are described in [docs/operations/security.mdx](docs/operations/security.mdx).
+workflow may do are described in [docs/concepts/security-model.mdx](docs/concepts/security-model.mdx).
 The design reasoning behind those controls is in [ASSURANCE.md](ASSURANCE.md).
 
 Thank you for helping keep Yukta secure!

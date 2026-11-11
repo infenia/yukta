@@ -1,0 +1,149 @@
+---
+title: "Use tools and MCP servers"
+sidebarTitle: "Tools and MCP servers"
+description: "Let a model choose a tool on an MCP server, run it from a node you wired and feed the result back, with an allow-list and human approval."
+keywords: ["MCP_LIST_TOOLS", "MCP_TOOL_CALL", "agent loop", "tools", "allowedTools", "requireApproval", "MCP client"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to wire a model, an MCP server's tools and a branch into one agent step"
+  time="20 minutes"
+  need="a server on localhost:9858 with the LLM and MCP client plugins, a model key, and the URL of an MCP server (streamable HTTP)"
+  end="a workflow where a model may call one tool, with the tool list narrowed and risky calls held for approval"
+/>
+
+**Use this when** a model should be able to fetch data or act through tools, while the graph, not the model, decides what runs. The model suggests a tool call; a node you wired runs it.
+
+**Prerequisites:** [Call an LLM](/guides/ai/call-an-llm) works for you. These are MCP **client** nodes (`MCP_LIST_TOOLS`, `MCP_TOOL_CALL`) that call other servers; to let an assistant drive Yukta itself, see [Connect an assistant](/guides/ai/connect-an-assistant). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+<Diagram name="guide-use-tools-and-mcp-servers" alt="The model only suggests a tool call. The route node branches on whether it asked, the act node runs the tool from an allow-list, and a risky tool can wait for a person first." caption="The model suggests; the graph decides. A tool runs only through the act node, from the allow-list, and only after a person approves if you require it. The pick, map and finish steps are left out here." />
+
+## Steps
+
+<Steps>
+  <Step title="List the tools">
+    `MCP_LIST_TOOLS` reads tool names, descriptions and input schemas from a server. `allowedTools` narrows the list the model sees.
+
+    ```json
+    {
+      "nodeId": "tools",
+      "type": "MCP_LIST_TOOLS",
+      "config": {
+        "url": "https://issues.example.com/mcp",
+        "authToken": "decrypted:issues-mcp",
+        "allowedTools": ["search_issues", "get_issue"]
+      }
+    }
+    ```
+
+    The result is in `payload.tools`. The URL, tool names and token are placeholders for your own server; set `YUKTA_SECRET_ISSUES_MCP` on the Yukta server.
+  </Step>
+
+  <Step title="Let the model choose">
+    `LLM_CALL` takes the tools in its `tools` option (an **expression**, so write `payload.tools`, not `${...}`). If the model wants a tool, the call appears in `payload.actions` as `{tool, arguments, id}`. The node does not run it.
+
+    ```json
+    {
+      "nodeId": "plan",
+      "type": "LLM_CALL",
+      "config": {
+        "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+        "system": "You are an issue triage agent. Call a tool when you need data. Otherwise answer.",
+        "prompt": "${metadata.task}",
+        "tools": "payload.tools",
+        "maxTokens": 1024, "timeout": 60
+      }
+    }
+    ```
+
+    Each node replaces the payload with its own result, so carry what you still need in message metadata. A `CONSTANT_SOURCE` with `"target": "METADATA"` and `"variables": {"task": "..."}` at the start sets `metadata.task`, readable later as `${metadata.task}`.
+  </Step>
+
+  <Step title="Branch on whether it asked">
+    ```json
+    {
+      "nodeId": "route",
+      "type": "BRANCH",
+      "config": {
+        "mode": "EXPRESSION",
+        "cases": { "payload.actions.size() > 0": "tool" },
+        "defaultPort": "answer"
+      }
+    }
+    ```
+
+    Port `answer` goes straight to a terminal; port `tool` continues.
+  </Step>
+
+  <Step title="Run the tool, with an allow-list">
+    Map the first action into the tool call, then run it. `allowedTools` on this node means a model can never reach a tool you did not intend, even by choosing its name.
+
+    ```json
+    { "nodeId": "pick", "type": "MAPPER",
+      "config": { "mode": "PROJECTION",
+                  "mapping": { "tool": "payload.actions[0].tool", "args": "payload.actions[0].arguments" } } }
+    ```
+
+    ```json
+    {
+      "nodeId": "act",
+      "type": "MCP_TOOL_CALL",
+      "config": {
+        "url": "https://issues.example.com/mcp",
+        "tool": "${payload.tool}",
+        "arguments": "payload.args",
+        "allowedTools": ["search_issues", "get_issue"],
+        "authToken": "decrypted:issues-mcp",
+        "timeout": 30
+      }
+    }
+    ```
+
+    The result is `payload = {success, tool, text, content, structured, error}`. If the model asks for several tools, `pick` takes the first; split `payload.actions` with a `SPLITTER` node to run all of them.
+  </Step>
+
+  <Step title="Write the final answer">
+    A second `LLM_CALL` quotes the task and the tool result: `"prompt": "Task: ${metadata.task}\n\nTool result:\n${payload.text}"`. Edges: `task → tools → plan → route`, `route -tool-> pick → act → finish → final-answer`, `route -answer-> direct-answer`.
+  </Step>
+
+  <Step title="Hold risky tools for a person">
+    On `MCP_TOOL_CALL`, `requireApproval` lists tools (or `*`) that wait for a human answer before they are called. The wait is an [input request](/guides/ai/ask-for-input) of risk `HIGH`, so only a person can answer; `reject` or no answer refuses the call.
+
+    ```json
+    { "requireApproval": ["delete_issue"], "approvalTimeoutSeconds": 900 }
+    ```
+
+    `approvalTimeoutSeconds` is the longest wait (default 3600); `approvalSignal` names the request (default `approve`).
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Apply the session, start it with `{"sessionId":"issue-agent","workflowId":"triage"}` and read the node statuses:
+
+```bash
+curl -s localhost:9858/api/executions/$EXEC
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/issue-agent/executions/$EXEC/results
+```
+
+When the model asked for a tool, `tools`, `plan`, `route`, `pick`, `act` and `finish` are `SUCCESS` and the result comes from `final-answer`. When it answered directly, `pick`, `act` and `finish` never ran and the result comes from `direct-answer`. `GET /api/executions/$EXEC/nodes/act/output` shows what the tool returned.
+
+## Variations
+
+- **Several rounds.** A graph has no cycles. Unroll a fixed number of rounds by repeating the `LLM_CALL`, `BRANCH` and `MCP_TOOL_CALL` group (a hard, readable upper bound), or move one round into its own workflow and call it with `SUB_WORKFLOW` (nesting is capped at 5): [Run a sub-workflow](/guides/build/run-a-sub-workflow). `LOOP_PREDICATE` repeats one processor, not a whole round.
+- **Server-wide tool limits.** `yukta.mcp-client.allowed-tools`, `allowed-hosts`, `max-argument-bytes` (65536) and `deny-argument-patterns` apply to every workflow: [Configuration](/reference/configuration).
+- **Cap the spend and the calls.** Share one budget across the model and tool nodes: [Set token budgets](/guides/ai/set-token-budgets).
+- **Let the model ask a person.** `allowAskInput: true` on both nodes: [Ask for input](/guides/ai/ask-for-input).
+
+<Warning>
+  A model can be talked into asking for a tool you did not expect. Keep `allowedTools` narrow, put `requireApproval` on tools that change things, and never let a model-chosen name or argument reach something dangerous without a check.
+</Warning>
+
+## Related
+
+- [AI plugins reference](/reference/plugins/ai) for every option of the three nodes.
+- [AI and deterministic work](/concepts/ai-and-deterministic-work).
+- [Example 10: an MCP agent](https://github.com/infenia/yukta/tree/main/examples/10-mcp-agent).

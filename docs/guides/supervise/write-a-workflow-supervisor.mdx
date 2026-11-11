@@ -1,0 +1,165 @@
+---
+title: "Write a workflow supervisor"
+sidebarTitle: "Write a workflow supervisor"
+description: "Make a supervisor out of a workflow in an internal session: SUPERVISOR_SIGNAL in, SUPERVISOR_DECISION out, started for each event you list."
+keywords: ["workflow supervisor", "SUPERVISOR_SIGNAL", "SUPERVISOR_DECISION", "internal session", "workflow engine"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to write a supervisor's decision as a workflow you can see and edit"
+  time="20 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, and the approvals/deploy workflow from Ask for input"
+  end="a supervisor that approves low-risk input requests by running a workflow, and hands the rest up"
+/>
+
+**Use this when** the decision should be visible and editable as a flowchart, and may use any node: a `BRANCH`, an `HTTP_REQUEST`, an `LLM_CALL` or a decision plugin. For each event you list, the server starts the workflow with the event and reads how it ended.
+
+**Prerequisites:** [Ask for input](/guides/ai/ask-for-input) (the `approvals` session) and [Assign a supervisor](/guides/supervise/assign-a-supervisor). Defining a session and a supervisor needs an `ADMIN` key; add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys. This guide follows [example 17](https://github.com/infenia/yukta/tree/main/examples/17-supervisor-workflow).
+
+## Steps
+
+<Steps>
+  <Step title="Write the decision workflow in an internal session">
+    A session tagged `"yukta.internal": "true"` is **internal**: hidden from the default lists, and its own events never reach a supervisor. The workflow begins at `SUPERVISOR_SIGNAL` and ends in `SUPERVISOR_DECISION` nodes. Save as `session.json`:
+
+    ```json session.json
+    {
+      "sessionId": "supervisors",
+      "name": "Supervisor workflows",
+      "tags": { "yukta.internal": "true" },
+      "workflows": {
+        "low-risk-answers": {
+          "workflowId": "low-risk-answers",
+          "description": "Approve a LOW risk request; hand anything else up",
+          "nodes": [
+            { "nodeId": "trigger", "type": "SUPERVISOR_SIGNAL", "config": {} },
+            {
+              "nodeId": "gate",
+              "type": "BRANCH",
+              "config": {
+                "mode": "EXPRESSION",
+                "cases": {
+                  "payload.request.spec.risk == 'LOW'": "low",
+                  "payload.request.spec.risk != 'LOW'": "other"
+                },
+                "strictMode": true
+              }
+            },
+            {
+              "nodeId": "approve",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": {
+                  "commands": "{ {type: 'AnswerInput', requestId: payload.request.id, decision: 'approve', rationale: 'low risk, approved by the supervisor workflow', confidence: 1.0} }"
+                }
+              }
+            },
+            { "nodeId": "answered", "type": "SUPERVISOR_DECISION", "config": { "outcome": "SUCCESS", "reason": "low risk" } },
+            { "nodeId": "hand-up", "type": "SUPERVISOR_DECISION", "config": { "outcome": "ESCALATE", "reason": "not low risk; a person or a supervisor above should decide" } }
+          ],
+          "edges": [
+            { "source": "trigger", "target": "gate" },
+            { "source": "gate", "target": "approve", "sourcePort": "low" },
+            { "source": "gate", "target": "hand-up", "sourcePort": "other" },
+            { "source": "approve", "target": "answered" }
+          ]
+        }
+      }
+    }
+    ```
+
+    The signal's payload holds the event, with secrets masked, and for an input request the `request` (`id`, `spec.risk`, `spec.kind`, `spec.prompt`...). How the run ends decides what happens:
+
+    | Ends with | Effect |
+    |---|---|
+    | `SUCCESS` and `{"commands": [...]}` | Sends those commands (at most 10 per run) |
+    | `ESCALATE` | Hands the request in the event up, with the reason as advice |
+    | `RETRY` | Runs the workflow once more |
+    | A failure, a timeout, or an unreadable result | No opinion |
+
+    A command the contract cannot read fails the run instead of being dropped. `AnswerInput`, `EscalateInput`, `PauseWorkflow`, `ResumeWorkflow`, `PauseNode`, `ResumeNode` and `SetPriority` can always be mapped; `StopWorkflow`, `StopNode`, `SkipNode`, `Restart`, `RestartFromNode`, `SetLimits` and `SetBreakpoint` only when `allowedCommands` names them.
+
+    ```bash
+    curl -s -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+    ```
+  </Step>
+
+  <Step title="Save the supervisor">
+    ```json supervisor.json
+    {
+      "id": "low-risk-workflow",
+      "type": "workflow",
+      "settings": {
+        "sessionId": "supervisors",
+        "workflowId": "low-risk-answers",
+        "events": ["InputRequested"],
+        "maxConcurrent": 2,
+        "timeout": 30,
+        "allowedCommands": ["AnswerInputCommand", "EscalateInputCommand"],
+        "canAnswer": true,
+        "maxRisk": "LOW"
+      }
+    }
+    ```
+
+    | Setting | Meaning |
+    |---|---|
+    | `sessionId`, `workflowId` | The internal session and its workflow; must exist when the supervisor is saved |
+    | `events` | Event types that start it, such as `InputRequested` |
+    | `maxConcurrent` | Runs at once, default 2 |
+    | `timeout` | Seconds one run may take, 1 to 600, default 60 |
+    | `when` | Optional read-only SpEL condition over the event, such as `request.spec.risk == 'LOW'`; the run starts only when it holds |
+    | `allowedCommands`, `canAnswer`, `maxRisk` | As for any supervisor. A workflow supervisor may send **no** command until `allowedCommands` names some |
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @supervisor.json
+    ```
+  </Step>
+
+  <Step title="Give it something to own">
+    ```bash
+    curl -s -X PUT localhost:9858/api/supervisors/low-risk-workflow/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"session:approvals"}]'
+    ```
+
+    The supervisor answers only requests of what it owns, and never one raised by a run it started.
+  </Step>
+
+  <Step title="Trigger a request">
+    Start the `deploy` workflow from [Ask for input](/guides/ai/ask-for-input), whose request has risk `LOW`:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"approvals","workflowId":"deploy","payload":{"build":"42","environment":"staging"}}'
+    ```
+  </Step>
+</Steps>
+
+## Verify it worked
+
+The run goes on without anyone answering, and ends in the `deployed` terminal.
+
+```bash
+curl -s "localhost:9858/api/sessions/approvals/inputs?state=ANSWERED"
+curl -s "localhost:9858/api/supervisors/decisions?supervisor=low-risk-workflow"
+curl -s "localhost:9858/api/sessions?includeInternal=true"
+```
+
+The request is `ANSWERED` by the supervisor with the rationale from the workflow, the decision shows outcome `applied`, and the `supervisors` session appears only with `includeInternal=true`. Change the request to risk `MEDIUM` and start again: the workflow ends with `ESCALATE`, the request becomes `ESCALATED` with your reason as advice, and it waits for the next tier or a person. A `HIGH` request is never answered by a supervisor, whatever the workflow says.
+
+## Variations
+
+- **A section supervisor.** `section-supervisor.json` in the example owns only `workflow:my-session/my-workflow//build.*`, runs a one-node `section-triage` workflow that always ends `ESCALATE`, and reports to `low-risk-workflow` via `"parents"`: [Build a hierarchy](/guides/supervise/build-a-hierarchy).
+- **Make the decision with a model.** Put an `LLM_CALL`, or an `MCP_TOOL_CALL` that reads other runs with a `VIEWER` key, in front of the decision node ([Call an LLM](/guides/ai/call-an-llm)).
+- **Observing internal sessions.** Events of internal sessions never reach a supervisor unless its settings set `observeInternal: true` and it owns that session. Supervisors nested deeper than `yukta.supervisor.max-depth` (2) are refused.
+- **Their own slots.** Supervisor runs hold one of `yukta.supervisor.reserved-slots` (4) slots, so a saturated server still runs them and they cannot starve normal work. A run that finds none within its timeout is skipped.
+- **Trusted authors.** Only admins can define sessions, and a workflow can call any endpoint it holds a key for, so write these workflows as trusted code.
+
+## Related
+
+- [Supervisor engines reference](/reference/supervisors/engines) for the `workflow` engine.
+- [Supervisor contract reference](/reference/supervisors/contract).
+- [Terminal plugins](/reference/plugins/terminals) for `OUTCOME_TERMINAL`, whose exits `SUPERVISOR_DECISION` shares.

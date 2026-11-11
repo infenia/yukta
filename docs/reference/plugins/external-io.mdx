@@ -1,0 +1,175 @@
+---
+title: "External I/O reference"
+sidebarTitle: "External I/O"
+description: "Options, ports, outputs and server settings of HTTP_REQUEST, PROCESS_EXECUTOR, SQL_QUERY, FILE_READ, FILE_WRITE and PATCH_GUARD."
+tag: "Optional"
+keywords: ["HTTP_REQUEST", "PROCESS_EXECUTOR", "SQL_QUERY", "FILE_READ", "FILE_WRITE", "PATCH_GUARD"]
+---
+
+# External I/O reference
+
+These processors reach outside the server: HTTP, processes, SQL and files. Each belongs to an optional build module (see the [plugin overview](/reference/plugins/overview#selecting-plugins-at-build-time)).
+
+Options that accept `${...}` say so. Never put a secret in `config`: write `decrypted:<key>`; the server reads it from the environment variable `YUKTA_SECRET_<KEY>`.
+
+## `HTTP_REQUEST`
+
+Module `http-request`. Performs one HTTP request per message.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `url` | string | none | yes | Request URL; `${...}` supported. |
+| `method` | `GET`, `POST`, `PUT`, `PATCH`, `DELETE` or `HEAD` | `GET` | no | HTTP method. |
+| `headers` | map | none | no | Request headers; `${...}` and `decrypted:<key>` supported. |
+| `body` | expression | none | no | Request body; a string supports `${...}`, an object is sent as JSON. |
+| `timeout` | number | `30` | no | Seconds, positive. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `ERROR` fails the node on a non-2xx status or transport error; `CONTINUE` emits the result (status `0` on a transport error). |
+| `routeByStatus` | boolean | `false` | no | Emit on `success` (2xx) or `failure`; needs `failureMode: CONTINUE`. |
+| `concurrency` | number | `16` | no | Requests in flight at once. |
+
+- **Output ports:** `default`, or `success` and `failure` with `routeByStatus`.
+- **Payload:** `{status, success, headers, body}`; `body` is parsed when the response is JSON. Metadata gains `status`.
+- **Default node timeout:** `timeout` plus 5 seconds.
+- **Egress:** the URL is checked against `yukta.egress.allowed-hosts`, `yukta.egress.by-workflow.<id>` and `yukta.egress.by-session.<id>`.
+- **Errors:** `url is mandatory`; `timeout must be positive, got: <n>`; `routeByStatus requires failureMode: CONTINUE`; `HTTP request failed with status <n>: <body>`.
+
+```json
+{
+  "nodeId": "fetch",
+  "type": "HTTP_REQUEST",
+  "config": { "url": "https://api.example.com/items/${payload.id}", "headers": { "Authorization": "decrypted:api-token" } }
+}
+```
+
+## `PROCESS_EXECUTOR`
+
+Module `process-executor`. Runs an external process per message.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `command` | list | none | yes | Command and arguments; `${...}` supported. |
+| `inputMode` | `NONE`, `ENV` or `STDIN` | `NONE` | no | `ENV` exports metadata as `YUKTA_METADATA_*` and the payload as `YUKTA_PAYLOAD`; `STDIN` writes the payload to standard input. Non-string payloads are JSON-serialized. |
+| `workingDir` | string | current directory | no | Working directory; SpEL supported. |
+| `timeout` | number | `300` | no | Seconds, positive; SpEL supported. |
+| `env` | map | none | no | Extra environment variables. |
+| `useShell` | boolean | `false` | no | Run the elements as one shell script (`sh -c`, `cmd.exe /c`) so pipes and `&&` work; a literal `true` or `false`, not an expression. |
+| `captureStderr` | boolean | `false` | no | Capture stderr separately instead of merging it into stdout. |
+| `outputFormat` | `STRUCTURED`, `RAW`, `JSON` or `PASSTHROUGH` | `STRUCTURED` | no | Shape of the emitted payload. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `ERROR` fails the node on a non-zero exit or a timeout. |
+| `routeByExitCode` | boolean | `false` | no | Emit on `success` (exit 0) or `failure` (non-zero exit or timeout); needs `failureMode: CONTINUE`. |
+| `reports` | list | none | no | `[{format: junit\|checkstyle\|sarif, glob}]`; report files written during the run are read into `failures`. |
+| `metadataFrom` | map | none | no | Node metadata key to a dotted path into the JSON the process prints; missing paths are skipped. |
+| `concurrency` | number | `4` | no | Messages handled at once; each starts a process. |
+| `maxOutputLines` | number | `10000` | no | Output lines kept; `0` is unlimited. Accepted, not in the declared schema. |
+| `maxOutputBytes` | number | `10485760` | no | Output bytes kept; `0` is unlimited. Accepted, not in the declared schema. |
+| `includeOutput` | boolean | `true` | no | Include stdout and stderr in `STRUCTURED` and `JSON` payloads. Accepted, not in the declared schema. |
+| `includeInput` | boolean | `false` | no | Include the input payload under `input`. Accepted, not in the declared schema. |
+
+`outputFormat` payloads:
+
+| Value | Payload |
+|---|---|
+| `STRUCTURED` | `{exitCode, success, timedOut, durationMillis, outputTruncated, stdout?, stderr?, input?}` |
+| `RAW` | stdout as one string |
+| `JSON` | `STRUCTURED` plus `output`, the stdout parsed as JSON (`null` if the process failed) |
+| `PASSTHROUGH` | the input payload, unchanged |
+
+- **Output ports:** `default`, or `success` and `failure` with `routeByExitCode`.
+- **Metadata:** `exitCode` (`-1` on timeout). `reports` adds `failures` (at most 50 of `{kind, file, line, rule, message, test?}`) and `totalFailures` to `STRUCTURED` and `JSON` payloads. Output past the caps is discarded and `outputTruncated` is set.
+- **Default node timeout:** `timeout` plus the larger of 5 seconds and a tenth of `timeout`.
+- **Server settings:** execution is off until `yukta.process.allowed-commands` lists executables or `yukta.process.allow-any` is `true` (default `false`). While `allowed-commands` is set, `useShell` is refused, the executable must be listed and environment names such as `PATH` or `LD_*` need `yukta.process.allowed-env`. `yukta.process.working-dir-root` confines `workingDir`. See [Configuration](/reference/configuration).
+- **Variable safety:** `${metadata.<key>}` refuses keys containing `PASSWORD`, `SECRET` or `KEY`. With `useShell`, an element that uses `${...}` becomes one quoted word.
+- **Errors:** `command is mandatory`; `timeout must be positive, got: <n>`; `routeByExitCode requires failureMode: CONTINUE`; `Process timed out after <n>s`; `Process execution is off: set yukta.process.allowed-commands (or yukta.process.allow-any=true to run any executable)`; `Command '<name>' is not in yukta.process.allowed-commands`.
+
+```json
+{ "nodeId": "test", "type": "PROCESS_EXECUTOR", "config": { "command": ["mvn", "test"], "failureMode": "CONTINUE", "routeByExitCode": true } }
+```
+
+## `SQL_QUERY`
+
+Module `sql-query`. Runs a parameterized statement over JDBC per message. The JDBC driver must be on the classpath. The node is blocking.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `url` | string | none | yes | JDBC URL; `${...}` supported. |
+| `username` | string | none | no | Database user; `${...}` supported. |
+| `password` | secret | none | no | Password; `decrypted:<key>` supported. |
+| `sql` | string | none | yes | Statement with `?` placeholders. |
+| `params` | list | none | no | Payload field names bound to the placeholders, in order. |
+| `maxRows` | number | `1000` | no | Most rows returned. |
+| `timeoutSeconds` | number | `30` | no | Statement timeout, positive. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a SQL error to the `error` port. |
+
+- **Output ports:** `default`; plus `error` with `failureMode: CONTINUE`.
+- **Payload:** `{rows, count}` for a query; `{updated}` for an update.
+
+```json
+{ "nodeId": "lookup", "type": "SQL_QUERY", "config": { "url": "jdbc:postgresql://db/app", "password": "decrypted:db", "sql": "select * from users where id = ?", "params": ["userId"] } }
+```
+
+## `FILE_READ`
+
+Module `file-io`. Reads a UTF-8 text file from a sandbox directory. The node is blocking.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `baseDir` | string | none | yes | Sandbox directory; paths outside it are rejected. |
+| `path` | string | `payload.path` | no | File relative to `baseDir`. |
+| `maxBytes` | number | `10485760` | no | Largest file read, in bytes. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
+
+- **Output ports:** `default`; plus `error` with `failureMode: CONTINUE`.
+- **Payload:** `{path, content}`.
+- **Server setting:** `yukta.files.allowed-root` confines `baseDir`; a `baseDir` or path that reaches outside it through a symbolic link is refused.
+- **Errors:** `file larger than maxBytes (<n>): <file>`; `baseDir <dir> is outside the operator's root (yukta.files.allowed-root)`.
+
+```json
+{ "nodeId": "read", "type": "FILE_READ", "config": { "baseDir": "/srv/work", "path": "report.txt" } }
+```
+
+## `FILE_WRITE`
+
+Module `file-io`. Writes or appends text to a file in a sandbox directory and passes the message through. The node is blocking.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `baseDir` | string | none | yes | Sandbox directory; paths outside it are rejected. |
+| `path` | string | `payload.path` | no | File relative to `baseDir`. |
+| `contentField` | string | `content` | no | Payload field that holds the text; a string payload is written as is. |
+| `append` | boolean | `false` | no | Append a line instead of overwriting. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
+
+- **Output ports:** `default`; plus `error` with `failureMode: CONTINUE`.
+- **Errors:** `no content in payload.<field>`; the sandbox errors of `FILE_READ`.
+
+```json
+{ "nodeId": "save", "type": "FILE_WRITE", "config": { "baseDir": "/srv/work", "path": "out.log", "append": true } }
+```
+
+## `PATCH_GUARD`
+
+Module `file-io`. Judges the working-tree change of a git checkout against rules. Staged, unstaged and new files count.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `dir` | string | none | yes | The git checkout; inside `yukta.files.allowed-root` when that is set. |
+| `base` | string | `HEAD` | no | Git ref to compare with. |
+| `protectedPaths` | list | none | no | Globs the change must not touch. |
+| `forbidPatterns` | list | none | no | Regexes no added line may match. |
+| `noTestRemoval` | boolean | `false` | no | Refuse deleted test files and fewer test declarations. |
+| `requireChange` | boolean | `false` | no | Refuse an empty change. |
+| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
+
+- **Output ports:** `pass`, `reject`.
+- **Payload:** `{files, violations: [{rule, file, message}]}`.
+- **Errors:** `dir is required`; `base is not a git ref: <base>`.
+
+```json
+{ "nodeId": "guard", "type": "PATCH_GUARD", "config": { "dir": "/srv/checkout", "protectedPaths": ["**/pom.xml"], "noTestRemoval": true } }
+```
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview)
+- [Configuration reference](/reference/configuration)
+- [Security reference](/reference/security)

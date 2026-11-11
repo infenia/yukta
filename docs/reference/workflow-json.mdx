@@ -1,0 +1,219 @@
+---
+title: "Workflow JSON reference"
+sidebarTitle: "Workflow JSON"
+description: "Every field of a session, workflow, node and edge definition, with types, limits and validation rules."
+keywords: ["workflow JSON", "session definition", "nodes", "edges", "schema"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Workflow JSON reference
+
+The JSON accepted by `POST /api/sessions` and `POST /api/sessions/validate`: a session holds workflows, a workflow holds nodes and edges. Node options reserved for the engine are in [Node options reference](/reference/node-options); the options of each plugin are in [Plugin reference](/reference/plugins/overview).
+
+The schema is in alpha and may change.
+
+<Diagram
+  name="ref-workflow-json"
+  alt="Each entry of nodes becomes a node of the graph and each entry of edges a line; sourcePort error carries failures."
+  caption="The highlighted lines of the JSON match the nodes and lines of the graph, by colour and by name."
+/>
+
+```json
+{
+  "sessionId": "triage",
+  "name": "Crash triage",
+  "description": "Classify a crash report, then update the tracker",
+  "initiator": "platform-team",
+  "projectPath": "/srv/triage",
+  "tags": { "team": "platform" },
+  "workflows": {
+    "triage": {
+      "workflowId": "triage",
+      "description": "Classify, then update",
+      "nodes": [
+        { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+        { "nodeId": "classify", "type": "LLM_CALL", "group": "analysis",
+          "config": { "engine": { "onError": "ROUTE" } } },
+        { "nodeId": "done", "type": "CONSOLE_TERMINAL", "config": {} },
+        { "nodeId": "dead", "type": "CONSOLE_TERMINAL", "config": {} }
+      ],
+      "edges": [
+        { "source": "ticket", "target": "classify" },
+        { "source": "classify", "target": "done" },
+        { "source": "classify", "target": "dead", "sourcePort": "error" }
+      ]
+    }
+  }
+}
+```
+
+## Session
+
+### `sessionId`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Identifier of the session; at most 256 characters, no `/`, no `\`, no `..`.
+
+### `name`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Human-readable name; not blank, at most 256 characters.
+
+### `description`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Human-readable description; not blank, at most 256 characters.
+
+### `initiator`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Who created the session; not blank.
+
+### `projectPath`
+- **Type:** `string`
+- **Required:** checked by the `@ProjectPath` constraint
+- **Description:** Working directory of the session; at most 1024 characters.
+
+### `tags`
+- **Type:** `object` of `string` to `string`
+- **Default:** `{}`
+- **Required:** no
+- **Description:** Free labels on the session.
+
+### `workflows`
+- **Type:** `object` of workflow id to workflow
+- **Required:** yes
+- **Description:** The workflows of the session; at least one.
+
+### `assignments`
+- **Type:** `array` of [supervisor reference](#supervisor-reference)
+- **Default:** `[]`
+- **Required:** no
+- **Description:** Supervisors that own the whole session; at most 20, attached when the session is saved. The alias `supervisors` is accepted on input.
+
+## Workflow
+
+### `workflowId`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Identifier inside the session; same rules as `sessionId`.
+
+### `description`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Not blank, at most 256 characters.
+
+### `nodes`
+- **Type:** `array` of [node](#node)
+- **Required:** yes
+- **Description:** At least 1 and at most 500 nodes; `nodeId` values are unique.
+
+### `edges`
+- **Type:** `array` of [edge](#edge)
+- **Required:** yes
+- **Description:** At most 2000 edges; the list may be empty; one edge may not be defined twice.
+
+### `assignments`
+- **Type:** `array` of [supervisor reference](#supervisor-reference)
+- **Default:** `[]`
+- **Required:** no
+- **Description:** Supervisors that own this workflow or a section of it; at most 20. The alias `supervisors` is accepted on input.
+
+### `groupColors`
+- **Type:** `object` of group name to palette color
+- **Default:** `{}`
+- **Required:** no
+- **Description:** Display color per group name, at most 500 entries; one of `teal`, `sky`, `violet`, `magenta`, `stone`. No workflow meaning.
+
+## Node
+
+### `nodeId`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Unique inside the workflow; at most 256 characters.
+
+### `type`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Plugin type, exactly as listed in the [plugin reference](/reference/plugins/overview).
+
+### `config`
+- **Type:** `object`
+- **Default:** `{}`
+- **Required:** no
+- **Description:** The plugin's options, plus the reserved `engine` object.
+
+### `group`
+- **Type:** `string`
+- **Required:** no
+- **Description:** Stage the node belongs to, for display only. Without it, nodes group by the node id prefix before the first dot (`lint`, `lint.fail`, `lint.heal` form the stage `lint`).
+
+### `color`
+- **Type:** `string`
+- **Required:** no
+- **Description:** Display color of the node: `teal`, `sky`, `violet`, `magenta` or `stone`. Any other value fails validation.
+
+## Edge
+
+### `source`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** `nodeId` of the node the message leaves. Must exist.
+
+### `target`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** `nodeId` of the node the message enters. Must exist.
+
+### `sourcePort`
+- **Type:** `string`
+- **Default:** none (all ports except `error`)
+- **Required:** no
+- **Description:** Output port to listen to. The source plugin must declare it, or it is `error` on a node whose `onError` is `ROUTE`. `*` takes every port except `error`; a node with no `sourcePort` listens to the same set.
+
+```json
+{ "source": "classify", "target": "dead", "sourcePort": "error" }
+```
+
+## Supervisor reference
+
+An entry of `assignments`.
+
+### `supervisor`
+- **Type:** `string`
+- **Required:** yes
+- **Description:** Id of a configured supervisor.
+
+### `nodes`
+- **Type:** `array` of `string`
+- **Default:** whole workflow
+- **Required:** no
+- **Description:** Node ids or `<prefix>.*` selectors limiting the supervisor to a section. Not allowed in a session.
+
+### `enabled`
+- **Type:** `boolean`
+- **Default:** `true`
+- **Required:** no
+- **Description:** `false` keeps the declaration but does not run it.
+
+## Limits
+
+| Item | Value |
+|---|---|
+| Nodes per workflow | 500 |
+| Edges per workflow | 2000 |
+| Assignments per session or workflow | 20 |
+| Name, description | 256 characters |
+| Identifiers | 256 characters |
+| Versions kept per workflow | 20 (`MAX_REVISIONS`) |
+
+An oversize graph, a duplicate node id, a duplicate edge, an edge to an unknown node and an edge from an undeclared port are refused with the message of the first problem found.
+
+## Related
+
+- [Node options reference](/reference/node-options)
+- [Expressions reference](/reference/expressions)
+- [Plugin reference](/reference/plugins/overview)
+- [Define a workflow](/guides/build/define-a-workflow)
+- [REST: sessions](/api/sessions)

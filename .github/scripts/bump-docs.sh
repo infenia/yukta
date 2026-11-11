@@ -5,13 +5,13 @@
 # After a release is published: replace the previously documented version with the new one in docs/
 # and README.md (they pin it in install commands), then open a pull request with auto-merge on. It is a chore, which release-please hides, so it
 # does not by itself call for another release.
-# The old version is read from the install command in docs/quickstart.mdx.
+# The old version is read from the install command in docs/get-started/install.mdx.
 #
 # Env: GH_TOKEN (an App token: the PR must start CI), REPO, TAG
 set -euo pipefail
 
 new=${TAG#v}
-old=$(sed -n 's#.*releases/download/v\([^/]*\)/install\.sh.*#\1#p' docs/quickstart.mdx | head -1)
+old=$(sed -n 's#.*releases/download/v\([^/]*\)/install\.sh.*#\1#p' docs/get-started/install.mdx | head -1)
 if [ -z "$old" ] || [ "$old" = "$new" ]; then
   echo "Docs already pin $new (or no pin found); nothing to do."
   exit 0
@@ -21,7 +21,7 @@ fi
 # they are: "alpha.2 and earlier ...", the known-issue notes (#773),
 # the benchmark of "the released ..." server, and the changelog in docs/reference/releases.mdx (only its
 # "Current release" line moves).
-grep -rlF -- "$old" docs README.md | grep -v '^docs/reference/releases.mdx$' |
+grep -rlF -- "$old" docs README.md | grep -Ev '^docs/reference/(releases|whats-new-alpha-4|migration-alpha-4).mdx$' |
   xargs sed -i "/earlier\|#773\|against the released/! s/${old//./\\.}\([^0-9]\|\$\)/$new\1/g"
 sed -i "s/^\(Current release: \*\*\`\)${old//./\\.}/\1$new/" docs/reference/releases.mdx
 branch="docs/install-$new"

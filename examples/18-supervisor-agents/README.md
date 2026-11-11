@@ -16,4 +16,4 @@ yukta supervisors agent --credential-file cpu-guard.token --exec ./cpu_guard.sh
 # or: YUKTA_AGENT_TOKEN=$(cat cpu-guard.token) python3 agent.py
 ```
 
-Change `my-session` in `assignments.json` first. The supervisor checks every directive: a command outside `allowedCommands`, a run it does not own, an initiative without a reason or beyond `maxInitiativePerMinute` is refused and shows in `yukta supervisors decisions --supervisor cpu-guard`. Start with `"dryRun": true` to see what it would do. See `docs/running/supervisor-engines.mdx`.
+Change `my-session` in `assignments.json` first. The supervisor checks every directive: a command outside `allowedCommands`, a run it does not own, an initiative without a reason or beyond `maxInitiativePerMinute` is refused and shows in `yukta supervisors decisions --supervisor cpu-guard`. Start with `"dryRun": true` to see what it would do. See `docs/reference/supervisors/engines.mdx`.

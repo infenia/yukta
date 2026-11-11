@@ -1,0 +1,127 @@
+---
+title: "Write an agent supervisor"
+sidebarTitle: "Write an agent supervisor"
+description: "Let a script, a service or an AI agent supervise runs with the http engine: issue a credential, read signals, send directives, and keep the supervisor on a short leash."
+keywords: ["http supervisor", "agent supervisor", "agent API", "credential", "directives", "signals", "initiative"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how an outside program watches runs and steers them as a supervisor"
+  time="20 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, yukta-cli, and a program to run (a shell script, Python or an agent)"
+  end="an http supervisor whose program pauses runs under conditions you set, bounded by the supervisor's shell"
+/>
+
+**Use this when** the decision lives in another system or needs open-ended judgement: a script that checks machine load, a service with its own rules, an AI agent. The `http` engine is the way an application or agent becomes a supervisor. The server stays in charge: it checks every directive before it has any effect.
+
+**Prerequisites:** a server on `http://localhost:9858` and a session to supervise (`steer`, from [Control a run](/guides/build/control-a-run)). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys; creating the supervisor and its credential needs `ADMIN`.
+
+## Steps
+
+<Steps>
+  <Step title="Save the supervisor with its limits">
+    The supervisor is the shell: what it owns and what it may send. The program decides inside those limits. This one may pause and resume runs, and may do so on its own initiative, up to 20 times a minute. Save as `cpu-guard.json`:
+
+    ```json cpu-guard.json
+    {
+      "id": "cpu-guard",
+      "type": "http",
+      "description": "An outside program pauses runs while the machine is busy and resumes what it paused",
+      "settings": {
+        "allowedCommands": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
+        "initiative": ["PauseWorkflowCommand", "ResumeWorkflowCommand"],
+        "maxInitiativePerMinute": 20
+      }
+    }
+    ```
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @cpu-guard.json
+    curl -s -X PUT localhost:9858/api/supervisors/cpu-guard/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"session:steer"}]'
+    ```
+
+    A command a supervisor sends with no triggering signal (a tick, or its own idea) is **initiative**: it needs a reason, an entry in `initiative` and stays under `maxInitiativePerMinute` (default 10). Optional settings: `url` (Yukta posts each signal there), `headers`, `secretHeaders` (shown as `***`), `timeoutMs` (3000, at most 10000), `maxConcurrent` (4, at most 32).
+  </Step>
+
+  <Step title="Issue its credential">
+    ```bash
+    curl -s -X POST "localhost:9858/api/supervisors/cpu-guard/credential?ttlHours=24" | jq -r .data.token > cpu-guard.token
+    # or: yukta-cli supervisors credential create cpu-guard --ttl-hours 24
+    ```
+
+    The token is returned **once** with an `expiresAt`. Issuing again rotates it (the old one stops working at once); `DELETE .../credential` or `yukta-cli supervisors credential revoke cpu-guard` revokes it. Add `&allowedAddresses=10.0.0.5` to tie it to source addresses. It works on `/api/agent/v1` only, and no person's API key works there. Through MCP, `create_credential` returns the token, which then passes through the model: prefer the UI or the CLI.
+  </Step>
+
+  <Step title="Run your program">
+    The quickest way is `yukta-cli supervisors agent`: it streams the signals to a program's standard input, one JSON line each, and sends every JSON line the program prints as a directive. A shell script is enough (this is `examples/18-supervisor-agents/cpu_guard.sh`, trimmed):
+
+    ```sh cpu_guard.sh
+    #!/bin/sh
+    LIMIT="${LIMIT:-4.0}"
+    while read -r line; do
+      load=$(cut -d' ' -f1 /proc/loadavg)
+      busy=$(awk -v l="$load" -v m="$LIMIT" 'BEGIN { print (l > m) ? 1 : 0 }')
+      run=$(printf '%s' "$line" | jq -r '.signal.event.executionId // empty' 2>/dev/null)
+      if [ "$busy" = 1 ] && [ -n "$run" ]; then
+        printf '{"type":"command","key":"pause-%s-%s","cause":"initiative","reason":"load %s is above %s","ifStatus":"RUNNING","command":{"type":"PauseWorkflow","executionId":"%s"}}\n' \
+          "$run" "$(date +%s)" "$load" "$LIMIT" "$run"
+      elif [ "$busy" = 0 ]; then
+        printf '{"type":"command","key":"resume-%s","cause":"tick","reason":"load %s is back under %s","command":{"type":"ResumeWorkflow","target":"held"}}\n' \
+          "$(date +%s)" "$load" "$LIMIT"
+      fi
+    done
+    ```
+
+    ```bash
+    chmod +x cpu_guard.sh
+    yukta-cli supervisors agent --credential-file cpu-guard.token --exec ./cpu_guard.sh
+    ```
+
+    A directive has a unique `key` (applied once), a `cause`, a `reason`, an optional `ifStatus` (dropped as `precondition-failed` if the run is not in that status) and the `command`. `"target":"held"` means the runs this supervisor paused. Other targets: `execution:<id>`, `workflow:<id>`, `owned.running`; each is expanded to at most 200 runs, each applied and audited on its own.
+
+    Prefer your own client? Python and Go versions are in [example 18](https://github.com/infenia/yukta/tree/main/examples/18-supervisor-agents). The calls are plain HTTP with `Authorization: Bearer <token>` on `/api/agent/v1`:
+
+    | Call | Use |
+    |---|---|
+    | `GET /snapshot` | Owned runs, open inputs and a `cursor` to start streaming from |
+    | `GET /events?after=<cursor>` | Server-Sent Events stream of signals |
+    | `GET /signals?after=<cursor>&wait=25` | A poll, for a client that cannot hold a stream (at most 50 signals, 25 s wait) |
+    | `GET /executions/{id}`, `/logs?tail=` | State of an owned run, with the nodes you own; at most 200 log lines, secrets removed |
+    | `POST /directives` | `{key, cause, reason, command}` |
+    | `POST /reviews/{id}`, `POST /delegations/{id}` | Answer a review or a question from a child supervisor |
+
+    An AI agent can use the same operations as MCP tools at `POST /api/agent/v1/mcp`.
+  </Step>
+
+  <Step title="Make the decisions auditable">
+    Give the program a clear `reason` for every directive: it is recorded in the control audit next to the supervisor's id. If you run a model, treat run logs, prompts and context as untrusted data, and keep `allowedCommands` and `initiative` as narrow as the job allows.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start a run in `steer`, then:
+
+```bash
+curl -s "localhost:9858/api/supervisors/decisions?supervisor=cpu-guard"
+curl -s localhost:9858/api/supervisors/status
+```
+
+When the program sends a directive, a decision appears with an outcome. `applied` means the command ran. A command outside `allowedCommands` is `forbidden`, one for a run the supervisor does not own is `not-owned`, an initiative without a reason or beyond the per-minute limit is `initiative-not-allowed` or `rate-limited`, and a failed `ifStatus` is `precondition-failed`. Lower `LIMIT` (for example `LIMIT=0.01`) to force a pause, and watch the run's status. Check the credential with `yukta-cli supervisors credential show cpu-guard`: it shows when it was issued and last used, never the secret.
+
+## Variations
+
+- **Limits per credential.** `yukta.agent.requests-per-minute` (600), `yukta.agent.failures-per-minute` (20 wrong credentials per source address), `yukta.agent.max-body-bytes` (65536), two open streams, and 100 reviews waiting at once.
+- **Have Yukta call you.** With `url` set, Yukta posts each signal as `{"cursor","kind","signal"}` (through the egress rules; private addresses are refused unless listed; no redirects). The reply is not read, and a failed post is not retried: read `GET /signals?after=<cursor>` to catch up. Decisions always come back over `/api/agent/v1`.
+- **A program on the server instead.** The `process` engine runs an executable from `yukta.process.allowed-commands` with an empty environment, one JSON line in and out: [Supervisor engines](/reference/supervisors/engines).
+- **Answer input requests.** Give the supervisor `canAnswer: true` and `maxRisk`; `HIGH` is people only: [Route input requests](/guides/supervise/route-input-requests).
+- **Slow consumers.** A supervisor that falls behind receives an `EventsMissed` signal; read `GET /inputs` and the run list to catch up.
+
+## Related
+
+- [Supervisor contract reference](/reference/supervisors/contract) for signals, directives and verdicts.
+- [Supervisor engines reference](/reference/supervisors/engines).
+- [Assign a supervisor](/guides/supervise/assign-a-supervisor), [Build a hierarchy](/guides/supervise/build-a-hierarchy).

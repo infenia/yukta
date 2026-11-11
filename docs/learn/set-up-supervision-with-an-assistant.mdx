@@ -1,0 +1,198 @@
+---
+title: "Set up supervision with an assistant"
+sidebarTitle: "Supervise with an assistant"
+description: "Ask an assistant to protect the release-checks workflow with a failure-guard supervisor in dry run, read its decisions, replay it on a past run, then switch dry run off, checking each step yourself."
+keywords: ["supervisor", "dry run", "replay", "failure-guard", "MCP", "assistant", "set_assignments", "replay_supervisor", "tutorial"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to have an assistant put a supervisor in charge of a workflow safely: in dry run first, replayed on a past run, then switched on"
+  time="about 15 minutes"
+  need="finished Let an assistant build a workflow (the release-checks session, an ADMIN key or a server with no keys), and the yukta-workflows skill"
+  end="a failure-guard supervisor that owns release-checks, tried in dry run and on a past run before it was enabled, with each step checked by you"
+/>
+
+## What we're building
+
+In the last tutorial an assistant built the `release-checks` session and its `gate` workflow. Now we ask it to protect that workflow with a **supervisor**: an owner that watches the workflow and can step in. The one we use pauses a workflow when three nodes fail within 60 seconds. It is a `rules` supervisor made from a ready-made preset, so it needs no code and no model.
+
+We do it the careful way, in five steps and about six prompts:
+
+<Diagram name="learn-set-up-supervision-with-an-assistant" alt="Five steps, each higher than the last: ask for a plan, save the supervisor in dry run and assign it, run and read the decisions, replay on a past run, then switch dry run off. Only the last step touches live runs." caption="Notice that nothing changes a live run until the last step. Dry run records what the supervisor would do and sends nothing." />
+
+Anything the assistant writes below is labelled as an example, because its wording will differ from ours. What we can rely on are the tool names it calls and the commands we run ourselves.
+
+<Warning>
+  Supervisors and assignments are kept in memory, like sessions: they are gone after a restart. On a server with no API key, any process on your machine may call `/mcp` as `ADMIN`. Use a throwaway local server for this tutorial.
+</Warning>
+
+<Steps titleSize="h2">
+  <Step title="Ask for a plan, and change nothing">
+    Start `claude` with the `yukta` server connected and send:
+
+    ```text
+    Use the yukta server and check my role first. I want to protect the workflow
+    release-checks/gate with a rules supervisor called release-guard, based on
+    the failure-guard preset, starting in dry run. Do not change anything yet.
+    Tell me which tools you will call, what the supervisor would own, and
+    whether anyone already owns release-checks/gate.
+    ```
+
+    You should see the assistant make only reading calls: `whoami`, `list_supervisor_presets` (type `rules`), `get_supervisor_engine` (type `rules`), `get_ownership` (session `release-checks`, workflow `gate`) and `list_supervisors`. None of these changes anything, and a `VIEWER` key may call all of them. For a workflow nobody owns, the default supervisor carries commands, so people act as they always could.
+
+    Here is an example of what the assistant may say; its wording will differ:
+
+    ```text
+    I will save release-guard from the failure-guard preset with dryRun on,
+    check the assignment session:release-checks, and ask you before I assign
+    it. Nobody owns release-checks/gate today.
+    ```
+
+    Check it yourself, with a client the assistant did not use:
+
+    ```bash
+    yukta-cli supervisors list
+    ```
+
+    You should not see `release-guard` yet.
+
+    > **Stuck?** If a call is refused with `403`, the key is below `ADMIN` for the later steps, and the assistant should tell you so now. If `list_supervisor_presets` shows no preset, say "show me the engine example instead" and carry on from the engine's `exampleSettings`.
+  </Step>
+
+  <Step title="Save the supervisor in dry run, then assign it">
+    Send:
+
+    ```text
+    Go ahead and save release-guard in dry run, then check the assignment
+    session:release-checks and show me the result. Wait for my yes before you
+    assign it. Make sure it may send PauseWorkflowCommand.
+    ```
+
+    You should see `save_supervisor` with `type` `rules`, `id` `release-guard`, `settings` from the preset and `dryRun` true, then `check_assignment` with `[{"target":"session:release-checks"}]`. The skill asks the assistant to get your yes before it changes supervision, so expect a question before the save as well; say yes, since dry run sends nothing. The assignment matters more: owning a unit takes direct control of it away from people unless the supervisor lists the command in `operatorAccess`. So the assistant should stop and name that effect. Say yes, and it calls `set_assignments`.
+
+    An example of the question the assistant may ask; its wording will differ:
+
+    ```text
+    release-guard would own every workflow in release-checks. Until you
+    list a command in operatorAccess, people cannot send commands to gate
+    directly. It is in dry run, so nothing is sent yet. Assign it?
+    ```
+
+    Check it yourself:
+
+    ```bash
+    yukta-cli supervisors show release-guard
+    yukta-cli supervisors assignments release-guard
+    ```
+
+    You should see the supervisor with `dryRun` true, its `rules` settings, and the target `session:release-checks`. Look for `PauseWorkflowCommand` in `allowedCommands`. If it is missing, ask: "Add PauseWorkflowCommand to allowedCommands and save again in dry run."
+
+    > **Stuck?** `409 OWNERSHIP_CONFLICT` (an assistant may report it as a refusal naming another supervisor) means someone already owns the session. Nothing changed. Ask the assistant to run `get_ownership` and tell you who, then decide whether to move ownership or choose a different target.
+  </Step>
+
+  <Step title="Run the workflow and read the decisions">
+    Send:
+
+    ```text
+    Start release-checks/gate, wait for it to finish, and tell me the status.
+    Then tell me what release-guard did, if anything.
+    ```
+
+    You should see `start_workflow`, then `get_workflow_status` until the run ends. The `gate` workflow finishes with status `SUCCESS` and no node fails, so the failure-guard has nothing to react to.
+
+    The assistant has no tool that lists a supervisor's decisions, so check them yourself:
+
+    ```bash
+    yukta-cli supervisors decisions --supervisor release-guard
+    ```
+
+    You should see no decision for this run. That is the right result: the guard acts only when three nodes fail within 60 seconds. An example of what the assistant may say:
+
+    ```text
+    The run finished SUCCESS. I cannot list supervisor decisions with my
+    tools, so I looked at the run: no node failed, so release-guard has
+    nothing to react to.
+    ```
+
+    Dry run shows its value when a supervisor does react: its commands then appear in this list with the outcome `dry-run`, and the run is untouched.
+
+    > **Stuck?** Starting the same workflow twice within 30 seconds returns the earlier run with `reusedExecution: true` instead of a new one. Wait, or ask for a new run after the window.
+  </Step>
+
+  <Step title="Replay the supervisor on a past run">
+    An empty decision list proves little. Ask the assistant to show what the guard would do on a run that happened:
+
+    ```text
+    Take the run of release-checks/gate we just made. Replay release-guard on
+    it and tell me what it would have sent. Then replay a draft that pauses the
+    workflow whenever any node succeeds, so I can see what a decision looks
+    like. Do not save the draft.
+    ```
+
+    You should see `get_workflow_history` (to find the run's `executionId`), `replay_supervisor` with `supervisorId` and `executionId`, then `get_rules` and `replay_rules` with a draft in `rules`, for example:
+
+    ```json
+    {"schemaVersion":1,"rules":[{"id":"pause-on-success","when":{"event":"NodeStatusChanged","status":"SUCCESS"},"then":{"command":"PauseWorkflow","reason":"a node succeeded"}}]}
+    ```
+
+    A replay rebuilds the status events of the run and feeds them to the supervisor in dry run; nothing is sent to any run. Each decision it returns has `command`, `executionId`, `cause`, `reason` and `allowed`. The stored guard returns an empty list, because no node failed. The draft should return decisions with your `reason`, one for each node that succeeded. `allowed` says whether the supervisor's `allowedCommands` and ownership would let the command through.
+
+    Check it yourself, over the same data:
+
+    ```bash
+    yukta-cli supervisors replay release-guard --execution <executionId>
+    ```
+
+    The result for the stored rules matches what the assistant told you. Then check that the replay changed nothing: `yukta-cli supervisors decisions --supervisor release-guard` still lists nothing for the replay, because nothing was sent.
+
+    > **Stuck?** A replay needs the id of a finished run: take it from `yukta-cli workflow history release-checks`. Only statuses are replayed, so a rule that depends on log lines or node metadata will not fire in a replay even if it would live.
+  </Step>
+
+  <Step title="Switch dry run off">
+    The guard did what we expected, so enable it:
+
+    ```text
+    Switch release-guard out of dry run. Read it first with get_supervisor,
+    save it again with the same settings and dryRun false, and show me what
+    changed before you do. Ask me first.
+    ```
+
+    You should see `get_supervisor`, then, after your yes, `save_supervisor` with the same `type`, `id` and `settings` and `dryRun` false. Saving replaces the supervisor and restarts its assignments with the new settings, which is why the assistant sends the settings again and why it should show you what changes. It changes one thing: `dryRun`.
+
+    Check it yourself:
+
+    ```bash
+    yukta-cli supervisors show release-guard
+    ```
+
+    You should see `dryRun` false and the same rules as before. Release-guard is now live: if three nodes of a workflow in `release-checks` fail within 60 seconds, it pauses that workflow, and `yukta-cli supervisors decisions --supervisor release-guard` lists the decision with its outcome.
+
+    To go back, ask the assistant to save it in dry run again, or to call `list_supervisor_versions` and `rollback_supervisor` with the version number you want.
+
+    > **Stuck?** If the server rejects the save with a message that a setting is `***`, the assistant copied a hidden secret from `get_supervisor`. Rules supervisors have none; ask it to send the settings you approved instead.
+  </Step>
+</Steps>
+
+## What you just did
+
+We asked an assistant to put a supervisor in charge of a workflow in five steps. It read before it wrote, saved the supervisor in dry run, asked before it took ownership, replayed the guard on a past run, and switched dry run off only after we had read the evidence. At every step we checked the result with `yukta-cli`, not with the assistant's report. The assistant had only the power of its key, and the server checked every command.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Configure Yukta by asking" icon="comments" href="/guides/ai/configure-with-an-assistant">
+    Ten more prompts: change a node, schedule, roll back, hierarchies, credentials.
+  </Card>
+  <Card title="Replay a supervisor" icon="clock-rotate-left" href="/guides/supervise/replay-a-supervisor">
+    More on replays: drafts, timers and what a replay cannot see.
+  </Card>
+  <Card title="Ask for approval" icon="hand" href="/learn/ask-for-approval">
+    Next tutorial: a step that waits for a person.
+  </Card>
+  <Card title="How supervisors work" icon="shield-halved" href="/concepts/supervisors">
+    Shell and engine, ownership and operator access.
+  </Card>
+</CardGroup>

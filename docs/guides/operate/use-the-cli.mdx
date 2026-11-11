@@ -1,0 +1,171 @@
+---
+title: "Use the CLI"
+sidebarTitle: "Use the CLI"
+description: "A task-by-task tour of yukta-cli: connect to a server, load a workflow, start and follow a run, steer it, and use the exit codes and JSON output in scripts and CI."
+keywords: ["CLI", "yukta-cli", "terminal", "CI", "scripts", "exit codes"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to do your daily work with yukta-cli, and how to use it in a script or a CI job"
+  time="15 minutes"
+  need="a running server, yukta-cli on your PATH, and a key if the server has one"
+  end="you can load, run, follow and steer a workflow from a terminal and fail a CI job on a bad run"
+/>
+
+**Use this when** you work in a terminal, in a script or in CI. `yukta-cli` is one small static binary with no runtime to install. It calls the [REST API](/api/overview) and prints the answer. The same tour for the browser is [Use the web UI](/guides/operate/use-the-web-ui).
+
+**Prerequisites:** the client. The Linux archives and packages of a release include it next to the server, and the [install script](/get-started/install) installs both. A laptop that only talks to a remote server needs the client alone: download `yukta-cli-<os>-<arch>` for your platform from the release page (Linux `amd64` and `arm64`, macOS `amd64` and `arm64`, Windows `amd64`), check it against `SHA256SUMS`, make it executable and put it on your `PATH`. Check it with `yukta-cli --version`.
+
+This page covers the tasks. Every command and flag is in [CLI reference](/reference/cli), and `yukta-cli <command> --help` shows the flags of one.
+
+## Connect to a server
+
+```bash
+export YUKTA_SERVER_URL=https://yukta.example.com
+export YUKTA_TOKEN=<key>
+yukta-cli whoami
+```
+
+`whoami` shows the name, role and sessions of your key and what it may do. The URL defaults to `http://localhost:9858`. A flag (`--url`, `--token`) overrides its environment variable, and the client reads no configuration file.
+
+- **Keep the key out of shell history.** `--token-file <path>` reads it from a file. It cannot be combined with `--token`.
+- **Plain http to a remote host.** The client refuses to send a token over plain `http` to a host that is not loopback. Use HTTPS, or set `--insecure-token` (or `YUKTA_INSECURE_TOKEN=true`) on a network you trust.
+- **Flaky networks.** `--retries N` repeats reads, and starts (with a generated idempotency key), on network errors, `429` and `502` to `504`. `--retry-wait` sets the first pause, which doubles each time.
+- **Machine output.** `-o json` prints the server's data as JSON. The default is `table`.
+
+## Load a workflow
+
+```bash
+yukta-cli session apply session.json
+yukta-cli session list
+yukta-cli session get demo
+```
+
+`session apply` takes a JSON file, or inline JSON when no such file exists, and creates or replaces the session. It needs an `ADMIN` key. To check a definition without saving it, use `yukta-cli session validate <json-or-file>`.
+
+## Start a run and follow it
+
+```bash
+yukta-cli workflow start demo greet --payload '{"name":"Ada"}'
+```
+
+```text
+Workflow started with execution ID: 550e8400-e29b-41d4-a716-446655440000
+```
+
+The trigger input is a JSON object, from `--payload` or from a file with `--payload-file`. Use `--idempotency-key <key>` when a start may be retried: a repeat with the same key, session and workflow returns the first execution id.
+
+Then follow it:
+
+```bash
+yukta-cli workflow status demo <execution-id>
+yukta-cli logs demo <execution-id>
+yukta-cli result demo <execution-id>
+```
+
+`status` shows the status, times and each node. `logs` streams stored lines and then live ones. `result` prints one JSON event per line as results reach the terminals, ending with `EXECUTION_END`. To follow one run to its end:
+
+```bash
+yukta-cli controlbus watch --execution <execution-id> --quiet --until-done
+```
+
+`--quiet` shows only problems and the end. Start the watch before the run, because the feed does not replay past events. A Ctrl-C ends a live command cleanly with exit code `0`. More in [Observe runs](/guides/operate/observe-runs).
+
+## Steer a run
+
+These need the `OPERATOR` role.
+
+```bash
+yukta-cli workflow pause demo <execution-id> --tree
+yukta-cli workflow resume demo <execution-id> --tree
+yukta-cli workflow executions stop <execution-id> --tree
+yukta-cli workflow stop demo greet --mode DRAIN
+yukta-cli workflow executions restart <execution-id>
+```
+
+`--tree` includes the runs a run started as sub-workflows, which pausing the parent alone leaves running. `workflow stop` stops every active run of a workflow: `DRAIN` (the default) lets work in flight finish, `CANCEL` and `KILL` do not. `yukta-cli workflow tree <execution-id>` shows a run and every run it started.
+
+On one node of a live run:
+
+```bash
+yukta-cli workflow node pause demo <execution-id> <node-id>
+yukta-cli workflow node skip demo <execution-id> <node-id>
+yukta-cli workflow node retry <execution-id> <node-id>
+yukta-cli workflow node breakpoint <execution-id> <node-id> --field orderId --equals 4411
+```
+
+`retry` restarts from a node that failed, as a new run. See [Control a run](/guides/build/control-a-run).
+
+After a restart aborted a run, continue it with `yukta-cli workflow executions recover <execution-id>`. See [Persist sessions](/guides/operate/persist-sessions#resume-runs-after-a-restart).
+
+## Answer a request for input
+
+```bash
+yukta-cli inputs list
+yukta-cli inputs show <execution-id> <request-id>
+yukta-cli inputs answer <execution-id> <request-id> --decision approve --rationale "checked the diff"
+yukta-cli inputs escalate <execution-id> <request-id> --reason "needs a second pair of eyes"
+```
+
+See [Ask for input](/guides/ai/ask-for-input).
+
+## Look around the server
+
+```bash
+yukta-cli plugin list
+yukta-cli plugin get HTTP_REQUEST
+yukta-cli scheduler limits
+yukta-cli workers
+yukta-cli controlbus audit --limit 20
+```
+
+These show the plugin types, the execution limits and how many runs execute and wait, the connected workers, and the newest control commands. Supervisors have their own commands: `yukta-cli supervisors --help`, and see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+
+## Use it in CI
+
+Give a CI job a key that can start and watch runs (`OPERATOR`) and limit it to one session, so a leaked key reaches little. Then:
+
+```bash
+EXEC=$(yukta-cli workflow start demo build -o json | jq -r .executionId)
+yukta-cli controlbus watch --execution "$EXEC" --quiet --until-done
+test "$(yukta-cli workflow status demo "$EXEC" -o json | jq -r .status)" = SUCCESS
+```
+
+`--until-done` exits `0` whatever the outcome, so the last line is the one that fails the job: read the status of the run. It uses the exit codes below.
+
+| Code | Meaning |
+|---|---|
+| `0` | The command succeeded, or a live command was stopped with Ctrl-C |
+| `1` | Another failure: a bad argument, a connection problem or an HTTP error |
+| `2` | The command line itself was wrong |
+| `3` | Not found (`404`) |
+| `4` | The server failed (`5xx`) |
+| `5` | A timeout, or `504` |
+| `6` | A supervisor refused the command (`409 CONTROLLED_BY_SUPERVISOR` or `403 CONTROL_REJECTED`) |
+
+On failure the command prints `error: <message>` to standard error, and for an HTTP error the status code and the response body. `--timeout` (default `30s`, `0` turns it off) limits each non-streaming request. Streaming commands have no time limit; set `YUKTA_STREAM_IDLE` (a duration, `0` turns the idle check off) and `YUKTA_STREAM_RECONNECTS` (a count) when a proxy buffers streams.
+
+## Verify it worked
+
+```bash
+yukta-cli whoami
+yukta-cli plugin list
+```
+
+Both answer with your key's details and a list of plugin types. A `401` means the key is missing or wrong, and a `403` means its role does not allow the call (see [Secure the server](/guides/operate/secure-the-server)). `error: ... connection refused` means the URL is wrong or the server is down.
+
+## Variations that matter
+
+- **Two servers.** Keep one environment per server (a small script that exports the two variables), or pass `--url` and `--token-file` on each command.
+- **No command exists.** Draining the server (`/api/admin/drain`), templates and metrics have no command. Use the [REST API](/api/overview). [Client parity](/reference/client-parity) lists every task across the four clients.
+- **Output you can parse.** Some commands print JSON in both formats because their data is nested (`session summaries`, `session workflow get`, `session workflow graph`, `session workflow executions`).
+
+## Related
+
+- [CLI reference](/reference/cli)
+- [Use the web UI](/guides/operate/use-the-web-ui)
+- [Observe runs](/guides/operate/observe-runs)
+- [Client parity](/reference/client-parity)
+- [Secure the server](/guides/operate/secure-the-server)

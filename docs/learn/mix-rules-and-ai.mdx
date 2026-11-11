@@ -1,0 +1,242 @@
+---
+title: "Mix rules and AI in one workflow"
+sidebarTitle: "Mix rules and AI"
+description: "Build a support-ticket workflow where fixed rules decide what is urgent and a model drafts the reply, with a rule-based fallback that works with no model at all."
+keywords: ["LLM_CALL", "rules and AI", "BRANCH", "VALIDATE", "fallback", "deterministic", "tutorial"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how one workflow holds a deterministic step and an AI step, and what happens when the model is unavailable"
+  time="about 10 minutes"
+  need="a running server, curl and jq, and finished Your first workflow; a local Ollama is optional"
+  end="a ticket-triage workflow you have run on an urgent, a normal and an invalid ticket"
+/>
+
+## What we're building
+
+We will build a workflow that triages a support ticket. Rules we write decide what is urgent, so those answers never depend on a model. For an ordinary ticket, a model drafts the first reply. If the model fails or is not there, a plain rule sends a template reply instead.
+
+
+<Diagram name="learn-mix-rules-and-ai" alt="The ticket workflow: rule steps decide what is urgent, only the draft step asks a model, and if the model fails a plain rule sends a canned reply." caption="Notice the two kinds of step. `check`, `route`, `page` and `reply-canned` always give the same answer for the same input. Only `draft` asks a model, and it has a way out through `failure`." />
+
+We call the first kind a **deterministic step**: same input, same output. The second is an **AI step**. Putting both in one graph lets us keep a model on a short leash: it only gets the work that needs judgement.
+
+<Steps titleSize="h2">
+  <Step title="Save the workflow">
+    Create `triage.json`:
+
+    ```json triage.json
+    {
+      "sessionId": "triage-demo",
+      "name": "Ticket triage",
+      "workflows": {
+        "triage": {
+          "workflowId": "triage",
+          "description": "Rules decide what is urgent; a model drafts the reply for the rest",
+          "nodes": [
+            { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "check",
+              "type": "VALIDATE",
+              "config": { "required": ["subject", "body"], "types": { "subject": "string", "body": "string" } }
+            },
+            {
+              "nodeId": "route",
+              "type": "BRANCH",
+              "config": {
+                "mode": "EXPRESSION",
+                "cases": { "payload.body.toLowerCase().contains('outage') || payload.body.toLowerCase().contains('down')": "urgent" },
+                "defaultPort": "normal"
+              }
+            },
+            {
+              "nodeId": "page",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": { "action": "'page the on-call engineer'", "decidedBy": "'rule'", "subject": "payload.subject" }
+              }
+            },
+            {
+              "nodeId": "draft",
+              "type": "LLM_CALL",
+              "config": {
+                "provider": "ollama",
+                "model": "llama3.2",
+                "system": "You write short, polite first replies to support tickets. Two sentences at most.",
+                "prompt": "Subject: ${payload.subject}\n\n${payload.body}",
+                "timeout": 30,
+                "failureMode": "CONTINUE",
+                "routeByStatus": true
+              }
+            },
+            {
+              "nodeId": "reply-model",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": { "action": "'send drafted reply'", "decidedBy": "'model'", "reply": "payload.content" }
+              }
+            },
+            {
+              "nodeId": "reply-canned",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": {
+                  "action": "'send template reply'",
+                  "decidedBy": "'fallback rule'",
+                  "reply": "'Thanks, we have your ticket and will answer within one working day.'"
+                }
+              }
+            },
+            { "nodeId": "rejected", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "ticket", "target": "check" },
+            { "source": "check", "target": "route" },
+            { "source": "check", "target": "rejected", "sourcePort": "invalid" },
+            { "source": "route", "target": "page", "sourcePort": "urgent" },
+            { "source": "route", "target": "draft", "sourcePort": "normal" },
+            { "source": "draft", "target": "reply-model", "sourcePort": "success" },
+            { "source": "draft", "target": "reply-canned", "sourcePort": "failure" },
+            { "source": "page", "target": "end" },
+            { "source": "reply-model", "target": "end" },
+            { "source": "reply-canned", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    Three things carry the idea:
+
+    - `check` is a `VALIDATE` node. A ticket without a `subject` and a `body` leaves through its `invalid` port.
+    - `route` is a `BRANCH` node. Each key in `cases` is a yes/no condition, and the value is the **port** the message leaves through. Anything else goes to `defaultPort`.
+    - `draft` is an `LLM_CALL` node. With `failureMode` set to `CONTINUE` and `routeByStatus` on, a failed call does not fail the run: the message leaves through `failure` instead of `success`.
+
+    Send it to the server:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/sessions \
+      -H "Content-Type: application/json" -d @triage.json
+    ```
+
+    You should see:
+
+    ```json
+    {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
+    ```
+
+    > **Stuck?** A `400` that mentions `LLM_CALL` or `VALIDATE` as an unknown type means this server was built without that plugin. `curl http://localhost:9858/api/plugins` lists the types it has.
+  </Step>
+
+  <Step title="Add a small helper">
+    We will start three runs, so we put the repeated part in a shell function. It starts a run with the ticket you pass, waits until the run is no longer `RUNNING`, then prints the result and the status of every node.
+
+    ```bash
+    ticket() {
+      EXEC=$(curl -s -X POST http://localhost:9858/api/workflow/start \
+        -H "Content-Type: application/json" \
+        -d "{\"sessionId\":\"triage-demo\",\"workflowId\":\"triage\",\"payload\":$1}" | jq -r .data.executionId)
+      until [ "$(curl -s http://localhost:9858/api/executions/$EXEC | jq -r .data.status)" != RUNNING ]; do sleep 1; done
+      curl -s -H "Accept: application/json" \
+        http://localhost:9858/api/sessions/triage-demo/executions/$EXEC/results \
+        | jq -c '[.events[] | select(.kind=="RESULT") | .payload]'
+      curl -s http://localhost:9858/api/executions/$EXEC | jq -c '[.data.tasks[] | {nodeId, status}]'
+    }
+    ```
+
+    With an API key on the server, add `-H "X-API-Key: <your key>"` to the three `curl` calls.
+  </Step>
+
+  <Step title="Send an urgent ticket: only rules run">
+    ```bash
+    ticket '{"subject":"Site down","body":"Our checkout is down since 9am"}'
+    ```
+
+    You should see the page action, decided by a rule. Look at the second line: `draft` was skipped, so no model was called and no tokens were spent.
+
+    ```text
+    [{"subject":"Site down","action":"page the on-call engineer","decidedBy":"rule"}]
+    [{"nodeId":"ticket","status":"SUCCESS"},{"nodeId":"check","status":"SUCCESS"},{"nodeId":"route","status":"SUCCESS"},{"nodeId":"rejected","status":"SKIPPED"},{"nodeId":"page","status":"SUCCESS"},{"nodeId":"draft","status":"SKIPPED"},{"nodeId":"reply-model","status":"SKIPPED"},{"nodeId":"reply-canned","status":"SKIPPED"},{"nodeId":"end","status":"SUCCESS"}]
+    ```
+
+    > **Stuck?** If the helper hangs, `jq` is missing or the server needs a key: run the `curl` start call by hand and read its answer.
+  </Step>
+
+  <Step title="Send an invalid ticket: the check stops it">
+    This ticket has no `body`:
+
+    ```bash
+    ticket '{"subject":"only a subject"}'
+    ```
+
+    You should see the ticket arrive unchanged at the `rejected` terminal, and every later node skipped:
+
+    ```text
+    [{"subject":"only a subject"}]
+    [{"nodeId":"ticket","status":"SUCCESS"},{"nodeId":"check","status":"SUCCESS"},{"nodeId":"route","status":"SKIPPED"},{"nodeId":"rejected","status":"SUCCESS"},{"nodeId":"page","status":"SKIPPED"},{"nodeId":"draft","status":"SKIPPED"},{"nodeId":"reply-model","status":"SKIPPED"},{"nodeId":"reply-canned","status":"SKIPPED"},{"nodeId":"end","status":"SKIPPED"}]
+    ```
+
+    The run itself is `SUCCESS`: setting a bad ticket aside is something the workflow was built to do.
+  </Step>
+
+  <Step title="Send a normal ticket: the AI step runs">
+    ```bash
+    ticket '{"subject":"Invoice","body":"Can I get a copy of last months invoice?"}'
+    ```
+
+    What you see depends on whether `draft` could reach a model, and both answers are correct. We called Ollama with `llama3.2`, which is the default `provider` and `model` in the file.
+
+    <Tabs>
+      <Tab title="A model answered">
+        With a local Ollama that has `llama3.2` (`ollama pull llama3.2`), `draft` succeeds and the model's text is in `reply`. Your wording will differ:
+
+        ```text
+        [{"action":"send drafted reply","decidedBy":"model","reply":"Hello, we will send your invoice today."}]
+        ```
+      </Tab>
+      <Tab title="No model available">
+        With no Ollama, or no such model, `draft` fails within a second or two, the message leaves through `failure`, and the template reply goes out:
+
+        ```text
+        [{"action":"send template reply","decidedBy":"fallback rule","reply":"Thanks, we have your ticket and will answer within one working day."}]
+        ```
+      </Tab>
+    </Tabs>
+
+    Either way the run ends `SUCCESS` with an answer the customer can be sent. `decidedBy` records who made the decision, so you can always tell a model's answer from a rule's.
+
+    > **Stuck?** If the run itself ends `FAILURE`, the `draft` node failed before the call was made, for example because it is configured with a key that is not set (`decrypted:<key>` reads the environment variable `YUKTA_SECRET_<KEY>`). `curl http://localhost:9858/api/executions/$EXEC` names the failed node.
+  </Step>
+</Steps>
+
+<Tip>
+  To use a hosted model, change only the `draft` node: `provider` to `openai` or `anthropic`, the `model`, and `"apiKey": "decrypted:<name>"` with the secret set as `YUKTA_SECRET_<NAME>` on the server. A key must never be written into the workflow itself.
+</Tip>
+
+## What you just did
+
+We put two kinds of work in one graph. Rules decided what is urgent and what is invalid, the same way every time. A model got only the step that needs wording, and we gave it a way out, so a missing or failing model costs us a template reply and not a failed run. Every answer says whether a rule or a model made it.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Let an assistant build a workflow" icon="plug" href="/learn/let-an-assistant-build-a-workflow">
+    Next tutorial: have Claude Code write and run a workflow like this one.
+  </Card>
+  <Card title="Why one graph holds both" icon="scale-balanced" href="/concepts/ai-and-deterministic-work">
+    Where AI belongs in a workflow, and where it does not.
+  </Card>
+  <Card title="Call an LLM from a workflow" icon="brain" href="/guides/ai/call-an-llm">
+    Providers, secrets, retries and the options of `LLM_CALL`.
+  </Card>
+  <Card title="Set token budgets" icon="gauge" href="/guides/ai/set-token-budgets">
+    Cap what a model may spend in one run.
+  </Card>
+</CardGroup>

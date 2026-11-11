@@ -4,7 +4,7 @@
 - **Date:** 2026-11-08
 - **Decided by:** Arun, 2026-11-08 (D1 to D14 and Q1 to Q10; Q10 waits for the S9 spike).
 - **Plan:** [`design/plans/supervisor-framework.md`](../plans/supervisor-framework.md). Epic #2144, this phase #2145.
-- **Contract:** [`docs/running/supervisor-contract.mdx`](../../docs/running/supervisor-contract.mdx), version 1.
+- **Contract:** [`docs/reference/supervisors/contract.mdx`](../../docs/reference/supervisors/contract.mdx), version 1.
 
 ## Context
 

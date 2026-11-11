@@ -17,7 +17,7 @@ The catalogue endpoints describe what the server offers and who is attached to i
 | `GET /api/plugins/{type}` | Describe one plugin type |
 | `GET /api/supervisors/status` | List running supervisors |
 | `GET /api/supervisor-engines` | List the engines a supervisor can have; `GET /api/supervisor-engines/{type}` describes one |
-| `GET /api/supervisors` | List the configured supervisors (see [Supervisors](/running/supervisors)) |
+| `GET /api/supervisors` | List the configured supervisors (see [Supervisors](/concepts/supervisors)) |
 | `GET /api/workers` | List connected remote workers |
 | `GET /api/templates` | List the example sessions bundled with the server |
 | `GET /api/templates/{id}` | Read one example: its README and session definition |
@@ -118,13 +118,13 @@ The response below is abridged: `usagePattern` and the HTML of `uiDesign` are sh
 }
 ```
 
-The plugin pages describe each built-in type: [Plugins overview](/plugins/overview).
+The plugin pages describe each built-in type: [Plugins overview](/reference/plugins/overview).
 
 ## List supervisors
 
 `GET /api/supervisors/status`
 
-Lists the supervisors running on the control bus. The counts start at zero when the server starts. See [Supervisors](/running/supervisors).
+Lists the supervisors running on the control bus. The counts start at zero when the server starts. See [Supervisors](/concepts/supervisors).
 
 **Response `data`**: an array, one entry per supervisor.
 
@@ -169,7 +169,7 @@ An empty array means none is configured.
 
 `GET /api/workers`
 
-Lists the remote workers that are connected and keep their lease, ordered by worker id. See [Remote workers](/operations/remote-workers).
+Lists the remote workers that are connected and keep their lease, ordered by worker id. See [Remote workers](/guides/operate/add-remote-workers).
 
 **Response `data`**: an array, one entry per worker.
 
@@ -241,14 +241,14 @@ Tells which edition of Yukta this server is, under which licence, and which opti
 
 ## Next steps
 
-<Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/plugins/overview">
+<Card title="Built-in plugins" icon="puzzle-piece" horizontal href="/reference/plugins/overview">
   The 37 triggers, processors and terminals that ship with Yukta, and how a build chooses which ones to include.
 </Card>
 
-<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+<Card title="Supervisors" icon="shield-halved" horizontal href="/concepts/supervisors">
   Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
 </Card>
 
-<Card title="Remote workers" icon="network-wired" horizontal href="/operations/remote-workers">
+<Card title="Remote workers" icon="network-wired" horizontal href="/guides/operate/add-remote-workers">
   Run selected processor nodes on other machines, in named pools, while the control plane keeps orchestrating.
 </Card>

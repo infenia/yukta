@@ -1,0 +1,94 @@
+---
+title: "Who decides: input requests, risk and routing"
+sidebarTitle: "Who decides"
+description: "How a running workflow asks a question and who is allowed to answer it: risk levels, routes of tiers, escalation, and why a high-risk question is only ever answered by a person."
+keywords: ["input requests", "human in the loop", "approval", "risk", "routing", "escalation", "supervisor answers"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how a workflow pauses for a decision, who may give it at each risk level, and what happens when nobody answers"
+  time="12 minutes"
+  need="you know what a run and a supervisor are"
+  end="a model of input requests you can use to decide who should be allowed to answer what"
+/>
+
+Some decisions should not be made by the workflow alone. "Deploy build 42 to production?" is one. So is "this command was proposed by the model; run it?". Yukta gives a running workflow a way to **ask**, wait, and carry on with the answer. That question is an **input request**.
+
+The interesting part is not asking. It is deciding **who is allowed to answer**, because a question that anyone, or any agent, can answer is not a safeguard.
+
+## What a request is
+
+An input request is a typed question that a step of a running workflow asks. It carries a prompt, the answers on offer (or a kind of answer, such as free text or data that fits a schema), a **risk**, and a lifetime. The step waits; waiting costs no tokens. Three things can ask:
+
+- A workflow step built for it.
+- An AI agent, through a tool the model is given. The model picks the question and the options, but not the rules: who may answer, how long it lives and how many questions it may ask come from the node, never from the model.
+- An approval, such as a tool call configured to require one. Approvals are input requests of high risk.
+
+A request is held by the server, published as an event, and moves forward only: open, then answered, expired or cancelled, possibly through escalated. A finished request never changes, so two simultaneous answers produce exactly one winner.
+
+The prompt and context are written by the asking step, often by an AI, so they are **untrusted text**. Yukta strips what looks like a secret before storing or publishing them, and anything that answers should treat what is left as data, not as an instruction.
+
+## Risk decides who may answer
+
+Every request has a risk: `LOW`, `MEDIUM` or `HIGH`. The asking step sets it. When the asker is an AI, it can never set it below a floor you configure on the node, so a model cannot talk a risky question down into a routine one.
+
+| Risk | A person | An agent holding a key | A supervisor |
+|---|---|---|---|
+| `LOW` | Yes | Yes | If it was given permission to answer, up to that risk |
+| `MEDIUM` | Yes | Yes | If it was given permission at a high enough risk |
+| `HIGH` | Yes | **No** | **Never** |
+
+**A high-risk question is answered by a person. No setting changes that.** This is the one hard line in the model, and it is enforced by the server on each answer, not by the good behaviour of whoever answers. A supervisor that has misbehaved, or a model that was talked into something, gains nothing.
+
+Why a hard line rather than a dial? Because a dial can be turned by the thing it is meant to restrain. If the rule were "agents may answer high-risk questions when configured to", then a configuration mistake or a compromised credential would be enough to approve a production deploy. Making the top tier human-only means the worst case for automation is that things wait for a person, which is a nuisance and not an incident.
+
+Besides risk, an answer must also pass these checks:
+
+- **Audience and tier.** The answerer is one of the parties the request's current tier is addressed to.
+- **Scope.** A supervisor answers only requests from runs it owns. A key limited to some sessions answers only requests from those sessions.
+- **Separation.** A supervisor cannot answer a request raised by a run it started. A run cannot approve itself.
+- **Shape.** The answer fits the question: one of the offered options, valid data for a schema, text where text was asked for.
+
+A refused answer leaves the request open for the next responder, and the refusal says which rule failed. One more thing is worth knowing: anyone who may answer can instead **escalate**, which hands the request up with a reason and advice that the next responder sees. Escalation is not subject to the risk rule, because it decides nothing.
+
+## Routes: who is asked first
+
+By default a request has one tier that any supervisor or operator may answer. A **route** puts several tiers in a row. A typical one asks automation first and a person second:
+
+<Diagram name="concept-decision-route" alt="A request goes first to supervisors for a short time; a confident answer ends it, otherwise it is handed to a person, who has longer." caption="A two-tier route. Automation gets the first, short chance and a person is the backstop, not the other way around." />
+
+
+Tiers have a few settings worth understanding conceptually:
+
+- **Who is asked.** Supervisors (all, one, or the parents of the one that handed it up), operators, named keys, or an outside responder such as a chat bot or ticket system that Yukta calls.
+- **How they agree.** The first valid answer wins; or supervisors **vote**, and the request is answered when enough agree (or all do). A split vote hands the request up. A person's answer always decides at once and is never a vote.
+- **How sure they must be.** A supervisor answer below a confidence threshold is treated as advice for the next tier, not as an answer. That lets a cautious automated tier say "I lean yes, but a person should look" without blocking.
+
+When a request reaches a tier with nobody to ask, the tier is skipped. A route that makes no sense stops the server at start-up rather than quietly misbehaving at 3 a.m. At the end of the route, the request's own timeout behaviour applies: fail the asking step, answer with a default, or escalate.
+
+## Outside responders
+
+A tier can name a responder outside Yukta, such as Slack or a ticketing system. Yukta calls it with the redacted request and a one-time token. The responder answers with the token and no API key, once, until it expires. That is convenient, and it is a **bearer credential**: whoever holds the token can answer. It is bound to one request and one tier, every refusal looks the same to the caller, and a high-risk request can be answered this way only in a tier made for people. Delivery to the outside is at-least-once, so the receiver must tolerate seeing a request twice.
+
+## What it means for design
+
+- **Put the risk where the consequence is.** Deploying to staging is low risk and a rule can approve it. Deploying to production is high risk and a person must. Choose the risk by what the step can do, not by how confident the asker is.
+- **Let automation have the first, short look.** A fast first tier clears the routine questions so people see only the ones that need them. Keep the timeout short enough that a stuck automated tier does not delay a person.
+- **Prefer waiting to guessing.** A request that expires can fail the step, use a default or escalate. For anything that matters, fail.
+- **Remember it is state.** By default requests live in memory. A restart or failover cancels the runs that were waiting and loses their open requests. With the Plus edition and PostgreSQL they survive, with their deadlines and votes, and a resumed run takes over the open request instead of asking twice. See [Durability and high availability](/concepts/durability-and-high-availability).
+
+## When not to use an input request
+
+- When a rule decides it. A threshold in a branch node is cheaper than a question.
+- When nobody will be watching. A request nobody answers times out. If there is no person in the loop, design the failure path, not the question.
+- When you want continuous oversight rather than a one-time decision. That is a [supervisor](/concepts/supervisors).
+
+## Related
+
+- [Ask for approval](/learn/ask-for-approval): the tutorial.
+- [Ask for input](/guides/ai/ask-for-input) and [Route input requests](/guides/supervise/route-input-requests): the how-to.
+- [Security model](/concepts/security-model): roles, keys and who is a "person".
+- [Status values](/reference/status-values) and [Configuration reference](/reference/configuration): states and defaults.

@@ -9,7 +9,7 @@ keywords: ["control bus", "pause execution", "signals", "audit log"]
   **In plain terms:** use these calls to steer a run while it is happening: pause, resume, skip a step, send an approval. Every command is checked by any supervisors you run and written to an audit log.
 </Info>
 
-Control endpoints send a command to a live execution or to one of its nodes. Each command is reviewed by any configured [supervisors](/running/supervisors) and recorded in the audit log. These endpoints also cover the control bus, the live command path to individual nodes. Start, stop and restart are on the [Workflows](/api/workflows) and [Executions](/api/executions) pages.
+Control endpoints send a command to a live execution or to one of its nodes. Each command is reviewed by any configured [supervisors](/concepts/supervisors) and recorded in the audit log. These endpoints also cover the control bus, the live command path to individual nodes. Start, stop and restart are on the [Workflows](/api/workflows) and [Executions](/api/executions) pages.
 
 All responses use the [envelope](/api/overview#response-envelope). An unknown execution, or one of another session, answers `404`. A command that a supervisor refuses answers `403` with the reason.
 
@@ -144,7 +144,7 @@ The `controlState` of an execution status reports the latest operator command. I
 
 `POST /api/control/workflows/{workflowId}/nodes/{nodeId}/command`
 
-Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Answers to input requests cannot be sent this way and are refused with `403`; use the [input requests](/building/input-requests).
+Sends an administrative command to a node through the control bus and returns the node's answer. The body is a bare JSON object with 1 to 100 entries. Which commands a node understands depends on its plugin. Answers to input requests cannot be sent this way and are refused with `403`; use the [input requests](/concepts/who-decides).
 
 **Response `data`**: `payload`, what the node answered.
 
@@ -210,11 +210,11 @@ GET /api/control/audit?limit=2
 
 ## Next steps
 
-<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
+<Card title="Run controls" icon="sliders" horizontal href="/guides/build/control-a-run">
   Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
 </Card>
 
-<Card title="Supervisors" icon="shield-halved" horizontal href="/running/supervisors">
+<Card title="Supervisors" icon="shield-halved" horizontal href="/concepts/supervisors">
   Programs that watch every execution and steer it, or veto commands before they run: a rule engine, an AI agent or your own code.
 </Card>
 

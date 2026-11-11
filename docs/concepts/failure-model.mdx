@@ -1,0 +1,79 @@
+---
+title: "The failure model"
+sidebarTitle: "Failure model"
+description: "Why retries, error routes and time limits live in the engine around every node, how a failure is absorbed or spreads, and how to choose between failing loudly and carrying on."
+keywords: ["failure handling", "retry", "error routing", "failure budget", "dead letter", "join rules"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how Yukta treats failure as a normal event, and how to decide what each failure should mean for your workflow"
+  time="10 minutes"
+  need="you have read How Yukta works"
+  end="a way of choosing between retrying, routing, absorbing and failing a step"
+/>
+
+In real systems calls fail, services go down and models return nonsense. A workflow engine's quality shows in what it does *next*. Yukta's position: failure is an ordinary event with a few well-defined outcomes, and the engine, not each plugin, owns them.
+
+## The engine owns failure, plugins do not
+
+Retries, error routing and time limits are not features of a particular plugin. The engine applies them around every node, and you control them with a reserved `engine` object in the node's configuration, which the plugin never sees.
+
+The benefit is consistency. An HTTP call, a script and a model call all retry the same way, time out the same way and route errors the same way. Plugin authors write business logic only. The cost is that the policy is per node and per message, so it is blunt: it cannot know that a 404 is final but a 503 is not unless you tell it which errors to retry.
+
+## Four things a failed message can become
+
+When a step cannot handle a message, one of four things happens, and you choose which per node.
+
+| Outcome | What it means | Pick it when |
+|---|---|---|
+| **Retry** | Try the same message again, with growing waits | The cause is likely transient: a timeout, a rate limit, a flaky service |
+| **Fail** (the default) | End the node as failed; the failure spreads | A wrong result is worse than no result |
+| **Route** | Send the message down the node's `error` exit, with the reason attached | You want a dead-letter step, a fix-up, or an alert, and want the rest to continue |
+| **Continue** | Drop the message and carry on | The message is genuinely disposable |
+
+Retry combines with the others: a message is retried, and only when it still fails is it failed, routed or dropped. A step reporting invalid input (a bad request, not a transient fault) is never retried, because retrying cannot help.
+
+<Diagram name="concept-failure-path" alt="A failing step first retries; when retries run out you choose to route the message to the error port, fail the node, or drop the message." caption="The safety net of one node. Routing to the error port is a last resort after retries, not the first move." />
+
+
+### Why all-or-nothing output matters
+
+With retry or error routing on, whatever an attempt emitted before it failed is held back and dropped. A retry or a dead letter therefore never lands on top of a half-finished result. You pay by buffering one message's output until its attempt ends, which is a good trade for correctness.
+
+## Absorbing failure can hide a problem
+
+`Route` and `continue` keep a flow alive. That is useful and dangerous: if a service is down, they will quietly shunt every message to a dead letter and the run will report success. A **failure budget** caps it. Once more than a set number of messages fail within a window, the node fails instead. Think of it as the difference between "a few bad records" and "something is broken". Use route or continue together with a budget unless losing messages is truly fine.
+
+## How a failure spreads
+
+A node that fails ends `FAILURE`. Nodes behind it end `UPSTREAM_FAILED`. The first terminal to fail ends the whole run and cancels the other branches.
+
+You can change this at a join. When a node has several parents, its **join rule** says what a failed parent means:
+
+| Join rule | Meaning |
+|---|---|
+| All success (default) | One failed parent fails the node |
+| All done | Carry on with the parents that worked |
+| One success | Carry on, but fail if every parent failed |
+
+This is how you build "send the report even if one optional check failed". The consequence to keep in mind: a run can end `SUCCESS` with a failed branch inside it. Look at node statuses, not only the run status.
+
+## Failure is not only errors: time
+
+A step that hangs is a failure too. Yukta bounds every run and node with clocks that you do not have to implement. See [Time limits](/concepts/time-limits).
+
+## Design advice
+
+- **Retry the transient, route the bad data, fail the broken.** Most designs want all three on different steps.
+- **Put side effects behind idempotence.** A retried or resumed step can see a message twice. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
+- **Give errors somewhere to go.** An `error` exit with no edge drops the message. Wire a dead-letter step so a failure is visible.
+- **Do not retry AI calls blindly.** A model that returned something wrong may return it again, and each retry costs tokens. Prefer a gate after the model, or a fallback to a different model. See [AI and deterministic work](/concepts/ai-and-deterministic-work).
+
+## Related
+
+- [Handle failures](/guides/build/handle-failures): configure retries, routes and budgets.
+- [Node options reference](/reference/node-options): the `engine` keys and their defaults.
+- [Runs](/concepts/runs): the statuses a failure produces.

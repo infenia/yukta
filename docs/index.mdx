@@ -1,9 +1,9 @@
 ---
 title: "Workflow orchestration for AI agents and automation"
 sidebarTitle: "Introduction"
-description: "Workflows you can trust and control. Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent."
+description: "Describe a multi-step job once as a flowchart, mix deterministic steps and AI steps, and keep control while it runs. Start it from a script, the web UI, a CLI or an AI assistant."
 mode: "frame"
-keywords: ["introduction", "workflow orchestration", "DAG", "AI agents", "supervisors", "plugins"]
+keywords: ["introduction", "workflow orchestration", "DAG", "AI agents", "supervisors", "MCP", "deterministic"]
 ---
 
 export const HeroCard = ({ light, dark, title, description, href }) => (
@@ -19,124 +19,108 @@ export const HeroCard = ({ light, dark, title, description, href }) => (
 
 <div className="yk-landing">
   <div className="not-prose yk-landing-hero">
-    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Workflow engine for people and AI agents · v0.1.0-alpha.3</span>
+    <span className="yk-eyebrow"><span className="yk-live" aria-hidden="true"></span>Alpha · workflow engine for people, scripts and AI agents</span>
     <h1>Workflows you can trust and control.</h1>
-    <p>Build with plugins and AI, run every step as designed, and steer it live from the UI, CLI, API or an AI agent.</p>
+    <p>Write a job down once as a flowchart. Yukta runs every step as written, whether the step is a script, a rule or an AI model, and lets you pause, steer or hand control to a supervisor while it runs.</p>
   </div>
 
   <div className="not-prose yk-hero-grid">
-    <HeroCard light="/images/diagrams/quickstart-greet.light.svg" dark="/images/diagrams/quickstart-greet.dark.svg" title="Quickstart" description="Install Yukta and run your first workflow in five minutes." href="/quickstart" />
-    <HeroCard light="/images/diagrams/architecture.light.svg" dark="/images/diagrams/architecture.dark.svg" title="How it works" description="How a run flows through the engine, and how supervisors and the control bus steer it." href="/concepts/how-it-works" />
-    <HeroCard light="/images/diagrams/agent-loop.light.svg" dark="/images/diagrams/agent-loop.dark.svg" title="AI and agents" description="Model calls, tool-using agent loops, approvals and budgets as workflow steps." href="/building/ai-and-agents" />
-    <HeroCard light="/images/diagrams/examples-ci-gate.light.svg" dark="/images/diagrams/examples-ci-gate.dark.svg" title="Examples" description="Fourteen ready-to-run workflows for approvals, data pipelines, alerts and agents." href="/examples" />
+    <HeroCard light="/images/diagrams/path-learn.light.svg" dark="/images/diagrams/path-learn.dark.svg" title="Learn" description="Run your first workflow in ten minutes, then add AI, a supervisor and an approval." href="/learn/your-first-workflow" />
+    <HeroCard light="/images/diagrams/path-do.light.svg" dark="/images/diagrams/path-do.dark.svg" title="Do" description="Task-sized guides: build, work with AI, supervise, deploy and operate." href="/guides/build/define-a-workflow" />
+    <HeroCard light="/images/diagrams/path-lookup.light.svg" dark="/images/diagrams/path-lookup.dark.svg" title="Look up" description="Plugins, workflow JSON, MCP tools, CLI, configuration and the API." href="/reference/workflow-json" />
+    <HeroCard light="/images/diagrams/path-understand.light.svg" dark="/images/diagrams/path-understand.dark.svg" title="Understand" description="The mental model, why AI and deterministic work share one graph, and who decides." href="/concepts/how-it-works" />
   </div>
 
   <div className="prose prose-gray dark:prose-invert yk-landing-body">
 
-## Why Yukta exists
+## What Yukta does
 
-A lot of good work is a routine: build, test, scan, deploy; or read a request, decide, act, report. Routines carried in someone's head, or in an AI agent's prompt, work most of the time. Over hundreds of runs, small slips creep in quietly: a check skipped on a busy day, an agent that decides a step is not needed this time. Nobody notices until the result is wrong.
+You know how a job should go: build, test, review, approve, deploy. Written in a wiki, a prompt or a script, the process quietly stops being followed: a check is skipped, an agent decides a step is not needed this time, and nobody can say what state the work is in.
 
-<Columns cols={2}>
-  <Card title="Take the routine off memory" icon="list-check">
-    Write the steps down once as a workflow. Yukta runs them from that definition, in dependency order and along the paths your branches select, whether a person, a script or an AI agent starts it.
-  </Card>
-  <Card title="Keep a hand on the controls" icon="sliders">
-    Watch every run live and pause, step, stop, restart or retry it, down to a single node, or let a supervisor do it for you. Every command is ordered and audited.
-  </Card>
-</Columns>
-
-## What a workflow looks like
-
-A workflow is a flowchart written as JSON: a **directed acyclic graph (DAG)** of boxes joined by arrows. It can be three boxes or hundreds, with branches, fan-out, joins, retries and sub-workflows, and because it has no cycles it can never loop back by accident. Here, a job fetches data, tidies it up and sends a notification. If the call fails, the item is set aside for later.
+Yukta is a server that keeps the process. You describe the steps as a **workflow**: a flowchart where boxes are steps and arrows say what happens next. Yukta runs it the same way every time, and you keep a hand on the controls while it runs.
 
 <img className="yk-diagram block dark:hidden" src="/images/diagrams/workflow-anatomy.light.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 <img className="yk-diagram hidden dark:block" src="/images/diagrams/workflow-anatomy.dark.svg" alt="A trigger starts the flow, two processors call an API and transform the result, and terminals end each branch. A failed call goes to a dead-letter terminal." loading="lazy" />
 
-<div className="not-prose yk-kinds">
-  <a className="yk-kind yk-kind-trigger" href="/plugins/triggers">
-    <span className="yk-kind-icon"><Icon icon="bolt" size={18} /></span>
-    <span className="yk-kind-name">Trigger</span>
-    <span className="yk-kind-role">Starts the job</span>
-    <span className="yk-kind-eg">A request arrives, a timer fires</span>
-  </a>
-  <a className="yk-kind yk-kind-processor" href="/plugins/overview">
-    <span className="yk-kind-icon"><Icon icon="gears" size={18} /></span>
-    <span className="yk-kind-name">Processor</span>
-    <span className="yk-kind-role">Does the work or makes a choice</span>
-    <span className="yk-kind-eg">Run a command, call a web service, reshape data, ask an AI model</span>
-  </a>
-  <a className="yk-kind yk-kind-terminal" href="/plugins/terminals">
-    <span className="yk-kind-icon"><Icon icon="flag-checkered" size={18} /></span>
-    <span className="yk-kind-name">Terminal</span>
-    <span className="yk-kind-role">Ends a path</span>
-    <span className="yk-kind-eg">Log the result, send a notification, keep a failed item</span>
-  </a>
-</div>
+*Figure 1: A workflow. Notice that the failure path is drawn into the flowchart, so a failed step goes somewhere you chose.*
 
-The arrows are **edges**: "when this step is done, hand its output to the next." A step can have labelled exits, called **ports**, such as `success` and `error`, so good and bad outcomes take different paths. Each box is a **plugin**, a ready-made capability you configure, and you can [write your own](/plugins/writing-a-plugin) and add it at any time.
-
-<Info>
-  **For developers:** Yukta is a reactive, DAG-based workflow orchestration server. Messages stream from step to step with back-pressure, and every command, from a person, a script, an agent or a supervisor, goes through one ordered, audited control bus.
-</Info>
-
-## What you get
-
-<Columns cols={3}>
-  <Card title="Plugins for every step" icon="puzzle-piece" href="/plugins/overview">
-    Commands, HTTP, SQL, files, routing, transforms, AI calls and decisions ship built in. Add your own when you need something new.
-  </Card>
-  <Card title="AI as a step" icon="robot" href="/building/ai-and-agents">
-    Call an LLM, give it tools over MCP, keep conversation memory, or let a decision model classify, gate and score, all as nodes in the graph.
-  </Card>
-  <Card title="AI as the author" icon="pen-ruler" href="/interfaces/mcp">
-    Describe the job and let an AI agent build the workflow over MCP, including graphs too intricate to sketch by hand. Then run and watch it like any other.
-  </Card>
-</Columns>
-
-## What you can build
-
-Start with plain automation and add AI only where it earns its place. The same engine, controls and audit trail carry you all the way.
-
-<CardGroup cols={2}>
-  <Card title="Pipelines that never skip a gate" icon="code-branch" href="/examples">
-    Build, test, scan and deploy as plain command steps, routed on exit codes. Every gate runs on every change, and a failure stops the line. No AI required.
-  </Card>
-  <Card title="Pipelines that fix their own failures" icon="wand-magic-sparkles" href="/building/ai-and-agents#several-agents-in-one-workflow">
-    Put an AI step on the failure path. It reads the error, applies a fix, then the check runs again through the built-in bounded retry, with a fixed number of attempts so it can never spin forever.
-  </Card>
-  <Card title="Agents that work as a team" icon="users" href="/building/ai-and-agents#several-agents-in-one-workflow">
-    One agent drafts, another reviews, a third decides. Each is a step in the graph, so every hand-off is visible and any step can be restarted on its own.
-  </Card>
-  <Card title="Automation that keeps itself on track" icon="shield-halved" href="/running/supervisors">
-    A supervisor watches every event and pauses or stops a run that loops or drifts. Use rules for what you can spell out, and a System One decision model or an LLM for the rest.
-  </Card>
-</CardGroup>
-
-## Start from where you work
+## Four things that set it apart
 
 <Columns cols={2}>
-  <Card title="Web UI" icon="window-maximize" horizontal href="/interfaces/web-ui">
-    Build workflows with forms and watch runs live.
+  <Card title="Workflows as flowcharts (DAGs)" icon="diagram-project" href="/concepts/how-it-works">
+    Steps, arrows and named outcomes, with branches, joins, retries and sub-workflows. It has no cycles, so it cannot loop back by accident.
   </Card>
-  <Card title="Command line" icon="terminal" horizontal href="/interfaces/cli">
-    Apply sessions and follow runs from a terminal or CI.
+  <Card title="AI and deterministic work, together" icon="code-branch" href="/concepts/ai-and-deterministic-work">
+    Scripts, HTTP calls, SQL and rules sit beside model calls and agent loops in one graph. Put the AI where judgement helps and rules where the answer must always be the same.
   </Card>
-  <Card title="AI assistants (MCP)" icon="robot" horizontal href="/interfaces/mcp">
-    Let an assistant such as Claude create, run and steer workflows.
+  <Card title="Supervisors" icon="shield-halved" href="/concepts/supervisors">
+    Every part of a run can have an owner: a rule set, an AI agent, another workflow or a program. It watches, steps in, and decides who may steer.
   </Card>
-  <Card title="REST API" icon="code" horizontal href="/api/overview">
-    Every operation over HTTP with streaming updates.
+  <Card title="AI-assisted setup over MCP" icon="robot" href="/concepts/ai-assisted-configuration">
+    An assistant such as Claude Code can write the workflow, start it, watch it and steer it, within the role you give it.
   </Card>
 </Columns>
 
-<Tip>
-  **About the name:** *Yukta* (युक्त) is Sanskrit for "joined" or "yoked together", from the same root as *yoga*. It also means "fitting" or "proper". Both describe the idea: steps joined into one workflow, each run carried out the way it should be.
-</Tip>
+## Install
 
-<Note>
-  Yukta is in alpha (`0.1.0-alpha.3`). The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
-</Note>
+On Linux, one command installs the server (`yukta`) and the client (`yukta-cli`):
 
-  </div>
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+```
+
+This one-line installer is for **Linux** (amd64). For Docker, macOS, Windows and other ways to install, see [Install Yukta](/get-started/install).
+
+## Configure it by asking
+
+Connect an AI assistant once, then describe what you want. The assistant writes the workflow, adds the supervisor, assigns it and checks the result, and asks you before anything risky.
+
+```bash
+claude mcp add --transport http yukta http://localhost:9858/mcp
+```
+
+Then, in your assistant:
+
+> Build a workflow that validates a release ticket, asks a model to draft the notes, and waits for my approval before deploying.
+
+> Add a supervisor that pauses the release when three deploys fail in a row. Start it in dry run.
+
+> Replay that supervisor on yesterday's failed run and show me what it would have done.
+
+Three prompts, no JSON written by hand. You review each change before it applies. Start with [Let an assistant build a workflow](/learn/let-an-assistant-build-a-workflow), then [Set up supervision with an assistant](/learn/set-up-supervision-with-an-assistant). More prompts are in [Configure Yukta by asking](/guides/ai/configure-with-an-assistant).
+
+## Try it in 30 seconds
+
+With Yukta [installed](#install), start the server with `yukta`, then check it is up from a second terminal:
+
+```bash
+curl http://localhost:9858/actuator/health
+```
+
+```json
+{"groups":["liveness","readiness"],"status":"UP"}
+```
+
+Next: [install Yukta](/get-started/install), then [run your first workflow](/learn/your-first-workflow). Prefer to look first? [Try a workflow in your browser](/learn/playground).
+
+## Who it is for
+
+- **You run jobs and pipelines** and want every step to happen, in order, with a record. Start with [Your first workflow](/learn/your-first-workflow).
+- **You build with AI agents** and want rules, budgets and approvals around them. Start with [Mix rules and AI](/learn/mix-rules-and-ai).
+- **You operate it for a team** and need to know who can steer what. Start with [Add a supervisor](/learn/add-a-supervisor) and [Deploy](/guides/operate/deploy).
+- **You extend it** with your own step. Start with [Write a plugin](/guides/extend/write-a-plugin).
+
+## Honest limits
+
+Yukta is alpha. The workflow JSON, REST API, MCP tools and plugin contract can change before 1.0. Sessions live in memory by default, and the native server in the current release is Linux amd64 only. See [Releases](/reference/releases) and [What's new in alpha.4](/reference/whats-new-alpha-4).
+
+## Next steps
+
+- **Learn by doing:** [Your first workflow](/learn/your-first-workflow)
+- **Get a task done:** [Guides](/guides/build/define-a-workflow)
+- **Look something up:** [Reference](/reference/workflow-json) and the [API](/api/overview)
+- **Understand why:** [How Yukta works](/concepts/how-it-works)
+- **Ready-made starting points:** [Examples](/examples)
+
+</div>
 </div>

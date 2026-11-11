@@ -1,0 +1,300 @@
+---
+title: "Ask for approval"
+sidebarTitle: "Ask for approval"
+description: "Build a refund workflow where small amounts go through by rule and large ones wait for a person to approve or reject, then answer the question over REST."
+keywords: ["approval", "input request", "ASK_INPUT", "human in the loop", "risk", "tutorial"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how a workflow asks a person a question, waits, and carries on with the answer"
+  time="about 10 minutes"
+  need="a running server, curl and jq, and finished Your first workflow; an OPERATOR key if the server has keys"
+  end="a refund workflow that paused for your decision and finished on it, for both approve and reject"
+/>
+
+## What we're building
+
+We will build a refund workflow. A refund of 50 or less is approved by a rule. A larger one stops and asks a person. The run waits, as long as we allow, and then continues down the branch the answer picks.
+
+<Diagram name="learn-ask-for-approval" alt="The refund workflow: a refund of 50 or less is approved by a rule, a larger one stops at the ask step until a person answers, and the verdict branch sends the answer to approved or declined." caption="Notice the `ask` step: it is a node like any other, but the run stops there until a person answers." />
+
+A step like `ask` raises an **input request**: a typed question with a prompt, the answers on offer, and a **risk**. The risk decides who may answer. Risk `HIGH` can only be answered by a person, never by a supervisor or an AI agent. Money is a good reason for that.
+
+<Steps titleSize="h2">
+  <Step title="Save the workflow">
+    Create `refund.json`:
+
+    ```json refund.json
+    {
+      "sessionId": "refunds",
+      "name": "Refunds",
+      "workflows": {
+        "refund": {
+          "workflowId": "refund",
+          "description": "Small refunds go through by rule; big ones wait for a person",
+          "nodes": [
+            { "nodeId": "request", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "check",
+              "type": "VALIDATE",
+              "config": { "required": ["orderId", "amount"], "types": { "orderId": "string", "amount": "number" } }
+            },
+            {
+              "nodeId": "size",
+              "type": "BRANCH",
+              "config": { "mode": "EXPRESSION", "cases": { "payload.amount <= 50": "small" }, "defaultPort": "big" }
+            },
+            {
+              "nodeId": "auto",
+              "type": "MAPPER",
+              "config": {
+                "mode": "PROJECTION",
+                "mapping": { "orderId": "payload.orderId", "refund": "'approved'", "decidedBy": "'rule: 50 or less'" }
+              }
+            },
+            {
+              "nodeId": "ask",
+              "type": "ASK_INPUT",
+              "config": {
+                "prompt": "Refund ${payload.amount} for order ${payload.orderId}?",
+                "kind": "APPROVAL",
+                "risk": "HIGH",
+                "ttlSeconds": 600,
+                "onTimeout": "FAIL",
+                "context": { "orderId": "${payload.orderId}", "amount": "${payload.amount}" }
+              }
+            },
+            {
+              "nodeId": "verdict",
+              "type": "BRANCH",
+              "config": { "mode": "EXPRESSION", "cases": { "metadata['input.decision'] == 'approve'": "yes" }, "defaultPort": "no" }
+            },
+            {
+              "nodeId": "approved",
+              "type": "MAPPER",
+              "config": { "mode": "PROJECTION", "mapping": { "orderId": "payload.orderId", "refund": "'approved'", "decidedBy": "'person'" } }
+            },
+            {
+              "nodeId": "declined",
+              "type": "MAPPER",
+              "config": { "mode": "PROJECTION", "mapping": { "orderId": "payload.orderId", "refund": "'declined'", "decidedBy": "'person'" } }
+            },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "rejected", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "request", "target": "check" },
+            { "source": "check", "target": "size" },
+            { "source": "check", "target": "rejected", "sourcePort": "invalid" },
+            { "source": "size", "target": "auto", "sourcePort": "small" },
+            { "source": "size", "target": "ask", "sourcePort": "big" },
+            { "source": "ask", "target": "verdict" },
+            { "source": "verdict", "target": "approved", "sourcePort": "yes" },
+            { "source": "verdict", "target": "declined", "sourcePort": "no" },
+            { "source": "auto", "target": "end" },
+            { "source": "approved", "target": "end" },
+            { "source": "declined", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    The `ask` node waits for up to `ttlSeconds` (600, ten minutes). `onTimeout: FAIL` fails the step if nobody answers in time, so a refund is never paid by silence. After an answer, the message carries the decision in its metadata as `input.decision`, and `verdict` branches on it. Send it to the server:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/sessions \
+      -H "Content-Type: application/json" -d @refund.json
+    ```
+
+    You should see:
+
+    ```json
+    {"timestamp":"...","status":200,"message":"Configuration applied successfully"}
+    ```
+
+    With an API key on the server, add `-H "X-API-Key: <your key>"` to every call in this tutorial.
+
+    > **Stuck?** `ASK_INPUT` as an unknown type means the server is older than this feature or was built without it. `curl http://localhost:9858/api/plugins/ASK_INPUT` answers `404` in that case.
+  </Step>
+
+  <Step title="Send a small refund: a rule decides">
+    ```bash
+    curl -X POST http://localhost:9858/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"refunds","workflowId":"refund","payload":{"orderId":"A-1002","amount":20}}'
+    ```
+
+    Take the `executionId` from the answer and read the result:
+
+    ```bash
+    EXEC=<the executionId you got>
+    curl -H "Accept: application/json" \
+      http://localhost:9858/api/sessions/refunds/executions/$EXEC/results | jq -c '[.events[] | select(.kind=="RESULT") | .payload]'
+    ```
+
+    You should see a refund approved by the rule, and nobody was asked:
+
+    ```json
+    [{"orderId":"A-1002","decidedBy":"rule: 50 or less","refund":"approved"}]
+    ```
+  </Step>
+
+  <Step title="Send a big refund: the run waits">
+    ```bash
+    curl -X POST http://localhost:9858/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"refunds","workflowId":"refund","payload":{"orderId":"A-1001","amount":120}}'
+    ```
+
+    Set `EXEC` to the new `executionId`, and read the run:
+
+    ```bash
+    curl http://localhost:9858/api/executions/$EXEC | jq -c '.data.status, [.data.tasks[] | {nodeId, status}]'
+    ```
+
+    You should see the run still `RUNNING`, with `ask` running and everything after it pending:
+
+    ```text
+    "RUNNING"
+    [{"nodeId":"request","status":"SUCCESS"},{"nodeId":"check","status":"SUCCESS"},{"nodeId":"size","status":"SUCCESS"},{"nodeId":"rejected","status":"SKIPPED"},{"nodeId":"auto","status":"SKIPPED"},{"nodeId":"ask","status":"RUNNING"},{"nodeId":"verdict","status":"PENDING"},{"nodeId":"approved","status":"PENDING"},{"nodeId":"declined","status":"PENDING"},{"nodeId":"end","status":"PENDING"}]
+    ```
+
+    > **Stuck?** If `ask` is `SKIPPED` and the run already finished, the amount was 50 or less and the rule took it. Use an amount above 50.
+  </Step>
+
+  <Step title="Find the question">
+    The question is now open. List the open questions of the session:
+
+    ```bash
+    curl "http://localhost:9858/api/sessions/refunds/inputs?state=OPEN" | jq '.data[0]'
+    ```
+
+    You should see the request (shortened). Note `risk` and `options`:
+
+    ```json
+    {
+      "id": "20b0148a-46cf-4090-a945-f1d06c34fdba",
+      "executionId": "4aeb7b1c-dff8-43e5-a93a-db19ccebb75d",
+      "nodeId": "ask",
+      "state": "OPEN",
+      "kind": "APPROVAL",
+      "prompt": "Refund 120 for order A-1001?",
+      "context": { "amount": "120", "orderId": "A-1001" },
+      "options": [ { "id": "approve", "label": "approve" }, { "id": "reject", "label": "reject" } ],
+      "risk": "HIGH"
+    }
+    ```
+
+    Keep its id:
+
+    ```bash
+    REQ=<the id you got>
+    ```
+
+    In the web UI the same question shows in the **Inputs** panel of the workflow page, with a button for each option.
+
+    <UiShot name="inputs-panel" alt="The Inputs panel of the workflow page listing an open approval request with approve and reject buttons." caption="Notice that the panel shows the prompt and the facts in `context`, so the person can decide without opening anything else." />
+  </Step>
+
+  <Step title="Answer it">
+    We approve, and give a reason. The reason is recorded in the execution log:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/executions/$EXEC/inputs/$REQ/answer \
+      -H "Content-Type: application/json" \
+      -d '{"decision":"approve","rationale":"customer is verified"}'
+    ```
+
+    You should see the request `ANSWERED`, with who answered (shortened):
+
+    ```json
+    {
+      "status": 200,
+      "message": "Answer accepted",
+      "data": {
+        "state": "ANSWERED",
+        "answer": { "decision": "approve", "responderType": "HUMAN", "rationale": "customer is verified" }
+      }
+    }
+    ```
+
+    The run goes on at once. Read its result as in step 2:
+
+    ```json
+    [{"orderId":"A-1001","decidedBy":"person","refund":"approved"}]
+    ```
+
+    > **Stuck?** `409` means the request is no longer open: someone answered it, or it expired. The message names the answer that won. `403` names the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`). Answering needs an `OPERATOR` key, and a request of risk `HIGH` is refused to a supervisor whatever its settings.
+  </Step>
+
+  <Step title="Say no">
+    Start another big refund the same way, with another order, and find its question:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/workflow/start \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"refunds","workflowId":"refund","payload":{"orderId":"A-1003","amount":900}}'
+    ```
+
+    Set `EXEC` and `REQ` for it as in step 4, then reject:
+
+    ```bash
+    curl -X POST http://localhost:9858/api/executions/$EXEC/inputs/$REQ/answer \
+      -H "Content-Type: application/json" \
+      -d '{"decision":"reject","rationale":"order is flagged"}'
+    ```
+
+    You should see the run finish `SUCCESS` with the other branch taken:
+
+    ```json
+    [{"orderId":"A-1003","decidedBy":"person","refund":"declined"}]
+    ```
+
+    A rejection is only a decision here, so `verdict` sends it to `declined` and the run records the outcome. Answering the same question again is refused:
+
+    ```text
+    409  Input request ... is already answered: reject by HUMAN:anonymous
+    ```
+  </Step>
+</Steps>
+
+<Accordion title="Answer from the command line, or from an assistant" icon="terminal">
+  With the command-line client:
+
+  ```bash
+  yukta-cli inputs list --session refunds
+  yukta-cli inputs answer $EXEC $REQ --decision approve --rationale "customer is verified"
+  ```
+
+  An assistant uses the MCP tools `list_pending_inputs` and `answer_input`. The `yukta-workflows` skill tells it to show you what waits and let you choose: approving is your decision, not the assistant's.
+</Accordion>
+
+<Note>
+  Without an API key every caller counts as a person, so this tutorial worked with no header. Once the server has keys, answering needs an `OPERATOR` key, and the answer is recorded under that key's name.
+</Note>
+
+## What you just did
+
+We made a workflow that handles the routine cases by rule and stops at the one that needs a person. The `ask` step turned into a typed question that we listed, read and answered over REST, and the run carried on with our answer. Whoever answers is checked against the request's risk, so a high-risk question cannot be answered by anything but a person.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Who decides" icon="scale-balanced" href="/concepts/who-decides">
+    Risk tiers, routes and why HIGH is a human decision.
+  </Card>
+  <Card title="Ask for input from a workflow" icon="hand" href="/guides/ai/ask-for-input">
+    ASK_INPUT, the ask_for_input tool for agents, and WAIT_FOR_SIGNAL.
+  </Card>
+  <Card title="Route input requests" icon="route" href="/guides/supervise/route-input-requests">
+    Send questions to a supervisor first, then to a person.
+  </Card>
+  <Card title="Add a supervisor" icon="shield-halved" href="/learn/add-a-supervisor">
+    Let a rule answer or advise on the low-risk questions.
+  </Card>
+</CardGroup>

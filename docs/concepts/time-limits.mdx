@@ -1,72 +1,57 @@
 ---
-title: "Time limits, timeouts and deadlines"
+title: "How time limits work"
 sidebarTitle: "Time limits"
-description: "The five independent clocks that bound an execution, from queue wait and run deadline to node idle, attempt and lifetime, and how pausing interacts with them."
-keywords: ["timeouts", "deadlines", "time limits", "idle timeout"]
+description: "The five independent clocks that stop a run or a step from hanging forever, what each one measures, and why pausing never causes a timeout."
+keywords: ["timeouts", "deadlines", "time limits", "idle timeout", "pause"]
 ---
 
-<Info>
-  **In plain terms:** a stuck job should end, not hang forever. Yukta watches five clocks: how long a start may wait in line, how long the whole run may take, how long a step may sit idle, how long a single attempt may take, and how long a step may live in total. Pausing a run freezes all of them, so a pause never causes a timeout.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
 
-Yukta bounds an execution with five independent clocks. All of them are **pause-aware**.
+<ReaderState
+  learn="the five clocks that bound a run, which question each one answers, and why pausing is safe"
+  time="6 minutes"
+  need="you have read How Yukta works"
+  end="the ability to pick the right clock for the failure you are worried about"
+/>
 
-| Clock | Scope | Resets on | Ends with |
-|---|---|---|---|
-| Queue wait | A start waiting for a slot | not applicable | `TIMED_OUT` after `yukta.execution.queue-timeout` (off by default) |
-| Run deadline | The whole execution | never | `TIMED_OUT`. 1 hour by default (`yukta.execution.timeout`) |
-| Node idle | One node | Any input, output, retry attempt or heartbeat | The node ends `TIMED_OUT` |
-| Element timeout | One attempt at one message | Each attempt | The attempt fails, so retry and error routing apply |
-| Node deadline | One node, from its first activity | never (paused time is excluded) | The node ends `TIMED_OUT` |
+A stuck job should end, not hang forever. A single timeout cannot do that well, because "too long" means different things: too long waiting in line, too long overall, too long doing nothing, too long on one attempt. Yukta therefore runs five independent clocks. Each answers a different question.
 
-## Node idle timeout
+| Clock | Question it answers | Ends with |
+|---|---|---|
+| **Queue wait** | How long may a start wait for a slot? | The start times out. Off by default |
+| **Run deadline** | How long may the whole run take? | The run ends `TIMED_OUT`. One hour by default |
+| **Node idle** | How long may a node sit with no activity? | The node ends `TIMED_OUT` |
+| **Element timeout** | How long may one attempt at one message take? | The attempt fails, so retry and error routing apply |
+| **Node deadline** | How long may a node live from its first activity? | The node ends `TIMED_OUT` |
 
-The idle clock is the node's `timeoutSeconds`. When you do not set it, the plugin supplies a default that fits its work:
+<Diagram name="concept-five-clocks" alt="Five clocks measure different spans of one run: queue wait before it starts, the run deadline over all of it, a node deadline, a node idle clock that restarts on activity, and an element timeout for one attempt." caption="Where each clock sits on one timeline. Only the idle clock restarts on activity; the run deadline never does." />
 
-| Plugin | Default idle timeout |
-|---|---|
-| `PROCESS_EXECUTOR` | Its own timeout (300 s by default) plus 10 % (at least 5 s) |
-| `LLM_CALL` | Every attempt plus backoff |
-| `HTTP_REQUEST` | Its own timeout plus 5 s |
-| `WAIT_FOR_SIGNAL` | Its wait plus 30 s |
-| `CLASSIFY`, `GATE`, `SCORE`, `DEDUPE`, `ANOMALY`, `ASK` | Its timeout plus 5 s |
-| `SUB_WORKFLOW` | Its `timeoutSeconds` (default 300 s) plus 10 s |
-| `MCP_TOOL_CALL` | Its timeout plus a fixed margin, plus any approval wait |
-| `MCP_LIST_TOOLS` | Its timeout plus 5 s |
-| Others | 30 s |
+## Why five
 
-Triggers have no input, so they keep the default idle timeout unless the plugin declares another.
+Consider a node that calls an LLM. You want a call that has hung for a minute to be abandoned and retried (element timeout). You do not want the node as a whole to wait forever for a model that never returns (node deadline). You also want a safety net over the entire run in case something else goes wrong (run deadline). One number cannot be right for all three.
 
-A timeout given as an expression is unknown until a message arrives. The node starts with the default and is re-timed when its first message comes in. Write numeric options as typed expressions, for example `${payload.secs:int}`; see [Variables and expressions](/building/variables-and-expressions).
+The clocks also differ in whether they reset. The **idle clock** resets on any input, output, retry attempt or heartbeat: it measures silence, not duration. The **run deadline** never resets: it is the net under everything and the right place to say "this should always finish within two hours".
 
-## Long silent work
+## Defaults that fit the work
 
-A node that works for a long time without producing output would hit its idle timeout. A plugin keeps its node alive by sending a **heartbeat**, which restarts the idle clock. Remote workers send heartbeats automatically while an attempt runs. See [Writing a plugin](/plugins/writing-a-plugin).
+The idle clock is a node's `timeoutSeconds`. If you do not set it, the plugin supplies a default that fits what it does: a process node uses its own timeout plus a margin, a model call covers every attempt plus backoff, a sub-workflow its own limit plus a margin, and anything else thirty seconds. This keeps the common case right without configuration, and it is why you usually adjust a node's own timeout and let the idle clock follow.
 
-## Element timeout and deadline
+A timeout that is an expression is unknown until a message arrives, so the node starts with the default and is re-timed on its first message.
 
-Set both in a node's `engine` object:
+## Silent work and heartbeats
 
-```json
-"engine": { "elementTimeoutMs": 20000, "deadlineMs": 600000 }
-```
+A node that works for a long time without producing output would trip its idle clock. A plugin can send a **heartbeat**, which restarts the clock. Remote workers send them automatically while an attempt runs. Heartbeats exist so that "busy but quiet" is distinguishable from "hung", which is the whole point of an idle clock.
 
-`deadlineMs` must be above `elementTimeoutMs`. A terminal's idle timeout and `deadlineMs` also cover what it does after its last input.
+## Pausing is safe
 
-## Run deadline
+All five clocks are pause-aware. Pausing a run freezes them, and paused time is excluded from a node's deadline. A pause therefore never causes a timeout. The consequence: a run you paused and forgot about will wait indefinitely. Time limits protect against hanging, not against forgetting.
 
-The run deadline bounds the whole execution and defaults to 1 hour. Change it with `yukta.execution.timeout` (environment form `YUKTA_EXECUTION_TIMEOUT`, for example `2h`). Because it never resets, it is the safety net for a workflow that should always finish. A run that outlives it ends `TIMED_OUT`; a node that times out keeps its own status.
+## When a clock is not enough
 
-## Next steps
+Time limits stop a step; they do not say why it was slow. For that, a supervisor can watch a run for stalls and act, and [observability](/guides/operate/observe-runs) shows where the time went. A timeout is also a failure like any other, so retry and error routing apply to the element timeout. See [The failure model](/concepts/failure-model).
 
-<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
-  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
-</Card>
+## Related
 
-<Card title="Run controls" icon="sliders" horizontal href="/running/run-controls">
-  Pause, resume, step, set breakpoints, skip, stop, restart and retry a live execution through one ordered, audited command path.
-</Card>
-
-<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
-  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
-</Card>
+- [Handle failures](/guides/build/handle-failures) and [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
+- [Node options reference](/reference/node-options) and [Configuration reference](/reference/configuration): every timeout setting and default.

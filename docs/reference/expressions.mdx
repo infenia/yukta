@@ -1,0 +1,105 @@
+---
+title: "Expressions reference"
+sidebarTitle: "Expressions"
+description: "Placeholder syntax, sources, type suffixes, readable environment values and secrets, and the rules of the SpEL expressions that plugins evaluate."
+keywords: ["placeholders", "variables", "expressions", "SpEL", "secrets", "decrypted"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Expressions reference
+
+Two mechanisms read data in a node's `config`: `${...}` placeholders, resolved immediately before the node runs, and expressions, evaluated by plugins such as `BRANCH`, `FILTER`, mappers and loops.
+
+<Diagram
+  name="ref-expressions"
+  alt="Placeholders are filled in before a node runs; SpEL expressions are evaluated by plugins on the message only."
+  caption="The two mechanisms read different sources: placeholders reach the run, the server and secrets, expressions only the message."
+/>
+
+## Placeholders
+
+A placeholder is `${source}` inside any string of a node's `config`. When a value is exactly one placeholder the type is preserved; inside a longer string the result is text.
+
+| Source | Resolves to |
+|---|---|
+| `${payload}` | The whole payload of the message in hand. |
+| `${payload.a.b}` | A nested field of the payload; maps only, dot-separated. |
+| `${metadata.key}` | A label on the message, for example `${metadata.signal.decision}`. |
+| `${start.a.b}` | A field of the run's start payload (what the run was started with, or what a parent `SUB_WORKFLOW` handed it), readable from every node. Engine entries starting `yukta.` are hidden. |
+| `${context.name}` | A plain text, number or flag the caller put in the run context. Entries starting `yukta.` and non-scalar values are hidden. |
+| `${env.NAME}` | An environment variable of the server, if readable (see below). |
+| `${sys.name}` | A system property of the server, if readable (see below). |
+| `decrypted:name` | A secret by name. The whole value must be `decrypted:name`. |
+
+A placeholder that cannot be resolved against the message gives an empty value. A configuration that cannot be resolved at all fails that message like a plugin failure, so retry and error routing apply. A readable-list violation or a missing secret also fails the message.
+
+### Type suffix
+
+`${payload.secs:int}` forces a type.
+
+| Suffix | Type |
+|---|---|
+| `int`, `integer` | Integer |
+| `long` | Long |
+| `double`, `float` | Double |
+| `bool`, `boolean` | Boolean |
+| `string` | Text |
+
+An empty value cast to a number is empty, not an error.
+
+### Readable environment values
+
+| Readable | Examples |
+|---|---|
+| Environment variables starting `YUKTA_VAR_`; system properties starting `yukta.var.` | `${env.YUKTA_VAR_REGION}`, `${sys.yukta.var.region}` |
+| Environment: `HOME`, `USER`, `LANG`, `TZ`, `HOSTNAME`, `PWD`, `PATH` | `${env.HOME}` |
+| System properties: `user.name`, `user.home`, `user.dir`, `user.timezone`, `os.name`, `java.version`, `file.separator`, `path.separator`, `line.separator` | `${sys.os.name}` |
+| Names listed in `yukta.variables.allowed` (system property) or `YUKTA_VARIABLES_ALLOWED` (environment), comma-separated | |
+
+A name containing `PASSWORD`, `PASSWD`, `SECRET`, `TOKEN`, `CREDENTIAL`, `PRIVATE` or `KEY` (case-insensitive) stays blocked even when listed.
+
+### Secrets
+
+`decrypted:name` reads the environment variable `YUKTA_SECRET_` plus the name upper-cased, every character other than a letter or digit replaced by `_`. `decrypted:db.password` reads `YUKTA_SECRET_DB_PASSWORD`. A secret may be scoped: `YUKTA_SECRET_S_<SESSION>__<NAME>` (session) and `YUKTA_SECRET_T_<TENANT>__<NAME>` (tenant) are read before the global name. A name containing `__` is refused. A secret that is not found fails the message with `Secret not found for key`. Reads are logged with key name, scope, workflow and node, never the value.
+
+```json
+{ "headers": { "Authorization": "decrypted:chat-token" },
+  "body": { "text": "Build ${payload.build} finished with ${payload.status}" } }
+```
+
+A literal in a field the plugin declares secret, or named like a password, token, api key, authorization or credential, is refused when the definition is saved or run; see [Security reference](/reference/security).
+
+## Expressions
+
+Expressions are Spring Expression Language (SpEL) strings. A plugin passes the message as the root, so `payload` and `metadata` are readable:
+
+```text
+payload.coverage >= 80 && payload.lintErrors == 0
+```
+
+### Evaluation rules
+
+| Rule | Detail |
+|---|---|
+| Context | Read-only property access on maps and objects. No `T(...)` type references, no constructors, no bean references, no assignment. |
+| Methods | Only the allow-list below; any other method is not found. |
+| Length | At most `yukta.spel.max-length` characters (default `10000`); longer is refused. System property. |
+| Time | At most `yukta.spel.timeout-ms` per evaluation (default `1000`); on expiry the message fails. System property. `matches` and `split` check the clock while they run. |
+| Cache | Up to 1000 parsed expressions are kept, least recently used evicted. |
+
+### Allowed methods
+
+On any receiver: `equals`, `hashCode`, `toString`, `compareTo`, `length`, `size`, `isEmpty`, `isBlank`, `contains`, `containsKey`, `containsValue`, `get`, `getOrDefault`, `indexOf`, `lastIndexOf`, `charAt`, `startsWith`, `endsWith`, `equalsIgnoreCase`, `matches`, `substring`, `trim`, `strip`, `toUpperCase`, `toLowerCase`, `split`, `keySet`, `values`, `isPresent`, `orElse`, `intValue`, `longValue`, `doubleValue`, `booleanValue`, `name`, `ordinal`, `abs`, `max`, `min`. Every method of a `java.time.*` type is allowed.
+
+### Script limits
+
+JavaScript scripts (mapper plugin) run with system properties `yukta.script.timeout-ms` (default `10000`), `yukta.script.max-statements` (default `50000000`) and `yukta.script.max-heap-bytes` (default `0`, no limit; enforced only on Oracle GraalVM).
+
+## Related
+
+- [Configuration reference](/reference/configuration)
+- [Security reference](/reference/security)
+- [Transform plugins](/reference/plugins/transform)
+- [Routing and flow plugins](/reference/plugins/routing-and-flow)
+- [Use variables and expressions](/guides/build/use-variables-and-expressions)

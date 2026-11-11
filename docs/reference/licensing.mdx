@@ -1,29 +1,35 @@
 ---
-title: "Licensing and editions: Apache-2.0 and AGPL"
-sidebarTitle: "Licensing and editions"
-description: "Which parts of Yukta are Apache-2.0 and which are AGPL-3.0-only, what the Community and Plus editions include, and what the licences mean for you."
-keywords: ["licensing", "Apache-2.0", "AGPL", "editions"]
+title: "Licensing and editions reference"
+sidebarTitle: "Licensing"
+description: "The editions of Yukta, their licences, which settings and build switches belong to which edition, and the licensing of extensions and contributions."
+keywords: ["licensing", "editions", "Apache-2.0", "AGPL", "Plus", "Community", "Enterprise"]
 ---
 
-<Info>
-  **In plain terms:** the Yukta you get by default is free under the Apache-2.0 licence. Saving state to disk is a separate, optional part under the AGPL. Larger setups (PostgreSQL, clustering, single sign-on) are a separate commercial edition.
-</Info>
+# Licensing and editions reference
 
-## The editions
+The editions of Yukta, what each contains and which settings need which. This page is not legal advice; the full statement is [LICENSING.md](https://github.com/infenia/yukta/blob/main/LICENSING.md).
 
-| Edition | Licence | What it adds | Where it lives |
+## Editions
+
+| Edition | Licence | Adds | Where it lives |
 |---|---|---|---|
-| **Community** | Apache-2.0 | The engine, REST and MCP interfaces, web UI, CLI, all built-in plugins, in-memory state | This repository, everything outside `plus/` |
-| **Plus** | AGPL-3.0-only, or a commercial licence | State on disk (sessions, workflow definitions, the execution log, checkpoints, chat history), PostgreSQL storage with high availability, and remote workers | This repository, the `plus/` directory |
-| **Enterprise** | Commercial | Enterprise security, multi-tenancy and other features built in a separate private repository that does not exist yet. PostgreSQL, high availability and remote workers are planned to move there later | A separate private repository |
+| Community | Apache-2.0 | The engine, REST and MCP interfaces, web UI, CLI, all built-in plugins, in-memory state. | This repository, everything outside `plus/`. |
+| Plus | AGPL-3.0-only, or a commercial licence | State on disk (sessions, workflow definitions, execution log, checkpoints, chat history), PostgreSQL storage with high availability, remote workers. | This repository, the `plus/` directory. |
+| Enterprise | Commercial | Enterprise security, multi-tenancy and other features in a separate private repository that does not exist yet. PostgreSQL, high availability and remote workers are planned to move there later. | A separate private repository. |
 
-The default build, the Docker image and the installers are the Community edition.
+The default build, the Docker image and the installers are the Community edition. Named API keys, roles and session-limited keys are planned for Enterprise but are in the public build today.
 
-## Community: what to know
+## Build switches
 
-State lives in memory and is lost when the server restarts. Keep workflow definitions in files and apply them with the CLI (`yukta-cli session apply`) after a restart, or build the Plus edition.
+| Switch | Effect |
+|---|---|
+| `-Pyukta.edition=plus` | Builds the Plus edition. The build then combines Apache and AGPL code and is covered by the AGPL as a whole. |
+| `-Pyukta.persistence=postgres` | Adds PostgreSQL storage (Plus). |
+| `-Pyukta.workers=true` | Adds remote workers (Plus). |
 
-If a setting that needs disk storage is present, the Community build refuses to start and says so, instead of quietly running in memory:
+## Settings that need Plus
+
+The Community build refuses to start when one of these is present, instead of running in memory.
 
 | Setting | Needs |
 |---|---|
@@ -31,44 +37,35 @@ If a setting that needs disk storage is present, the Community build refuses to 
 | `yukta.execution-log.dir` | Plus |
 | `yukta.restart.dir` | Plus |
 | `yukta.session-memory.dir` | Plus |
-| `yukta.session.store-type=postgres`, `yukta.ha.mode=postgres` | Plus, with `-Pyukta.persistence=postgres` |
-| `yukta.workers.*`, `engine.placement` | Plus, with `-Pyukta.workers=true` |
+| `yukta.session.store-type=postgres`, `yukta.ha.mode=postgres` | Plus with `-Pyukta.persistence=postgres` |
+| `yukta.workers.*`, `engine.placement` | Plus with `-Pyukta.workers=true` |
 
-## Plus: what to know
+Community state is lost on restart; apply definitions again with the CLI or build Plus.
 
-Build it with `-Pyukta.edition=plus`; add `-Pyukta.persistence=postgres` for PostgreSQL and `-Pyukta.workers=true` for remote workers. Because the build combines Apache and AGPL code, the Plus build as a whole is covered by the AGPL.
+## AGPL obligations of Plus
 
-- Running it unmodified, inside your company or for your customers, needs nothing more.
-- If you modify it and let other people use it over a network, the AGPL (section 13) requires you to offer them your modified source. A Plus server shows where its source is under `edition` in `/actuator/info`.
-- If you cannot accept the AGPL, a commercial licence is available from Infenia Private Limited.
+| Situation | Rule |
+|---|---|
+| Run it unmodified, inside your company or for your customers | Nothing more is required. |
+| Modify it and let others use it over a network | AGPL section 13 requires you to offer them your modified source. A Plus server shows where its source is under `edition` in `/actuator/info`. |
+| Cannot accept the AGPL | A commercial licence is available from Infenia Private Limited. |
 
-Named API keys, roles and session-limited keys are planned for Enterprise but are still in the public build today; they move when the Enterprise repository exists.
+## Extensions
 
-## Extending Yukta
+| Layer | Licence | Contents |
+|---|---|---|
+| Hooks, in `core` | Apache-2.0 | The stores (`SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`), `LeaderElection`, `RemoteNodeExecutor`, `ApiAuthenticator`, `AuditSink`. A module provides a bean of the same type and the default steps aside. The Community build never depends on `plus`. |
+| Integration layer, in `plus` | AGPL-3.0-only | The `EnterpriseModule` extension API and registry (version check, features, licence verification hook), `EditionInfo`, and the contract tests (`testFixtures` of `plus`) a store or election must pass. A module built on it is part of a Plus build and follows the AGPL. |
 
-An extension is a module that replaces one of the single-server defaults or adds a feature to a Plus build.
+Infenia's own Enterprise modules are built under Infenia's copyright and are not bound by the AGPL for that reason. How far the AGPL reaches into a module that only implements the Apache hooks is a legal question this page does not settle.
 
-- **The hooks are Apache-2.0 and live in `core`**: the stores (`SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`), `LeaderElection`, `RemoteNodeExecutor`, `ApiAuthenticator` and `AuditSink`. A module provides a bean of the same type and the default steps aside. The community build must never depend on `plus`, so these cannot move there.
-- **The integration layer is AGPL-3.0-only and lives in `plus`**: the `EnterpriseModule` extension API and its registry (version check, features, licence verification hook), the `EditionInfo` of a Plus or Enterprise build, and the contract tests (`testFixtures` of `plus`) that a store or election must pass. A module built on this layer is part of a Plus build and follows the AGPL; ask Infenia about a commercial licence if that does not suit you.
-- Infenia's own Enterprise modules are built under Infenia's copyright and are not bound by the AGPL for that reason.
-- How far the AGPL reaches into a module that only implements the Apache hooks is a legal question that this file does not settle, and it is not legal advice.
+## Contributions
 
-## Contributing
+Contributions take the licence of the directory they change. Before a first pull request is merged you sign a Contributor License Agreement, [individual](https://github.com/infenia/yukta/blob/main/CLA.md) or [corporate](https://github.com/infenia/yukta/blob/main/CLA-corporate.md); a bot asks on the pull request. The texts are drafts pending legal review.
 
-Contributions take the licence of the directory they change. Before a first pull request can be merged, you sign a Contributor License Agreement ([individual](https://github.com/infenia/yukta/blob/main/CLA.md) or [corporate](https://github.com/infenia/yukta/blob/main/CLA-corporate.md)); a bot asks you on the pull request. The texts are drafts pending legal review.
+## Related
 
-The full statement is [LICENSING.md](https://github.com/infenia/yukta/blob/main/LICENSING.md). This page is not legal advice.
-
-## Next steps
-
-<Card title="Persistence" icon="database" horizontal href="/operations/persistence">
-  Keep sessions, the execution log and node outputs in memory, on disk or in PostgreSQL, and what survives a restart in each case.
-</Card>
-
-<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
-  Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
-</Card>
-
-<Card title="Releases" icon="tag" horizontal href="/reference/releases">
-  How Yukta versions are numbered, what each release contains, which platforms are supported, and how to verify a download.
-</Card>
+- [Configuration reference](/reference/configuration)
+- [Deploy Yukta](/guides/operate/deploy)
+- [Persist sessions](/guides/operate/persist-sessions)
+- [Run highly available](/guides/operate/run-highly-available)
