@@ -1,0 +1,184 @@
+---
+title: "Supervisor contract reference"
+sidebarTitle: "Supervisor contract"
+description: "Contract version 1: what a decision engine receives, what it may read and do, how directives are checked, and the outcomes and refusals it can get."
+keywords: ["supervisor contract", "decision engine", "signals", "directives", "ownership", "delegation", "reference"]
+---
+
+# Supervisor contract reference
+
+This is contract version 1: the operations, signals, directives, causes and outcomes between a supervisor and its engine. Within a major version changes are additive only; a client must ignore fields and signal kinds it does not know.
+
+`GET /api/supervisor-contract` and the MCP tool `get_supervisor_contract` return the version and the operation names. Every response of the agent API carries the header `Yukta-Supervisor-Contract: 1`.
+
+## Layers
+
+| | Supervisor (shell) | Engine |
+|---|---|---|
+| Owned by | Yukta | A plugin, built in or reached over a transport |
+| Knows | Workflows, nodes, groups, parents, roles, keys, audit, scope, risk, rate | Signals, directives and the read API |
+| Decides | Whether a directive is allowed | What to do |
+
+A supervisor has exactly one engine. An engine has no handle to the dispatcher, the stores or any core bean.
+
+## Command channels
+
+| Channel | Rule |
+|---|---|
+| `ENGINE` | A directive from an engine. Allowed for units the supervisor owns and commands in its `allowedCommands`. |
+| `OPERATOR` | REST, MCP, CLI and UI. The role and session check runs first, then the owner of the target: if it lists the command in `operatorAccess` the engine receives a `Review` and its verdict applies; otherwise `409 CONTROLLED_BY_SUPERVISOR`. A unit with no owner goes to the default supervisor. |
+| `SYSTEM` | Shutdown, timeouts, a parent run cancelling its children, recovery. Exempt from ownership; audited as `SYSTEM`. |
+| `DELEGATION` | Not a channel for commands: a parent only answers. |
+
+A start has the workflow as its target, so the run-level owner of that workflow decides it. The default supervisor's engine is `operator-gateway`: the REST, MCP, CLI and UI endpoints unchanged. With `yukta.supervisor.default.enabled=false` an unowned unit cannot be controlled by anyone.
+
+## Delegation
+
+A supervisor lists `parents`. A parent never sends commands for its children's units; it answers what is delegated to it.
+
+| Kind | A child delegates when | A parent answers with |
+|---|---|---|
+| `APPROVAL` | One of its commands needs approval. | allow or deny |
+| `INPUT` | It escalates an input request. | an answer, or its own escalation |
+| `CONSULT` | Its engine sends a `Delegate` directive. | a typed answer (text or a choice) |
+
+| Mode | Behaviour |
+|---|---|
+| `ORDERED` (default) | Ask parents in order; the first answer decides; a silent parent passes it on. |
+| `ALL` | Ask all at once; all must allow. |
+| `ANY` | Ask all at once; the first answer decides. |
+
+The default timeout per parent is 30 seconds. A refusal from any parent asked is final. When no parent is left, the request goes to the person tier (the input inbox). Delegation depth is at most 4.
+
+## Signals
+
+What an engine receives, limited to what its supervisor owns.
+
+| Signal | Content |
+|---|---|
+| `Event` | An execution event: node or workflow status, control outcome, log line, input event, or `EventsMissed`. |
+| `Tick` | Time, when the engine's settings ask for a period. |
+| `Review` | A command that a person or the operator gateway wants to send for an owned unit. The engine answers it. |
+| `Delegated` | A question from a child: kind, payload, id. The engine answers it. |
+| `Consulted` | The answers of the parents to a `Delegate` of this engine: the key it gave, and each parent's typed answer by parent id; empty when none answered. |
+| `Started` | The engine started or reconnected: the reason (`first`, `resubscribe`, `credential-rotated`) and a snapshot with a cursor. |
+
+```json
+{ "signal": "Event", "id": "e-4411", "cursor": "c-9120",
+  "event": { "kind": "NODE_STATUS", "execution": "x1", "node": "build.compile", "status": "FAILED" } }
+```
+```json
+{ "signal": "Review", "id": "r-77", "timeoutMs": 5000,
+  "command": { "op": "run.stop", "target": "execution:x1" }, "actor": { "kind": "KEY", "id": "ci-bot" } }
+```
+
+## Directives
+
+What an engine returns. The supervisor checks each before it has effect.
+
+| Directive | Meaning |
+|---|---|
+| `Command` | A control command from the act table, with a cause, a `reason` for initiative, and optionally `ifStatus`. The target may be a selector. |
+| `ReviewVerdict` | `allow`, `deny` or `requireApproval`, for a `Review`. |
+| `DelegationAnswer` | The answer to a `Delegated` signal. |
+| `Delegate` | Passes a question up to the parents (`CONSULT`) with a payload and an optional `key`. Answers return as `Consulted`. |
+| `Notify` | An audited message that changes nothing. |
+| `NoOpinion` | Explicitly no answer. |
+
+```json
+{ "directive": "Command", "key": "k-1", "op": "run.pause", "target": "execution:x1",
+  "cause": "event:e-4411", "ifStatus": "RUNNING" }
+```
+```json
+{ "directive": "ReviewVerdict", "answers": "r-77", "verdict": "deny", "reason": "release in progress" }
+```
+
+Every directive has an idempotency `key`; a repeat with the same key returns the first outcome.
+
+### Causes
+
+| Cause | Meaning |
+|---|---|
+| `event:<id>` | A reaction to an event. |
+| `answers:<id>` | The answer to a `Review` or `Delegated` request. It must match an open request and is accepted once. |
+| `tick` | A timer. |
+| `initiative` | Anything else. |
+
+A command caused by `tick` or `initiative` needs a `reason`, the command in the supervisor's `initiative` list, and stays under `maxInitiativePerMinute` (default 10). Dry run applies and the audit flags it.
+
+### Outcomes
+
+One outcome per target:
+
+| Outcome | Meaning |
+|---|---|
+| `APPLIED` | Done. |
+| `NOT_FOUND` | The target does not exist. |
+| `NOT_OWNED` | The supervisor does not own it. |
+| `PRECONDITION_FAILED` | `ifStatus` did not match. |
+| `ALREADY_IN_STATE` | Nothing to do; commands are idempotent in their end state. |
+
+### Selectors
+
+A target may be `execution:<id>`, `workflow:<id>`, `node:<ids>` or `owned.running`. The server expands a selector to at most 200 owned executions, applies and audits each separately, and returns a result per target.
+
+## Read operations
+
+Limited to what the supervisor owns, redacted and paged.
+
+| Operation | Returns |
+|---|---|
+| `self` | Id, owned units, parents, permissions, contract version. |
+| `events` | The signal stream; `EventsMissed` on a gap. |
+| `snapshot` | Owned executions with status, open inputs, hold ledger and a cursor. |
+| `executions` | Executions of owned workflows: id, workflow, status, priority, start time. |
+| `execution` | One execution with its nodes' statuses. |
+| `workflow` | Definition summary: node ids, types, edges, groups; no config values. |
+| `inputs` | Open input requests of owned units. |
+| `logs` | A bounded, redacted tail of an execution's log. |
+| `scheduler` | Limits and queue depth; the server owner only. |
+
+## Act operations
+
+Each is checked against ownership, `allowedCommands`, rate, risk and dry run.
+
+| Group | Operations |
+|---|---|
+| Run level | `run.start`, `run.pause`, `run.resume`, `run.resumeHeld`, `run.stop` (drain or immediate), `run.restart`, `run.restartFromNode`, `run.priority` |
+| Node level | `node.pause`, `node.resume`, `node.stop`, `node.skip`, `node.retry`, `node.stepMode`, `node.breakpoint` |
+| Inputs | `input.answer`, `input.escalate` |
+| Server | `server.setLimits`, `server.drain` (server owner only) |
+| Other | `notify`, `delegate` |
+
+Run-level commands apply to the supervisor's run units, node commands to its nodes, server commands to the server unit. `run.resumeHeld` resumes only the runs this supervisor paused (the hold ledger); the ledger lives in the supervisor's state and an entry ends with its execution.
+
+## Delivery and timing
+
+- Event delivery is best effort with a visible gap (`EventsMissed`).
+- Commands for one run are applied in order.
+- A `Review` is answered within `yukta.supervisor.review-timeout` (default `5s`). On a timeout a stop is allowed and any other command is refused.
+- An engine that fails is resubscribed with backoff and never touches a run.
+- A supervisor never sees the outcomes of its own commands; internal sessions are hidden.
+
+## Refusals
+
+| Status and code | Meaning |
+|---|---|
+| `409 CONTROLLED_BY_SUPERVISOR` | The owner does not list the command in `operatorAccess`. |
+| `409 OWNERSHIP_CONFLICT` | A save would give a unit to two supervisors. |
+| `202 AWAITING_APPROVAL` | Held until a parent or person answers. |
+| `403 CONTROL_REJECTED` | The owner or a parent refused. |
+| `401`, `403`, `429` | Agent API: bad credential, not allowed, rate limited. |
+
+CLI exit code `6` signals a supervisor refusal.
+
+## Compatibility
+
+Within major version 1 changes are additive: new operations, signals, directives, causes, outcomes, fields and codes. A breaking change means version 2, served beside version 1 for at least one minor release.
+
+## Related
+
+- [Supervisor shell](/reference/supervisors/shell)
+- [Supervisor engines](/reference/supervisors/engines)
+- [Rule files](/reference/supervisors/rule-files)
+- [How supervisors work](/concepts/supervisors)

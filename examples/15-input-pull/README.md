@@ -17,4 +17,4 @@ and the sessions of the key.
 To be told instead of asking, follow `GET /api/events/stream?type=InputRequested,InputEscalated`
 (server-sent events), or use the MCP tools `list_pending_inputs` and `answer_input`. To be called
 when a request needs you, use a webhook tier: see
-[External responders](../../docs/building/input-requests.mdx#external-responders-webhooks-and-one-time-tokens).
+[External responders](../../docs/concepts/who-decides.mdx).

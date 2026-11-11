@@ -1,0 +1,118 @@
+---
+title: "Metrics reference"
+sidebarTitle: "Metrics"
+description: "Every meter the server registers, with type, tags and meaning, the execution reject reasons, and how to expose or export the metrics."
+keywords: ["metrics", "Micrometer", "Prometheus", "OTLP", "actuator", "yukta.executions.rejected"]
+---
+
+# Metrics reference
+
+The server registers the Micrometer meters below; standard JVM and process meters are available beside them.
+
+## Exposure
+
+| Setting | Default | Effect |
+|---|---|---|
+| `management.endpoints.web.exposure.include` | `health,info,metrics` | Endpoints exposed under `/actuator`. `GET /actuator/metrics` lists meters; `GET /actuator/metrics/{name}` reads one |
+| `management.endpoints.web.exposure.include` containing `prometheus` | off | Serves `/actuator/prometheus`; the Prometheus registry is on the `boot` class path |
+| `management.otlp.metrics.export.enabled` | `false` | Pushes metrics over OTLP |
+| `management.otlp.metrics.export.url` (env `MANAGEMENT_OTLP_METRICS_EXPORT_URL`) | Spring Boot default | OTLP metrics endpoint, for example `http://collector:4318/v1/metrics` |
+| `management.tracing.export.enabled` | `false` | Exports traces; the endpoint is `management.opentelemetry.tracing.export.otlp.endpoint` |
+
+`yukta.execution.duration` and `yukta.execution.queue.wait` publish the percentiles p50, p95 and p99.
+
+## Execution scheduling
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.executions.running` | gauge | none | Executions holding a slot |
+| `yukta.executions.queued` | gauge | none | Executions waiting for a slot |
+| `yukta.executions.rejected` | counter | `reason` | Starts refused; one series per reason below |
+| `yukta.execution.queue.wait` | timer | none | Time an execution waited in the queue before running |
+| `yukta.execution.duration` | timer | `status` | Run time of ended executions, by terminal status |
+
+### Reject reasons
+
+Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionScheduler.RejectReason`, lower-cased.
+
+| Value | Meaning |
+|---|---|
+| `shutdown` | The server is shutting down |
+| `limit` | An execution limit was reached (including the child-run limit) |
+| `queue_full` | The start queue is full |
+| `workflow_queue_full` | The queue of that workflow is full |
+| `queue_timeout` | The start waited in the queue past its limit |
+| `not_leader` | This server is not the leader |
+| `rate_limit` | The start rate limit was exceeded |
+| `draining` | The server is draining for a restart |
+
+## Nodes and edges
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.node.executions` | counter | `module`, `status` | Nodes that reached a terminal status; `module` is the plugin type |
+| `yukta.node.duration` | timer | `module` | Node run time |
+| `yukta.node.retries` | counter | `module` | Messages retried |
+| `yukta.edge.dropped` | counter | `type` | Messages dropped by an edge buffer; `type` is the node's plugin type |
+| `yukta.plugin.events` | counter | `plugin`, `outcome` | Counts reported by plugins through `PluginMetricsReporter`; `plugin` carries the metric name (for example `mcp_tool_call`, `llm.budget.exceeded`) |
+| `yukta.workflow.cache.size` | gauge | none | Prepared workflows held in memory |
+
+## Tracker, log and checkpoints
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.tracker.queue.depth` | gauge | none | State events accepted and not yet applied |
+| `yukta.tracker.dropped` | counter | `type` (`log`, `state`) or `kind` (`supervisor`, `feed`, `analytics`) | Dropped log lines, lost state events, and events a slow consumer missed |
+| `yukta.tracker.log.append.failed` | counter | `type` (`node`, `run`) | Failed writes to the execution log |
+| `yukta.execution.log.lost` | counter | `reason` (`queue_full`, `write_failed`) | Execution log events that never reached PostgreSQL (Plus persistence) |
+| `yukta.checkpoint.bytes` | gauge | none | Node output held by the checkpoint store |
+| `yukta.checkpoint.errors` | counter | none | End markers that could not be written |
+
+## Workers and high availability
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.workers` | gauge | none | Workers connected to the control plane |
+| `yukta.worker.slots` | gauge | none | Free node slots across connected workers |
+| `yukta.leader` | gauge | none | `1` on the leader, else `0`; registered when `yukta.ha.mode=postgres` |
+
+## Input requests
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.input.requests` | counter | `kind`, `risk`, `outcome` | Input requests by kind, risk and outcome |
+| `yukta.input.open` | gauge | none | Open input requests |
+| `yukta.input.wait` | timer | `tier` | Time requests waited for an answer |
+| `yukta.input.escalations` | counter | `tier` | Escalations |
+| `yukta.input.denied` | counter | `rule` | Answers refused by an authorization rule |
+| `yukta.input.taken-over` | counter | none | Requests taken over |
+| `yukta.input.sweep` | timer | none | Duration of the expiry sweep |
+| `yukta.input.token` | counter | `outcome` | Answers by token (`accepted`, `failed`, others by outcome) |
+| `yukta.input.delivery` | counter | `responder`, `outcome` | Deliveries to responders: `sent`, `retry`, `failed` |
+| `yukta.control.approval` | counter | `outcome` | Parked supervisor commands awaiting approval, by outcome |
+
+## Supervisors
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.supervisor.commands` | counter | `id`, `outcome` | Commands issued by each supervisor attachment (outcomes include `dry-run` and `awaiting-approval`) |
+| `yukta.supervisor.workflow` | counter | `outcome` | Runs of workflow-engine supervisors |
+| `yukta.supervisor.workflow.slots.used` | gauge | none | Reserved supervisor slots in use |
+| `yukta.supervisor.restored` | gauge | `result` (`started`, `failed`) | Attachments the last restore started or could not start |
+| `yukta.supervisor.declarations.failed` | counter | `operation` | Failed supervisor declaration operations |
+
+## AI and MCP
+
+| Meter | Type | Tags | Meaning |
+|---|---|---|---|
+| `yukta.mcp.call` | timer | `tool`, `outcome` | `MCP_TOOL_CALL` duration; `outcome` is `SUCCESS` or `FAILURE` |
+| `yukta.mcp.heavy.refused` | counter (function) | none | MCP server tool calls refused by the lower limit for `start_workflow` and regex log reads |
+| `llm.tokens` | counter | `provider`, `direction` | Model tokens used; `direction` is `input` or `output` |
+| `llm.cost` | counter | `provider` | Model cost, when the node reports it |
+
+## Related
+
+- [Configuration](/reference/configuration)
+- [Run status values](/reference/status-values)
+- [Capacity and performance](/guides/operate/tune-capacity-and-limits)
+- [High availability](/guides/operate/run-highly-available)

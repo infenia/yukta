@@ -1,0 +1,225 @@
+---
+title: "Supervisor engines reference"
+sidebarTitle: "Supervisor engines"
+description: "The settings, signals, defaults and limits of the four supervisor engines: rules, http, workflow and process."
+keywords: ["supervisor engine", "rules", "http", "workflow", "process", "agent API", "credential", "reference"]
+---
+
+# Supervisor engines reference
+
+An engine decides for a supervisor: it receives signals and returns directives, one engine per supervisor. This page lists each engine's settings; the settings every engine takes are in [Supervisor shell](/reference/supervisors/shell#common-settings).
+
+The catalog is at `GET /api/supervisor-engines` (`GET /api/supervisor-engines/{type}`, `/{type}/usage`, `/{type}/presets`), and in MCP `list_supervisor_engines` and `get_supervisor_engine`.
+
+## Overview
+
+| `type` | Catalog name | Category | Signals it takes | Can initiate | Default `allowedCommands` |
+|---|---|---|---|---|---|
+| `rules` | Rules | `RULES` | `Event`, `Tick`, `Review`, `Delegated` | yes | every command |
+| `http` | External system | `EXTERNAL_SYSTEM` | `Event`, `Review`, `Started`, `Delegated`, `Consulted` | yes | every command |
+| `workflow` | Workflow | `ON_THIS_SERVER` | `Event`, `Tick`, `Review`, `Delegated`, `Started` | yes | none |
+| `process` | Program on this server | `ON_THIS_SERVER` | `Event`, `Started`, `Delegated`, `Consulted` | yes | every command |
+
+## `rules`
+
+Reacts to events and timers with a JSON rule document. The document format is in [Rule files reference](/reference/supervisors/rule-files).
+
+### `schemaVersion`
+- **Type:** number
+- **Default:** `1`
+- **Required:** no
+- **Description:** Version of the rule document; only `1` is read.
+
+### `rules`
+- **Type:** list of rules
+- **Default:** none
+- **Required:** yes
+- **Description:** The rules, in order; each has an `id` and `when`/`then`, `deny` or `requireApproval`.
+
+**Example**
+```json
+{
+  "type": "rules",
+  "settings": {
+    "rules": [
+      { "id": "pause-on-repeated-failure",
+        "when": { "event": "NodeStatusChanged", "status": "FAILURE", "count": 3, "withinSeconds": 60 },
+        "then": { "command": "PauseWorkflow" } }
+    ]
+  }
+}
+```
+
+Presets (`GET /api/supervisor-engines/rules/presets`, `list_supervisor_presets`): `failure-guard`, `approval-gate`, `stall-watchdog`, `too-many-running`.
+
+## `http`
+
+A system outside the server, often an AI agent, decides. It reads signals from the agent API, or Yukta posts them to a `url`, and it sends directives to the agent API with the supervisor's credential.
+
+### `url`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** Where to post each signal as `{"cursor", "kind", "signal"}`. The reply is not read. Without it, the system reads signals over the agent API only.
+
+### `headers`
+- **Type:** map
+- **Default:** none
+- **Required:** no
+- **Description:** Headers to send; a value may be `${env.NAME}`.
+
+### `secretHeaders`
+- **Type:** secret map
+- **Default:** none
+- **Required:** no
+- **Description:** Headers with secrets; shown as `***` on every read.
+
+### `timeoutMs`
+- **Type:** number
+- **Default:** `3000`
+- **Required:** no
+- **Description:** How long one post may take; at most `10000`.
+
+### `maxConcurrent`
+- **Type:** number
+- **Default:** `4`
+- **Required:** no
+- **Description:** Most posts at once; at most `32`.
+
+A failed post is logged without its headers and not retried; the system reads the signal again with `GET /api/agent/v1/signals?after=<cursor>`. Posts go through the egress policy (`yukta.egress.*`, `yukta.http.allowed-hosts`); no redirects are followed.
+
+**Example**
+```json
+{ "type": "http", "settings": { "url": "https://agent.example.com/yukta/signals" } }
+```
+
+### Credential
+
+| Operation | REST | MCP | CLI |
+|---|---|---|---|
+| Issue or rotate (token shown once) | `POST /api/supervisors/{id}/credential?ttlHours=&allowedAddresses=` | `create_credential` | `supervisors credential create <id>` |
+| Show metadata (never the secret) | `GET /api/supervisors/{id}/credential` | `get_supervisor` | `supervisors credential show <id>` |
+| Revoke | `DELETE /api/supervisors/{id}/credential` | `revoke_credential` | `supervisors credential revoke <id>` |
+
+Issuing again stops the earlier credential. The credential works on the agent API only; no API key of a person works there.
+
+### Agent API
+
+Base path `/api/agent/v1`, authenticated with `Authorization: Bearer <token>`. Every response carries `Yukta-Supervisor-Contract: 1`.
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /self` | Id, owned units, parents, permissions, contract version. |
+| `GET /snapshot` | Owned executions, open inputs, hold ledger and a cursor. |
+| `GET /events?after=<cursor>` | Signals as Server-Sent Events. |
+| `GET /signals?after=<cursor>&wait=<seconds>` | Poll for signals. |
+| `GET /executions`, `GET /executions/{id}` | Owned executions; one with its node statuses. |
+| `GET /executions/{id}/logs?tail=` | Newest log lines, at most 200, secrets removed. |
+| `GET /workflows/{session}/{workflow}` | Nodes and edges, no settings. |
+| `GET /scheduler` | Limits and queue depth; the server owner only. |
+| `GET /inputs` | Open input requests of owned units. |
+| `POST /directives` | Send a command. Body `{key, cause?, reason?, ifStatus?, command}`; answered as accepted when handed over, not when applied. |
+| `POST /reviews/{id}` | Answer a review. |
+| `POST /delegations/{id}` | Answer a delegation. |
+| `POST /mcp` | The same operations as MCP tools (JSON-RPC over HTTP; no server push). Separate from `/mcp`. |
+
+A `target` of a command may be `execution:<id>`, `workflow:<id>`, `node:<ids>`, `owned.running` or `held`; it expands to at most 200 runs.
+
+### Agent limits
+
+| Property | Default | Description |
+|---|---|---|
+| `yukta.agent.requests-per-minute` | `600` | Requests per credential per minute; over it is `429`. |
+| `yukta.agent.failures-per-minute` | `20` | Wrong credentials per source address per minute; over it is `429`. |
+| `yukta.agent.max-body-bytes` | `65536` | Largest request body. |
+
+## `workflow`
+
+Starts a workflow of an internal session for each matching signal. The workflow starts with `SUPERVISOR_SIGNAL` and ends each exit with `SUPERVISOR_DECISION`.
+
+### `sessionId`
+- **Type:** string
+- **Default:** none
+- **Required:** yes
+- **Description:** The internal session that holds the workflow.
+
+### `workflowId`
+- **Type:** string
+- **Default:** none
+- **Required:** yes
+- **Description:** The workflow of that session.
+
+### `events`
+- **Type:** list of event type names
+- **Default:** none
+- **Required:** yes
+- **Description:** Event types that start a run, such as `InputRequested`.
+
+### `when`
+- **Type:** SpEL expression
+- **Default:** none
+- **Required:** no
+- **Description:** Read-only condition over the redacted event; the run starts only when it holds.
+
+### `maxConcurrent`
+- **Type:** number
+- **Default:** `2`
+- **Required:** no
+- **Description:** Runs of this supervisor at once; from 1 to the size of the reserved slot pool.
+
+### `timeout`
+- **Type:** number (seconds)
+- **Default:** `60`
+- **Required:** no
+- **Description:** Time one run may take; 1 to 600.
+
+`SUPERVISOR_DECISION` takes `outcome`: `SUCCESS` (default) sends the commands of the message `{"commands": [...]}`; `ESCALATE` hands the request up; `RETRY` runs once more; `FAILED` means no opinion. A command the contract cannot read fails the run.
+
+**Example**
+```json
+{ "type": "workflow",
+  "settings": { "sessionId": "supervisors", "workflowId": "triage", "events": ["InputRequested"], "timeout": 30 } }
+```
+
+## `process`
+
+Runs a program next to the server. Signals arrive as JSON lines on its standard input; directives are read as JSON lines from its standard output.
+
+### `command`
+- **Type:** string
+- **Default:** none
+- **Required:** yes
+- **Description:** The executable. It must be in `yukta.process.allowed-commands`, or `yukta.process.allow-any` must be `true` while that list is empty.
+
+### `args`
+- **Type:** string
+- **Default:** none
+- **Required:** no
+- **Description:** Arguments, one per line, in order.
+
+| Property | Default | Description |
+|---|---|---|
+| `yukta.process.allowed-commands` | empty | Executables a `process` supervisor may run. |
+| `yukta.process.allow-any` | `false` | Allow any executable when the list is empty. |
+
+The program runs with an empty environment and its standard error is discarded. A signal line is `{"kind": "EVENT", "signal": {...}}`. A line that is not a directive is dropped. If the program exits, Yukta starts it again with a growing delay.
+
+| `type` of an output line | Fields |
+|---|---|
+| `command` | `key`, `cause`, `reason?`, `command` (`{"type": "PauseWorkflow", "executionId": ...}`) |
+| `verdict` | `answers`, `verdict` (`ALLOW`, `DENY`, `REQUIRE_APPROVAL`), `reason?` |
+| `noOpinion` | `answers` |
+| `delegationAnswer` | `answers`, `answer` |
+| `delegate` | `kind` (`CONSULT`), `key`, `payload` |
+
+**Example**
+```json
+{ "type": "process", "settings": { "command": "/opt/yukta/decide" } }
+```
+
+## Related
+
+- [Supervisor shell](/reference/supervisors/shell)
+- [Supervisor contract](/reference/supervisors/contract)
+- [Write an agent supervisor](/guides/supervise/write-an-agent-supervisor)
+- [Write a workflow supervisor](/guides/supervise/write-a-workflow-supervisor)

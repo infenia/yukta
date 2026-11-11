@@ -1,0 +1,147 @@
+---
+title: "Connect an AI assistant"
+sidebarTitle: "Connect an assistant"
+description: "Connect Claude Code, Gemini CLI or any MCP client to Yukta's /mcp endpoint with the right API key and role, and install the skill that teaches it the tools."
+keywords: ["MCP", "Claude Code", "Gemini CLI", "MCP client", "API key", "roles", "skill", "yukta-workflows"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to let an assistant create, run, watch and steer your workflows over MCP"
+  time="10 minutes"
+  need="a running server, and Claude Code, Gemini CLI or another MCP client that speaks streamable HTTP"
+  end="an assistant that calls Yukta tools with the lowest role that does its job"
+/>
+
+**Use this when** you want an assistant to build or run workflows for you ("run the release checks and tell me what failed"). For a person or a script, the [REST API](/api/overview) and [CLI](/reference/cli) cover the same operations.
+
+**Prerequisites:** a server on `http://localhost:9858`. The MCP server is at `/mcp` on the same address and port, over streamable HTTP in stateless mode (no MCP session to keep, no standard-input transport). The old path `/sse` still works as an alias.
+
+## Steps
+
+<Steps>
+  <Step title="Pick a key and a role">
+    `/mcp` uses the same `yukta.api-keys` as REST. Send the key as `Authorization: Bearer <key>` or `X-API-Key: <key>`. With no key configured, the server accepts **loopback only**, which means any process on the machine, including one that can call `create_session` and so install workflows that run code. Set a key whenever the machine is shared.
+
+    Give the assistant the lowest role that does its job:
+
+    | Role | The assistant can |
+    |---|---|
+    | `VIEWER` | Look and debug: list and read sessions, workflows, runs, logs, results, supervisors, pending inputs |
+    | `OPERATOR` | Everything `VIEWER` can, plus start and steer runs, answer and escalate input requests, roll back versions |
+    | `ADMIN` | Everything, including `create_session`, `delete_session`, supervisors and credentials |
+
+    Add a key when you start the server, optionally limited to some sessions:
+
+    ```bash
+    YUKTA_API_KEYS_1_NAME=assistant \
+    YUKTA_API_KEYS_1_KEY=change-me \
+    YUKTA_API_KEYS_1_ROLE=OPERATOR \
+    YUKTA_API_KEYS_1_SESSIONS=team-a,team-b \
+    yukta
+    ```
+
+    A key limited to sessions can call a tool only with a `sessionId` that names one of its sessions. Commands it sends are audited as `key:assistant`.
+  </Step>
+
+  <Step title="Connect your client">
+    <Tabs>
+      <Tab title="Claude Code">
+        ```bash
+        claude mcp add --transport http yukta http://localhost:9858/mcp \
+          --header "Authorization: Bearer change-me"
+        ```
+
+        Leave out `--header` when the server has no keys.
+      </Tab>
+      <Tab title="Gemini CLI">
+        ```bash
+        gemini mcp add --transport http yukta http://localhost:9858/mcp \
+          --header "Authorization: Bearer change-me"
+        ```
+
+        Or in `~/.gemini/settings.json`:
+
+        ```json
+        {
+          "mcpServers": {
+            "yukta": {
+              "httpUrl": "http://localhost:9858/mcp",
+              "headers": { "Authorization": "Bearer change-me" }
+            }
+          }
+        }
+        ```
+      </Tab>
+      <Tab title="Any MCP client">
+        Any client needs the same two values, a URL and optional headers. A typical configuration file:
+
+        ```json
+        {
+          "mcpServers": {
+            "yukta": {
+              "type": "http",
+              "url": "http://localhost:9858/mcp",
+              "headers": { "Authorization": "Bearer change-me" }
+            }
+          }
+        }
+        ```
+
+        The exact key names (`type`, `url`, `httpUrl`) differ between clients; use the one your client documents for a streamable HTTP server.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Install the skill">
+    The tools are enough for an agent that already knows Yukta. The **`yukta-workflows`** skill gives any agent the working knowledge: call `whoami` first, which role each tool needs, which actions to ask you about first (replacing or deleting a session, force-stopping runs, rolling back, changing scheduler limits, answering an approval) and recipes to create, run, watch, debug and steer. Copy [the folder](https://github.com/infenia/yukta/tree/main/skills/yukta-workflows) (one `SKILL.md`) to where your agent reads skills:
+
+    | Agent | Folder |
+    |---|---|
+    | Claude Code | `.claude/skills/yukta-workflows/` in a project, or `~/.claude/skills/yukta-workflows/` for every project |
+    | Gemini CLI | `~/.agents/skills/yukta-workflows/`, or `.gemini/skills/yukta-workflows/` in a trusted project |
+    | Other agents that read `.agents/skills/` | `.agents/skills/yukta-workflows/` or `~/.agents/skills/yukta-workflows/` |
+    | An agent without skills | Paste the body of `SKILL.md` into its instructions or rules file |
+
+    ```bash
+    mkdir -p .claude/skills && cp -r skills/yukta-workflows .claude/skills/
+    ```
+  </Step>
+
+  <Step title="Try it">
+    Ask the assistant: "Call whoami, then list the sessions on Yukta."
+  </Step>
+</Steps>
+
+## Verify it worked
+
+`claude mcp list` (or `gemini mcp list`) shows `yukta` as connected, and the assistant's first call returns something like:
+
+```json
+{ "authenticated": true, "keyName": "assistant", "role": "OPERATOR", "sessions": ["team-a", "team-b"],
+  "authEnabled": true,
+  "permissions": { "startRuns": true, "controlRuns": true, "editSessions": false,
+                   "deleteSessions": false, "changeLimits": false, "sendCommands": true } }
+```
+
+`list_sessions` then answers with your sessions. A tool the role does not allow is refused with HTTP `403` (a body above 1 MB with `413`). When keys are configured, a missing or wrong key is refused with `401`.
+
+To exercise a full loop, ask: "Create a session with a workflow that greets a name, start it for Ada and show me the result." The assistant reads `get_session_creation_instructions` and `list_plugins`, calls `create_session` (an `ADMIN` tool: with an `OPERATOR` key it should tell you it needs a higher role), `start_workflow`, then `get_workflow_status` and `get_execution_result`.
+
+## Variations
+
+- **`start_workflow` takes no payload.** It starts with an empty trigger payload. To start with input, use REST or the CLI, or a workflow that starts from a `CONSTANT_SOURCE`.
+- **Let it read logs and outputs.** `get_execution_logs` (with `afterCursor` to read only new lines) and `get_node_output` (tail, head, grep) keep the answers small.
+- **Run supervisors and answer questions.** An assistant with `ADMIN` can manage supervisors (`save_supervisor`, `set_assignments`, `replay_supervisor`); one with `OPERATOR` can `answer_input`. The risk rule still applies: an `OPERATOR` key counts as a person. See [Route input requests](/guides/supervise/route-input-requests).
+- **Prompts and resources.** The server offers prompts `debug-workflow` and `create-session-config` and resources `yukta://overview` and `yukta://architecture`; clients that support them list them.
+
+<Warning>
+  Never hand an assistant an `ADMIN` key you would not hand a colleague. `create_session` defines workflows that can run processes and reach external systems.
+</Warning>
+
+## Related
+
+- [MCP tools reference](/reference/mcp-tools) for every tool, role and argument.
+- [AI-assisted configuration](/concepts/ai-assisted-configuration) for what an assistant can and cannot do.
+- [Secure the server](/guides/operate/secure-the-server) and [Security reference](/reference/security).

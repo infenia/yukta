@@ -1,0 +1,136 @@
+---
+title: "Route input requests"
+sidebarTitle: "Route input requests"
+description: "Decide who is asked first for an answer: supervisors, then a person, with escalation tiers, votes, a webhook responder and a one-time token."
+keywords: ["input routes", "tiers", "escalation", "QUORUM", "webhook", "token-answer", "supervisor:*", "responders"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to send input requests to supervisors first, then to a person, and to an outside responder"
+  time="20 minutes"
+  need="server configuration access (application.yml or environment variables), an input request to test with (Ask for input), and a supervisor that owns the session"
+  end="a route with automatic and human tiers, optionally a webhook that can answer with a one-time token"
+/>
+
+**Use this when** a question should first reach a rule or a model, only then a person, and you want to control the order, the waiting time and the outside systems that may be asked.
+
+**Prerequisites:** the `approvals/deploy` workflow from [Ask for input](/guides/ai/ask-for-input), and a supervisor with `canAnswer: true` that owns `session:approvals` ([Write a rules supervisor](/guides/supervise/write-a-rules-supervisor)). Server settings are `yukta.input.*`; restart the server after changing them. Add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys.
+
+By default a request has one tier that any supervisor or operator may answer, with no timeout. A **route** puts several tiers in a row. A tier that times out, or that someone hands the request up from, passes it to the next; the last tier applies the route's `on-final-timeout` (`FAIL` or `USE_DEFAULT`) and then the request's own `onTimeout`.
+
+<Diagram name="guide-route-input-requests" alt="A route puts tiers in a row. An input request goes first to the auto tier of supervisors, then, on a timeout or a hand-up, to people with the OPERATOR role; if the last tier times out, on-final-timeout FAIL fails the asking node." caption="Each tier gets its own timeout; an answer at any tier closes the request." />
+
+## Steps
+
+<Steps>
+  <Step title="Define the route">
+    A tier has `responders` (who is asked), `timeout`, `mode`, and for supervisors `min-confidence`. A route named `default` applies to every request that names no route.
+
+    ```yaml
+    yukta.input.routes.default:
+      tiers:
+        - name: auto
+          responders: ["supervisor:*"]
+          timeout: 30s
+          mode: FIRST
+          min-confidence: 0.8
+          type: AUTO
+        - name: ops
+          responders: ["role:OPERATOR"]
+          timeout: 1h
+          type: HUMAN
+      on-final-timeout: FAIL
+    ```
+
+    | Responder | Reaches |
+    |---|---|
+    | `supervisor:*` | Every attached supervisor that watches the request's node |
+    | `supervisor:<id>` | One supervisor, if it watches the node |
+    | `supervisor:parent` | The parents of the supervisor that handed the request up: [Build a hierarchy](/guides/supervise/build-a-hierarchy) |
+    | `role:OPERATOR` | People with an `OPERATOR` or `ADMIN` key |
+    | `key:<name>` | One named API key |
+    | `external:<responder>[:<name>]` | An outside responder, such as `external:webhook:slack-ops` (step 4) |
+
+    A route is checked when the server starts: no tier, a non-positive timeout, a quorum under 2, or a last tier that is neither `HUMAN` nor given an `on-final-timeout` stops it with a message. A tier with nobody to ask is skipped at once.
+  </Step>
+
+  <Step title="Choose how a tier decides">
+    `mode` is `FIRST` (the first valid answer wins, the default), `QUORUM` (`quorum`, at least 2, equal votes win) or `UNANIMOUS`. In a vote each supervisor votes once, the request is answered when enough agree and the rationale names the voters; a split vote hands the request up. A person's answer always decides at once and is never a vote. `min-confidence` makes a supervisor answer below it **advice for the next tier**, not an answer.
+  </Step>
+
+  <Step title="Pick the route for a request">
+    A request picks its route in this order: the `route` option of the asking node (`ASK_INPUT`, `WAIT_FOR_SIGNAL`), the `input.route` tag of its session, `yukta.input.routes.default`, then the built-in one-tier route. A route name nobody configured is refused. For a model's questions, the node's `inputRoute` sets it.
+
+    ```json
+    { "nodeId": "confirm", "type": "ASK_INPUT", "config": { "prompt": "Deploy?", "risk": "LOW", "route": "default" } }
+    ```
+  </Step>
+
+  <Step title="Add an outside responder">
+    A tier can call a chat bot, a ticket system or another agent when a request reaches it. Write it as `external:webhook:<name>` and configure the target:
+
+    ```yaml
+    yukta.input.routes.default:
+      tiers:
+        - name: ops
+          responders: ["external:webhook:slack-ops"]
+          timeout: 1h
+          type: HUMAN
+      on-final-timeout: FAIL
+    yukta.input.responders.slack-ops:
+      url: https://hooks.example.com/yukta
+      headers:
+        Authorization: "Bearer ${SLACK_TOKEN}"
+      timeout: 10s
+      signing-secret: ${YUKTA_HOOK_SECRET}
+      answer-url: https://yukta.example.com/api/inputs/token-answer
+    yukta.input.token-secret: ${YUKTA_TOKEN_SECRET}
+    ```
+
+    The server posts JSON with `requestId`, `executionId`, `sessionId`, `workflowId`, `kind`, `prompt`, `context`, `options`, `risk`, `tier`, `advice`, `deadline`, `answerUrl`, `token` and `tokenExpires`. The prompt and context are the redacted ones; an answer is never in it. With a `signing-secret`, the header `X-Yukta-Signature: sha256=<hex HMAC-SHA256 of the body>` lets the receiver check the sender. The URL must pass the egress rules (`yukta.egress.*`); redirects are not followed.
+
+    Delivery is **at least once**: a failed post is retried after 1 s, then twice as long each time up to 5 minutes, and given up after 10 tries. The receiver must treat a repeated `requestId` as the same request. Only the leader delivers, and queued deliveries are lost on a restart unless requests are stored in PostgreSQL (Plus).
+  </Step>
+
+  <Step title="Answer with the token">
+    The receiver answers without an API key, once, until `tokenExpires`:
+
+    ```bash
+    curl -X POST https://yukta.example.com/api/inputs/token-answer \
+      -H 'Content-Type: application/json' \
+      -d '{"requestId":"<requestId>","tier":"ops","expires":<tokenExpires>,"token":"<token>","decision":"approve"}'
+    ```
+
+    The token is bound to the request and the tier and does not fix the decision. It is a bearer credential: anyone who holds it can answer, so use HTTPS only and set `yukta.input.token-secret` to a long random value (without it, tokens stop working after a restart). Every refusal (unknown request, wrong tier, bad, expired or used token) is the same `403 Invalid or expired token`; an address with 30 refused calls in a minute, or a request with 10, gets `429`. The answer goes through the same review and audit as any other, as actor `token:<tier>`. A `HIGH` request can be answered this way only when the tier is `type: HUMAN`.
+  </Step>
+
+  <Step title="Or let an agent pull">
+    An external agent that cannot be called lists open requests (`GET /api/inputs`, MCP `list_pending_inputs`), follows `GET /api/events/stream?type=InputRequested,InputEscalated`, and answers with `POST /api/executions/{executionId}/inputs/{requestId}/answer` and an `OPERATOR` key. [Example 15](https://github.com/infenia/yukta/tree/main/examples/15-input-pull) is a `curl` script that does it. Such a key counts as a person for the risk rule.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start the `deploy` workflow with `"environment":"staging"` and a `LOW` request, then:
+
+```bash
+curl -s "localhost:9858/api/sessions/approvals/inputs?state=OPEN,ESCALATED,ANSWERED"
+```
+
+With the route above and a matching rule, the request is `ANSWERED` within the `auto` tier. Change the payload so the rule does not match: the supervisor escalates, or 30 seconds pass, and the request moves to the `ops` tier. The request keeps the way it came: `asked` lists each hand-up (`{who, said, reason, at}`, newest 20), and the Inputs panel shows it as the approval chain. `GET /api/supervisors/decisions` shows a refused answer as `rejected` with the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`), counted in `yukta.input.denied{rule}`, and the request stays open for the next responder. For a webhook, `yukta.input.delivery{responder,outcome}` and the log entries `INPUT_DELIVERED` and `INPUT_DELIVERY_FAILED` show whether it was sent.
+
+## Variations
+
+- **Limits.** `yukta.input.default-ttl` 1h, `max-ttl` 24h, `max-open-per-execution` 5, `max-open-per-session` 50. At the deadline `FAIL` fails the asking node and `USE_DEFAULT` answers with the default decision as the system.
+- **A request raised by a supervisor's own run** goes only to people and to supervisors that strictly cover the starter's scope, so it never waits for itself.
+- **Redaction.** Secrets in the prompt and context (key-like values, `${env.X}`, and `yukta.input.redact-keys`) are replaced before the request is stored, published or logged. Treat what is left as data.
+- **After a restart.** In-memory requests are lost with their runs. With Plus and `yukta.input.store-type=postgres`, open requests, tiers, votes and queued deliveries survive, and a resumed run takes over its open request: [Persist sessions](/guides/operate/persist-sessions).
+
+## Related
+
+- [Who decides](/concepts/who-decides) for the risk rules the server enforces.
+- [Configuration](/reference/configuration) for every `yukta.input.*` setting.
+- [Ask for input](/guides/ai/ask-for-input), [Build a hierarchy](/guides/supervise/build-a-hierarchy).

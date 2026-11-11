@@ -1,0 +1,72 @@
+---
+title: "Try a workflow in your browser"
+sidebarTitle: "Playground"
+description: "Build a small workflow in your browser, connect nodes and watch a simulated run step by step, including where the failure goes when a node fails."
+keywords: ["playground", "try in browser", "simulated run", "tutorial", "failure path"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx"
+import { WorkflowPlayground } from "/snippets/workflow-playground.jsx"
+
+<ReaderState
+  learn="how a run moves through a workflow, and where a failure goes"
+  time="about 5 minutes"
+  need="a browser; nothing to install and no server"
+  end="a feel for nodes, edges and ports, and a simulated run you have broken on purpose"
+/>
+
+## What we're building
+
+We will not build anything permanent here. We pick a ready-made workflow, step through a simulated run, then make one node fail to see what the workflow does about it. Boxes on the path the run takes light up in order. A failure follows the error path you chose for it, and boxes on other paths stay dark.
+
+## Try it
+
+Use the playground below. Pick a workflow from the **Preset** list, then:
+
+1. Choose **Linear** and press **Step** three or four times. We watch each box light up in turn, from the trigger to the terminal. **Run** plays the same steps on its own and **Reset** starts over.
+2. Choose **Error route**. Shift-click the `HTTP_REQUEST` node, or press its **Fail** button in the table under the graph, then press **Run**. You should see the run leave that node on its `error` port and reach the alert terminal, while the boxes of the normal path stay dark. The run still ends in success, because we gave the failure somewhere to go.
+3. Choose **Approval**, make the `LLM_CALL` node fail and press **Run**. You should see the failure follow that node's `error` edge to the dead-letter terminal, and the approval and update steps stay dark.
+
+<Visibility for="humans">
+  <WorkflowPlayground />
+</Visibility>
+
+<Visibility for="agents">
+  The page shows an interactive, browser-only simulation of a Yukta workflow graph. No server is contacted and nothing is saved. Readers pick a preset, add nodes and edges, then step, pause or reset a simulated run, and can mark any node as failed to see which path the failure takes. The presets are:
+
+  - **Linear**: `API_TRIGGER` → `HTTP_REQUEST` → `MAPPER` → `CONSOLE_TERMINAL`.
+  - **Fan-out and aggregate**: a `RECIPIENT_LIST` sends each message to two `HTTP_REQUEST` nodes (ports `primary` and `backup`) and to a `CONSOLE_TERMINAL` audit log (port `audit`). An `AGGREGATE` node joins the two fetches, an `LLM_CALL` summarises them and a `NOTIFY_TERMINAL` reports the result.
+  - **Error route**: `HTTP_REQUEST` (3 attempts, 200 ms backoff, `onError: ROUTE`) → `VALIDATE` → `MAPPER` → `CONSOLE_TERMINAL`. Invalid messages leave `VALIDATE` on its `invalid` port for a `rejected` terminal, and a fetch that still fails after its retries leaves on its `error` port for a `NOTIFY_TERMINAL` alert.
+  - **Approval** (the default): an `LLM_CALL` classifies a ticket, `WAIT_FOR_SIGNAL` holds it until an `approve` signal arrives, then an `HTTP_REQUEST` updates the ticket. A failed classification follows its `error` edge to a dead-letter terminal.
+
+  To build and run a real workflow, follow [Your first workflow](/learn/your-first-workflow).
+</Visibility>
+
+## What the simulation leaves out
+
+<Warning>
+  A green run here does not mean the real server will accept your workflow. The simulation leaves out plugin work, retries, time limits, message streams, approval waits and persistence, and a failed node fails at once and follows its `error` edge if it has one.
+</Warning>
+
+> **Stuck?** If nothing lights up, press **Run** or **Step** first: the graph is idle until a run starts. If a node will not fail, check that its **Fail** button in the table reads "Will fail".
+
+## What you just did
+
+We stepped a simulated run through three workflows and broke a node on purpose in two of them. A failure does not stop the whole workflow: it leaves through the `error` port of the node, and whatever we connected there takes over.
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Your first workflow" icon="rocket" href="/learn/your-first-workflow">
+    Install Yukta and run a real workflow in ten minutes.
+  </Card>
+  <Card title="How failure works" icon="triangle-exclamation" href="/concepts/failure-model">
+    Retries, error routes, failure budgets and join rules: what a real run adds.
+  </Card>
+  <Card title="How Yukta works" icon="diagram-project" href="/concepts/how-it-works">
+    Nodes, edges, ports and messages.
+  </Card>
+  <Card title="Examples on GitHub" icon="flask" href="https://github.com/infenia/yukta/tree/main/examples">
+    Ready-to-run workflows for CI, data, alerts and agents.
+  </Card>
+</CardGroup>

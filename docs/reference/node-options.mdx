@@ -1,0 +1,139 @@
+---
+title: "Node options reference"
+sidebarTitle: "Node options"
+description: "The reserved engine object of a node's config: retry, error routing, join rule, time limits, failure budget, buffering, checkpointing, placement and output echo."
+keywords: ["engine", "retry", "onError", "trigger", "failureBudget", "deadlineMs", "edgeBuffer", "echoOutput"]
+---
+
+import { Diagram } from "/snippets/diagram.jsx";
+
+# Node options reference
+
+The reserved `engine` object in a node's `config`, read by the server and never seen by the plugin. Unknown keys, wrong types and out-of-range values are rejected when the workflow is validated, with the node id and option in the message.
+
+```json
+"engine": {
+  "retry": { "maxAttempts": 3, "backoffMs": 200, "maxBackoffMs": 5000 },
+  "onError": "ROUTE",
+  "trigger": "ALL_DONE",
+  "elementTimeoutMs": 20000,
+  "deadlineMs": 600000,
+  "failureBudget": { "maxFailures": 10, "windowMs": 60000 }
+}
+```
+
+Accepted keys: `retry`, `onError`, `trigger`, `elementTimeoutMs`, `deadlineMs`, `stallAfterMs`, `concurrencyGroup`, `failureBudget`, `edgeBuffer`, `checkpoint`, `echoOutput`, `placement`.
+
+<Diagram
+  name="ref-node-options"
+  alt="The engine options sit around the plugin in four groups; the plugin never sees them."
+  caption="Find an option by what it controls: flow, time, failure, or durability and logging."
+/>
+
+## Failure handling
+
+### `retry`
+- **Type:** `object`
+- **Default:** none (no retry)
+- **Applies to:** processors
+- **Description:** Runs the plugin again for the failing message with exponential backoff and jitter; the plugin is then called once per message, and each message carries an `attempt` label (`1`, `2`, ...).
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `maxAttempts` | integer | `3` | Total attempts including the first; 1 to 10. |
+| `backoffMs` | integer | `200` | Delay before the first retry; doubles on each retry. Must be 0 or more and at most `maxBackoffMs`. |
+| `maxBackoffMs` | integer | `10000` | Upper bound of the delay. |
+| `retryOn` | array of string | `[]` | Exception class names (simple or fully qualified; subclasses and causes match) that are retried. When set, only these are retried. |
+| `noRetryOn` | array of string | `[]` | Class names that are never retried; wins over `retryOn`. |
+
+`IllegalArgumentException` (bad input) is not retried unless listed in `retryOn`. `retryOn` and `noRetryOn` may not share a class. The validator also requires `maxBackoffMs` below the node timeout.
+
+### `onError`
+- **Type:** `string`: `FAIL`, `CONTINUE`, `ROUTE` (case-insensitive)
+- **Default:** `FAIL`
+- **Applies to:** processors
+- **Description:** What happens to a message that still fails: `FAIL` fails the node, `CONTINUE` drops the message, `ROUTE` sends it, tagged with its failure, to the node's `error` output port.
+
+A routed message carries `failure.attempts`, `failure.exception`, `failure.message`, `failure.time`, `origDest` and `failureReason` (see [Messages reference](/reference/messages)). An edge with no `sourcePort` never carries a dead letter; wire `"sourcePort": "error"`.
+
+With `retry` or `onError` `CONTINUE`/`ROUTE`, a message produces all of its output or none: output emitted before a failed attempt is held back and dropped.
+
+### `failureBudget`
+- **Type:** `object` with `maxFailures` (integer, 0 or more, required) and `windowMs` (integer, more than 0, required)
+- **Default:** none
+- **Applies to:** nodes with `onError` `CONTINUE` or `ROUTE`; with `FAIL` the node is refused at validation
+- **Description:** When more than `maxFailures` messages fail within `windowMs`, the node fails instead of dropping or routing the next one; counted per run.
+
+### `trigger`
+- **Type:** `string`: `ALL_SUCCESS`, `ALL_DONE`, `ONE_SUCCESS`
+- **Default:** `ALL_SUCCESS`
+- **Applies to:** any node with several parents
+- **Description:** The join rule: `ALL_SUCCESS` fails when one parent fails; `ALL_DONE` continues on the other parents; `ONE_SUCCESS` continues but fails when every parent failed.
+
+## Time limits
+
+### `elementTimeoutMs`
+- **Type:** integer, whole milliseconds, more than 0
+- **Default:** none
+- **Applies to:** processors
+- **Description:** Longest the plugin may take for one message; expiry counts as a failure, so `retry` and `onError` apply. Useful only below the node's idle timeout.
+
+### `deadlineMs`
+- **Type:** integer, whole milliseconds, more than 0
+- **Default:** none
+- **Applies to:** any node
+- **Description:** Longest the node may run from its first activity; not restarted by output or heartbeats, paused time does not count, must exceed `elementTimeoutMs`. The node ends `TIMED_OUT`.
+
+### `stallAfterMs`
+- **Type:** integer, whole milliseconds, more than 0
+- **Default:** none
+- **Applies to:** processors and triggers
+- **Description:** A running node with no input, output, heartbeat or live log line for this long logs one WARN line starting `NodeStalled:`. It only reports; the node is neither failed nor paused.
+
+### `timeoutSeconds` (outside `engine`)
+- **Type:** integer
+- **Default:** the plugin's default idle timeout (30 s for many plugins)
+- **Description:** Idle timeout of the node, a key of `config` next to `engine`, not inside it. A value that is an expression is applied when the first message arrives; write numbers as typed placeholders (`${payload.secs:int}`).
+
+## Flow control
+
+### `edgeBuffer`
+- **Type:** `object` with `size` (integer 1 to 100000, required) and `overflow` (`DROP_OLDEST` or `DROP_NEWEST`, default `DROP_OLDEST`)
+- **Default:** none (lossless, paced by the slowest child)
+- **Description:** A bounded buffer in front of the node; when it is full the node drops a message instead of slowing its parents. Drops are counted in `yukta.edge.dropped`.
+
+### `concurrencyGroup`
+- **Type:** `string`, not blank
+- **Default:** none
+- **Applies to:** processors
+- **Description:** Joins a named group; at most `yukta.concurrency.groups.<name>` nodes of it run at once and the others wait `QUEUED`. A group with no configured limit is not limited.
+
+### `placement`
+- **Type:** `object` with `pool` (string, default `default`)
+- **Default:** none (runs on the server)
+- **Applies to:** processors
+- **Description:** Runs the node on a remote worker of the pool. Needs the Plus edition with workers; see [Licensing and editions](/reference/licensing).
+
+## Durability and logging
+
+### `checkpoint`
+- **Type:** `string`: `ALL`, `LAST`, `NONE`
+- **Default:** `ALL`
+- **Description:** What the node writes to the checkpoint store: every message, only the last message, or nothing. With `NONE` the node is never marked complete, so a resume runs it again.
+
+### `echoOutput`
+- **Type:** `boolean`
+- **Default:** `true`, unless the node has secret config
+- **Description:** Copies the node's output message into the run log when the plugin did not log it live. A node with a field the plugin declares secret, or a key named like a credential at any depth, is not echoed unless `echoOutput` is `true`. A non-boolean value fails validation. Echoed lines are cut to 2,048 characters.
+
+## Display (outside `engine`)
+
+`group` and `color` are fields of the node, not of `engine`; see [Workflow JSON reference](/reference/workflow-json#node).
+
+## Related
+
+- [Workflow JSON reference](/reference/workflow-json)
+- [Status values](/reference/status-values)
+- [Handle failures](/guides/build/handle-failures)
+- [Failure model](/concepts/failure-model)
+- [Time limits](/concepts/time-limits)

@@ -11,7 +11,7 @@ import lombok.experimental.UtilityClass;
 
 /**
  * The names of the supervisor contract: what a decision engine may read and do. The page {@code
- * docs/running/supervisor-contract.mdx} lists the same names; a test pins them. Changes are
+ * docs/reference/supervisors/contract.mdx} lists the same names; a test pins them. Changes are
  * additive within a major {@link #VERSION}.
  *
  * @since 0.1.0

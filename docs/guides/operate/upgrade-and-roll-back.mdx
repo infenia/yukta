@@ -1,0 +1,134 @@
+---
+title: "Upgrade Yukta and roll back"
+sidebarTitle: "Upgrade and roll back"
+description: "Move a running server to a new release without surprising anyone: drain it, back up what lives in memory, install the new version, check it and go back if you must."
+keywords: ["upgrade", "rollback", "drain", "release", "downgrade"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to replace a running server with a newer release, and how to return to the old one"
+  time="10 minutes"
+  need="an ADMIN key, and shell access to the server (or to your deployment tool)"
+  end="the new release running, your sessions back, and a known way to undo it"
+/>
+
+**Use this when** a new release is out and you run Yukta for other people. A restart ends every run that is in flight, so the steps below stop new work first and make sure nothing you need lives only in memory.
+
+**Prerequisites:** an `ADMIN` key (draining the server is an administrator action) and a copy of the way you installed the server, so you can reinstall the old release. For the first install, see [Deploy Yukta](/guides/operate/deploy).
+
+<Diagram
+  name="ops-upgrade"
+  alt="An upgrade runs in five steps, and a rollback goes back to the old release and the backup."
+  caption="Drain before you install, and keep the backup from step 2: it is also your way back."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Read what changed">
+    Open [Releases](/reference/releases) and the release notes of every release between yours and the target. While the major version is `0`, a minor release may break things. Ask the install script whether you are behind:
+
+    ```bash
+    install.sh --check
+    ```
+
+    It prints the version it found and the newest one, and exits with status `1` when you are behind. It changes nothing.
+  </Step>
+  <Step title="Save what memory holds">
+    By default a restart wipes sessions, workflows, versions and run history. Pick the way you keep them:
+
+    - **Definitions in files.** If you load a folder with `yukta.bootstrap.dir`, nothing more to do. See [Persist sessions](/guides/operate/persist-sessions).
+    - **Definitions only on the server.** Download each session as JSON (**Export JSON** on its page in the [web UI](/guides/operate/use-the-web-ui)) or print it with `yukta-cli session config <session-id> -o json`, and keep the files.
+    - **A Plus build with files or PostgreSQL.** Back up the data directories, or the whole database, before you start. Migrations run forward only (there are no undo scripts), so the database backup is also your way back.
+
+    An export holds the current definitions, not the saved version history.
+  </Step>
+  <Step title="Drain the server">
+    Draining refuses new starts with `429` and lets running ones finish.
+
+    ```bash
+    curl -fsS -X POST -H "Authorization: Bearer $YUKTA_TOKEN" "$YUKTA_SERVER_URL/api/admin/drain"
+    ```
+
+    Poll until nothing runs or waits:
+
+    ```bash
+    curl -fsS -H "Authorization: Bearer $YUKTA_TOKEN" "$YUKTA_SERVER_URL/api/admin/drain"
+    ```
+
+    The answer has `draining`, `running`, `queued` and `idle`. Continue when `idle` is `true`. A client that tries to start a run meanwhile gets `429` with "The server is draining for a restart; try again once it is back". The drain flag lives in memory, so the restarted server accepts starts again.
+
+    If a run will not finish, stop it with `yukta-cli workflow stop <session-id> <workflow-id>` or wait for the shutdown timeout in the next step. Runs that are still going when the process stops are lost, or, on a durable setup, marked `ABORTED` at the next start and available to [resume](/guides/operate/persist-sessions#resume-runs-after-a-restart).
+  </Step>
+  <Step title="Install the new release">
+    <Tabs>
+      <Tab title="Docker">
+        Pull the new tag, then recreate the container with the same options (keep the volume if you have one):
+
+        ```bash
+        docker pull ghcr.io/infenia/yukta:0.1.0-alpha.3
+        docker stop yukta && docker rm yukta
+        # run it again with your usual docker run options and the new tag
+        ```
+
+        Pin an exact tag. `latest` only moves to a stable release, never to a prerelease.
+      </Tab>
+      <Tab title="Install script">
+        Run the script again. It prints the version it found and the one it installs, skips the download when you are current, and keeps the previous programs as `yukta.prev` and `yukta-cli.prev`:
+
+        ```bash
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+        ```
+
+        It warns when a running server must be restarted and when another copy earlier on your `PATH` hides the new one. Restart the server yourself.
+      </Tab>
+      <Tab title="Linux package">
+        Install the new `.deb` or `.rpm` over the old one. Your edited `/etc/yukta/yukta.env` stays. The package restarts the service if it was running, so drain first (step 3).
+      </Tab>
+      <Tab title="Archive or source">
+        Unpack the new archive over the old files, or rebuild, then stop and start the server. A graceful stop gives running runs 30 seconds by default (`yukta.execution.shutdown-timeout`).
+      </Tab>
+    </Tabs>
+  </Step>
+  <Step title="Update the client and the workers">
+    Update `yukta-cli` on the machines that use it: the install script does it together with the server. If you run [remote workers](/guides/operate/add-remote-workers), upgrade them to the same release as the server, because a worker with another protocol version is refused.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -fsS -H "Authorization: Bearer $YUKTA_TOKEN" "$YUKTA_SERVER_URL/actuator/info"
+yukta-cli --version
+yukta-cli session list
+```
+
+`/actuator/info` reports the server version (it needs an `ADMIN` key when a key is set). `session list` shows your sessions, which proves that the bootstrap folder or your durable store came back. Start one workflow and read its result before you tell people the server is open again. After a restart, `GET /api/admin/drain` reports `"draining": false`.
+
+## Roll back
+
+Reinstall the version you ran before, and restore what the new version could have changed.
+
+- **Docker:** run the old tag.
+- **Install script:** run it with `--version <old>`, or move `yukta.prev` and `yukta-cli.prev` back over the new programs.
+- **Package:** install the old `.deb` or `.rpm`. Your downgrade flags depend on your package manager.
+- **Files:** state written by a newer version may not load in an older one. Restore the data directories from step 2.
+- **PostgreSQL:** the new version may have applied migrations that the old one does not know. Restore the database from the backup you made in step 2 before you start the old release.
+
+Roll back the workers to the old release too.
+
+## Variations that matter
+
+- **Several servers (high availability).** Upgrade a standby first, then stop the leader so one takeover happens, and read [Run highly available](/guides/operate/run-highly-available) for what a takeover does to runs.
+- **Keep one version for repeatable deployments.** Use exact image tags and `--version`. Do not follow a moving tag.
+- **Expect a short pause.** One server admits runs, so a restart is a gap for clients. They can retry a start safely with an `Idempotency-Key`.
+
+## Related
+
+- [Releases](/reference/releases) and [Migration to alpha 4](/reference/migration-alpha-4)
+- [Persist sessions](/guides/operate/persist-sessions)
+- [Troubleshoot](/guides/operate/troubleshoot)
+- [How durability and high availability work](/concepts/durability-and-high-availability)

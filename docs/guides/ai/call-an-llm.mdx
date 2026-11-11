@@ -1,0 +1,129 @@
+---
+title: "Call an LLM"
+sidebarTitle: "Call an LLM"
+description: "Ask a chat model a question from a workflow with LLM_CALL, keep the API key out of the definition and fall back to a second model when a call fails."
+keywords: ["LLM_CALL", "LLM", "anthropic", "openai", "ollama", "model call", "fallback"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to put one model call in a workflow and read its answer"
+  time="10 minutes"
+  need="a server on localhost:9858 with the LLM module, and a model: an Anthropic or OpenAI-compatible key, or a local Ollama"
+  end="a workflow that sends a prompt to a model and returns its answer and token usage"
+/>
+
+**Use this when** a step needs open-ended text: summarise, draft, extract, plan. For small choices (which branch, is this safe) a [decision plugin](/guides/ai/classify-gate-and-score) is cheaper.
+
+**Prerequisites:** a server on `http://localhost:9858` whose build includes the `LLM_CALL` plugin (`GET /api/plugins/LLM_CALL` answers `200`; see [Plugin overview](/reference/plugins/overview)). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+<Diagram name="guide-call-an-llm" alt="An LLM_CALL with failureMode CONTINUE and routeByStatus leaves on success or failure; the failure port can lead to a second LLM_CALL with another model." caption="Without failureMode CONTINUE a failed call fails the node; with it, failure becomes a port you can wire to a fallback." />
+
+## Steps
+
+<Steps>
+  <Step title="Give the server your key">
+    A key is never written into the workflow. Write it as `decrypted:<name>`; the default provider reads the environment variable `YUKTA_SECRET_<NAME>` of the server. Set it where the server starts:
+
+    ```bash
+    export YUKTA_SECRET_ANTHROPIC=sk-ant-...
+    ```
+
+    Local Ollama needs no key.
+  </Step>
+
+  <Step title="Add the LLM_CALL node">
+    `provider` is `openai` (set `baseUrl` for any OpenAI-compatible service such as Groq, vLLM or a gateway; `openai-compatible` is an alias), `anthropic` or `ollama` (`baseUrl` defaults to the local server). Save as `session.json`:
+
+    ```json session.json
+    {
+      "sessionId": "ask",
+      "name": "Ask",
+      "workflows": {
+        "summarise": {
+          "workflowId": "summarise",
+          "description": "Summarise a text in two sentences",
+          "nodes": [
+            { "nodeId": "in", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "model",
+              "type": "LLM_CALL",
+              "config": {
+                "provider": "anthropic",
+                "model": "claude-sonnet-5-5",
+                "apiKey": "decrypted:anthropic",
+                "system": "You summarise text in two sentences.",
+                "prompt": "${payload.text}",
+                "maxTokens": 256,
+                "timeout": 60,
+                "retries": 1
+              }
+            },
+            { "nodeId": "out", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "in", "target": "model" },
+            { "source": "model", "target": "out" }
+          ]
+        }
+      }
+    }
+    ```
+
+    The prompt is built from the message with `${payload.text}`. `timeout` is in seconds (default 120), `retries` retries with backoff (default 0), `temperature` and `maxTokens` are optional. For local Ollama use `"provider": "ollama", "model": "llama3.2"` and drop `apiKey`.
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+    ```
+  </Step>
+
+  <Step title="Start it with a prompt">
+    ```bash
+    curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"ask","workflowId":"summarise","payload":{"text":"Yukta runs workflows as flowcharts. ..."}}'
+    # EXEC=<executionId>
+    ```
+  </Step>
+
+  <Step title="Add a fallback model">
+    A failed call fails the node by default. With `failureMode: CONTINUE` and `routeByStatus: true` the node emits on `success` or `failure`, so the `failure` port can lead to a second `LLM_CALL` with another model:
+
+    ```json
+    { "nodeId": "model", "type": "LLM_CALL",
+      "config": { "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+                  "prompt": "${payload.text}", "failureMode": "CONTINUE", "routeByStatus": true } }
+    ```
+
+    ```json
+    { "source": "model", "target": "out", "sourcePort": "success" },
+    { "source": "model", "target": "fallback", "sourcePort": "failure" }
+    ```
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/ask/executions/$EXEC/results
+```
+
+The result from `out` has the answer in `payload.content` and token counts in `payload.usage`, and the run ends `SUCCESS`. If it fails, `GET /api/executions/$EXEC` shows the model node at `FAILURE`; the log names the provider error (a wrong key, an unreachable `baseUrl`, a timeout).
+
+## Variations
+
+- **Several turns of history.** Pass a `messages` expression instead of a single `prompt`: [Keep session memory](/guides/ai/keep-session-memory).
+- **Tools.** Offer the model tools with `tools`: [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
+- **Spending limits.** Add a `budget`: [Set token budgets](/guides/ai/set-token-budgets).
+- **Server-wide guardrails.** Per-provider rate limits (`yukta.llm.rate-limit.<provider>`) and prompt or answer filters (`yukta.llm.deny-input-patterns`, `yukta.llm.deny-output-patterns`, `yukta.llm.max-input-chars`) are server settings: [Configuration](/reference/configuration).
+
+<Warning>
+  Text from users, web pages or tools goes straight into the prompt. Treat the model's answer as untrusted input to whatever you wire after it.
+</Warning>
+
+## Related
+
+- [AI plugins reference](/reference/plugins/ai) for every `LLM_CALL` option.
+- [AI and deterministic work](/concepts/ai-and-deterministic-work) for where a model belongs in a workflow.
+- [Use variables and secrets](/guides/build/use-variables-and-expressions).

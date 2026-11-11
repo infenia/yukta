@@ -1,0 +1,137 @@
+---
+title: "Classify, gate and score"
+sidebarTitle: "Classify, gate and score"
+description: "Route, gate and rate messages with a constrained model decision: a label, a yes or no, or a score you can branch on."
+keywords: ["CLASSIFY", "GATE", "SCORE", "ASK", "ANOMALY", "DEDUPE", "decision plugins", "System One"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to ask a model a small, structured question and route on its answer"
+  time="15 minutes"
+  need="a server on localhost:9858 with the decision plugins, and either an Ollama with a System One decision model or any chat model"
+  end="a workflow that sorts tickets by label, with an uncertain path for the unclear ones"
+/>
+
+**Use this when** a step needs judgement that a rule cannot make ("is this a bug or a question?", "is this reply safe to send?") and the answer should come back in a shape you can route on. For open-ended writing use [`LLM_CALL`](/guides/ai/call-an-llm).
+
+**Prerequisites:** the `CLASSIFY` plugin is present (`GET /api/plugins/CLASSIFY` answers `200`). Pick a backend:
+
+- `SYSTEMONE` (default): a System One decision model on your own Ollama (`baseUrl` defaults to `http://localhost:11434`). Answers carry calibrated probabilities and cost no provider tokens.
+- `LLM`: any chat model, through the same access as `LLM_CALL`. Probabilities are the model's own estimates.
+
+Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+<Diagram name="guide-classify-gate-and-score" alt="Pick the decision plugin by the question: CLASSIFY picks a label, GATE answers yes or no, SCORE rates on a scale, ANOMALY spots the unusual and DEDUPE spots repeats. Each leaves on its own output ports." caption="Choose the plugin by the question you ask; each one leaves on ports you wire like any other branch." />
+
+## Steps
+
+<Steps>
+  <Step title="Classify into labels and route on them">
+    `CLASSIFY` picks one label from your list. Describe every label: a small model depends on those descriptions. With `routeByLabel`, each label becomes an output port, plus `uncertain` for answers below `minProbability` (default 0.6). Save as `session.json`:
+
+    ```json session.json
+    {
+      "sessionId": "decide",
+      "name": "Decide",
+      "workflows": {
+        "triage": {
+          "workflowId": "triage",
+          "description": "Sort a message by kind",
+          "nodes": [
+            { "nodeId": "in", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "kind",
+              "type": "CLASSIFY",
+              "config": {
+                "model": "tev1:0.8b",
+                "state": "payload.text",
+                "labels": {
+                  "bug": "The user reports something that is broken or behaves wrongly",
+                  "feature": "The user asks for new behaviour",
+                  "question": "The user asks how something works"
+                },
+                "routeByLabel": true,
+                "minProbability": 0.6
+              }
+            },
+            { "nodeId": "bugs", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "features", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "questions", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "unsure", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "in", "target": "kind" },
+            { "source": "kind", "target": "bugs", "sourcePort": "bug" },
+            { "source": "kind", "target": "features", "sourcePort": "feature" },
+            { "source": "kind", "target": "questions", "sourcePort": "question" },
+            { "source": "kind", "target": "unsure", "sourcePort": "uncertain" }
+          ]
+        }
+      }
+    }
+    ```
+
+    The model name `tev1:0.8b` is an example; use the decision model you pulled. `state` is what the model sees (default the whole payload, cut to 15,000 characters). To use a chat model instead, add `"backend": "LLM", "provider": "anthropic", "apiKey": "decrypted:anthropic"` and its `model`.
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+    curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"decide","workflowId":"triage","payload":{"text":"The save button crashes the app"}}'
+    ```
+  </Step>
+
+  <Step title="Gate on a yes or no">
+    `GATE` asks a yes/no question and leaves on `pass` when the probability of yes reaches `threshold` (default 0.5), else `reject`. Put one in front of a risky node:
+
+    ```json
+    {
+      "nodeId": "safe-to-send",
+      "type": "GATE",
+      "config": {
+        "backend": "LLM", "provider": "anthropic", "model": "claude-sonnet-5-5", "apiKey": "decrypted:anthropic",
+        "question": "Is this reply polite and free of personal data?",
+        "state": "payload.reply",
+        "threshold": 0.8
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Score on a scale">
+    `SCORE` rates on ordered `levels` (2 to 26, lowest first). With `threshold` it leaves on `high` or `low`.
+
+    ```json
+    { "nodeId": "urgency", "type": "SCORE",
+      "config": { "model": "tev1:0.8b", "question": "How urgent is this ticket?",
+                  "levels": ["can wait", "this week", "today", "now"], "threshold": 2 } }
+    ```
+  </Step>
+
+  <Step title="Ask several things at once, or watch a stream">
+    - `ASK` takes up to 64 named `questions` (`choice`, `yesno`, `score`) in one call and writes `metadata.answers`; route with a `BRANCH` on `metadata['answers']['sentiment']['choice']`.
+    - `ANOMALY` and `DEDUPE` compare each message with a window of recent ones (ports `normal`/`anomalous` and `unique`/`duplicate`). By default the window is per node and per run, so a workflow started for every event never builds history; set `persist: session` to share it across runs.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/decide/executions/$EXEC/results
+```
+
+The result comes from the `bugs` terminal, and the message metadata holds the decision: `classification` with `choice`, `probability`, `probabilities`, `label` and `uncertain`. The payload is unchanged. Send `{"text":"hmm"}`: a vague message should land on `unsure`. If the run fails with a model error, the Ollama endpoint is unreachable or the model is not pulled: the node fails and the node's `engine` policy applies ([Handle failures](/guides/build/handle-failures)).
+
+## Variations
+
+- **Where the result lives.** Each plugin writes to `metadata[into]` (`classification`, `gate`, `score`, `answers`, `anomaly`, `dedupe`); change it with `into`.
+- **Cap what the model sees.** `maxStateChars` (max 15,000), `stateKeep: tail` for build logs where the cause is last, and `onOverflow: fail` to reject oversize input instead of cutting it.
+- **Latency.** `keepAlive` (such as `30m`) keeps an idle Ollama model loaded; `concurrency` (default 16) sets calls in flight.
+- **Gate a tool call.** Put a `GATE` in front of `MCP_TOOL_CALL` asking whether the arguments the model proposed are safe: [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
+
+## Related
+
+- [Decision plugins reference](/reference/plugins/decisions) for every option, port and default.
+- [AI and deterministic work](/concepts/ai-and-deterministic-work) for when to use a decision model instead of a chat model.

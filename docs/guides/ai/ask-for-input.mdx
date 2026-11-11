@@ -1,0 +1,162 @@
+---
+title: "Ask for input"
+sidebarTitle: "Ask for input"
+description: "Make a run wait for a decision from a person, a supervisor or an agent with ASK_INPUT, WAIT_FOR_SIGNAL or the ask_for_input tool, and answer it over REST, the CLI or MCP."
+keywords: ["ASK_INPUT", "ask_for_input", "WAIT_FOR_SIGNAL", "input request", "approval", "human in the loop"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+
+<ReaderState
+  learn="how to hold a run until someone answers, and how to answer"
+  time="15 minutes"
+  need="a server on localhost:9858; an OPERATOR key if your server uses keys"
+  end="a workflow that asks for approval, and an answer sent from curl, the CLI or an assistant"
+/>
+
+**Use this when** a step needs a yes, a choice or some text before it goes on: approve a deploy, pick an option, confirm a risky tool call.
+
+**Prerequisites:** a server on `http://localhost:9858`. Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys; **answering** needs the `OPERATOR` role, reading a `VIEWER` key. Who may answer which risk is explained in [Who decides](/concepts/who-decides).
+
+An **input request** is a typed question a node asks: a prompt, the answers on offer, a risk and a time to live. The run waits (a wait uses no tokens and no run slot beyond its own), the request appears on the event feed, and the server checks every answer against who may give it.
+
+## Steps
+
+<Steps>
+  <Step title="Ask from a workflow with ASK_INPUT">
+    The kinds are `APPROVAL` (approve or reject, or your own options), `CHOICE`, `TEXT` and `STRUCTURED`. The node adds `input.decision`, `input.text`, `input.data`, `input.responder` and `input.confidence` to the message metadata, so a `BRANCH` can route on it. Save as `session.json`:
+
+    ```json session.json
+    {
+      "sessionId": "approvals",
+      "name": "Approvals",
+      "workflows": {
+        "deploy": {
+          "workflowId": "deploy",
+          "description": "Ask before deploying",
+          "nodes": [
+            { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+            {
+              "nodeId": "confirm",
+              "type": "ASK_INPUT",
+              "config": {
+                "prompt": "Deploy build ${payload.build} to ${payload.environment}?",
+                "risk": "LOW",
+                "ttlSeconds": 1800,
+                "onTimeout": "FAIL",
+                "context": { "environment": "${payload.environment}" }
+              }
+            },
+            {
+              "nodeId": "decide",
+              "type": "BRANCH",
+              "config": {
+                "mode": "EXPRESSION",
+                "cases": {
+                  "metadata['input.decision'] == 'approve'": "go",
+                  "metadata['input.decision'] != 'approve'": "stop"
+                },
+                "strictMode": true
+              }
+            },
+            { "nodeId": "deployed", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "declined", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "start", "target": "confirm" },
+            { "source": "confirm", "target": "decide" },
+            { "source": "decide", "target": "deployed", "sourcePort": "go" },
+            { "source": "decide", "target": "declined", "sourcePort": "stop" }
+          ]
+        }
+      }
+    }
+    ```
+
+    `risk` is `LOW`, `MEDIUM` (the default) or `HIGH`; a `HIGH` request is answered by people only. `onTimeout` is `FAIL` (default), `CONTINUE` (carries on with `input.decision` set to `timeout`) or `USE_DEFAULT` (answers with `defaultDecision`). `audience` limits who may answer, and `route` picks a [route](/guides/supervise/route-input-requests).
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+    curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"approvals","workflowId":"deploy","payload":{"build":"42","environment":"staging"}}'
+    # EXEC=<executionId>
+    ```
+  </Step>
+
+  <Step title="Find the open request">
+    ```bash
+    curl -s "localhost:9858/api/sessions/approvals/inputs?state=OPEN"
+    curl -s localhost:9858/api/inputs          # open requests of every session your key may see
+    ```
+
+    Each item has an `id` (the request id), `executionId`, `kind`, `risk`, `prompt`, `options`, `tier`, `deadline` and a `version`. The prompt and context are written by the asking step, often by a model, so treat them as untrusted text.
+
+    <UiShot name="inputs-panel" alt="The Inputs panel of a workflow page showing an open approval with Approve and Reject buttons" caption="The Inputs panel lists open requests with their risk and prompt; the buttons are the options on offer." />
+  </Step>
+
+  <Step title="Answer it">
+    <Tabs>
+      <Tab title="REST">
+        ```bash
+        curl -X POST localhost:9858/api/executions/$EXEC/inputs/$REQ/answer \
+          -H 'Content-Type: application/json' \
+          -d '{"decision":"approve","rationale":"checked the change"}'
+        ```
+
+        Optional fields: `text`, `data`, `expectedVersion` (the `version` you read, so a stale answer is refused).
+      </Tab>
+      <Tab title="CLI">
+        ```bash
+        yukta-cli inputs list --session approvals --state OPEN
+        yukta-cli inputs answer $EXEC $REQ --decision approve --rationale "checked the change"
+        yukta-cli inputs escalate $EXEC $REQ --reason "needs the release manager" --advice "check the target"
+        ```
+      </Tab>
+      <Tab title="MCP">
+        An assistant calls `list_pending_inputs`, then `answer_input` (`sessionId`, `executionId`, `requestId`, `decision`) or `escalate_input`. See [Connect an assistant](/guides/ai/connect-an-assistant).
+      </Tab>
+    </Tabs>
+
+    Anyone allowed can **escalate** instead: hand the request up to the next tier with a reason and advice. To be told rather than to look, follow `GET /api/events/stream?type=InputRequested`.
+  </Step>
+
+  <Step title="Ask from an AI agent">
+    Set `"allowAskInput": true` on the `LLM_CALL` node, which offers the model the tool `ask_for_input {prompt, options?, kind?, risk?}`, and on the `MCP_TOOL_CALL` node that runs its actions. The model chooses the question, but never a risk below `inputRiskFloor` (default `MEDIUM`). Who may answer (`inputAudience`), how long (`inputTtlSeconds`, default 3600), the route (`inputRoute`) and how many questions one node run may ask (`inputMaxAsks`, default 3) come from the node, never from the model. The answer returns to the model as a tool result, and no answer in time is a tool error, or fails the node with `inputOnTimeout: FAIL`. See [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
+  </Step>
+
+  <Step title="Or hold a message until a named approval">
+    `WAIT_FOR_SIGNAL` asks a request of kind `APPROVAL` and risk `HIGH`, so only a person can answer. It holds each message, then lets it go on, drops it or fails:
+
+    ```json
+    { "nodeId": "approve", "type": "WAIT_FOR_SIGNAL",
+      "config": { "signal": "approve", "timeoutSeconds": 3600, "onTimeout": "FAIL", "onReject": "FAIL" } }
+    ```
+
+    The message carries `signal.name`, `signal.decision` and `signal.data`. `onTimeout: CONTINUE` goes on with decision `timeout`; `onReject: CONTINUE` drops the message. Answer it exactly as above. `MCP_TOOL_CALL`'s `requireApproval` uses the same mechanism.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s localhost:9858/api/executions/$EXEC
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/approvals/executions/$EXEC/results
+```
+
+Before the answer, the run is `RUNNING` with the `confirm` node waiting and the request `OPEN`. After `approve`, the request is `ANSWERED` and the result comes from the `deployed` terminal; with `reject` it comes from `declined`. The log records who answered and why.
+
+If the answer is refused, the status says why: `403` names the rule that failed (`audience`, `tier`, `risk`, `scope` or `separation`) and leaves the request open, `409` means it was already answered, expired, cancelled or changed since `expectedVersion`, `422` means the answer does not fit the request (for a `CHOICE`, the decision must be an option id).
+
+## Variations
+
+- **Let a supervisor answer low-risk questions.** A rules supervisor can approve `LOW` requests by policy: [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor).
+- **Escalation tiers and webhooks.** Supervisors first, then a person, or a chat bot with a one-time token: [Route input requests](/guides/supervise/route-input-requests).
+- **Pull instead of push.** A script can poll `GET /api/inputs` with an `OPERATOR` key and answer; [example 15](https://github.com/infenia/yukta/tree/main/examples/15-input-pull) does it with curl.
+- **After a restart.** Requests are held in memory by default: a restart cancels waiting runs and loses their open requests. With the Plus edition and PostgreSQL they survive: [Persist sessions](/guides/operate/persist-sessions).
+
+## Related
+
+- [Who decides](/concepts/who-decides) for risk tiers and why `HIGH` is human only.
+- [Plugin reference: routing and flow](/reference/plugins/routing-and-flow) for the `ASK_INPUT` and `WAIT_FOR_SIGNAL` options.
+- [REST: control](/api/control) and [CLI reference](/reference/cli).

@@ -1,0 +1,107 @@
+---
+title: "Run Yukta highly available"
+sidebarTitle: "Run highly available"
+description: "Run two or more Yukta servers on one PostgreSQL database so that a standby takes over when the leader stops, and check that failover works before you need it."
+keywords: ["high availability", "failover", "leader", "standby", "PostgreSQL", "lease"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to set up active/standby servers and how to confirm which one is the leader"
+  time="30 minutes"
+  need="a PostgreSQL database, a Plus build of Yukta, and two hosts or containers"
+  end="two servers where one admits runs and the other takes over within about 15 seconds"
+/>
+
+**Use this when** losing the one server that admits runs is not acceptable. This gives failover, not more capacity: admission, command order and run state live in one server at a time. To spread node work over more machines, see [Add remote workers](/guides/operate/add-remote-workers).
+
+**Prerequisites:**
+
+- A Plus build (AGPL-3.0-only) made with `-Pyukta.persistence=postgres`. The release binaries and the Docker image do not include it. See [Licensing and editions](/reference/licensing).
+- A PostgreSQL database you can reach from every server, set up as in [Persist sessions](/guides/operate/persist-sessions#option-3-use-postgresql-plus).
+- The same build on every server.
+
+For how the lease and fencing work, read [How durability and high availability work](/concepts/durability-and-high-availability).
+
+<Diagram
+  name="high-availability"
+  alt="Clients talk to the leader, a standby answers 503, and both servers share one PostgreSQL lease row that the leader renews."
+  caption="The standby takes over only when the lease expires."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Configure every server the same way">
+    Use the PostgreSQL settings from [Persist sessions](/guides/operate/persist-sessions), then add:
+
+    ```properties
+    yukta.session.store-type=postgres
+    yukta.restart.store-type=postgres
+    yukta.ha.mode=postgres
+    yukta.ha.lease=15s
+    yukta.restart.auto-resume=true
+    ```
+
+    Start each server with `--spring.profiles.active=prod,postgres`. Give each its own name with `yukta.ha.instance-id` if you want stable names in the lease row; the default is a random id per start.
+
+    Checkpoints must be in PostgreSQL (`yukta.restart.store-type=postgres`) so that a new leader can read what the old one recorded. `auto-resume` is optional: leave it `false` if you prefer to resume interrupted runs by hand.
+  </Step>
+  <Step title="Start the servers">
+    Start the first one, then the second. The first to take the lease becomes the leader and runs recovery once. The other waits as a standby.
+  </Step>
+  <Step title="Find the leader">
+    The gauge `yukta.leader` is `1` on the leader and `0` on a standby:
+
+    ```bash
+    curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" \
+      http://server-a:9858/actuator/metrics/yukta.leader
+    ```
+
+    The measurement `VALUE` is `1.0` on the leader. `/actuator/health` stays open and reports `UP` on both servers, so it cannot tell them apart.
+  </Step>
+  <Step title="Send clients to the leader">
+    Yukta does not forward requests. A standby answers every start, restart and resume with `503` and "This server is a standby; retry on the leader", and it holds no run state, so send reads and control commands to the leader too. Use one of:
+
+    - **A client list.** Give clients every server address and let them try the next one on `503`.
+    - **A load balancer** whose health check selects the server where `yukta.leader` is `1`. The metrics endpoint needs an `ADMIN` key when keys are set, so the check is a small script rather than a plain HTTP probe.
+  </Step>
+  <Step title="Alert on the leader count">
+    Alert when no server reports `1`, or when more than one does. See [Observe runs](/guides/operate/observe-runs).
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Rehearse a failover on a quiet system:
+
+1. Start a long workflow on the leader.
+2. Stop the leader gracefully. It releases the lease at once.
+3. Within a few seconds, read `yukta.leader` on the other server: it becomes `1`.
+4. List the runs on the new leader. The run you started shows `ABORTED`.
+5. Resume it: `yukta-cli workflow executions recover <execution-id>` (or let `auto-resume` do it). Finished nodes are not run again.
+
+Then rehearse a crash: stop the leader with `kill -9`. Expect the takeover about one lease (15 seconds by default) after it last renewed.
+
+## What a takeover does not carry over
+
+A takeover is a restart for clients. Plan for it:
+
+- Open approval waits are gone. A resumed run asks again. An answered approval is reused.
+- Queued starts that had not run, and the execution slots of the old leader, are lost.
+- Live progress beyond what the execution log records is lost. Clients reconnect and read the status.
+
+## Variations that matter
+
+- **Workers.** List every server in each worker's `yukta.workers.control-plane` (comma separated). A standby refuses the worker, so it ends on the leader and tries the next address after a failover. See [Add remote workers](/guides/operate/add-remote-workers).
+- **A shorter lease.** `yukta.ha.lease` sets how long a renewal keeps the lease; the leader renews three times per lease. A server that cannot reach the database stops admitting runs before another can take over, because it measures its own lease on its own clock.
+- **Upgrades.** Take a standby first, then the leader. See [Upgrade and roll back](/guides/operate/upgrade-and-roll-back).
+
+## Related
+
+- [How durability and high availability work](/concepts/durability-and-high-availability)
+- [Persist sessions](/guides/operate/persist-sessions)
+- [Configuration reference](/reference/configuration)
+- [Troubleshoot](/guides/operate/troubleshoot)

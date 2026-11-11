@@ -156,7 +156,7 @@ Starts the application and chooses the profile in the one case where it must not
 - main() first calls Hooks.enableAutomaticContextPropagation(). This makes Reactor copy context values (request id, tracing) from one thread to the next. Reason: Yukta is reactive, and without this the request id in log lines would vanish whenever work moves to another thread.
 - If the process is a native image and no argument starts with --spring.profiles.active= or -Dspring.profiles.active=, main() sets the system property to prod. Example: ./yukta runs as prod; ./yukta --spring.profiles.active=dev runs as dev.
 - In a normal JVM the launcher does nothing about profiles. The default profile in the base YAML, prod, applies. Example: java -jar boot.jar with no flags logs at INFO and exposes only health, info and metrics.
-- Before Spring starts, main() also handles `--version` and `--help`, the daemon commands (`start|stop|status|restart|logs`, class `Daemon`) and resolves the run mode (class `RunMode`: `--plain`, `--mode`, `YUKTA_MODE`, else console on a TTY). In console mode the `console` package takes over the screen (`ConsoleRunner`, JLine) and sends logs to a ring buffer (`ConsoleLogs`). See [Run modes](/running/run-modes).
+- Before Spring starts, main() also handles `--version` and `--help`, the daemon commands (`start|stop|status|restart|logs`, class `Daemon`) and resolves the run mode (class `RunMode`: `--plain`, `--mode`, `YUKTA_MODE`, else console on a TTY). In console mode the `console` package takes over the screen (`ConsoleRunner`, JLine) and sends logs to a ring buffer (`ConsoleLogs`). See [Run modes](/guides/build/control-a-run).
 - Only command-line arguments are checked. If a native image is started with only the SPRING_PROFILES_ACTIVE environment variable, main() still sets the system property to prod; which of the two Spring then prefers was not tested.
 
 - **Guarantees.** Context propagation is on before any Spring code runs. An explicit profile argument is never overwritten.
@@ -727,11 +727,11 @@ JVM vs native.
 
 ## Next steps
 
-<Card title="Deployment" icon="box" horizontal href="/operations/deployment">
+<Card title="Deployment" icon="box" horizontal href="/guides/operate/deploy">
   Install Yukta as a Docker image, a Linux package or an archive, or run it from source, with the profiles and build switches that shape it.
 </Card>
 
-<Card title="Configuration" icon="gear" horizontal href="/operations/configuration">
+<Card title="Configuration" icon="gear" horizontal href="/reference/configuration">
   Every setting an operator can change, its default and what it controls, plus the per-node engine options.
 </Card>
 

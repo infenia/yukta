@@ -1,0 +1,99 @@
+---
+title: "Plugin reference"
+sidebarTitle: "Overview"
+description: "Every built-in node type grouped by role, the options every node accepts, how a build selects plugins and how to read a plugin's schema from the catalogue API."
+keywords: ["plugins", "node types", "triggers", "processors", "terminals", "catalogue", "yukta.plugins"]
+---
+
+# Plugin reference
+
+A plugin implements one node `type`; this page lists the built-in types, the settings that apply to every node and how to read a schema from a running server.
+
+The option tables on the pages below are taken from each plugin's declared schema (`ConfigField` list). The same data is served by `GET /api/plugins/{type}`, so a running server is the final authority for what it has installed.
+
+## Types by page
+
+| Page | Types |
+|---|---|
+| [Triggers](/reference/plugins/triggers) | `API_TRIGGER`, `WEBHOOK_TRIGGER`, `SCHEDULE_TRIGGER`, `CONSTANT_SOURCE`, `SUPERVISOR_SIGNAL` |
+| [Routing and flow](/reference/plugins/routing-and-flow) | `BRANCH`, `FILTER`, `SPLITTER`, `AGGREGATE`, `RECIPIENT_LIST`, `DELAY`, `LOOP_PREDICATE`, `LOOP_STREAM`, `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `ASK_INPUT`, `KV_STORE` |
+| [Transform](/reference/plugins/transform) | `MAPPER`, `CONTENT_FILTER`, `VALIDATE` |
+| [External I/O](/reference/plugins/external-io) | `HTTP_REQUEST`, `PROCESS_EXECUTOR`, `SQL_QUERY`, `FILE_READ`, `FILE_WRITE`, `PATCH_GUARD` |
+| [AI](/reference/plugins/ai) | `LLM_CALL`, `MCP_LIST_TOOLS`, `MCP_TOOL_CALL`, `SESSION_MEMORY` |
+| [Decisions](/reference/plugins/decisions) | `CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE` |
+| [Terminals](/reference/plugins/terminals) | `CONSOLE_TERMINAL`, `NOTIFY_TERMINAL`, `OUTCOME_TERMINAL`, `SUPERVISOR_DECISION` |
+
+## Roles
+
+| Role | Contract | Output ports |
+|---|---|---|
+| `TRIGGER` | `start(config)` emits the first messages of a run | `default` unless the plugin says otherwise |
+| `PROCESSOR` | `process(input, config)` turns a stream of messages into a stream of messages | `default` unless the plugin says otherwise |
+| `TERMINAL` | `consume(input, config)` ends a branch | none |
+
+A message leaves a node on one named port; the engine delivers it along the edges whose `sourcePort` names that port. A processor that fails a message under `failureMode` `CONTINUE` may emit it on the `error` port. See [Workflow JSON](/reference/workflow-json) for the edge fields.
+
+## Settings every node accepts
+
+| Key | Where | Type | Default | Description |
+|---|---|---|---|---|
+| `timeoutSeconds` | `config` | number | the plugin's default timeout | Idle timeout of the node in seconds. |
+| `engine` | node | object | none | Engine policy: trigger join rule, retry, error routing, failure budgets, `echoOutput`, `group`. See [Node options](/reference/node-options). |
+
+The default timeout of a plugin is 30 seconds unless the plugin page names another. Plugins whose work has its own timeout derive the node timeout from it, for example `HTTP_REQUEST` adds 5 seconds to `timeout`.
+
+```json
+{ "nodeId": "wait", "type": "DELAY", "config": { "delayMs": 500, "timeoutSeconds": 60 } }
+```
+
+## Common option conventions
+
+| Convention | Meaning |
+|---|---|
+| `failureMode` | `ERROR` fails the node on a failed call. `CONTINUE` emits a result (or routes to `error`) so a later node can react. Default `ERROR`. |
+| `routeByStatus`, `routeByExitCode` | Emit on `success` and `failure` ports instead of `default`. Rejected unless `failureMode` is `CONTINUE`. |
+| `concurrency` | Messages in flight at once for the node. The default is per plugin. |
+| `strictMode` | Routing and transform plugins: `true` fails the node on an evaluation error; `false` drops the message or skips the step. |
+| `errorPort` | Port that receives a message whose evaluation failed, with the failure attached to its metadata. |
+| `decrypted:<key>` | A `SECRET` option reads the value from the secret store; the server reads the environment variable `YUKTA_SECRET_<KEY>`. |
+| `${...}` | Options documented as supporting variables resolve them per message. See [Expressions](/reference/expressions). |
+
+## Selecting plugins at build time
+
+The build property `yukta.plugins` selects the optional modules. The routing, transform and flow processors, all triggers and all terminals are always included.
+
+| Value | Result |
+|---|---|
+| `default` (property absent) | Every optional module except `script-js` |
+| `all` | Every optional module |
+| `none` | No optional module |
+| comma-separated list | Exactly the named modules |
+
+| Module | Types |
+|---|---|
+| `process-executor` | `PROCESS_EXECUTOR` |
+| `http-request` | `HTTP_REQUEST` |
+| `file-io` | `FILE_READ`, `FILE_WRITE`, `PATCH_GUARD` |
+| `sql-query` | `SQL_QUERY` |
+| `llm-call` | `LLM_CALL` |
+| `session-memory` | `SESSION_MEMORY` |
+| `mcp-tool-call` | `MCP_TOOL_CALL`, `MCP_LIST_TOOLS` |
+| `decision` | `CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE`; depends on `llm-call` |
+| `script-js` | no type; enables `MAPPER` mode `SCRIPT` |
+
+An unknown module name stops the build. A workflow that uses an uninstalled type is rejected at validation with `Plugin not found for type: <TYPE>`.
+
+## Catalogue API
+
+| Request | Result |
+|---|---|
+| `GET /api/plugins` | Each installed `type` with its `category`. |
+| `GET /api/plugins/{type}` | `type`, `category`, `description`, `usagePattern`, `uiDesign`, `outputPorts`, `configSchema`; `404` when the type is not installed. |
+
+Each `configSchema` entry has `name`, `type` (`STRING`, `NUMBER`, `BOOLEAN`, `ENUM`, `LIST`, `MAP`, `EXPRESSION`, `SECRET`), `required`, `defaultValue`, `options` and `description`. The MCP tools `list_plugins` and `get_plugin_details` return the same data. See the [catalogue API](/api/catalogue).
+
+## Related
+
+- [Workflow JSON](/reference/workflow-json)
+- [Node options](/reference/node-options)
+- [Configuration reference](/reference/configuration)

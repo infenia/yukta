@@ -1,0 +1,54 @@
+---
+title: "What's new in alpha.4"
+sidebarTitle: "What's new in alpha.4"
+description: "The changes since the previous alpha, grouped by what you can now do: supervisors, input requests, AI-assisted setup, the Control dashboard and a redesigned web UI."
+keywords: ["alpha.4", "release notes", "what's new", "supervisors", "input requests"]
+---
+
+Alpha.4 turns Yukta from "a server that runs flowcharts" into "a server where every part of a run has an owner". About 300 changes landed since the previous alpha. This page groups them by what they let you do. For the exact list, see the [release notes on GitHub](https://github.com/infenia/yukta/releases). If you are upgrading, read [Migrate to alpha.4](/reference/migration-alpha-4) first.
+
+<Warning>
+  Yukta is still alpha. The workflow JSON, REST API, MCP tools and plugin contract can change before 1.0.
+</Warning>
+
+## Supervisors: every unit of work has an owner
+
+A **supervisor** watches a part of your runs, steps in when something looks wrong, and decides whether people may steer that part directly. It replaces the earlier control planes.
+
+- Four engines decide: `rules` (JSON rules), `http` (an external system or an AI agent), `workflow` (another Yukta workflow) and `process` (a program speaking JSON lines).
+- Ownership is explicit: one owner per server, session, workflow, run or node selection. A clash is refused with `409 OWNERSHIP_CONFLICT`.
+- A person steering a run that a supervisor owns is refused with `409 CONTROLLED_BY_SUPERVISOR` unless that supervisor allows it (`operatorAccess`).
+- Supervisors form a reporting chain (`parents`, with `ORDERED`, `ALL` or `ANY` delegation), have versions, roll back, and can be replayed in dry run on a past run.
+- A supervisors page and a Control dashboard show who owns what.
+
+Start with [Add a supervisor](/learn/add-a-supervisor), then read [How supervisors work](/concepts/supervisors).
+
+## Input requests: ask a person, a rule or an agent
+
+A node can now ask a typed question (approval, choice, text, structured data) with a risk level, a deadline and an escalation path. Rules, AI agents and people answer in turn; **high-risk questions are answered by people only**. This replaces the signal API.
+
+Start with [Ask for approval](/learn/ask-for-approval) and [Who decides](/concepts/who-decides).
+
+## AI and deterministic work in one graph
+
+Mix scripts, HTTP calls, SQL and rules with `LLM_CALL`, `MCP_TOOL_CALL` and decision plugins in one workflow, and put a supervisor or an approval around the AI steps. See [Mix rules and AI in one workflow](/learn/mix-rules-and-ai) and [AI and deterministic work](/concepts/ai-and-deterministic-work).
+
+## AI-assisted setup over MCP
+
+An assistant such as Claude Code can read how to author a session, write it, start it, watch it and steer it, over Yukta's built-in MCP server, and can manage supervisors and answer input requests. Roles (`VIEWER`, `OPERATOR`, `ADMIN`) bound what it may do. See [Let an assistant build a workflow](/learn/let-an-assistant-build-a-workflow) and [AI-assisted configuration](/concepts/ai-assisted-configuration).
+
+## A redesigned web UI and a Control dashboard
+
+- A left sidebar, a node sheet and a logs dock.
+- The Overview page is gone: `/` opens the sessions list.
+- The **Control dashboard** shows run analytics, a heat map and time series.
+- A supervisors page with a reporting-chain graph.
+
+See [Use the web UI](/guides/operate/use-the-web-ui).
+
+## Smaller changes worth knowing
+
+- Starting a run takes typed options (priority, version) that need the `ADMIN` role.
+- `engine.echoOutput` controls whether a node's output is echoed.
+- Validation reports every problem at once, not only the first.
+- Review findings in the core were fixed, and architecture rules now guard the module layering.

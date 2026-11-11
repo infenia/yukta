@@ -1,0 +1,225 @@
+---
+title: "CLI reference"
+sidebarTitle: "CLI"
+description: "Every command, argument and flag of the yukta-cli client, with its environment variables and exit codes."
+keywords: ["CLI", "yukta-cli", "commands", "flags", "exit codes", "reference"]
+---
+
+# CLI reference
+
+`yukta-cli` is a single binary that calls the [REST API](/api/overview) of a Yukta server; this page lists its commands, flags, environment variables and exit codes.
+
+Syntax: `yukta-cli [global flags] <command> [subcommand] [arguments] [flags]`. Global flags may come before or after the command. `<x>` is a required argument, `[x]` an optional one. `yukta-cli <command> --help` prints the flags of one command.
+
+## Global flags
+
+### `--url`
+- **Type:** string
+- **Default:** `http://localhost:9858`
+- **Environment:** `YUKTA_SERVER_URL`
+- **Description:** Base address of the server.
+
+### `--token`
+- **Type:** string
+- **Default:** none
+- **Environment:** `YUKTA_TOKEN`
+- **Description:** API key, sent as `Authorization: Bearer <key>`. Mutually exclusive with `--token-file`.
+
+### `--token-file`
+- **Type:** path
+- **Default:** none
+- **Description:** File that holds the API key; surrounding whitespace is trimmed.
+
+### `--insecure-token`
+- **Type:** boolean
+- **Default:** `false`
+- **Environment:** `YUKTA_INSECURE_TOKEN`
+- **Description:** Allows sending the token over plain `http` to a host that is not loopback; refused otherwise.
+
+### `--timeout`
+- **Type:** duration
+- **Default:** `30s`
+- **Description:** Time limit of each non-streaming request; `0` disables it. Streaming commands are not limited by it.
+
+### `--retries`
+- **Type:** integer
+- **Default:** `0`
+- **Description:** Extra attempts for reads, and for starts (an idempotency key is generated), on network errors, `429` and `502` to `504`.
+
+### `--retry-wait`
+- **Type:** duration
+- **Default:** `1s`
+- **Description:** First pause between retries; it doubles each time, and a longer `Retry-After` from the server wins.
+
+### `-o`, `--output`
+- **Type:** `table` or `json`
+- **Default:** `table`
+- **Description:** Output format of every command; any other value is a usage error.
+
+### Environment-only settings
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `YUKTA_STREAM_IDLE` | duration | `45s` | How long a followed stream may be silent before it counts as dropped; `0` turns the check off. |
+| `YUKTA_STREAM_RECONNECTS` | integer | `5` | Reconnects in a row before a followed stream gives up. |
+
+A flag overrides its environment variable. The client reads no configuration file.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| `0` | Success, or a live command stopped with Ctrl-C. |
+| `1` | Any other failure (connection problem, other HTTP error). |
+| `2` | Usage error: unknown command, missing argument or flag. |
+| `3` | Not found (HTTP `404`). |
+| `4` | Server error (HTTP `5xx`). |
+| `5` | Timeout (client timeout, or HTTP `504`). |
+| `6` | Refused by a supervisor (`409 CONTROLLED_BY_SUPERVISOR` or `403 CONTROL_REJECTED`). |
+
+On failure the command prints `error: <message>` to standard error.
+
+## Server and identity
+
+| Command | Description |
+|---|---|
+| `version` | Prints the client version (`{"version": ...}` with `-o json`). `--version` also works. |
+| `whoami` | The name, role and sessions of the key, as the server sees it. |
+| `workers` | Lists remote workers. |
+| `plugin list` | Lists all plugins. |
+| `plugin get <type>` | Details of one plugin. |
+| `scheduler limits` | Shows the execution limits and the slots in use. |
+| `scheduler set --max-concurrent N --max-per-workflow M` | Changes the limits; both flags are required, `0` is unlimited. |
+
+## Sessions and workflow definitions
+
+| Command | Description |
+|---|---|
+| `session list` | Lists sessions. |
+| `session summaries` | Lists sessions with their workflow summaries. |
+| `session get <session-id>` | Details of one session. |
+| `session config <session-id>` | The configuration a session was created from. |
+| `session apply <json-or-file>` | Creates or replaces a session from a configuration. |
+| `session validate <json-or-file>` | Validates a workflow definition without saving it. |
+| `session delete <session-id>` | Deletes a session; flags `--force` (cancel active runs first instead of refusing), `-y`/`--yes` (no confirmation). |
+| `session workflow get <session-id> <workflow-id>` | The workflow definition. |
+| `session workflow graph <session-id> <workflow-id>` | Nodes and edges. |
+| `session workflow executions <session-id> <workflow-id>` | Runs of a workflow, newest first. |
+| `session workflow versions <session-id> <workflow-id>` | Saved versions. |
+| `session workflow diff <session-id> <workflow-id> --from V [--to V]` | Compares two versions; `--to` defaults to the current definition. |
+| `session workflow rollback <session-id> <workflow-id> <version>` | Makes a saved version current. |
+| `session workflow note <session-id> <workflow-id> <version> --text T` | Writes a note on a version. |
+| `session workflow delete <session-id> <workflow-id>` | Deletes a workflow; flags `--force`, `-y`/`--yes` as for `session delete`. |
+
+## Runs
+
+| Command | Description |
+|---|---|
+| `workflow start <session-id> <workflow-id>` | Starts a run. Flags: `--payload <json>`, `--payload-file <file>`, `--idempotency-key <key>`. |
+| `workflow stop <session-id> <workflow-id>` | Stops every active run of a workflow. Flag: `--mode DRAIN\|CANCEL\|KILL` (default `DRAIN`). |
+| `workflow pause <session-id> <execution-id>` | Pauses a run. Flag: `--tree` (also its sub-workflow runs). |
+| `workflow resume <session-id> <execution-id>` | Resumes a paused run. Flag: `--tree`. |
+| `workflow status <session-id> <execution-id>` | Progress snapshot of a run. |
+| `workflow status-stream <session-id> <execution-id>` | Streams the status. Flag: `--include-history`. |
+| `workflow history <session-id>` | Runs of a session. |
+| `workflow tree <execution-id>` | A run and the runs it started. |
+| `workflow executions stop <execution-id>` | Stops one run. Flags: `--tree`, `--mode DRAIN\|CANCEL\|KILL`. |
+| `workflow executions restart <execution-id> [from-node-id]` | Restarts a run, optionally from a node. |
+| `workflow executions recover <execution-id>` | Continues a run that a server restart aborted. |
+| `workflow executions priority <execution-id> <priority>` | Changes the priority of a queued run (a whole number). |
+| `workflow executions search` | Searches runs across sessions. Flags: `--session`, `--filter <expr>`, `--limit N`. |
+| `result <session-id> <execution-id>` | Streams the result. Flag: `--node <id>` (one terminal node). |
+| `logs <session-id> <execution-id>` | Streams the logs. See below for flags. |
+
+### `logs` flags
+| Flag | Type | Description |
+|---|---|---|
+| `--entries` | boolean | Streams structured log entries as JSON. |
+| `--node <id>` | string | Reads the output of one node instead of streaming. The flags below apply only with `--node`. |
+| `--stream` | string | `stdout`, `stderr` or `all` (default `all`). |
+| `--tail N` | integer | The last N lines. |
+| `--head N` | integer | The first N lines. |
+| `--offset N` | integer | First line of a page, 0-based. |
+| `--limit N` | integer | Page size; default 50, at most 500. |
+| `--grep <regex>` | string | Only matching lines. |
+| `--context N` | integer | Lines around each match; at most 20. |
+
+## Nodes
+
+All take `<session-id> <execution-id> <node-id>` except where noted.
+
+| Command | Description |
+|---|---|
+| `workflow node pause` / `resume` | Pauses or resumes a node. |
+| `workflow node stop` | Stops a node. Flags: `--immediate`, `--reason <text>`. |
+| `workflow node skip` | Skips a node. Flag: `--skip=false` to unskip (default `true`). |
+| `workflow node retry <execution-id> <node-id>` | Restarts from a failed node as a new run. |
+| `workflow node breakpoint <execution-id> <node-id>` | Sets a breakpoint with `--field <path> --equals <value>`, or removes it with `--clear`. |
+| `workflow node step enable` / `disable` / `next` | Turns step-through mode on or off, or runs one step. |
+
+## Control bus
+
+| Command | Description |
+|---|---|
+| `controlbus command --session ID [--execution ID] <workflow-id> <node-id> <json-or-file>` | Sends a command to a node. `--session` is required; `--execution` is needed only when the workflow has several live runs. |
+| `controlbus watch` | Streams control-bus events. Flags below. |
+| `controlbus audit` | Lists control commands, newest first. Flags: `--limit N`, `--execution <id>`. |
+
+### `controlbus watch` flags
+| Flag | Default | Description |
+|---|---|---|
+| `--execution <id>` | none | Only events of this run. |
+| `--type <kinds>` | all | Comma-separated: `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`. |
+| `--until-done` | `false` | Exits when the run has ended; needs `--execution`. |
+| `--tree` | `true` | With `--execution`, also watches sub-workflow runs at any depth. |
+| `--follow-restarts` | `false` | With `--until-done`, continues with the run that restarts the execution. |
+| `--no-logs` | `false` | Leaves out log lines. |
+| `--quiet` | `false` | Prints only problems and the final status. |
+
+## Input requests
+
+| Command | Description |
+|---|---|
+| `inputs list` | Lists requests. Flags: `--session <id>`, `--state <list>` (default `OPEN,ESCALATED`). |
+| `inputs show <execution-id> <request-id>` | One request and its answer. |
+| `inputs answer <execution-id> <request-id> --decision D` | Answers. `--decision` is required; optional `--text`, `--data <json-or-file>`, `--rationale`, `--expected-version N` (refuse if the request changed). |
+| `inputs escalate <execution-id> <request-id> --reason R` | Hands the request up. `--reason` is required; optional `--advice`. |
+
+## Supervisors
+
+| Command | Description |
+|---|---|
+| `supervisors` | What runs: scope and command counts. |
+| `supervisors engines [type]` | Lists engines, or describes one with its settings. |
+| `supervisors list` / `show <id>` | Configured supervisors. |
+| `supervisors presets <engine>` | Ready-made settings of an engine. |
+| `supervisors save -f <file>` / `validate -f <file>` | Creates or replaces a supervisor, or checks a draft. |
+| `supervisors delete <id>` | Deletes a supervisor that owns nothing. |
+| `supervisors versions <id>` | Saved versions, newest first. |
+| `supervisors rollback <id> --version N` | Restores a version. |
+| `supervisors replay <id> --execution E [--settings <json>]` | Dry-run replay on a past run. |
+| `supervisors decisions [--supervisor ID] [--limit N]` | Newest decisions; `--limit` defaults to 50. |
+| `supervisors assignments <id>` | What a supervisor owns. |
+| `supervisors assign <id> <target> [--disabled] [--locked]` | Adds an owned target. |
+| `supervisors unassign <id> <target> [--unlock]` | Removes a manual target. |
+| `supervisors check-assign <id> <target>...` | Checks targets without saving. |
+| `supervisors set-assignments <id> -f <file> [--unlock]` | Replaces the manual targets with a JSON list of `{target, enabled, locked}`. |
+| `supervisors parents set <id> --parent P [--mode kind=policy]` | Sets the supervisors it reports to; both flags repeat. `kind` is `approval`, `input` or `consult`; `policy` is `ordered`, `all` or `any`. |
+| `supervisors rules get <id>` | The rules document and its newest version. |
+| `supervisors rules set <id> -f <file>` | Replaces the rules; the shared settings stay. |
+| `supervisors rules replay <id> --execution E [-f <file>]` | Dry-run replay of stored or draft rules. |
+| `supervisors credential create <id> [--ttl-hours N]` / `show <id>` / `revoke <id>` | The credential of an `http` supervisor; the token is printed once. |
+| `supervisors agent --credential-file <file> --exec <program> [-- args...]` | Runs a program as the decision maker of an `http` supervisor: signals on its standard input as JSON lines, directives from its standard output. |
+| `supervision [--session S] [--workflow W] [--execution E] [--node N]` | Who owns a target and which commands people may send. |
+| `ownership --session S --workflow W` | Which supervisor owns the run level and each node; both flags required. |
+| `supervision-summary` | Workflows nobody owns and assignments in conflict. |
+| `supervisor-contract` | The contract version and its operations. |
+
+## Not in the CLI
+
+The CLI has no command for draining the server (`/api/admin/drain`), templates or metrics. Use the [REST API](/api/overview). See [Client parity](/reference/client-parity) for every task across the four clients.
+
+## Related
+
+- [MCP tools reference](/reference/mcp-tools)
+- [Client parity](/reference/client-parity)
+- [Use the CLI](/guides/operate/use-the-cli)

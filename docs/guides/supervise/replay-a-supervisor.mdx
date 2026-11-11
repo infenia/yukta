@@ -1,0 +1,94 @@
+---
+title: "Replay a supervisor"
+sidebarTitle: "Replay a supervisor"
+description: "Try a supervisor or a draft rules document on a past run in dry run to see what it would have sent, before it touches a live run."
+keywords: ["replay", "dry run", "supervisor", "rules", "replay_supervisor", "replay_rules", "draft"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to check what a supervisor would do, using a run that already happened"
+  time="10 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, a rules supervisor (ci-guard) and a finished run in which a node failed"
+  end="the list of commands a draft would have sent, each marked allowed or not, with nothing sent"
+/>
+
+**Use this when** you are about to change rules or a supervisor's settings and want evidence first, or you want to know why a supervisor did (or did not) react in an incident.
+
+**Prerequisites:** a saved supervisor, for example `ci-guard` from [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor), and the id of a finished run (`GET /api/workflow/{sessionId}/history`). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+A replay rebuilds the **status events** of the past run from its execution log and feeds them to the supervisor in **dry run**: nothing is sent to any run. You get what it would have sent, and whether the supervisor's shell (`allowedCommands`, ownership) would have let it through.
+
+<Diagram name="guide-replay-a-supervisor" alt="A replay feeds the stored status events of a finished run to the supervisor in dry run and lists the commands it would have sent, each marked allowed or not. Nothing is sent to any run." caption="The replay produces a list of decisions only: the live run is not touched." />
+
+## Steps
+
+<Steps>
+  <Step title="Pick a run that has the situation">
+    Find a finished run in which a node failed, for example a run of the `sort` workflow from [Handle failures](/guides/build/handle-failures) with `onError` set to `FAIL`:
+
+    ```bash
+    curl -s localhost:9858/api/workflow/failures/history
+    # EXEC=<the executionId of a run with a FAILURE node>
+    ```
+  </Step>
+
+  <Step title="Replay the stored supervisor">
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors/ci-guard/replay \
+      -H 'Content-Type: application/json' -d "{\"executionId\":\"$EXEC\"}"
+    ```
+
+    CLI: `yukta-cli supervisors replay ci-guard --execution $EXEC`. MCP: `replay_supervisor`.
+
+    The answer lists decisions:
+
+    ```json
+    {
+      "status": 200,
+      "message": "Replayed",
+      "data": [
+        { "command": "PauseWorkflowCommand", "executionId": "…", "nodeId": null,
+          "cause": "event:…", "reason": "3 nodes failed within 60 seconds", "allowed": true }
+      ]
+    }
+    ```
+
+    `allowed` says whether the supervisor's capabilities would let the command through: a command outside `allowedCommands` shows `false`. An empty list means the supervisor would have done nothing.
+  </Step>
+
+  <Step title="Replay a draft instead">
+    To try new settings without saving them, pass a draft in `settings` (for a `rules` supervisor, the rules document). The stored shared settings (`allowedCommands`, `initiative`) still apply.
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors/ci-guard/engine/rules/replay \
+      -H 'Content-Type: application/json' \
+      -d "{\"executionId\":\"$EXEC\",\"settings\":{\"schemaVersion\":1,\"rules\":[{\"id\":\"pause-on-failure\",\"when\":{\"event\":\"NodeStatusChanged\",\"status\":\"FAILURE\"},\"then\":{\"command\":\"PauseWorkflow\",\"reason\":\"a node failed\"}}]}}"
+    ```
+
+    CLI: `yukta-cli supervisors rules replay ci-guard --execution $EXEC -f draft.json` (without `-f` it replays the stored rules). MCP: `replay_rules` with `rules`. `POST /api/supervisors/{id}/replay` takes the same `settings` for any engine that supports it.
+  </Step>
+
+  <Step title="Change the draft until it does what you mean, then save it">
+    Adjust the rules and replay again, then save with `PUT /api/supervisors/ci-guard/engine/rules` (a new version) or roll back later with `yukta-cli supervisors rollback ci-guard --version N`.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+The decisions list matches what you expect: the failing node produced a `PauseWorkflowCommand` with your reason, a run with no failures produced none, and the live run you replayed is unchanged (`GET /api/executions/$EXEC` shows the same status as before). Nothing appears in `GET /api/supervisors/decisions` for a replay, because nothing was sent.
+
+## Variations
+
+- **What a replay cannot see.** Only statuses are rebuilt: node outputs and log lines were not kept, and a replayed node event has an empty `module` and no `metadata`. A rule that depends on `module`, `metadata['code']` or a `LogLine` will not fire in a replay even if it would live.
+- **Timers.** A timed rule (`every`) is given about two seconds of replay time. At most 100 decisions come back.
+- **Input requests and commands.** Input events are not in the replay; test those rules with a live request in a test session ([Route input requests](/guides/supervise/route-input-requests)).
+- **Dry run on a live supervisor.** `"dryRun": true` on a supervisor records its commands as `dry-run` in the decision list without applying them; `yukta.supervisor.dry-run=true` does it for every supervisor. Use it to watch a new supervisor on real traffic.
+
+## Related
+
+- [Rule files reference](/reference/supervisors/rule-files) for the rule fields to try.
+- [Supervisor shell reference](/reference/supervisors/shell).
+- [Write a rules supervisor](/guides/supervise/write-a-rules-supervisor).

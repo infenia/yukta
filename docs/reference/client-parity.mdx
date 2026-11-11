@@ -1,15 +1,23 @@
 ---
-title: "Client parity: what REST, MCP, the CLI and the web UI can each do"
+title: "Client parity reference"
 sidebarTitle: "Client parity"
-description: "One table of every operator task against the four ways to reach the server: REST endpoint, MCP tool, yukta-cli command and web UI page, so you can pick the right client and spot gaps."
+description: "Every operator task against the four ways to reach the server: REST endpoint, MCP tool, yukta-cli command and web UI page."
 keywords: ["client parity", "REST", "MCP", "CLI", "web UI", "feature matrix"]
 ---
 
-<Info>
-  **In plain terms:** the same server can be driven four ways: raw HTTP (REST), an AI agent (MCP), a terminal (`yukta-cli`) and the browser (web UI). Not every way can do everything. This page shows which can do what, so you know where to go and where a gap is.
-</Info>
+import { Diagram } from "/snippets/diagram.jsx";
 
-Every client calls the [REST API](/api/overview); the others wrap it. A dash means the client has no entry point for that task, so use REST. The tables were checked against the controllers, `AppMcpTools`, the CLI commands and the UI routes when this page was written. When you add a feature to one client, add its row here.
+# Client parity reference
+
+This matrix maps each task to its REST endpoint, MCP tool, CLI command and web UI page. A dash means the client has no entry point for the task. Entries were checked against the controllers, `AppMcpTools`, the CLI commands and the UI routes.
+
+Roles apply to every client: a key without the needed role gets `403` from REST, MCP and the CLI. See [Security reference](/reference/security).
+
+<Diagram
+  name="ref-client-parity"
+  alt="REST, MCP, the CLI and the web UI are four ways into the same server, with the same key and role for each."
+  caption="The matrix below shows which task each surface can do; a dash means that surface has no entry point."
+/>
 
 ## Sessions and workflows
 
@@ -17,75 +25,96 @@ Every client calls the [REST API](/api/overview); the others wrap it. A dash mea
 |---|---|---|---|---|
 | List sessions | `GET /api/sessions`, `GET /api/sessions/summaries` | `list_sessions` | `session list`, `session summaries` | Sessions page |
 | Show a session | `GET /api/sessions/{id}` | `get_session_details` | `session get` | Session page |
-| Create or replace a session | `POST /api/sessions` | `create_session` | `session apply` | New session form, Import JSON, Templates |
-| Edit session name, description, tags | `POST /api/sessions` | `create_session` | `session apply` | Session page › Edit |
-| Export a session as JSON | `GET /api/sessions/{id}/config` | – | `session config` | Session page › Export JSON |
-| Delete a session or a workflow | `DELETE /api/sessions/{id}`, `DELETE …/workflows/{id}` | `delete_session`, `delete_workflow` | `session delete`, `session workflow delete` | Session page › Delete; workflow page › Delete |
-| Show a workflow and its graph | `GET …/workflows/{id}`, `…/graph` | `get_workflow_details` | `session workflow get`, `session workflow graph` | Workflow page |
-| Validate a draft | `POST /api/sessions/validate` | – | `session validate` | Editor › Validate |
+| Create or replace a session | `POST /api/sessions` | `create_session` | `session apply` | New session, Import JSON, Templates |
+| Export a session as JSON | `GET /api/sessions/{id}/config` | – | `session config` | Session page |
+| Delete a session or workflow | `DELETE /api/sessions/{id}`, `DELETE /api/sessions/{id}/workflows/{wf}` | `delete_session`, `delete_workflow` | `session delete`, `session workflow delete` | Session and workflow pages |
+| Show a workflow and its graph | `GET /api/sessions/{id}/workflows/{wf}`, `.../graph` | `get_workflow_details` | `session workflow get`, `session workflow graph` | Workflow page |
+| List runs of a workflow | `GET /api/sessions/{id}/workflows/{wf}/executions` | `get_workflow_history` (per session) | `session workflow executions` | Workflow page |
+| Validate a draft | `POST /api/sessions/validate` | – | `session validate` | Editor |
 | Check a working directory | `POST /api/sessions/validate/project-path` | – | – | New session form |
-| Saved versions, changes since, notes, rollback | `…/versions`, `…/versions/diff`, `…/versions/note`, `…/rollback` | `list_workflow_versions`, `diff_workflow_versions`, `note_workflow_version`, `rollback_workflow` | `session workflow versions`, `diff`, `note`, `rollback` | Workflow page › ⋮ › Versions |
-| Start from a template | `GET /api/templates`, `GET /api/templates/{id}` | – | – | New session › Templates |
-| Plugin catalogue and usage | `GET /api/plugins`, `…/{type}`, `…/{type}/usage` | `list_plugins`, `get_plugin_details` | `plugin list`, `plugin get` | Plugins page |
+| Versions, diff, note, rollback | `.../versions`, `.../versions/diff`, `.../versions/note`, `.../rollback` | `list_workflow_versions`, `diff_workflow_versions`, `note_workflow_version`, `rollback_workflow` | `session workflow versions\|diff\|note\|rollback` | Workflow page |
+| Templates | `GET /api/templates`, `GET /api/templates/{id}` | – | – | New session |
+| Plugin catalogue | `GET /api/plugins`, `.../{type}`, `.../{type}/usage` | `list_plugins`, `get_plugin_details` | `plugin list`, `plugin get` | Plugins page |
 
 ## Runs
 
 | Task | REST | MCP | CLI | Web UI |
 |---|---|---|---|---|
-| Start a run | `POST /api/workflow/start` | `start_workflow` | `workflow start` | Workflow page › Run |
+| Start a run | `POST /api/workflow/start` | `start_workflow` | `workflow start` | Workflow page |
 | Pause, resume, stop one run | `POST /api/executions/{id}/pause\|resume\|stop` | `control_workflow` | `workflow pause\|resume`, `workflow executions stop` | Run controls |
-| Stop all runs of a workflow (drain, cancel, kill) | `POST /api/workflow/{session}/{workflow}/stop` | `control_workflow` (`STOP_ALL`) | `workflow stop` | Run controls › Stop menu |
-| Restart a run, or from a node | `POST /api/executions/{id}/restart` | `control_workflow` | `workflow executions restart` | Run controls › Restart; node menu › Restart from here |
-| Recover an aborted run | `POST /api/executions/{id}/recover` | `control_workflow` (`RECOVER`) | `workflow executions recover` | Run controls › Recover |
-| Change the priority of a queued run | `POST /api/executions/{id}/priority` | – | `workflow executions priority` | Run controls › Priority |
-| Run status and history | `GET /api/executions/{id}`, `GET /api/workflow/{session}/history` | `get_workflow_status`, `get_workflow_history` | `workflow status`, `workflow history` | Workflow page, run history menu |
-| Runs started as sub-workflows | `GET /api/executions/{id}/tree` | `get_execution_tree` | `workflow tree` | Sub-workflow links, Parent run |
-| Search runs across sessions | `GET /api/executions`, `…/counts` | – | `workflow executions search` | Runs page, command palette |
+| Stop all runs of a workflow | `POST /api/workflow/{session}/{wf}/stop` | `control_workflow` (`STOP_ALL`) | `workflow stop` | Run controls |
+| Restart a run, or from a node | `POST /api/executions/{id}/restart` | `control_workflow` (`RESTART`, `RESTART_FROM_NODE`) | `workflow executions restart` | Run controls, node menu |
+| Recover an aborted run | `POST /api/executions/{id}/recover` | `control_workflow` (`RECOVER`) | `workflow executions recover` | Run controls |
+| Change the priority of a queued run | `POST /api/executions/{id}/priority` | – | `workflow executions priority` | Run controls |
+| Run status | `GET /api/executions/{id}` | `get_workflow_status` | `workflow status` | Workflow page |
+| History of a session | `GET /api/workflow/{session}/history` | `get_workflow_history` | `workflow history` | Workflow page |
+| Sub-workflow runs | `GET /api/executions/{id}/tree` | `get_execution_tree` | `workflow tree` | Workflow page |
+| Search runs across sessions | `GET /api/executions`, `GET /api/executions/counts` | – | `workflow executions search` | Runs page |
 | Live status of a run | `GET /api/executions/{id}/status/stream` | – | `workflow status-stream` | Workflow page |
-| When each node ran | derived from the status | – | – | Workflow page › Timeline |
-| Results at the terminal nodes | `GET …/executions/{id}/results` (JSON or SSE) | `get_execution_result` | `result` | Progress panel › Result, results explorer |
-| Log lines, live and stored | `GET …/logs`, `…/logs/entries` | `get_execution_logs` | `logs` | Logs panel (filter, the server's raw lines, download) |
-| Copy an action as CLI, curl or MCP | – | – | – | Run and node menus › Copy as |
+| Results at terminal nodes | `GET /api/sessions/{s}/executions/{id}/results` | `get_execution_result` | `result` | Workflow page |
+| Log lines | `GET /api/sessions/{s}/executions/{id}/logs`, `.../logs/entries` | `get_execution_logs` | `logs` | Logs panel |
+| Output of one node | `GET /api/executions/{id}/nodes/{node}/output` | `get_node_output` | `logs --node` | – |
 
-## Nodes and approvals
-
-| Task | REST | MCP | CLI | Web UI |
-|---|---|---|---|---|
-| Pause, resume, stop, skip, unskip, step a node | `POST /api/executions/{id}/nodes/{node}/…` | `control_node` | `workflow node pause\|resume\|stop\|skip\|step` | Node menu |
-| Retry from a failed node | `POST …/nodes/{node}/retry` | `control_node` (`RETRY`) | `workflow node retry` | Node menu |
-| Set or clear a breakpoint | `POST`/`DELETE …/nodes/{node}/breakpoint` | `set_node_breakpoint`, `control_node` (`BREAKPOINT_CLEAR`) | `workflow node breakpoint` | Node menu › Breakpoint |
-| List or read input requests | `GET /api/sessions/{id}/inputs`, `GET /api/executions/{id}/inputs/{request}` | `list_pending_inputs` | `inputs list`, `inputs show` | – (Inputs panel planned, #1794) |
-| Answer or escalate an input request | `POST /api/executions/{id}/inputs/{request}/answer\|escalate` | `answer_input`, `escalate_input` | `inputs answer`, `inputs escalate` | – (#1794) |
-| Last output of a node | `GET …/nodes/{node}/output` | `get_node_output` | `logs --node` (log lines) | – (the node panel shows status, config, log lines and actions) |
-| Node details in one place | – | – | – | Node panel (click a node) |
-| Trigger a workflow from outside | `POST /hooks/{session}/{path}` | – | – | – (configured on a webhook trigger node) |
-
-## Control plane and server
+## Nodes
 
 | Task | REST | MCP | CLI | Web UI |
 |---|---|---|---|---|
-| Scheduler limits and queue | `GET`/`POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler limits set` | Control › Scheduler |
-| Drain the server | `GET`/`POST`/`DELETE /api/admin/drain` | – | – | – |
-| Workers | `GET /api/workers` | – | `workers` | Control › Workers |
-| Supervisors | `GET /api/supervisors/status`, `GET /api/supervisor-engines`, `GET /api/supervisors`, `GET`/`PUT /api/supervisors/{id}/assignments`, `GET /api/supervision`, `GET /api/supervision/summary` | `list_supervisors`, `list_supervisor_engines`, `get_supervisor`, `save_supervisor`, `set_assignments`, `get_supervision`, `get_supervision_summary` | `supervisors`, `supervisors engines\|list\|show\|save\|assign\|parents\|credential\|agent`, `supervision-summary` | Control › Supervisors, Supervisors page |
-| Send a raw control-bus command | `POST /api/control/workflows/{id}/nodes/{node}/command` | – | `controlbus command` | – |
-| Who sent which command | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |
+| Pause, resume, stop, skip, step a node | `POST /api/executions/{id}/nodes/{node}/...` | `control_node` | `workflow node pause\|resume\|stop\|skip`, `workflow node step enable\|disable\|next` | Node menu |
+| Retry from a failed node | `POST /api/executions/{id}/nodes/{node}/retry` | `control_node` (`RETRY`) | `workflow node retry` | Node menu |
+| Set or clear a breakpoint | `POST`, `DELETE /api/executions/{id}/nodes/{node}/breakpoint` | `set_node_breakpoint`, `control_node` (`BREAKPOINT_CLEAR`) | `workflow node breakpoint` | Node menu |
+| Send a raw control-bus command | `POST /api/control/workflows/{wf}/nodes/{node}/command` | – | `controlbus command` | – |
+| Trigger a workflow from outside | `POST /hooks/{session}/{path}` | – | – | – |
+
+## Input requests
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| List requests | `GET /api/inputs`, `GET /api/sessions/{id}/inputs` | `list_pending_inputs` | `inputs list` | Inputs panel on the workflow page; Control overview |
+| Read one request | `GET /api/executions/{id}/inputs/{request}` | – | `inputs show` | Inputs panel |
+| Answer | `POST /api/executions/{id}/inputs/{request}/answer` | `answer_input` | `inputs answer` | Inputs panel |
+| Escalate | `POST /api/executions/{id}/inputs/{request}/escalate` | `escalate_input` | `inputs escalate` | Inputs panel |
+| Answer by token | `POST /api/inputs/token-answer` | – | – | – |
+| Watch input events | `GET /api/events/stream` | – | `controlbus watch --type InputRequested,...` | Control activity |
+
+## Supervisors
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| List engines, describe one | `GET /api/supervisor-engines`, `.../{type}`, `.../{type}/usage` | `list_supervisor_engines`, `get_supervisor_engine` | `supervisors engines [type]` | Supervisors page |
+| Presets of an engine | `GET /api/supervisor-engines/{type}/presets` | `list_supervisor_presets` | `supervisors presets` | Supervisors page |
+| Running supervisors | `GET /api/supervisors/status` | `list_supervisors` | `supervisors` | Supervisors page, Control overview |
+| List, read | `GET /api/supervisors`, `GET /api/supervisors/{id}` | `list_supervisors`, `get_supervisor` | `supervisors list\|show` | Supervisors page |
+| Save, validate, delete | `POST /api/supervisors`, `PUT /api/supervisors/{id}`, `POST /api/supervisors/validate`, `DELETE /api/supervisors/{id}` | `save_supervisor`, `delete_supervisor` | `supervisors save\|validate\|delete` | Supervisor editor |
+| Assignments: read, check, set | `GET\|PUT /api/supervisors/{id}/assignments`, `POST .../assignments/check`, `GET /api/supervisors/assignments` | `check_assignment`, `set_assignments` | `supervisors assignments\|assign\|unassign\|check-assign\|set-assignments` | Supervisor page |
+| Parents | `PUT /api/supervisors/{id}` (`parents`, `delegation`) | `save_supervisor` (settings only; parents not an argument) | `supervisors parents set` | Supervisor editor |
+| Versions, rollback | `GET .../versions`, `POST .../rollback` | `list_supervisor_versions`, `rollback_supervisor` | `supervisors versions\|rollback` | Supervisor page |
+| Replay on a past run | `POST .../replay` | `replay_supervisor` | `supervisors replay` | – |
+| Rules document: read, save, replay | `GET\|PUT .../engine/rules`, `POST .../engine/rules/replay` | `get_rules`, `save_rules`, `replay_rules` | `supervisors rules get\|set\|replay` | Supervisor editor |
+| Credential: issue, show, revoke | `POST\|GET\|DELETE .../credential` | `create_credential`, `revoke_credential` | `supervisors credential create\|show\|revoke` | Supervisor page |
+| Run a program as agent | – | – | `supervisors agent` | – |
+| Recent decisions | `GET /api/supervisors/decisions` | – | `supervisors decisions` | Supervisor activity |
+| Who owns a node or run | `GET /api/supervision/ownership` | `get_ownership` | `ownership` | Workflow supervision tab |
+| Who may send which command | `GET /api/supervision` | `get_supervision` | `supervision` | Run and node controls (disabled with the owner named) |
+| Unowned workflows, conflicts | `GET /api/supervision/summary` | `get_supervision_summary` | `supervision-summary` | Supervisors page |
+| Contract version | `GET /api/supervisor-contract` | `get_supervisor_contract` | `supervisor-contract` | – |
+
+## Server and the Control dashboard
+
+| Task | REST | MCP | CLI | Web UI |
+|---|---|---|---|---|
+| Scheduler limits | `GET`, `POST /api/scheduler/limits` | `get_scheduler_limits`, `set_scheduler_limits` | `scheduler limits`, `scheduler set` | Control › Overview (Capacity) |
+| Drain the server | `GET`, `POST`, `DELETE /api/admin/drain` | – | – | Control › Overview (Capacity) |
+| Workers | `GET /api/workers` | – | `workers` | Control › Overview |
+| Control audit | `GET /api/control/audit` | – | `controlbus audit` | Control › Audit |
 | Live events of all runs | `GET /api/events/stream` | – | `controlbus watch` | Control › Activity |
-| Who am I, and what may I do | `GET /api/me` | `whoami` | `whoami` | Identity chip in the header |
-| Metrics time series | `GET /api/metrics/…` | – | – | Dashboard components only (`/showcase/dashboard`) |
-
-## Reading the gaps
-
-- **REST only, on purpose:** the webhook trigger is for outside systems, and draining the server is an operator action for a deployment script.
-- **Worth knowing:** MCP has no search, workers or supervisors view, and cannot change the priority of a queued run. The UI has no way to read a node's last output.
-- **Roles apply everywhere.** A key that may not do something gets `403` from REST, MCP and the CLI; the UI shows the control disabled with the role it needs. See [Security](/operations/security).
+| Control bus status | – | `get_control_bus_status` | – | Control › Overview |
+| Metrics | `GET /api/metrics/snapshot`, `/series`, `/heatmap`, `/modules`, `/annotations`, `/runs/live`, `/catalog`, `/stream` | `get_metrics_snapshot` | – | Control › Overview (panels, scope filter, kiosk) |
+| Who am I | `GET /api/me` | `whoami` | `whoami` | Identity chip in the header |
+| Edition | `GET /api/edition` | – | – | – |
 
 ## Related
 
-<Card title="REST API overview" icon="code" horizontal href="/api/overview">
-  Base path, authentication, response envelope, paging and stream conventions.
-</Card>
-
-<Card title="Command-line client" icon="terminal" horizontal href="/interfaces/cli">
-  Every `yukta-cli` command with its flags.
-</Card>
+- [MCP tools reference](/reference/mcp-tools)
+- [CLI reference](/reference/cli)
+- [Use the Control dashboard](/guides/supervise/use-the-control-dashboard)
+- [REST API overview](/api/overview)

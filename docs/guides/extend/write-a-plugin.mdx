@@ -1,0 +1,234 @@
+---
+title: "Write a plugin"
+sidebarTitle: "Write a plugin"
+description: "Add your own node type to Yukta: write a processor, declare its options and ports, test it, build it into the server and see it in the catalogue and in a run."
+keywords: ["plugin", "custom plugin", "plugin-api", "extend", "processor", "trigger", "terminal", "Java"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to write a plugin, test it and get it running in a workflow"
+  time="45 minutes"
+  need="Java 25, a checkout of the Yukta repository, and a node type you need that the built-in ones do not cover"
+  end="a SHOUT processor that appears in the plugin catalogue and runs in a workflow"
+/>
+
+**Use this when** the built-in nodes do not cover a step you need. A plugin is the Java code behind a node `type`. You write it against the `plugin-api` module, build it into the server and restart.
+
+**Prerequisites:** a clone of the [Yukta repository](https://github.com/infenia/yukta), JDK 25, and these ideas: a node has a role (trigger, processor or terminal), it works on streams of messages, and the engine, not your plugin, handles retries, time limits, pause, skip and failure routing. See [How Yukta works](/concepts/how-it-works).
+
+<Warning>
+  The plugin contract is in alpha and may change before 1.0. Pin your plugin to the server version it was built for. There is no runtime loading: the release binaries and the Docker image contain only the built-in plugins, so a plugin means building the server yourself.
+</Warning>
+
+## Pick a role
+
+| Role | Interface | You implement | Purpose |
+|---|---|---|---|
+| Trigger | `TriggerPlugin` | `start(config)` returns a stream of messages | Starts a workflow from the start request, a schedule or a constant |
+| Processor | `ProcessorPlugin` | `process(input, config)` returns a stream | Transforms, routes or calls out |
+| Terminal | `TerminalPlugin` | `consume(input, config)` completes when all is consumed | Ends a branch: logs, notifies or stores |
+
+All three live in `com.infenia.yukta.plugin.type` and extend `Plugin` in `com.infenia.yukta.plugin.core`. The steps build a processor; a trigger and a terminal differ only in this operation.
+
+<Diagram
+  name="ops-write-a-plugin"
+  alt="A plugin is a module you register in the build and compile into the server; after a restart it appears in the catalogue and as a node type."
+  caption="There is no runtime loading: a new plugin always means a new build of the server."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Make a module">
+    Plugins are Gradle modules under `plugins/`. Copy the build file of a small sibling, such as `plugins/processors/http-request/build.gradle.kts`, into `plugins/processors/shout/`. It applies the library conventions and depends on `:messaging` and `:plugin-api`:
+
+    ```kotlin
+    plugins {
+        id("com.infenia.yukta.library-conventions")
+    }
+
+    dependencies {
+        api(project(":messaging"))
+        implementation(project(":plugin-api"))
+        implementation(libs.spring.boot.starter.webflux)
+    }
+    ```
+
+    Register the module in `settings.gradle.kts` with `include("plugins:processors:shout")`, and in `boot/build.gradle.kts` add `implementation(project(":plugins:processors:shout"))` next to the other plugins. To let `-Pyukta.plugins=...` select it, add it to the `optionalPlugins` map there instead.
+  </Step>
+  <Step title="Write the plugin">
+    ```java
+    package com.infenia.yukta.plugin.shout;
+
+    import com.infenia.yukta.message.DefaultMessage;
+    import com.infenia.yukta.message.Message;
+    import com.infenia.yukta.plugin.core.ConfigField;
+    import com.infenia.yukta.plugin.core.PluginDescriptor;
+    import com.infenia.yukta.plugin.core.UiDesign;
+    import com.infenia.yukta.plugin.type.ProcessorPlugin;
+    import java.util.List;
+    import java.util.Locale;
+    import java.util.Map;
+    import java.util.Optional;
+    import org.springframework.stereotype.Component;
+    import reactor.core.publisher.Flux;
+    import reactor.core.publisher.Mono;
+
+    /** Upper-cases one field of the payload and adds a suffix. */
+    @Component
+    public final class ShoutProcessor implements ProcessorPlugin {
+
+      @Override
+      public String getType() {
+        return "SHOUT";
+      }
+
+      @Override
+      public PluginDescriptor describe() {
+        return new PluginDescriptor(
+            "Upper-cases a payload field and adds a suffix.",
+            "Configure with:\n- field: payload field to read (default text).\n- suffix: text to add (default !).",
+            Optional.of(new UiDesign("blue", "campaign", "Shout", 140, 80)));
+      }
+
+      @Override
+      public List<ConfigField> getConfigSchema() {
+        return List.of(
+            ConfigField.optional("field", ConfigField.Type.STRING, "text", "Payload field to read"),
+            ConfigField.optional("suffix", ConfigField.Type.STRING, "!", "Text added at the end"));
+      }
+
+      @Override
+      public Mono<Void> validateConfig(final Map<String, Object> config) {
+        return Mono.fromRunnable(() -> text(config, "field", "text"));
+      }
+
+      @Override
+      public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
+        final String field = text(config, "field", "text");
+        final String suffix = text(config, "suffix", "!");
+        return input.<Message<?>>map(
+            message -> {
+              final Object value =
+                  message.payload() instanceof Map<?, ?> payload ? payload.get(field) : null;
+              if (value == null) {
+                throw new IllegalArgumentException("The payload has no field '" + field + "'");
+              }
+              return DefaultMessage.from(
+                      message, Map.of("shouted", value.toString().toUpperCase(Locale.ROOT) + suffix))
+                  .withSourcePort("default");
+            });
+      }
+
+      private static String text(final Map<String, Object> config, final String key, final String fallback) {
+        final Object value = config.get(key);
+        return value == null ? fallback : value.toString();
+      }
+    }
+    ```
+
+    What each part does:
+
+    - `getType()` is the string users write as a node's `type`. Two plugins with the same type stop the server at start. Use the upper-case, underscore style of the built-in types.
+    - `getConfigSchema()` lists the options. The web UI builds the node form from it, and `GET /api/plugins/{type}` returns it. Keep the field names equal to the keys the plugin reads. Declare a credential as `ConfigField.Type.SECRET` so users write a `decrypted:<key>` reference.
+    - `validateConfig` runs when a workflow is saved, so a typo fails there and not deep in a run. It runs again at compile time; `validateInContext` (not shown) checks the node's place in the graph.
+    - `DefaultMessage.from(message, payload)` keeps the message id, trace id and metadata. Set the source port on every output message: the engine routes only on the ports you declare (default: one port named `default`; override `getOutputPorts()` for more).
+    - Throw `IllegalArgumentException` for invalid input. The engine does not retry it by default, because repeating the same input cannot succeed.
+
+    The plugin must be a Spring bean. The server scans `com.infenia.yukta`, so `@Component` in a package below it is found. A plugin in another package registers through a Spring Boot `@AutoConfiguration` class listed in `META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports`, as `process-executor` does.
+  </Step>
+  <Step title="Test it">
+    Test the plugin on its own with Reactor's `StepVerifier`, as the built-in ones do:
+
+    ```java
+    class ShoutProcessorTest {
+      private final ShoutProcessor plugin = new ShoutProcessor();
+
+      @Test
+      void shoutsTheField() {
+        final Message<?> in = DefaultMessage.create(UUID.randomUUID(), Map.of("text", "hello"));
+        StepVerifier.create(plugin.process(Flux.just(in), Map.of()))
+            .assertNext(out -> assertThat(out.payload()).isEqualTo(Map.of("shouted", "HELLO!")))
+            .verifyComplete();
+      }
+
+      @Test
+      void aMissingFieldIsInvalidInput() {
+        final Message<?> in = DefaultMessage.create(UUID.randomUUID(), Map.of("other", "x"));
+        StepVerifier.create(plugin.process(Flux.just(in), Map.of()))
+            .expectError(IllegalArgumentException.class)
+            .verify();
+      }
+    }
+    ```
+
+    Then register the plugin with the server-wide checks. The `boot` module runs every registered plugin through a conformance check (the schema matches the config, a bad config gives a clear error, the minimal config runs, a cancel reaches the input and leaks no thread, a 10 MB message is handled, an upstream error surfaces and no secret reaches the logs). A new plugin fails these tests until you add a fixture, a minimal config that needs no outside world, to `fixtures()` in `PluginConformanceSweepTest` and to `FIXTURES` in `PluginRuntimeAcceptanceTest`, and list the type in `PluginCoverageAcceptanceTest`. A plugin that cannot run without the outside world gets a reasoned entry in `conformance-exemptions.properties` or in the tests' `EXEMPT` maps instead.
+  </Step>
+  <Step title="Build it into the server and run it">
+    ```bash
+    ./gradlew bootRun
+    ```
+
+    This starts the server on `http://localhost:9858` with the `dev` profile. If you contribute to the repository, run the project's quality gates (Spotless, Checkstyle, PMD, SpotBugs) before a pull request: they apply to plugin code too, and every Java file needs the Apache-2.0 header. See the [contributing guide](https://github.com/infenia/yukta/blob/main/CONTRIBUTING.md).
+  </Step>
+  <Step title="Use it in a workflow">
+    ```json
+    {
+      "sessionId": "shout-demo",
+      "name": "Shout demo",
+      "workflows": {
+        "main": {
+          "workflowId": "main",
+          "nodes": [
+            { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "shout", "type": "SHOUT", "config": { "suffix": "!!" } },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "start", "target": "shout" },
+            { "source": "shout", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    ```bash
+    yukta-cli session apply shout-demo.json
+    yukta-cli workflow start shout-demo main --payload '{"text":"hello"}'
+    yukta-cli result shout-demo <execution-id>
+    ```
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+yukta-cli plugin get SHOUT
+```
+
+You see the description, the usage text and the `default` output port. The plugin also appears in the **Plugins** page of the [web UI](/guides/operate/use-the-web-ui) (its form comes from `getConfigSchema()`), and in the MCP tools `list_plugins` and `get_plugin_details`. The `result` command prints the payload `{"shouted": "HELLO!!"}`. A workflow that uses a type the server does not have is rejected when it is validated, so a typo in `type` fails at save time. If the server stops at start with "Duplicate plugin type", two plugins use the same string.
+
+## Variations that matter
+
+- **A long-running step.** The engine owns the idle timeout: a node's `timeoutSeconds` option, else your plugin's `getDefaultTimeout()` (30 seconds). A step that works for a long time without emitting must send heartbeats. A heartbeat restarts the idle clock, but not a hard deadline (`engine.deadlineMs`). Take it from the Reactor context (`WorkflowContext.HEARTBEAT_KEY`) and run it as a `Runnable`.
+- **Live logs.** A plugin writes live log lines through the sink in the Reactor context (`WorkflowContext.LOG_SINK_KEY`): `line("stdout" | "stderr", text)`. They appear in the run's logs while the node works.
+- **Failures as data.** Support `failureMode` with `ERROR` (the error ends the node and the node's `engine` policy decides) and `CONTINUE` (the original message leaves on the `error` port with the failure attached). `PluginGuard` in `plugin-api` does this for you.
+- **Make side effects safe to repeat.** Delivery is at least once: a retry, a restart from a node or a resume can run a step again with the same message. Use the stable message id as an idempotency key, and the `attempt` header, when you call an outside system. See [Persist sessions](/guides/operate/persist-sessions#resume-runs-after-a-restart).
+- **Ask a person.** A node that waits for a decision asks an *input request* on the `InputGateway` through `InputAsk.ask(gatewaySupplier, spec)`. Take the gateway through an `ObjectProvider<InputGateway>`, build the request key from the message id so a resumed run finds its earlier answer, and remember that a request with risk `HIGH` can be answered only by a person. See `AskInputProcessor` in the [repository](https://github.com/infenia/yukta/blob/main/plugins/processors/internal/internal-core/src/main/java/com/infenia/yukta/plugin/core/flow/AskInputProcessor.java) and [Ask for input](/guides/ai/ask-for-input).
+- **Budgets.** `RunBudgets` in `plugin-api` is the shared ledger of tokens, cost and calls for one run, used by `LLM_CALL` and `MCP_TOOL_CALL`. It lives in server memory.
+- **State.** The registered instance is a shared singleton that serves every node of its type, in every workflow and session, so keep it stateless. For per-node state (a window, a cache, a parsed config), override `forNode(config)`: the engine calls it once per node when a run is assembled and uses the object you return for every call of that node. Make `initialize` safe to run many times. The engine never calls `shutdown`, so release long-lived resources with the server's own lifecycle, for example `@PreDestroy`. A plugin that keeps state in the server process and so cannot move to a worker overrides `requiresControlPlane()`.
+- **Blocking work.** If the plugin blocks on input or output, override `isBlocking()` to return `true` so it runs off the shared event threads.
+- **Run it on a worker.** Plugins can run on a [remote worker](/guides/operate/add-remote-workers): build the plugin into the worker and list its type in `yukta.workers.plugin-types`.
+- **An assistant can help.** The MCP tool `get_plugin_creation_guide` returns a template for a new plugin. See [Connect an assistant](/guides/ai/connect-an-assistant).
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview): the built-in plugins and how a build chooses them
+- [Messages reference](/reference/messages)
+- [Handle failures](/guides/build/handle-failures): the `engine` policy around your plugin
+- [How time limits work](/concepts/time-limits)
+- [Deploy Yukta](/guides/operate/deploy): build switches and shipping a custom build

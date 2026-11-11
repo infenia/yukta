@@ -199,7 +199,7 @@ The query parameters `version` and `note` still work, but a note in the URL ends
 
 `POST /api/workflow/start`
 
-Starts a run and returns its id at once. The run continues in the background; follow it with [status](/api/executions) or the [streams](/api/streams). A start may wait in a queue when the [execution limits](/running/admission-and-limits) are full; the run then reports `QUEUED` until it gets a slot.
+Starts a run and returns its id at once. The run continues in the background; follow it with [status](/api/executions) or the [streams](/api/streams). A start may wait in a queue when the [execution limits](/guides/operate/tune-capacity-and-limits) are full; the run then reports `QUEUED` until it gets a slot.
 
 | Header | Meaning |
 |---|---|
@@ -293,10 +293,10 @@ GET /api/workflow/demo/history?status=FAILURE&limit=20
   Read the status and result of a run, search runs, stop, restart and recover them, and manage the execution queue.
 </Card>
 
-<Card title="Validation and versions" icon="code-compare" horizontal href="/building/validation-and-versions">
+<Card title="Validation and versions" icon="code-compare" horizontal href="/guides/build/validate-and-roll-back">
   Check a workflow definition before it runs, and diff, annotate and roll back its saved versions.
 </Card>
 
-<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
+<Card title="Admission and limits" icon="traffic-light" horizontal href="/guides/operate/tune-capacity-and-limits">
   Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
 </Card>

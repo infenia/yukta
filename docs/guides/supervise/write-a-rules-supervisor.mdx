@@ -1,0 +1,167 @@
+---
+title: "Write a rules supervisor"
+sidebarTitle: "Write a rules supervisor"
+description: "Write rules that react to events, veto commands, hold commands for approval and answer input requests, save them as a supervisor and version them."
+keywords: ["rules supervisor", "rules engine", "deny", "requireApproval", "presets", "failure-guard", "rule file"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to turn 'when this happens, do that' and 'never allow this' into a supervisor"
+  time="20 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, and a workflow to supervise (steer/slow from Control a run)"
+  end="a rules supervisor that pauses a failing run, vetoes a KILL stop and holds a production stop for approval"
+/>
+
+**Use this when** the situations and the responses can be stated exactly. The `rules` engine decides with a JSON document and needs no code and no model. If the decision needs judgement, use an [agent supervisor](/guides/supervise/write-an-agent-supervisor).
+
+**Prerequisites:** [Assign a supervisor](/guides/supervise/assign-a-supervisor) (you create and assign one the same way). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+## Steps
+
+<Steps>
+  <Step title="Start from a preset, or from nothing">
+    `GET /api/supervisor-engines/rules/presets` lists ready-made documents: `failure-guard` (pause a workflow when 3 nodes fail within 60 seconds), `approval-gate` (a stop waits for a person), `stall-watchdog` (pause a run silent for 10 minutes) and `too-many-running`. Fetch one, change it and save it as your own:
+
+    ```bash
+    curl -s localhost:9858/api/supervisor-engines/rules/presets
+    yukta-cli supervisors presets rules
+    ```
+  </Step>
+
+  <Step title="Write the rules">
+    A rule is a **reaction** (`when` an event matches, `then` send a command), a **veto** (`deny` a command) or a **hold** (`requireApproval`). Every `when` field you set must match; omit a field to match anything. Save as `ci-guard.json`:
+
+    ```json ci-guard.json
+    {
+      "id": "ci-guard",
+      "type": "rules",
+      "description": "Pause on repeated failure, refuse KILL, hold production stops",
+      "settings": {
+        "allowedCommands": ["PauseWorkflowCommand"],
+        "operatorAccess": ["StopWorkflowCommand"],
+        "rules": [
+          {
+            "id": "pause-on-repeated-failure",
+            "when": { "event": "NodeStatusChanged", "status": "FAILURE", "count": 3, "withinSeconds": 60 },
+            "then": { "command": "PauseWorkflow", "reason": "3 nodes failed within 60 seconds" }
+          },
+          {
+            "id": "no-kill",
+            "deny": { "command": "StopWorkflow", "if": "mode == 'KILL'", "reason": "use DRAIN or CANCEL" }
+          },
+          {
+            "id": "prod-stop",
+            "requireApproval": {
+              "command": "StopWorkflow",
+              "if": "workflowId == 'prod-deploy'",
+              "risk": "HIGH",
+              "reason": "production stop"
+            }
+          }
+        ]
+      }
+    }
+    ```
+
+    - **`when.event`** is `NodeStatusChanged`, `WorkflowStatusChanged`, `ControlOutcome`, `LogLine`, `EventsMissed` or an input event (`InputRequested`, `InputEscalated`, `InputAnswered`, `InputExpired`, `InputCancelled`). `count` and `withinSeconds` (default 1 and 60) are counted per run.
+    - **`if`** is a condition over the event's fields (`status`, `module`, `nodeId`, `metadata['code']`, `risk`, `context['environment']`...). One that cannot be evaluated counts as not matching, so a faulty reaction never fires; a `deny` condition that cannot be evaluated **refuses**, so a faulty veto never lets a command through.
+    - **`then.command`** is `PauseWorkflow`, `ResumeWorkflow`, `StopWorkflow` (with `mode`), `PauseNode`, `ResumeNode`, `StopNode`, `Restart` or `RestartFromNode`. The supervisor must also list that command's name (`PauseWorkflowCommand`) in `allowedCommands`, or the command is dropped and counted as `forbidden`.
+    - **`deny`** and **`requireApproval`** read the command's fields: `executionId`, `actor`, `nodeId`, `mode`, `reason`, `immediate`, and for holds `workflowId`. A deny beats a hold.
+    - **`operatorAccess`** names what a person may send through this owner. A vetoed or held command must be listed here, or a person's command is refused earlier with `409 CONTROLLED_BY_SUPERVISOR`.
+  </Step>
+
+  <Step title="Save it and give it something to own">
+    Rules are checked when saved, so a bad condition, an unknown command or a typo is reported with the rule that is wrong:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors/validate -H 'Content-Type: application/json' -d @ci-guard.json
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @ci-guard.json
+    curl -s -X PUT localhost:9858/api/supervisors/ci-guard/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"workflow:steer/slow"}]'
+    ```
+  </Step>
+
+  <Step title="Answer or escalate input requests">
+    Instead of a `command`, `then` can hold `answer` or `escalate` for an `InputRequested` or `InputEscalated` event. The supervisor needs `canAnswer: true` and a `maxRisk` that reaches the request (`LOW` or `MEDIUM`; `HIGH` is people only). The answer must be one of the request's option ids.
+
+    ```json
+    {
+      "id": "input-rules",
+      "type": "rules",
+      "settings": {
+        "canAnswer": true,
+        "maxRisk": "LOW",
+        "allowedCommands": ["AnswerInputCommand", "EscalateInputCommand"],
+        "rules": [
+          {
+            "id": "approve-low-risk-staging",
+            "when": { "event": "InputRequested", "if": "kind == 'APPROVAL' and risk == 'LOW' and context['environment'] == 'staging'" },
+            "then": { "answer": { "decision": "approve", "rationale": "policy 7: low risk changes to staging are pre-approved", "confidence": 1.0 } }
+          },
+          {
+            "id": "escalate-everything-else",
+            "when": { "event": "InputRequested", "if": "not (kind == 'APPROVAL' and risk == 'LOW' and context['environment'] == 'staging')" },
+            "then": { "escalate": { "reason": "not covered by policy 7", "advice": "Check the change and its target environment before you answer." } }
+          }
+        ]
+      }
+    }
+    ```
+
+    This is `examples/16-supervisor-profiles/input-requests.json`. The rationale is recorded as `rule <id>: <rationale>`. The prompt and context were written by the asking step, often a model: compare them, but do not base an approval on their claims alone. See [Route input requests](/guides/supervise/route-input-requests).
+  </Step>
+
+  <Step title="Change the rules without touching the rest">
+    `PUT /api/supervisors/{id}/engine/rules` replaces only the rules document and keeps `allowedCommands`, `operatorAccess` and the other shared settings. Every save is a version (the newest 20); saving swaps the running rules in whole.
+
+    ```bash
+    curl -s localhost:9858/api/supervisors/ci-guard/engine/rules
+    curl -s -X PUT localhost:9858/api/supervisors/ci-guard/engine/rules \
+      -H 'Content-Type: application/json' -d '{"schemaVersion":1,"rules":[{"id":"no-kill","deny":{"command":"StopWorkflow","if":"mode == '"'"'KILL'"'"'","reason":"use DRAIN or CANCEL"}}]}'
+    yukta-cli supervisors rules get ci-guard
+    yukta-cli supervisors versions ci-guard
+    yukta-cli supervisors rollback ci-guard --version 1
+    ```
+
+    A document that names a shared setting is refused; change those with `PUT /api/supervisors/{id}`. MCP: `get_rules`, `save_rules`, `list_supervisor_versions`, `rollback_supervisor`.
+  </Step>
+
+  <Step title="Try the rules on a past run first">
+    Before you swap rules into production, replay a draft over a finished run: [Replay a supervisor](/guides/supervise/replay-a-supervisor).
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start `steer/slow` (a run that lasts 45 seconds) and send a refused stop:
+
+```bash
+curl -s -X POST "localhost:9858/api/executions/$EXEC/stop?mode=KILL"
+```
+
+```json
+{ "status": 403, "message": "use DRAIN or CANCEL", "errors": [ { "field": "code", "message": "CONTROL_REJECTED" } ] }
+```
+
+The run keeps going. A `DRAIN` stop passes the veto and ends it. For a held command (here `prod-stop` on a workflow named `prod-deploy`) the answer is `202` with `{"status":"AWAITING_APPROVAL","requestId":"..."}` and an input request of risk `HIGH` that only a person can approve ([Ask for input](/guides/ai/ask-for-input)). To see what the supervisor did, list its decisions:
+
+```bash
+curl -s "localhost:9858/api/supervisors/decisions?supervisor=ci-guard"
+```
+
+Each entry has an outcome: `applied`, `rejected`, `dry-run`, `forbidden`, `not-owned`, `rate-limited`, `awaiting-approval` and so on. `GET /api/control/audit` shows the same commands with their senders.
+
+## Variations
+
+- **Timed rules.** `"when": {"every": "30s", "status": "RUNNING", "if": "read.RUNNING > 10"}` runs on a timer over the runs the supervisor owns (`read.<STATUS>` counts them). A timed rule acts on its own, so it needs a `reason` and its command in the supervisor's `initiative` list (and `maxInitiativePerMinute`, default 10). The `too-many-running` and `stall-watchdog` presets are timed.
+- **Bound a retry loop.** `Restart` and `RestartFromNode` start a new run; its events carry `attempt` (0 for a run nobody restarted). `"if": "attempt < 2"` stops the chain. The count lives in memory and starts again after a restart.
+- **Do not lose events.** Event delivery is best effort, but a gap is never silent: a rule on `EventsMissed` (`missed` holds the count) can pause or fail safe.
+- **A rules file for the whole server.** `yukta.supervisor.rules.file` starts a rule supervisor from a file, but it owns nothing, so it reviews nothing and can never answer. Use a saved supervisor with assignments instead.
+
+## Related
+
+- [Rule files reference](/reference/supervisors/rule-files) for every field, event and command.
+- [Supervisor shell reference](/reference/supervisors/shell) for `allowedCommands`, `initiative` and `operatorAccess`.
+- [Supervisors](/concepts/supervisors).
