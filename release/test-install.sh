@@ -71,6 +71,16 @@ if YUKTA_OS=Darwin YUKTA_ARCH=arm64 sh "$script" --version "$version" --install-
   fail "--server-only should fail without a native server"
 fi
 
+echo "4b. Apple silicon gets the Intel server when the release has one"
+cp -r "$work/stage/yukta-$version-linux-amd64" "$work/stage/yukta-$version-darwin-amd64"
+tar -C "$work/stage" -czf "$rel/yukta-$version-darwin-amd64.tar.gz" "yukta-$version-darwin-amd64"
+printf '#!/bin/sh\necho arm-client\n' > "$rel/yukta-cli-darwin-arm64"
+(cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+out="$(YUKTA_OS=Darwin YUKTA_ARCH=arm64 sh "$script" --version "$version" --install-dir "$work/e2")"
+[[ -x "$work/e2/yukta" ]] || fail "Intel server on Apple silicon"
+grep -q arm-client "$work/e2/yukta-cli" || fail "Apple silicon did not get its own client"
+grep -q "Rosetta" <<<"$out" || fail "no Rosetta note"
+
 echo "5. piped to sh with options"
 cat "$script" | sh -s -- --version "$version" --install-dir "$work/g" --cli-only >/dev/null || fail "piped run"
 [[ -x "$work/g/yukta-cli" ]] || fail "piped install"

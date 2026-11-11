@@ -156,6 +156,9 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
+            // Software bill of materials (CycloneDX): Oracle GraalVM embeds one in the binary by default;
+            // "export" also writes yukta.sbom.json next to it, which the release attaches and attests.
+            buildArgs.add("--enable-sbom=embed,export")
             // System.console() must be the OS-backed provider (see RunMode.isTty)
             buildArgs.add("-Djdk.console=java.base")
             // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs
@@ -163,6 +166,11 @@ graalvmNative {
             // Not on Windows: with it the Windows image fails at startup with heap corruption
             // ("Object with invalid hub type" in the GC), with -O3 and with -Ob.
             if (!System.getProperty("os.name").startsWith("Windows")) buildArgs.add("-H:+SharedArenaSupport")
+            // Windows: the JDK DNS lookup caches JNI field ids in its static initializer (init0); they must
+            // be taken in the running process, or loadDNSconfig0 segfaults when Netty asks for the name servers.
+            if (System.getProperty("os.name").startsWith("Windows")) {
+                buildArgs.add("--initialize-at-run-time=sun.net.dns.ResolverConfigurationImpl")
+            }
 
             // openai-java-core ships agent-recorded proxy/serialization metadata captured from its
             // own Gradle/ByteBuddy-based tests (classes absent here), so native-image warns

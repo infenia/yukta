@@ -295,6 +295,10 @@ main() {
     aarch64 | arm64) arch=arm64 ;;
     *) err "unsupported processor: $arch" ;;
   esac
+  # A shell running under Rosetta 2 reports x86_64 on Apple silicon: ask the hardware.
+  if [ -z "${YUKTA_ARCH:-}" ] && [ "$os" = darwin ] && [ "$(sysctl -n hw.optional.arm64 2>/dev/null)" = 1 ]; then
+    arch=arm64
+  fi
 
   if [ -z "$version" ] && [ "$DEFAULT_VERSION" != "@VERSION@" ]; then version="$DEFAULT_VERSION"; fi
   if [ -z "$version" ]; then version="$(latest_version)"; fi
@@ -347,7 +351,16 @@ main() {
 
   keep_prev() { if [ -f "$dir/$1" ]; then cp -p "$dir/$1" "$dir/$1.prev"; prev_kept=1; fi; }
   prev_kept=0
-  archive="yukta-$version-$os-$arch.tar.gz"
+  # sarch: the processor the server is built for. The macOS server is built for Intel only; Apple
+  # silicon runs it through Rosetta 2 and still gets its own client.
+  sarch="$arch"
+  if [ "$os-$arch" = darwin-arm64 ] && [ "$do_server" = "1" ] &&
+    ! listed "yukta-$version-darwin-arm64.tar.gz" && listed "yukta-$version-darwin-amd64.tar.gz"; then
+    say "Note: this release has no Apple silicon server; installing the Intel one (needs Rosetta 2:
+  softwareupdate --install-rosetta)."
+    sarch=amd64
+  fi
+  archive="yukta-$version-$os-$sarch.tar.gz"
   cli_asset="yukta-cli-$os-$arch"
   installed_server=0
 
@@ -355,13 +368,17 @@ main() {
     get_verified "$archive"
     step_start 5 "Install"
     tar -xzf "$tmp/$archive" -C "$tmp"
-    src="$tmp/yukta-$version-$os-$arch"
+    src="$tmp/yukta-$version-$os-$sarch"
     # Install only regular files that the archive put in its own folder, never a link or a stray path.
     for f in yukta yukta-cli; do
       [ -f "$src/$f" ] && [ ! -L "$src/$f" ] || err "$archive does not contain a regular file $f; not installing"
     done
     [ "$do_server" = "1" ] && { keep_prev yukta; install -m 0755 "$src/yukta" "$dir/yukta"; installed_server=1; }
-    [ "$do_cli" = "1" ] && { keep_prev yukta-cli; install -m 0755 "$src/yukta-cli" "$dir/yukta-cli"; }
+    cli_src="$src/yukta-cli"
+    if [ "$do_cli" = "1" ] && [ "$sarch" != "$arch" ] && listed "$cli_asset"; then
+      get_verified "$cli_asset"; cli_src="$tmp/$cli_asset"
+    fi
+    [ "$do_cli" = "1" ] && { keep_prev yukta-cli; install -m 0755 "$cli_src" "$dir/yukta-cli"; }
   else
     [ "$do_server" = "0" ] || [ "$do_cli" = "1" ] || err "this release has no native server for $os/$arch; use Docker"
     if [ "$do_cli" = "1" ]; then

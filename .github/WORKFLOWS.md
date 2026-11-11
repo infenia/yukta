@@ -379,7 +379,7 @@ To catch those before pushing, enable the pre-push hook once:
 
 Pushing a `v*` tag builds the CLI for all platforms (with `SHA256SUMS`), attaches build-provenance
 attestations, and creates a GitHub release. Running it via `workflow_dispatch` is a dry run: nothing
-is published. The container image (GraalVM native compile) is built locally, not in CI.
+is published; the weekly schedule runs the same dry run on `main`. See `release/README.md`.
 
 ## CI additions
 

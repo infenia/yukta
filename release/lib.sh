@@ -15,7 +15,7 @@ IMAGE_GHCR="${IMAGES[0]}"
 # Pinned like the CLI's lint tools: run with `go run`, so nothing needs installing.
 NFPM="github.com/goreleaser/nfpm/v2/cmd/nfpm@v2.48.0"
 # Named like the CLI binaries (GOOS-GOARCH). The macOS Intel and Windows arm64 builds are not shipped.
-PLATFORMS=(linux-amd64 linux-arm64 darwin-arm64 windows-amd64)
+PLATFORMS=(linux-amd64 linux-arm64 darwin-amd64 windows-amd64)
 
 die() { echo "release: $*" >&2; exit 1; }
 log() { echo "==> $(date -u +%H:%M:%S) $*" >&2; }
