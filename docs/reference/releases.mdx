@@ -55,6 +55,7 @@ Current release: **`0.1.0-alpha.3`**.
 | `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped |
 | `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
 | `install.sh` | One-command installer, pinned to the release |
+| `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library compiled into that binary, with its version. From the release after `0.1.0-alpha.3`; the same list is embedded in every server binary |
 | `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums for every file, and a signature for the checksums |
 | `ghcr.io/infenia/yukta:<version>` | The container image |
 
@@ -95,6 +96,15 @@ Files built by GitHub Actions (the command-line client binaries and the server b
 
 ```bash
 gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta
+```
+
+The container image is signed by the same workflow, and from the release after `0.1.0-alpha.3` it carries build provenance too (replace `X.Y.Z` with the version):
+
+```bash
+cosign verify ghcr.io/infenia/yukta:X.Y.Z \
+  --certificate-identity-regexp '^https://github.com/infenia/yukta/.github/workflows/release.yml@refs/tags/v' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+gh attestation verify oci://ghcr.io/infenia/yukta:X.Y.Z -R infenia/yukta
 ```
 
 ## Report a problem

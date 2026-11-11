@@ -156,6 +156,9 @@ graalvmNative {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
+            // Software bill of materials (CycloneDX): Oracle GraalVM embeds one in the binary by default;
+            // "export" also writes yukta.sbom.json next to it, which the release attaches and attests.
+            buildArgs.add("--enable-sbom=embed,export")
             // System.console() must be the OS-backed provider (see RunMode.isTty)
             buildArgs.add("-Djdk.console=java.base")
             // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs

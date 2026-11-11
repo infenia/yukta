@@ -7,6 +7,11 @@ on:
   push:
     tags: [ "v*" ]
   # The tag is created by release-please (release-please.yml) when the release PR is merged.
+  # Weekly rehearsal: the same dry run as a manual one, the full -O3 build on every platform, so a build
+  # that broke on macOS or Windows (native-smoke.yml covers linux-amd64 only) shows up before the release
+  # PR is merged, not after the tag exists.
+  schedule:
+    - cron: '17 21 * * 6' # Sunday 2:47 AM IST (Saturday 21:17 UTC)
   workflow_dispatch:   # dry run: builds everything, publishes nothing
     inputs:
       platforms:
@@ -191,11 +196,25 @@ jobs:
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
 
+      # native-image wrote the bill of materials next to the binary (--enable-sbom=embed,export). Checked
+      # on every run, so a rehearsal fails when it is missing, not the release.
+      - name: SBOM was exported
+        env:
+          SBOM: dist/${{ matrix.platform }}/yukta.sbom.json
+        run: jq -e '.bomFormat == "CycloneDX" and (.components | length > 50)' "$SBOM"
+
       - name: Attest build provenance
         if: github.ref_type == 'tag'
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-path: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
+
+      - name: Attest the SBOM
+        if: github.ref_type == 'tag'
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-path: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
+          sbom-path: dist/${{ matrix.platform }}/yukta.sbom.json
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
@@ -217,6 +236,7 @@ jobs:
       contents: write       # upload to the draft release
       packages: write       # push the image to GHCR
       id-token: write       # keyless signing as this workflow
+      attestations: write   # build provenance of the image
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -285,6 +305,24 @@ jobs:
           gh release edit "$TAG" --prerelease="$pre"
           release/release.sh "${TAG#v}" --skip-server --publish
 
+      # Provenance for the image index (the digest cosign signed), stored next to it in the registry, so
+      # `gh attestation verify oci://ghcr.io/<repo>:<version>` works like it does for the binaries.
+      - name: Image digest
+        id: image
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          digest="$(docker buildx imagetools inspect "$IMAGE:${TAG#v}" --format '{{json .Manifest.Digest}}' | tr -d '"')"
+          [[ "$digest" == sha256:* ]] || { echo "::error::no digest for $IMAGE:${TAG#v}"; exit 1; }
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest image provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ${{ env.IMAGE }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: true
+
   # Installs what was just uploaded the way a user would, before anyone publishes the draft.
   verify:
     name: Test the draft
@@ -293,6 +331,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write       # reading a draft release needs write access
+      attestations: read    # gh attestation verify
     env:
       GH_TOKEN: ${{ github.token }}
       TAG: ${{ github.ref_name }}
@@ -301,9 +340,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: release
+          sparse-checkout: |
+            release
+            cli
 
       - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'cli/go.mod'
+          cache: false
 
       - name: Checksums and signature
         run: |
@@ -314,6 +360,39 @@ jobs:
           cosign verify-blob --bundle SHA256SUMS.sigstore.json SHA256SUMS \
             --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$TAG" \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com
+
+      # Everything the release claims to have attested or signed, checked the way a user would: a broken
+      # attestation or image signature stops here, while the release is still a draft.
+      - name: Build provenance of the binaries
+        run: |
+          cd "$RUNNER_TEMP/rel/$TAG"
+          tar -xzf "yukta-${TAG#v}-linux-amd64.tar.gz" -C "$RUNNER_TEMP"
+          for file in yukta-cli-* "$RUNNER_TEMP/yukta-${TAG#v}-linux-amd64/yukta"; do
+            gh attestation verify "$file" -R "$REPO" \
+              --signer-workflow "$REPO/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
+          done
+          # The server's bill of materials: attached to the release, and attested for the binary.
+          jq -e '.components | length > 50' "yukta-${TAG#v}-linux-amd64.sbom.json" >/dev/null
+          gh attestation verify "$RUNNER_TEMP/yukta-${TAG#v}-linux-amd64/yukta" -R "$REPO" \
+            --predicate-type https://cyclonedx.org/bom \
+            --signer-workflow "$REPO/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
+
+      # A second, independent build of the CLI from the tag must give the released bytes (cli/Makefile:
+      # -trimpath, no cgo, no timestamps), so the binaries can be checked against the source by anyone.
+      - name: CLI binaries are reproducible
+        run: |
+          make -C cli build-all VERSION="${TAG#v}"
+          (cd cli/build && sha256sum yukta-cli-*) > "$RUNNER_TEMP/rebuilt"
+          (cd "$RUNNER_TEMP/rel/$TAG" && sha256sum -c "$RUNNER_TEMP/rebuilt")
+
+      - name: Image signature and provenance
+        run: |
+          image="ghcr.io/$REPO:${TAG#v}"
+          cosign verify "$image" \
+            --certificate-identity "https://github.com/$REPO/.github/workflows/release.yml@refs/tags/$TAG" \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com >/dev/null
+          gh attestation verify "oci://$image" -R "$REPO" \
+            --signer-workflow "$REPO/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
 
       - name: Install on a clean machine
         run: |

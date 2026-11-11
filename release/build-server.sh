@@ -18,7 +18,7 @@
 # Usage: [NATIVE_HEAP=16g] [NATIVE_QUICK=1] [NATIVE_PGO_INSTRUMENT=1] release/build-server.sh
 # NATIVE_QUICK=1 compiles with -Ob: much faster, for rehearsals and smoke tests. release.sh refuses
 # to publish such a binary.
-# Result: dist/linux-<arch>/yukta, BUILD (version, quick flag, commit) and SHA256SUMS
+# Result: dist/linux-<arch>/yukta, yukta.sbom.json, BUILD (version, quick flag, commit) and SHA256SUMS
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 
@@ -58,6 +58,7 @@ docker build --target builder --build-arg "NATIVE_HEAP=$heap" \
 cid="$(docker create "yukta-builder:$platform")"
 trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
 docker cp "$cid:/build/boot/build/native/nativeCompile/yukta" "$out/yukta"
+docker cp "$cid:/build/boot/build/native/nativeCompile/yukta.sbom.json" "$out/yukta.sbom.json"
 chmod 0755 "$out/yukta"
 write_build_marker "$out"
 # Kept next to the binary so the release can attach the profile this binary was built with.
