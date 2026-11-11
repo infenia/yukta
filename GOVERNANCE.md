@@ -80,7 +80,7 @@ The project must not depend on a single person being reachable.
   administrative rights on the GitHub organization, so repository access does not depend on one
   account.
 * Everything needed to build, test, release and run the project is in the repository and
-  documented: [docs/building](docs/building), [release/README.md](release/README.md) and
+  documented: [docs/guides/build](docs/guides/build), [release/README.md](release/README.md) and
   [.github/WORKFLOWS.md](.github/WORKFLOWS.md). Nothing in a release depends on private
   knowledge of one person.
 * Releases are cut by [release-please](https://github.com/googleapis/release-please) and

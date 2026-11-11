@@ -1,6 +1,6 @@
 # Supervisors: configure, understand, extend, improve
 
-This page is for people who work on supervisors. The operator guide is [Supervisors](../docs/running/supervisors.mdx); this page does not repeat it. It covers the four things that page leaves out:
+This page is for people who work on supervisors. The operator guide is [Supervisors](../docs/concepts/supervisors.mdx); this page does not repeat it. It covers the four things that page leaves out:
 
 1. [The configuration model](#1-how-supervisors-are-configured): what you create, where it applies, and the four ways to declare it.
 2. [How it works](#2-how-it-works): the path from an event to an applied command.
@@ -237,7 +237,7 @@ yk gradle spotlessApply
 yk check
 ```
 
-**5. Document it.** Add a subsection to `docs/running/supervisors.mdx` (the other types have one), add the type to the table in this page, and update `core/.claude/rules/supervisors.md`. If you add a core setting or meter, update `docs/contributing/core-reference.mdx` and run `core/scripts/check-core-reference.sh`.
+**5. Document it.** Add a subsection to `docs/concepts/supervisors.mdx` (the other types have one), add the type to the table in this page, and update `core/.claude/rules/supervisors.md`. If you add a core setting or meter, update `docs/contributing/core-reference.mdx` and run `core/scripts/check-core-reference.sh`.
 
 ### Option 6: a bean
 

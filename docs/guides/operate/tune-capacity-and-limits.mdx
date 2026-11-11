@@ -1,0 +1,136 @@
+---
+title: "Tune capacity and limits"
+sidebarTitle: "Tune capacity and limits"
+description: "Set concurrency and queue limits before real traffic arrives, change them on a live server, keep one busy team from starving the rest, and load-test your own workflows."
+keywords: ["capacity", "concurrency", "queue", "admission", "priority", "429", "load test", "k6"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to cap concurrent runs, queue or refuse the excess, change the caps without a restart and test them under load"
+  time="25 minutes"
+  need="a running server, an ADMIN key, and (for the load test) k6 and your own workflows"
+  end="limits that match your machine, a queue that behaves as you chose, and numbers from your workflows"
+/>
+
+**Use this when** you are about to give real traffic to a server, or runs queue up, clients get `429`, or memory grows. Every admission limit is off by default, so a busy caller can take all the capacity until you set them.
+
+**Prerequisites:** a server you can restart, or an `ADMIN` key to change limits live. A server runs the engine and the control plane in one process, and one server admits runs at a time: [high availability](/guides/operate/run-highly-available) gives failover, not more admission capacity.
+
+<Diagram
+  name="ops-tune-capacity"
+  alt="A start takes a free slot, waits as QUEUED, or is refused with 429 and a reason."
+  caption="The limits you set decide which path a start takes; the reason tag on the refusal says why."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Cap what the machine can carry">
+    Set the limits to match the machine and to protect other sessions:
+
+    ```properties
+    yukta.execution.max-concurrent=20
+    yukta.execution.max-concurrent-per-session=8
+    yukta.execution.max-concurrent-per-workflow=4
+    yukta.execution.max-starts-per-minute=120
+    yukta.execution.timeout=1h
+    ```
+
+    `0` means no limit. `max-concurrent` bounds all running runs. The per-session and per-workflow caps stop one busy session or workflow from taking every slot. `max-starts-per-minute` stops a looping caller from piling up runs of one workflow (excess starts get `429`). `timeout` bounds a run so a stuck one does not hold a slot forever. A paused run keeps its slot, so paused runs count against `max-concurrent`.
+  </Step>
+  <Step title="Choose what happens to the excess">
+    ```properties
+    yukta.execution.on-limit=QUEUE
+    yukta.execution.queue-capacity=100
+    yukta.execution.queue-timeout=5m
+    ```
+
+    With `QUEUE` (the default), a start that does not fit waits with status `QUEUED`. With `REJECT`, it is refused at once with `429`, which suits clients that back off by themselves. A full queue also answers `429`. `queue-timeout` ends a start that waits too long with `TIMED_OUT`, instead of letting it wait forever. `queue-capacity-per-workflow` caps the waiting starts of one workflow.
+  </Step>
+  <Step title="Let clients retry safely">
+    A client that retries a start after a network failure should send an `Idempotency-Key`, so it gets the first run back and not a second one:
+
+    ```bash
+    curl -X POST "$YUKTA_SERVER_URL/api/workflow/start" \
+      -H "Authorization: Bearer $YUKTA_TOKEN" -H "Idempotency-Key: order-4411" \
+      -H "Content-Type: application/json" \
+      -d '{"sessionId":"ops","workflowId":"nightly"}'
+    ```
+
+    `yukta-cli workflow start ... --idempotency-key order-4411` does the same, and `--retries` on the CLI generates a key for every start it retries. The key is remembered for `yukta.start.idempotency-ttl` (10 minutes by default).
+  </Step>
+  <Step title="Change limits on a live server">
+    You do not need a restart:
+
+    ```bash
+    yukta-cli scheduler limits
+    yukta-cli scheduler limits set --max-concurrent 40 --max-per-workflow 8
+    ```
+
+    Setting limits needs the `ADMIN` role. The first command shows the limits in force (`0` is no limit) and how many runs execute and wait. In the web UI, open **Control** and select **Edit** in the scheduler panel. The new limits are written to the execution log and are reapplied at the next start when the log is durable, so from then on the log wins over your settings file.
+
+    To move a waiting run up the queue, change its priority (`OPERATOR`):
+
+    ```bash
+    yukta-cli workflow executions priority <execution-id> 10
+    ```
+
+    The queue picks by priority first (higher goes first), then the session with the fewest running runs, then arrival order. A start can carry `"options": {"priority": 10}`, but only an `ADMIN` key may set it.
+  </Step>
+  <Step title="Bound memory">
+    These settings keep the server's memory flat. The first two matter most:
+
+    ```properties
+    yukta.tracker.cleanup-ttl=10m
+    yukta.execution-log.retained-runs=500
+    yukta.results.max-executions=200
+    yukta.logs.store.retention.default-period-minutes=30
+    ```
+
+    Large payloads are not bounded: every node that touches a payload holds it in memory, and Yukta has no reference passing for big data. Keep payloads small, or pass references yourself. The other bounds are in [Configuration reference](/reference/configuration).
+  </Step>
+  <Step title="Move heavy work and slow branches">
+    Put heavy nodes on [remote workers](/guides/operate/add-remote-workers). Every edge is a stream, so a slow node slows its producers, and a node with several children runs at the pace of its slowest child. To keep one slow branch from slowing the others, add an `edgeBuffer` in front of the slow node: when it is full it drops the oldest or newest message, and `yukta.edge.dropped` counts the drops. The default stays lossless. See [Node options reference](/reference/node-options).
+  </Step>
+  <Step title="Load-test with your own workflows">
+    The repository's `perf/` folder has three k6 scripts: `perf.js` (baseline latency), `load.js` and `soak.js`. They create one session per workflow, start workflows through `POST /api/workflow/start` and poll `GET /api/executions/{id}` until each ends.
+
+    ```bash
+    k6 run -e API_KEY=<key> -e RATE=100 perf/k6/load.js
+    k6 run -e API_KEY=<key> -e RATE=20 -e DURATION=8h perf/k6/soak.js
+    ```
+
+    Set `BASE_URL` for another server, `WORKFLOWS` to choose the workflows, and `RATE`, `RAMP`, `HOLD` and `DURATION` for the shape. Run the server with the `prod` profile. A keyed server answers `429` above 1200 `/api` requests per minute per key, which a load test exceeds at once, so start the server with `-Dyukta.rate-limit-per-minute=0` for the test and not in production. `perf/run.sh <perf|load|soak>` runs the same tests against a container with fixed CPU and memory and keeps a report; read `perf/README.md`.
+
+    A test fails when a run is still `RUNNING` after it ends or the server dropped a status event. The soak test samples memory, threads and CPU from `/actuator/metrics`: they should level off, and steady growth means something is unbounded.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start more runs than `max-concurrent` allows, for example with `load.js`, and watch:
+
+```bash
+curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics/yukta.executions.running"
+curl -fsS -H "Authorization: Bearer $YUKTA_ADMIN_KEY" "$YUKTA_SERVER_URL/actuator/metrics/yukta.executions.queued"
+```
+
+`running` stays at your cap. With `QUEUE`, `queued` rises and then drains. With `REJECT`, or a full queue, clients see `429` and `yukta.executions.rejected` rises with a `reason` tag: `limit`, `queue_full`, `workflow_queue_full`, `queue_timeout`, `rate_limit`, `shutdown`, `not_leader` or `draining`. If a run you started stays `QUEUED`, see [Troubleshoot](/guides/operate/troubleshoot#a-run-stays-queued).
+
+## Variations that matter
+
+- **Restarts and resumes take a slot too.** A restart of a finished run, a restart from a node and a resume wait for a slot like any start. Child runs of a sub-workflow run on their parent's slot.
+- **A crash loses queue positions and slots.** The start was logged first, so with a durable log the run is marked `ABORTED` at the next start and can be resumed. See [Persist sessions](/guides/operate/persist-sessions).
+- **A standby refuses every start** with `503`. See [Run highly available](/guides/operate/run-highly-available).
+- **Admission is one process.** The limits are for one server, not for a cluster.
+
+## Related
+
+- [Observe runs](/guides/operate/observe-runs): the gauges and counters to alert on
+- [Troubleshoot](/guides/operate/troubleshoot)
+- [Control a run](/guides/build/control-a-run)
+- [How delivery and back-pressure work](/concepts/delivery-and-backpressure)
+- [Configuration reference](/reference/configuration): every limit, its default and its bound

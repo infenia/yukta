@@ -1,80 +1,70 @@
 ---
-title: "Delivery guarantees, ordering and back-pressure"
+title: "Delivery guarantees and back-pressure"
 sidebarTitle: "Delivery and back-pressure"
-description: "What Yukta guarantees about message delivery, ordering and memory, why side effects should be idempotent, and how a slow node slows the rest of the graph."
-keywords: ["delivery guarantees", "backpressure", "ordering", "reactive streams"]
+description: "What Yukta promises about message delivery, ordering and memory, why side effects should be safe to repeat, and how a slow step slows the ones feeding it."
+keywords: ["delivery guarantees", "at-least-once", "idempotency", "backpressure", "ordering"]
 ---
 
-<Info>
-  **In plain terms:** this page is Yukta's honest list of promises. The headline: a step might occasionally be repeated after a crash, but is never silently skipped, so design side effects such as sending an email so that repeating them is harmless. The page also explains how a slow step makes the steps feeding it wait, which keeps memory use from growing without bound.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
 
-Yukta tells you exactly what it promises and where each promise stops. This page collects the guarantees that shape how you design workflows and plugins.
+<ReaderState
+  learn="Yukta's honest promises about delivery and ordering, and how a slow step affects the rest of the chart"
+  time="8 minutes"
+  need="you have read How Yukta works"
+  end="a design habit: make side effects safe to repeat, and know what a slow step does to its neighbours"
+/>
 
-## Guarantees
+Every system promises something about delivery. Most promise more than they can keep. This page says exactly what Yukta guarantees and where each promise stops, because those limits shape how you should design workflows.
 
-| Topic | Guarantee | What to design for |
+## The headline: at-least-once
+
+A step may run more than once for a message; it never silently runs zero times once started. After a retry, a restart or a resume, a node can see the same message again.
+
+Exactly-once is not on offer, and that is honest rather than lazy. Between a plugin acting on the outside world (sending an email, writing a row) and Yukta recording that the node finished, there is a gap. If the server stops inside it, nothing can know whether the effect happened. Claiming exactly-once across the side effects of arbitrary plugins would mean pretending that gap does not exist.
+
+So the responsibility is shared. Yukta guarantees it will not lose work. You make repeating work harmless, which is called being **idempotent**: running it again for the same message has the same effect as running it once. Use the message id (and the attempt label) as the de-duplication key when a node writes to an external system. Prefer "set to this value" over "add one", and check for an existing result before creating one.
+
+## What else is promised
+
+| Topic | Promise | What it means for you |
 |---|---|---|
-| Delivery | **At-least-once.** A step may run more than once, never zero times once it has started | Make side effects idempotent on the message id. A side effect between a plugin acting and its output being recorded can repeat after a crash; retries repeat per message |
-| Command order | Commands for one execution are applied one at a time, in the order sent, acknowledged and audited | Commands for different executions are independent |
-| Status order | Node and run status only move forward | Some late information is ignored, but its labels are still merged |
+| Command order | Commands for one run are applied one at a time, in order, acknowledged and audited | Commands for different runs are independent |
+| Status order | Node and run status only move forward | A late event cannot reopen a finished node |
 | Output atomicity | With retries or error routing, a message yields all of its output or none | That output is buffered until the attempt ends |
-| Start | One execution id per granted slot; the same `Idempotency-Key` returns the first id | The key window is finite (10 minutes by default) and the key cache is bounded |
-| Resume | At most once per execution, only if the definition is unchanged, trusting only the durable end marker | Needs a file or PostgreSQL checkpoint store |
-| Back-pressure | Memory per edge is bounded; the slowest child paces a fan-out | One slow branch slows the others unless you set an edge buffer on it |
-| Failure isolation | A slow or failing supervisor never blocks an execution | Its events are dropped, not queued |
+| Start | One run id per granted slot | A repeated idempotency key returns the first run, within a finite window |
+| Resume | At most once per run, only if the definition is unchanged | Needs durable checkpoints |
+| Failure isolation | A slow or failing supervisor never blocks a run | Its events are dropped, not queued |
 
-Exactly-once is not achievable across the side effects of arbitrary plugins, so Yukta does not claim it.
+## Back-pressure: a slow step slows its feeders
 
-## Back-pressure
+Each arrow is a stream, and streams push back. When a step is slow, the steps feeding it wait instead of piling messages up, so memory per edge stays bounded and no queue grows without limit between nodes.
 
-Each edge is a stream. A slow consumer makes its producers wait, so memory stays bounded without queues between nodes.
-
-- Every child subscribes before its source starts, so no early message is lost.
-- A fan-out moves at the speed of its slowest child.
-- Nodes that block while they work run on lightweight threads, so they do not hold up the engine.
-
-<img className="yk-diagram block dark:hidden" src="/images/diagrams/backpressure.light.svg" alt="A trigger feeds a fast node, which feeds a slow node and another fast node. The slow node paces the fast node and the trigger." loading="lazy" />
-<img className="yk-diagram hidden dark:block" src="/images/diagrams/backpressure.dark.svg" alt="A trigger feeds a fast node, which feeds a slow node and another fast node. The slow node paces the fast node and the trigger." loading="lazy" />
-
-### Letting a node fall behind
-
-By default delivery is lossless. If you would rather drop messages than slow the producers, put a bounded buffer in front of a node:
-
-```json
-{
-  "nodeId": "enrich",
-  "type": "HTTP_REQUEST",
-  "config": {
-    "engine": { "edgeBuffer": { "size": 100, "overflow": "DROP_OLDEST" } }
-  }
-}
+```mermaid
+flowchart LR
+    T[Trigger] --> F[Fast step]
+    F --> S[Slow step]
+    F --> G[Fast step]
 ```
 
-When the node is slower than its parents and the buffer is full, it drops the oldest messages (`DROP_OLDEST`, the default) or the newest (`DROP_NEWEST`). Drops are counted in the `yukta.edge.dropped` metric.
+<p className="sr-only">A trigger feeds a fast step. The fast step feeds a slow step and another fast step. The slow step sets the pace for the fast step and the trigger.</p>
 
-<Warning>
-  If a terminal on one branch fails and stops reading, sibling branches stall until the execution ends. A failing terminal ends the whole run and cancels the other branches.
-</Warning>
+*Figure 1: The slowest child sets the pace. Notice that the other fast step is held back too, because both receive every message.*
 
-## Idempotent plugins
+Two consequences are worth internalising.
 
-A plugin is idempotent when running it again for the same message has the same effect as running it once. Use the message id (and the `attempt` label) as the de-duplication key when a node writes to an external system. This matters in three cases: retries, restart or resume replaying a node, and a crash between a side effect and the node's recorded output.
+- **A fan-out moves at the speed of its slowest child.** One slow branch slows its siblings, because each message goes to all of them. It is not a bug; it is how bounded memory is paid for.
+- **No early message is lost.** Every consumer subscribes before its source starts.
+
+### Choosing to lose messages
+
+By default delivery is lossless, which is usually what you want. If you would rather drop messages than slow the producers, for example for a noisy monitoring feed, you can put a bounded buffer in front of a node that drops the oldest or newest messages when full. Drops are counted. That is a deliberate trade of completeness for speed, and a decision to make on purpose.
 
 ## Large payloads
 
-Every node a payload passes through carries it in memory. There is no reference-passing mechanism for very large data, so keep payloads small and pass references (file paths, object keys) in messages instead.
+Every node a payload passes through holds it in memory, and there is no reference-passing for very large data. Keep payloads small and pass references (file paths, object keys) in messages instead. Treat a multi-megabyte payload moving through many steps as a smell.
 
-## Next steps
+## Related
 
-<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
-  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
-</Card>
-
-<Card title="Checkpoints and resume" icon="floppy-disk" horizontal href="/operations/checkpoints-and-resume">
-  How Yukta records node outputs, restarts a run or one node, recovers after a restart and resumes an aborted run.
-</Card>
-
-<Card title="Capacity and performance" icon="chart-line" horizontal href="/operations/capacity-and-performance">
-  The ceilings, bounded and unbounded memory, admission limits, every metric the server publishes, what to alert on and how to run the load tests.
-</Card>
+- [Failure model](/concepts/failure-model) and [Durability and high availability](/concepts/durability-and-high-availability).
+- [Handle failures](/guides/build/handle-failures): set retries and buffers.
+- [Messages reference](/reference/messages): message fields, identity and limits.

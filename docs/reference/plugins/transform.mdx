@@ -1,0 +1,81 @@
+---
+title: "Transform reference"
+sidebarTitle: "Transform"
+description: "Options, ports and errors of MAPPER, CONTENT_FILTER and VALIDATE, the processors that reshape, trim and check a message payload."
+keywords: ["MAPPER", "CONTENT_FILTER", "VALIDATE", "transform", "SpEL", "Handlebars", "GraalJS"]
+---
+
+# Transform reference
+
+`MAPPER`, `CONTENT_FILTER` and `VALIDATE` reshape, trim and check payloads; all three are always part of the server, except that `MAPPER` mode `SCRIPT` needs the `script-js` module.
+
+## `MAPPER`
+
+Builds a new payload from the message.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `mode` | `PROJECTION`, `TEMPLATE` or `SCRIPT` | `PROJECTION` | yes | How `mapping` is applied. |
+| `mapping` | expression | none | yes | See the table below. |
+| `dropOriginal` | boolean | `true` | no | Discard the input data; when `false` the mapped fields are set on a copy of the original message data (`PROJECTION`, and the map form of `TEMPLATE`). |
+| `strictMode` | boolean | `true` | no | Fail on an evaluation error; when `false`, a `PROJECTION` field that evaluates to `null` is skipped. |
+
+| Mode | `mapping` |
+|---|---|
+| `PROJECTION` | Map of target field (dots nest) to a SpEL expression. |
+| `TEMPLATE` | Map of target field to a Handlebars template, or one template string. |
+| `SCRIPT` | A JavaScript string; the value of its last expression is the new payload. |
+
+- **Output port:** `default`.
+- **SCRIPT bindings:** `message`, `payload` and `metadata`, as plain-data copies. A script cannot change the message or call Java methods. An object literal result needs parentheses.
+- **SCRIPT limits (JVM system properties):** `yukta.script.timeout-ms` (default `10000`), `yukta.script.max-statements` (default `50000000`), `yukta.script.max-heap-bytes` (default `0`, no limit).
+- **Errors:** `Invalid or missing mode. Must be PROJECTION, TEMPLATE, or SCRIPT`; `mapping is mandatory`; `Invalid mapping for TEMPLATE mode`; `Failed to compile Handlebars template`; `Template application failed`. A `SCRIPT` node is rejected at validation when `script-js` is not in the build.
+
+```json
+{
+  "nodeId": "shape",
+  "type": "MAPPER",
+  "config": { "mode": "PROJECTION", "mapping": { "summary.status": "payload.exitCode == 0 ? 'ok' : 'failed'" } }
+}
+```
+
+## `CONTENT_FILTER`
+
+Keeps or removes parts of a payload.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `mode` | `INCLUDE` or `EXCLUDE` | none | yes | Keep (`INCLUDE`) or drop (`EXCLUDE`) the listed paths. |
+| `paths` | list | none | yes | SpEL expressions for `INCLUDE`; dot paths for `EXCLUDE`. |
+| `flatten` | boolean | `false` | no | Flatten nested structures into a flat map. |
+| `strictMode` | boolean | `true` | no | Fail when a path is missing. |
+| `errorPort` | string | none | no | Port for messages that fail transformation. |
+
+- **Output ports:** `default`, plus `errorPort` when set.
+- **Errors:** `paths is mandatory for Content Filter`; `paths must be a List`; `mode must be INCLUDE or EXCLUDE`; `Mandatory path missing: <path>`.
+
+```json
+{ "nodeId": "redact", "type": "CONTENT_FILTER", "config": { "mode": "EXCLUDE", "paths": ["password", "token"] } }
+```
+
+## `VALIDATE`
+
+Checks required fields and types of the payload.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `required` | list | none | one of `required` or `types` | Field names that must be present and non-null. |
+| `types` | map | none | one of `required` or `types` | Field name to `string`, `number`, `boolean`, `object` or `array`. |
+
+- **Output ports:** `default` (valid); `invalid` (the reasons, joined with `; `, are in the message's `failureReason`).
+- **Errors:** `'required' or 'types' must be configured`; `'required' must be a list of field names`; `'types' must be a map of field name to type`; `unsupported type: <type>`.
+
+```json
+{ "nodeId": "check", "type": "VALIDATE", "config": { "required": ["repo"], "types": { "repo": "string" } } }
+```
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview)
+- [Expressions](/reference/expressions)
+- [Routing and flow](/reference/plugins/routing-and-flow)

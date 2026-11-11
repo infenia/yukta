@@ -1,75 +1,75 @@
 ---
-title: "Glossary: Yukta terms and definitions"
+title: "Glossary"
 sidebarTitle: "Glossary"
-description: "Plain-language definitions of the terms used across the Yukta docs, from sessions, executions, nodes and ports to supervisors, control planes and checkpoints."
+description: "One definition for every Yukta term, with a link to the page that covers it."
 keywords: ["glossary", "terms", "definitions"]
 ---
 
-<Info>
-  **In plain terms:** a plain-language dictionary of Yukta's terms. Look here when a word on another page is new to you.
-</Info>
+# Glossary
 
-| Term | Meaning |
-|---|---|
-| **Actor** | Who sent a command: an API key name (`key:<name>`), a supervisor id or a UI user. Recorded in the audit |
-| **Admission** | The decision to start, queue or refuse an execution. Made by the scheduler against the concurrency limits |
-| **At-least-once** | A step may run more than once but never zero times after it started. Exactly-once is not achievable across the side effects of arbitrary plugins |
-| **Attempt** | One try of a node on one message. Nodes with retries label each message with its attempt number |
-| **Back-pressure** | A slow consumer making upstream producers wait, which keeps memory bounded |
-| **Breakpoint** | A rule that holds a node before the first message matching a value |
-| **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it instead of recomputing |
-| **Command** | An instruction to a live execution: pause, resume, step, skip, stop, restart, signal and others. Applied in order and audited |
-| **Control bus** | The live command and event path of the server |
-| **Assignment** | What a supervisor owns: a node, the run level of a workflow, or the server. A unit has one owner |
-| **DAG** | Directed acyclic graph: nodes joined by one-way edges with no cycles, so a workflow can never loop back on itself |
-| **Data plane** | The part of the server that moves messages through the workflow graph. The control plane steers it |
-| **Dead letter** | A message that failed after all attempts and was routed to the `error` port instead of being lost |
-| **Decision model** | A model asked a constrained question (pick a label, say yes or no, give a score) instead of writing free text. Used by the decision plugins and the model control plane |
-| **Drain** | Stopping gracefully: work already in progress finishes before the execution or worker ends |
-| **Durable end marker** | A small record written and forced to disk with a node's output when the node completes. A resume trusts only this marker |
-| **Edge** | A one-way connection from a source node to a target node, optionally from a named output port |
-| **Edition** | Community (Apache-2.0), Plus (AGPL-3.0-only, adds durable storage, high availability and workers) or Enterprise (commercial; planned, not released yet) |
-| **Engine policy** | The reserved `engine` object in a node's configuration: retry, error routing, time limits, buffering and placement |
-| **Execution** | One live run of a workflow, with its own `executionId`, a status and a status per node |
-| **Fan-out** | One node feeding several children. Paced by the slowest child |
-| **Fencing number** | A counter that grows each time high-availability leadership changes hands, so a stale leader can be recognised |
-| **Heartbeat** | A signal from a long-running node or worker that restarts its idle clock |
-| **Idempotency key** | A client-supplied value that makes a repeated start return the first execution |
-| **Idempotent plugin** | A plugin whose repeated execution for the same message has the same effect as one |
-| **Join rule** | How a node with several parents treats a failed parent: `ALL_SUCCESS`, `ALL_DONE` or `ONE_SUCCESS` |
-| **Lease** | A time-limited right: held by a worker to stay registered, or by a server to be the leader |
-| **LLM** | Large language model: a chat model such as Claude, GPT or Llama, called with `LLM_CALL` |
-| **MCP** | Model Context Protocol: how AI agents call tools. Yukta exposes its control and read operations through it |
-| **Message** | The unit of data on an edge: a payload plus labels, with a stable id |
-| **Node** | One step of a workflow: an id, a plugin type and a configuration |
-| **Output port** | A named output of a node. Edges can listen to one port. `error` is built in |
-| **Payload** | The data inside a message |
-| **Placement** | Running a processor node on a remote worker pool instead of the server |
-| **Plugin** | The implementation behind a node type: a trigger, a processor or a terminal |
-| **Processor** | A node that transforms, routes or calls out |
-| **Reviewer** | A policy hook that can refuse any command before it runs |
-| **Scheduler** | The part of the server that grants slots to executions and queues or refuses the rest |
-| **Session** | A scope that groups workflows, executions and configuration |
-| **Signal** | A named message sent to a waiting node of a running execution, such as an approval |
-| **Slot** | The right to run one execution under the concurrency limits |
-| **SSE** | Server-sent events: a one-way live stream to browsers, scripts and agents |
-| **Supervisor** | The owner of some nodes, run levels or the server. It reports to parents, may send only the commands it lists, and uses an engine to decide |
-| **Engine** | The decision maker of a supervisor: rules, an application on the agent API, an outbound call, a workflow or a program. It returns directives; the supervisor checks each one |
-| **Directive** | What an engine returns: a command with a cause, a verdict on a review, an answer to a delegation, a question for the parents, a note |
-| **Initiative** | A command nobody prompted (a timer, or the engine's own idea). It needs a reason and an entry in the supervisor's `initiative` list |
-| **System One** | A kind of small decision model that answers from your list of options with a calibrated probability, run on your own Ollama |
-| **Terminal** | A node that ends a branch: it consumes messages and has no outputs |
-| **Trigger** | A node that starts a workflow: it has no inputs and emits messages |
-| **Valve** | The gate in front of each node that implements pause, step, skip and breakpoints |
-| **Worker** | A separate process that runs placed nodes for the server |
-| **Workflow** | A directed acyclic graph of nodes and edges, stored once and run many times |
+One definition per term, in alphabetical order. The API calls a run an `execution`.
 
-## Next steps
+| Term | Definition | See |
+|---|---|---|
+| **Actor** | Who sent a command: an API key (`key:<name>`), a supervisor id or `token:<tier>`. Recorded in the audit. | [Security reference](/reference/security) |
+| **Admission** | The decision to start, queue or refuse a run, made against the concurrency limits. | [Configuration reference](/reference/configuration) |
+| **AI step** | A node that calls a model or a tool server: `LLM_CALL`, `MCP_TOOL_CALL`, or a decision plugin on a model. | [AI plugins](/reference/plugins/ai) |
+| **Assignment** | What a supervisor owns: a node, the run level of a workflow, or the server. A unit has one owner. | [Supervisor shell reference](/reference/supervisors/shell) |
+| **At-least-once** | A step may run more than once after a retry or resume but never zero times once started. | [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| **Attempt** | One try of a node on one message; labelled `attempt` on the message. | [Messages reference](/reference/messages) |
+| **Back-pressure** | A slow consumer making producers wait, which keeps memory bounded. | [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| **Breakpoint** | A rule that holds a node before the first message that matches a value. | [Control a run](/guides/build/control-a-run) |
+| **Checkpoint** | A node's recorded output, kept so a restart or resume can replay it. Set with `engine.checkpoint`. | [Durability and high availability](/concepts/durability-and-high-availability) |
+| **Command** | An instruction to a live run: pause, resume, step, skip, stop, restart and others; applied in order and audited. | [Control a run](/guides/build/control-a-run) |
+| **Control bus** | The live command and event path of the server. | [Runs](/concepts/runs) |
+| **DAG** | Directed acyclic graph: nodes joined by one-way edges with no cycles. Yukta calls it a workflow. | [How Yukta works](/concepts/how-it-works) |
+| **Dead letter** | A message that failed after all attempts and was routed to the `error` port. | [Failure model](/concepts/failure-model) |
+| **Decision model** | A model asked a constrained question (a label, yes or no, a score) instead of free text. | [Decision plugins](/reference/plugins/decisions) |
+| **Deterministic step** | A node that gives the same output for the same input: scripts, HTTP, SQL, rules, routing. | [AI and deterministic work](/concepts/ai-and-deterministic-work) |
+| **Directive** | What an engine returns: a command with a cause, a verdict on a review, an answer to a delegation, a question for the parents or a note. | [Supervisor contract reference](/reference/supervisors/contract) |
+| **Drain** | Stopping gracefully: work in progress finishes first. | [Status values](/reference/status-values) |
+| **Edge** | A one-way connection from a source node to a target node, optionally from a named output port. | [Workflow JSON reference](/reference/workflow-json) |
+| **Edition** | Community (Apache-2.0), Plus (AGPL-3.0-only) or Enterprise (commercial, not released). | [Licensing and editions](/reference/licensing) |
+| **Engine (supervisor)** | The part of a supervisor that decides: `rules`, `http`, `workflow` or `process`. It returns directives; the shell checks each one. | [Supervisor engines reference](/reference/supervisors/engines) |
+| **Engine policy** | The reserved `engine` object in a node's config: retry, error routing, time limits, buffering, placement. | [Node options reference](/reference/node-options) |
+| **Execution** | The API name for a run. | [Runs](/concepts/runs) |
+| **Fan-out** | One node feeding several children; paced by the slowest child unless `edgeBuffer` is set. | [Delivery and back-pressure](/concepts/delivery-and-backpressure) |
+| **Fencing number** | A counter that grows when high-availability leadership changes hands, so a stale leader is recognised. | [Durability and high availability](/concepts/durability-and-high-availability) |
+| **Heartbeat** | A signal from a long-running node or worker that restarts its idle clock. | [Time limits](/concepts/time-limits) |
+| **Idempotency key** | A client value that makes a repeated start return the first run. | [REST API overview](/api/overview) |
+| **Initiative** | A command nobody prompted (a timer, or the engine's own idea). It needs a reason and an `initiative` entry. | [Supervisor shell reference](/reference/supervisors/shell) |
+| **Input request** | A typed question a run asks: approval, choice, text or structured data, with a risk level and a route of responders. | [Who decides](/concepts/who-decides) |
+| **Join rule** | How a node with several parents treats a failed parent: `ALL_SUCCESS`, `ALL_DONE` or `ONE_SUCCESS`. | [Node options reference](/reference/node-options) |
+| **Lease** | A time-limited right held by a worker to stay listed, or by a server to be leader. | [Durability and high availability](/concepts/durability-and-high-availability) |
+| **LLM** | Large language model, called with `LLM_CALL`. | [AI plugins](/reference/plugins/ai) |
+| **MCP** | Model Context Protocol: how AI agents call tools. | [MCP tools reference](/reference/mcp-tools) |
+| **MCP client nodes** | `MCP_LIST_TOOLS` and `MCP_TOOL_CALL`, which call other MCP servers from inside a workflow. | [AI plugins](/reference/plugins/ai) |
+| **MCP server** | Yukta's `/mcp` endpoint, which an assistant connects to. | [MCP tools reference](/reference/mcp-tools) |
+| **Message** | The unit of data on an edge: a payload plus labels, with a stable id. | [Messages reference](/reference/messages) |
+| **Node** | One step of a workflow: an id, a plugin type and a config. Its role is trigger, processor or terminal. | [Workflow JSON reference](/reference/workflow-json) |
+| **Operator** | A person, or a key with role `OPERATOR`, who steers runs. Not the same as the `ADMIN` role. | [Security reference](/reference/security) |
+| **Output port** | A named output of a node; an edge may listen to one port. `error` is built in. | [Workflow JSON reference](/reference/workflow-json) |
+| **Payload** | The data inside a message. | [Messages reference](/reference/messages) |
+| **Placement** | Running a processor on a remote worker pool instead of the server. | [Node options reference](/reference/node-options) |
+| **Plugin** | The implementation behind a node type. | [Plugin overview](/reference/plugins/overview) |
+| **Port** | See output port. | |
+| **Processor** | A node that transforms, routes or calls out. | [Plugin overview](/reference/plugins/overview) |
+| **Reviewer** | The hook that lets the owner of a unit refuse or park any command before it runs. | [Supervisors](/concepts/supervisors) |
+| **Run** | One execution of a workflow, with its own id, a status and a status per node. | [Runs](/concepts/runs) |
+| **Scheduler** | The part of the server that grants slots to runs and queues or refuses the rest. | [Configuration reference](/reference/configuration) |
+| **Session** | A folder of workflows and their versions. | [Sessions and workflows](/concepts/sessions-and-workflows) |
+| **Shell** | The part of a supervisor Yukta enforces: ownership, allowed commands, initiative, risk limits and operator access. | [Supervisor shell reference](/reference/supervisors/shell) |
+| **Slot** | The right to run one run under the concurrency limits. | [Configuration reference](/reference/configuration) |
+| **SSE** | Server-sent events: a one-way live stream for browsers, scripts and agents. | [REST streams](/api/streams) |
+| **Supervisor** | The owner of a unit of work (a node, a workflow run level or the server): it watches, steps in, and decides who may steer. It is a shell plus an engine. | [Supervisors](/concepts/supervisors) |
+| **System One** | A small decision model that answers from a list of options with a calibrated probability, run on your own Ollama. | [Decision plugins](/reference/plugins/decisions) |
+| **Terminal** | A node that ends a branch: it consumes messages and has no outputs. | [Terminal plugins](/reference/plugins/terminals) |
+| **Trigger** | A node that starts a workflow: no inputs, emits messages. | [Trigger plugins](/reference/plugins/triggers) |
+| **Valve** | The gate in front of each node that implements pause, step, skip and breakpoints. | [Control a run](/guides/build/control-a-run) |
+| **Worker** | A separate process that runs placed nodes for the server. | [Configuration reference](/reference/configuration) |
+| **Workflow** | The flowchart: nodes and edges, stored once in a session and run many times. | [Workflow JSON reference](/reference/workflow-json) |
 
-<Card title="How Yukta works" icon="diagram-project" horizontal href="/concepts/how-it-works">
-  The layers, the life of an execution and the principles behind the design.
-</Card>
+## Related
 
-<Card title="Status values" icon="tags" horizontal href="/reference/status-values">
-  Every execution and node status, and the enumerated values used by node options, limits and roles.
-</Card>
+- [How Yukta works](/concepts/how-it-works)
+- [Status values](/reference/status-values)

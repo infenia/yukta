@@ -1,67 +1,53 @@
 ---
-title: "Sessions and workflows: grouping, storage and versions"
+title: "Sessions and workflows"
 sidebarTitle: "Sessions and workflows"
-description: "How sessions group workflows, executions and configuration, how workflows are stored and versioned with the last 20 versions kept, and how both are addressed."
-keywords: ["sessions", "workflows", "versioning"]
+description: "Why Yukta groups workflows into sessions, what a version is, how a workflow is identified, and why sessions are also the unit of fairness and access."
+keywords: ["sessions", "workflows", "versions", "fairness"]
 ---
 
-<Info>
-  **In plain terms:** a **workflow** is a saved recipe; a **session** is the recipe box it lives in. You save a recipe once and cook it as often as you like. Sessions also decide who gets a fair share when the kitchen is busy, and every workflow keeps its last 20 versions so you can compare or go back.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
 
-A **session** is a scope that groups workflows, executions and configuration. A **workflow** is a graph of nodes and edges that is stored once and run many times.
+<ReaderState
+  learn="what a session is for, how workflows are versioned, and where each fits in the way Yukta shares work"
+  time="5 minutes"
+  need="you know what a workflow and a run are"
+  end="a clear sense of what to put in one session and what a version protects you from"
+/>
 
-## Sessions
+A **workflow** is a flowchart that you save once and run many times. A **session** is the folder it lives in. The split looks like bookkeeping, but it carries three real jobs.
 
-You create or replace a session by sending its whole configuration in one request. The session carries descriptive metadata and the workflows it contains.
+<Diagram name="concept-session-folder" alt="A session is a folder of workflows, each with a stack of versions; the session is also the unit that shares a concurrency budget and an API key's reach." caption="What a session holds, and what it shares across its workflows." />
 
-| Field | Required | Meaning |
-|---|---|---|
-| `sessionId` | yes | Identifier used in every later call. Must not contain `/`, `\` or `..` |
-| `name` | yes | Human-readable name, up to 256 characters |
-| `description` | no | Human-readable description, up to 256 characters |
-| `initiator` | no | Who or what created the session, for example a user name or `AI Agent` |
-| `projectPath` | no | Absolute path on the server that the session works in, up to 1024 characters |
-| `tags` | no | Free-form string key-value labels for filtering |
-| `workflows` | yes | Map of workflow definitions, keyed by `workflowId`; at least one |
+## A session is a unit of belonging
 
-Applying a session stores the session and each of its workflows. Applying the same `sessionId` again replaces its configuration. An identical workflow definition does not create a new version.
+A session holds related workflows together, such as everything for one project, one pipeline or one assistant's work. It has a name, optional descriptive metadata (who made it, which project path it works in, free-form tags), and a map of workflows.
 
-Sessions are also the unit of fairness and limits. Concurrency caps can apply per session, and when starts are queued the session with the fewest running executions goes first, so one busy session cannot starve the others. See [Admission and limits](/running/admission-and-limits).
+You create a session by sending its whole definition at once, and sending the same session id again replaces it. That is a deliberate, simple model: the session is the document, and what you send is what exists. It also means that applying a session is a bigger act than saving one workflow, which is why assistants are asked to confirm first. See [AI-assisted configuration](/concepts/ai-assisted-configuration).
 
-## Workflows
+## A session is a unit of fairness and access
 
-A workflow is identified by its `workflowId` inside a session. Its definition has a description, a list of nodes and a list of edges. The shape is covered in [Defining a workflow](/building/defining-a-workflow).
+Because runs belong to sessions, two other things hang off them.
 
-Before any plugin runs, a definition is validated: it must be acyclic, ids must be unique, every edge must reference existing nodes and ports, and the graph must be within size limits. See [Validation and versions](/building/validation-and-versions).
+- **Fairness.** Concurrency limits can apply per session. When starts are queued, the session with the fewest running runs goes first, so one busy session cannot starve the others.
+- **Access.** An API key can be limited to some sessions, so a key held by a build bot reaches the build session and nothing else. See [Security model](/concepts/security-model).
 
-## Versions
+So the useful question when deciding what goes in a session is not "what is related?" but "who or what should share a budget and a key?".
 
-Each workflow keeps its newest 20 versions. You can diff two versions, annotate a version with a note and roll back to an earlier one. Each execution records a content hash of the graph it ran, so progress, history and the log always say which definition produced them. To run a saved version without changing the current one, put `yukta.version` in the start payload. See [Validation and versions](/building/validation-and-versions).
+## A workflow has versions
 
-## Addressing
+A workflow is identified by its session plus its own id. Each time you save a changed definition, it becomes a new **version**, and the newest 20 are kept. An identical definition does not create a new version.
 
-| Thing | Identified by |
-|---|---|
-| Session | `sessionId` |
-| Workflow | `sessionId` + `workflowId` |
-| Node | `nodeId`, unique within its workflow |
-| Execution | `executionId`, unique across the server |
+Versions answer the question "what exactly was running when that failed?". Each run records a hash of the graph it ran, so its progress, history and log always say which definition produced them. You can compare two versions, annotate one, roll back to an earlier one, or run a saved version without changing the current one.
 
-## Where sessions are kept
+Before any step runs, a definition is checked: it must be acyclic, ids must be unique, every edge must point at existing nodes and ports, and the size must be within limits. A bad workflow is refused at save time, not discovered at 2 a.m. Twenty versions is a safety net for recent changes, not an archive. Keep your definitions in git if you need history beyond that.
 
-By default sessions, definitions and versions live in memory and are lost on restart. Keep them on disk (`yukta.session.store-type=file`) or in PostgreSQL. Both need the Plus edition. See [Persistence](/operations/persistence) and [Licensing and editions](/reference/licensing).
+## Where sessions live
 
-## Next steps
+By default sessions, definitions and versions are in memory and vanish on restart. That is right for trying things out and wrong for anything you depend on. You can keep them in files or in PostgreSQL (both in the Plus edition), or reapply your definitions from a folder at every start, which works in every edition. See [Durability and high availability](/concepts/durability-and-high-availability).
 
-<Card title="How Yukta works" icon="diagram-project" horizontal href="/concepts/how-it-works">
-  The layers, the life of an execution and the principles behind the design.
-</Card>
+## Related
 
-<Card title="Defining a workflow" icon="file-code" horizontal href="/building/defining-a-workflow">
-  The complete JSON shape of a session and its workflows, and how to build one step by step.
-</Card>
-
-<Card title="REST: sessions" icon="folder-open" horizontal href="/api/sessions">
-  Apply, validate, list and read sessions and their configuration over REST.
-</Card>
+- [How Yukta works](/concepts/how-it-works) and [Runs](/concepts/runs).
+- [Define a workflow](/guides/build/define-a-workflow) and [Validate and roll back](/guides/build/validate-and-roll-back).
+- [Workflow JSON reference](/reference/workflow-json): every session and workflow field.

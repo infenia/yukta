@@ -16,11 +16,11 @@ def run(mutate):
     tmp = Path(tempfile.mkdtemp())
     try:
         (tmp / "skills/yukta-workflows").mkdir(parents=True)
-        (tmp / "docs/interfaces").mkdir(parents=True)
+        (tmp / "docs/reference").mkdir(parents=True)
         shutil.copy(HERE / "check.py", tmp / "skills/yukta-workflows/check.py")
         skill = (HERE / "SKILL.md").read_text()
         (tmp / "skills/yukta-workflows/SKILL.md").write_text(mutate(skill))
-        shutil.copy(ROOT / "docs/interfaces/mcp.mdx", tmp / "docs/interfaces/mcp.mdx")
+        shutil.copy(ROOT / "docs/reference/mcp-tools.mdx", tmp / "docs/reference/mcp-tools.mdx")
         p = subprocess.run([sys.executable, "-I", str(tmp / "skills/yukta-workflows/check.py")], capture_output=True, text=True)
         return p.returncode, p.stdout
     finally:

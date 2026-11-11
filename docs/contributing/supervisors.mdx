@@ -5,7 +5,7 @@ description: "How supervisors are configured, how the engine runs them, how to a
 keywords: ["supervisors", "SupervisorFactory", "ExecutionSupervisor", "attachments", "scopes", "usability"]
 ---
 
-This page is for people who work on supervisors. The operator guide is [Supervisors](/running/supervisors); this page does not repeat it. It covers the four things that page leaves out:
+This page is for people who work on supervisors. The operator guide is [Supervisors](/concepts/supervisors); this page does not repeat it. It covers the four things that page leaves out:
 
 1. [The configuration model](#1-how-supervisors-are-configured): what you create, where it applies, and the four ways to declare it.
 2. [How it works](#2-how-it-works): the path from an event to an applied command.
@@ -139,7 +139,7 @@ Take the first option that fits. The later ones need more work and more review.
 | 2 | **Combine supervisors** with `parents` and a delegation mode | No | Several checks, one verdict (`ORDERED`, `ALL`, `ANY`) |
 | 3 | **A workflow supervisor** (`workflow` type) | No | The decision needs steps: look something up, call a model, then answer |
 | 4 | **An external program** (the `http` or `process` engine) | No | The logic lives in another language or service |
-| 5 | **A new engine** (`SupervisorEngineFactory`, see [Supervisor engines](/running/supervisor-engines#write-an-engine)) | Yes | A reusable, generic type that people configure from the catalog |
+| 5 | **A new engine** (`SupervisorEngineFactory`, see [Supervisor engines](/reference/supervisors/engines)) | Yes | A reusable, generic type that people configure from the catalog |
 | 6 | **A bean** (`ExecutionSupervisor`) | Yes | One fixed behaviour of this server, not shown in the catalog as a type |
 
 ### Options 1 to 3: no code
@@ -232,7 +232,7 @@ yk gradle spotlessApply
 yk check
 ```
 
-**5. Document it.** Add a subsection to `docs/running/supervisors.mdx` (the other types have one), add the type to the table in this page, and update `core/.claude/rules/supervisors.md`. If you add a core setting or meter, update `docs/contributing/core-reference.mdx` and run `core/scripts/check-core-reference.sh`.
+**5. Document it.** Add a subsection to `docs/concepts/supervisors.mdx` (the other types have one), add the type to the table in this page, and update `core/.claude/rules/supervisors.md`. If you add a core setting or meter, update `docs/contributing/core-reference.mdx` and run `core/scripts/check-core-reference.sh`.
 
 ### Option 6: a bean
 

@@ -1,0 +1,154 @@
+---
+title: "Use the web UI"
+sidebarTitle: "Use the web UI"
+description: "A task-by-task tour of the browser UI: find a session, build a workflow from forms, run it and watch it, steer a run, answer approvals, search past runs and check the server."
+keywords: ["web UI", "browser", "workflow editor", "run controls", "approvals", "runs", "control bus"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+
+<ReaderState
+  learn="what you can do in the browser UI and where to click to do it"
+  time="15 minutes"
+  need="a running server; a key if the server has one"
+  end="you can build, run, watch and steer a workflow without typing JSON or commands"
+/>
+
+**Use this when** you prefer to click to type, or you want to see a run as a diagram. The UI is part of the server, so there is nothing to install. Everything it does goes through the [REST API](/api/overview), so anything you can click you can also script. [Use the CLI](/guides/operate/use-the-cli) is the same tour for the terminal.
+
+**Prerequisites:** open the server address in a browser: `http://localhost:9858` by default. With no key configured (the default on loopback) the UI asks for nothing. When the server answers `401` or `403`, the UI asks for the API key once and sends it as `Authorization: Bearer <key>`. The key stays in that browser tab and is gone when the tab closes. **Change API key** is in the account menu. Controls your key's role cannot use are shown disabled.
+
+A narrow rail (a tab bar on a phone) links to **Sessions**, **Runs**, **Plugins**, **Supervisors** and **Control**. The search box and jump palette is on `⌘K` (`Ctrl+K`), and the account menu holds the theme toggle (light, dark or system). A breadcrumb row shows where you are.
+
+## Find a session and its workflows
+
+<UiShot
+  name="sessions-list"
+  alt="The Sessions page: a table with one row per session showing name, id, description, initiator, tags and workflow count, with a search box above it."
+  caption="Notice the search box above the table: it filters by session name or id. The table pages at 10 rows."
+/>
+
+1. Open **Sessions** (`/sessions`, also where `/` leads).
+2. Search by name or id, then select a row. The session page shows its description, tags, initiator and working directory, and one card per workflow with its node and edge counts and the status of its latest run.
+3. Select a card to open the workflow.
+
+Create one with **New session**: it asks for an id, name, description, initiator and the working directory on the server, saves the session with a starter workflow `main` (an API trigger wired to a console terminal) and opens the editor on it. **Import JSON** creates a session from a file or pasted JSON. **Export JSON** on a session's page downloads its configuration. **Edit** changes its name, description and tags. **Delete** asks you to type the id first, and deleting a workflow works the same way. **New workflow** on a session's page opens the editor on an empty workflow.
+
+## Build or edit a workflow without JSON
+
+<UiShot
+  name="workflow-editor"
+  alt="The workflow editor: a list of plugin types and a form for the selected node on one side, and a live graph preview on the other."
+  caption="Notice that the form changes with the plugin: each option gets the right control, and required options are marked. The preview on the right updates as you add nodes."
+/>
+
+1. On a workflow page, select the pencil (**Edit**), or choose **New workflow** on a session page. The address is `/sessions/<id>/workflow/<id>/edit`.
+2. **Add a node:** pick a plugin type, grouped as triggers, processors and terminals, and select **Add node**. Each node gets a unique id such as `mapper-1`.
+3. **Configure it:** select the node to see its form. The form comes from the plugin's own description of its options, so each option has the right control: a text box, a number box, a switch, a dropdown, a monospace box for expressions, a JSON box for lists and maps, and a credential box that expects a `decrypted:<key>` reference. An option you leave empty is left out, so the plugin default applies. A plugin that declares no options gets a JSON editor and its usage notes.
+4. **Set failure behaviour:** every node has an expandable section for retries, timeouts, what a failing message does and when a node with several parents starts. See [Handle failures](/guides/build/handle-failures).
+5. **Connect nodes:** choose a source node, optionally one of its output ports, and a target, then **Add edge**. After you change a node, select **Validate** so its port list refreshes.
+6. **Validate** checks the draft with the rules the server applies before a run and shows the first problem, or "Workflow is valid." **Save** validates first and, only if the draft is valid, saves the whole session and opens the workflow page.
+
+The model behind the forms is in [Define a workflow](/guides/build/define-a-workflow).
+
+## Run a workflow and watch it
+
+<UiShot
+  name="workflow-canvas"
+  alt="The workflow page: a graph of nodes with coloured cards, a row of run controls above it and a logs panel along the bottom."
+  caption="Notice the card colours and dots: orange is a trigger, blue a processor, slate a terminal. A green dot is done, a pulsing dot is active, red is failed."
+/>
+
+1. Open the workflow and select **Run**. A box accepts an optional JSON trigger payload, starts the workflow and selects the new run.
+2. Watch the graph. Each node is a card with an accent colour for its role and a state: done (green dot), active (pulsing dot, with a percentage when the node reports progress), waiting (dimmed), failed (red border; covers failure, error, timed out and aborted), paused (amber) and skipped (faded; covers stopped, cancelled and upstream failed).
+3. A workflow whose node ids share a prefix before the first dot (or declare a `group`) is grouped into stages. A stage with a failed node opens by itself; `?stages=all` in the address shows every node.
+4. Switch between **Graph** and **Timeline**. The timeline draws one bar per node, so you see what ran in parallel and where the time went.
+5. Select a node to open its panel: status and timing, its configuration (secrets masked), the log lines it wrote and the actions that fit its state. The node is kept in the address as `?node=<id>`.
+6. Open **Workflow progress** for three blocks: the execution summary, the **Result** (what reached the terminals, streamed live), and the task sequence in execution order.
+7. **Execution logs** at the bottom streams the run's lines with time, level and node, and has a filter box, a follow switch with **Jump to latest**, a copy button, and a menu for line wrap, raw lines and downloads (`.log` or `.jsonl`). It keeps the newest 20,000 lines and says how many earlier ones are hidden.
+
+**Run History** in the breadcrumb row lists the runs of this workflow, newest first. The selection is kept in the address as `?exec=<id>`, so you can link to a run.
+
+## Steer a run
+
+The run controls sit above the graph. Each one asks only for what fits the run's state:
+
+| Control | Available when |
+|---|---|
+| **Run** | Always |
+| **Pause**, **Resume** | The run is running, or paused |
+| **Stop** (a menu) | The run is live. **Stop this run**, **Cancel this run**, **Kill this run**, and **Drain**, **Cancel** or **Kill** for all runs of the workflow. Each asks to confirm |
+| **Restart** | The run has finished. Starts a new run with the original input |
+| **Recover** | A server restart aborted the run. Continues it as a new run |
+| **Priority…** | The run is queued |
+
+Every node has a menu with only the actions that make sense for its state: pause, resume, stop, skip, retry a failed node, step mode and **Step once**, **Set breakpoint…**, and **Restart from here**. The stop modes are the same as in the API. See [Control a run](/guides/build/control-a-run).
+
+**Copy as…** gives the same action as a `yukta-cli` command, a `curl` call or an MCP tool call, ready to paste into a script.
+
+**Versions** (in the **Workflow actions** menu) opens the saved versions. For each one you can see what changed against the current definition, write a note, or **Roll back**. A rollback becomes a new version, so you can undo it. See [Validate and roll back](/guides/build/validate-and-roll-back).
+
+## Answer an approval
+
+<UiShot
+  name="inputs-panel"
+  alt="The Inputs panel above a workflow graph, listing open requests with their prompt, risk and run, and Approve, Reject and Escalate buttons."
+  caption="Notice the risk on each request and the options offered. A high-risk request asks you to confirm before it takes your answer."
+/>
+
+When a node waits for a person, the **Inputs** panel above the graph lists the open requests with the prompt, the risk and the run. Choose an option (**Approve** or **Reject** for an approval), type a free answer, or select **Escalate** to hand it to the next tier. A high-risk answer asks for confirmation. See [Ask for input](/guides/ai/ask-for-input) and [Route input requests](/guides/supervise/route-input-requests).
+
+## Search past runs
+
+Open **Runs** (`/runs`, also where `/history` leads). It searches the runs of every session, newest first. Filter by session, workflow, status, text in the run id and a time range. The chips above the table count runs by status, and selecting one filters the table. Each row opens the workflow page with that run selected.
+
+## Browse the plugin catalogue
+
+<UiShot
+  name="plugin-catalogue"
+  alt="The Plugins page: plugin types grouped as triggers, processors and terminals, and the detail of one plugin with tabs for configuration, ports, an example and where it is used."
+  caption="Notice the tabs on a plugin: Configuration (each option, its type and whether it is required), Ports, a copyable Example node and Used in."
+/>
+
+Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and terminals. Select one for its description, its option table, its output ports, a node you can copy, and the workflows that use it. A plugin you add yourself appears here too: see [Write a plugin](/guides/extend/write-a-plugin).
+
+## See supervisors
+
+<UiShot
+  name="supervisors-catalogue"
+  alt="The Supervisors page with its tabs, listing each supervisor with its kind and what it owns."
+  caption="Notice the three tabs: Supervisors, Decision makers and Activity."
+/>
+
+**Supervisors** (`/supervisors`) has three tabs: **Supervisors**, **Decision makers** and **Activity**. Each supervisor has its own editor at `/supervisors/<id>/edit`, and `/supervisors/new` creates one. The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+
+## Check the server
+
+<UiShot
+  name="control-dashboard"
+  alt="The Control page overview: scope and range controls, then tiles and charts for throughput, latency, capacity, live runs and workers."
+  caption="Notice the scope and range controls at the top: they apply to every chart below them."
+/>
+
+**Control** (`/control`, titled *Control bus*) has three tabs. **Overview** shows pending input requests, supervisors, the Mission Control dashboard (throughput, latency, capacity, live runs, workers and system), the scheduler's limits with **Edit** (`ADMIN`), and the remote workers with their pools and use. **Activity** is a live feed of events from all runs. **Audit** lists the newest control commands with the time, actor, command, run, and whether each was applied or refused and why. Commands sent without a named key show as `api`. From a workflow page, **Control commands of this run** in the **Workflow actions** menu opens the audit for that run.
+
+See [Use the control dashboard](/guides/supervise/use-the-control-dashboard) for what to read there, and [Tune capacity and limits](/guides/operate/tune-capacity-and-limits) for the scheduler.
+
+## Verify it worked
+
+Open the UI, create a session with **New session**, **Run** its `main` workflow, and confirm that the graph turns green and the logs panel shows lines. Reload the page and check that the run is still selected from the address (`?exec=`).
+
+## Variations that matter
+
+- **A phone or narrow window.** The rail becomes a tab bar and tables stack their cells.
+- **A server behind a proxy.** The UI is the same server: the proxy must pass event streams unbuffered, or the graph and logs stop updating. See [Deploy Yukta](/guides/operate/deploy).
+- **The page asks for a key every time.** The key is kept for the tab only. Open **Change API key** in the account menu to replace it.
+
+## Related
+
+- [Use the CLI](/guides/operate/use-the-cli)
+- [Client parity](/reference/client-parity): what each client can do
+- [Observe runs](/guides/operate/observe-runs)
+- [Control a run](/guides/build/control-a-run)
+- [Secure the server](/guides/operate/secure-the-server)

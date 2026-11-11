@@ -22,7 +22,7 @@ The workflow starts at a `SUPERVISOR_SIGNAL` and ends in a `SUPERVISOR_DECISION`
 **The chain.** A request from a node `build.test` goes to the section supervisor first. It ends with `ESCALATE`, so the request moves
 to the next tier, where `supervisor:parent` selects the parents of the section supervisor (give `section-supervisor.json` `"parents": ["low-risk-workflow"]`): here the session
 supervisor `low-risk-workflow`, which approves a LOW risk request. Anything else goes on to a person. A supervisor cannot be its own ancestor (saving refuses a cycle), so the chain cannot loop. Route the request with
-`yukta.input.routes.default` tiers `supervisor:*`, `supervisor:parent`, then a `HUMAN` tier (see `docs/building/input-requests.mdx`).
+`yukta.input.routes.default` tiers `supervisor:*`, `supervisor:parent`, then a `HUMAN` tier (see `docs/concepts/who-decides.mdx`).
 
 ```bash
 # the session is internal, so ask for it with includeInternal

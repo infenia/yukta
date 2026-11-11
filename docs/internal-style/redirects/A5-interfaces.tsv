@@ -1,0 +1,5 @@
+interfaces/cli	reference/cli
+interfaces/mcp	reference/mcp-tools
+running/supervisor-contract	reference/supervisors/contract
+running/supervisor-engines	reference/supervisors/engines
+running/rule-files	reference/supervisors/rule-files

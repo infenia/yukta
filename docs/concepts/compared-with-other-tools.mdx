@@ -1,13 +1,18 @@
 ---
-title: "Yukta compared with Airflow, Temporal, n8n and others"
+title: "Yukta compared with other tools"
 sidebarTitle: "Compared with other tools"
 description: "How Yukta differs from Airflow, Temporal, Prefect, Dagster, n8n, Argo Workflows, Step Functions, Camunda and Conductor, and when to pick each."
 keywords: ["comparison", "Airflow", "Temporal", "n8n", "alternatives"]
 ---
 
-<Info>
-  **In plain terms:** many tools run multi-step jobs. They differ in who writes the steps (a programmer or anyone), where the job runs, and how much they remember after a crash. This page says where Yukta fits and where another tool is the better choice.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="where Yukta fits among workflow tools, and when another tool is the better choice"
+  time="6 minutes"
+  need="you know roughly what a workflow engine is"
+  end="a decision: use Yukta, use something else, or use both"
+/>
 
 Yukta is a **server you run yourself** that executes a workflow written as **data** (a JSON graph), streams messages between steps, and can be started and steered by REST, a web UI, a CLI or an AI assistant over MCP. That combination is unusual, so most comparisons come down to a few questions.
 
@@ -44,8 +49,8 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
 ## When Yukta is a good fit
 
 - The job is a **graph of steps with decisions**, and you want to **see it, review it and change it as data**.
-- **AI agents** are involved: you want model calls inside budgets, tool allow-lists and approvals, or you want an assistant to create and run workflows through MCP. See [AI and agents](/building/ai-and-agents).
-- You want **one small server** to run and a **live picture** of every run, with pause, retry and stop. See [Run controls](/running/run-controls).
+- **AI agents** are involved: you want model calls inside budgets, tool allow-lists and approvals, or you want an assistant to create and run workflows through MCP. See [AI and deterministic work](/concepts/ai-and-deterministic-work).
+- You want **one small server** to run and a **live picture** of every run, with pause, retry and stop. See [Control a run](/guides/build/control-a-run).
 - Work **flows as a stream** of records or events and a slow step should slow the ones feeding it. See [Delivery and back-pressure](/concepts/delivery-and-backpressure).
 - You want to **start the same job from anywhere**: a script, CI, a person in the UI or an assistant.
 
@@ -53,7 +58,7 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
 
 <AccordionGroup>
   <Accordion title="You need guaranteed durable execution of long-running business logic">
-    Choose **Temporal** (or a managed equivalent). Its core promise is that a workflow's progress survives crashes and can run for months. Yukta keeps state in memory by default, and durable checkpoints, PostgreSQL storage and failover are part of the Plus edition. See [Checkpoints and resume](/operations/checkpoints-and-resume) and [Persistence](/operations/persistence).
+    Choose **Temporal** (or a managed equivalent). Its core promise is that a workflow's progress survives crashes and can run for months. Yukta keeps state in memory by default, and durable checkpoints, PostgreSQL storage and failover are part of the Plus edition. See [Durability and high availability](/concepts/durability-and-high-availability).
   </Accordion>
   <Accordion title="Your pipelines are scheduled data and ML jobs written in Python">
     Choose **Airflow**, **Prefect** or **Dagster**. They have rich data-engineering features: backfills, data lineage and asset catalogues, and large integration ecosystems. Yukta can start a command or call an API on a schedule, but it is not a data-lineage tool.
@@ -76,23 +81,15 @@ What sets Yukta apart is the combination: workflows as **data**, **messages that
 
 Be realistic about the current state, so you can choose with open eyes:
 
-- **Alpha.** The workflow JSON, REST API, MCP tools and plugin contract may change before v0.1.0. See [Releases](/reference/releases).
+- **Alpha.** The workflow JSON, REST API, MCP tools and plugin contract may change before 1.0. See [Releases](/reference/releases).
 - **In-memory by default.** The Community edition forgets sessions and runs on restart. Durable storage and high availability need the Plus edition. See [Licensing and editions](/reference/licensing).
-- **One admitting server at a time.** High availability gives failover, not scale-out of admission. See [High availability](/operations/high-availability).
+- **One admitting server at a time.** High availability gives failover, not scale-out of admission. See [Durability and high availability](/concepts/durability-and-high-availability).
 - **Young plugin ecosystem.** There are many built-in plugins, but far fewer ready-made connectors than the older tools.
 
-For how fast a single server runs, see [Benchmark results](/operations/capacity-and-performance#benchmark-results).
+For how fast a single server runs, see [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
 
-## Next steps
+## Related
 
-<Card title="How Yukta works" icon="diagram-project" horizontal href="/concepts/how-it-works">
-  The layers, the life of an execution and the principles behind the design.
-</Card>
-
-<Card title="AI and agents" icon="robot" horizontal href="/building/ai-and-agents">
-  Build model-driven workflows: chat with memory, tool-using agent loops, decisions, budgets and guardrails.
-</Card>
-
-<Card title="Quickstart" icon="rocket" horizontal href="/quickstart">
-  Install Yukta and run your first workflow in five minutes.
-</Card>
+- [How Yukta works](/concepts/how-it-works): the model behind these answers.
+- [Your first workflow](/learn/your-first-workflow): try it in five minutes.
+- [AI and deterministic work](/concepts/ai-and-deterministic-work): the part other tools do not combine.

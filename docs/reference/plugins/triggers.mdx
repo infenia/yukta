@@ -1,0 +1,104 @@
+---
+title: "Trigger reference"
+sidebarTitle: "Triggers"
+description: "Options, ports and payloads of API_TRIGGER, WEBHOOK_TRIGGER, SCHEDULE_TRIGGER, CONSTANT_SOURCE and SUPERVISOR_SIGNAL."
+keywords: ["API_TRIGGER", "WEBHOOK_TRIGGER", "SCHEDULE_TRIGGER", "CONSTANT_SOURCE", "SUPERVISOR_SIGNAL", "triggers"]
+---
+
+# Trigger reference
+
+A trigger has no input and starts a run by emitting messages; all triggers are always part of the server and emit on the port `default`.
+
+## `API_TRIGGER`
+
+Emits the `payload` map the caller gave when starting the run.
+
+- **Options:** none.
+- **Output port:** `default`.
+- **Payload:** the start payload, or an empty map.
+
+```json
+{ "nodeId": "start", "type": "API_TRIGGER", "config": {} }
+```
+
+## `WEBHOOK_TRIGGER`
+
+Starts the run from a signed inbound `POST /hooks/{sessionId}/{path}`. The call is refused with `401` unless the signature header holds the hex HMAC of the raw body.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `path` | string | none | yes | Last segment of the hook URL. |
+| `secret` | string | none | yes | Signing secret as a `decrypted:<name>` reference. |
+| `signatureHeader` | string | `X-Hub-Signature-256` | no | Header that carries the signature. |
+| `signaturePrefix` | string | `sha256=` | no | Text before the hex digest in the header. |
+| `idempotencyHeader` | string | none | no | Header whose value makes a repeated delivery return the first run (for example `X-GitHub-Delivery`). |
+| `headers` | string | none | no | Comma-separated header names copied into the payload. |
+
+- **Output port:** `default`.
+- **Payload:** `{body, headers}`.
+- **Errors:** validation fails when `path` or `secret` is missing or blank.
+
+```json
+{
+  "nodeId": "hook",
+  "type": "WEBHOOK_TRIGGER",
+  "config": { "path": "deploys", "secret": "decrypted:github-hook", "idempotencyHeader": "X-GitHub-Delivery" }
+}
+```
+
+## `SCHEDULE_TRIGGER`
+
+Emits repeatedly on a fixed interval or a cron schedule.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `intervalMs` | number | none | one of `intervalMs` or `cron` | Fixed delay between emissions in milliseconds, positive; the first emission comes after one interval. |
+| `cron` | string | none | one of `intervalMs` or `cron` | Spring 6-field cron expression. |
+| `zone` | string | system zone | no | Time zone of `cron`. |
+| `maxRuns` | number | unbounded | no | Stop after this many emissions, a positive whole number. |
+
+- **Output port:** `default`.
+- **Payload:** `{tick, firedAt}`; `tick` counts from 1 and `firedAt` is an ISO-8601 instant.
+- **Errors:** validation fails unless exactly one of `cron` and `intervalMs` is set (`Exactly one of 'cron' or 'intervalMs' is required`), when `intervalMs` is not positive, or when `cron` has no future execution.
+- **Overrun:** an interval tick that arrives while the previous start is still running is dropped and logged, and the schedule continues.
+
+```json
+{ "nodeId": "tick", "type": "SCHEDULE_TRIGGER", "config": { "cron": "0 0 * * * *", "zone": "UTC", "maxRuns": 24 } }
+```
+
+## `CONSTANT_SOURCE`
+
+Emits one message holding predefined variables.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `variables` | map | `{}` | no | Key to value; keys with dots nest; values may be expressions. An empty map emits one empty message. |
+| `target` | `PAYLOAD` or `METADATA` | `PAYLOAD` | no | Where the variables go. |
+
+- **Output port:** `default`.
+- **Payload:** the nested variables when `target` is `PAYLOAD`; an empty map when it is `METADATA`.
+
+```json
+{ "nodeId": "seed", "type": "CONSTANT_SOURCE", "config": { "variables": { "repo.name": "yukta", "branch": "main" } } }
+```
+
+## `SUPERVISOR_SIGNAL`
+
+Starts a workflow that decides for a supervisor, with the payload the supervisor started it with. Pair it with [`SUPERVISOR_DECISION`](/reference/plugins/terminals#supervisor_decision).
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `signals` | string | none | no | Comma-separated signal kinds the workflow is made for: `EVENT`, `TICK`, `REVIEW`, `DELEGATED`, `STARTED`. |
+
+- **Output port:** `default`.
+- **Errors:** validation fails with `signals must be a comma-separated list of [...]` when a kind is not one of the five.
+
+```json
+{ "nodeId": "signal", "type": "SUPERVISOR_SIGNAL", "config": { "signals": "EVENT,TICK" } }
+```
+
+## Related
+
+- [Plugin reference](/reference/plugins/overview)
+- [Supervisor contract](/reference/supervisors/contract)
+- [Workflow JSON](/reference/workflow-json)

@@ -77,7 +77,7 @@ class SupervisorContractTest {
     return Stream.iterate(Path.of("").toAbsolutePath(), Path::getParent)
         .limit(5)
         .filter(p -> p != null)
-        .map(p -> p.resolve("docs/running/supervisor-contract.mdx"))
+        .map(p -> p.resolve("docs/reference/supervisors/contract.mdx"))
         .filter(Files::exists)
         .findFirst()
         .orElse(null);

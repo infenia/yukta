@@ -1,80 +1,50 @@
 ---
-title: "Sub-workflows: run a workflow from inside another"
+title: "How sub-workflows work"
 sidebarTitle: "Sub-workflows"
-description: "Use the SUB_WORKFLOW processor to run another stored workflow of the same session once per message, to reuse steps or pick the workflow to run at run time."
-keywords: ["sub-workflows", "SUB_WORKFLOW", "nested workflow"]
+description: "Why you would run one workflow from inside another, what a child run is, how it relates to its parent, and where the model's limits are."
+keywords: ["sub-workflows", "SUB_WORKFLOW", "reuse", "nested workflow", "agent loops"]
 ---
 
-<Info>
-  **In plain terms:** a sub-workflow is a workflow used as a single step inside another one, like calling a reusable procedure. Use it to avoid copying the same steps into several flowcharts, or to let a step decide at run time which workflow to run.
-</Info>
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
 
-The `SUB_WORKFLOW` processor runs another stored workflow of the **same session** for each message it receives. Use it to compose small workflows into larger ones, to share a reusable sequence between several workflows, or to build agent-style plans where a step decides which workflow to run.
+<ReaderState
+  learn="what a sub-workflow is, why it is the answer to both reuse and bounded loops, and what it costs"
+  time="6 minutes"
+  need="you have read How Yukta works"
+  end="a clear sense of when to extract a workflow, and how a child relates to its parent"
+/>
 
-## Behaviour
+A **sub-workflow** is a workflow used as one step inside another. In a flowchart you would draw a box labelled "see page 3". Yukta's `SUB_WORKFLOW` node does that: for each message it receives, it runs another stored workflow of the same session, waits for it, and emits one message with the outcome.
 
-- The child is a normal execution with its own execution id. It is tracked, logged and audited like any other.
-- The child's terminal nodes feed a result collector. The sub-workflow node emits one message with `{ "executionId": ..., "results": [...], "status": ..., "outcome": ..., "reason": ... }`: `outcome` and `reason` come from the [outcome terminal](/plugins/terminals) the child reached, and are absent when it reached none.
-- A failing child fails the node, so the parent's [failure policy](/concepts/failure-handling) applies to it: retries, error routing and timeouts all work as for any node.
-- With `routeByOutcome: true` the node routes on how the child ended instead: the message leaves on `success`, `failure`, `retry` or `escalate`, and a failed or timed-out child goes to `failure` rather than failing the node. This is how a parent branches on a child's result, for example to retry a stage or hand it to a person.
-- The child's start payload is the `payload` option, whose values may use variables, or else the message payload. Inside the child every node can read it as `${start.<field>}`, so a parent can pass on its own start values with `"payload": {"project": "${start.project}"}`.
-- The child's start payload carries two labels, `yukta.depth` and `yukta.parentExecutionId`, so a child can tell how deep it is and who started it.
-- The child runs inside the parent node. Cancelling or stopping the node cancels the child (`CANCELLED`).
+<Diagram name="concept-sub-workflow" alt="A SUB_WORKFLOW node starts another workflow as a child run, waits for it, and emits one message with the outcome." caption="The child is an ordinary run with its own id, started inside the parent's node." />
 
-## Concurrency
+## Two reasons to use one
 
-When `yukta.execution.max-concurrent` is set, a child runs on the slot its parent already holds. Children are therefore not counted against the limits or the running-executions gauge, which prevents a parent that waits for its children from starving them.
+**Reuse.** If three workflows all end with the same "notify, then record" sequence, do not copy it. Extract it once and call it. Change it in one place.
 
-## Example
+**Loops, within limits.** A workflow graph has no cycles, so it cannot say "do this again until it works". A sub-workflow is the escape hatch: move one round of work into its own workflow, and run it again from a parent. Because nesting is capped (five levels), the loop is bounded by construction. For an AI agent that may need several rounds, that cap is a safety feature as much as a limitation.
 
-A parent workflow that calls a reusable `notify` workflow for every ticket:
+## What a child run is
 
-```json
-{
-  "nodeId": "notify-each",
-  "type": "SUB_WORKFLOW",
-  "config": { "workflowId": "notify" }
-}
-```
+The child is a perfectly ordinary run. It has its own id and is tracked, logged and audited like any other. What ties it to the parent is that it runs *inside* the parent's node: its start payload is whatever the node passes, and cancelling or stopping the node cancels the child.
 
-A parent that branches on the outcome of a reusable `check` workflow, run on the checkout the parent was started with:
+How the parent hears back is the interesting design choice. By default a failing child fails the node, so the parent's [failure model](/concepts/failure-model) applies: retries, error routing and time limits work as for any node. Or the node can route on how the child ended, sending the message out `success`, `failure`, `retry` or `escalate`, so the parent can branch on the result, for example retry a stage or hand it to a person. The first treats the child as a black box that may throw; the second treats it as a step that reports an outcome. Choose by whether the parent should react to a failure or only be failed by it.
 
-```json
-{
-  "nodeId": "check",
-  "type": "SUB_WORKFLOW",
-  "config": {
-    "workflowId": "check",
-    "payload": { "project": "${start.project}" },
-    "routeByOutcome": true,
-    "timeoutSeconds": 3600
-  }
-}
-```
+## Costs and limits
 
-Edges with `sourcePort` `success` and `escalate` then lead to the next step and to a person.
+- **Same session only.** A child must be a workflow of the same session. That keeps ownership, keys and fairness simple.
+- **A child uses its parent's slot.** When concurrency is limited, a child runs on the slot its parent already holds and is not counted against the limits. Otherwise a parent waiting for its children could starve them. The cost is that child runs do not show up in the running count.
+- **Depth is capped at five.** Deeper nesting is refused.
+- **Not on remote workers.** A sub-workflow node cannot be placed on a remote worker.
+- **A new layer to debug.** A failure inside a child is one level further from where you are looking. Each child has its own run to inspect.
 
-See [Routing and flow control](/plugins/routing-and-flow) for the node's full option list.
+## When not to use one
 
-## Limits and defaults
+Do not extract a workflow for two nodes you use once; the indirection costs more than the copy. Do not use a sub-workflow to loop over one call: a loop node suits polling and retrying a single processor. And if the child exists only to do something once per message, check that a splitter and ordinary nodes would not read more plainly.
 
-| Item | Value |
-|---|---|
-| Maximum nesting depth | 5 |
-| Scope | The child must be a workflow of the same session |
-| Placement | A `SUB_WORKFLOW` node cannot be placed on a remote worker |
-| Run history | The parent-child link is carried in the child's start payload and its start entry in the execution log |
+## Related
 
-## Next steps
-
-<Card title="Executions" icon="play" horizontal href="/concepts/executions">
-  The life of one run: its statuses, how they change, what you can read while it runs and what you get at the end.
-</Card>
-
-<Card title="Failure handling" icon="triangle-exclamation" horizontal href="/concepts/failure-handling">
-  Per-node retry, error routing, failure budgets and join rules, set with the engine object in a node's configuration.
-</Card>
-
-<Card title="Admission and limits" icon="traffic-light" horizontal href="/running/admission-and-limits">
-  Concurrency caps, queueing or refusing excess starts, priority, fairness between sessions, idempotent starts and live limit changes.
-</Card>
+- [Run a sub-workflow](/guides/build/run-a-sub-workflow): the how-to.
+- [Runs](/concepts/runs) and [AI and deterministic work](/concepts/ai-and-deterministic-work): agent loops.
+- [Routing and flow reference](/reference/plugins/routing-and-flow): the node's options.

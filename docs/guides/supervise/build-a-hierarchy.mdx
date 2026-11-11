@@ -1,0 +1,162 @@
+---
+title: "Build a supervisor hierarchy"
+sidebarTitle: "Build a hierarchy"
+description: "Make supervisors report to parents and choose how the parents decide: ORDERED, ALL or ANY, so a command that needs approval is judged above the owner before a person is asked."
+keywords: ["supervisor hierarchy", "parents", "delegation", "ORDERED", "ALL", "ANY", "approval", "supervisor:parent"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how supervisors report to parents and how a parent's answer settles a command or a question"
+  time="20 minutes"
+  need="a server on localhost:9858, an ADMIN key if your server uses keys, and a supervisor that owns a workflow (release-guard from Assign a supervisor)"
+  end="an owner whose approval requests go to two parents under a mode you chose, before a person is asked"
+/>
+
+**Use this when** one supervisor should not decide alone: a section supervisor owns a stage, and a more senior supervisor (a policy engine, an AI agent) reviews what the section cannot settle, before a person is bothered.
+
+**Prerequisites:** [Assign a supervisor](/guides/supervise/assign-a-supervisor). Add `-H "X-API-Key: $YUKTA_API_KEY"` if your server has keys.
+
+A supervisor lists `parents` (zero or more). A parent is another supervisor; a supervisor cannot be its own ancestor (saving refuses a cycle) and a chain has at most four levels.
+
+<Diagram name="guide-build-a-hierarchy" alt="The owner release-guard parks a command that needs approval and asks its parents first, under a delegation mode: ORDERED, ALL or ANY. A refusal ends the command; a parent with no opinion leaves it to a person." caption="Parents advise and review but own nothing here; a person decides last when no parent settles the command." />
+
+## Steps
+
+<Steps>
+  <Step title="Create the parents">
+    A parent decides like any supervisor, with whatever engine suits it. This one is a rules supervisor that refuses a restart of the `slow` workflow. Save as `policy.json`:
+
+    ```json policy.json
+    {
+      "id": "policy",
+      "type": "rules",
+      "settings": {
+        "rules": [
+          { "id": "no-prod-restart", "deny": { "command": "Restart", "if": "workflowId == 'slow'", "reason": "no restart of the slow workflow" } }
+        ]
+      }
+    }
+    ```
+
+    ```bash
+    curl -s -X POST localhost:9858/api/supervisors -H 'Content-Type: application/json' -d @policy.json
+    ```
+
+    Create more parents the same way: a second rules supervisor, or an `http` supervisor run by an AI agent ([Write an agent supervisor](/guides/supervise/write-an-agent-supervisor)).
+  </Step>
+
+  <Step title="Let the parents watch, without owning">
+    A parent that is not running is silent, and a supervisor runs only when it has an assignment. The one-owner rule means a parent cannot also own what the child owns. Give each parent a `global` assignment: it watches every run and owns nothing, so it never conflicts.
+
+    ```bash
+    curl -s -X PUT localhost:9858/api/supervisors/policy/assignments \
+      -H 'Content-Type: application/json' -d '[{"target":"global"}]'
+    ```
+
+    A `global` supervisor reviews and advises but sends no command of its own: what it sends is refused as `not-owned`.
+  </Step>
+
+  <Step title="Point the child at its parents">
+    Add `parents` (in the order they are asked) and, optionally, a `delegation` per kind. `release-guard` from [Assign a supervisor](/guides/supervise/assign-a-supervisor), with a rule that holds a restart for approval:
+
+    ```json
+    {
+      "id": "release-guard",
+      "type": "rules",
+      "settings": {
+        "allowedCommands": ["PauseWorkflowCommand"],
+        "operatorAccess": ["RestartCommand"],
+        "rules": [
+          { "id": "hold-restart", "requireApproval": { "command": "Restart", "risk": "MEDIUM", "reason": "restart needs a second opinion" } }
+        ]
+      },
+      "parents": ["policy"],
+      "delegation": {
+        "APPROVAL": { "mode": "ALL", "timeoutSeconds": 30 }
+      }
+    }
+    ```
+
+    ```bash
+    curl -s -X PUT localhost:9858/api/supervisors/release-guard -H 'Content-Type: application/json' -d @release-guard.json
+    # or: yukta-cli supervisors parents set release-guard --parent policy --mode approval=all
+    ```
+
+    The delegation kinds are `APPROVAL` (one of the supervisor's own commands needs approval), `INPUT` (it escalates an input request) and `CONSULT` (its engine asks a question). The modes:
+
+    | Mode | The parents asked |
+    |---|---|
+    | `ORDERED` (default) | Asked one by one; the first answer decides, and a silent parent passes it on |
+    | `ALL` | Asked at once; all must allow, and one refusal is final |
+    | `ANY` | Asked at once; the first answer decides |
+
+    `timeoutSeconds` (default 30) is how long one parent has to answer. A refusal from any parent asked ends the command. A parent with no opinion, a silent one, or a `HIGH` risk need (which only a person approves) leaves the decision to a person.
+  </Step>
+
+  <Step title="Route input requests through the parents">
+    For input requests the **route** decides who is asked and in which order; the tier selector `supervisor:parent` sends an escalated request to the parents of the supervisor that handed it up, with the tier's own mode, quorum and timeout. This is server configuration (`application.yml`, or the matching environment variables):
+
+    ```yaml
+    yukta.input.routes.default:
+      tiers:
+        - name: section
+          responders: ["supervisor:*"]
+          timeout: 30s
+        - name: above
+          responders: ["supervisor:parent"]
+          timeout: 30s
+        - name: ops
+          responders: ["role:OPERATOR"]
+          type: HUMAN
+      on-final-timeout: FAIL
+    ```
+
+    A parent is asked only if it **watches the request's node**. A tier with nobody to ask is skipped at once. A supervisor approves another's parked command or request only from above it in the hierarchy, never a `HIGH` risk request, and never one of a run it started. More on routes: [Route input requests](/guides/supervise/route-input-requests).
+
+    <Note>
+      A parent attached with `global` owns nothing, and the server refuses any command a supervisor sends for a unit it does not own. Try a request in a test session and read `GET /api/supervisors/decisions`: an answer from a parent that shows `not-owned` or `out-of-scope` means that parent can advise and review, but the owner or a person must answer for those nodes.
+    </Note>
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Check the wiring, then send the held command as a person and read the outcome:
+
+```bash
+curl -s localhost:9858/api/supervisors/release-guard          # parents and delegation are in the view
+curl -s -X POST localhost:9858/api/executions/$EXEC/restart
+```
+
+`policy` is asked first because `release-guard` parked the restart for approval, and its rule refuses. The restart is dropped and the person who sent it gets a `403`, with the parent named in the reason:
+
+```json
+{ "status": 403, "message": "policy: no restart of the slow workflow", "errors": [ { "field": "code", "message": "CONTROL_REJECTED" } ] }
+```
+
+The log records `CONTROL_REJECTED`, and `GET /api/supervisors/decisions?supervisor=release-guard` shows the outcome. Now change the rule's `if` to match nothing (for example `workflowId == 'prod-deploy'`) and send the restart again. No parent refuses, so the outcome depends on what the parents say. One that allows lets the command through, with its original sender, and the owner reviews it again (a denial still applies). When no parent decides (none running, all silent, or a `HIGH` risk need) the command is parked for a person: the server answers `202 Accepted`:
+
+```json
+{ "status": 202, "message": "...", "data": { "status": "AWAITING_APPROVAL", "requestId": "..." } }
+```
+
+The request appears in `GET /api/sessions/steer/inputs?state=OPEN` with the chain it went through, the parents asked (`allow`, `deny`, `no-opinion` or `silent`) before it reached a person, and a person approves it in the Inputs panel.
+
+<UiShot name="supervisor-chain" alt="A supervisor's approval chain: the owner, the parents asked in order with their answers, and the person who decided last" caption="The approval chain of a request: who asked, which parents answered what, and who decided." />
+
+## Variations
+
+- **Limits.** Parked commands count against the open request caps (5 per run, 50 per session) and live in memory: a restart cancels them. They wait `yukta.control.approval.ttl` (default `10m`, never above `yukta.input.max-ttl`).
+- **A stop sent by a person is never parked.** It runs with a warning, so a person can always stop a run. A stop proposed by a supervisor can be parked.
+- **Votes.** In a `QUORUM` or `UNANIMOUS` input tier supervisors vote once each; a split vote hands the request up, and a person's answer always decides at once.
+- **A supervisor that flaps.** A supervisor that turns a target around (pause then resume) more than `yukta.supervisor.turn-around.limit` (4) times in `period` (60 s) is blocked for `cooldown` (5 m), shown as `flapping-blocked`.
+
+## Related
+
+- [Supervisors](/concepts/supervisors) for the hierarchy model.
+- [Supervisor contract reference](/reference/supervisors/contract) for review, delegation and consult.
+- [Who decides](/concepts/who-decides) for risk and why `HIGH` is human only.

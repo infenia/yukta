@@ -4,7 +4,7 @@ This document explains why Yukta can be trusted to meet its security requirement
 the security requirements, the threat model and trust boundaries, the secure design principles
 the code follows, how common implementation weaknesses are countered, and the evidence for each
 claim. It describes the alpha server (`0.1.x`); the settings behind each claim are specified
-in [docs/operations/security.mdx](docs/operations/security.mdx).
+in [docs/concepts/security-model.mdx](docs/concepts/security-model.mdx).
 
 ## 1. Security Requirements
 
@@ -54,7 +54,7 @@ HTTP endpoints, touch files and call models. The security requirements follow fr
    (`/actuator/**`) and the UI. Yukta serves plain HTTP, so TLS termination belongs to a reverse
    proxy in front of it. A native install binds to loopback by default. The container image binds
    `0.0.0.0` and so requires an API key in `YUKTA_API_KEYS_0_KEY` (see
-   [docs/operations/security.mdx](docs/operations/security.mdx)).
+   [docs/concepts/security-model.mdx](docs/concepts/security-model.mdx)).
 2. **Role boundary** between `VIEWER`, `OPERATOR` and `ADMIN`, and the session boundary for
    limited keys.
 3. **Workflow authoring boundary.** Defining a workflow is a trusted operation by design. The
@@ -103,7 +103,7 @@ Yukta.
   logic, while back-pressure, retries, timeouts and failure routing live once in the engine
   around every node. See [How Yukta works](docs/concepts/how-it-works.mdx).
 * **Open design.** The security model, its limits and its non-goals are published in
-  [docs/operations/security.mdx](docs/operations/security.mdx), including that workflow
+  [docs/concepts/security-model.mdx](docs/concepts/security-model.mdx), including that workflow
   authorship is a trusted operation.
 * **Defense in depth.** Authentication, roles, session scope, allow-lists, size and time limits
   and an audit trail each stand alone.
@@ -152,7 +152,7 @@ The assurance case is honest about what Yukta does not claim.
 
 | Claim | Where to verify |
 | ----- | --------------- |
-| Defaults, roles, keys, allow-lists, limits | [docs/operations/security.mdx](docs/operations/security.mdx) |
+| Defaults, roles, keys, allow-lists, limits | [docs/reference/security.mdx](docs/reference/security.mdx) |
 | Architecture and separation of control and data planes | [docs/concepts/how-it-works.mdx](docs/concepts/how-it-works.mdx) |
 | Static analysis and style | Checkstyle, PMD, SpotBugs and OpenGrep run in `./gradlew check`, configured under `config/` and `build-logic/` |
 | Test coverage thresholds | JaCoCo gates in `build-logic`, and Codecov (see `codecov.yml`) |

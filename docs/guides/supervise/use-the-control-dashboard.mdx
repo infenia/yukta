@@ -1,0 +1,88 @@
+---
+title: "Use the Control dashboard"
+sidebarTitle: "Use the Control dashboard"
+description: "Read the Mission Control page, scope it to a session, share a view, change the run limit and drain from it, and show it on a wall display."
+keywords: ["control dashboard", "Mission Control", "kiosk", "capacity", "drain", "audit", "metrics", "supervisors"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { UiShot } from "/snippets/ui-shot.jsx";
+
+<ReaderState
+  learn="how to see what the server is doing right now and steer capacity and runs from one page"
+  time="10 minutes"
+  need="the web UI at http://localhost:9858 and some runs; an ADMIN key to change limits"
+  end="a scoped, shareable view of throughput and health, and a drained or resized server"
+/>
+
+**Use this when** you run Yukta for a team and need to answer "how is it doing, who steered what, and what do I change?" without reading logs.
+
+**Prerequisites:** the web UI at `/control` (open it from the navigation, or go to `http://localhost:9858/control`). If your server has keys, the UI asks for one on first use; changing the scheduler limits needs `ADMIN` (pause, resume and stop of runs need `OPERATOR`). The page reads metrics sampled in memory since startup, so it starts empty after a restart.
+
+<UiShot name="control-dashboard" alt="The Control page with the command strip, capacity, throughput and latency charts, live runs and the runs heat strip" caption="Control: the command strip on top, then capacity, throughput and latency, live runs and the last 24 hours as one cell per minute." />
+
+## Steps
+
+<Steps>
+  <Step title="Read the command strip">
+    The top row answers "is it healthy?" at a glance: runs per minute and p95 duration with their one-hour trend, success rate over 24 hours, approvals waiting (opens the overview, where they are answered), running and waiting runs, worker slots in use, and model spend over the last hour.
+  </Step>
+
+  <Step title="Scope the page">
+    Use the **Scope** filter to pick the whole server, one session or one workflow. Runs, success rate, p95, approvals, the charts, live runs, the heat strip and the plugin table follow it. Capacity, running and waiting runs, worker slots, the control bus, system, model spend and AI usage always show the whole server (a scoped view labels those tiles). The scope, time range (`15m` to `24h`) and live or paused state are kept in the URL, so you can share a view:
+
+    ```text
+    http://localhost:9858/control?scope=workflow:<id>&range=6h&live=0
+    ```
+  </Step>
+
+  <Step title="Change capacity">
+    The **Capacity** panel shows running against the limit, the concurrent run limit (0 is unlimited) as a knob, the drain switch, and starts refused per reason. A change the server refuses is put back. The same from the command line:
+
+    ```bash
+    curl -X POST "localhost:9858/api/scheduler/limits?maxConcurrent=8&maxPerWorkflow=2"
+    curl -X POST localhost:9858/api/admin/drain      # refuse new starts; runs already going finish
+    curl -X DELETE localhost:9858/api/admin/drain    # accept starts again
+    ```
+
+    Draining is how you swap the server without cutting runs off: [Deploy](/guides/operate/deploy).
+  </Step>
+
+  <Step title="Steer live runs">
+    **Live runs** lists runs in progress: nodes done, time so far against the workflow's usual p95 (outlined when slower), and pause, resume and stop. Stepping is per node, in the run view the name links to. Control commands are marked under the throughput and latency charts: click one to open the run it steered, or the control audit for one that names no run, such as a limit change.
+  </Step>
+
+  <Step title="See who steered what">
+    The **Audit** tab (`/control?tab=audit`) lists every control command with who sent it (`key:<name>`, a supervisor id or the UI user) and whether it was applied or rejected. The **Activity** tab is the live event feed. The same data over REST is `GET /api/control/audit`.
+  </Step>
+
+  <Step title="Check who owns what">
+    The overview shows a **Supervisors** tile: how many supervisors are active, how many conflicts (commands blocked as flapping) the last hour had, and decisions per minute. It also shows the workflows nobody owns and the assignments start-up disabled as conflicts. It links to the Supervisors page, where supervisors are created, assigned and inspected ([Assign a supervisor](/guides/supervise/assign-a-supervisor)). The same counts: `GET /api/supervision/summary`.
+
+    <UiShot name="supervisors-catalogue" alt="The Supervisors page listing the engines and the configured supervisors" caption="The Supervisors page the tile links to." />
+  </Step>
+
+  <Step title="Put it on a wall">
+    **Kiosk** opens a full-screen display: the command strip stays and the panels cycle in three groups every 15 seconds with larger type. Hovering pauses the cycle; the dots jump to a group; **Esc** or **Exit** leaves it. Animation stops under the system setting "reduce motion".
+  </Step>
+</Steps>
+
+## Verify it worked
+
+- Start a few runs: the command strip's running count moves, **Live runs** lists them and the heat strip fills the current minute.
+- Set the concurrent limit to 1 on the Capacity knob and start two runs: the second waits, and the waiting count in the strip shows it. `GET /api/scheduler/limits` returns the same numbers: `maxConcurrent`, `maxPerWorkflow`, `running`, `queued`.
+- Pause a run from **Live runs**, open **Audit**, and the pause is there with your key name or `UI user`.
+- Copy the address bar to a colleague: they see the same scope and range.
+
+## Variations
+
+- **Prometheus.** The registry is on the class path but the endpoint is off by default. To scrape it, set `management.endpoints.web.exposure.include=health,info,metrics,prometheus` and point the scraper at `/actuator/prometheus`. The dashboard does not need it: [Observe runs](/guides/operate/observe-runs).
+- **Where the numbers come from.** `GET /api/metrics/series` and `GET /api/metrics/snapshot` (the same as the MCP tool `get_metrics_snapshot`). They are in-memory samples since startup.
+- **AI usage.** Tokens in and out and spend per provider, MCP tool calls, failed calls and refused heavy calls are server-wide meters, so a scoped view says so. To cap them: [Set token budgets](/guides/ai/set-token-budgets).
+- **Dashboard in an assistant.** `get_scheduler_limits`, `get_control_bus_status` and `get_metrics_snapshot` give an assistant the same picture: [Connect an assistant](/guides/ai/connect-an-assistant).
+
+## Related
+
+- [Tune capacity and limits](/guides/operate/tune-capacity-and-limits) for queueing, priority and fairness.
+- [Use the web UI](/guides/operate/use-the-web-ui).
+- [Runs](/concepts/runs) for statuses.

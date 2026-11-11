@@ -40,114 +40,204 @@
   "navigation": {
     "tabs": [
       {
-        "tab": "Documentation",
+        "tab": "Start here",
         "groups": [
           {
-            "group": "Get started",
+            "group": "Start here",
             "public": true,
             "pages": [
               "index",
-              "quickstart",
+              "get-started/install",
+              "learn/your-first-workflow",
               "examples"
-            ],
-            "boost": 2
-          },
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Learn",
+        "groups": [
           {
-            "group": "Concepts",
+            "group": "Tutorials",
             "public": true,
             "pages": [
-              "concepts/how-it-works",
-              "concepts/sessions-and-workflows",
-              "concepts/nodes-edges-ports",
-              "concepts/messages",
-              "concepts/executions",
-              "concepts/delivery-and-backpressure",
-              "concepts/failure-handling",
-              "playground",
-              "concepts/time-limits",
-              "concepts/sub-workflows",
-              "concepts/compared-with-other-tools"
+              "learn/your-first-workflow",
+              "learn/mix-rules-and-ai",
+              "learn/let-an-assistant-build-a-workflow",
+              "learn/add-a-supervisor",
+              "learn/set-up-supervision-with-an-assistant",
+              "learn/ask-for-approval",
+              "learn/playground"
             ]
-          },
+          }
+        ]
+      },
+      {
+        "tab": "Guides",
+        "groups": [
           {
             "group": "Build workflows",
             "public": true,
             "pages": [
-              "building/defining-a-workflow",
-              "building/validation-and-versions",
-              "building/variables-and-expressions",
-              "building/routing-and-branching",
-              "building/loops-and-retries",
-              "building/approvals-and-signals",
-              "building/input-requests",
-              "building/scheduling",
-              "building/ai-and-agents",
-              {
-                "group": "Plugins",
-                "public": true,
-                "pages": [
-                  "plugins/overview",
-                  "plugins/triggers",
-                  "plugins/routing-and-flow",
-                  "plugins/transform",
-                  "plugins/external-io",
-                  "plugins/ai",
-                  "plugins/decisions",
-                  "plugins/terminals",
-                  "plugins/writing-a-plugin"
-                ]
-              }
+              "guides/build/define-a-workflow",
+              "guides/build/route-and-branch",
+              "guides/build/loop-and-retry",
+              "guides/build/use-variables-and-expressions",
+              "guides/build/validate-and-roll-back",
+              "guides/build/schedule-a-workflow",
+              "guides/build/run-a-sub-workflow",
+              "guides/build/handle-failures",
+              "guides/build/control-a-run"
             ]
           },
           {
-            "group": "Run and control",
+            "group": "Work with AI",
             "public": true,
             "pages": [
-              "running/run-modes",
-              "running/run-controls",
-              "running/admission-and-limits",
-              "running/observability",
-              "running/control-dashboard",
-              "running/supervisors",
-              "running/supervisor-contract",
-              "running/supervisor-engines",
-              "running/writing-a-supervisor",
-              "running/rule-files"
+              "guides/ai/connect-an-assistant",
+              "guides/ai/configure-with-an-assistant",
+              "guides/ai/call-an-llm",
+              "guides/ai/use-tools-and-mcp-servers",
+              "guides/ai/classify-gate-and-score",
+              "guides/ai/set-token-budgets",
+              "guides/ai/keep-session-memory",
+              "guides/ai/ask-for-input"
+            ]
+          },
+          {
+            "group": "Supervise runs",
+            "public": true,
+            "pages": [
+              "guides/supervise/assign-a-supervisor",
+              "guides/supervise/write-a-rules-supervisor",
+              "guides/supervise/write-an-agent-supervisor",
+              "guides/supervise/write-a-workflow-supervisor",
+              "guides/supervise/build-a-hierarchy",
+              "guides/supervise/replay-a-supervisor",
+              "guides/supervise/route-input-requests",
+              "guides/supervise/use-the-control-dashboard"
+            ]
+          },
+          {
+            "group": "Run and operate",
+            "public": true,
+            "pages": [
+              "guides/operate/deploy",
+              "guides/operate/upgrade-and-roll-back",
+              "guides/operate/persist-sessions",
+              "guides/operate/run-highly-available",
+              "guides/operate/add-remote-workers",
+              "guides/operate/secure-the-server",
+              "guides/operate/observe-runs",
+              "guides/operate/tune-capacity-and-limits",
+              "guides/operate/troubleshoot",
+              "guides/operate/use-the-web-ui",
+              "guides/operate/use-the-cli"
+            ]
+          },
+          {
+            "group": "Extend",
+            "public": true,
+            "pages": [
+              "guides/extend/write-a-plugin"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Concepts",
+        "groups": [
+          {
+            "group": "The big picture",
+            "public": true,
+            "pages": [
+              "concepts/how-it-works",
+              "concepts/ai-and-deterministic-work",
+              "concepts/supervisors",
+              "concepts/who-decides",
+              "concepts/ai-assisted-configuration"
+            ]
+          },
+          {
+            "group": "How it behaves",
+            "public": true,
+            "pages": [
+              "concepts/sessions-and-workflows",
+              "concepts/runs",
+              "concepts/sub-workflows",
+              "concepts/delivery-and-backpressure",
+              "concepts/failure-model",
+              "concepts/time-limits",
+              "concepts/durability-and-high-availability",
+              "concepts/security-model"
+            ]
+          },
+          {
+            "group": "Context",
+            "public": true,
+            "pages": [
+              "concepts/compared-with-other-tools"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Workflows",
+            "public": true,
+            "pages": [
+              "reference/workflow-json",
+              "reference/node-options",
+              "reference/expressions",
+              "reference/messages"
+            ]
+          },
+          {
+            "group": "Plugins",
+            "public": true,
+            "pages": [
+              "reference/plugins/overview",
+              "reference/plugins/triggers",
+              "reference/plugins/routing-and-flow",
+              "reference/plugins/transform",
+              "reference/plugins/external-io",
+              "reference/plugins/ai",
+              "reference/plugins/decisions",
+              "reference/plugins/terminals",
+              "reference/plugins/contract"
+            ]
+          },
+          {
+            "group": "Supervisors",
+            "public": true,
+            "pages": [
+              "reference/supervisors/shell",
+              "reference/supervisors/engines",
+              "reference/supervisors/contract",
+              "reference/supervisors/rule-files"
             ]
           },
           {
             "group": "Interfaces",
             "public": true,
             "pages": [
-              "interfaces/web-ui",
-              "interfaces/mcp",
-              "interfaces/cli"
-            ]
-          },
-          {
-            "group": "Operate",
-            "public": true,
-            "pages": [
-              "operations/configuration",
-              "operations/security",
-              "operations/persistence",
-              "operations/checkpoints-and-resume",
-              "operations/high-availability",
-              "operations/remote-workers",
-              "operations/deployment",
-              "operations/capacity-and-performance",
-              "operations/troubleshooting"
-            ]
-          },
-          {
-            "group": "Reference",
-            "public": true,
-            "pages": [
-              "reference/glossary",
-              "reference/licensing",
-              "reference/limits-and-defaults",
-              "reference/status-values",
+              "reference/mcp-tools",
+              "reference/cli",
               "reference/client-parity"
+            ]
+          },
+          {
+            "group": "Server",
+            "public": true,
+            "pages": [
+              "reference/configuration",
+              "reference/security",
+              "reference/metrics",
+              "reference/status-values",
+              "reference/glossary",
+              "reference/licensing"
             ]
           }
         ]
@@ -189,7 +279,9 @@
             "group": "Changelog",
             "public": true,
             "pages": [
-              "reference/releases"
+              "reference/releases",
+              "reference/whats-new-alpha-4",
+              "reference/migration-alpha-4"
             ]
           }
         ]
@@ -211,7 +303,7 @@
     }
   },
   "search": {
-    "prompt": "Search workflows, plugins, API…"
+    "prompt": "Search workflows, plugins, API\u2026"
   },
   "contextual": {
     "options": [
@@ -290,5 +382,195 @@
         ]
       }
     ]
-  }
+  },
+  "redirects": [
+    {
+      "source": "/quickstart",
+      "destination": "/learn/your-first-workflow"
+    },
+    {
+      "source": "/playground",
+      "destination": "/learn/playground"
+    },
+    {
+      "source": "/concepts/executions",
+      "destination": "/concepts/runs"
+    },
+    {
+      "source": "/concepts/failure-handling",
+      "destination": "/concepts/failure-model"
+    },
+    {
+      "source": "/concepts/nodes-edges-ports",
+      "destination": "/concepts/how-it-works"
+    },
+    {
+      "source": "/concepts/messages",
+      "destination": "/concepts/how-it-works"
+    },
+    {
+      "source": "/building/defining-a-workflow",
+      "destination": "/guides/build/define-a-workflow"
+    },
+    {
+      "source": "/building/routing-and-branching",
+      "destination": "/guides/build/route-and-branch"
+    },
+    {
+      "source": "/building/loops-and-retries",
+      "destination": "/guides/build/loop-and-retry"
+    },
+    {
+      "source": "/building/variables-and-expressions",
+      "destination": "/guides/build/use-variables-and-expressions"
+    },
+    {
+      "source": "/building/validation-and-versions",
+      "destination": "/guides/build/validate-and-roll-back"
+    },
+    {
+      "source": "/building/scheduling",
+      "destination": "/guides/build/schedule-a-workflow"
+    },
+    {
+      "source": "/running/run-controls",
+      "destination": "/guides/build/control-a-run"
+    },
+    {
+      "source": "/running/run-modes",
+      "destination": "/guides/build/control-a-run"
+    },
+    {
+      "source": "/running/control-dashboard",
+      "destination": "/guides/supervise/use-the-control-dashboard"
+    },
+    {
+      "source": "/operations/deployment",
+      "destination": "/guides/operate/deploy"
+    },
+    {
+      "source": "/operations/remote-workers",
+      "destination": "/guides/operate/add-remote-workers"
+    },
+    {
+      "source": "/operations/troubleshooting",
+      "destination": "/guides/operate/troubleshoot"
+    },
+    {
+      "source": "/running/observability",
+      "destination": "/guides/operate/observe-runs"
+    },
+    {
+      "source": "/interfaces/web-ui",
+      "destination": "/guides/operate/use-the-web-ui"
+    },
+    {
+      "source": "/operations/configuration",
+      "destination": "/reference/configuration"
+    },
+    {
+      "source": "/reference/limits-and-defaults",
+      "destination": "/reference/configuration"
+    },
+    {
+      "source": "/interfaces/cli",
+      "destination": "/reference/cli"
+    },
+    {
+      "source": "/interfaces/mcp",
+      "destination": "/reference/mcp-tools"
+    },
+    {
+      "source": "/running/supervisor-contract",
+      "destination": "/reference/supervisors/contract"
+    },
+    {
+      "source": "/running/supervisor-engines",
+      "destination": "/reference/supervisors/engines"
+    },
+    {
+      "source": "/running/rule-files",
+      "destination": "/reference/supervisors/rule-files"
+    },
+    {
+      "source": "/plugins/overview",
+      "destination": "/reference/plugins/overview"
+    },
+    {
+      "source": "/plugins/triggers",
+      "destination": "/reference/plugins/triggers"
+    },
+    {
+      "source": "/plugins/routing-and-flow",
+      "destination": "/reference/plugins/routing-and-flow"
+    },
+    {
+      "source": "/plugins/transform",
+      "destination": "/reference/plugins/transform"
+    },
+    {
+      "source": "/plugins/external-io",
+      "destination": "/reference/plugins/external-io"
+    },
+    {
+      "source": "/plugins/ai",
+      "destination": "/reference/plugins/ai"
+    },
+    {
+      "source": "/plugins/decisions",
+      "destination": "/reference/plugins/decisions"
+    },
+    {
+      "source": "/plugins/terminals",
+      "destination": "/reference/plugins/terminals"
+    },
+    {
+      "source": "/operations/security",
+      "destination": "/guides/operate/secure-the-server"
+    },
+    {
+      "source": "/operations/persistence",
+      "destination": "/guides/operate/persist-sessions"
+    },
+    {
+      "source": "/operations/high-availability",
+      "destination": "/guides/operate/run-highly-available"
+    },
+    {
+      "source": "/operations/checkpoints-and-resume",
+      "destination": "/concepts/durability-and-high-availability"
+    },
+    {
+      "source": "/operations/capacity-and-performance",
+      "destination": "/guides/operate/tune-capacity-and-limits"
+    },
+    {
+      "source": "/running/admission-and-limits",
+      "destination": "/guides/operate/tune-capacity-and-limits"
+    },
+    {
+      "source": "/plugins/writing-a-plugin",
+      "destination": "/guides/extend/write-a-plugin"
+    },
+    {
+      "source": "/building/ai-and-agents",
+      "destination": "/concepts/ai-and-deterministic-work"
+    },
+    {
+      "source": "/building/input-requests",
+      "destination": "/concepts/who-decides"
+    },
+    {
+      "source": "/building/approvals-and-signals",
+      "destination": "/learn/ask-for-approval"
+    },
+    {
+      "source": "/running/supervisors",
+      "destination": "/concepts/supervisors"
+    },
+    {
+      "source": "/running/writing-a-supervisor",
+      "destination": "/guides/supervise/write-an-agent-supervisor"
+    }
+  ]
 }

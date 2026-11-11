@@ -1,0 +1,258 @@
+---
+title: "Configuration reference"
+sidebarTitle: "Configuration"
+description: "Every server setting and fixed limit, keyed by property and environment variable, with type, default and effect."
+keywords: ["configuration", "settings", "environment variables", "defaults", "limits"]
+---
+
+# Configuration reference
+
+Every setting that changes how the server admits, runs, stores and protects runs, plus the fixed limits no setting changes. "Off" means the feature is disabled until set. Defaults were checked against `YuktaProperties`, `SessionConfigProperties`, `TrackerProperties`, `MetricsProperties`, `PluginLogStoreConfig` and the `@Value` and `Environment` reads in `web`, `mcp`, `core` and `plugin-api`; the rows marked "not re-checked" were carried over from the previous documentation.
+
+The alpha release may change names and defaults.
+
+## How settings are supplied
+
+| Source | Form | Example |
+|---|---|---|
+| Command-line argument | `--key=value` | `--yukta.execution.max-concurrent=20` |
+| Environment variable | key upper-cased, `.` and `-` replaced by `_` | `YUKTA_EXECUTION_MAX_CONCURRENT=20` |
+| Properties file | `key=value` | `yukta.execution.on-limit=REJECT` |
+| System property | `-Dkey=value` before the program arguments | `-Dyukta.script.timeout-ms=5000` |
+
+Durations take a unit (`30s`, `10m`, `1h`); `0` means off where the row says so. Settings marked **system property only** are read with `Integer.getInteger`-style calls and ignore the environment and the properties file: `yukta.script.*`, `yukta.spel.*`, `yukta.streams.*`, `yukta.rate-limit-per-minute`, `yukta.auth-failures-per-minute`. `yukta.variables.allowed` is read as a system property or as `YUKTA_VARIABLES_ALLOWED`. Secrets are read only from `YUKTA_SECRET_*` environment variables.
+
+A native binary activates the `prod` profile itself unless `--spring.profiles.active=...` is passed as an argument. Setting `SPRING_PROFILES_ACTIVE=postgres` alone replaces `prod`; name both (`prod,postgres`).
+
+Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`, `yukta.session-memory.dir`) need the Plus edition; the Community build refuses them at start-up. See [Licensing and editions](/reference/licensing).
+
+## Server and network
+
+| Property (environment variable) | Type | Default | Effect |
+|---|---|---|---|
+| `server.address` (`YUKTA_SERVER_ADDRESS`) | string | `127.0.0.1` | Bind address. A non-loopback value needs an API key or the server refuses to start. The container image sets `0.0.0.0`. |
+| `server.port` (`SERVER_PORT`) | int | `9858` | HTTP port for the API, the web UI and `/mcp`. |
+| `spring.codec.max-in-memory-size` (`YUKTA_LIMITS_MAX_BODY`) | size | `1MB` | Largest request body; larger gets `413`. |
+| `spring.profiles.active` (`SPRING_PROFILES_ACTIVE`) | string | `prod` | Profile. `bootRun` uses `dev`. |
+| `management.endpoints.web.exposure.include` | list | `health,info,metrics` | Exposed management endpoints under `/actuator`. |
+
+## Admission and run limits
+
+`yukta.execution.*` is `YuktaProperties.Execution`; `0` means no limit unless stated.
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.execution.max-concurrent` | int | `0` | Runs at once, total. Excess starts wait or are refused. |
+| `yukta.execution.max-concurrent-children` | int | `0` | Child runs (sub-workflows) alive at once, apart from the run slots. |
+| `yukta.execution.max-concurrent-per-workflow` | int | `0` | Runs of one workflow at once. |
+| `yukta.execution.max-concurrent-per-session` | int | `0` | Runs of one session at once. |
+| `yukta.execution.queue-capacity` | int | `100` | Waiting starts; one more is refused with `429`. |
+| `yukta.execution.queue-capacity-per-workflow` | int | `0` | Waiting starts of one workflow. |
+| `yukta.execution.on-limit` | enum | `QUEUE` | `QUEUE` holds a start as `QUEUED`; `REJECT` refuses it with `429`. |
+| `yukta.execution.queue-timeout` | duration | `0` | A start that waits longer ends `TIMED_OUT`. |
+| `yukta.execution.max-starts-per-minute` | int | `0` | Starts per workflow and minute. |
+| `yukta.execution.timeout` (`YUKTA_EXECUTION_TIMEOUT`) | duration | `1h` | Run deadline; paused time does not count. |
+| `yukta.execution.shutdown-timeout` | duration | `30s` | Time running runs get at server stop. |
+| `yukta.stop.drain-timeout` | duration | `30s` | How long a `DRAIN` stop waits. |
+| `yukta.start.idempotency-ttl` | duration | `10m` | Window in which a repeated `Idempotency-Key` returns the first run id. |
+| `yukta.start.idempotency-max-keys` | long | `100000` | Idempotency key cache size. |
+| `yukta.mcp.start-dedupe-window` | duration | `30s` | MCP `start_workflow` without a key: a repeat for the same session and workflow within it returns the first run id. `0` turns it off. |
+| `yukta.concurrency.groups.<name>` | int | unset (no limit) | Limit of nodes with `engine.concurrencyGroup=<name>` running at once. |
+| `yukta.priority`, `yukta.version` (start payload keys) | number, string | `0`, latest | Run priority (higher first) and saved version to run. Both need the ADMIN role, or no key configured. |
+
+## Streams, history, logs, results
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.tracker.cleanup-ttl` | duration | `10m` | How long a run's live state is kept after it ends. |
+| `yukta.tracker.max-sessions` | int | `0` | Sessions held in memory; the oldest idle one is dropped beyond it. |
+| `yukta.tracker.session-ttl` | duration | unset | A session with no running run is dropped after this idle time. |
+| `yukta.streaming.status-history-max-per-run` | int | `200` | Progress snapshots kept per run for late clients. |
+| `yukta.streaming.status-history-max-executions` | int | `1000` | Runs with progress history. |
+| `yukta.streaming.status-history-ttl-minutes` | int | `5` | History lifetime; 1 to 30. |
+| `yukta.logs.store.backend` | string | `memory` | Where node log lines are kept; `memory` is the only value. |
+| `yukta.logs.store.retention.default-period-minutes` | int | `30` | Log retention, clamped to 1 to 1440. |
+| `yukta.results.retained-events` | int | `1000` | Result events replayed per run. |
+| `yukta.results.retention` | duration | `1h` | Time after last use before a run's results are dropped. |
+| `yukta.results.max-executions` | int | `200` | Runs with retained results. |
+| `yukta.streams.max-concurrent` | int | `500` | Open SSE streams; the next gets `429`; `0` off. System property only. |
+| `yukta.streams.max-per-key` | int | `50` | Streams per named key; `0` off. System property only. |
+| `yukta.streams.max-lifetime` | duration | `1h` | A stream closes after this; `0` off. System property only. |
+
+## Metrics sampling
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.metrics.enabled` | boolean | `true` | Samples meters for the metrics snapshot. |
+| `yukta.metrics.interval` | duration | `5s` | Sampling interval; positive. |
+| `yukta.metrics.fine-retention` | duration | `1h` | Retention of fine samples; not shorter than the interval. |
+| `yukta.metrics.coarse-retention` | duration | `24h` | Retention of coarse samples; at least `1m`. |
+| `yukta.metrics.max-series` | int | `500` | Most series kept; at least 1. |
+| `yukta.metrics.allow-list` | list | `yukta.`, `llm.`, `jvm.memory.used`, `jvm.memory.max`, `jvm.threads.live`, `jvm.gc.pause`, `process.cpu.usage`, `system.cpu.usage` | Meter name prefixes sampled. |
+
+## Durability and stores
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.execution-log.dir` | path | unset (memory) | Keeps the execution log as a file here; needed to recover and resume. Plus. |
+| `yukta.execution-log.retained-runs` | int | `500` | Newest runs kept and restored at start. |
+| `yukta.execution-log.compact-after` | int | `10000` | Log trimmed after this many appended events. |
+| `yukta.execution-log.fsync` | boolean | `false` | Forces every event to disk (not re-checked). |
+| `yukta.restart.dir` | path | unset (memory) | Keeps node outputs on disk. Plus. |
+| `yukta.restart.spill-dir` | path | `""` (off) | Moves oversize in-memory checkpoints to files here. |
+| `yukta.restart.retained-executions` | int | `10` | Finished runs kept restartable. |
+| `yukta.restart.messages-per-node` | int | `200` | In-memory cap: messages per node and run. |
+| `yukta.restart.bytes-per-node` | long | `4194304` | In-memory cap: bytes per node and run. |
+| `yukta.restart.auto-resume` | boolean | `false` | Resumes each interrupted run after recovery or takeover, one after another. |
+| `yukta.restart.store-type` | enum | file if `yukta.restart.dir` is set, else memory | `postgres` stores checkpoints in PostgreSQL (not re-checked). |
+| `yukta.session.store-type` | enum | `in-memory` | `in-memory`, `file` or `postgres` (not re-checked). |
+| `yukta.session.base-dir` (`YUKTA_SESSION_BASE_DIR`) | path | `<user.home>/.yukta` | Root of the file store. |
+| `yukta.kv.store-type` | enum | `memory` | `postgres` keeps `KV_STORE` state in PostgreSQL (not re-checked). |
+| `yukta.session-memory.store-type`, `.dir`, `.ttl`, `.max-sessions` | enum, path, duration, int | `memory`, unset, unset, `10000` | Chat history store, directory, idle expiry, in-memory cap (not re-checked). |
+| `yukta.input.store-type` | enum | `memory` | `postgres` keeps input requests; needs `yukta.session.store-type=postgres` (not re-checked). |
+| `yukta.bootstrap.dir`, `.watch`, `.watch-interval` | path, boolean, duration | unset, `false`, `5s` | Session files applied at start-up and optionally watched (not re-checked). |
+| `yukta.cache.ttl` | duration | `10m` | How long an unused prepared workflow stays cached. |
+| `yukta.cache.max-size` | long | `1000` | Prepared workflows cached. |
+| `spring.r2dbc.url`, `.username`, `.password` | string | none | PostgreSQL connection at run time. |
+| `spring.flyway.url`, `.user`, `.password` | string | none | PostgreSQL connection for migrations. |
+
+## Supervisors and control
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.supervisor.max-commands-per-second` | int | `20` | Command rate per supervisor. |
+| `yukta.supervisor.max-attachments` | int | `200` | Assignments at once; one more is refused with `409`. |
+| `yukta.supervisor.buffer-size` | int | `10000` | Events a supervisor may have waiting; beyond that it receives `EventsMissed`. |
+| `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop. |
+| `yukta.supervisor.dry-run` | boolean | `false` | Records commands without applying them. |
+| `yukta.supervisor.default.enabled` | boolean | `true` | Turns on Direct control: people and agents control what no supervisor owns. |
+| `yukta.supervisor.lock-holders` | list | `[]` | Keys that may change a locked assignment. |
+| `yukta.supervisor.turn-around.period` | duration | `60s` | Window in which turn-arounds (pause then resume, skip then unskip, priority back and forth) are counted; positive. |
+| `yukta.supervisor.turn-around.limit` | int | `4` | More turn-arounds of one target than this within the period block that supervisor's turn-arounds of it. |
+| `yukta.supervisor.turn-around.cooldown` | duration | `5m` | How long a flapping target stays blocked; positive. |
+| `yukta.supervisor.rules.file` | path | unset | JSON rules file; starts a rule supervisor that owns nothing (not re-checked). |
+| `yukta.control.approval.ttl` | duration | `10m` | How long a parked command waits for approval when the review sets none; positive. |
+
+## Input requests
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.input.default-ttl` | duration | `1h` | Life of a request whose spec sets none; at most `max-ttl`. |
+| `yukta.input.max-ttl` | duration | `24h` | Longest ttl a request may ask for. |
+| `yukta.input.max-open-per-execution` | int | `5` | Open requests per run. |
+| `yukta.input.max-open-per-session` | int | `50` | Open requests per session. |
+| `yukta.input.memory-max` | int | `10000` | Finished requests kept in memory. |
+| `yukta.input.sweep-interval` | duration | `1s` | How often overdue requests are ended. |
+| `yukta.input.retention` | duration | `30d` | How long a finished request is kept before the hourly purge. |
+| `yukta.input.redact-keys` | list | `[]` | Context keys whose value is replaced, besides built-in secret names. |
+| `yukta.input.routes.<name>` | object | none | A named route: `tiers[]` (each `name`, `responders[]`, `timeout`, `mode` `FIRST`/`QUORUM`/`UNANIMOUS` default `FIRST`, `quorum` 2 or more with `QUORUM`, `minConfidence` 0 to 1, `type` `HUMAN`/`AUTO`, `settings`) and `onFinalTimeout` (`FAIL` or `USE_DEFAULT`). The route `default` applies when a request and its session name none. A bad route stops start-up. |
+| `yukta.input.token-secret` | string | random per start | Signing secret of one-time answer tokens; unset tokens do not survive a restart. |
+
+A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` when every responder starts `supervisor:`, otherwise `HUMAN`.
+
+## Security and access
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.api-keys[i].name` | string | `unnamed` | Name; appears in the audit as `key:<name>`. |
+| `yukta.api-keys[i].key` | string | required | Plain text or `sha256:<64 hex digits>`. |
+| `yukta.api-keys[i].role` | enum | `VIEWER` | `VIEWER`, `OPERATOR`, `ADMIN`. |
+| `yukta.api-keys[i].sessions` | list | required unless `ADMIN` | Reachable session ids or `*`. |
+| `yukta.api-keys[i].expires` | instant | never | ISO-8601 instant after which the key is refused with `401`. |
+| `yukta.allowed-hosts` | list | loopback names | Extra `Host` values accepted while no key is set. |
+| `yukta.allowed-origins` | list | none | Extra `Origin` values accepted for changing requests while no key is set. |
+| `yukta.rate-limit-per-minute` | int | `1200` | `/api` requests per key and minute; `0` off; off with no key. System property only. |
+| `yukta.auth-failures-per-minute` | int | `20` | Requests per address and minute that may carry a wrong key; `0` off. System property only. |
+| `yukta.mcp.rate-limit-per-minute` | int | `600` | `/mcp` requests per caller and minute; `0` off. |
+| `yukta.mcp.heavy-rate-limit-per-minute` | int | `60` | `start_workflow` and `get_execution_logs` with `filterPattern` per caller and minute; `0` off. |
+| `yukta.mcp.log-redact-patterns` | list | built-in patterns (bearer tokens, `key=value` secrets, `sk-`, `ghp_`, `AKIA`) | Regexes whose matches read `[REDACTED]` in MCP log lines; setting it replaces the defaults. |
+| `yukta.mcp.log-max-line-chars` | int | `2000` | Longest log line MCP returns; `0` off. |
+| `yukta.mcp.log-max-chars` | int | `200000` | Most log characters per MCP call, oldest dropped first; `0` off. |
+| `yukta.agent.requests-per-minute` | int | `600` | Requests per agent credential and minute. |
+| `yukta.agent.failures-per-minute` | int | `20` | Wrong agent credentials per address and minute. |
+| `yukta.agent.max-body-bytes` | int | `65536` | Largest agent API request body. |
+| `yukta.variables.allowed` (`YUKTA_VARIABLES_ALLOWED`) | list | empty | Extra names readable with `${env.X}` and `${sys.x}`. |
+| `yukta.var.*` (`YUKTA_VAR_*`) | string | none | Names workflows may always read. |
+| `YUKTA_SECRET_<NAME>` | string | none | Value behind `decrypted:<name>`. |
+
+## Plugin and AI safety
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.process.allowed-commands` | list | empty | Executables `PROCESS_EXECUTOR` may run; empty runs nothing. |
+| `yukta.process.allowed-env` | list | empty | Risky environment names a `PROCESS_EXECUTOR` node may set. |
+| `yukta.process.working-dir-root` | path | none | Working directories must lie inside it while `allowed-commands` is set. |
+| `yukta.process.allow-any` | boolean | `false` | Any executable, only while no list is set. |
+| `yukta.script.timeout-ms` | int | `10000` | Longest a script runs. System property only. |
+| `yukta.script.max-statements` | long | `50000000` | Most statements per script. System property only. |
+| `yukta.script.max-heap-bytes` | long | `0` | Script heap limit; enforced only on Oracle GraalVM. System property only. |
+| `yukta.spel.max-length` | int | `10000` | Longest expression. System property only. |
+| `yukta.spel.timeout-ms` | int | `1000` | Longest one expression runs. System property only. |
+| `yukta.messaging.max-payload-bytes` | long | `67108864` | Largest payload per node boundary; `0` off. |
+| `yukta.http.allowed-hosts` | list | empty (any) | Hosts `HTTP_REQUEST` may call. |
+| `yukta.mcp-client.allowed-hosts` | list | empty (any) | Hosts `MCP_TOOL_CALL` and `MCP_LIST_TOOLS` may call. |
+| `yukta.mcp-client.allowed-tools` | list | empty (any) | Tools `MCP_TOOL_CALL` may call. |
+| `yukta.mcp-client.max-argument-bytes` | int | `65536` | Largest tool-call arguments. |
+| `yukta.mcp-client.deny-argument-patterns` | list | empty | Regexes tool arguments must not match. |
+| `yukta.egress.allowed-hosts` | list | empty (any) | Hosts every outbound call may reach. |
+| `yukta.egress.by-workflow.<id>`, `yukta.egress.by-session.<id>` | list | none | Narrow egress per workflow or session. |
+| `yukta.files.allowed-root` (`YUKTA_FILES_ALLOWED_ROOT`) | path | unset | Directory every `FILE_READ` and `FILE_WRITE` `baseDir` must be inside. |
+| `yukta.llm.deny-input-patterns`, `deny-output-patterns` | list | empty | Regexes the prompt, or the answer and tool-call arguments, must not match. |
+| `yukta.llm.max-input-chars` | int | `0` | Most prompt characters per call; `0` no limit. |
+| `yukta.llm.rate-limit.<provider>` | int | off | Requests per minute per provider. |
+
+## Workers and high availability
+
+| Property | Type | Default | Effect |
+|---|---|---|---|
+| `yukta.workers.token` | string | none | Shared secret; a server with a token and no control-plane address accepts workers. |
+| `yukta.workers.tokens.<worker id>` | string | none | Secret per allowed worker. |
+| `yukta.workers.allow-insecure` | boolean | `false` | Permits plain TCP off the local machine. |
+| `yukta.workers.lease` | duration | `15s` | How long a renewal keeps a worker listed. |
+| `yukta.workers.control-plane` | string | none | Worker side: `host:port`, comma-separated for HA. |
+| `yukta.workers.id` | string | none, required on a worker | Worker name. |
+| `yukta.workers.pools` | list | `default` | Pools served. |
+| `yukta.workers.plugin-types` | list | empty (runs nothing) | Plugin types the worker may run. |
+| `yukta.workers.capacity` | int | `4` | Node attempts at once. |
+| `yukta.workers.drain-timeout` | duration | `30s` | Wait for running attempts at stop. |
+| `yukta.workers.ssl-bundle` | string | none (plain TCP) | TLS bundle to the control plane. |
+| `spring.rsocket.server.port` | int | none | Control-plane port workers connect to. |
+| `spring.rsocket.server.ssl.bundle`, `.client-auth` | string | none | TLS bundle; `need` requires a client certificate. |
+| `yukta.ha.mode` | string | single server | `postgres` enables active/standby. |
+| `yukta.ha.lease` | duration | `15s` | Leader lease, renewed three times per lease. |
+| `yukta.ha.instance-id` | string | random per start | Server name in the lease row. |
+
+## Fixed limits
+
+| Limit | Value |
+|---|---|
+| Nodes per workflow | 500 |
+| Edges per workflow | 2000 |
+| Assignments per session or workflow | 20 |
+| Saved versions per workflow | 20 |
+| Sub-workflow nesting depth | 5 |
+| Supervisor chain depth | 4 |
+| Retry attempts | 1 to 10 |
+| Edge buffer size | 1 to 100000 |
+| Message history | 64 nodes |
+| Pending log lines | 10000, then dropped |
+| Echoed node output in logs | 2048 characters |
+| Live log buffer per stream | 1024 lines |
+| SSE keep-alive | every 15 s |
+| List page size | default 500, maximum 1000 (`limit`) |
+| Audit list | default 100, 1 to 500 (`limit`) |
+| `KV_STORE` entries | 10000 (`maxEntries` on the node) |
+| `WAIT_FOR_SIGNAL` wait | 3600 s (`timeoutSeconds`) |
+| Resumes per run | 1 |
+| Worker reconnect pause | 1 s growing to 30 s |
+| PostgreSQL statement limit | 30 s log and checkpoints, 10 s history and lease |
+
+Nodes, edges, assignments, versions and supervisor depth were checked in code; the remaining rows were carried over and not re-checked.
+
+## Related
+
+- [Node options reference](/reference/node-options)
+- [Security reference](/reference/security)
+- [Status values](/reference/status-values)
+- [Tune capacity and limits](/guides/operate/tune-capacity-and-limits)
+- [Deploy Yukta](/guides/operate/deploy)
