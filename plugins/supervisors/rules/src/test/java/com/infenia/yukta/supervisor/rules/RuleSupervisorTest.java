@@ -575,4 +575,9 @@ class RuleSupervisorTest {
   void shippedIdFollowsTheSupervisorIdRule() {
     assertThat(SupervisorIds.isValid(RuleSupervisor.SUPERVISOR_ID)).isTrue();
   }
+
+  @Test
+  void reportsTheEngineTypeNotItsClassName() {
+    assertThat(supervisor(RETRY_RULES).engineType()).isEqualTo("rules");
+  }
 }

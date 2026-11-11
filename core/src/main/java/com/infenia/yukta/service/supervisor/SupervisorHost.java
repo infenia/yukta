@@ -489,7 +489,7 @@ public class SupervisorHost implements DryRunRecorder {
               return new SupervisorInfo(
                   supervisor.id(),
                   kind(real),
-                  typeName(real.getClass()),
+                  real.engineType(),
                   dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
                   maxCommandsPerSecond,
                   commands(supervisor.id(), "applied"),
@@ -509,11 +509,6 @@ public class SupervisorHost implements DryRunRecorder {
 
   private static String kind(final ExecutionSupervisor real) {
     return real instanceof ControlPlanePlugin ? "CONTROL_PLANE" : "SUPERVISOR";
-  }
-
-  /** An anonymous class has no simple name. */
-  private static String typeName(final Class<?> type) {
-    return type.getSimpleName().isEmpty() ? type.getName() : type.getSimpleName();
   }
 
   private long commands(final String supervisorId, final String outcome) {

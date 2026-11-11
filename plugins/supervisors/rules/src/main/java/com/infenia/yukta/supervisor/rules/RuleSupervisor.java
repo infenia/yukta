@@ -319,6 +319,11 @@ public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
   }
 
   @Override
+  public String engineType() {
+    return RuleSupervisorFactory.PROFILE_TYPE;
+  }
+
+  @Override
   @SuppressWarnings("PMD.ShortMethodName")
   public String id() {
     return SUPERVISOR_ID;

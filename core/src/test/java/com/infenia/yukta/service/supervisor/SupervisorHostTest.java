@@ -533,6 +533,32 @@ class SupervisorHostTest {
   }
 
   @Test
+  void statusReportsTheEngineTypeOfASupervisorThatNamesOne() {
+    final ExecutionSupervisor named =
+        new ExecutionSupervisor() {
+          @Override
+          public String id() {
+            return "rules";
+          }
+
+          @Override
+          public String engineType() {
+            return "rules";
+          }
+
+          @Override
+          public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+            return Flux.empty();
+          }
+        };
+    host =
+        SupervisorHostFixture.create(
+            providerOf(named), feed, dispatcher, log, meters, false, 7, 10_000);
+
+    assertThat(host.status()).extracting(SupervisorInfo::type).containsExactly("rules");
+  }
+
+  @Test
   void startFailsForBeanSupervisorWhoseIdBreaksRule() {
     host =
         SupervisorHostFixture.create(

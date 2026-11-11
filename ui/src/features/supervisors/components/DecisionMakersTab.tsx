@@ -281,7 +281,9 @@ export function DecisionMakersTab() {
       </StateMessage>
     );
   }
-  const chosen = params.get('type') ?? all[0].type;
+  // an old link may name a type the catalog does not list: show the first one
+  const chosen =
+    all.find((t) => t.type === params.get('type'))?.type ?? all[0].type;
   const choose = (type: string) => {
     const next = new URLSearchParams(params);
     next.set('type', type);
