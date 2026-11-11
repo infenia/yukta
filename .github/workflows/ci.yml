@@ -530,7 +530,11 @@ jobs:
 
       - name: Install Playwright browsers
         working-directory: ui
-        run: pnpm exec playwright install --with-deps chromium
+        # --with-deps uses apt; the runner image's mirror (azure.archive.ubuntu.com) intermittently fails DNS
+        # for a whole job (seen in the merge queue), so point apt at the canonical archive first.
+        run: |
+          sudo sed -i 's#mirror+file:/etc/apt/apt-mirrors.txt#http://archive.ubuntu.com/ubuntu/#' /etc/apt/sources.list.d/ubuntu.sources
+          pnpm exec playwright install --with-deps chromium
 
       # Reporters (html, json -> test-results/results.json, junit, github) come from playwright.config.ts;
       # passing --reporter here would replace that list and drop the json output path.
