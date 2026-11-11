@@ -12,6 +12,10 @@ import { LeaveGuard } from './LeaveGuard';
 import { InlineError } from '@/components/common/InlineError';
 import { usePlugins } from '@/features/plugins/hooks/usePlugins';
 import { WorkflowCanvas } from '@/features/workflow/components/WorkflowCanvas';
+import {
+  NodeSupervisors,
+  useNodeSupervisors,
+} from '@/features/workflow/hooks/useNodeSupervisors';
 import { GroupingSwitch } from '@/features/workflow/components/nodes/StageNodes';
 import { groupNodes, stageOf } from '@/features/workflow/lib/groups';
 import { getSessionDraft, saveSession, validateWorkflow } from '../api';
@@ -57,6 +61,11 @@ function Editor({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const plugins = usePlugins();
+  // the saved workflow's supervisors, shown on its nodes; a new workflow has none yet
+  const nodeSupervisors = useNodeSupervisors(
+    session.sessionId,
+    initial.workflowId
+  );
   // Unsaved edits survive a reload or an accidental leave, in this tab only
   const [restored] = useState(() =>
     readDraft(session.sessionId, initial.workflowId, initial)
@@ -625,28 +634,30 @@ function Editor({
             <GroupingSwitch grouped={grouped} onChange={setGrouped} />
           )}
           {/* Re-keyed on selection so the view opens on the selected node and its neighbours */}
-          <WorkflowCanvas
-            key={`${workflow.nodes.length}/${selected ?? ''}`}
-            graph={graph}
-            tasksByNode={NO_TASKS}
-            stageView={stageView}
-            onConnect={(source, target, sourcePort) =>
-              addEdge({ source, target, sourcePort })
-            }
-            focusOn={
-              selected
-                ? [
-                    selected,
-                    ...workflow.edges
-                      .filter((e) => e.source === selected)
-                      .map((e) => e.target),
-                    ...workflow.edges
-                      .filter((e) => e.target === selected)
-                      .map((e) => e.source),
-                  ]
-                : undefined
-            }
-          />
+          <NodeSupervisors value={nodeSupervisors}>
+            <WorkflowCanvas
+              key={`${workflow.nodes.length}/${selected ?? ''}`}
+              graph={graph}
+              tasksByNode={NO_TASKS}
+              stageView={stageView}
+              onConnect={(source, target, sourcePort) =>
+                addEdge({ source, target, sourcePort })
+              }
+              focusOn={
+                selected
+                  ? [
+                      selected,
+                      ...workflow.edges
+                        .filter((e) => e.source === selected)
+                        .map((e) => e.target),
+                      ...workflow.edges
+                        .filter((e) => e.target === selected)
+                        .map((e) => e.source),
+                    ]
+                  : undefined
+              }
+            />
+          </NodeSupervisors>
         </div>
 
         <aside

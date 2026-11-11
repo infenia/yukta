@@ -36,6 +36,7 @@ import { useWorkflowExecutions } from '../hooks/useWorkflowExecutions';
 import { useWorkflowGraph } from '../hooks/useWorkflowGraph';
 import { useStageView } from '../hooks/useStageView';
 import {
+  NodeOwnerOpener,
   NodeSupervisors,
   useNodeSupervisors,
 } from '../hooks/useNodeSupervisors';
@@ -46,7 +47,8 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { getWorkflowProgress } from '../api/getWorkflowProgress';
 import type { TaskProgress } from '../types/workflow';
-import { NodeSheet } from './NodeSheet';
+import { NodeSheet, type SheetTab } from './NodeSheet';
+import { useExitValue } from '../hooks/useExitValue';
 import { NodeStopDialog } from './NodeStopDialog';
 import { StateMessage } from '@/components/common/StateMessage';
 import { BreakpointDialog } from './BreakpointDialog';
@@ -67,7 +69,12 @@ export function WorkflowDetailsPage() {
   // Clicking a node on the canvas opens its sheet; the node is in the URL so the view can be shared
   const [searchParams, setSearchParams] = useSearchParams();
   const openNode = searchParams.get('node');
-  const setOpenNode = (nodeId: string | null) =>
+  // the drawer's tab is in the URL too: a node's owner icon opens it on the Supervisor tab
+  const sheetTab: SheetTab =
+    searchParams.get('tab') === 'supervisor' ? 'supervisor' : 'node';
+  const setOpenNode = (nodeId: string | null, tab: SheetTab = 'node') => {
+    // the drawer lives in the progress panel: opening a node shows the panel again
+    if (nodeId) setPanelOpen(true);
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
@@ -76,10 +83,16 @@ export function WorkflowDetailsPage() {
         } else {
           next.delete('node');
         }
+        if (nodeId && tab === 'supervisor') {
+          next.set('tab', tab);
+        } else {
+          next.delete('tab');
+        }
         return next;
       },
       { replace: true }
     );
+  };
   const [view, setView] = useState<RunView>('graph');
 
   const graphQuery = useWorkflowGraph(sessionId, workflowId);
@@ -142,6 +155,11 @@ export function WorkflowDetailsPage() {
   }, [progress]);
   const stages = useStageView(graph, tasksByNode);
   const openGraphNode = graph?.nodes.find((n) => n.nodeId === openNode);
+  // both drawers stay mounted for their exit animation
+  const panel = useExitValue(panelOpen ? true : null);
+  const sheet = useExitValue(openGraphNode ?? null);
+  // a const keeps the narrowing inside the tab callback below
+  const shownNode = sheet.shown;
   const live = !isTerminalExecStatus(progress?.status);
   // Rollback is blocked while any run of this workflow is going, not only the one on screen: the
   // shown run's live status comes from its stream, the others from the executions list
@@ -357,19 +375,6 @@ export function WorkflowDetailsPage() {
         />
       )}
 
-      {openGraphNode && (
-        <NodeSheet
-          node={openGraphNode}
-          task={tasksByNode[openGraphNode.nodeId]}
-          sessionId={sessionId}
-          workflowId={workflowId}
-          executionId={selectedExecutionId}
-          entries={logs.entries}
-          onCommand={onNodeCommand}
-          onClose={() => setOpenNode(null)}
-        />
-      )}
-
       {stopping && (
         <NodeStopDialog
           nodeId={stopping}
@@ -392,89 +397,117 @@ export function WorkflowDetailsPage() {
           panel beside both, so a 100-node run no longer stretches the page */}
       {/* The canvas nodes and the failure callout both open sub-workflow runs */}
       <NodeSupervisors value={nodeSupervisors}>
-        <SubWorkflowLinks value={subWorkflowLinks}>
-          <div className="flex min-h-0 flex-1">
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="relative min-h-0 flex-1">
-                {view === 'timeline' && (
-                  <RunTimeline
-                    tasks={progress?.tasks}
-                    graph={graph}
-                    switcher={<ViewSwitch view={view} onChange={setView} />}
-                  />
-                )}
-                {view === 'graph' && (
-                  <WorkflowCanvas
-                    graph={graph}
-                    tasksByNode={tasksByNode}
-                    stageView={stages.stageView}
-                    onNodeClick={setOpenNode}
-                    follow={follow && followable}
-                    find={findQuery}
-                  />
-                )}
-                {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
-                {view === 'graph' && (
-                  <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
-                    <ViewSwitch
-                      view={view}
-                      onChange={setView}
-                      className="pointer-events-auto"
+        <NodeOwnerOpener value={(nodeId) => setOpenNode(nodeId, 'supervisor')}>
+          <SubWorkflowLinks value={subWorkflowLinks}>
+            <div className="flex min-h-0 flex-1">
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="relative min-h-0 flex-1">
+                  {view === 'timeline' && (
+                    <RunTimeline
+                      tasks={progress?.tasks}
+                      graph={graph}
+                      switcher={<ViewSwitch view={view} onChange={setView} />}
                     />
-                    <input
-                      type="search"
-                      aria-label="Find node on canvas"
-                      placeholder="Find node"
-                      value={findQuery}
-                      onChange={(event) => setFindQuery(event.target.value)}
-                      className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                  )}
+                  {view === 'graph' && (
+                    <WorkflowCanvas
+                      graph={graph}
+                      tasksByNode={tasksByNode}
+                      stageView={stages.stageView}
+                      onNodeClick={setOpenNode}
+                      follow={follow && followable}
+                      find={findQuery}
                     />
-                    {stages.hasStages && (
-                      <GroupingSwitch
-                        grouped={stages.grouped}
-                        onChange={stages.setGrouped}
+                  )}
+                  {/* The canvas toolbar; its gaps pass the pointer through to the canvas */}
+                  {view === 'graph' && (
+                    <div className="pointer-events-none absolute inset-x-3 top-3 z-10 flex flex-wrap items-center gap-2">
+                      <ViewSwitch
+                        view={view}
+                        onChange={setView}
                         className="pointer-events-auto"
                       />
-                    )}
-                    {followable && (
-                      <button
-                        type="button"
-                        aria-pressed={follow}
-                        onClick={() => setFollow((value) => !value)}
-                        className={cn(
-                          'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
-                          follow
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-on-surface-variant hover:text-on-surface'
-                        )}
-                      >
-                        Follow running nodes
-                      </button>
-                    )}
-                  </div>
-                )}
+                      <input
+                        type="search"
+                        aria-label="Find node on canvas"
+                        placeholder="Find node"
+                        value={findQuery}
+                        onChange={(event) => setFindQuery(event.target.value)}
+                        className="border-border bg-surface text-body-md shadow-card placeholder:text-on-surface-variant focus-visible:ring-primary/40 pointer-events-auto h-8 w-60 rounded-full border px-3 outline-none focus-visible:ring-2"
+                      />
+                      {stages.hasStages && (
+                        <GroupingSwitch
+                          grouped={stages.grouped}
+                          onChange={stages.setGrouped}
+                          className="pointer-events-auto"
+                        />
+                      )}
+                      {followable && (
+                        <button
+                          type="button"
+                          aria-pressed={follow}
+                          onClick={() => setFollow((value) => !value)}
+                          className={cn(
+                            'border-border bg-surface text-label-sm shadow-card pointer-events-auto ml-auto rounded-lg border px-2.5 py-1',
+                            follow
+                              ? 'bg-accent text-accent-foreground'
+                              : 'text-on-surface-variant hover:text-on-surface'
+                          )}
+                        >
+                          Follow running nodes
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <LogsPanel
+                  sessionId={sessionId}
+                  executionId={selectedExecutionId}
+                  entries={logs.entries}
+                  dropped={logs.dropped}
+                  isStreaming={isStreaming || logs.isStreaming}
+                  progress={progress}
+                />
               </div>
-              <LogsPanel
-                sessionId={sessionId}
-                executionId={selectedExecutionId}
-                entries={logs.entries}
-                dropped={logs.dropped}
-                isStreaming={isStreaming || logs.isStreaming}
-                progress={progress}
-              />
+              {panel.shown && (
+                // the node drawer opens over the panel, in its box, and goes when it does
+                <div
+                  className={cn(
+                    'relative flex shrink-0 duration-150',
+                    panel.closing &&
+                      'animate-out fade-out-0 slide-out-to-right-4 fill-mode-forwards'
+                  )}
+                >
+                  <ProgressPanel
+                    graph={graph}
+                    progress={progress}
+                    tasksByNode={tasksByNode}
+                    sessionId={sessionId}
+                    onClose={() => setPanelOpen(false)}
+                    onNodeCommand={
+                      selectedExecutionId ? onNodeCommand : undefined
+                    }
+                  />
+                  {shownNode && (
+                    <NodeSheet
+                      node={shownNode}
+                      closing={sheet.closing}
+                      task={tasksByNode[shownNode.nodeId]}
+                      sessionId={sessionId}
+                      workflowId={workflowId}
+                      executionId={selectedExecutionId}
+                      entries={logs.entries}
+                      tab={sheetTab}
+                      onTab={(tab) => setOpenNode(shownNode.nodeId, tab)}
+                      onCommand={onNodeCommand}
+                      onClose={() => setOpenNode(null)}
+                    />
+                  )}
+                </div>
+              )}
             </div>
-            {panelOpen && (
-              <ProgressPanel
-                graph={graph}
-                progress={progress}
-                tasksByNode={tasksByNode}
-                sessionId={sessionId}
-                onClose={() => setPanelOpen(false)}
-                onNodeCommand={selectedExecutionId ? onNodeCommand : undefined}
-              />
-            )}
-          </div>
-        </SubWorkflowLinks>
+          </SubWorkflowLinks>
+        </NodeOwnerOpener>
       </NodeSupervisors>
     </div>
   );

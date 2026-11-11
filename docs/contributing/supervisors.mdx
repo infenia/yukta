@@ -75,7 +75,7 @@ Only `MANUAL` assignments change through the assignments API; the others answer 
 | `yukta.supervisor.buffer-size` | `10000` | Per-supervisor event buffer |
 | `yukta.supervisor.review-timeout` | `5s` | Time a `review` has before it is refused (a stop is allowed) |
 | `yukta.supervisor.turn-around.period`, `.limit`, `.cooldown` | see [core reference](/contributing/core-reference) | Guard against a supervisor flapping against itself. |
-| `yukta.supervisor.default.enabled` | `true` | Lets people control what nobody owns. |
+| `yukta.supervisor.default.enabled` | `true` | Turns on Direct control: people and agents control what nobody owns. |
 | `yukta.supervisor.reserved-slots`, `.max-depth` | `4`, `2` | Capacity and nesting of workflow supervisors |
 | `yukta.session.store-type=postgres` | in memory | Keeps supervisors and assignments across restarts |
 

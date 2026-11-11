@@ -41,7 +41,7 @@ function NavItem({
   onSelect,
 }: {
   id: string;
-  /** What is shown when it is not the id itself, such as "Default (people)". */
+  /** What is shown when it is not the id itself, such as "Direct control". */
   label?: string;
   sub: string;
   selected: boolean;
@@ -270,8 +270,8 @@ export function SupervisorsBrowser() {
   if (all.length === 0) {
     return (
       <StateMessage title="No supervisors yet" icon="shield_person">
-        People control every workflow through Default (people). An agent adds
-        supervisors with MCP{' '}
+        Every workflow is under Direct control: people and agents send its
+        commands themselves. An agent adds supervisors with MCP{' '}
         <code className="text-code-sm">save_supervisor</code> or{' '}
         <code className="text-code-sm">yukta supervisors</code>.
       </StateMessage>
@@ -385,8 +385,8 @@ export function SupervisorsBrowser() {
           )}
           <NavItem
             id="default"
-            label="Default (people)"
-            sub="People, for workflows nobody owns"
+            label="Direct control"
+            sub="For workflows nobody owns"
             selected={selectedId === 'default'}
             onSelect={select}
           />

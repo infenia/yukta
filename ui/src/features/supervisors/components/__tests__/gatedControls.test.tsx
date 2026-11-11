@@ -2,7 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
@@ -53,10 +59,10 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-const wrap = (node: React.ReactNode) =>
+const wrap = (node: React.ReactNode, entry = '/') =>
   render(
     <QueryClientProvider client={createTestQueryClient()}>
-      <MemoryRouter>{node}</MemoryRouter>
+      <MemoryRouter initialEntries={[entry]}>{node}</MemoryRouter>
     </QueryClientProvider>
   );
 
@@ -153,12 +159,38 @@ describe('RequireControl', () => {
 });
 
 describe('WorkflowSupervision', () => {
+  // the dialog opens on `?supervision=1`, from a node's owner icon, the palette or a link
   const open = async () => {
-    const user = userEvent.setup();
-    wrap(<WorkflowSupervision sessionId="s" workflowId="w" executionId="e1" />);
-    await user.click(await screen.findByRole('button', { name: /Run owner:/ }));
-    return screen.getByRole('dialog');
+    wrap(
+      <WorkflowSupervision sessionId="s" workflowId="w" executionId="e1" />,
+      '/?supervision=1'
+    );
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() =>
+      expect(within(dialog).queryByText(/Loading who owns/)).toBeNull()
+    );
+    return dialog;
   };
+
+  it('stays closed until asked', () => {
+    wrap(<WorkflowSupervision sessionId="s" workflowId="w" executionId="e1" />);
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('closes again from its close button', async () => {
+    ownership = {
+      sessionId: 's',
+      workflowId: 'w',
+      defaultSupervisor: true,
+      run: 'default',
+      nodes: {},
+    };
+    const dialog = await open();
+    await userEvent
+      .setup()
+      .click(within(dialog).getByRole('button', { name: /close/i }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
 
   it('shows the run owner, who owns the nodes, and who can stop the run', async () => {
     ownership = {
@@ -180,9 +212,6 @@ describe('WorkflowSupervision', () => {
       },
     ];
     const dialog = await open();
-    expect(
-      screen.getByRole('button', { name: 'Run owner: lead' })
-    ).toBeInTheDocument();
     expect(within(dialog).getByRole('link', { name: 'lead' })).toHaveAttribute(
       'href',
       '/supervisors?supervisor=lead'
@@ -318,7 +347,7 @@ describe('WorkflowSupervision', () => {
       await within(dialog).findByText('Nobody can control this workflow')
     ).toBeInTheDocument();
     expect(
-      within(dialog).getByText(/Default \(people\) is off/)
+      within(dialog).getByText(/Direct control is off/)
     ).toBeInTheDocument();
     expect(
       await within(dialog).findByText('No supervisor can do this here')
@@ -341,11 +370,8 @@ describe('WorkflowSupervision', () => {
   it('says when the owners cannot be read, and shows the default before they load', async () => {
     server.use(http.get('/api/supervision/ownership', () => failed()));
     wrap(
-      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />
-    );
-    const user = userEvent.setup();
-    await user.click(
-      screen.getByRole('button', { name: 'Run owner: Default (people)' })
+      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />,
+      '/?supervision=1'
     );
     expect(
       await screen.findByText('Could not load who owns this workflow.')
@@ -357,11 +383,9 @@ describe('WorkflowSupervision', () => {
       http.get('/api/supervision/ownership', () => new Promise(() => {}))
     );
     wrap(
-      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />
+      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />,
+      '/?supervision=1'
     );
-    await userEvent
-      .setup()
-      .click(screen.getByRole('button', { name: /Run owner/ }));
     expect(screen.getByText('Loading who owns what…')).toBeInTheDocument();
   });
 
@@ -392,12 +416,10 @@ describe('WorkflowSupervision', () => {
     };
     capabilities = {};
     wrap(
-      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />
+      <WorkflowSupervision sessionId="s" workflowId="w" executionId={null} />,
+      '/?supervision=1'
     );
-    await userEvent
-      .setup()
-      .click(await screen.findByRole('button', { name: /Run owner/ }));
-    const dialog = screen.getByRole('dialog');
+    const dialog = await screen.findByRole('dialog');
     expect(
       await within(dialog).findByText(
         'Open a run to see which commands you can send to it.'

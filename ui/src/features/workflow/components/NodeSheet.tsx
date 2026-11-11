@@ -1,16 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CodeBlock } from '@/components/common/CodeBlock';
+import { cn } from '@/lib/utils';
+import { NodeSupervisorTab } from '@/features/supervisors/components/NodeSupervisorTab';
 import { RequireControl } from '@/features/supervisors/components/RequireControl';
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetTitle,
-} from '@/components/ui/sheet';
 import { getWorkflowDefinition } from '../api/getWorkflowDefinition';
 import { useExecutionResults } from '../hooks/useExecutionResults';
 import { categoryAccent } from '../lib/categoryAccent';
@@ -130,6 +126,13 @@ const NODE_CAPABILITY: Record<string, string> = {
   'step/disable': 'stepNode',
 };
 
+export type SheetTab = 'node' | 'supervisor';
+
+const TABS: [SheetTab, string][] = [
+  ['node', 'Node'],
+  ['supervisor', 'Supervisor'],
+];
+
 export function NodeSheet({
   node,
   task,
@@ -137,6 +140,9 @@ export function NodeSheet({
   workflowId,
   executionId,
   entries,
+  tab,
+  onTab,
+  closing = false,
   onCommand,
   onClose,
 }: {
@@ -146,9 +152,20 @@ export function NodeSheet({
   workflowId: string;
   executionId: string | null;
   entries: LogEntry[];
+  /** Which tab is shown; the Supervisor tab opens from a node's owner icon. */
+  tab: SheetTab;
+  onTab: (tab: SheetTab) => void;
+  /** Plays the exit animation; the page unmounts it a moment later. */
+  closing?: boolean;
   onCommand: (nodeId: string, command: NodeCommand) => void;
   onClose: () => void;
 }) {
+  // Escape closes it from anywhere on the page, as the modal-less sheet did
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
   const status = toNodeUiStatus(task?.status);
   const actions = executionId
     ? nodeMenuItems(status, Boolean(task?.breakpoint))
@@ -157,25 +174,30 @@ export function NodeSheet({
     .filter((entry) => entry.pluginId === node.nodeId)
     .slice(-MAX_LINES);
   return (
-    <Sheet
-      open
-      modal={false}
-      // a click elsewhere on the page (another node, the controls) must not close it
-      disablePointerDismissal
-      onOpenChange={(open) => !open && onClose()}
+    // Over the progress panel, exactly its size: its parent is the panel's box, so hiding the
+    // panel hides this too. Not modal: the canvas and the controls stay usable behind it.
+    <aside
+      role="dialog"
+      aria-modal="false"
+      aria-labelledby="node-sheet-title"
+      data-testid="node-sheet"
+      data-closing={closing || undefined}
+      className={cn(
+        'border-border bg-background absolute inset-0 z-10 flex flex-col gap-3 overflow-y-auto border-l p-4 duration-150',
+        closing
+          ? 'animate-out fade-out-0 slide-out-to-right-4 fill-mode-forwards'
+          : 'animate-in fade-in-0 slide-in-from-right-4'
+      )}
     >
-      <SheetContent
-        backdrop={false}
-        // back to the node on the canvas, not the page
-        finalFocus={() =>
-          document.querySelector<HTMLElement>(
-            `[data-testid="workflow-node-${CSS.escape(node.nodeId)}"]`
-          )
-        }
-      >
+      <>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <SheetTitle className="break-all">{node.nodeId}</SheetTitle>
+            <h2
+              id="node-sheet-title"
+              className="text-headline-md text-on-surface break-all"
+            >
+              {node.nodeId}
+            </h2>
             <p
               className="text-body-sm text-on-surface-variant"
               style={{ color: categoryAccent(node.category) }}
@@ -183,86 +205,123 @@ export function NodeSheet({
               {node.type}
             </p>
           </div>
-          <SheetClose
+          <button
+            type="button"
+            onClick={onClose}
             aria-label="Close node details"
             className="text-on-surface-variant hover:text-on-surface flex size-8 shrink-0 items-center justify-center rounded-lg"
           >
             <span aria-hidden="true" className="material-symbols-outlined">
               close
             </span>
-          </SheetClose>
+          </button>
         </div>
 
-        <Section title="Status">
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <StatusPill status={task?.status} scope="node" iconOnly />
-            <span className="text-body-sm num text-on-surface-variant">
-              {formatClockTime(task?.startTime)} to{' '}
-              {formatClockTime(task?.endTime)}
-              {' · '}
-              {formatDuration(task?.startTime, task?.endTime)}
-            </span>
-          </div>
-        </Section>
+        <div
+          role="tablist"
+          aria-label="Node details"
+          className="border-border flex gap-x-4 border-b"
+        >
+          {TABS.map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => onTab(id)}
+              className={cn(
+                'text-label-md -mb-px h-9 shrink-0 border-b-2 px-0.5',
+                tab === id
+                  ? 'border-primary text-on-surface'
+                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
 
-        {actions.length > 0 && (
-          <Section title="Actions">
-            <div className="flex flex-wrap gap-1.5">
-              {actions.map((item) => (
-                <RequireControl
-                  key={item.command}
-                  perm="controlRuns"
-                  command={NODE_CAPABILITY[item.command] ?? item.command}
-                  target={{ execution: executionId, node: node.nodeId }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onCommand(node.nodeId, item.command)}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="material-symbols-outlined text-base"
-                    >
-                      {ACTION_ICONS[item.command]}
-                    </span>
-                    {item.label}
-                  </Button>
-                </RequireControl>
-              ))}
-            </div>
-          </Section>
-        )}
-
-        <Section title="Config">
-          <Config
+        {tab === 'supervisor' ? (
+          <NodeSupervisorTab
             sessionId={sessionId}
             workflowId={workflowId}
+            executionId={executionId}
             nodeId={node.nodeId}
           />
-        </Section>
+        ) : (
+          <>
+            <Section title="Status">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <StatusPill status={task?.status} scope="node" iconOnly />
+                <span className="text-body-sm num text-on-surface-variant">
+                  {formatClockTime(task?.startTime)} to{' '}
+                  {formatClockTime(task?.endTime)}
+                  {' · '}
+                  {formatDuration(task?.startTime, task?.endTime)}
+                </span>
+              </div>
+            </Section>
 
-        <Section title="Logs">
-          {lines.length > 0 ? (
-            <pre className="text-terminal-foreground bg-terminal text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
-              {lines.map((l) => l.message).join('\n')}
-            </pre>
-          ) : (
-            <Empty>No log lines from this node.</Empty>
-          )}
-        </Section>
+            {actions.length > 0 && (
+              <Section title="Actions">
+                <div className="flex flex-wrap gap-1.5">
+                  {actions.map((item) => (
+                    <RequireControl
+                      key={item.command}
+                      perm="controlRuns"
+                      command={NODE_CAPABILITY[item.command] ?? item.command}
+                      target={{ execution: executionId, node: node.nodeId }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onCommand(node.nodeId, item.command)}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className="material-symbols-outlined text-base"
+                        >
+                          {ACTION_ICONS[item.command]}
+                        </span>
+                        {item.label}
+                      </Button>
+                    </RequireControl>
+                  ))}
+                </div>
+              </Section>
+            )}
 
-        {node.category === 'TERMINAL' && executionId && (
-          <Section title="Result">
-            <Results
-              sessionId={sessionId}
-              executionId={executionId}
-              nodeId={node.nodeId}
-            />
-          </Section>
+            <Section title="Config">
+              <Config
+                sessionId={sessionId}
+                workflowId={workflowId}
+                nodeId={node.nodeId}
+              />
+            </Section>
+
+            <Section title="Logs">
+              {lines.length > 0 ? (
+                <pre className="text-terminal-foreground bg-terminal text-code-sm max-h-60 overflow-auto rounded-xl p-2 whitespace-pre-wrap">
+                  {lines.map((l) => l.message).join('\n')}
+                </pre>
+              ) : (
+                <Empty>No log lines from this node.</Empty>
+              )}
+            </Section>
+
+            {node.category === 'TERMINAL' && executionId && (
+              <Section title="Result">
+                <Results
+                  sessionId={sessionId}
+                  executionId={executionId}
+                  nodeId={node.nodeId}
+                />
+              </Section>
+            )}
+          </>
         )}
-      </SheetContent>
-    </Sheet>
+      </>
+    </aside>
   );
 }

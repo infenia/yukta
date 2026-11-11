@@ -244,7 +244,7 @@ Two supervisors never fight over a node (one owner per unit). What is left to gu
 | `yukta.supervisor.turn-around.period` | `60s` | The period in which turn-arounds are counted |
 | `yukta.supervisor.turn-around.limit` | `4` | Most turn-arounds of one target in the period |
 | `yukta.supervisor.turn-around.cooldown` | `5m` | How long a supervisor over the limit is blocked |
-| `yukta.supervisor.default.enabled` | `true` | Lets people control what no supervisor owns. Turn it off in production |
+| `yukta.supervisor.default.enabled` | `true` | Turns on Direct control: people and agents control what no supervisor owns. Turn it off in production |
 | `yukta.supervisor.lock-holders` | any admin | Keys that may change a locked assignment |
 | `yukta.supervisor.rules.file` | unset | Starts a rule supervisor from a file; it owns nothing, so it reviews nothing |
 | `yukta.supervisor.max-commands-per-second` | `20` | Rate limit per supervisor |

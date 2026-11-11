@@ -145,8 +145,8 @@ export function OwnsTab({ supervisor }: { supervisor: SupervisorView }) {
   return (
     <div className="flex flex-col gap-3">
       <p className="text-body-md text-on-surface-variant">
-        Each node has one owner. A node nobody owns is controlled by people
-        through Default (people).
+        Each node has one owner. A node nobody owns is under Direct control:
+        people and agents send its commands themselves.
       </p>
       {workflows.map((a) => (
         <WorkflowOwners

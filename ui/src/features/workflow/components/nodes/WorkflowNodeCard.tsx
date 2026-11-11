@@ -5,6 +5,7 @@ import { Handle, Position } from '@xyflow/react';
 import { useContext } from 'react';
 import { Link } from 'react-router';
 import { NodeSupervisors } from '../../hooks/useNodeSupervisors';
+import { NodeOwner } from './NodeOwner';
 import { SubWorkflowLinks } from '../../hooks/useSubWorkflowLinks';
 import type { NodeProps } from '@xyflow/react';
 import { toNodeStatusLabel, toStatusDisplay } from '../../lib/statusMapper';
@@ -80,7 +81,7 @@ export function WorkflowNodeCard({
 }: NodeProps<WorkflowFlowNode>) {
   const { node, status, task, hideDescription, hideStatus } = data;
   const subWorkflowHref = useContext(SubWorkflowLinks).get(node.nodeId);
-  const supervisor = useContext(NodeSupervisors).get(node.nodeId);
+  const owner = useContext(NodeSupervisors).get(node.nodeId);
   const isTrigger = node.category === 'TRIGGER';
   const icon = pluginIcon(node.type, node.category);
   // The raw task status tells e.g. "Timed out" from "Failed"; without one, the bucket's label.
@@ -165,6 +166,15 @@ export function WorkflowNodeCard({
             {port}
           </span>
         ))}
+
+      {owner && (
+        // on the top edge, at the right corner, clear of the output ports
+        <NodeOwner
+          nodeId={node.nodeId}
+          owner={owner}
+          className="border-outline-variant bg-surface shadow-card absolute -top-3 right-3 z-10 size-6 border"
+        />
+      )}
 
       {color && (
         // a marker only: borders and the status badge keep meaning status and category
@@ -266,22 +276,6 @@ export function WorkflowNodeCard({
               </p>
             </PopoverContent>
           </Popover>
-        )}
-        {supervisor && (
-          <Tip label={`Supervised by ${supervisor}`}>
-            <span
-              role="img"
-              aria-label={`Supervised by ${supervisor}`}
-              className="text-primary inline-flex p-0.5"
-            >
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-lg"
-              >
-                shield_person
-              </span>
-            </span>
-          </Tip>
         )}
         {subWorkflowHref && (
           <Tip label={`Open ${node.subWorkflowId}`}>

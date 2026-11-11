@@ -4,9 +4,14 @@
 import { createContext, useMemo } from 'react';
 import { useOwnership } from '@/features/supervisors/hooks/useSupervisorTypes';
 
-/** The supervisor behind each node, by node ID; nodes nobody supervises are left out. */
+/** The owner of each node, by node ID: a supervisor id or `default`; empty until it is known. */
 export const NodeSupervisors = createContext<ReadonlyMap<string, string>>(
   new Map()
+);
+
+/** Opens a node's supervisor tab; absent where there is no drawer to open (the editor). */
+export const NodeOwnerOpener = createContext<((nodeId: string) => void) | null>(
+  null
 );
 
 export function useNodeSupervisors(
@@ -14,11 +19,5 @@ export function useNodeSupervisors(
   workflowId: string
 ): ReadonlyMap<string, string> {
   const { data } = useOwnership(sessionId, workflowId);
-  return useMemo(
-    () =>
-      new Map(
-        Object.entries(data?.nodes ?? {}).filter(([, id]) => id !== 'default')
-      ),
-    [data]
-  );
+  return useMemo(() => new Map(Object.entries(data?.nodes ?? {})), [data]);
 }

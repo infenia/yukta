@@ -40,9 +40,9 @@ describe('parseScope and targetLabel', () => {
   });
 
   it('names the default owner', () => {
-    expect(ownerLabel('default')).toBe('Default (people)');
-    expect(ownerLabel(null)).toBe('Default (people)');
-    expect(ownerLabel(undefined)).toBe('Default (people)');
+    expect(ownerLabel('default')).toBe('Direct control');
+    expect(ownerLabel(null)).toBe('Direct control');
+    expect(ownerLabel(undefined)).toBe('Direct control');
     expect(ownerLabel('guard')).toBe('guard');
   });
 });
