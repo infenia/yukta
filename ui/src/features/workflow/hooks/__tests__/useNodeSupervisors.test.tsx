@@ -36,20 +36,20 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 );
 
 describe('useNodeSupervisors', () => {
-  it('has no supervisors until the ownership arrives', () => {
+  it('has no owners until the ownership arrives', () => {
     const { result } = renderHook(() => useNodeSupervisors('s1', 'w1'), {
       wrapper,
     });
     expect(result.current.size).toBe(0);
   });
 
-  it('maps each node to its supervisor and leaves out the nodes nobody supervises', async () => {
+  it('maps each node to its owner, `default` included', async () => {
     const { result } = renderHook(() => useNodeSupervisors('s1', 'w1'), {
       wrapper,
     });
     await waitFor(() =>
       expect(result.current.get('ingest')).toBe('ops-supervisor')
     );
-    expect([...result.current.keys()]).toEqual(['ingest']);
+    expect(result.current.get('sink')).toBe('default');
   });
 });

@@ -189,7 +189,7 @@ describe('the Supervisors tab', () => {
       screen.getByText('Disabled: overlaps another owner')
     ).toBeInTheDocument();
     expect(screen.getByText('The server')).toBeInTheDocument();
-    expect(screen.getAllByText('Default (people)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Direct control').length).toBeGreaterThan(0);
   });
 
   it('marks dry run, built-in and the nodes it owns; switches tabs, supervisors and views', async () => {

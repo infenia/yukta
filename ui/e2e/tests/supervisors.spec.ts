@@ -325,7 +325,7 @@ test.describe('Supervision on a workflow', () => {
   test('the palette answers who owns this workflow', async ({ page }, info) => {
     await page.goto(WORKFLOW_URL);
     await expect(
-      page.getByRole('button', { name: 'Run owner: release-lead' })
+      page.getByRole('button', { name: /Search and jump to/ })
     ).toBeVisible();
     await page.keyboard.press('Control+k');
     await page.getByRole('combobox').fill('who owns');

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { SubWorkflowLinks } from '../../../hooks/useSubWorkflowLinks';
-import { NodeSupervisors } from '../../../hooks/useNodeSupervisors';
+import {
+  NodeOwnerOpener,
+  NodeSupervisors,
+} from '../../../hooks/useNodeSupervisors';
 import { ReactFlowProvider } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
 import { WorkflowNodeCard } from '../WorkflowNodeCard';
@@ -281,22 +284,62 @@ describe('WorkflowNodeCard', () => {
     ).toBe('61.4%');
   });
 
-  it('shows the supervisor of a node on the card, and none for a node nobody supervises', () => {
+  it('shows the owner of a node on the card: a supervisor, or Direct control, and nothing until it is known', () => {
     const { unmount } = renderCard(
       { node: createMockGraphNode({ nodeId: 'p5' }), status: 'pending' },
       false,
       new Map([['p5', 'ops-supervisor']])
     );
     expect(
-      screen.getByRole('img', { name: 'Supervised by ops-supervisor' })
+      screen.getByRole('img', { name: 'Controlled by: ops-supervisor' })
     ).toBeInTheDocument();
     unmount();
 
+    const second = renderCard(
+      { node: createMockGraphNode({ nodeId: 'p6' }), status: 'pending' },
+      false,
+      new Map([['p6', 'default']])
+    );
+    expect(
+      screen.getByRole('img', { name: 'Controlled by: Direct control' })
+    ).toHaveTextContent('person');
+    second.unmount();
+
     renderCard({
-      node: createMockGraphNode({ nodeId: 'p6' }),
+      node: createMockGraphNode({ nodeId: 'p7' }),
       status: 'pending',
     });
-    expect(screen.queryByRole('img', { name: /Supervised by/ })).toBeNull();
+    expect(screen.queryByRole('img', { name: /Controlled by/ })).toBeNull();
+  });
+
+  it("opens the node's Supervisor tab from the owner icon, where a drawer can show it", async () => {
+    const open = vi.fn();
+    const props = {
+      id: 'p8',
+      data: {
+        node: createMockGraphNode({ nodeId: 'p8' }),
+        status: 'pending',
+      },
+      selected: false,
+      dragging: false,
+    } as unknown as NodeProps<WorkflowFlowNode>;
+    render(
+      <MemoryRouter>
+        <ReactFlowProvider>
+          <NodeOwnerOpener value={open}>
+            <NodeSupervisors value={new Map([['p8', 'ops-supervisor']])}>
+              <WorkflowNodeCard {...props} />
+            </NodeSupervisors>
+          </NodeOwnerOpener>
+        </ReactFlowProvider>
+      </MemoryRouter>
+    );
+    await userEvent
+      .setup()
+      .click(
+        screen.getByRole('button', { name: 'Controlled by: ops-supervisor' })
+      );
+    expect(open).toHaveBeenCalledWith('p8');
   });
 
   it('shows no progress for a running node without a task', () => {

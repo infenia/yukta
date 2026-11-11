@@ -6,6 +6,7 @@ import {
   describe,
   it,
   expect,
+  vi,
   beforeAll,
   afterAll,
   afterEach,
@@ -36,6 +37,12 @@ import {
   installMockEventSource,
   MockEventSource,
 } from '@/test/mocks/MockEventSource';
+
+vi.mock('@/features/supervisors/components/NodeSupervisorTab', () => ({
+  NodeSupervisorTab: ({ nodeId }: { nodeId: string }) => (
+    <p>supervisor of {nodeId}</p>
+  ),
+}));
 
 let executionsPayload = () => [
   createMockExecution(),
@@ -250,7 +257,36 @@ describe('WorkflowDetailsPage', () => {
       await user.click(
         within(sheet).getByRole('button', { name: 'Close node details' })
       );
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
+    });
+
+    it('goes when the progress panel is hidden, and comes back with the next node opened', async () => {
+      definition();
+      const user = userEvent.setup();
+      renderPage();
+      fireEvent.click(
+        await screen.findByTestId('workflow-node-vectorize-batch')
+      );
+      const sheet = await screen.findByRole('dialog', {
+        name: 'vectorize-batch',
+      });
+      // it sits in the panel's own box, not over the whole page
+      expect(
+        screen.getByTestId('progress-panel').parentElement
+      ).toContainElement(sheet);
+      await user.click(
+        screen.getByRole('button', { name: 'Close workflow progress panel' })
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
+
+      fireEvent.click(screen.getByTestId('workflow-node-data-ingress'));
+      expect(
+        await screen.findByRole('dialog', { name: 'data-ingress' })
+      ).toBeInTheDocument();
     });
 
     it('keeps the page usable while a node is open: another node switches the panel, Escape closes it', async () => {
@@ -271,7 +307,9 @@ describe('WorkflowDetailsPage', () => {
       ).toBeInTheDocument();
 
       await userEvent.setup().keyboard('{Escape}');
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
     });
 
     it('opens from a shared ?node= link', async () => {
@@ -289,7 +327,89 @@ describe('WorkflowDetailsPage', () => {
         '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?node=nope'
       );
       await screen.findByTestId('workflow-node-vectorize-batch');
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
+    });
+
+    describe('supervisor tab', () => {
+      const owners = (nodes: Record<string, string>) =>
+        server.use(
+          http.get('/api/supervision/ownership', () =>
+            HttpResponse.json({
+              timestamp: 't',
+              status: 200,
+              message: 'ok',
+              path: '/ownership',
+              data: {
+                sessionId: 'SESSION_A92_XP_2024',
+                workflowId: 'wf-982-xk-11',
+                defaultSupervisor: true,
+                run: 'default',
+                nodes,
+              },
+            })
+          )
+        );
+
+      it("opens a node's Supervisor tab from its owner icon", async () => {
+        definition();
+        owners({ 'vectorize-batch': 'ops-supervisor' });
+        renderPage();
+        fireEvent.click(
+          await screen.findByRole('button', {
+            name: 'Controlled by: ops-supervisor',
+          })
+        );
+        const sheet = await screen.findByRole('dialog', {
+          name: 'vectorize-batch',
+        });
+        expect(
+          within(sheet).getByRole('tab', { name: 'Supervisor' })
+        ).toHaveAttribute('aria-selected', 'true');
+        expect(
+          within(sheet).getByText('supervisor of vectorize-batch')
+        ).toBeInTheDocument();
+      });
+
+      it('switches the open node between its Node and Supervisor tabs', async () => {
+        definition();
+        const user = userEvent.setup();
+        renderPage();
+        fireEvent.click(
+          await screen.findByTestId('workflow-node-vectorize-batch')
+        );
+        const sheet = await screen.findByRole('dialog', {
+          name: 'vectorize-batch',
+        });
+        await user.click(
+          within(sheet).getByRole('tab', { name: 'Supervisor' })
+        );
+        expect(
+          within(sheet).getByText('supervisor of vectorize-batch')
+        ).toBeInTheDocument();
+
+        await user.click(within(sheet).getByRole('tab', { name: 'Node' }));
+        expect(
+          within(sheet).getByRole('button', { name: 'Close node details' })
+        ).toBeInTheDocument();
+        expect(
+          within(sheet).queryByText('supervisor of vectorize-batch')
+        ).not.toBeInTheDocument();
+      });
+
+      it('opens on the Supervisor tab from a shared ?tab=supervisor link', async () => {
+        definition();
+        renderPage(
+          '/sessions/SESSION_A92_XP_2024/workflow/wf-982-xk-11?node=vectorize-batch&tab=supervisor'
+        );
+        const sheet = await screen.findByRole('dialog', {
+          name: 'vectorize-batch',
+        });
+        expect(
+          within(sheet).getByRole('tab', { name: 'Supervisor' })
+        ).toHaveAttribute('aria-selected', 'true');
+      });
     });
 
     it('ignores other keys, and Enter pressed inside the node', async () => {
@@ -297,7 +417,9 @@ describe('WorkflowDetailsPage', () => {
       const card = await screen.findByTestId('workflow-node-vectorize-batch');
       fireEvent.keyDown(card, { key: 'a' });
       fireEvent.keyDown(must(card.firstElementChild), { key: 'Enter' });
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+      );
     });
 
     it('opens on Enter from a focused node', async () => {
@@ -513,7 +635,10 @@ describe('WorkflowDetailsPage', () => {
     await user.click(
       screen.getByRole('button', { name: /close workflow progress/i })
     );
-    expect(screen.queryByTestId('progress-panel')).toBeNull();
+    // it stays mounted for its exit animation
+    await waitFor(() =>
+      expect(screen.queryByTestId('progress-panel')).toBeNull()
+    );
     expect(toggle).toHaveAttribute('aria-pressed', 'false');
     await expectTooltip(toggle, 'Show progress panel');
     expect(toggle).toHaveTextContent('right_panel_open');

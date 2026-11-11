@@ -14,6 +14,7 @@ import { StatusPill } from './StatusPill';
 import { BAR_COLOR, buildTimeline, type TimelineRow } from '../lib/timeline';
 import { aggregateStatus, groupNodes } from '../lib/groups';
 import { NodeSupervisors } from '../hooks/useNodeSupervisors';
+import { NodeOwner } from './nodes/NodeOwner';
 import { SubWorkflowLinks } from '../hooks/useSubWorkflowLinks';
 import { formatClockTime, formatDuration } from '../lib/timeFormat';
 import { cn } from '@/lib/utils';
@@ -114,7 +115,7 @@ export function RunTimeline({
     [tasks, now]
   );
   const links = useContext(SubWorkflowLinks);
-  const supervisors = useContext(NodeSupervisors);
+  const owners = useContext(NodeSupervisors);
   const nodeById = useMemo(
     () => new Map((graph?.nodes ?? []).map((node) => [node.nodeId, node])),
     [graph]
@@ -195,7 +196,7 @@ export function RunTimeline({
                       row={row}
                       type={nodeById.get(row.nodeId)?.type}
                       href={links.get(row.nodeId)}
-                      supervisor={supervisors.get(row.nodeId)}
+                      owner={owners.get(row.nodeId)}
                       indent={stage !== null}
                       from={from}
                       to={to}
@@ -252,7 +253,7 @@ function NodeRow({
   row,
   type,
   href,
-  supervisor,
+  owner,
   indent,
   from,
   to,
@@ -260,7 +261,7 @@ function NodeRow({
   row: TimelineRow;
   type?: string;
   href?: string;
-  supervisor?: string;
+  owner?: string;
   indent: boolean;
   from: number;
   to: number;
@@ -284,21 +285,8 @@ function NodeRow({
                 {type ?? row.module}
               </div>
             </div>
-            {supervisor && (
-              <Tip label={`Supervised by ${supervisor}`}>
-                <span
-                  role="img"
-                  aria-label={`Supervised by ${supervisor}`}
-                  className="text-primary inline-flex p-0.5"
-                >
-                  <span
-                    aria-hidden="true"
-                    className="material-symbols-outlined text-lg"
-                  >
-                    shield_person
-                  </span>
-                </span>
-              </Tip>
+            {owner && (
+              <NodeOwner nodeId={row.nodeId} owner={owner} className="size-6" />
             )}
             {href && (
               <Tip label="Open the sub-workflow">

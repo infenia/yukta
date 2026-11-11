@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { StateMessage } from '@/components/common/StateMessage';
 import { getSupervisionSummary } from '../api/supervision';
 
-/** Default (people): the workflows no supervisor owns, which people control directly. */
+/** Direct control: the workflows no supervisor owns, which people and agents control directly. */
 export function DefaultPeoplePanel() {
   const summary = useQuery({
     queryKey: ['supervision', 'summary'],
@@ -24,10 +24,10 @@ export function DefaultPeoplePanel() {
   return (
     <article className="flex flex-col gap-4">
       <header>
-        <h2 className="text-headline-lg text-on-surface">Default (people)</h2>
+        <h2 className="text-headline-lg text-on-surface">Direct control</h2>
         <p className="text-body-md text-on-surface-variant mt-1">
           Controls the workflows that no supervisor owns. Each run and node
-          listed here is controlled by people directly.
+          listed here is controlled directly, by people or agents.
         </p>
       </header>
       {unownedWorkflows.length === 0 ? (

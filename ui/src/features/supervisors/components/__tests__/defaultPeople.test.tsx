@@ -59,13 +59,15 @@ const renderAt = (url: string) =>
     </QueryClientProvider>
   );
 
-describe('Default (people) in the supervisors browser', () => {
+describe('Direct control in the supervisors browser', () => {
   it('is selectable and lists the workflows nobody owns', async () => {
     const user = userEvent.setup();
     renderAt('/supervisors');
-    await user.click(await screen.findByRole('button', { name: /Default/ }));
+    await user.click(
+      await screen.findByRole('button', { name: /Direct control/ })
+    );
     expect(
-      await screen.findByRole('heading', { name: 'Default (people)' })
+      await screen.findByRole('heading', { name: 'Direct control' })
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 's1 / w1' })).toHaveAttribute(
       'href',

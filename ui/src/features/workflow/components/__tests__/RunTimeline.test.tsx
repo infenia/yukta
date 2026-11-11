@@ -55,9 +55,16 @@ describe('RunTimeline', () => {
     );
   });
 
-  it('marks the row of a supervised node with its supervisor, and no other row', () => {
+  it('marks each row with its owner: a supervisor, or Direct control', () => {
     render(
-      <NodeSupervisors value={new Map([['first', 'ops-supervisor']])}>
+      <NodeSupervisors
+        value={
+          new Map([
+            ['first', 'ops-supervisor'],
+            ['second', 'default'],
+          ])
+        }
+      >
         <RunTimeline
           switcher={null}
           tasks={[
@@ -77,11 +84,14 @@ describe('RunTimeline', () => {
         />
       </NodeSupervisors>
     );
-    expect(screen.getAllByRole('img', { name: /Supervised by/ })).toHaveLength(
-      1
+    expect(screen.getAllByRole('img', { name: /Controlled by/ })).toHaveLength(
+      2
     );
     expect(
-      screen.getByRole('img', { name: 'Supervised by ops-supervisor' })
+      screen.getByRole('img', { name: 'Controlled by: ops-supervisor' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('img', { name: 'Controlled by: Direct control' })
     ).toBeInTheDocument();
   });
 

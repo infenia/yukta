@@ -125,7 +125,7 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.supervisor.buffer-size` | int | `10000` | Events a supervisor may have waiting; beyond that it receives `EventsMissed`. |
 | `yukta.supervisor.review-timeout` | duration | `5s` | Longest a review may take; a slower one refuses the command, except a stop. |
 | `yukta.supervisor.dry-run` | boolean | `false` | Records commands without applying them. |
-| `yukta.supervisor.default.enabled` | boolean | `true` | Lets people control what no supervisor owns. |
+| `yukta.supervisor.default.enabled` | boolean | `true` | Turns on Direct control: people and agents control what no supervisor owns. |
 | `yukta.supervisor.lock-holders` | list | `[]` | Keys that may change a locked assignment. |
 | `yukta.supervisor.turn-around.period` | duration | `60s` | Window in which turn-arounds (pause then resume, skip then unskip, priority back and forth) are counted; positive. |
 | `yukta.supervisor.turn-around.limit` | int | `4` | More turn-arounds of one target than this within the period block that supervisor's turn-arounds of it. |

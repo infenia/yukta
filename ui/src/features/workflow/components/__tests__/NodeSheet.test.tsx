@@ -10,6 +10,11 @@ import { createTestQueryClient } from '@/test/utils/testUtils';
 import type { LogEntry, WorkflowGraphNode } from '../../types/workflow';
 import { NodeSheet } from '../NodeSheet';
 
+vi.mock('@/features/supervisors/components/NodeSupervisorTab', () => ({
+  NodeSupervisorTab: ({ nodeId }: { nodeId: string }) => (
+    <p>supervisor of {nodeId}</p>
+  ),
+}));
 const getDefinition = vi.fn();
 vi.mock('../../api/getWorkflowDefinition', () => ({
   getWorkflowDefinition: (...args: unknown[]) => getDefinition(...args),
@@ -43,6 +48,8 @@ function open(
         workflowId="w"
         executionId="e1"
         entries={[line('work', 'hello'), line('else', 'not mine')]}
+        tab="node"
+        onTab={vi.fn()}
         onCommand={onCommand}
         onClose={vi.fn()}
         {...over}
@@ -65,6 +72,28 @@ beforeEach(() => {
 });
 
 describe('NodeSheet', () => {
+  it('shows the Node tab by default and moves to the Supervisor tab on a click', async () => {
+    const onTab = vi.fn();
+    open({ onTab });
+    expect(screen.getByRole('tab', { name: 'Node' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.queryByText('supervisor of work')).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('tab', { name: 'Supervisor' }));
+    expect(onTab).toHaveBeenCalledWith('supervisor');
+  });
+
+  it("shows who supervises the node in place of the node's details on the Supervisor tab", () => {
+    open({ tab: 'supervisor' });
+    expect(screen.getByRole('tab', { name: 'Supervisor' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('supervisor of work')).toBeInTheDocument();
+    expect(screen.queryByText('hello')).not.toBeInTheDocument();
+  });
+
   it("shows only this node's log lines and its config", async () => {
     open();
     expect(screen.getByText('hello')).toBeInTheDocument();

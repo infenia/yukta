@@ -64,4 +64,4 @@ export function targetLabel(target: Target): string {
 
 /** The owner of a unit as the ownership map names it: a supervisor id, or `default`. */
 export const ownerLabel = (owner: string | undefined | null) =>
-  !owner || owner === 'default' ? 'Default (people)' : owner;
+  !owner || owner === 'default' ? 'Direct control' : owner;

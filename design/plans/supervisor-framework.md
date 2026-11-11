@@ -428,7 +428,7 @@ Revised 2026-11-09 after the first artboards were rejected; the approved artboar
 | Parents | Reports to |
 | `initiative` | Acts on its own |
 | `operatorAccess` | People can… |
-| Default supervisor | Default (people) |
+| Default supervisor | Direct control |
 
 ### Information architecture
 

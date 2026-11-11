@@ -10,7 +10,6 @@ import { Card } from '@/components/ui/card';
 import { inputFieldClassName } from '@/components/ui/native-select';
 import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
-import { iconButton } from '@/components/ui/iconTone';
 import { Tip } from '@/components/ui/tooltip';
 import { StateMessage } from '@/components/common/StateMessage';
 import {
@@ -19,13 +18,12 @@ import {
   useSupervisors,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
-import { ownerLabel } from '../lib/ownership';
 import { ConflictsBanner } from './ConflictsBanner';
 import { controlledBy } from './RequireControl';
 
 const supervisorLink = (owner: string) =>
   owner === 'default' ? (
-    'Default (people)'
+    'Direct control'
   ) : (
     <Link
       to={`/supervisors?supervisor=${encodeURIComponent(owner)}`}
@@ -258,18 +256,24 @@ const count = (n: number) => `${n} ${n === 1 ? 'node' : 'nodes'}`;
  * is for, whether it only records, what it reports to), then what it controls: the run itself
  * and/or nodes, the nodes behind a collapsed row.
  */
-function Controller({
+export function Controller({
   owner,
   supervisor,
   typeName,
   runLevel,
   ids,
+  summary,
+  hideIcon = false,
 }: {
   owner: string;
   supervisor: SupervisorView | undefined;
   typeName: string | undefined;
   runLevel: boolean;
   ids: string[];
+  /** Replaces the "Controls ..." line, e.g. for one node. */
+  summary?: string;
+  /** Leaves out the icon tile, where the surrounding view already says who owns it. */
+  hideIcon?: boolean;
 }) {
   const parents = supervisor?.parents ?? [];
   const controls = [
@@ -280,16 +284,18 @@ function Controller({
     .join(' and ');
   const line = (
     <span className="text-body-sm text-on-surface-variant">
-      Controls {controls}
+      {summary ?? `Controls ${controls}`}
     </span>
   );
   return (
     <Card className="gap-3 p-4">
       <div className="flex items-start gap-3">
-        <Tile
-          icon={owner === 'default' ? 'person' : 'shield_person'}
-          tone="primary"
-        />
+        {!hideIcon && (
+          <Tile
+            icon={owner === 'default' ? 'person' : 'shield_person'}
+            tone="primary"
+          />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-body-md text-on-surface font-medium">
@@ -321,11 +327,10 @@ function Controller({
               ))}
             </p>
           )}
+          {ids.length === 0 && <p className="mt-1">{line}</p>}
         </div>
       </div>
-      {ids.length === 0 ? (
-        line
-      ) : (
+      {ids.length > 0 && (
         <details className="group">
           <summary className="flex cursor-pointer list-none items-center gap-1">
             {line}
@@ -398,8 +403,8 @@ export function SupervisionPanel({
       <ConflictsBanner session={sessionId} workflow={workflowId} />
       {nobody ? (
         <Callout kind="warning" title="Nobody can control this workflow">
-          Default (people) is off and no supervisor owns {workflowId}. An ADMIN
-          can turn Default on or assign a supervisor.
+          Direct control is off and no supervisor owns {workflowId}. An ADMIN
+          can turn Direct control on or assign a supervisor.
         </Callout>
       ) : (
         <section aria-label="Run controller" className="flex flex-col gap-2">
@@ -428,7 +433,7 @@ export function SupervisionPanel({
   );
 }
 
-/** The run's owner on the workflow page, opening who owns what; `?supervision=1` opens it at once. */
+/** Who controls this workflow, as a dialog; `?supervision=1` opens it (a node's owner icon, the palette, a link). */
 export function WorkflowSupervision({
   sessionId,
   workflowId,
@@ -438,46 +443,20 @@ export function WorkflowSupervision({
   workflowId: string;
   executionId: string | null;
 }) {
-  // the dialog lives in the URL, so the palette (and a link) can open it on a page already shown
   const [params, setParams] = useSearchParams();
-  const open = params.has('supervision');
-  const show = (yes: boolean) => {
+  if (!params.has('supervision')) return null;
+  const close = () => {
     const next = new URLSearchParams(params);
-    if (yes) next.set('supervision', '1');
-    else next.delete('supervision');
-    setParams(next, { replace: !yes });
+    next.delete('supervision');
+    setParams(next, { replace: true });
   };
-  const { data } = useOwnership(sessionId, workflowId);
   return (
-    <>
-      <Tip label={`Controlled by: ${ownerLabel(data?.run)}`}>
-        <button
-          type="button"
-          onClick={() => show(true)}
-          aria-label={`Run owner: ${ownerLabel(data?.run)}`}
-          className={iconButton('primary')}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
-          >
-            shield_person
-          </span>
-        </button>
-      </Tip>
-      {open && (
-        <Modal
-          title="Who controls this workflow"
-          onClose={() => show(false)}
-          wide
-        >
-          <SupervisionPanel
-            sessionId={sessionId}
-            workflowId={workflowId}
-            executionId={executionId}
-          />
-        </Modal>
-      )}
-    </>
+    <Modal title="Who controls this workflow" onClose={close} wide>
+      <SupervisionPanel
+        sessionId={sessionId}
+        workflowId={workflowId}
+        executionId={executionId}
+      />
+    </Modal>
   );
 }
