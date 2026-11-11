@@ -4,7 +4,8 @@
 import { Link, useSearchParams } from 'react-router';
 import { Callout } from '@/components/common/Callout';
 import { Modal } from '@/components/common/Modal';
-import { buttonVariants } from '@/components/ui/button';
+import { iconButton } from '@/components/ui/iconTone';
+import { Tip } from '@/components/ui/tooltip';
 import { StateMessage } from '@/components/common/StateMessage';
 import { useOwnership, useSupervision } from '../hooks/useSupervisorTypes';
 import { ownerLabel } from '../lib/ownership';
@@ -78,26 +79,33 @@ export function SupervisionPanel({
           can turn Default on or assign a supervisor.
         </Callout>
       )}
+      <p className="text-body-sm text-on-surface-variant">
+        A supervisor decides who may start, stop or change a workflow. Where no
+        supervisor is set, people control it directly.
+      </p>
       <div className="border-border bg-card shadow-card overflow-x-auto rounded-xl border">
         <table className="text-body-md w-full">
           <thead className="bg-muted">
             <tr>
               <th className="text-label-md text-on-surface-variant px-3 py-2 text-left">
-                What
+                Part of the workflow
               </th>
               <th className="text-label-md text-on-surface-variant px-3 py-2 text-left">
-                Owner
+                Controlled by
               </th>
             </tr>
           </thead>
           <tbody>
             <tr className="border-border border-t">
-              <td className="px-3 py-2">Run level</td>
+              <td className="px-3 py-2">The run as a whole</td>
               <td className="px-3 py-2">{supervisorLink(runOwner)}</td>
             </tr>
             {groups.map(([owner, ids]) => (
               <tr key={owner} className="border-border border-t">
                 <td className="px-3 py-2">
+                  <span className="text-on-surface-variant">
+                    {ids.length === 1 ? 'Step ' : `${ids.length} steps: `}
+                  </span>
                   <code className="text-code-sm">{ids.join(', ')}</code>
                 </td>
                 <td className="px-3 py-2">{supervisorLink(owner)}</td>
@@ -108,11 +116,11 @@ export function SupervisionPanel({
       </div>
       {stop && (
         <p className="text-body-sm text-on-surface-variant">
-          <b>Stop button:</b>{' '}
+          <b>Can you stop this run?</b>{' '}
           {stop.allowed
             ? stop.via === 'default'
-              ? 'you can stop this run directly.'
-              : `you can stop it, through ${stop.via}.`
+              ? 'Yes, directly.'
+              : `Yes, through ${stop.via}.`
             : (stop.reason ?? controlledBy(stop.via))}
         </p>
       )}
@@ -142,27 +150,27 @@ export function WorkflowSupervision({
   const { data } = useOwnership(sessionId, workflowId);
   return (
     <>
-      <button
-        type="button"
-        onClick={() => show(true)}
-        className={buttonVariants({ variant: 'outline', size: 'sm' })}
-      >
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-base"
+      <Tip label={`Controlled by: ${ownerLabel(data?.run)}`}>
+        <button
+          type="button"
+          onClick={() => show(true)}
+          aria-label={`Run owner: ${ownerLabel(data?.run)}`}
+          className={iconButton('primary')}
         >
-          shield_person
-        </span>
-        Run owner: {ownerLabel(data?.run)}
-        <span
-          aria-hidden="true"
-          className="material-symbols-outlined text-base"
-        >
-          expand_more
-        </span>
-      </button>
+          <span
+            aria-hidden="true"
+            className="material-symbols-outlined text-base"
+          >
+            shield_person
+          </span>
+        </button>
+      </Tip>
       {open && (
-        <Modal title="Supervision" onClose={() => show(false)} wide>
+        <Modal
+          title="Who controls this workflow"
+          onClose={() => show(false)}
+          wide
+        >
           <SupervisionPanel
             sessionId={sessionId}
             workflowId={workflowId}

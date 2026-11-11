@@ -6,6 +6,7 @@ import HeaderLogo from './HeaderLogo';
 import IdentityChip from './IdentityChip';
 import AccountMenu from './AccountMenu';
 import ThemeToggle from './ThemeToggle';
+import { Tip } from '@/components/ui/tooltip';
 import { openCommandPalette } from './CommandPalette.helpers';
 
 /* `section` is the path prefix the item owns: Sessions is current on the list and on every
@@ -117,6 +118,22 @@ export default function AppHeader() {
             ⌘K
           </kbd>
         </button>
+        <Tip label="Documentation">
+          <a
+            href="https://yukta.infenia.com/"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Documentation (opens in a new tab)"
+            className="text-on-surface-variant hover:bg-muted hover:text-on-surface mr-1 flex size-8 items-center justify-center rounded-full"
+          >
+            <span
+              aria-hidden="true"
+              className="material-symbols-outlined text-lg"
+            >
+              menu_book
+            </span>
+          </a>
+        </Tip>
         <div className="hidden items-center sm:flex">
           <IdentityChip />
           <ThemeToggle />
