@@ -1,14 +1,19 @@
-# Yukta
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-hero.dark.svg">
+  <img alt="Yukta: workflows you can trust and control. Write a job down once as a flowchart; Yukta runs every step as written, whether it is a script, a rule or an AI model." src="docs/images/readme-hero.light.svg">
+</picture>
 
-**Describe a multi-step job once as a flowchart. Yukta runs every step as written, whether it is a script, a rule or an AI model, and lets you pause, steer or hand control to a supervisor while it runs.**
+<h1 align="center">Yukta</h1>
 
-Yukta is a reactive, DAG-based workflow orchestration server. You start the same workflow from a script, the web UI, a CLI or an AI assistant.
+<p align="center"><b>A workflow engine for people, scripts and AI agents.</b> Start the same workflow from a script, the web UI, a CLI or an AI assistant.</p>
 
+<p align="center">
 [Docs](https://yukta.infenia.com/) ·
 [Install](#install) ·
 [30-second win](#try-it-in-two-minutes) ·
 [Examples](examples/README.md) ·
 [Contributing](#contributing)
+</p>
 
 [![CI](https://github.com/infenia/yukta/actions/workflows/ci.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/infenia/yukta/actions/workflows/codeql.yml/badge.svg)](https://github.com/infenia/yukta/actions/workflows/codeql.yml)
@@ -50,17 +55,17 @@ flowchart LR
 
 ## Install
 
-> **Alpha.** The engine, plugins, REST API, MCP server, web UI and CLI run and are covered by tests. Expect breaking changes to the workflow JSON and the APIs before 1.0. The native server is Linux amd64 only for now; on macOS and Windows run it with Docker. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
+> **Alpha.** Expect breaking changes to the workflow JSON and the APIs before 1.0. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
 
-| Platform | Command |
-|----------|---------|
-| Linux (server + CLI) | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh \| sh` |
-| Any (Docker) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:0.1.0-alpha.3` |
-| Windows (CLI) | `irm https://github.com/infenia/yukta/releases/latest/download/install.ps1 \| iex` |
-| macOS (CLI) | download `yukta-cli-darwin-arm64` or `-amd64` from the [release](https://github.com/infenia/yukta/releases/tag/v0.1.0-alpha.3) |
-| Debian / RPM, source | [Deploy guide](https://yukta.infenia.com/guides/operate/deploy) |
+| Platform | `0.1.0-alpha.3` (this command) | Next release |
+|----------|------|------|
+| Linux `amd64` | `curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh \| sh` | native |
+| Linux `arm64` | Docker | native |
+| macOS | client only; server with Docker | native (Intel; Apple silicon via Rosetta 2) |
+| Windows `amd64` | client `.exe`; server with Docker | native, a `.zip` on the [release page](https://github.com/infenia/yukta/releases) |
+| Any (Docker, `linux/amd64` and `linux/arm64` from the next release) | `docker run --rm -p 127.0.0.1:9858:9858 -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret -e YUKTA_API_KEYS_0_ROLE=ADMIN ghcr.io/infenia/yukta:0.1.0-alpha.3` | same |
 
-Tested on Linux amd64. If another platform fails, please [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
+The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy). If a platform fails, [open an issue](https://github.com/infenia/yukta/issues/new/choose) with your OS and architecture.
 
 ## Try it in two minutes
 
@@ -108,7 +113,7 @@ The assistant writes the workflow and the supervisor over MCP, assigns it and ch
 
 ## Honest limits
 
-- Alpha: APIs and the workflow JSON can change before 1.0.
+- Alpha: APIs and the workflow JSON can change before 1.0. Native macOS and Windows servers are new and unsigned.
 - One server by default. High availability, durable stores and remote workers are in the [Plus build](LICENSING.md).
 - Workflows can run processes, scripts and SQL. Treat authorship as a trusted operation; the server binds to loopback and refuses to listen elsewhere without an API key. See [Secure the server](https://yukta.infenia.com/guides/operate/secure-the-server) and [`SECURITY.md`](SECURITY.md).
 

@@ -63,13 +63,13 @@ Yukta is a server that keeps the process. You describe the steps as a **workflow
 
 ## Install
 
-On Linux, one command installs the server (`yukta`) and the client (`yukta-cli`):
+On Linux and macOS, one command installs the server (`yukta`) and the client (`yukta-cli`):
 
 ```bash
 curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
 ```
 
-This one-line installer is for **Linux** (amd64). For Docker, macOS, Windows and other ways to install, see [Install Yukta](/get-started/install).
+On Windows, use the `.zip` from the release page. For Docker and other ways to install, see [Install Yukta](/get-started/install).
 
 ## Configure it by asking
 
@@ -112,7 +112,7 @@ Next: [install Yukta](/get-started/install), then [run your first workflow](/lea
 
 ## Honest limits
 
-Yukta is alpha. The workflow JSON, REST API, MCP tools and plugin contract can change before 1.0. Sessions live in memory by default, and the native server in the current release is Linux amd64 only. See [Releases](/reference/releases) and [What's new in alpha.4](/reference/whats-new-alpha-4).
+Yukta is alpha. The workflow JSON, REST API, MCP tools and plugin contract can change before 1.0. Sessions live in memory by default, and the native server in `0.1.0-alpha.3` is Linux amd64 only (Linux arm64, macOS and Windows follow in the next release). See [Releases](/reference/releases) and [What's new in alpha.4](/reference/whats-new-alpha-4).
 
 ## Next steps
 

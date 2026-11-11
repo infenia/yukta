@@ -51,22 +51,29 @@ Current release: **`0.1.0-alpha.3`**.
 
 | File | What it is |
 |---|---|
-| `yukta-<version>-linux-amd64.tar.gz` | The native server `yukta`, the client `yukta-cli`, the licence and a sample settings file |
-| `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped |
+| `yukta-<version>-linux-amd64.tar.gz` | The native server `yukta`, the client `yukta-cli`, the licence and a sample settings file. From the release after `0.1.0-alpha.3`, also `linux-arm64` and `darwin-amd64` (macOS) |
+| `yukta-<version>-windows-amd64.zip` | The same for Windows: `yukta.exe` and `yukta-cli.exe`. From the release after `0.1.0-alpha.3` |
+| `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped. From the release after `0.1.0-alpha.3`, also for `arm64` |
 | `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
 | `install.sh` | One-command installer, pinned to the release |
 | `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library compiled into that binary, with its version. From the release after `0.1.0-alpha.3`; the same list is embedded in every server binary |
 | `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums for every file, and a signature for the checksums |
-| `ghcr.io/infenia/yukta:<version>` | The container image |
+| `ghcr.io/infenia/yukta:<version>` | The container image (`linux/amd64` and `linux/arm64` from the release after `0.1.0-alpha.3`) |
 
 ## Supported platforms
+
+Native servers for every row but the first arrive with the release after `0.1.0-alpha.3`; until then, use Docker there. The release workflow builds each one on a machine of its own platform and starts it against the Quickstart workflow before it is released.
 
 | Platform | Server | Client |
 |---|---|---|
 | Linux `amd64` | Native binary, packages, Docker image | Yes |
-| Linux `arm64` | Coming soon; use Docker until then | Yes |
-| macOS (Intel, Apple silicon) | Docker Desktop; a native installer is coming soon | Yes |
-| Windows `amd64` | Docker Desktop or WSL 2; a native installer is coming soon | Yes |
+| Linux `arm64` | Native binary, packages, Docker image | Yes |
+| macOS Intel | Native binary (`.tar.gz`), Docker Desktop | Yes |
+| macOS Apple silicon | The Intel binary through Rosetta 2, or Docker Desktop. A native build needs a larger build machine and comes later | Yes, native |
+| Windows `amd64` | Native binary (`.zip`), Docker Desktop or WSL 2 | Yes |
+| Windows `arm64` | Docker Desktop or WSL 2 | Yes |
+
+The macOS and Windows binaries are not signed or notarized, so macOS Gatekeeper and Windows SmartScreen warn about a file downloaded in a browser. Verify it with the checksums and the build provenance below instead.
 
 ## Image tags
 

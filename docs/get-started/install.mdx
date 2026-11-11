@@ -1,8 +1,8 @@
 ---
 title: "Install Yukta"
 sidebarTitle: "Install"
-description: "Install the Yukta server and the yukta-cli client on Linux with one script, with Docker, or with the client alone, and check that the server is up."
-keywords: ["install", "Linux", "Docker", "yukta-cli", "install.sh", "get started"]
+description: "Install the Yukta server and the yukta-cli client on Linux, macOS or Windows, with Docker, or with the client alone, and check that the server is up."
+keywords: ["install", "Linux", "macOS", "Windows", "Docker", "yukta-cli", "install.sh", "get started"]
 ---
 
 import { ReaderState } from "/snippets/reader-state.jsx";
@@ -10,12 +10,12 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 <ReaderState
   learn="how to get a Yukta server and its command-line client running on your machine"
   time="3 minutes"
-  need="a terminal and curl; Docker if you are not on Linux amd64"
+  need="a terminal and curl (Linux, macOS) or PowerShell (Windows); Docker is optional"
   end="a server answering on http://localhost:9858 and yukta-cli on your path"
 />
 
 <Note>
-  Yukta is in **alpha**. The current release ships a native server for Linux `amd64` and a Docker image. The command-line client exists for Linux, macOS and Windows. Native servers for ARM Linux, macOS and Windows are not in the current release: run the Docker image there. Breaking changes to the workflow JSON, the API and the MCP tools are still possible before 1.0. See [Releases](/reference/releases) for what each release contains.
+  Yukta is in **alpha**. Releases after `0.1.0-alpha.3` ship a native server and client for Linux (`amd64`, `arm64`), macOS and Windows (`amd64`), plus a multi-architecture Docker image. `0.1.0-alpha.3`, the release the commands on this page pin, has a native server for Linux `amd64` only: on any other system, use Docker for the server. The macOS and Windows builds are not signed or notarized. Breaking changes to the workflow JSON, the API and the MCP tools are still possible before 1.0. See [Releases](/reference/releases) for what each release contains.
 </Note>
 
 By default the server keeps sessions, workflows and run history **in memory**, so they are gone when it stops. Storing them on disk is part of the Plus edition, see [Licensing and editions](/reference/licensing).
@@ -23,7 +23,7 @@ By default the server keeps sessions, workflows and run history **in memory**, s
 ## Prerequisites
 
 - A terminal and `curl`.
-- Linux `amd64` for the install script, or Docker for any other system.
+- Linux, macOS or Windows `amd64` (or Linux `arm64`) with a release that has a native server for it, or Docker for any other system.
 - Port `9858` free on your machine.
 
 ## Install the server and the client on Linux
@@ -51,9 +51,30 @@ yukta
 
 It stays in the foreground and listens on `127.0.0.1:9858`, so only your machine can reach it.
 
+## Install on macOS
+
+From the release after `0.1.0-alpha.3`, the same script installs the native server too:
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v<version>/install.sh | sh
+```
+
+Replace `<version>` with that release, for example `0.1.0-alpha.4`; `latest` skips pre-releases. The macOS server is built for Intel. On Apple silicon it runs through Rosetta 2 (`softwareupdate --install-rosetta`), and you still get a native `yukta-cli`. The binaries are not signed or notarized, so macOS warns about a file you download in a browser. The script avoids that warning. With the `0.1.0-alpha.3` script, only the client is installed and the Docker command for the server is printed.
+
+## Install on Windows
+
+From the release after `0.1.0-alpha.3`, download `yukta-<version>-windows-amd64.zip` from the [release page](https://github.com/infenia/yukta/releases), check it against `SHA256SUMS` (see [Releases](/reference/releases#verify-a-download)), unzip it and run `yukta.exe` from PowerShell:
+
+```powershell
+Expand-Archive yukta-<version>-windows-amd64.zip .
+.\yukta-<version>-windows-amd64\yukta.exe
+```
+
+The zip holds `yukta.exe` and `yukta-cli.exe`. SmartScreen warns about the unsigned download: choose **More info**, then **Run anyway**. A one-line `install.ps1` is not part of the releases yet. For `0.1.0-alpha.3`, download `yukta-cli-windows-amd64.exe` for the client and run the server with Docker Desktop or WSL 2.
+
 ## Install the server with Docker
 
-Use this on macOS, Windows or ARM Linux, or when you prefer a container.
+Use this on a system without a native server, or when you prefer a container. The image is multi-architecture (`linux/amd64` and `linux/arm64`) from the release after `0.1.0-alpha.3`.
 
 ```bash
 docker run --rm -p 127.0.0.1:9858:9858 \
@@ -71,7 +92,7 @@ If a server already runs somewhere, install the client alone:
 curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh -s -- --cli-only
 ```
 
-On macOS the script installs only the client for you and prints the Docker command for the server. On Windows, use `install.ps1` from the same release page.
+With the `0.1.0-alpha.3` script on macOS, `--cli-only` is what you get anyway. On Windows, download `yukta-cli-windows-amd64.exe` from the release page.
 
 Point the client at your server with `--url` or `YUKTA_SERVER_URL`, and give it a key with `YUKTA_TOKEN` or `--token-file`. The client sends the key as a bearer token and refuses to send it over plain `http` to another host unless you pass `--insecure-token`.
 
