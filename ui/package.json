@@ -15,6 +15,9 @@
     "lint:headers": "node scripts/validate-headers.js",
     "test": "vitest",
     "test:e2e": "playwright test",
+    "docs:screenshots": "node e2e/docs-screenshots/run.mjs",
+    "docs:screenshots:check": "node e2e/docs-screenshots/run.mjs --check",
+    "docs:screenshots:types": "tsc -p e2e/docs-screenshots/tsconfig.json",
     "test:e2e:shuffle": "playwright test --project=chromium --shuffle",
     "coverage": "vitest run --coverage && node scripts/open-coverage.js",
     "favicons": "bash scripts/generate-favicons.sh"
