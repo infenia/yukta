@@ -65,7 +65,7 @@ message appears in the child's `results`. That is why the nodes that read a resu
 - **Rules:** the banned claims are in `inspect`; the required facts are `payload.facts`.
 - **Shared state:** keep `namespace` the same in every KV node. A person or another workflow can
   read `<runId>:attempts` and `<runId>:draft` with their own `KV_STORE` `get`.
-- **Failure:** `failed` is an `OUTCOME_TERMINAL` with outcome `FAILED`; a supervisor rule can key on it (see `docs/running/supervisors`).
+- **Failure:** `failed` is an `OUTCOME_TERMINAL` with outcome `FAILED`; a supervisor rule can key on it (see `docs/concepts/supervisors.mdx`).
 
 ## Pause and inspect a run
 

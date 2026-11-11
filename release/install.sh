@@ -393,7 +393,7 @@ main() {
     say ""
     say "Note: a yukta server is running and keeps running the old version. Stop it, start the new one"
     say "and re-apply your sessions; sessions and runs kept in memory are lost on restart (set"
-    say "YUKTA_BOOTSTRAP_DIR to reload them; see https://yukta.infenia.com/operations/persistence)."
+    say "YUKTA_BOOTSTRAP_DIR to reload them; see https://yukta.infenia.com/guides/operate/persist-sessions)."
   fi
   for f in yukta yukta-cli; do
     [ -f "$dir/$f" ] || continue

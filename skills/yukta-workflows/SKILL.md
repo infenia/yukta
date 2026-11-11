@@ -153,7 +153,7 @@ because of it: check the effect with a read tool first (`list_sessions` after a 
 
 Add the server with its URL and, when it has a key, an `Authorization: Bearer <key>` header. The key is the user's: ask them to set it in the
 client's own configuration, never paste it into a chat or a file in a repository. The address is `http://localhost:9858/mcp` for a local server.
-The page `docs/interfaces/mcp.mdx` of the Yukta repository (docs site: Interfaces, MCP server) has the commands for each client.
+The page `docs/reference/mcp-tools.mdx` of the Yukta repository (docs site: Reference, MCP tools) has the commands for each client.
 
 ## Supervisors (ask the user first)
 

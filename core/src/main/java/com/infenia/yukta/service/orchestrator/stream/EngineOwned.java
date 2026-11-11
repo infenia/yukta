@@ -15,7 +15,7 @@ import lombok.experimental.UtilityClass;
  * message is never a control signal), the {@code attempt} header (set by the retry loop just before
  * a call) and the {@code failure.*} headers (set only on a dead letter, which travels on the error
  * port). A plugin may set them on its output, but they do not survive the next edge. The documented
- * list is in {@code docs/concepts/messages.mdx}.
+ * list is in {@code docs/reference/messages.mdx}.
  */
 @UtilityClass
 final class EngineOwned {

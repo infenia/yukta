@@ -251,7 +251,7 @@
             Say ''
             Say 'Note: a yukta server is running and keeps running the old version. Stop it, start the new one'
             Say 'and re-apply your sessions; sessions and runs kept in memory are lost on restart (set'
-            Say 'YUKTA_BOOTSTRAP_DIR to reload them; see https://yukta.infenia.com/operations/persistence).'
+            Say 'YUKTA_BOOTSTRAP_DIR to reload them; see https://yukta.infenia.com/guides/operate/persist-sessions).'
         }
         foreach ($f in 'yukta.exe', 'yukta-cli.exe') {
             $other = Get-Command $f -ErrorAction SilentlyContinue

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 // `yk new engine <name>`: a supervisor engine module under plugins/supervisors/<name>-engine, added to settings.gradle.kts and boot/build.gradle.kts.
-// The engine decides nothing yet (it returns no directives); it compiles, is tested and shows where to write the decision. See docs/running/supervisor-engines.mdx.
+// The engine decides nothing yet (it returns no directives); it compiles, is tested and shows where to write the decision. See docs/reference/supervisors/engines.mdx.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
