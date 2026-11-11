@@ -14,11 +14,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.util.concurrent.Queues;
 
@@ -36,6 +38,9 @@ public final class AgentHub {
 
   /** Directives an agent may post before the supervisor takes them; more are refused. */
   public static final int MAX_WAITING_DIRECTIVES = 256;
+
+  /** Runs an engine reads, the most its supervisor's reads return. */
+  private static final int OWNED_RUNS = 200;
 
   /** Signals a reader may fall behind by before it gets {@code EventsMissed} instead. */
   public static final int LIVE_BUFFER = 1024;
@@ -78,10 +83,20 @@ public final class AgentHub {
     // multicast without auto-cancel: the host subscribes again after an engine failure
     private final Sinks.Many<Directive> directiveSink =
         Sinks.many().multicast().onBackpressureBuffer(MAX_WAITING_DIRECTIVES, false);
-    private final Supplier<EngineReads> readSource;
+    // one reads source per attachment of the supervisor: each has its own engine
+    private final List<Supplier<EngineReads>> readSources = new CopyOnWriteArrayList<>();
 
-    private Channel(final Supplier<EngineReads> reads) {
-      this.readSource = reads;
+    private Channel() {
+      // made by AgentHub.lease
+    }
+
+    /**
+     * How many engines share this channel: one per attachment of the supervisor.
+     *
+     * @return the number of open leases
+     */
+    public int engines() {
+      return readSources.size();
     }
 
     /**
@@ -242,12 +257,17 @@ public final class AgentHub {
     }
 
     /**
-     * What the agent may read.
+     * What the agent may read: what the engine reads, or for a supervisor with several attachments
+     * the union over its engines.
      *
      * @return the reads of the supervisor
      */
     public EngineReads reads() {
-      return readSource.get();
+      final List<Supplier<EngineReads>> sources = List.copyOf(readSources);
+      if (sources.size() == 1) {
+        return sources.getFirst().get();
+      }
+      return new MergedReads(sources.stream().map(Supplier::get).toList());
     }
 
     /* default */ void signal(final Signal signal) {
@@ -298,19 +318,36 @@ public final class AgentHub {
   }
 
   /**
-   * Opens the channel of a supervisor, replacing an earlier one.
+   * Opens the channel of a supervisor for one of its engines. A supervisor has one engine per
+   * attachment, and they all share one channel, so one agent and one credential serve every unit
+   * the supervisor owns. The channel ends when the last engine closes its lease.
+   *
+   * @param supervisorId the supervisor
+   * @param reads what this engine may read
+   * @return the lease; its {@link Lease#channel()} is the shared channel
+   */
+  /* default */ Lease lease(final String supervisorId, final Supplier<EngineReads> reads) {
+    final Channel[] joined = new Channel[1];
+    channels.compute(
+        supervisorId,
+        (id, existing) -> {
+          joined[0] = existing == null ? new Channel() : existing;
+          joined[0].readSources.add(reads);
+          return joined[0];
+        });
+    return new Lease(supervisorId, joined[0], reads);
+  }
+
+  /**
+   * Opens the channel of a supervisor and keeps it for the life of the hub, for a caller that has
+   * no engine to close.
    *
    * @param supervisorId the supervisor
    * @param reads what its engine may read
    * @return the channel
    */
   /* default */ Channel open(final String supervisorId, final Supplier<EngineReads> reads) {
-    final Channel channel = new Channel(reads);
-    final Channel earlier = channels.put(supervisorId, channel);
-    if (earlier != null) {
-      earlier.complete();
-    }
-    return channel;
+    return lease(supervisorId, reads).channel();
   }
 
   /**
@@ -323,9 +360,69 @@ public final class AgentHub {
     return Optional.ofNullable(channels.get(supervisorId));
   }
 
-  /* default */ void close(final String supervisorId, final Channel channel) {
-    if (channels.remove(supervisorId, channel)) {
-      channel.complete();
+  /** One engine's hold on the channel of its supervisor. */
+  /* default */ final class Lease {
+
+    private final String supervisorId;
+    private final Channel channel;
+    private final Supplier<EngineReads> reads;
+
+    private Lease(
+        final String supervisorId, final Channel channel, final Supplier<EngineReads> reads) {
+      this.supervisorId = supervisorId;
+      this.channel = channel;
+      this.reads = reads;
+    }
+
+    /* default */ Channel channel() {
+      return channel;
+    }
+
+    /**
+     * Whether a directive of the agent is for this engine. The agent's directives reach the engines
+     * of all attachments of a supervisor; the one that reads the run a command names takes it, so
+     * the others do not refuse it as not owned. A command no engine reads goes to the first, to be
+     * refused once.
+     *
+     * @param directive what the agent posted
+     * @return true if this engine takes it
+     */
+    // ponytail: two attachments on different nodes of one run both read it, and the first takes
+    // it; route by the command's node as well if that turns out to matter
+    /* default */ Mono<Boolean> takes(final Directive directive) {
+      final List<Supplier<EngineReads>> sources = List.copyOf(channel.readSources);
+      if (sources.size() < 2
+          || !(directive instanceof Directive.Command command)
+          || !sources.contains(reads)) {
+        return Mono.just(true);
+      }
+      final String executionId = command.command().executionId();
+      return Flux.fromIterable(sources)
+          .filterWhen(
+              source ->
+                  source
+                      .get()
+                      .executions(null, OWNED_RUNS)
+                      .any(run -> run.executionId().equals(executionId)))
+          .next()
+          .defaultIfEmpty(sources.getFirst())
+          .map(owner -> owner == reads);
+    }
+
+    /** Gives the channel up; the last engine to do so ends it. */
+    /* default */ void close() {
+      channels.computeIfPresent(
+          supervisorId,
+          (id, current) -> {
+            if (current != channel || !channel.readSources.remove(reads)) {
+              return current;
+            }
+            if (channel.readSources.isEmpty()) {
+              channel.complete();
+              return null;
+            }
+            return current;
+          });
     }
   }
 }

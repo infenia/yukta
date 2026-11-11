@@ -7,10 +7,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
+import com.infenia.yukta.plugin.input.InputRequest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** The hub remembers signals per supervisor and passes credential changes on. */
@@ -201,5 +203,34 @@ class AgentHubTest {
         .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void theReadsOfASupervisorWithSeveralEnginesAreTheirUnion() {
+    final AgentHub hub = new AgentHub();
+    final AgentHub.Lease first = hub.lease("s", () -> reading("e1", Instant.EPOCH));
+    final AgentHub.Lease second = hub.lease("s", () -> reading("e2", Instant.EPOCH.plusSeconds(5)));
+
+    assertThat(first.channel()).isSameAs(second.channel());
+    assertThat(first.channel().reads().executions(null, 10).collectList().block())
+        .extracting(EngineReads.RunView::executionId)
+        .containsExactly("e2", "e1");
+    assertThat(first.channel().reads().executions(null, 1).collectList().block()).hasSize(1);
+    first.close();
+    second.close();
+  }
+
+  private static EngineReads reading(final String executionId, final Instant started) {
+    return new EngineReads() {
+      @Override
+      public Flux<RunView> executions(final String status, final int limit) {
+        return Flux.just(new RunView("s", executionId, "w", "RUNNING", started));
+      }
+
+      @Override
+      public Flux<InputRequest> openInputs(final int limit) {
+        return Flux.empty();
+      }
+    };
   }
 }

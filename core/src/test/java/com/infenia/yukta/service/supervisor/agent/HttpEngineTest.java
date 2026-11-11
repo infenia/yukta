@@ -50,6 +50,10 @@ class HttpEngineTest {
   }
 
   private SupervisorEngine engine(final Map<String, Object> settings) {
+    return engine(settings, EngineReads.NONE);
+  }
+
+  private SupervisorEngine engine(final Map<String, Object> settings, final EngineReads reads) {
     return factory.create(
         new EngineConfig(settings),
         new EngineContext() {
@@ -70,9 +74,23 @@ class HttpEngineTest {
 
           @Override
           public EngineReads reads() {
-            return EngineReads.NONE;
+            return reads;
           }
         });
+  }
+
+  private static EngineReads reading(final String executionId) {
+    return new EngineReads() {
+      @Override
+      public Flux<RunView> executions(final String status, final int limit) {
+        return Flux.just(new RunView("s", executionId, "w", "RUNNING", Instant.EPOCH));
+      }
+
+      @Override
+      public Flux<com.infenia.yukta.plugin.input.InputRequest> openInputs(final int limit) {
+        return Flux.empty();
+      }
+    };
   }
 
   @Test
@@ -111,6 +129,22 @@ class HttpEngineTest {
         .verify(Duration.ofSeconds(5));
     assertThat(seen).containsExactly(new Signal.Tick(Instant.EPOCH));
     assertThat(channel.reads()).isSameAs(EngineReads.NONE);
+  }
+
+  @Test
+  void aSecondEngineOfTheSameSupervisorDoesNotCutTheFirstOnesAgentStream() {
+    // SupervisorService.start makes one engine per attachment, and every engine of a supervisor
+    // opens the channel keyed by the supervisor id, so a supervisor with two attachments has two
+    final SupervisorEngine first = engine();
+    final java.util.concurrent.atomic.AtomicBoolean ended =
+        new java.util.concurrent.atomic.AtomicBoolean();
+    hub.channel("agent-1").orElseThrow().signals().doOnComplete(() -> ended.set(true)).subscribe();
+
+    final SupervisorEngine second = engine();
+
+    assertThat(ended).as("the agent stream of the first attachment").isFalse();
+    first.close();
+    second.close();
   }
 
   @Test
@@ -156,14 +190,47 @@ class HttpEngineTest {
   }
 
   @Test
-  void newEngineReplacesTheChannelOfAnEarlierOne() {
+  void enginesOfOneSupervisorShareOneChannelUntilTheLastCloses() {
     final SupervisorEngine first = engine();
-    final AgentHub.Channel firstChannel = hub.channel("agent-1").orElseThrow();
+    final AgentHub.Channel channel = hub.channel("agent-1").orElseThrow();
     final SupervisorEngine second = engine();
-    assertThat(hub.channel("agent-1").orElseThrow()).isNotSameAs(firstChannel);
-    // closing the replaced engine does not remove the new channel
+
+    assertThat(hub.channel("agent-1").orElseThrow()).isSameAs(channel);
+    assertThat(channel.engines()).isEqualTo(2);
     first.close();
-    assertThat(hub.channel("agent-1")).isPresent();
+    assertThat(hub.channel("agent-1")).containsSame(channel);
+    assertThat(channel.engines()).isEqualTo(1);
+    second.close();
+    assertThat(hub.channel("agent-1")).isEmpty();
+  }
+
+  @Test
+  void aDirectiveReachesOnlyTheEngineThatReadsItsRun() {
+    final SupervisorEngine first = engine(Map.of(), reading("e1"));
+    final SupervisorEngine second = engine(Map.of(), reading("e2"));
+    final AgentHub.Channel channel = hub.channel("agent-1").orElseThrow();
+    final List<Directive> firstGot = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final List<Directive> secondGot = new java.util.concurrent.CopyOnWriteArrayList<>();
+    final reactor.core.Disposable a = first.run(Flux.never()).subscribe(firstGot::add);
+    final reactor.core.Disposable b = second.run(Flux.never()).subscribe(secondGot::add);
+    final Directive.Command forSecond =
+        new Directive.Command("k", new PauseWorkflowCommand("e2"), Cause.initiative(), "r", null);
+    final Directive.Command forNobody =
+        new Directive.Command("k2", new PauseWorkflowCommand("e9"), Cause.initiative(), "r", null);
+
+    assertThat(channel.offer(forSecond)).isTrue();
+    assertThat(channel.offer(forNobody)).isTrue();
+
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () -> {
+              assertThat(secondGot).containsExactly(forSecond);
+              assertThat(firstGot).containsExactly(forNobody);
+            });
+    a.dispose();
+    b.dispose();
+    first.close();
     second.close();
   }
 }
