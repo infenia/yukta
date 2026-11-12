@@ -39,7 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Order(Ordered.HIGHEST_PRECEDENCE + 1)
 public class McpErrorFilter implements WebFilter {
 
-  /** Path of the MCP endpoint, after {@link McpEndpointFilter} rewrote the legacy name. */
+  /** Path of the MCP endpoint. */
   private static final String ENDPOINT = "/mcp";
 
   /** Marks a serialized Java exception. */

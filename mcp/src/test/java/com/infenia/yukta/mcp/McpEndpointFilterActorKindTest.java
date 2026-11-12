@@ -29,7 +29,7 @@ class McpEndpointFilterActorKindTest {
 
     new McpEndpointFilter(environment)
         .filter(
-            MockServerWebExchange.from(MockServerHttpRequest.post("/sse").header("X-API-Key", "k")),
+            MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k")),
             (ServerWebExchange exchange) ->
                 Mono.deferContextual(
                     ctx -> {

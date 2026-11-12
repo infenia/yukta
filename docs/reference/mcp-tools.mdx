@@ -20,7 +20,7 @@ Yukta's MCP server exposes 53 tools, 2 prompts and 3 resources at `/mcp`; this p
 ## Endpoint
 
 ### Transport
-- **Path:** `/mcp` on the same address and port as the REST API, for example `http://localhost:9858/mcp`. `/sse` is accepted as an alias.
+- **Path:** `/mcp` on the same address and port as the REST API, for example `http://localhost:9858/mcp`.
 - **Protocol:** streamable HTTP, stateless: each request stands alone. There is no standard-input transport.
 - **Request size:** a body above 1 MB is refused with HTTP `413`.
 

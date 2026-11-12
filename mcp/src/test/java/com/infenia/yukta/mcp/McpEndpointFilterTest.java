@@ -43,13 +43,6 @@ class McpEndpointFilterTest {
   }
 
   @Test
-  void testLegacySsePathIsRewrittenToMcp() {
-    run("", MockServerHttpRequest.post("/sse"));
-
-    assertThat(seenPath.get()).isEqualTo("/mcp");
-  }
-
-  @Test
   void testOtherPathsUntouchedAndUnguarded() {
     final var exchange = run("secret", MockServerHttpRequest.get("/api/sessions"));
 
@@ -63,14 +56,6 @@ class McpEndpointFilterTest {
 
     assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     assertThat(seenPath.get()).isNull();
-  }
-
-  @Test
-  void testWrongKeyRejectedOnLegacyPathToo() {
-    final var exchange =
-        run("secret", MockServerHttpRequest.post("/sse").header("X-API-Key", "nope"));
-
-    assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
   }
 
   @Test
@@ -138,7 +123,7 @@ class McpEndpointFilterTest {
             .withProperty("yukta.api-keys[0].key", "k")
             .withProperty("yukta.api-keys[0].role", "ADMIN");
     final var exchange =
-        MockServerWebExchange.from(MockServerHttpRequest.post("/sse").header("X-API-Key", "k"));
+        MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k"));
     final var actor = new AtomicReference<String>();
     new McpEndpointFilter(env)
         .filter(
@@ -265,7 +250,6 @@ class McpEndpointFilterTest {
     assertThat(call(env, "/mcp", "[" + ok + "," + bad + "]")).startsWith("403");
     assertThat(call(env, "/mcp", "not json")).startsWith("403");
     assertThat(call(env, "/mcp", null)).startsWith("passed:");
-    assertThat(call(env, "/sse", ok)).startsWith("passed:");
     assertThat(seenPath.get()).isEqualTo("/mcp");
   }
 

@@ -45,8 +45,7 @@ import reactor.core.publisher.Mono;
  * with {@code Retry-After}. {@code start_workflow} and {@code get_execution_logs} with a {@code
  * filterPattern} (a regex run over every line) also count against {@code
  * yukta.mcp.heavy-rate-limit-per-minute} (default 60, 0 = unlimited), refused calls are counted in
- * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited. Also
- * keeps the former {@value #LEGACY_ENDPOINT} path working by rewriting it to the endpoint.
+ * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited.
  */
 @Component
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
@@ -58,9 +57,6 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
 
   /** Largest request body read to check the tools it calls. */
   private static final int MAX_BODY_BYTES = 1 << 20;
-
-  /** Former endpoint name, kept as an alias for clients that are already configured. */
-  private static final String LEGACY_ENDPOINT = "/sse";
 
   /** Requests per caller and minute when {@code yukta.mcp.rate-limit-per-minute} is not set. */
   private static final int DEFAULT_RATE_LIMIT = 600;
@@ -156,13 +152,12 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
   public Mono<Void> filter(final ServerWebExchange exchange, final WebFilterChain chain) {
     final String raw = exchange.getRequest().getPath().value();
     final String path = RequestPaths.normalized(raw);
-    final boolean legacy = LEGACY_ENDPOINT.equals(path);
-    if (!legacy && !ENDPOINT.equals(path)) {
+    if (!ENDPOINT.equals(path)) {
       return chain.filter(exchange);
     }
     if (authenticator.isOpen(Scope.MCP)) {
       // no key means loopback only (ExposureGuard) and no caller to tell apart, like REST: no limit
-      return chain.filter(rewritten(exchange, legacy));
+      return chain.filter(exchange);
     }
     final ApiKeys.Match match =
         authenticator.authenticate(Scope.MCP, exchange.getRequest().getHeaders());
@@ -170,16 +165,13 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
     if (refusal != null) {
       return reject(exchange, refusal);
     }
-    return limited(match.name()) ? tooMany(exchange) : proceed(exchange, chain, match, legacy);
+    return limited(match.name()) ? tooMany(exchange) : proceed(exchange, chain, match);
   }
 
   /** Hands an authenticated, within-limit request on, naming the actor. */
   private Mono<Void> proceed(
-      final ServerWebExchange exchange,
-      final WebFilterChain chain,
-      final ApiKeys.Match match,
-      final boolean legacy) {
-    return checked(exchange, chain, match, legacy)
+      final ServerWebExchange exchange, final WebFilterChain chain, final ApiKeys.Match match) {
+    return checked(exchange, chain, match)
         .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match))
         .contextWrite(
             ctx ->
@@ -193,12 +185,9 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
    * same body on.
    */
   private Mono<Void> checked(
-      final ServerWebExchange exchange,
-      final WebFilterChain chain,
-      final ApiKeys.Match match,
-      final boolean legacy) {
+      final ServerWebExchange exchange, final WebFilterChain chain, final ApiKeys.Match match) {
     if (!HttpMethod.POST.equals(exchange.getRequest().getMethod())) {
-      return chain.filter(rewritten(exchange, legacy));
+      return chain.filter(exchange);
     }
     return DataBufferUtils.join(exchange.getRequest().getBody(), MAX_BODY_BYTES)
         .map(
@@ -219,7 +208,7 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
               if (heavyOverLimit(match.name(), bytes)) {
                 return tooMany(exchange);
               }
-              return chain.filter(rewritten(withBody(exchange, bytes), legacy));
+              return chain.filter(withBody(exchange, bytes));
             })
         .onErrorResume(
             DataBufferLimitException.class, _ -> reject(exchange, HttpStatus.CONTENT_TOO_LARGE));
@@ -267,11 +256,6 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
       return HttpStatus.UNAUTHORIZED;
     }
     return null;
-  }
-
-  private static ServerWebExchange rewritten(
-      final ServerWebExchange exchange, final boolean legacy) {
-    return legacy ? exchange.mutate().request(request -> request.path(ENDPOINT)).build() : exchange;
   }
 
   private static Mono<Void> reject(final ServerWebExchange exchange, final HttpStatus status) {
