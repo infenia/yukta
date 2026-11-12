@@ -30,6 +30,7 @@ class PluginTierAcceptanceTest {
   /** Types that reach outside the engine: processes, files, network, databases. */
   private static final Set<String> RESTRICTED =
       Set.of(
+          "AGENT_SESSION",
           "PROCESS_EXECUTOR",
           "SQL_QUERY",
           "FILE_READ",
@@ -77,7 +78,13 @@ class PluginTierAcceptanceTest {
             "DEDUPE");
     final var extended =
         Set.of(
-            "PROCESS_EXECUTOR", "SQL_QUERY", "FILE_READ", "FILE_WRITE", "HTTP_REQUEST", "KV_STORE");
+            "AGENT_SESSION",
+            "PROCESS_EXECUTOR",
+            "SQL_QUERY",
+            "FILE_READ",
+            "FILE_WRITE",
+            "HTTP_REQUEST",
+            "KV_STORE");
     final var core =
         Set.of(
             "AGGREGATE",

@@ -1,0 +1,20 @@
+{
+  "id": "claude-code",
+  "description": "Claude Code CLI (claude -p, stream-json). Runs one prompt to the end. Without 'args' such as [\"--allowedTools\", \"Read,Edit\"] or [\"--permission-mode\", \"acceptEdits\"] it cannot use tools that need approval.",
+  "command": ["claude", "-p", "{prompt}", "--output-format", "stream-json", "--verbose"],
+  "modelArgs": ["--model", "{model}"],
+  "maxTurnsArgs": ["--max-turns", "{maxTurns}"],
+  "capabilities": { "stream": true, "resume": true, "ask": false },
+  "output": {
+    "resultWhen": { "type": "result" },
+    "text": "result",
+    "sessionId": "session_id",
+    "isError": "is_error",
+    "subtype": "subtype",
+    "incompleteSubtypes": ["error_max_turns"],
+    "live": [
+      { "when": { "type": "assistant" }, "text": "message.content[*].text" },
+      { "when": { "type": "assistant" }, "text": "message.content[*].name", "prefix": "tool: " }
+    ]
+  }
+}

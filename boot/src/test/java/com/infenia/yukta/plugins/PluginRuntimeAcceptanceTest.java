@@ -72,6 +72,8 @@ class PluginRuntimeAcceptanceTest {
   /** Type to why it has no fixture. */
   private static final Map<String, String> EXEMPT =
       Map.ofEntries(
+          Map.entry(
+              "AGENT_SESSION", "needs an agent harness CLI; covered by AgentSessionPluginTest"),
           Map.entry("ANOMALY", "needs a model (LLM or classifier) to run"),
           Map.entry("ASK", "needs an LLM"),
           Map.entry("CLASSIFY", "needs an LLM"),
