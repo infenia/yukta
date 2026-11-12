@@ -5,9 +5,7 @@ package com.infenia.yukta.service.supervisor.agent;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.plugin.control.engine.EngineReads;
-import com.infenia.yukta.plugin.control.engine.EngineReads.RunDetail;
 import com.infenia.yukta.plugin.control.engine.EngineReads.RunView;
-import com.infenia.yukta.plugin.control.engine.EngineReads.SchedulerView;
 import com.infenia.yukta.plugin.control.engine.EngineReads.WorkflowView;
 import com.infenia.yukta.plugin.input.InputRequest;
 import java.time.Instant;
@@ -20,6 +18,12 @@ import reactor.core.publisher.Mono;
 
 /** The reads of a supervisor with several attachments are the union of their engines' reads. */
 class MergedReadsTest {
+
+  private final MergedReads merged =
+      new MergedReads(
+          List.of(
+              attachment("e1", null, List.of("one")),
+              attachment("e2", Instant.EPOCH, List.of("two", "three"))));
 
   /** One attachment's reads: a run, a held run, a log, and the run's detail. */
   private static EngineReads attachment(
@@ -63,12 +67,6 @@ class MergedReadsTest {
     };
   }
 
-  private final MergedReads merged =
-      new MergedReads(
-          List.of(
-              attachment("e1", null, List.of("one")),
-              attachment("e2", Instant.EPOCH, List.of("two", "three"))));
-
   @Test
   void executionsAreDistinctNewestFirstAndBounded() {
     assertThat(merged.executions(null, 10).map(RunView::executionId).collectList().block())
@@ -92,7 +90,7 @@ class MergedReadsTest {
   }
 
   @Test
-  void aWorkflowAndTheSchedulerComeFromTheFirstAttachmentThatAnswers() {
+  void workflowAndTheSchedulerComeFromTheFirstAttachmentThatAnswers() {
     assertThat(merged.workflow("s", "w").block())
         .extracting(WorkflowView::workflowId)
         .isEqualTo("w-e1");

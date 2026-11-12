@@ -30,7 +30,7 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.json.JsonMapper;
 
 /** The {@code http} engine passes signals to the agent and the agent's directives back. */
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CloseResource"})
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.CloseResource", "PMD.TooManyMethods"})
 class HttpEngineTest {
 
   private final AgentHub hub = new AgentHub();
@@ -132,7 +132,7 @@ class HttpEngineTest {
   }
 
   @Test
-  void aSecondEngineOfTheSameSupervisorDoesNotCutTheFirstOnesAgentStream() {
+  void secondEngineOfTheSameSupervisorDoesNotCutTheFirstOnesAgentStream() {
     // SupervisorService.start makes one engine per attachment, and every engine of a supervisor
     // opens the channel keyed by the supervisor id, so a supervisor with two attachments has two
     final SupervisorEngine first = engine();
@@ -205,7 +205,7 @@ class HttpEngineTest {
   }
 
   @Test
-  void aDirectiveReachesOnlyTheEngineThatReadsItsRun() {
+  void directiveReachesOnlyTheEngineThatReadsItsRun() {
     final SupervisorEngine first = engine(Map.of(), reading("e1"));
     final SupervisorEngine second = engine(Map.of(), reading("e2"));
     final AgentHub.Channel channel = hub.channel("agent-1").orElseThrow();

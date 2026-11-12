@@ -42,6 +42,8 @@ public final class AgentHub {
   /** Runs an engine reads, the most its supervisor's reads return. */
   private static final int OWNED_RUNS = 200;
 
+  private static final int ONE_ENGINE = 1;
+
   /** Signals a reader may fall behind by before it gets {@code EventsMissed} instead. */
   public static final int LIVE_BUFFER = 1024;
 
@@ -264,7 +266,7 @@ public final class AgentHub {
      */
     public EngineReads reads() {
       final List<Supplier<EngineReads>> sources = List.copyOf(readSources);
-      if (sources.size() == 1) {
+      if (sources.size() == ONE_ENGINE) {
         return sources.getFirst().get();
       }
       return new MergedReads(sources.stream().map(Supplier::get).toList());
@@ -364,18 +366,18 @@ public final class AgentHub {
   /* default */ final class Lease {
 
     private final String supervisorId;
-    private final Channel channel;
+    private final Channel held;
     private final Supplier<EngineReads> reads;
 
     private Lease(
         final String supervisorId, final Channel channel, final Supplier<EngineReads> reads) {
       this.supervisorId = supervisorId;
-      this.channel = channel;
+      this.held = channel;
       this.reads = reads;
     }
 
     /* default */ Channel channel() {
-      return channel;
+      return held;
     }
 
     /**
@@ -390,7 +392,7 @@ public final class AgentHub {
     // ponytail: two attachments on different nodes of one run both read it, and the first takes
     // it; route by the command's node as well if that turns out to matter
     /* default */ Mono<Boolean> takes(final Directive directive) {
-      final List<Supplier<EngineReads>> sources = List.copyOf(channel.readSources);
+      final List<Supplier<EngineReads>> sources = List.copyOf(held.readSources);
       if (sources.size() < 2
           || !(directive instanceof Directive.Command command)
           || !sources.contains(reads)) {
@@ -406,7 +408,7 @@ public final class AgentHub {
                       .any(run -> run.executionId().equals(executionId)))
           .next()
           .defaultIfEmpty(sources.getFirst())
-          .map(owner -> owner == reads);
+          .map(reads::equals);
     }
 
     /** Gives the channel up; the last engine to do so ends it. */
@@ -414,11 +416,11 @@ public final class AgentHub {
       channels.computeIfPresent(
           supervisorId,
           (id, current) -> {
-            if (current != channel || !channel.readSources.remove(reads)) {
+            if (!held.equals(current) || !held.readSources.remove(reads)) {
               return current;
             }
-            if (channel.readSources.isEmpty()) {
-              channel.complete();
+            if (held.readSources.isEmpty()) {
+              held.complete();
               return null;
             }
             return current;

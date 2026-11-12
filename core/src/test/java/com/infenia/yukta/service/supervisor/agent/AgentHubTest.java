@@ -4,7 +4,10 @@ package com.infenia.yukta.service.supervisor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.engine.Cause;
+import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
 import com.infenia.yukta.plugin.input.InputRequest;
@@ -206,7 +209,7 @@ class AgentHubTest {
   }
 
   @Test
-  void theReadsOfASupervisorWithSeveralEnginesAreTheirUnion() {
+  void theReadsOfSupervisorWithSeveralEnginesAreTheirUnion() {
     final AgentHub hub = new AgentHub();
     final AgentHub.Lease first = hub.lease("s", () -> reading("e1", Instant.EPOCH));
     final AgentHub.Lease second = hub.lease("s", () -> reading("e2", Instant.EPOCH.plusSeconds(5)));
@@ -218,6 +221,30 @@ class AgentHubTest {
     assertThat(first.channel().reads().executions(null, 1).collectList().block()).hasSize(1);
     first.close();
     second.close();
+  }
+
+  @Test
+  void leaseTakesWhatIsNotItsCommandAndLetsGoOnlyOnce() {
+    final AgentHub hub = new AgentHub();
+    final AgentHub.Lease first = hub.lease("s", () -> reading("e1", Instant.EPOCH));
+    final AgentHub.Lease second = hub.lease("s", () -> reading("e2", Instant.EPOCH));
+    final AgentHub.Lease third = hub.lease("s", () -> reading("e4", Instant.EPOCH));
+    final Directive note = new Directive.NoOpinion("x");
+    final Directive command =
+        new Directive.Command("k", new PauseWorkflowCommand("e9"), Cause.initiative(), "r", null);
+
+    assertThat(first.takes(note).block()).isTrue();
+    first.close();
+    first.close();
+    assertThat(first.takes(note).block()).isTrue();
+    assertThat(first.takes(command).block()).isTrue();
+    assertThat(hub.channel("s")).contains(second.channel());
+    third.close();
+    second.close();
+    final AgentHub.Lease again = hub.lease("s", () -> reading("e3", Instant.EPOCH));
+    second.close();
+    assertThat(hub.channel("s")).contains(again.channel());
+    again.close();
   }
 
   private static EngineReads reading(final String executionId, final Instant started) {

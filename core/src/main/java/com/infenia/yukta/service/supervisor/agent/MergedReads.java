@@ -19,7 +19,7 @@ final class MergedReads implements EngineReads {
 
   private final List<EngineReads> parts;
 
-  MergedReads(final List<EngineReads> parts) {
+  /* default */ MergedReads(final List<EngineReads> parts) {
     this.parts = List.copyOf(parts);
   }
 
