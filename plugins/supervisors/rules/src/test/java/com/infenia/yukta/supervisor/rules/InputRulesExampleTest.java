@@ -15,7 +15,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -28,9 +27,11 @@ class InputRulesExampleTest {
   private static Supervisor example() throws IOException {
     final Path file =
         Path.of(
-            Objects.requireNonNull(
-                System.getProperty("yukta.example.input-rules"),
-                "the build passes the example path"));
+            System.getProperty(
+                "yukta.example.input-rules",
+                // PIT runs the tests in its own JVM without the Gradle property; its working
+                // directory is the module's (#2134).
+                "../../../examples/16-supervisor-profiles/input-requests.json"));
     return JsonMapper.builder().build().readValue(Files.readString(file), Supervisor.class);
   }
 
