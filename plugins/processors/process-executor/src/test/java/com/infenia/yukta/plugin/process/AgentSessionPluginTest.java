@@ -229,8 +229,8 @@ class AgentSessionPluginTest {
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
         .expectErrorMessage(
-            "unknown harness 'nope'; one of [asker, claude-code, crash, failed, max, ok, resumable,"
-                + " slow]")
+            "unknown harness 'nope'; one of [asker, claude-code, codex, crash, failed, max, ok,"
+                + " resumable, slow]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -243,7 +243,7 @@ class AgentSessionPluginTest {
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
         .containsExactly(
-            "asker", "claude-code", "crash", "failed", "max", "ok", "resumable", "slow");
+            "asker", "claude-code", "codex", "crash", "failed", "max", "ok", "resumable", "slow");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
 
@@ -423,6 +423,69 @@ class AgentSessionPluginTest {
         .verify();
     StepVerifier.create(
             plugin.validateConfig(Map.of("harness", "asker", "prompt", "p", "approvals", "ASK")))
+        .verifyComplete();
+  }
+
+  @Test
+  void theCodexPreset_readsTheThreadAndTheLastAgentMessage() throws IOException {
+    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
+    final List<String> log = new CopyOnWriteArrayList<>();
+    final AgentOutput output =
+        new AgentOutput(codex.output(), (stream, line, level) -> log.add(line), JSON);
+
+    // the shape documented for `codex exec --json`; not recorded from a real run
+    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-1\"}");
+    output.line("stdout", "{\"type\":\"turn.started\"}");
+    output.line(
+        "stdout",
+        "{\"type\":\"item.started\",\"item\":{\"id\":\"i1\",\"type\":\"command_execution\","
+            + "\"command\":\"ls\"}}");
+    output.line(
+        "stdout",
+        "{\"type\":\"item.completed\",\"item\":{\"id\":\"i2\",\"type\":\"agent_message\","
+            + "\"text\":\"all done\"}}");
+    output.line(
+        "stdout",
+        "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}");
+
+    assertThat(log).containsExactly("run: ls", "all done");
+    assertThat(output.outcome(0, false, 600))
+        .containsEntry("status", "success")
+        .containsEntry("text", "all done")
+        .containsEntry("sessionId", "th-1");
+  }
+
+  @Test
+  void theCodexPreset_aFailedTurnIsAFailureWithItsReason() throws IOException {
+    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
+    final AgentOutput output = new AgentOutput(codex.output(), PluginLogSink.NOOP, JSON);
+
+    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-2\"}");
+    output.line("stdout", "{\"type\":\"turn.failed\",\"error\":{\"message\":\"quota exceeded\"}}");
+
+    assertThat(output.outcome(1, false, 600))
+        .containsEntry("status", "failure")
+        .containsEntry("reason", "quota exceeded")
+        .containsEntry("sessionId", "th-2");
+  }
+
+  @Test
+  void theCodexPreset_cannotTakeMaxTurnsSessionsOrApprovals() {
+    // the shipped preset declares only what it was written to do
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "maxTurns", 3)))
+        .expectErrorMessage("harness 'codex' has no turn limit; remove maxTurns")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "session", "k")))
+        .expectErrorMessage("harness 'codex' cannot resume a session; remove session")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "approvals", "ASK")))
+        .expectErrorMessage("harness 'codex' cannot ask for approvals; remove approvals")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "model", "gpt-5")))
         .verifyComplete();
   }
 }

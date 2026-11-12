@@ -53,6 +53,7 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [01](01-hello-world/) | Smallest workflow, end-to-end check | CONSTANT_SOURCE → PROCESS_EXECUTOR → terminal | REST |
 | [09](09-llm-chat-agent/) | Chat agent with per-user memory (needs an LLM endpoint) | SESSION_MEMORY → LLM_CALL → SESSION_MEMORY | REST |
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
+| [19](19-agent-session/) | Run an AI agent (Claude Code, Codex) with approvals through the input request system (needs an agent CLI; no `run.sh`) | API_TRIGGER → AGENT_SESSION → three outcomes | REST |
 | [dogfood](dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |
 
 ### Supervisors

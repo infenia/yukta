@@ -101,7 +101,8 @@
               "guides/ai/classify-gate-and-score",
               "guides/ai/set-token-budgets",
               "guides/ai/keep-session-memory",
-              "guides/ai/ask-for-input"
+              "guides/ai/ask-for-input",
+              "guides/ai/run-an-agent"
             ]
           },
           {
