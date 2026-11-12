@@ -35,7 +35,7 @@ jobs:
           sparse-checkout: .github
 
       - name: Install PyYAML (pinned with hashes)
-        run: pip install --require-hashes -r .github/requirements/yamllint.txt
+        run: pip install --require-hashes -r .github/requirements/ci-tools.txt
 
       - name: Sync labels
         env:
