@@ -60,7 +60,7 @@ You know how the work should go: build, test, review, approve, deploy. Written d
 > [!NOTE]
 > **Alpha.** Expect breaking changes to the workflow JSON and the APIs before 1.0. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
 
-One native server binary (no JVM to install) for the platforms below, plus a multi-architecture Docker image.
+From `0.1.0-alpha.4` on (earlier releases: see the note below the commands), the server is one native binary with no JVM to install, on the platforms below, plus a multi-architecture Docker image. The commands point at the latest release.
 
 | | `amd64` | `arm64` |
 |---|:---:|:---:|
@@ -92,7 +92,7 @@ docker run --rm -p 127.0.0.1:9858:9858 \
   ghcr.io/infenia/yukta:0.1.0-alpha.3
 ```
 
-`0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
+Releases `0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
 
 <details>
 <summary><b>Checksums, signing, Debian, RPM, source</b></summary>

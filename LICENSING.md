@@ -1,12 +1,12 @@
 # Licensing
 
-Yukta comes in three editions. Only the first two are in this repository.
+Yukta comes in editions. Community and Plus are in this repository.
 
 | Edition | Licence | Where | For whom |
 |---|---|---|---|
 | **Community** | [Apache-2.0](LICENSES/Apache-2.0.txt) | Everything outside `plus/` | Anyone: try it, embed it, run it on a single server |
 | **Plus** | [AGPL-3.0-only](LICENSES/AGPL-3.0-only.txt), or a commercial licence | `plus/` | Durable state (disk, PostgreSQL), high availability and remote workers, for teams happy with the AGPL |
-| **Enterprise** | Proprietary | A separate private repository (not created yet) | Enterprise security, multi-tenancy and the other features built there; PostgreSQL, HA and workers will move there later |
+| **Enterprise** | Commercial | Not in this repository | Enterprise security, multi-tenancy and other commercial features |
 
 ## What this means in practice
 
@@ -15,16 +15,15 @@ Yukta comes in three editions. Only the first two are in this repository.
 - **Plus** adds storing sessions, workflows, the execution log, checkpoints and chat history on
   disk (`-Pyukta.edition=plus`), PostgreSQL storage with leader election for high availability
   (`-Pyukta.persistence=postgres`, `plus/persistence-postgres`), and remote workers
-  (`-Pyukta.workers=true`, `plus/workers`). For now these two modules are in Plus; they are planned
-  to move to Enterprise when its repository exists, and code already published stays available
-  under the licence it was published with. Without Plus, those settings
+  (`-Pyukta.workers=true`, `plus/workers`). Code already published stays available under the
+  licence it was published with. Without Plus, those settings
   (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`,
   `yukta.session-memory.dir`) stop start-up with a clear message; state otherwise stays in memory.
 - **The AGPL applies to the Plus build as a whole**, because it combines Apache and AGPL code.
   Running it unmodified inside your company costs you nothing. If you modify it and let other
   people use it over a network, section 13 of the AGPL requires you to offer them your modified
   source. A Plus server reports where the source is under `edition` in `/actuator/info`.
-- **Named API keys, roles and session-limited keys** are planned for Enterprise but are still in the public build today, behind the `ApiAuthenticator` hook; they move when the Enterprise repository exists.
+- **Named API keys, roles and session-limited keys** are in the public build, behind the `ApiAuthenticator` hook.
 - **Community never depends on Plus.** CI fails if any module other than `boot` (behind the
   `yukta.edition` switch) depends on `:plus`.
 - **A commercial licence** for Plus is available to anyone who cannot accept the AGPL. Contact
