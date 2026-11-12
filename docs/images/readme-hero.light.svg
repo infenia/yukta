@@ -21,7 +21,7 @@
   <g font-family="Inter, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" text-anchor="middle">
     <rect x="404" y="62" width="472" height="34" rx="17" fill="#FFFFFF" stroke="#DEE1E8"/>
     <circle cx="430" cy="79" r="4" fill="#E85D0C"/>
-    <text x="646" y="84" font-size="14" fill="#545E6F" letter-spacing="0.4">ALPHA · WORKFLOW ENGINE FOR PEOPLE, SCRIPTS AND AI AGENTS</text>
+    <text x="446" y="84" font-size="14" fill="#545E6F" text-anchor="start" textLength="416" lengthAdjust="spacing">ALPHA · WORKFLOW ENGINE FOR PEOPLE, SCRIPTS AND AI AGENTS</text>
     <text x="640" y="176" font-size="52" font-weight="600" fill="#11161F" letter-spacing="-1.5">Workflows you can trust and control.</text>
     <text x="640" y="232" font-size="20" fill="#545E6F">Write a job down once as a flowchart. Yukta runs every step as written,</text>
     <text x="640" y="262" font-size="20" fill="#545E6F">whether it is a script, a rule or an AI model, and lets you pause,</text>
