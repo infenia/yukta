@@ -9,7 +9,6 @@ describe('directControl', () => {
     const view = directControl({
       unowned: 1,
       unownedWorkflows: [{ sessionId: 's', workflowId: 'w' }],
-      conflicts: 0,
     });
     expect(view.owned).toEqual([{ sessionId: 's', workflowId: 'w' }]);
     expect(view.decisionMaker.name).toBe('People and agents');

@@ -134,23 +134,6 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void conflictMarkIsStoredAndReadBack() {
-    final SupervisorAttachment marked =
-        new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();
-
-    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
-    StepVerifier.create(store.saveAttachment(marked)).verifyComplete();
-
-    StepVerifier.create(store.attachments())
-        .assertNext(
-            a -> {
-              assertThat(a.conflict()).isTrue();
-              assertThat(a.enabled()).isFalse();
-            })
-        .verifyComplete();
-  }
-
-  @Test
   void sectionScopeIsStoredAsTextAndReadBack() {
     StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
     final Set<String> nodes = new LinkedHashSet<>();

@@ -46,7 +46,7 @@ let supervisorCalls = 0;
 const server = setupServer(
   http.get('/api/supervision/summary', () => {
     supervisorCalls++;
-    return ok({ unowned: 0, unownedWorkflows: [], conflicts: 0 });
+    return ok({ unowned: 0, unownedWorkflows: [] });
   }),
   http.get('/api/supervisors/decisions', () => ok([])),
   http.get('/api/supervisors/assignments', () => ok([])),

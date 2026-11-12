@@ -105,7 +105,6 @@ export const base: Stub = async (page) => {
   await empty(/\/api\/supervision\/summary$/, {
     unowned: 0,
     unownedWorkflows: [],
-    conflicts: 0,
   });
   await empty(/\/api\/control\/(heartbeats|audit)/);
   await empty(/\/api\/sessions\/[^/]+\/inputs(\?|$)/);
@@ -238,7 +237,6 @@ export const control: Stub = async (page) => {
   await get(page, /\/api\/supervision\/summary$/, {
     unowned: 0,
     unownedWorkflows: [],
-    conflicts: 0,
   });
   await get(page, /\/api\/workers$/, WORKERS);
   await get(page, /\/api\/scheduler\/limits/, LIMITS);

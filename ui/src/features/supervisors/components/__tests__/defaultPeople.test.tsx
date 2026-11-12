@@ -33,7 +33,7 @@ const sup = (id: string, parents: string[] = []) => ({
 
 const summary = (
   unownedWorkflows: { sessionId: string; workflowId: string }[]
-) => ok({ unowned: unownedWorkflows.length, unownedWorkflows, conflicts: 0 });
+) => ok({ unowned: unownedWorkflows.length, unownedWorkflows });
 
 const server = setupServer(
   http.get('/api/supervisors', () => ok([sup('lead'), sup('guard', ['lead'])])),

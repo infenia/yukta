@@ -107,7 +107,7 @@ const DECISIONS = [
 
 const SECRET = 'yag_e2e-secret-shown-once';
 
-/** The supervisors page's endpoints, with one conflict and a credential not issued yet. */
+/** The supervisors page's endpoints, with a disabled assignment and a credential not issued yet. */
 async function mockSupervisors(page: Page) {
   let issued = false;
   await page.route(/\/api\/supervisors$/, (r) =>
@@ -117,7 +117,7 @@ async function mockSupervisors(page: Page) {
     r.fulfill(
       envelope('/assignments', [
         assignment('a1', 'release-guard'),
-        assignment('a2', 'release-lead', { enabled: false, conflict: true }),
+        assignment('a2', 'release-lead', { enabled: false }),
       ])
     )
   );
@@ -199,13 +199,12 @@ async function mockSupervisors(page: Page) {
 }
 
 test.describe('Supervisors', () => {
-  test('shows who supervises what, a conflict, rules as sentences and what they did', async ({
+  test('shows who supervises what, rules as sentences and what they did', async ({
     page,
   }, info) => {
     await mockSupervisors(page);
     await page.goto('/supervisors');
 
-    await expect(page.getByText(/1 assignment overlaps/)).toBeVisible();
     const nav = page.getByRole('navigation', { name: 'Supervisors' });
     await nav
       .getByRole('button', { name: /release-guard/ })

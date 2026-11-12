@@ -101,8 +101,7 @@ CREATE TABLE supervisor (
 );
 
 -- An attachment has a source (MANUAL, DEFINITION or SYSTEM) and, for a DEFINITION one, the session
--- and workflow that declared it. One that owned a unit another attachment owns is disabled at
--- start-up and marked `conflict`. A `locked` one changes or goes only when the request asks to
+-- and workflow that declared it. A `locked` one changes or goes only when the request asks to
 -- unlock, by a key in yukta.supervisor.lock-holders when that is set.
 CREATE TABLE supervisor_attachment (
     id                  TEXT        PRIMARY KEY,
@@ -114,7 +113,6 @@ CREATE TABLE supervisor_attachment (
         CHECK (source IN ('MANUAL', 'DEFINITION', 'SYSTEM')),
     origin_session_id   TEXT,
     origin_workflow_id  TEXT,
-    conflict            BOOLEAN     NOT NULL DEFAULT false,
     locked              BOOLEAN     NOT NULL DEFAULT false
 );
 
