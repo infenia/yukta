@@ -93,12 +93,28 @@ export const SHOTS: Shot[] = [
     pages: ['/interfaces/web-ui', '/plugins'],
   },
   {
+    name: 'supervisors-page',
+    shows:
+      'The Supervisors page: the list, and the chosen supervisor with its numbers, its map and its tabs.',
+    route: '/supervisors',
+    stubs: [stub.supervisors],
+    ready: (page) => page.getByRole('region', { name: 'Supervision map' }),
+    pages: [
+      '/guides/operate/use-the-web-ui',
+      '/guides/supervise/use-the-control-dashboard',
+    ],
+  },
+  {
     name: 'supervisors-catalogue',
-    shows: 'The Decision makers tab: the kinds of supervisor a server offers.',
+    shows:
+      'The Decision maker types sheet: the kinds of supervisor a server offers.',
     route: '/supervisors?tab=decision-makers',
     stubs: [stub.supervisors],
     ready: (page) => page.getByText('External system').first(),
-    pages: ['/contributing/supervisors', '/interfaces/web-ui'],
+    pages: [
+      '/contributing/supervisors',
+      '/guides/supervise/assign-a-supervisor',
+    ],
   },
   {
     name: 'supervisor-details',

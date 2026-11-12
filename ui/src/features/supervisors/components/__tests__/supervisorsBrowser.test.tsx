@@ -166,9 +166,6 @@ describe('the Supervisors tab', () => {
     expect(rows[rows.length - 1]).toMatch(/^Direct control/);
     expect(within(nav()).getAllByText('http').length).toBeGreaterThan(0);
     expect(screen.getByText('Live')).toBeInTheDocument();
-    expect(
-      await screen.findByRole('link', { name: 'External system' })
-    ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
     // Owns: a run-level target with its nodes, a whole workflow with no session, a conflict, the server
     await expect
       .poll(() => screen.queryAllByText('Run level: lead').length)
@@ -184,8 +181,19 @@ describe('the Supervisors tab', () => {
     expect(
       screen.getByText('Disabled: overlaps another owner')
     ).toBeInTheDocument();
-    expect(screen.getByText('The server')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'Owns' })).getByText(
+        'The server'
+      )
+    ).toBeInTheDocument();
     expect(screen.getAllByText('Direct control').length).toBeGreaterThan(0);
+    // the decision maker tab names the one it decides with, and opens the catalog at its type
+    await userEvent
+      .setup()
+      .click(screen.getByRole('tab', { name: 'Decision maker' }));
+    expect(
+      await screen.findByRole('link', { name: 'Browse decision maker types' })
+    ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
   });
 
   it('marks dry run, built-in and the nodes it owns; switches tabs and supervisors', async () => {
@@ -243,7 +251,7 @@ describe('the Supervisors tab', () => {
     expect(screen.getByText('Built in (read only)')).toBeInTheDocument();
     expect(screen.getByText('2 targets')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: '2 targets' }));
-    expect(screen.getByRole('tab', { name: 'Owns' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: /^Owns/ })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -255,7 +263,7 @@ describe('the Supervisors tab', () => {
     ).toBeInTheDocument();
     expect(screen.getAllByText('Some').length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
+    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
     expect(
       screen.getByText('Asks all: every one must agree')
     ).toBeInTheDocument();
@@ -264,7 +272,7 @@ describe('the Supervisors tab', () => {
       screen.getByText('Asks in order: the first answer decides')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Reports to' })).getByRole(
+      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
         'button',
         { name: 'lead' }
       )
@@ -273,12 +281,12 @@ describe('the Supervisors tab', () => {
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
     expect(screen.getByText('1 target')).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
+    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
     expect(
       screen.getByText('nobody; people answer what it asks in the inbox')
     ).toBeInTheDocument();
     await user.click(
-      within(screen.getByRole('tabpanel', { name: 'Reports to' })).getByRole(
+      within(screen.getByRole('tabpanel', { name: 'Hierarchy' })).getByRole(
         'button',
         { name: 'guard' }
       )
@@ -318,13 +326,13 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('heading', { name: 'agent' })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
+    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
     expect(
       screen.getByText('Reports to it:', { exact: false })
     ).toBeInTheDocument();
     await user.click(within(nav()).getAllByRole('button', { name: /lead/ })[0]);
-    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
-    const panel = screen.getByRole('tabpanel', { name: 'Reports to' });
+    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    const panel = screen.getByRole('tabpanel', { name: 'Hierarchy' });
     expect(
       within(panel).getByRole('button', { name: 'agent' })
     ).toBeInTheDocument();
@@ -332,8 +340,8 @@ describe('the Supervisors tab', () => {
       within(panel).getByRole('button', { name: 'guard' })
     ).toBeInTheDocument();
     await user.click(within(panel).getByRole('button', { name: 'agent' }));
-    await user.click(screen.getByRole('tab', { name: 'Reports to' }));
-    const again = screen.getByRole('tabpanel', { name: 'Reports to' });
+    await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
+    const again = screen.getByRole('tabpanel', { name: 'Hierarchy' });
     expect(
       within(again).getByRole('button', { name: 'lead' })
     ).toBeInTheDocument();

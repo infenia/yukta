@@ -2,34 +2,18 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router';
-import { buttonVariants } from '@/components/ui/button';
+import { useSearchParams } from 'react-router';
 import { Input } from '@/components/ui/input';
-import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
-import { Tabs } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import {
-  useSupervisorTypes,
-  useSupervisors,
-} from '../hooks/useSupervisorTypes';
-import { decisionMaker } from '../lib/decisionMakers';
-import type { SupervisorView } from '../types';
-import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
-import { Activity } from './Activity';
-import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
+import { useSupervisors } from '../hooks/useSupervisorTypes';
 import { StaleNotice } from './StaleNotice';
-import { DefaultPeoplePanel } from './DefaultPeoplePanel';
-
-const DETAIL_TABS = [
-  { id: 'owns', label: 'Owns' },
-  { id: 'operations', label: 'Allowed operations' },
-  { id: 'reports-to', label: 'Reports to' },
-  { id: 'settings', label: 'Settings' },
-  { id: 'changes', label: 'Changes' },
-  { id: 'decisions', label: 'Decisions' },
-] as const;
-type DetailTab = (typeof DETAIL_TABS)[number]['id'];
+import {
+  DirectControlDetail,
+  DETAIL_TABS,
+  SupervisorDetail,
+  type DetailTab,
+} from './SupervisorDetail';
 
 function NavItem({
   id,
@@ -90,158 +74,6 @@ function NavItem({
   );
 }
 
-/** Edit link for the supervisor, and the agent or CLI commands for changes made outside the UI. */
-function ChangeSupervisor({ id }: { id: string }) {
-  return (
-    <div className="flex flex-col gap-3">
-      <div>
-        <Link
-          to={`/supervisors/${encodeURIComponent(id)}/edit`}
-          className={buttonVariants({ variant: 'outline', size: 'sm' })}
-        >
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined text-base"
-          >
-            edit
-          </span>
-          Edit supervisor
-        </Link>
-      </div>
-      <details className="text-body-sm text-on-surface-variant">
-        <summary className="cursor-pointer select-none">
-          Other ways to change it
-        </summary>
-        <div className="mt-2">
-          <CodeBlock
-            label="Commands"
-            code={[
-              `MCP  save_supervisor {"id": "${id}", …}`,
-              `CLI  yukta supervisors show ${id}`,
-              `CLI  yukta supervisors assign ${id} <target>`,
-              `API  GET /api/supervisors/${id}`,
-            ].join('\n')}
-          />
-        </div>
-      </details>
-    </div>
-  );
-}
-
-function SupervisorPanel({
-  supervisor,
-  all,
-  onSelect,
-  tab,
-  setTab,
-}: {
-  supervisor: SupervisorView;
-  all: SupervisorView[];
-  onSelect: (id: string) => void;
-  tab: DetailTab;
-  setTab: (tab: DetailTab) => void;
-}) {
-  const types = useSupervisorTypes();
-  const maker = decisionMaker(supervisor.type, types.data);
-  const parents = supervisor.parents ?? [];
-  return (
-    <article className="mx-auto flex max-w-5xl min-w-0 flex-col gap-5">
-      <header>
-        <h2 className="text-headline-lg text-on-surface">{supervisor.id}</h2>
-        <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link
-            to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
-            className="text-primary inline-flex items-center gap-2"
-          >
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-full"
-              style={{ background: maker.color }}
-            />
-            {maker.name}
-          </Link>
-          {supervisor.dryRun ? (
-            <span className="text-attention inline-flex items-center gap-1">
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
-              >
-                filter_alt
-              </span>
-              Dry run: recorded, not applied
-            </span>
-          ) : (
-            <span className="text-success inline-flex items-center gap-1">
-              <span
-                aria-hidden="true"
-                className="material-symbols-outlined text-base"
-              >
-                check_circle
-              </span>
-              Live
-            </span>
-          )}
-          {supervisor.system && <span>Built in (read only)</span>}
-        </div>
-      </header>
-      {supervisor.description && (
-        <p className="text-body-md text-on-surface">{supervisor.description}</p>
-      )}
-      <section
-        aria-label="At a glance"
-        className="border-border bg-card text-body-md shadow-card flex flex-col gap-2 rounded-xl border p-4 md:flex-row md:items-center md:gap-6"
-      >
-        <p>
-          <span className="text-muted-foreground">Reports to </span>
-          <b>{parents.length === 0 ? 'nobody' : parents.join(', ')}</b>
-        </p>
-        <p className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="material-symbols-outlined"
-            style={{ color: maker.color }}
-          >
-            {maker.icon}
-          </span>
-          decides with <b>{maker.name}</b>
-        </p>
-        <p>
-          <span className="text-muted-foreground">Owns </span>
-          <button
-            type="button"
-            className="text-primary font-semibold"
-            title="A target is a workflow, node or session this supervisor is assigned to"
-            onClick={() => setTab('owns')}
-          >
-            {supervisor.attachments}{' '}
-            {supervisor.attachments === 1 ? 'target' : 'targets'}
-          </button>
-        </p>
-      </section>
-      <Tabs
-        ariaLabel={`${supervisor.id} details`}
-        items={DETAIL_TABS}
-        value={tab}
-        onChange={setTab}
-      />
-      <div
-        role="tabpanel"
-        aria-label={DETAIL_TABS.find((t) => t.id === tab)?.label}
-      >
-        {tab === 'owns' && <OwnsTab supervisor={supervisor} />}
-        {tab === 'operations' && <OperationsTab supervisor={supervisor} />}
-        {tab === 'reports-to' && (
-          <HierarchyTab supervisor={supervisor} all={all} onSelect={onSelect} />
-        )}
-        {tab === 'settings' && <SettingsTab supervisor={supervisor} />}
-        {tab === 'changes' && <HistoryTab supervisor={supervisor} />}
-        {tab === 'decisions' && <Activity supervisor={supervisor.id} />}
-      </div>
-      <ChangeSupervisor id={supervisor.id} />
-    </article>
-  );
-}
-
 /** The flat list of supervisors on the left, the chosen one on the right. */
 export function SupervisorsBrowser() {
   const supervisors = useSupervisors();
@@ -268,7 +100,7 @@ export function SupervisorsBrowser() {
   const selected = all.find((s) => s.id === selectedId) ?? all[0];
   const showDefault = selectedId === 'default' || !selected;
   const section =
-    DETAIL_TABS.find((t) => t.id === params.get('section'))?.id ?? 'owns';
+    DETAIL_TABS.find((t) => t === params.get('section')) ?? 'owns';
   const update = (change: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
     change(next);
@@ -334,9 +166,9 @@ export function SupervisorsBrowser() {
         </nav>
         <div className="min-w-0 flex-1">
           {showDefault || !selected ? (
-            <DefaultPeoplePanel />
+            <DirectControlDetail tab={section} setTab={setSection} />
           ) : (
-            <SupervisorPanel
+            <SupervisorDetail
               key={selected.id}
               supervisor={selected}
               all={all}
