@@ -25,18 +25,14 @@ public class PluginRegistry implements PluginLookup {
   @SuppressWarnings("PMD.UseConcurrentHashMap") // never changed after construction
   private final Map<String, Plugin> plugins = new TreeMap<>();
 
+  /** Plugins that are on the classpath but not enabled, by type; filled once, never changed. */
+  @SuppressWarnings("PMD.UseConcurrentHashMap") // never changed after construction
+  private final Map<String, Plugin> disabled = new TreeMap<>();
+
   @Override
   public Optional<Plugin> find(final String type) {
     return type == null ? Optional.empty() : Optional.ofNullable(plugins.get(type));
   }
-
-  /**
-   * Public constructor.
-   *
-   * @param pluginList list of plugins discovered by Spring
-   */
-  /** Plugins that are on the classpath but not enabled, by type. */
-  private final Map<String, Plugin> disabled = new TreeMap<>();
 
   /**
    * Registers every plugin; for tests and callers that want them all.

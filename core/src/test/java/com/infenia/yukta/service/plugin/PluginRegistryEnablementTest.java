@@ -11,7 +11,15 @@ import com.infenia.yukta.plugin.core.PluginTier;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("PMD.AvoidDuplicateLiterals")
 class PluginRegistryEnablementTest {
+
+  private final List<Plugin> all =
+      List.of(
+          plugin("BRANCH", PluginTier.CORE, false),
+          plugin("DELAY_X", PluginTier.EXTENDED, false),
+          plugin("PROCESS_EXECUTOR", PluginTier.EXTENDED, true),
+          plugin("LLM_CALL", PluginTier.SPECIFIC, false));
 
   private static Plugin plugin(final String type, final PluginTier tier, final boolean restricted) {
     final Plugin p = mock(Plugin.class);
@@ -20,13 +28,6 @@ class PluginRegistryEnablementTest {
     when(p.isRestricted()).thenReturn(restricted);
     return p;
   }
-
-  private final List<Plugin> all =
-      List.of(
-          plugin("BRANCH", PluginTier.CORE, false),
-          plugin("DELAY_X", PluginTier.EXTENDED, false),
-          plugin("PROCESS_EXECUTOR", PluginTier.EXTENDED, true),
-          plugin("LLM_CALL", PluginTier.SPECIFIC, false));
 
   @Test
   void byDefaultOnlyGenericUnrestrictedPluginsAreRegistered() {

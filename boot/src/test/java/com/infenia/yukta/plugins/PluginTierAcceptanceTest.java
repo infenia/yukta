@@ -25,7 +25,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @NoArgsConstructor
 class PluginTierAcceptanceTest {
 
-  private static final Map<String, PluginTier> TIERS = tiers();
+  private static final Map<String, PluginTier> TIERS = tierByType();
 
   /** Types that reach outside the engine: processes, files, network, databases. */
   private static final Set<String> RESTRICTED =
@@ -61,7 +61,7 @@ class PluginTierAcceptanceTest {
         .isTrue();
   }
 
-  private static Map<String, PluginTier> tiers() {
+  private static Map<String, PluginTier> tierByType() {
     final var specific =
         Set.of(
             "LLM_CALL",
