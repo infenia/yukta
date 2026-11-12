@@ -49,11 +49,23 @@ public class ProcessExecutorAutoConfiguration {
   }
 
   /**
+   * Where agent sessions are remembered: in memory.
+   *
+   * @return the store
+   */
+  @Bean
+  @ConditionalOnMissingBean
+  public AgentSessionStore agentSessionStore() {
+    return new InMemoryAgentSessionStore();
+  }
+
+  /**
    * Create AgentSessionPlugin bean if not already defined.
    *
    * @param gateway the process executor gateway
    * @param resolver the variable resolver
    * @param harnesses the agent harness presets
+   * @param sessions remembers sessions between turns
    * @param json the JSON mapper
    * @return the agent session plugin
    */
@@ -63,7 +75,8 @@ public class ProcessExecutorAutoConfiguration {
       final ProcessExecutorGateway gateway,
       final VariableResolver resolver,
       final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
       final ObjectMapper json) {
-    return new AgentSessionPlugin(gateway, resolver, harnesses, json);
+    return new AgentSessionPlugin(gateway, resolver, harnesses, sessions, json);
   }
 }

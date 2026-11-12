@@ -4,6 +4,7 @@
   "command": ["claude", "-p", "{prompt}", "--output-format", "stream-json", "--verbose"],
   "modelArgs": ["--model", "{model}"],
   "maxTurnsArgs": ["--max-turns", "{maxTurns}"],
+  "resumeArgs": ["--resume", "{session}"],
   "capabilities": { "stream": true, "resume": true, "ask": false },
   "output": {
     "resultWhen": { "type": "result" },

@@ -18,6 +18,7 @@ import tools.jackson.databind.JsonNode;
  * @param modelArgs arguments added for a {@code model} ({@code {model}}); empty if unsupported
  * @param maxTurnsArgs arguments added for {@code maxTurns} ({@code {maxTurns}}); empty if
  *     unsupported
+ * @param resumeArgs arguments added to continue a session ({@code {session}}); empty if unsupported
  * @param capabilities the capabilities it declares ({@code stream}, {@code resume}, {@code ask})
  * @param output how to read the output
  */
@@ -27,6 +28,7 @@ public record AgentPreset(
     List<String> command,
     List<String> modelArgs,
     List<String> maxTurnsArgs,
+    List<String> resumeArgs,
     Set<String> capabilities,
     Output output) {
 
@@ -35,6 +37,7 @@ public record AgentPreset(
     command = List.copyOf(command);
     modelArgs = List.copyOf(modelArgs);
     maxTurnsArgs = List.copyOf(maxTurnsArgs);
+    resumeArgs = List.copyOf(resumeArgs);
     capabilities = Set.copyOf(capabilities);
   }
 
@@ -92,6 +95,7 @@ public record AgentPreset(
         list(root.path("command")),
         list(root.path("modelArgs")),
         list(root.path("maxTurnsArgs")),
+        list(root.path("resumeArgs")),
         Set.copyOf(
             root.path("capabilities").properties().stream()
                 .filter(e -> e.getValue().asBoolean(false))

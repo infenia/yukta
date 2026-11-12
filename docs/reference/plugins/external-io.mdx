@@ -157,6 +157,8 @@ Module `process-executor`. Runs an AI agent harness, such as Claude Code, on a p
 | `model` | string | none | no | Only for a harness that takes a model. |
 | `maxTurns` | number | none | no | Only for a harness with a turn limit. |
 | `args` | list | none | no | Extra command-line arguments, for example `["--allowedTools", "Read,Edit"]`. Without them Claude Code cannot use tools that need approval. |
+| `session` | expression | none | no | A session key. Messages with the same key continue one conversation (the harness resumes from the token the last turn left). Needs a harness with resume (`claude-code` has it). Without it every message starts afresh. Sessions live in memory and are lost on restart. |
+| `onBusy` | `WAIT` or `FAIL` | `WAIT` | no | A session runs one turn at a time. `WAIT` queues the next turn; `FAIL` sends it to `failure` at once. |
 | `workingDir`, `env` | string, map | none | no | Where it runs and extra environment. |
 | `timeout` | number | `600` | no | Seconds. |
 
