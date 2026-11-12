@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.process;
 
+import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.util.VariableResolver;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -66,6 +68,7 @@ public class ProcessExecutorAutoConfiguration {
    * @param resolver the variable resolver
    * @param harnesses the agent harness presets
    * @param sessions remembers sessions between turns
+   * @param inputs the input request system, for approvals
    * @param json the JSON mapper
    * @return the agent session plugin
    */
@@ -76,7 +79,8 @@ public class ProcessExecutorAutoConfiguration {
       final VariableResolver resolver,
       final AgentHarnesses harnesses,
       final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
       final ObjectMapper json) {
-    return new AgentSessionPlugin(gateway, resolver, harnesses, sessions, json);
+    return new AgentSessionPlugin(gateway, resolver, harnesses, sessions, inputs, json);
   }
 }

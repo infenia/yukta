@@ -74,6 +74,20 @@ class AgentSessionPluginTest {
     return "echo '" + WORKING + "'; echo '" + result + "'";
   }
 
+  /** The input request system the plugin sees; tests set it. */
+  private final java.util.concurrent.atomic.AtomicReference<
+          com.infenia.yukta.plugin.input.InputGateway>
+      inputGateway = new java.util.concurrent.atomic.AtomicReference<>();
+
+  @SuppressWarnings("unchecked")
+  private org.springframework.beans.factory.ObjectProvider<
+          com.infenia.yukta.plugin.input.InputGateway>
+      inputs() {
+    final var provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable()).thenAnswer(i -> inputGateway.get());
+    return provider;
+  }
+
   @BeforeEach
   void setUp() throws IOException {
     Files.writeString(
@@ -99,6 +113,30 @@ class AgentSessionPluginTest {
             lines(
                 "{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":true,"
                     + "\"result\":\"\",\"session_id\":\"s3\"}")));
+    Files.writeString(
+        dir.resolve("asker.sh"),
+        """
+        read msg
+        echo '{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"description":"list files"}}'
+        read reply
+        behavior=$(printf %s "$reply" | sed -n 's/.*"behavior":"\\([a-z]*\\)".*/\\1/p')
+        message=$(printf %s "$reply" | sed -n 's/.*"message":"\\([^"]*\\)".*/\\1/p')
+        echo "{\\"type\\":\\"result\\",\\"subtype\\":\\"success\\",\\"is_error\\":false,\\"result\\":\\"$behavior|$message\\",\\"session_id\\":\\"s\\"}"
+        """);
+    Files.writeString(
+        dir.resolve("asker.json"),
+        """
+        {"id":"asker","description":"fixture that asks","command":["sh","-c","exit 9"],
+         "capabilities":{"ask":true},
+         "interactive":{"command":["sh","%s"],
+           "userMessage":{"type":"user","message":{"role":"user","content":"{prompt}"}},
+           "requestWhen":{"type":"control_request","request.subtype":"can_use_tool"},
+           "requestId":"request_id","tool":"request.tool_name","input":"request.input","description":"request.description",
+           "allow":{"type":"control_response","response":{"request_id":"{id}","response":{"behavior":"allow","updatedInput":"{input}"}}},
+           "deny":{"type":"control_response","response":{"request_id":"{id}","response":{"behavior":"deny","message":"{message}"}}}},
+         "output":{"resultWhen":{"type":"result"},"text":"result","sessionId":"session_id","isError":"is_error","subtype":"subtype"}}
+        """
+            .formatted(dir.resolve("asker.sh")));
     Files.writeString(dir.resolve("crash.json"), preset("crash", "echo boom; exit 3"));
     final String echoArgs =
         "echo \"{\\\"type\\\":\\\"result\\\",\\\"subtype\\\":\\\"success\\\","
@@ -117,6 +155,7 @@ class AgentSessionPluginTest {
               resolver,
               new AgentHarnesses(JSON, dir.toString()),
               new InMemoryAgentSessionStore(),
+              inputs(),
               JSON);
     } catch (IOException e) {
       throw new IllegalStateException(e);
@@ -190,7 +229,8 @@ class AgentSessionPluginTest {
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
         .expectErrorMessage(
-            "unknown harness 'nope'; one of [claude-code, crash, failed, max, ok, resumable, slow]")
+            "unknown harness 'nope'; one of [asker, claude-code, crash, failed, max, ok, resumable,"
+                + " slow]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -202,7 +242,8 @@ class AgentSessionPluginTest {
   @Test
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
-        .containsExactly("claude-code", "crash", "failed", "max", "ok", "resumable", "slow");
+        .containsExactly(
+            "asker", "claude-code", "crash", "failed", "max", "ok", "resumable", "slow");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
 
@@ -301,5 +342,87 @@ class AgentSessionPluginTest {
             plugin.validateConfig(Map.of("harness", "resumable", "prompt", "p", "onBusy", "NOW")))
         .expectErrorMessage("onBusy must be WAIT or FAIL, got: NOW")
         .verify();
+  }
+
+  private final List<com.infenia.yukta.plugin.input.InputRequestSpec> asked =
+      new CopyOnWriteArrayList<>();
+
+  private Message<?> runAsking(
+      final com.infenia.yukta.plugin.input.InputGateway gateway, final Map<String, Object> extra) {
+    inputGateway.set(gateway);
+    final java.util.HashMap<String, Object> config = new java.util.HashMap<>(extra);
+    config.putAll(Map.of("harness", "asker", "prompt", "list", "approvals", "ASK"));
+    return plugin
+        .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")), config)
+        .contextWrite(
+            Context.of(
+                "sessionId", "s-1", "workflowId", "w-1", "executionId", "e-1", "nodeId", "n-1"))
+        .collectList()
+        .block(Duration.ofSeconds(30))
+        .getFirst();
+  }
+
+  private com.infenia.yukta.plugin.input.InputGateway answering(
+      final String decision, final String why) {
+    return spec -> {
+      asked.add(spec);
+      return Mono.just(
+          new com.infenia.yukta.plugin.input.InputResponse(
+              "req-1",
+              decision,
+              null,
+              Map.of(),
+              com.infenia.yukta.plugin.input.Responder.SYSTEM,
+              why,
+              null,
+              java.time.Instant.now()));
+    };
+  }
+
+  @Test
+  void approvals_anApprovedToolUseIsAllowedAndAsksThroughTheInputSystem() {
+    final Message<?> out = runAsking(answering("approve", null), Map.of("approvalRisk", "HIGH"));
+
+    assertThat(out.sourcePort()).isEqualTo("success");
+    assertThat(payload(out)).containsEntry("text", "allow|");
+    assertThat(asked).hasSize(1);
+    final var spec = asked.getFirst();
+    assertThat(spec.kind()).isEqualTo(com.infenia.yukta.plugin.input.InputKind.APPROVAL);
+    assertThat(spec.risk()).isEqualTo(com.infenia.yukta.plugin.input.InputRisk.HIGH);
+    assertThat(spec.prompt()).contains("asker", "Bash", "list files");
+    assertThat(spec.context()).containsEntry("tool", "Bash");
+    assertThat(spec.context().get("input").toString()).contains("ls");
+  }
+
+  @Test
+  void approvals_aRejectionIsRefusedWithTheReason() {
+    final Message<?> out = runAsking(answering("reject", "too risky"), Map.of());
+
+    assertThat(payload(out)).containsEntry("text", "deny|Rejected: too risky");
+  }
+
+  @Test
+  void approvals_noAnswerOrNoInputSystemRefusesTheTool() {
+    final Message<?> failing =
+        runAsking(spec -> Mono.error(new IllegalStateException("nobody answered")), Map.of());
+    final Message<?> none = runAsking(null, Map.of());
+
+    assertThat(payload(failing)).containsEntry("text", "deny|Not approved: nobody answered");
+    assertThat(payload(none).get("text").toString()).startsWith("deny|Not approved");
+  }
+
+  @Test
+  void validateConfig_approvalsNeedAHarnessThatCanAsk() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "approvals", "ASK")))
+        .expectErrorMessage("harness 'ok' cannot ask for approvals; remove approvals")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "asker", "prompt", "p", "approvals", "MAYBE")))
+        .expectErrorMessage("approvals must be NONE or ASK, got: MAYBE")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "asker", "prompt", "p", "approvals", "ASK")))
+        .verifyComplete();
   }
 }
