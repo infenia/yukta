@@ -12,7 +12,6 @@ import com.infenia.yukta.service.control.gateway.ControlBusGateway;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import com.infenia.yukta.service.review.ControlAwaitingApprovalException;
 import com.infenia.yukta.service.workflow.store.WorkflowDefinitionStore;
-import com.infenia.yukta.supervisor.rules.LegacyGuards;
 import com.infenia.yukta.testing.Fixtures;
 import com.infenia.yukta.testsupport.ExpectedErrorLog;
 import java.net.URI;
@@ -104,16 +103,21 @@ class PresetsAcceptanceTest {
 
   private static final JsonMapper JSON = JsonMapper.builder().build();
 
+  /** A rule document holding one rule. */
+  private static Map<String, Object> document(final Map<String, Object> rule) {
+    return Map.of("schemaVersion", 1, "rules", List.of(rule));
+  }
+
   /**
    * A rules supervisor with a guard's rule document (and extra common settings) owning a session.
    */
   private void attach(
       final String id,
-      final LegacyGuards.Converted rules,
+      final Map<String, Object> rules,
       final Map<String, Object> common,
       final String session)
       throws Exception {
-    final Map<String, Object> settings = new java.util.LinkedHashMap<>(rules.rules());
+    final Map<String, Object> settings = new java.util.LinkedHashMap<>(rules);
     settings.putAll(common);
     post(
         "/api/supervisors",
@@ -132,7 +136,24 @@ class PresetsAcceptanceTest {
     final String id = "fg-" + UUID.randomUUID().toString().substring(0, 8);
     attach(
         id,
-        LegacyGuards.failureGuard(Map.of("failures", 1, "nodes", List.of("bad"))),
+        document(
+            Map.of(
+                "id",
+                "failure-guard",
+                "when",
+                Map.of(
+                    "event",
+                    "NodeStatusChanged",
+                    "status",
+                    "FAILURE",
+                    "count",
+                    1,
+                    "withinSeconds",
+                    60,
+                    "if",
+                    "nodeId != null and (nodeId == 'bad')"),
+                "then",
+                Map.of("command", "PauseWorkflow"))),
         Map.of(),
         session);
     final String workflowId = workflow(session, true);
@@ -155,7 +176,12 @@ class PresetsAcceptanceTest {
     final String tag = UUID.randomUUID().toString().substring(0, 8);
     attach(
         "ag-" + tag,
-        LegacyGuards.approvalGate(Map.of("commands", List.of("RestartCommand"), "ttl", 60)),
+        document(
+            Map.of(
+                "id",
+                "approval-gate-RestartCommand",
+                "requireApproval",
+                Map.of("command", "RestartCommand", "ttl", 60))),
         Map.of("operatorAccess", List.of("RestartCommand")),
         session);
     final String workflowId = workflow(session, false);
@@ -175,7 +201,14 @@ class PresetsAcceptanceTest {
     // the watchdog is a timed rule over whole runs, so it acts on its own: it needs initiative
     attach(
         id,
-        LegacyGuards.stallWatchdog(Map.of("maxSilenceSeconds", 1, "checkEverySeconds", 1)),
+        document(
+            Map.of(
+                "id",
+                "stall-watchdog",
+                "when",
+                Map.of("every", "1s", "status", "RUNNING", "if", "idleSeconds > 1"),
+                "then",
+                Map.of("command", "PauseWorkflow", "reason", "no progress for 1 second"))),
         Map.of("initiative", List.of("PauseWorkflowCommand")),
         session);
     final String workflowId = workflow(session, false);

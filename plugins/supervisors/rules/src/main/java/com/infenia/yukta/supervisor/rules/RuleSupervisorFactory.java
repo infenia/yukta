@@ -31,9 +31,6 @@ public class RuleSupervisorFactory implements SupervisorFactory {
   /** The engine type. */
   public static final String PROFILE_TYPE = "rules";
 
-  /** The retired types whose settings are already a rule document. */
-  private static final Set<String> RULE_TYPES = Set.of("rule-supervisor", "rule-control-plane");
-
   @Override
   public String type() {
     return PROFILE_TYPE;
@@ -82,41 +79,5 @@ public class RuleSupervisorFactory implements SupervisorFactory {
   @Override
   public List<SupervisorPreset> presets() {
     return RulePresets.ALL;
-  }
-
-  /**
-   * Takes over the retired rule types (their settings are a rule document) and the guards, which
-   * are presets of this engine now (decision D8).
-   *
-   * @param legacy the stored supervisor
-   * @return the rules supervisor, or empty for a type this engine does not replace
-   */
-  @Override
-  public Optional<Adoption> adopt(final Supervisor legacy) {
-    if (RULE_TYPES.contains(legacy.type())) {
-      return Optional.of(
-          new Adoption(legacy.withEngine(PROFILE_TYPE, legacy.settings()), List.of()));
-    }
-    final LegacyGuards.Converted converted =
-        switch (legacy.type()) {
-          case LegacyGuards.FAILURE_GUARD -> LegacyGuards.failureGuard(legacy.settings());
-          case LegacyGuards.APPROVAL_GATE -> LegacyGuards.approvalGate(legacy.settings());
-          case LegacyGuards.STALL_WATCHDOG -> LegacyGuards.stallWatchdog(legacy.settings());
-          default -> null;
-        };
-    if (converted == null) {
-      return Optional.empty();
-    }
-    final java.util.Map<String, Object> settings = new java.util.LinkedHashMap<>(converted.rules());
-    // the common settings (allowedCommands, canAnswer, operatorAccess, ...) stay as they were
-    legacy
-        .settings()
-        .forEach(
-            (key, value) -> {
-              if (com.infenia.yukta.plugin.control.SupervisorCommonSettings.KEYS.contains(key)) {
-                settings.put(key, value);
-              }
-            });
-    return Optional.of(new Adoption(legacy.withEngine(PROFILE_TYPE, settings), converted.notes()));
   }
 }

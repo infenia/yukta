@@ -64,8 +64,22 @@ public class RulePresets {
               "stall-watchdog",
               "Every 30 seconds, pauses a running workflow that has done nothing for 10 minutes."
                   + " It acts on its own, so list PauseWorkflowCommand in initiative.",
-              LegacyGuards.stallWatchdog(Map.of("maxSilenceSeconds", 600, "checkEverySeconds", 30))
-                  .rules()),
+              Map.of(
+                  "schemaVersion",
+                  1,
+                  "rules",
+                  List.of(
+                      Map.of(
+                          "id",
+                          "stall-watchdog",
+                          "when",
+                          Map.of("every", "30s", "status", "RUNNING", "if", "idleSeconds > 600"),
+                          "then",
+                          Map.of(
+                              "command",
+                              "PauseWorkflow",
+                              "reason",
+                              "no progress for more than 600 seconds"))))),
           new SupervisorPreset(
               "too-many-running",
               "Every 30 seconds, pauses each running workflow while more than 10 are running."

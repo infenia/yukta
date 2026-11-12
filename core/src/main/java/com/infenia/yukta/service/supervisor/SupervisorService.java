@@ -335,72 +335,6 @@ public class SupervisorService {
         .then();
   }
 
-  /**
-   * Converts stored supervisors of retired types (decision D8): each engine is asked whether it
-   * replaces the type ({@link SupervisorFactory#adopt}); the first answer is saved under the same
-   * id and what changed in meaning is logged. A supervisor that no engine adopts stays stored and
-   * does not start, with a WARN that names it; start-up never fails on it.
-   *
-   * @return completes when every retired supervisor was looked at
-   */
-  /* default */ Mono<Void> adoptRetired() {
-    return store
-        .supervisors()
-        .filter(supervisor -> !factories.containsKey(supervisor.type()))
-        .concatMap(
-            legacy -> {
-              final Optional<SupervisorFactory.Adoption> adoption =
-                  factories.values().stream()
-                      .map(factory -> adopt(factory, legacy))
-                      .flatMap(Optional::stream)
-                      .findFirst();
-              if (adoption.isEmpty()) {
-                log.atWarn()
-                    .addKeyValue(SUPERVISOR_KEY, legacy.id())
-                    .addKeyValue("type", legacy.type())
-                    .log(
-                        "No engine replaces this retired supervisor type; it does not start until"
-                            + " it is saved again with an engine from /api/supervisor-engines");
-                return Mono.<Void>empty();
-              }
-              final Supervisor converted = adoption.get().supervisor();
-              return store
-                  .saveSupervisor(converted)
-                  .doOnSuccess(
-                      done ->
-                          log.atInfo()
-                              .addKeyValue(SUPERVISOR_KEY, legacy.id())
-                              .addKeyValue("from", legacy.type())
-                              .addKeyValue("to", converted.type())
-                              .addKeyValue("notes", adoption.get().notes())
-                              .log(
-                                  adoption.get().notes().isEmpty()
-                                      ? "Retired supervisor type converted"
-                                      : "Retired supervisor type converted; check the notes"));
-            })
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Could not convert the retired supervisor types");
-              return Mono.empty();
-            })
-        .then();
-  }
-
-  /** One engine's answer; an engine that cannot read the old settings adopts nothing. */
-  private static Optional<SupervisorFactory.Adoption> adopt(
-      final SupervisorFactory factory, final Supervisor legacy) {
-    try {
-      return factory.adopt(legacy);
-    } catch (IllegalArgumentException e) {
-      log.atWarn()
-          .setCause(e)
-          .addKeyValue(SUPERVISOR_KEY, legacy.id())
-          .addKeyValue("type", legacy.type())
-          .log("The retired supervisor's settings could not be converted");
-      return Optional.empty();
-    }
-  }
-
   /** Starts the enabled attachments that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
@@ -412,11 +346,7 @@ public class SupervisorService {
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
     Flux.defer(
-            () ->
-                adoptRetired()
-                    .then(refreshResolver())
-                    .then(markConflicts())
-                    .thenMany(Flux.defer(store::attachments)))
+            () -> refreshResolver().then(markConflicts()).thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
         .concatMap(
