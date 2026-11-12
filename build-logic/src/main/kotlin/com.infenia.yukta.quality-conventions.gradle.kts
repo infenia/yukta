@@ -102,6 +102,10 @@ pmd {
 }
 
 spotbugs {
+    // Strictest useful setting: MAX effort finds more (deeper analysis, slower), MEDIUM confidence
+    // drops the low-confidence noise. Reviewed false positives go in exclude.xml, each with a reason.
+    effort.set(com.github.spotbugs.snom.Effort.MAX)
+    reportLevel.set(com.github.spotbugs.snom.Confidence.MEDIUM)
     excludeFilter.set(rootProject.file("config/spotbugs/exclude.xml"))
 }
 
@@ -120,6 +124,9 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         excludedPaths.set(".*/build/generated/.*")
+        // Warnings promoted to errors: each hides a real bug (a missing enum case, a dead local or
+        // a discarded result) behind a log line nobody reads. Add to this list; do not blanket -Werror.
+        error("MissingCasesInEnumSwitch", "UnusedVariable", "CheckReturnValue", "ReturnValueIgnored")
     }
 }
 
