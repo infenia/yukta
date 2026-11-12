@@ -1,76 +1,72 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useSearchParams } from 'react-router';
+import { Link, Navigate, useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { buttonVariants } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { DecisionMakersTab } from './DecisionMakersTab';
 import { ConflictsBanner } from './ConflictsBanner';
-import { Activity } from './Activity';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
 
-export const TABS = ['supervisors', 'decision-makers', 'activity'] as const;
-export type Tab = (typeof TABS)[number];
-
-const LABEL: Record<Tab, string> = {
-  supervisors: 'Supervisors',
-  'decision-makers': 'Decision makers',
-  activity: 'Activity',
-};
-
-/** Supervisors: who watches each workflow, the decision makers they use, and what they did. */
+/**
+ * Supervisors: the list and the detail of each. The decision maker types open in a sheet
+ * (`?tab=decision-makers&type=<id>`, the old link); the activity lives on the Control page.
+ */
 export function SupervisorsPage() {
   const [params, setParams] = useSearchParams();
-  const requested = params.get('tab');
-  const tab: Tab = TABS.find((t) => t === requested) ?? 'supervisors';
-  const show = (next: Tab) => {
-    const updated = new URLSearchParams(params);
-    if (next === 'supervisors') updated.delete('tab');
-    else updated.set('tab', next);
-    setParams(updated, { replace: true });
+  if (params.get('tab') === 'activity') {
+    return <Navigate to="/control?tab=activity" replace />;
+  }
+  const typesOpen = params.get('tab') === 'decision-makers';
+  const setTypesOpen = (open: boolean) => {
+    const next = new URLSearchParams(params);
+    if (open) next.set('tab', 'decision-makers');
+    else {
+      next.delete('tab');
+      next.delete('type');
+    }
+    setParams(next, { replace: true });
   };
   return (
     <div className="flex flex-1 flex-col gap-4 px-4 py-6 sm:px-6">
       <PageHeader
         backdrop
         title="Supervisors"
-        description="Who watches your workflows, what each may do, and who they answer to. Usually set up by an AI agent over MCP, the CLI or the API."
+        description={
+          <>
+            Who watches your workflows, what each may do, and who they answer
+            to. Usually set up by an AI agent over MCP, the CLI or the API. What
+            they did is on the{' '}
+            <Link to="/control?tab=activity" className="text-primary">
+              Control activity
+            </Link>
+            .
+          </>
+        }
         actions={
-          <div
-            role="tablist"
-            aria-label="Supervisors sections"
-            className="border-border flex max-w-full flex-wrap gap-x-4 border-b"
-          >
-            {TABS.map((name) => (
-              <button
-                key={name}
-                id={`supervisors-tab-${name}`}
-                type="button"
-                role="tab"
-                aria-selected={tab === name}
-                aria-controls="supervisors-tabpanel"
-                onClick={() => show(name)}
-                className={`text-label-md -mb-px h-9 shrink-0 border-b-2 px-0.5 ${
-                  tab === name
-                    ? 'border-primary text-on-surface'
-                    : 'text-on-surface-variant hover:text-on-surface border-transparent'
-                }`}
-              >
-                {LABEL[name]}
-              </button>
-            ))}
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setTypesOpen(true)}
+              className={buttonVariants({ variant: 'outline' })}
+            >
+              Decision maker types
+            </button>
+            <Link to="/supervisors/new" className={buttonVariants()}>
+              New supervisor
+            </Link>
           </div>
         }
       />
       <ConflictsBanner />
-      <div
-        id="supervisors-tabpanel"
-        role="tabpanel"
-        aria-labelledby={`supervisors-tab-${tab}`}
-      >
-        {tab === 'supervisors' && <SupervisorsBrowser />}
-        {tab === 'decision-makers' && <DecisionMakersTab />}
-        {tab === 'activity' && <Activity />}
-      </div>
+      <SupervisorsBrowser />
+      <Sheet open={typesOpen} onOpenChange={setTypesOpen}>
+        <SheetContent className="sm:w-[min(72rem,92vw)]">
+          <SheetTitle>Decision maker types</SheetTitle>
+          <DecisionMakersTab />
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
