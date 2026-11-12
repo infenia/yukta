@@ -6026,6 +6026,7 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
+            traceId?: string | null;
             workflowId?: string;
         };
         WorkflowRef: {
