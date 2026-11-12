@@ -10,8 +10,9 @@ The `build-logic` directory defines reusable convention plugins for the Yukta pr
 4. **library-conventions**: `java-library` + spring-conventions (used by every library module).
 5. **spring-conventions**: Base conventions for Spring Boot modules.
 6. **node-conventions**: pnpm/Node.js toolchain wiring for frontend modules (e.g. `ui`).
+7. **mutation-conventions**: PIT mutation testing, applied only with `-Pmutation`.
 
-All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-conventions' }`.
+All modules apply these plugins via `plugins { id("com.infenia.yukta.xxx-conventions") }`.
 
 ## Quality Configuration
 - **Checkstyle**: `config/checkstyle/checkstyle.xml`
@@ -27,4 +28,4 @@ All modules apply these plugins via `plugins { id 'com.infenia.yukta.xxx-convent
 @.claude/rules/git-workflow.md
 
 ## Coverage policy
-Defaults are LINE 100% / BRANCH 100% per class. Lower a class with `coverageConfig { exception(pattern, reason, mapOf("BRANCH" to 0.7)) }`; below 0.80 a reason is required. Stale patterns and disabled `jacocoTestCoverageVerification` fail the build. `verifyCoverageData` (part of `check`) fails a module that has classes but no test execution data (tests deleted, filtered or not run); set `coverageConfig.noTests = true` for a module that legitimately has none. Trivy is not part of `check` (CI runs it; `yk gradle trivy` on demand).
+Defaults are LINE 100% / BRANCH 100% per class. Lower a class with `coverageConfig { exception(pattern, reason, mapOf("BRANCH" to 0.7)) }`; below 0.80 a reason is required. Stale patterns fail the build. A disabled gate task (Checkstyle, PMD, SpotBugs, Spotless, OpenGrep, Licensee, coverage) or one that ignores failures fails it too, unless listed in `allowedDisabledQualityTasks` (quality-conventions). The guards are tested in `build-logic/src/test` (TestKit; `yk gradle :build-logic:test`, also part of the root `check`). `verifyCoverageData` (part of `check`) fails a module that has classes but no test execution data (tests deleted, filtered or not run); call `coverageConfig.noTests("reason")` for a module that legitimately has none. Trivy is not part of `check` (CI runs it; `yk gradle trivy` on demand).

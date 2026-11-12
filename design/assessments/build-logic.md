@@ -8,7 +8,7 @@ Open work is tracked in GitHub issues, not here: [risks](https://github.com/infe
 
 Order is by cheap trust gains first: make what the build says true, then close bypasses, then make it reproducible, then speed it up.
 
-1. **Today.** Six plugins, one catalog, 27 modules. Gates fail the build; OpenGrep needs the program installed; one coverage exception; no lock files; Netty now comes from the catalog; CI builds in four shards.
+1. **Today.** Seven plugins, one catalog, 33 modules. Gates fail the build; OpenGrep warns when the program is missing (fails on CI); coverage exceptions need reasons; no lock files; the guards are tested with TestKit; CI builds in four shards.
 2. **Make the docs and versions honest.** Correct the docs from the code, delete the stale Netty line, fix the nashorn reason text, and decide whether pull requests should block on vulnerabilities. Risks: `nettyTwoSources`, `docDrift`, `legalSignoff`, `trivyPrGate`, `cvePins`.
 3. **Close the escape hatches.** Guard every quality task against being disabled, fail on missing coverage data, burn down the three temporary disables, check build-logic itself. Risks: `disabledTasks`, `coverageNoData`, `selfUnchecked`.
 4. **Reproducible and visible.** Commit lock files and turn on the CI check; warn when OpenGrep is skipped; add a toolchain resolver; align Node and pnpm in CI. Risks: `noLockfiles`, `opengrepSilentSkip`, `noToolchainResolver`, `nodeDrift`.
@@ -18,7 +18,7 @@ Order is by cheap trust gains first: make what the build says true, then close b
 
 ### Scalability
 
-Scales with module count, not users. Each of 27 modules runs its own analysis, and the checks that cannot be cached (OpenGrep, which declares no outputs) grow linearly. CI runs a whole-repo build whenever a root file changes.
+Scales with module count, not users. Each of 33 modules runs its own analysis; OpenGrep is cacheable, but still runs once per module. CI runs a whole-repo build whenever a root file changes.
 
 **Ceilings today**
 
@@ -81,7 +81,6 @@ Barely applies to production, since build-logic runs nowhere at run time. It mat
 **Needs design work**
 
 - A mirror or cache for plugin and dependency downloads
-- A toolchain resolver or documented JDK setup
 - Dependency lock files to make restores deterministic
 
 ### Security
@@ -90,33 +89,31 @@ This is where build-logic earns its keep: it is the supply-chain control point. 
 
 **Ceilings today**
 
-- Locking is declared but no lock files exist, so resolved versions are not recorded
+- No lock files exist, so resolved versions are not recorded
 - Vulnerability scan blocks only on main, not on pull requests
 - Four OpenGrep rules cover few risk patterns
-- A stale Netty line remains in gradle.properties; the resolved version is not asserted
+- A temporary version pin outlives its reason unless someone deletes it
 
 **Levers today**
 
 - Local pinned OpenGrep rules with --error
 - Licence allow-list with one per-artifact exception
-- Netty BOM imported after Boot; plexus-utils pinned
+- `:boot:verifyNettyVersion` asserts the resolved Netty; plexus-utils pinned
 - Secret scan blocking on every run; dependency review on PRs
 
 **Needs design work**
 
 - Commit lock files and enable the CI lock check
-- Remove the stale Netty line and add a check of the resolved version
 - More OpenGrep rules for the plugin sandbox and file access
 - Legal sign-off for the nashorn-core exception
 
 ### Operability
 
-Developer experience: clear failures, one command to fix formatting, and a documented way to add a module. The weak spots are silent skips and docs that disagree with the code.
+Developer experience: clear failures, one command to fix formatting, and a documented way to add a module. The weak spots are the local OpenGrep skip and docs that drift from the code.
 
 **Ceilings today**
 
-- Silent skip when opengrep is missing
-- Docs say 90/85 while code enforces 100/100
+- OpenGrep is skipped with a warning locally when the program is missing
 - Failure messages come from several tools in different styles
 
 **Levers today**
@@ -133,7 +130,7 @@ Developer experience: clear failures, one command to fix formatting, and a docum
 
 ### Evolvability
 
-Good: rules are in one place, versions in one catalog, and the plugins are small and layered. The cost is that a rule change hits all 27 modules at once, and a few module-level escapes exist.
+Good: rules are in one place, versions in one catalog, and the plugins are small and layered. The cost is that a rule change hits all 33 modules at once, and a few module-level escapes exist.
 
 **Ceilings today**
 

@@ -8,8 +8,6 @@ plugins {
 
 val libs = extensions.getByType<VersionCatalogsExtension>().named("libs")
 
-group = "com.infenia.yukta"
-
 java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(25))
@@ -29,11 +27,10 @@ tasks.withType<JavaCompile>().configureEach {
     options.release.set(25)
 }
 
-// Same sources must give byte-identical archives (OpenSSF build_repeatable).
-tasks.withType<AbstractArchiveTask>().configureEach {
-    isPreserveFileTimestamps = false
-    isReproducibleFileOrder = true
-}
+// Whether a whole class runs. `--tests` is not visible in the task's filter (Gradle keeps it apart from
+// the build-script patterns), so read it from the command line: with it, only some tests of a class run
+// and an @ExpectedErrorLog that a skipped test would have used must not be reported as unused.
+val partialRun = gradle.startParameter.taskRequests.any { r -> r.args.any { it == "--tests" || it.startsWith("--tests=") } }
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
@@ -45,9 +42,7 @@ tasks.withType<Test>().configureEach {
     // -PerrorGuard=report only reports them, =off turns it off.
     systemProperty("junit.jupiter.extensions.autodetection.enabled", "true")
     systemProperty("yukta.errorGuard", providers.gradleProperty("errorGuard").getOrElse("strict"))
-    // Whether a whole class runs. With --tests only some of its tests run, so an @ExpectedErrorLog
-    // that a skipped test would have used must not be reported as unused.
-    doFirst { systemProperty("yukta.errorGuard.stale", filter.includePatterns.isEmpty().toString()) }
+    systemProperty("yukta.errorGuard.stale", (!partialRun && filter.includePatterns.isEmpty()).toString())
     // Nightly CI only (-PretryFlakyTests): re-run a failed test up to twice so the report can tell a
     // flaky test (passed on retry) from a broken one. The task still fails either way.
     if (providers.gradleProperty("retryFlakyTests").isPresent) {

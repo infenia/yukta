@@ -14,18 +14,14 @@ if (providers.gradleProperty("mutation").isPresent) {
     apply(plugin = "com.infenia.yukta.mutation-conventions")
 }
 
-// Patch releases of the BOM-managed libraries that fix published CVEs (Dependabot). Boot's BOM reads
-// these properties, so they keep the same minor line; drop each one once Spring Boot ships it.
-extra["jackson-2-bom.version"] = "2.21.7"
-extra["jackson-bom.version"] = "3.1.7"
-extra["netty.version"] = libs.findVersion("netty").get().requiredVersion
+// Spring Boot 4.1.2 already manages Jackson and Netty at the patched versions (CVE fixes). When a CVE
+// needs a newer patch before Boot ships it, set the BOM property here (for example
+// extra["netty.version"] = "..."), and delete it again once Boot catches up.
 
 dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.findVersion("springBoot").get().requiredVersion}")
         mavenBom("org.springframework.ai:spring-ai-bom:${libs.findVersion("springAi").get().requiredVersion}")
-        // Spring Boot pins Netty older than the CVE fixes; import the patched BOM after it so it wins
-        mavenBom("io.netty:netty-bom:${libs.findVersion("netty").get().requiredVersion}")
     }
 }
 

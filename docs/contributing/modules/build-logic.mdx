@@ -5,14 +5,14 @@ description: "The Gradle convention plugins: the Java toolchain, dependency vers
 keywords: ["build-logic", "Gradle conventions", "quality gates"]
 ---
 
-build-logic is the rulebook for the build. It is a small Gradle project inside the repository that holds six shared 'convention plugins'. A module that applies one line of it gets the same Java version, the same dependency versions, the same code-style and bug checks, the same licence checks and the same test-coverage rules as every other module. Nothing here runs in production; it decides what code is allowed to be merged. This page is for thinking about it: open a component, replay a scenario, then challenge the weak spots.
+build-logic is the rulebook for the build. It is a small Gradle project inside the repository that holds seven shared 'convention plugins'. A module that applies one line of it gets the same Java version, the same dependency versions, the same code-style and bug checks, the same licence checks and the same test-coverage rules as every other module. Nothing here runs in production; it decides what code is allowed to be merged. This page is for thinking about it: open a component, replay a scenario, then challenge the weak spots.
 
 | Property | What it means |
 |---|---|
-| One rulebook, 27 modules | 24 modules apply library-conventions, boot and ui apply spring-conventions, ui also applies node-conventions, and cli applies none of them (it only wraps Go tooling). Change a rule once and every module follows. |
+| One rulebook, 33 modules | 30 modules apply library-conventions, boot and ui apply spring-conventions, ui also applies node-conventions, and cli applies none of them (it only wraps Go tooling). Change a rule once and every module follows. |
 | Gates that fail, not warn | Checkstyle allows 0 warnings, OpenGrep runs with --error, coverage must be 100% line and 100% branch per class, and disabling the coverage check fails the build. Policy is code, not a wiki page. |
-| Local and CI differ in two places | OpenGrep is silently skipped when its program is not installed locally (CI installs a pinned copy), and Trivy vulnerability scanning is CI only. Everything else in check runs the same way on a laptop. |
-| Versions live in one catalog | gradle/libs.versions.toml feeds both the modules and build-logic itself. The Netty version now comes from the catalog (spring-conventions sets netty.version from it); a stale netty.version line is still left in gradle.properties (see Risks). |
+| Local and CI differ in two places | OpenGrep warns and is skipped when its program is not installed locally; on CI, or with `-Pyukta.requireOpengrep`, a missing program fails the build (CI installs a pinned copy), and Trivy vulnerability scanning is CI only. Everything else in check runs the same way on a laptop. |
+| Versions live in one catalog | gradle/libs.versions.toml feeds both the modules and build-logic itself. Spring Boot 4.1.2 manages Jackson and Netty at the patched versions; the catalog keeps the Netty version for the `boot` check that asserts it. |
 
 <Note>
   Open work for this module is tracked in GitHub issues: [risks](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Arisk%20label%3Abuild), [bugs](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20type%3ABug%20label%3Abuild) and [all open issues](https://github.com/infenia/yukta/issues?q=is%3Aissue%20is%3Aopen%20label%3Abuild). Its evolution path and quality lenses are in [design/assessments/build-logic.md](https://github.com/infenia/yukta/blob/main/design/assessments/build-logic.md).
@@ -20,7 +20,7 @@ build-logic is the rulebook for the build. It is a small Gradle project inside t
 
 ## Primer
 
-Yukta has 27 Gradle modules (a module is one separately built piece of the product: the engine, the web layer, one plugin and so on). If each module wrote its own build file, they would drift: one would use another Java version, another would skip the bug checks, a third would allow a licence the company cannot ship. **build-logic** prevents that. It is a small build of its own, included by the root build, that defines the rules once as **convention plugins** (a convention plugin is a reusable bundle of build settings that a module switches on with one line). Every module then applies the bundle and inherits the rules.
+Yukta has 33 Gradle modules (a module is one separately built piece of the product: the engine, the web layer, one plugin and so on). If each module wrote its own build file, they would drift: one would use another Java version, another would skip the bug checks, a third would allow a licence the company cannot ship. **build-logic** prevents that. It is a small build of its own, included by the root build, that defines the rules once as **convention plugins** (a convention plugin is a reusable bundle of build settings that a module switches on with one line). Every module then applies the bundle and inherits the rules.
 
 <Tip>
   Think of a building code for a housing estate. Every house (module) is designed by a different builder, but each must meet the same code: same electrical standard, same fire doors, same inspection before anyone moves in. The code is written once by the estate authority (build-logic). Inspectors (the quality tools) check each house against it, and the occupancy certificate (a passing `./gradlew check`) is what lets a house be handed over (merged).
@@ -31,8 +31,8 @@ Yukta has 27 Gradle modules (a module is one separately built piece of the produ
 | Layer | Role |
 |---|---|
 | Developer or CI | Runs ./gradlew check, build, spotlessApply |
-| Root build | settings.gradle.kts lists the 27 modules and includes build-logic; build.gradle.kts adds locking and a Trivy task |
-| build-logic | The six convention plugins and the shared catalog wiring. This page. (this module) |
+| Root build | settings.gradle.kts lists the 33 modules and includes build-logic; build.gradle.kts adds a Trivy task and runs the build-logic tests |
+| build-logic | The seven convention plugins and the shared catalog wiring. This page. (this module) |
 | Each module | Applies one plugin id and adds only its own dependencies |
 | Config and tools | config/ (Checkstyle, PMD, SpotBugs, OpenGrep, licence headers) and the tools themselves |
 
@@ -42,10 +42,10 @@ build-logic never contains product code. It only decides how product code is com
 
 | Term | Meaning | Example |
 |---|---|---|
-| Convention plugin | A Gradle plugin written in this repository that applies a bundle of settings. Modules switch it on with `id("com.infenia.yukta.library-conventions")`. | Without it, 27 build files would each repeat 200 lines of setup. |
+| Convention plugin | A Gradle plugin written in this repository that applies a bundle of settings. Modules switch it on with `id("com.infenia.yukta.library-conventions")`. | Without it, 33 build files would each repeat 200 lines of setup. |
 | Included build | A separate Gradle build that the root build pulls in by name (`includeBuild("build-logic")`). It is compiled first, so its plugins exist before any module is configured. | Editing a rule in build-logic affects every module on the next build. |
 | Version catalog | One file, `gradle/libs.versions.toml`, that names every library and tool version. Both the modules and build-logic read it. | springBoot = 4.1.1, checkstyle = 13.2.0. |
-| BOM | Bill of materials: a published list of library versions known to work together. Importing it means a module names a library without a version. | The Spring Boot BOM pins Netty; Yukta imports a newer Netty BOM after it. |
+| BOM | Bill of materials: a published list of library versions known to work together. Importing it means a module names a library without a version. | Yukta imports the Spring Boot and Spring AI BOMs. |
 | Quality gate | A check that fails the build when code breaks a rule. A passing build means every gate passed. | Spotless, Checkstyle, PMD, SpotBugs, Error Prone, OpenGrep, licensee, JaCoCo. |
 | Coverage | The share of code lines and decision branches that tests actually ran, measured by JaCoCo. Branch coverage counts both sides of each if. | An if with only its true side tested is 50% branch coverage. |
 | Coverage exception | A written, reasoned allowance for one class (or class pattern) to sit below the default. Below 80% a reason is mandatory. | web allows generated MapStruct mappers 90% branch coverage. |
@@ -67,7 +67,7 @@ A developer adds a new plugin module and opens a pull request. Click a step to s
 <Step title="Apply conventions">
 **What happens.** Gradle compiles build-logic first, then applies library-conventions to the new module. That pulls in spring-conventions, which pulls in java, quality and jacoco conventions, in that order.
 
-**Why it works this way.** The module now has the Java 25 toolchain, the Spring Boot, Spring AI and Netty BOMs, Spotless, Checkstyle, PMD, SpotBugs, Error Prone, licensee, an opengrep task and JaCoCo rules, without a single line of its own.
+**Why it works this way.** The module now has the Java 25 toolchain, the Spring Boot and Spring AI BOMs, Spotless, Checkstyle, PMD, SpotBugs, Error Prone, licensee, an opengrep task and JaCoCo rules, without a single line of its own.
 
 **Can go wrong.** If JDK 25 is not installed, Gradle cannot find the toolchain and stops: there is no download resolver configured. A mistake in a convention plugin breaks every module at once.
 
@@ -101,7 +101,7 @@ A developer adds a new plugin module and opens a pull request. Click a step to s
 
 **Why it works this way.** The OpenGrep rules are a pinned file in the repository, not downloaded, so a rule cannot change under us. One shared lock makes OpenGrep runs go one module at a time.
 
-**Can go wrong.** If the opengrep program is not installed on the laptop, the task is skipped silently and the developer sees a green build that CI may later fail.
+**Can go wrong.** If the opengrep program is not installed on the laptop, the task warns and is skipped, so the developer sees a green build that CI may later fail (set `-Pyukta.requireOpengrep` to fail instead).
 
 </Step>
 <Step title="CI runs the same">
@@ -132,7 +132,7 @@ the root build includes build-logic, so its plugins exist before any module is c
 each module names one convention plugin; the plugin chain switches on everything else.
 </Step>
 <Step title="Resolve">
-dependency versions come from the Spring Boot, Spring AI and Netty BOMs and from the shared catalog.
+dependency versions come from the Spring Boot and Spring AI BOMs and from the shared catalog.
 </Step>
 <Step title="Compile">
 javac targets Java 25; Lombok and Error Prone run inside the compiler.
@@ -158,32 +158,32 @@ Holds the repository-wide facts the plugins read: every library and tool version
 
 - gradle/libs.versions.toml is the version catalog. build-logic/settings.gradle.kts loads it with `from(files("../gradle/libs.versions.toml"))`, so the plugins read exactly the same file the modules do. Example: checkstyle = "13.2.0" is read by quality-conventions; springBoot = "4.1.1" by spring-conventions.
 - build-logic/build.gradle.kts lists the Gradle plugins the conventions need (Spotless, SpotBugs, the Lombok plugin, node-gradle, Spring dependency management, Error Prone, licensee) and takes each version from the catalog. A bump in the catalog therefore changes the plugin jars too.
-- The root settings.gradle.kts includes build-logic first, then lists 27 modules. The root build.gradle.kts sets the group and registers a root-only `trivy` task (HIGH and CRITICAL findings fail it). Dependency locking was dropped (#502): no lock files are committed. Trivy is deliberately not part of check; CI owns scanning.
-- gradle.properties holds the build switches: build cache on, parallel on with 8 workers max, configuration cache off (the Go tasks in cli are not compatible with it), a 4 GB Gradle heap, one shared project version (0.0.1-SNAPSHOT) and a leftover `netty.version=4.2.16.Final` next to the catalog's `netty = 4.2.18.Final`. The leftover no longer wins: spring-conventions sets `netty.version` from the catalog (checked on 2026-10-15 with dependencyInsight: boot resolves 4.2.18.Final).
+- The root settings.gradle.kts includes build-logic first, then lists 33 modules. The root build.gradle.kts sets the group and registers a root-only `trivy` task (HIGH and CRITICAL findings fail it). Dependency locking was dropped (#502): no lock files are committed. Trivy is deliberately not part of check; CI owns scanning.
+- gradle.properties holds the build switches: build cache on, parallel on with 8 workers max, configuration cache on, a 4 GB Gradle heap, and one shared project version.
 - Gradle itself is pinned by the wrapper (9.8.0). Dependabot proposes catalog and Action bumps weekly with a 7-day cooldown, grouped into one minor/patch PR.
 
 - **Guarantees.** Every module and build-logic read one catalog, so the same tool version applies everywhere. The project version is defined in one place.
 - **State.** Plain files in git. Nothing runs at run time. No lock files are committed, so there is no stored record of resolved versions; the catalog and the BOMs pin them.
 - **Ceiling.** A catalog or build-logic change makes CI build every module (the planner's root-file list includes gradle/\*\*, config/\*\* and build-logic/\*\*), so version bumps are still the most expensive pull requests. Since PR #391 that full build is split into four parallel shards (platform, infra, plugins, frontend) with shared caches.
-- **On failure.** A typo in the catalog fails configuration of the whole build. A stale leftover (the Netty line in gradle.properties) can mislead a reader even though it no longer wins.
+- **On failure.** A typo in the catalog fails configuration of the whole build.
 
-**Settings:** `gradle/libs.versions.toml`, `gradle.properties: org.gradle.caching, org.gradle.parallel, org.gradle.workers.max=8, netty.version, version`, `./gradlew trivy (on demand)`
+**Settings:** `gradle/libs.versions.toml`, `gradle.properties: org.gradle.caching, org.gradle.configuration-cache, org.gradle.parallel, org.gradle.workers.max=8, version`, `./gradlew trivy (on demand)`
 
 ### Plugin Hierarchy
 
 *who applies what*
 
-Defines the six convention plugins and how they stack, so a module opts in with one line.
+Defines the seven convention plugins and how they stack, so a module opts in with one line.
 
 - The plugins are precompiled Kotlin scripts (`com.infenia.yukta.<name>.gradle.kts`) in build-logic/src/main/kotlin. 'Precompiled' means Gradle compiles them once into real plugins instead of interpreting each one in every module.
 - They stack. **library-conventions** = java-library + spring-conventions. **spring-conventions** = java-conventions + quality-conventions + jacoco-conventions + Spring dependency management. A library module therefore needs only one line, and still gets every gate.
-- Who applies what (checked in each build file): 24 modules apply library-conventions (core, web, mcp, messaging, plugin-api and 19 plugins). boot and ui apply spring-conventions directly (they are an application and a bundle of static files, not libraries). ui also applies node-conventions. cli applies only Gradle's base plugin and wraps make targets for Go.
+- Who applies what (checked in each build file): 30 modules apply library-conventions. boot and ui apply spring-conventions directly (they are an application and a bundle of static files, not libraries). ui also applies node-conventions. cli applies only Gradle's base plugin and wraps make targets for Go.
 - In our view the name spring-conventions is misleading: it is the 'standard Yukta module' bundle, because even a module with no Spring code gets the Spring BOMs and test starters through it.
 - The two remaining plugins are leaf bundles: java-conventions (toolchain, tests) and node-conventions (UI tooling). quality-conventions and jacoco-conventions are the heavy ones (about 200 and 150 lines).
 
 - **Guarantees.** A module that applies library-conventions or spring-conventions gets every gate; there is no way to get the toolchain without the quality tools.
 - **State.** None. These are build scripts evaluated at every Gradle run.
-- **Ceiling.** Plugin logic runs at configuration time for each of the 27 projects; a heavy convention slows every build even for a one-module change.
+- **Ceiling.** Plugin logic runs at configuration time for each of the 33 projects; a heavy convention slows every build even for a one-module change.
 - **On failure.** A compile error in any convention script fails the whole build before any module is configured. A module can still weaken itself in its own build file (see Risks).
 
 **Settings:** `id("com.infenia.yukta.library-conventions")`, `id("com.infenia.yukta.spring-conventions")`, `id("com.infenia.yukta.node-conventions")`, `includeBuild("build-logic")`
@@ -209,21 +209,20 @@ Sets how every module compiles and how its tests run.
 
 ### Dependency Platform
 
-*BOMs, Netty import*
+*BOMs*
 
-Pins the versions of third-party libraries through three imported BOMs, and adds the common test libraries.
+Pins the versions of third-party libraries through two imported BOMs, and adds the common test libraries.
 
-- spring-conventions applies Spring's dependency-management plugin and imports three BOMs in this order: Spring Boot (`springBoot` 4.1.1), Spring AI (`springAi` 2.0.0) and Netty (`netty` 4.2.18.Final). A module can then write `implementation(libs.spring.boot.starter.webflux)` with no version.
-- Netty comes last on purpose. Spring Boot pins an older Netty that lacks CVE fixes (the catalog and properties file name five CVEs), so the patched BOM is imported after it to win. Example: Netty is the network library under WebFlux; an outdated copy means every HTTP request passes through code with known holes.
-- History: the boot jar built on 2026-10-11, after the catalog moved to 4.2.18, still contained Netty 4.2.16 files, because `netty.version=4.2.16.Final` in gradle.properties overrode the Boot BOM's own Netty property. spring-conventions now assigns that property from the catalog, and on 2026-10-15 `:boot:dependencyInsight` shows io.netty:netty-codec-http at 4.2.18.Final. The stale line in gradle.properties is still there and nothing asserts the resolved version.
+- spring-conventions applies Spring's dependency-management plugin and imports two BOMs in this order: Spring Boot (`springBoot`) and Spring AI (`springAi`). A module can then write `implementation(libs.spring.boot.starter.webflux)` with no version.
+- When a CVE needs a newer patch than Spring Boot manages, set the BOM property in spring-conventions (for example `extra["netty.version"]`) and delete it again once Boot ships it.
 - Every standard module also gets spring-boot-starter-test and reactor-test as test dependencies. Reactor-test is what makes StepVerifier available for the project's reactive code.
 
-- **Guarantees.** All modules resolve a library to the same version, because they all import the same three BOMs in the same order.
+- **Guarantees.** All modules resolve a library to the same version, because they all import the same two BOMs in the same order.
 - **State.** None. Resolution happens per Gradle run; no lock file is stored. The resolved graph is submitted to GitHub by the `dependency-submission` job in ci.yml, on every push to main and for pull requests, which feeds Dependabot alerts and the PR Dependency Review job.
-- **Ceiling.** BOM imports are fine at this size. The ceiling is human: two places to set one version, and nothing checks that they agree.
-- **On failure.** A BOM that moves a library to an incompatible major version breaks compile or run time in several modules at once. A wrong Netty version stays invisible because tests do not assert it.
+- **Ceiling.** BOM imports are fine at this size. The ceiling is human: a pin outlives its reason unless someone deletes it.
+- **On failure.** A BOM that moves a library to an incompatible major version breaks compile or run time in several modules at once. `:boot:verifyNettyVersion` asserts the resolved Netty version.
 
-**Settings:** `springBoot, springAi, netty in gradle/libs.versions.toml`, `netty.version in gradle.properties`, `libs.spring.boot.starter.test, libs.reactor.test`
+**Settings:** `springBoot, springAi in gradle/libs.versions.toml`, `libs.spring.boot.starter.test, libs.reactor.test`
 
 ### Format & Static Analysis
 
@@ -278,7 +277,7 @@ Scans each module's src/main with four project-specific security rules and fails
 
 - **Guarantees.** If the program is present, a banned pattern in main code cannot pass check. Rule changes are reviewed in git, not fetched live.
 - **State.** A SARIF report per module in build/reports/opengrep/opengrep-report.sarif.
-- **Ceiling.** Serialised across 27 modules and rerun every time. Four rules only: coverage of risky patterns is narrow by design. Test code and non-Java files are not scanned, except YAML for the actuator rule.
+- **Ceiling.** Serialised across the modules; the report is a declared output, so an unchanged module is cached. Four rules only: coverage of risky patterns is narrow by design. Test code and non-Java files are not scanned, except YAML for the actuator rule.
 - **On failure.** A missing program means the gate is open locally. A finding fails the build with the rule id, and the report is in SARIF for tooling.
 
 **Settings:** `./gradlew opengrep`, `config/opengrep/.semgrep.yml`, `OPENGREP_VERSION and OPENGREP_SHA256 in ci.yml`, `// nosem: <rule-id> - reason`
@@ -299,7 +298,7 @@ Measures test coverage with JaCoCo and fails a class that is below the required 
 - **Guarantees.** No class in a module can fall below its ratio without a visible, reasoned line in that module's build file, and the list of exceptions cannot contain dead entries.
 - **State.** JaCoCo .exec files and reports under each module's build directory. CI uploads coverage to Codecov (best-effort).
 - **Ceiling.** Per-class strictness scales linearly with code but makes every new defensive branch cost a test. Coverage is a floor on executed code, not proof that assertions are good.
-- **On failure.** A violation fails jacocoTestCoverageVerification with the class name and ratio. A module with no execution data is skipped silently.
+- **On failure.** A violation fails jacocoTestCoverageVerification with the class name and ratio. A module with classes but no execution data fails `verifyCoverageData`.
 
 **Settings:** `coverageConfig { exception(pattern, reason, thresholds) }`, `-Pcoverage`, `-PfailFast`, `./gradlew jacocoTestCoverageVerification`
 
@@ -473,17 +472,14 @@ A failure case from the repository itself: a security bump that is set in two pl
 <Step title="The alert">
 A Netty vulnerability is announced. Spring Boot's own BOM pins an older Netty, so a normal Boot upgrade is not enough or not yet available.
 </Step>
-<Step title="Bump the catalog">
-The developer sets netty = 4.2.18.Final in the catalog. spring-conventions imports netty-bom after the Boot BOM so the newer version should win. Dependabot already proposes such bumps (the 4.2.18 bump came from a grouped Dependabot PR).
+<Step title="Pin the patched version">
+The developer sets `extra["netty.version"]` in spring-conventions. Boot's dependency-management reads that property, so every module resolves the patched Netty.
 </Step>
-<Step title="What actually happened">
-Until PR #373 the properties file won: gradle.properties still says netty.version=4.2.16.Final, and the boot jar built after the bump contained 4.2.16 Netty jars. spring-conventions now assigns netty.version from the catalog, and boot resolves 4.2.18.Final.
+<Step title="Check the result">
+`:boot:verifyNettyVersion` fails when any resolved io.netty artifact differs from the catalog's `netty` version, so a pin that does not take effect is caught.
 </Step>
-<Step title="Why nothing stops it">
-Still no test or gate asserts the resolved Netty version, and no lock files record it. Trivy would only notice on main or schedule runs.
-</Step>
-<Step title="The fix">
-Delete the leftover gradle.properties line so the catalog is the only visible source, and add a check on the resolved version. Then commit lock files so any drift becomes a diff.
+<Step title="Remove the pin">
+Once Spring Boot ships the patched version, delete the property: a pin left behind would hold Netty below what Boot manages.
 </Step>
 </Steps>
 
@@ -505,8 +501,8 @@ Every capability below is something a module gets by applying a convention plugi
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| Imported BOMs | Spring Boot, Spring AI and Netty versions pinned centrally. | dependency-management plugin imports three BOMs in order. | A library has one version across modules. | Nothing checks the resolved Netty version. |
-| Shared catalog | One file lists versions for modules and build-logic. | build-logic/settings.gradle.kts loads ../gradle/libs.versions.toml. | No second copy to drift. | gradle.properties also carries netty.version. |
+| Imported BOMs | Spring Boot and Spring AI versions pinned centrally. | dependency-management plugin imports two BOMs in order. | A library has one version across modules. | A temporary pin is not removed automatically. |
+| Shared catalog | One file lists versions for modules and build-logic. | build-logic/settings.gradle.kts loads ../gradle/libs.versions.toml. | No second copy to drift. | None known. |
 | Dependency locking | Dropped: no lock files are committed (#502). | Nothing. | The version catalog and the BOMs pin versions. | Resolved versions can drift between builds. |
 
 ### Quality
@@ -521,7 +517,7 @@ Every capability below is something a module gets by applying a convention plugi
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| OpenGrep rules | Four banned patterns (SpEL context, script host access, class lookup, actuator exposure). | Local pinned ruleset, --error, nosem comments with reasons. | A banned pattern in main code fails check when the tool is present. | Skipped silently if not installed; four rules only. |
+| OpenGrep rules | Four banned patterns (SpEL context, script host access, class lookup, actuator exposure). | Local pinned ruleset, --error, nosem comments with reasons. | A banned pattern in main code fails check when the tool is present. | Warns and skips locally if not installed (fails on CI); four rules only. |
 | Licence allow-list | Dependencies must use an approved licence. | licensee with allow, allowUrl and one allowDependency exception. | Unapproved licences fail the build. | Legal sign-off for the one GPL exception is pending. |
 | CVE pin on a build tool | plexus-utils pinned to 3.6.1 for Checkstyle. | A constraint on the checkstyle configuration. | The tool's own classpath avoids CVE-2025-67030. | Only that configuration. |
 
@@ -558,7 +554,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 |---|---|---|---|
 | Spotless, Checkstyle, PMD, SpotBugs, Error Prone | \*\*Yes.\*\* In check for every module | \*\*Yes.\*\* Changed modules and dependents (all if root files changed) | \*\*Yes.\*\* All modules |
 | Tests + coverage verification (100% line/branch per class) | \*\*Yes.\*\* In check; skipped if no test data | \*\*Yes.\*\* Same, for the built modules | \*\*Yes.\*\* Same, all modules; coverage also uploaded to Codecov |
-| OpenGrep (4 rules) | \*\*Partly.\*\* Only if the opengrep program is installed; skipped silently otherwise | \*\*Yes.\*\* Installed at v1.25.0 with SHA-256 check | \*\*Yes.\*\* Same as pull request |
+| OpenGrep (4 rules) | \*\*Partly.\*\* Only if the opengrep program is installed; skipped with a warning otherwise (fails on CI) | \*\*Yes.\*\* Installed at v1.25.0 with SHA-256 check | \*\*Yes.\*\* Same as pull request |
 | Licence allow-list (licensee) | \*\*Yes.\*\* ./gradlew licensee; check also runs it by plugin default (not verified here) | \*\*Yes.\*\* Own workflow: REUSE headers, licensee, Trivy licence scan | \*\*Yes.\*\* Same |
 | Trivy vulnerabilities | \*\*Note.\*\* On demand: ./gradlew trivy | \*\*Partly.\*\* Reported to GitHub security; does not fail the PR | \*\*Yes.\*\* Fails on HIGH or CRITICAL |
 | Trivy secret scan | \*\*No.\*\* Not run | \*\*Yes.\*\* Blocking | \*\*Yes.\*\* Blocking |
@@ -587,7 +583,7 @@ A pull request builds only changed modules and what depends on them, unless a ro
 | Format, style, bug patterns (Spotless, Checkstyle, PMD, SpotBugs) | \*\*Yes.\*\* Enforced | Failures fail check; a module may still disable a task |
 | Error Prone | \*\*Partly.\*\* Errors only | Warning-level findings do not fail the compile |
 | Coverage | \*\*Yes.\*\* Enforced | Cannot be disabled; exceptions need reasons below 0.80; stale entries fail |
-| OpenGrep | \*\*Partly.\*\* Enforced when installed | --error; silently skipped when the program is missing |
+| OpenGrep | \*\*Partly.\*\* Enforced when installed | --error; skipped with a warning when the program is missing, a failure on CI |
 | Licences | \*\*Yes.\*\* Enforced | Allow-list plus one named exception |
 | Dependency locking | \*\*No.\*\* Dropped (#502) | No lock files are committed |
 | Go and TypeScript code | \*\*Note.\*\* Other pipelines | cli uses Makefile targets; ui uses pnpm; not covered by this toolchain |
@@ -629,8 +625,8 @@ What each gate checks and where its configuration lives. 'Fails' means a finding
 
 | Plugin | Applies | Adds |
 |---|---|---|
-| library-conventions | java-library, spring-conventions | Library packaging (api and implementation configurations). Used by 24 modules. |
-| spring-conventions | java, quality, jacoco conventions; Spring dependency management | Boot, Spring AI and Netty BOMs; spring-boot-starter-test and reactor-test. Used directly by boot and ui. |
+| library-conventions | java-library, spring-conventions | Library packaging (api and implementation configurations). Used by 30 modules. |
+| spring-conventions | java, quality, jacoco conventions; Spring dependency management | Boot and Spring AI BOMs; spring-boot-starter-test and reactor-test. Used directly by boot and ui. |
 | java-conventions | java, Lombok plugin | Toolchain 25, release 25, -parameters, Maven Central, JUnit launcher, test task settings. |
 | quality-conventions | Spotless, Checkstyle, PMD, SpotBugs, Error Prone, licensee | Rule wiring, licence allow-list, OpenGrep task, Aot exemptions, plexus-utils pin. |
 | jacoco-conventions | jacoco | coverageConfig extension, defaults, floor, stale and disabled guards, report wiring. |
@@ -667,9 +663,9 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 
 <AccordionGroup>
 <Accordion title="Precompiled convention plugins in an included build">
-**Context.** 27 modules must share the same toolchain and gates. Copying build code would drift, and rules that sit in a root script cannot be versioned or tested as a unit.
+**Context.** 33 modules must share the same toolchain and gates. Copying build code would drift, and rules that sit in a root script cannot be versioned or tested as a unit.
 
-**Decision.** Put the rules in build-logic, an included build that compiles six precompiled Kotlin-DSL plugins. Modules apply them by id.
+**Decision.** Put the rules in build-logic, an included build that compiles seven precompiled Kotlin-DSL plugins. Modules apply them by id.
 
 **Consequences.** One change updates every module. A mistake breaks every module at once, and the build-logic compile happens before everything else.
 
@@ -683,7 +679,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 
 **Decision.** build-logic/settings.gradle.kts loads ../gradle/libs.versions.toml; modules use the same file.
 
-**Consequences.** One bump updates both. Anything outside the catalog breaks the single-source promise; the Netty line left in gradle.properties is such a leftover.
+**Consequences.** One bump updates both. Anything outside the catalog breaks the single-source promise.
 
 **Alternatives considered.** Versions inline in plugin and module files: scattered. A separate catalog for build-logic: two files to keep in step.
 
@@ -717,7 +713,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 <Accordion title="OpenGrep with a pinned local ruleset, skipped when absent">
 **Context.** Registry rules were downloaded at build time, which is network-dependent and changes under us. The scanner is not a required local tool.
 
-**Decision.** Keep four rules in config/opengrep/.semgrep.yml, run with --error, skip silently if the program is missing, and install a pinned, checksum-verified version in CI.
+**Decision.** Keep four rules in config/opengrep/.semgrep.yml, run with --error, warn and skip locally if the program is missing (fail on CI), and install a pinned, checksum-verified version in CI.
 
 **Consequences.** Reproducible and offline, but few rules, and a gate that locally can pass without running.
 
@@ -769,13 +765,13 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | Term | Meaning | Note |
 |---|---|---|
 | Gradle | The build tool that compiles, tests and packages the code. | Every command here is a Gradle command: ./gradlew check. |
-| Module | One separately built part of the repository with its own build.gradle.kts. | 27 modules share the same rules through build-logic. |
+| Module | One separately built part of the repository with its own build.gradle.kts. | 33 modules share the same rules through build-logic. |
 | Convention plugin | A plugin written in this repository that applies a bundle of settings to a module. | It is how rules reach all modules from one place. |
 | Included build | A separate Gradle build that the main build compiles first and pulls in by name. | build-logic is one, so its plugins exist before any module is configured. |
 | Precompiled script plugin | A plugin written as a build script (.gradle.kts) that Gradle compiles ahead of time into a real plugin. | Faster and easier to write than a full plugin class. |
 | Kotlin DSL | Gradle build files written in Kotlin (.kts). | Gives autocompletion and type checks in the build scripts. |
 | Version catalog | A single file (libs.versions.toml) naming versions and libraries. | Modules write libs.reactor.core and get the same version everywhere. |
-| BOM (bill of materials) | A published list of library versions that are known to work together. | Spring Boot, Spring AI and Netty each publish one. |
+| BOM (bill of materials) | A published list of library versions that are known to work together. | Spring Boot and Spring AI each publish one. |
 | Toolchain | The JDK version Gradle uses to compile and test, chosen by the build rather than by what is installed. | Java 25 is required; no auto-download is configured. |
 | Lombok | A compile-time tool that generates getters, constructors and builders from annotations. | Cuts boilerplate; its output is tagged so coverage ignores it. |
 | Spotless | A formatter plugin that checks or fixes code style and file headers. | ./gradlew spotlessApply fixes files before a commit. |
@@ -797,7 +793,7 @@ The old guide listed eight modules with entries; none of that is true now. Verif
 | MapStruct | A generator that writes mapping code between data classes. | Its generated mappers contain branches tests cannot reach, hence web's exception. |
 | AOT (ahead-of-time) | Spring's build step that generates code to avoid reflection at run time, needed for native images. | Quality tasks skip this generated code. |
 | GraalVM native image | A way to compile a Java app into a standalone executable. | Links libraries statically, which is why licences matter more. |
-| Netty | The network library under Spring WebFlux. | Its version is set in two places here. |
+| Netty | The network library under Spring WebFlux. | Its version lives in the catalog, for the `boot` check. |
 | CVE | A numbered public record of a security vulnerability. | Netty and plexus-utils are pinned to avoid listed CVEs. |
 | Dependency locking | Recording exact resolved versions of every dependency in files committed to git. | Not used: dropped in #502. |
 | Trivy | A scanner for vulnerabilities, secrets and licences in a repository. | On demand locally; in CI it gates main. |
