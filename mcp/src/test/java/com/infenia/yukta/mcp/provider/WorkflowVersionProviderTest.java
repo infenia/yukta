@@ -19,6 +19,7 @@ import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
@@ -123,13 +124,14 @@ class WorkflowVersionProviderTest {
     when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s", "w1")).thenReturn(Mono.just(current));
     when(definitions.save("s", old)).thenReturn(Mono.empty());
-    when(definitions.save("s", current)).thenReturn(Mono.empty());
+    when(definitions.replaceIfCurrent("s", old, Optional.of(current)))
+        .thenReturn(Mono.just(true));
     when(controlBus.compileAndCacheWorkflow("s", old))
         .thenReturn(Mono.error(new IllegalStateException("plugin type removed")));
 
     StepVerifier.create(provider.rollback("s", "w1", "0001-a"))
         .verifyErrorMessage("plugin type removed");
-    verify(definitions).save("s", current);
+    verify(definitions).replaceIfCurrent("s", old, Optional.of(current));
   }
 
   @Test
