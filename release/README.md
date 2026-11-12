@@ -93,10 +93,8 @@ One pull request to approve, one button to press.
      server binaries, and the image's signature and provenance, rebuilds the CLI and compares it with
      the released files (it is reproducible), installs it with `install.sh` and
      the `.deb` on a clean Ubuntu container, pulls the image logged out and runs the Quickstart on it.
-   The server job does not record a PGO profile: the instrumented build ran out of memory in
-   `0.1.0-alpha.2` and hung in `0.1.0-alpha.3` on the hosted runner (4 vCPU, 16 GB). The binary is `-O3` with
-   the profile Graal infers itself, as in alpha.2. For a recorded profile, run `release/pgo-profile.sh` on a
-   machine with enough memory and rebuild with `NATIVE_PGO_PROFILE`, or move the job to a larger runner.
+   The server is built with GraalVM Community Edition (default `-O2`, no PGO profile), so the binaries carry
+   no licence terms beyond Yukta's own.
 4. **Publish.** When the workflow is green, open the draft, and for a first run of a changed pipeline
    also run the `cosign verify-blob` from "Verify a download" below on the draft's files yourself, add highlights and known limitations to the
    notes, keep "pre-release" ticked for a version with a `-`, and press Publish. *Why a person:* this is
@@ -162,7 +160,7 @@ cosign verify ghcr.io/infenia/yukta:X.Y.Z \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
 ```
 
-Each server binary has a CycloneDX SBOM: embedded in it (`native-image-inspect --sbom yukta`), attached as
+Each server binary has a CycloneDX SBOM (the runtime classpath, from the `cyclonedxDirectBom` Gradle task), attached as
 `yukta-X.Y.Z-<platform>.sbom.json`, and attested (`gh attestation verify yukta -R infenia/yukta
 --predicate-type https://cyclonedx.org/bom`). Scan it with `trivy sbom <file>`.
 

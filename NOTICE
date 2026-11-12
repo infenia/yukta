@@ -11,6 +11,7 @@ The plus/ directory is licensed under the GNU Affero General Public License, ver
 (AGPL-3.0-only). Everything else is licensed under the Apache License, Version 2.0.
 See LICENSING.md.
 
-The release binaries and the Docker image are native executables built with Oracle GraalVM and
-include parts of it, used under the GraalVM Free Terms and Conditions (GFTC). They are distributed
-free of charge, as the GFTC requires.
+The release binaries and the Docker image are native executables built with GraalVM Community
+Edition and include parts of its runtime (SubstrateVM, OpenJDK classes), which are licensed under
+the GNU General Public License, version 2, with the Classpath Exception, so they may be distributed
+under the licence of the application.
