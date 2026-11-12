@@ -59,8 +59,7 @@ import reactor.util.context.Context;
   "PMD.ExcessiveImports",
   "PMD.ShortMethodName",
   "PMD.TooManyMethods",
-  "PMD.TooManyStaticImports",
-  "PMD.UnitTestShouldIncludeAssert"
+  "PMD.TooManyStaticImports"
 })
 class SupervisorServiceTest {
 
