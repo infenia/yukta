@@ -113,7 +113,7 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
       final KeyMap<String> keys = keys(term);
       final BindingReader reader = new BindingReader(term.reader());
       try {
-        Size size = term.getSize();
+        Size size = ConsoleView.fit(term.getSize());
         display.resize(size.getRows(), size.getColumns());
         while (!view.quit()) {
           if (Duration.between(lastPoll, Instant.now()).toMillis() >= 1000) {
@@ -121,7 +121,7 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
             lastPoll = Instant.now();
           }
           if (dirty.getAndSet(false)) {
-            size = term.getSize();
+            size = ConsoleView.fit(term.getSize());
             display.resize(size.getRows(), size.getColumns());
             display.clear();
           }
