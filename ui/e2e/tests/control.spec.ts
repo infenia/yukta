@@ -204,7 +204,7 @@ test.describe('Control page', () => {
     await expect.poll(() => posted).toBe('?maxConcurrent=5&maxPerWorkflow=0');
   });
 
-  test('shows a supervisor summary tile that links to the Supervisors page', async ({
+  test('shows the supervisor counts and decisions, and links to a supervisor', async ({
     page,
   }) => {
     await mockControlApi(page, []);
@@ -241,14 +241,12 @@ test.describe('Control page', () => {
     );
     await page.goto('/control');
 
-    const tile = page.getByRole('link', { name: 'Supervisors' }).last();
-    await expect(tile).toContainText('1 active');
-    await expect(tile).toContainText(
-      '2 workflows nobody owns · 1 conflict · 0.1 decisions/min'
-    );
-    await expect(page.getByRole('article', { name: /Supervisor/ })).toHaveCount(
-      0
-    );
+    const section = page.getByRole('region', { name: 'Supervisors' });
+    await expect(section).toContainText('Under direct control2');
+    await expect(section).toContainText('Conflicts1');
+    await expect(section).toContainText('Applied1');
+    await section.getByRole('link', { name: 'guard' }).click();
+    await expect(page).toHaveURL(/\/supervisors\?supervisor=guard/);
   });
 
   test('kiosk mode fills the screen, cycles the panels and leaves on Escape', async ({
@@ -302,7 +300,7 @@ test.describe('Control page', () => {
       page.getByRole('heading', { name: 'Who did what' })
     ).toHaveCount(0);
 
-    await page.getByRole('tab', { name: 'audit' }).click();
+    await page.getByRole('tab', { name: 'Audit' }).click();
     await expect(page).toHaveURL(/tab=audit/);
     await expect(
       page.getByRole('heading', { name: 'Who did what' })

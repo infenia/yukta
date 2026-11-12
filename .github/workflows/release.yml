@@ -195,7 +195,7 @@ jobs:
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         if: runner.os != 'Linux'
         with:
-          version: 12.16.1
+          version: 12.16.1   # keep in sync with .github/actions/setup-build
 
       # No PGO profile and no static link here (both are Linux/Docker only), -O3 with GraalNN.
       - name: Native compile (${{ matrix.platform }})

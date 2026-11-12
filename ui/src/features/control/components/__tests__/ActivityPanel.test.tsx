@@ -44,10 +44,13 @@ const ok = (data: unknown) =>
 let auditCalls = 0;
 let supervisorCalls = 0;
 const server = setupServer(
-  http.get('/api/supervisors/status', () => {
+  http.get('/api/supervision/summary', () => {
     supervisorCalls++;
-    return ok([]);
+    return ok({ unowned: 0, unownedWorkflows: [], conflicts: 0 });
   }),
+  http.get('/api/supervisors/decisions', () => ok([])),
+  http.get('/api/supervisors/assignments', () => ok([])),
+  http.get('/api/supervisors', () => ok([])),
   http.get('/api/control/audit', () => {
     auditCalls++;
     return ok([]);
@@ -197,13 +200,13 @@ describe('ActivityPanel', () => {
       await screen.findByRole('heading', { name: 'Execution limits' })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'activity' }));
+    await user.click(screen.getByRole('tab', { name: 'Activity' }));
     expect(screen.getByTestId('where')).toHaveTextContent('tab=activity');
     expect(
       screen.getByRole('region', { name: 'Activity' })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
     expect(screen.getByTestId('where')).not.toHaveTextContent('tab=');
     expect(
       await screen.findByRole('heading', { name: 'Execution limits' })

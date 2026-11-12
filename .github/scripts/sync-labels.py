@@ -9,7 +9,7 @@ Usage: sync-labels.py --check            validate labels.yml and that every labe
        sync-labels.py [--apply] <repo>   show (or, with --apply, make) the changes on GitHub
 
 The sync creates and updates labels, never deletes them: a label that is missing from the file
-is only reported. Needs PyYAML (pinned in .github/requirements/yamllint.txt) and, for a sync,
+is only reported. Needs PyYAML (pinned in .github/requirements/ci-tools.txt) and, for a sync,
 the gh CLI with GH_TOKEN allowed to write issues.
 """
 import json

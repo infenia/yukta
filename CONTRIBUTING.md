@@ -1,64 +1,54 @@
 # Contributing to Yukta
 
-First off, thank you for considering contributing to Yukta! It's people like you that make Yukta such a great tool.
+Thank you for helping. Bug reports, plugins, docs, tests and examples are all welcome, and a small first pull request is a good one.
 
-Yukta is an open-source project developed under **Infenia Private Limited**. We welcome contributions from everyone.
+| I want to... | Do this |
+|---|---|
+| Ask a question or float an idea | [Discussions](https://github.com/infenia/yukta/discussions) |
+| Report a bug | [Bug report](https://github.com/infenia/yukta/issues/new?template=bug_report.yml) |
+| Propose a feature | [Feature request](https://github.com/infenia/yukta/issues/new?template=feature_request.yml) |
+| Find something to work on | [Good first issues](https://github.com/infenia/yukta/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and [help wanted](https://github.com/infenia/yukta/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) |
+| Report a vulnerability | Privately, see [`SECURITY.md`](SECURITY.md). Not an issue. |
 
-## Code of Conduct
+By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
-By participating in this project, you agree to abide by the [Code of Conduct](CODE_OF_CONDUCT.md).
+## Set up
 
-## How Can I Contribute?
+You need **JDK 25** and Git. The UI (`ui/`) also needs Node and pnpm, and the CLI (`cli/`) needs Go; you can skip both if you only change Java.
 
-### Reporting Bugs
+```bash
+git clone https://github.com/<you>/yukta && cd yukta   # your fork
+./gradlew bootRun                                      # server and UI at http://localhost:9858
+```
 
-* Search the [issue tracker](https://github.com/infenia/yukta/issues) first; add to an existing
-  issue rather than opening a duplicate.
-* Open a [bug report](https://github.com/infenia/yukta/issues/new?template=bug_report.yml). The form
-  asks for what happened, steps to reproduce, the module, the severity, the version and your
-  environment.
-* Report security vulnerabilities privately through
-  [a security advisory](https://github.com/infenia/yukta/security/advisories/new), not an issue.
+Then run only what covers your change while you work, and the full gate once before you push:
 
-### Suggesting Enhancements
+```bash
+./gradlew :core:test --tests '*WorkflowOrchestratorTest'   # one test class
+./gradlew :core:check                                      # one module: tests + static analysis
+./gradlew spotlessApply                                    # format (also adds license headers)
+./gradlew check                                            # everything, before the PR
+```
 
-* Search the issue tracker, then open a
-  [feature request](https://github.com/infenia/yukta/issues/new?template=feature_request.yml).
-* Describe the problem or use case first, then the solution you have in mind.
-* Usage questions and open-ended ideas go to
-  [Discussions](https://github.com/infenia/yukta/discussions).
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/diagrams/module-map.dark.svg">
+  <img alt="Module map: clients (REST, web UI, MCP, CLI) reach the edge modules web, mcp and ui, which call core (the engine and control plane). core uses plugin-api and plugins, messaging, persistence-postgres and workers. boot wires them together into one Spring Boot app." src="docs/images/diagrams/module-map.light.svg">
+</picture>
 
-### How work is tracked
+The module table is in the [README](README.md#develop). Each module has a `CLAUDE.md` with its build commands and architecture notes; they are written for AI assistants and read just as well by people.
 
-Every bug, risk, improvement and plan is a GitHub issue on the
-[Yukta Roadmap project](https://github.com/orgs/infenia/projects). The documentation site holds
-product documentation only. In short:
+## Pull requests
 
-* The issue **type** (Bug, Feature, Task, Epic) says what an issue is; area labels (`core`, `web`,
-  `plugins`, ...) say where it is.
-* New issues start in **Triage**. A maintainer sets the module and priority and moves them to the
-  backlog.
-* Larger work is an **Epic** with sub-issues; its design text is in `design/`.
-* Link your PR to its issue with `Fixes #<n>`; the project then moves the issue to *In review*,
-  and to *Done* when the PR merges.
+1. **Fork** and branch from `main`.
+2. **Make the change**, with tests for new behaviour and docs for anything a user would notice.
+3. **Run** `./gradlew spotlessApply` and `./gradlew check`.
+4. **Open the pull request.**
+   - Title it as a [Conventional Commit](https://www.conventionalcommits.org/), for example `feat(core): add retry budget`. A check enforces it, because the title becomes the squash commit on `main` and groups the release notes.
+   - Link the issue it resolves with `Fixes #123`.
+   - Say what changed and how you tested it.
+5. **Sign the CLA** when the bot asks (first pull request only, see [below](#license-and-contributor-license-agreement)).
 
-Fields, views and triage rules: [.github/PROJECT.md](.github/PROJECT.md).
-
-### Pull Requests
-
-1. **Fork the repository** and create your branch from `main`.
-2. **Setup your development environment** (see [Development Setup](docs/development-setup.md)).
-3. **Make your changes**. Ensure your code follows the project's coding standards.
-4. **Run quality checks**:
-    * `./gradlew spotlessApply` to format your code.
-    * `./gradlew check` to run tests and static analysis (Checkstyle, PMD, SpotBugs).
-5. **Write tests** for any new functionality.
-6. **Update documentation** if you're adding or changing features.
-7. **Submit a Pull Request**.
-    * Title it as a Conventional Commit (`feat(core): add retry budget`); a check enforces it,
-      since the title becomes the squash commit on `main` and groups the release notes.
-    * Link the issue it resolves (`Fixes #123`).
-    * Provide a summary of your changes.
+Commit types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`.
 
 ### What CI runs on your PR
 
@@ -74,25 +64,36 @@ docs-only PR builds nothing. The `Detect Changed Modules` job summary shows the 
 
 Details: [.github/WORKFLOWS.md](.github/WORKFLOWS.md).
 
-## Coding Standards
+## Coding standards
 
-* We follow the **Google Java Style Guide**.
-* We use **Java 25** (with Java 21 toolchain compatibility).
-* **PMD** and **Checkstyle** are enforced during the build.
-* All new methods should have Javadoc.
-* Keep methods small and focused (Single Responsibility Principle).
+* **Java 25**, formatted to the **Google Java Style Guide** by Spotless (2-space indent, 100 columns). Do not format by hand; run `spotlessApply`.
+* **Checkstyle, PMD and SpotBugs** run in `check`, on main and test code.
+* Javadoc on new public methods.
+* Small, focused methods. Records for data carriers; Lombok (`@Slf4j`, `@RequiredArgsConstructor`, `@Builder`) instead of hand-written boilerplate.
 
-## Commit Messages
+## Reporting bugs and suggesting features
 
-We prefer **Conventional Commits**:
+* Search the [issue tracker](https://github.com/infenia/yukta/issues) first; add to an existing
+  issue rather than opening a duplicate.
+* A bug report asks for what happened, steps to reproduce, the module, the severity, the version
+  and your environment.
+* For a feature, describe the problem or use case first, then the solution you have in mind.
 
-* `feat: ...` for new features.
-* `fix: ...` for bug fixes.
-* `docs: ...` for documentation changes.
-* `style: ...` for formatting, missing semi colons, etc; no code change.
-* `refactor: ...` for refactoring production code.
-* `test: ...` for adding missing tests.
-* `chore: ...` for updating build tasks, etc; no production code change.
+## How work is tracked
+
+Every bug, risk, improvement and plan is a GitHub issue on the
+[Yukta Roadmap project](https://github.com/orgs/infenia/projects). The documentation site holds
+product documentation only. In short:
+
+* The issue **type** (Bug, Feature, Task, Epic) says what an issue is; area labels (`core`, `web`,
+  `plugins`, ...) say where it is.
+* New issues start in **Triage**. A maintainer sets the module and priority and moves them to the
+  backlog.
+* Larger work is an **Epic** with sub-issues; its design text is in `design/`.
+* Link your PR to its issue with `Fixes #<n>`; the project then moves the issue to *In review*,
+  and to *Done* when the PR merges.
+
+Fields, views and triage rules: [.github/PROJECT.md](.github/PROJECT.md). How decisions are made: [`GOVERNANCE.md`](GOVERNANCE.md).
 
 ## License and Contributor License Agreement
 
