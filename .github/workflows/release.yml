@@ -198,14 +198,14 @@ jobs:
         timeout-minutes: 90
         env:
           HEAP: ${{ matrix.heap }}
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
           QUICK: ${{ inputs.quick }}
         run: |
           quick=()
           [ "$QUICK" != true ] || quick=(-Pnative.quick)
           ./gradlew nativeCompile -x test --no-daemon "-Pnative.heap=$HEAP" "${quick[@]}"
           source release/lib.sh
-          out="dist/$PLATFORM"
+          out="dist/$TARGET_PLATFORM"
           mkdir -p "$out"
           cp boot/build/native/nativeCompile/yukta* "$out/"   # yukta or yukta.exe, plus any shared libraries
           write_build_marker "$out"
