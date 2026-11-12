@@ -33,9 +33,8 @@ export function HeatStrip({
         const failing = !!c.failureRatio && c.failureRatio > 0.05;
         const base = failing ? 'var(--destructive)' : 'var(--chart-1)';
         return (
-          <Tip label={c.label}>
+          <Tip key={i} label={c.label}>
             <span
-              key={i}
               data-failing={failing || undefined}
               className="bg-muted aspect-square rounded-[2px]"
               style={{

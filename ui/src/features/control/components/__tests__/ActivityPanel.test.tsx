@@ -44,10 +44,13 @@ const ok = (data: unknown) =>
 let auditCalls = 0;
 let supervisorCalls = 0;
 const server = setupServer(
-  http.get('/api/supervisors/status', () => {
+  http.get('/api/supervision/summary', () => {
     supervisorCalls++;
-    return ok([]);
+    return ok({ unowned: 0, unownedWorkflows: [], conflicts: 0 });
   }),
+  http.get('/api/supervisors/decisions', () => ok([])),
+  http.get('/api/supervisors/assignments', () => ok([])),
+  http.get('/api/supervisors', () => ok([])),
   http.get('/api/control/audit', () => {
     auditCalls++;
     return ok([]);
