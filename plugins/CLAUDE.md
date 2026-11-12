@@ -11,6 +11,9 @@ Implementations of various Yukta plugins.
 - **Supervisor engines**: Located in `supervisors/`. Modules: `rules` (type `rules`: declarative JSON/SpEL rules, presets `failure-guard`, `stall-watchdog`, `approval-gate`, timed `every` rules; the `rule-supervisor` bean is enabled by `yukta.supervisor.rules.file` but owns nothing), and `process-engine` (type `process`, JSON lines on stdin/stdout; `yukta.process.allowed-commands`). Engines depend on `plugin-api` only (ArchUnit). Rules can also answer or escalate input requests (`then.answer`, `then.escalate`; only with `canAnswer`/`maxRisk`, never `HIGH`); example: `../examples/16-supervisor-profiles/input-requests.json`, loaded by `InputRulesExampleTest`. The control planes (`rule`, `model`, `rules-first`) were removed in S7.
 
 
+## Tiers and enabling
+Every plugin has `getTier()` (`CORE`, `EXTENDED`, `SPECIFIC`; default `CORE`) and `isRestricted()` (reaches outside the engine). `PluginRegistry` registers CORE and unrestricted EXTENDED plugins always; SPECIFIC and restricted ones only when named in `yukta.plugins.enabled` (env `YUKTA_PLUGINS_ENABLED`, a list of types, or `all`). `GET /api/plugins` and the `list_plugins` / `get_plugin_details` MCP tools show every plugin with `tier`, `restricted`, `enabled` and `enableWith`, and a workflow that uses a disabled type fails validation with the setting to change. `PluginTierAcceptanceTest` lists every plugin: a new one must be classified there. `boot` tests run with `all`.
+
 ## Config schema
 Declare `getConfigSchema()` (see `ConfigField`) on a plugin to get a generated config form in the UI. Every plugin that takes configuration declares one (`API_TRIGGER` and `CONSOLE_TERMINAL` take none); a new plugin without a schema falls back to the JSON editor and the usage pattern. Keep field names equal to the keys the plugin reads, and add a test pinning the names and which are required.
 
