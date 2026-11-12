@@ -10,7 +10,7 @@ descriptions, defaults, allowed values), plus a listing of backends and harness 
 ## Verified starting point (origin/main)
 - Control planes are gone (S7). `decision` is the only user of `SystemOneModel`/`ChatDecisionModel`; `DecisionModels` picks by `ModelSpec.Backend {SYSTEMONE, LLM}`.
 - `LlmGateway.call(LlmRequest)` is synchronous and returns one `LlmResponse`; it owns provider choice, rate limits, deny patterns, budgets.
-- `ProcessExecutorGateway.executeForResult(spec)` returns one final `ProcessExecutionResult` (`Mono`). There is no line-by-line stream. An agent session that shows live events needs a streaming method added to the gateway (same allow-list, same limits).
+- `ProcessExecutorGateway.executeForResult(spec, PluginLogSink)` already hands every stdout/stderr line to the sink as the process writes it, and cancelling the subscription kills the process tree (corrected in phase 3; the first version of this note said the gateway had no streaming). `AGENT_SESSION` parses events in its own sink and needs no new gateway method.
 - Claude Code (2.1.322, installed) supports `-p` with `--output-format stream-json`, `--resume <id>`, `--allowedTools`, `--permission-mode`. Codex is not installed here: its flags must be checked against the real CLI in phase 6, not assumed.
 - #1955/#1956: new plugin types are tiered; `AGENT_SESSION` is EXTENDED + restricted, so it is off unless named in `yukta.plugins.enabled`.
 
@@ -33,7 +33,7 @@ kinds: openai | anthropic | ollama | systemone | agent
 ### 2. AGENT_SESSION processor (EXTENDED, restricted)
 Config: `harness` (preset id), `prompt`, `session`, `model`, `env`, `workingDir`, `timeout`, `maxTurns`, `onBusy`, `failureMode`.
 Ports `success`, `failure`, `incomplete`; payload `{status, reason, text, sessionId, turn}`.
-- Spawns only through `ProcessExecutorGateway` (existing allow-list), via a new streaming variant that emits stdout lines as they arrive; cancel kills the process tree.
+- Spawns only through `ProcessExecutorGateway` (existing allow-list) with a sink that parses stdout lines into events as they arrive; cancel kills the process tree.
 - Presets (JSON): `command` template, how the prompt reaches the process (arg or stdin), `outputFormat` (`stream-json` | `json` | `text`) with a small event mapping (JSON path to event type: text, tool, question, done, session id), `resume` (flag and where the token comes from), `capabilities` (`resume`, `stream`, `ask`). `validateConfig` fails early when a node asks for what the preset cannot do.
 - Discoverability: the `harness` field's `options` are filled from the loaded presets, and `GET /api/ai/harnesses` returns each preset with its capabilities and example config.
 - Sessions: in-memory store behind a small interface, one turn at a time per session key, `onBusy` WAIT or FAIL.
@@ -43,7 +43,7 @@ Ports `success`, `failure`, `incomplete`; payload `{status, reason, text, sessio
 ## Phases (one PR each)
 1. This note.
 2. Backend layer extraction + `systemone` as a kind + `/api/ai/backends` + MCP tool; decision imports no concrete backend. Tests: decision, llm-call, boot start with no Ollama.
-3. Streaming variant on `ProcessExecutorGateway` (generic, also useful for PROCESS_EXECUTOR logs); conformance for cancel/thread leak.
+3. Done, tests only (#2296): pin live line delivery and tree kill on cancel in `ProcessExecutorGatewayTest`.
 4. `AGENT_SESSION` v1 with Claude Code preset: single turn, events, cancel, timeout, ports. `/api/ai/harnesses`.
 5. Sessions (resume, store, `onBusy`, `maxTurns`).
 6. Ask through `InputGateway`.
