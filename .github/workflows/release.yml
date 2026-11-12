@@ -198,14 +198,14 @@ jobs:
         timeout-minutes: 90
         env:
           HEAP: ${{ matrix.heap }}
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
           QUICK: ${{ inputs.quick }}
         run: |
           quick=()
           [ "$QUICK" != true ] || quick=(-Pnative.quick)
           ./gradlew nativeCompile -x test --no-daemon "-Pnative.heap=$HEAP" "${quick[@]}"
           source release/lib.sh
-          out="dist/$PLATFORM"
+          out="dist/$TARGET_PLATFORM"
           mkdir -p "$out"
           cp boot/build/native/nativeCompile/yukta* "$out/"   # yukta or yukta.exe, plus any shared libraries
           write_build_marker "$out"
@@ -236,7 +236,7 @@ jobs:
 
       - name: Attest the SBOM
         if: github.ref_type == 'tag'
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
           sbom-path: dist/${{ matrix.platform }}/yukta.sbom.json
