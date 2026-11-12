@@ -147,13 +147,13 @@ val opengrep = tasks.register<Exec>("opengrep") {
     val required = providers.gradleProperty("yukta.requireOpengrep").isPresent
     // `opengrep --version`, absent when the program is not on the PATH. A provider (not shared state),
     // so it is safe in parallel and under the configuration cache; ponytail: one cheap probe per module.
-    val scannerVersion = providers.provider {
-        try {
-            providers.exec { commandLine("opengrep", "--version") }.standardOutput.asText.get().trim()
-        } catch (_: Exception) {
-            null
-        }
-    }
+    // The shell makes a missing program an empty answer instead of a failure to start a process, which
+    // the configuration cache would record as a problem.
+    val windows = System.getProperty("os.name").startsWith("Windows")
+    val scannerVersion = providers.exec {
+        commandLine(if (windows) listOf("cmd", "/c", "opengrep --version 2>nul") else listOf("sh", "-c", "opengrep --version 2>/dev/null"))
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim() }.filter { it.isNotEmpty() }
 
     // Relative paths: the key must not depend on where the checkout is (worktrees, CI), or the
     // build cache never hits across them. The scanner version is an input, so an upgrade rescans.
