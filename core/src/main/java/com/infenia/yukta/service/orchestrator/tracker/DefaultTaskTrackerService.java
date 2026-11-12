@@ -297,7 +297,7 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
           executionIndex.put(executionId, state);
           sessionUsed.put(sessionId, clock.getAsLong());
           evictOldSessions(sessionId);
-          telemetry.runStarted(executionId, sessionId, workflowId);
+          state.traceId = telemetry.runStarted(executionId, sessionId, workflowId);
 
           latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
 
@@ -649,7 +649,8 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         state.definitionVersion,
         state.parentExecutionId,
         state.rootExecutionId,
-        state.restartOf);
+        state.restartOf,
+        state.traceId);
   }
 
   /**

@@ -8,9 +8,13 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.TraceContext;
+import io.micrometer.tracing.handler.TracingObservationHandler.TracingContext;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -47,16 +51,24 @@ final class RunTelemetry {
     this.observations = observations;
   }
 
-  /* default */ void runStarted(
+  /** Starts the run observation; returns its trace id, or null when no tracer is configured. */
+  /* default */ String runStarted(
       final String executionId, final String sessionId, final String workflowId) {
-    runSpans.put(
-        executionId,
+    final Observation run =
         Observation.createNotStarted("yukta.run", observations)
             .contextualName("run " + workflowId)
             .highCardinalityKeyValue("executionId", executionId)
             .highCardinalityKeyValue("sessionId", sessionId)
             .highCardinalityKeyValue("workflowId", workflowId)
-            .start());
+            .start();
+    runSpans.put(executionId, run);
+    // the tracing handler (boot) puts its span into the context; absent without a tracer
+    return Optional.ofNullable(run.getContext().<TracingContext>get(TracingContext.class))
+        .map(TracingContext::getSpan)
+        .map(Span::context)
+        .map(TraceContext::traceId)
+        .filter(traceId -> !traceId.isEmpty())
+        .orElse(null);
   }
 
   /** Notes the run status: times the wait in the queue, and the run itself once it ended. */

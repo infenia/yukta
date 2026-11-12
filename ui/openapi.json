@@ -6572,6 +6572,9 @@
             },
             "type" : "array"
           },
+          "traceId" : {
+            "type" : [ "string", "null" ]
+          },
           "workflowId" : {
             "type" : "string"
           }
