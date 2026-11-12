@@ -38,6 +38,25 @@ class ExecutionSupervisorTest {
   }
 
   @Test
+  void engineType_defaultsToTheClassName_orTheFullNameOfAnAnonymousClass() {
+    assertThat(new Observer().engineType()).isEqualTo("Observer");
+
+    final ExecutionSupervisor anonymous =
+        new ExecutionSupervisor() {
+          @Override
+          public String id() {
+            return "anonymous";
+          }
+
+          @Override
+          public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
+            return Flux.empty();
+          }
+        };
+    assertThat(anonymous.engineType()).isEqualTo(anonymous.getClass().getName());
+  }
+
+  @Test
   void decision_denyCarriesTheReason() {
     assertThat(Decision.ALLOW.allowed()).isTrue();
     assertThat(Decision.deny("why").allowed()).isFalse();

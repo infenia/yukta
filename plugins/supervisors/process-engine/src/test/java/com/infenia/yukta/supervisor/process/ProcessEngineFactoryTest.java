@@ -61,6 +61,7 @@ class ProcessEngineFactoryTest {
   @Test
   void itDescribesItselfAndChecksTheSettings() {
     assertThat(factory.type()).isEqualTo("process");
+    assertThat(factory.describe().name()).isEqualTo("Local program");
     assertThat(factory.describe().canInitiate()).isTrue();
     assertThat(factory.getConfigSchema())
         .extracting(f -> f.name())

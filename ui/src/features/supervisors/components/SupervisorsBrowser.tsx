@@ -129,23 +129,34 @@ function SupervisorPanel({
   const [tab, setTab] = useState<DetailTab>('Owns');
   const types = useSupervisorTypes();
   const maker = decisionMaker(supervisor.type, types.data);
+  // a type the catalog does not list (a plugin's) has no page to open
+  const listed = types.data?.some((t) => t.type === supervisor.type) ?? false;
+  const makerLabel = (
+    <>
+      <span
+        aria-hidden="true"
+        className="size-2 rounded-full"
+        style={{ background: maker.color }}
+      />
+      {maker.name}
+    </>
+  );
   const parents = supervisor.parents ?? [];
   return (
     <article className="mx-auto flex max-w-5xl min-w-0 flex-col gap-5">
       <header>
         <h2 className="text-headline-lg text-on-surface">{supervisor.id}</h2>
         <div className="text-body-md text-on-surface-variant mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link
-            to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
-            className="text-primary inline-flex items-center gap-2"
-          >
-            <span
-              aria-hidden="true"
-              className="size-2 rounded-full"
-              style={{ background: maker.color }}
-            />
-            {maker.name}
-          </Link>
+          {listed ? (
+            <Link
+              to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
+              className="text-primary inline-flex items-center gap-2"
+            >
+              {makerLabel}
+            </Link>
+          ) : (
+            <span className="inline-flex items-center gap-2">{makerLabel}</span>
+          )}
           {supervisor.dryRun ? (
             <span className="text-attention inline-flex items-center gap-1">
               <span

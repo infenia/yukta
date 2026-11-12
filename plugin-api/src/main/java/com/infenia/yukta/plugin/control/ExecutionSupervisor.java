@@ -24,6 +24,18 @@ public interface ExecutionSupervisor {
   String id();
 
   /**
+   * The kind of supervisor, as the API reports it. It matches the engine's type name when an engine
+   * makes the supervisor (for example {@code rules}), so the catalog entry of that engine can be
+   * found by it. The default is the class name, for a supervisor with no engine.
+   *
+   * @return the type name; the simple class name, or the full name of an anonymous class
+   */
+  default String engineType() {
+    final Class<?> type = getClass();
+    return type.getSimpleName().isEmpty() ? type.getName() : type.getSimpleName();
+  }
+
+  /**
    * Which runs this supervisor watches and may veto. It sees only the events of runs within the
    * scope, and is asked to review only the commands of such runs; a command that belongs to no run,
    * such as {@code SetLimitsCommand}, is reviewed by global supervisors only.
