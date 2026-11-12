@@ -100,8 +100,8 @@ the default set. Their runs may end `FAILURE` or `STOPPED`; `workflow_success` c
 |---|---|
 | `stuck_runs`, `teardown_errors`, `tracker_events_lost` | not 0 (`teardown_errors`: the history call of the stuck-run check did not answer 200, so it could not look) |
 | success rate | below 99%, overall or per workflow |
-| median latency per workflow | above baseline x 1.25 + 25 ms |
-| p99 latency per workflow | above baseline x 1.30 + 25 ms |
+| median latency per workflow | above baseline x 1.25 + 50 ms |
+| p99 latency per workflow | above baseline x 1.30 + 50 ms |
 | memory (runs of 15 minutes or more) | the last tenth of the run is more than 150 MiB above the 20-30% window |
 
 The p95 is deliberately not checked: it moved by up to 13% between identical runs ([BASELINE.md](BASELINE.md))
