@@ -419,10 +419,12 @@ jobs:
             --signer-workflow "$REPO/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
 
       - name: Install on a clean machine
+        env:
+          UBUNTU: ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5
         run: |
           (cd "$RUNNER_TEMP/rel" && python3 -m http.server 8765 --bind 127.0.0.1 &)
           sleep 2
-          docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5 bash -euc "
+          docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" "$UBUNTU" bash -euc "
             apt-get update -qq && apt-get install -y -qq curl >/dev/null
             curl -fsSL http://127.0.0.1:8765/$TAG/install.sh | YUKTA_DOWNLOAD_BASE=http://127.0.0.1:8765 sh
             yukta-cli --version   # root installs to /usr/local/bin
