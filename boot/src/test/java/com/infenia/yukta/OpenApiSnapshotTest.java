@@ -55,10 +55,8 @@ class OpenApiSnapshotTest {
             .enable(SerializationFeature.INDENT_OUTPUT)
             .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
             .build();
-    // The server URL is the random port of this run.
     final Map<String, Object> spec = mapper.readValue(response.body(), Map.class);
-    spec.remove("servers");
-    final String actual = sortedKeys(mapper, spec);
+    final String actual = comparable(mapper, spec);
 
     if (Boolean.getBoolean("yukta.openapi.update")) {
       Files.writeString(SNAPSHOT, actual, StandardCharsets.UTF_8);
@@ -67,9 +65,21 @@ class OpenApiSnapshotTest {
     assertThat(actual)
         .as("ui/openapi.json is stale; see the Javadoc of OpenApiSnapshotTest to refresh it")
         .isEqualTo(
-            sortedKeys(
+            comparable(
                 mapper,
                 mapper.readValue(Files.readString(SNAPSHOT, StandardCharsets.UTF_8), Map.class)));
+  }
+
+  /**
+   * Drops what is not the shape of the API: the server URL is the random port of this run, and
+   * {@code info.version} is the build version, which every release PR bumps.
+   */
+  private static String comparable(final JsonMapper mapper, final Map<String, Object> spec) {
+    spec.remove("servers");
+    if (spec.get("info") instanceof Map<?, ?> info) {
+      info.remove("version");
+    }
+    return sortedKeys(mapper, spec);
   }
 
   /**
