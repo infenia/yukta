@@ -159,6 +159,22 @@ export const SHOTS: Shot[] = [
     pages: ['/operations', '/interfaces/web-ui'],
   },
   {
+    name: 'control-overview',
+    shows:
+      'Mission Control above the fold: run health, throughput and capacity.',
+    route: '/control',
+    stubs: [stub.control, stub.pendingInput],
+    ready: (page) => page.getByTestId('command-strip'),
+    actions: async (page) => {
+      await page
+        .locator('[aria-busy="true"]')
+        .first()
+        .waitFor({ state: 'detached' })
+        .catch(() => undefined);
+    },
+    pages: ['/'],
+  },
+  {
     name: 'inputs-panel',
     shows:
       'The Inputs panel of the running release: an approval waiting, with its approval chain.',
