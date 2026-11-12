@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.core.PluginLogSink;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
@@ -22,6 +23,17 @@ final class AgentOutput implements PluginLogSink {
   private final PluginLogSink downstream;
   private final ObjectMapper json;
 
+  /** What a harness asks for while it works (for example, to use a tool). */
+  record Request(String id, String tool, JsonNode input, String description) {}
+
+  /** Handles requests, when the run holds a conversation. */
+  private volatile @Nullable Consumer<Request> onRequest;
+
+  /** Runs when the result line arrives, when the run holds a conversation. */
+  private volatile @Nullable Runnable onResult;
+
+  private final AgentPreset.@Nullable Interactive talk;
+
   /** The result line, once seen. */
   private volatile @Nullable JsonNode result;
 
@@ -34,7 +46,24 @@ final class AgentOutput implements PluginLogSink {
    */
   AgentOutput(
       final AgentPreset.Output rules, final PluginLogSink downstream, final ObjectMapper json) {
+    this(rules, null, downstream, json);
+  }
+
+  /**
+   * Creates the reader for a run that holds a conversation.
+   *
+   * @param rules how to read this harness' output
+   * @param talk how to read its requests, or null
+   * @param downstream the run log
+   * @param json the JSON mapper
+   */
+  AgentOutput(
+      final AgentPreset.Output rules,
+      final AgentPreset.@Nullable Interactive talk,
+      final PluginLogSink downstream,
+      final ObjectMapper json) {
     this.rules = rules;
+    this.talk = talk;
     this.downstream = downstream;
     this.json = json;
   }
@@ -48,6 +77,20 @@ final class AgentOutput implements PluginLogSink {
     }
     if (matches(node, rules.resultWhen())) {
       result = node;
+      final Runnable done = onResult;
+      if (done != null) {
+        done.run();
+      }
+      return;
+    }
+    final Consumer<Request> handler = onRequest;
+    if (talk != null && handler != null && matchesPaths(node, talk.requestWhen())) {
+      handler.accept(
+          new Request(
+              first(node, talk.requestId()),
+              first(node, talk.tool()),
+              at(node, talk.input()),
+              first(node, talk.description())));
       return;
     }
     for (final AgentPreset.Live live : rules.live()) {
@@ -55,6 +98,17 @@ final class AgentOutput implements PluginLogSink {
         values(node, live.text()).forEach(v -> downstream.line("agent", live.prefix() + v, level));
       }
     }
+  }
+
+  /**
+   * Sets what happens on a request and when the result arrives.
+   *
+   * @param requests handles each request
+   * @param finished runs once the result line is seen
+   */
+  void converse(final Consumer<Request> requests, final Runnable finished) {
+    this.onRequest = requests;
+    this.onResult = finished;
   }
 
   /**
@@ -120,6 +174,21 @@ final class AgentOutput implements PluginLogSink {
     return !when.isEmpty()
         && when.entrySet().stream()
             .allMatch(e -> e.getValue().equals(node.path(e.getKey()).asString("")));
+  }
+
+  /** Like {@link #matches} but the keys are dotted paths. */
+  private static boolean matchesPaths(final JsonNode node, final Map<String, String> when) {
+    return !when.isEmpty()
+        && when.entrySet().stream().allMatch(e -> e.getValue().equals(first(node, e.getKey())));
+  }
+
+  /** The node at a dotted path; missing when absent. */
+  static JsonNode at(final JsonNode root, final String path) {
+    JsonNode current = root;
+    for (final String segment : path.split("\\.")) {
+      current = current.path(segment);
+    }
+    return current;
   }
 
   private static String first(final JsonNode node, final String path) {

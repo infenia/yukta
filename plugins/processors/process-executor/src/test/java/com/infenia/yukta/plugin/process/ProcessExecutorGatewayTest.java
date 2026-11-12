@@ -84,6 +84,37 @@ class ProcessExecutorGatewayTest {
         .flatMapMany(r -> Flux.fromIterable(r.stdoutLines()));
   }
 
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void interactive_theCallerWritesToStdinWhileTheProcessRuns() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    final var result =
+        gateway
+            .executeInteractive(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "read a; echo got:$a; read b; echo got:$b"))
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> seen.add(line),
+                stdin -> {
+                  stdin.write("one");
+                  // the second line is written only after the first answer came back
+                  new Thread(
+                          () -> {
+                            await()
+                                .atMost(Duration.ofSeconds(5))
+                                .until(() -> seen.contains("got:one"));
+                            stdin.write("two");
+                            stdin.close();
+                          })
+                      .start();
+                })
+            .block(Duration.ofSeconds(10));
+
+    assertThat(result.stdoutLines()).containsExactly("got:one", "got:two");
+    assertThat(result.exitCode()).isZero();
+  }
+
   @BeforeEach
   void setUp() {
     gateway = new ProcessExecutorGateway();
