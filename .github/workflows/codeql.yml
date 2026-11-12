@@ -62,6 +62,13 @@ jobs:
         with:
           persist-credentials: false
 
+      # Before init: CodeQL traces the `go` it finds on the PATH at that point.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: matrix.language == 'go'
+        with:
+          go-version-file: 'cli/go.mod'
+          cache: false
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4
         with:
@@ -70,13 +77,7 @@ jobs:
           config-file: ./.github/codeql/codeql-config.yml
 
       # The Go CLI lives in cli/ (no root go.mod), so autobuild cannot
-      # find it — build it explicitly instead, with the Go version of cli/go.mod.
-      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        if: matrix.language == 'go'
-        with:
-          go-version-file: 'cli/go.mod'
-          cache: false
-
+      # find it — build it explicitly instead.
       - name: Build Go CLI (manual build mode)
         if: matrix.language == 'go'
         working-directory: cli
