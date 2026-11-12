@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.gateway.PluginLookup;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.validation.constraints.NotEmpty;
@@ -10,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /** Registry for workflow plugins. */
@@ -32,8 +35,38 @@ public class PluginRegistry implements PluginLookup {
    *
    * @param pluginList list of plugins discovered by Spring
    */
+  /** Plugins that are on the classpath but not enabled, by type. */
+  private final Map<String, Plugin> disabled = new TreeMap<>();
+
+  /**
+   * Registers every plugin; for tests and callers that want them all.
+   *
+   * @param pluginList the plugins
+   */
   public PluginRegistry(@NotEmpty final List<Plugin> pluginList) {
+    this(pluginList, List.of("all"));
+  }
+
+  /**
+   * Registers the plugins an operator wants: {@link PluginTier#CORE} and {@link
+   * PluginTier#EXTENDED} unrestricted ones always, the rest only when named in {@code
+   * yukta.plugins.enabled} (a list of types, or {@code all}).
+   *
+   * @param pluginList the plugins on the classpath
+   * @param enabled the types the operator enabled, or {@code all}
+   */
+  @Autowired
+  public PluginRegistry(
+      @NotEmpty final List<Plugin> pluginList,
+      @Value("${yukta.plugins.enabled:}") final List<String> enabled) {
+    final boolean all = enabled.contains("all");
     for (final Plugin plugin : pluginList) {
+      if (!all
+          && (plugin.getTier() == PluginTier.SPECIFIC || plugin.isRestricted())
+          && !enabled.contains(plugin.getType())) {
+        disabled.put(plugin.getType(), plugin);
+        continue;
+      }
       final Plugin previous = plugins.putIfAbsent(plugin.getType(), plugin);
       if (previous != null) {
         throw new IllegalStateException(
@@ -65,6 +98,49 @@ public class PluginRegistry implements PluginLookup {
    */
   public boolean contains(final String type) {
     return plugins.containsKey(type);
+  }
+
+  /**
+   * Why a type is not available.
+   *
+   * @param type the plugin type
+   * @return a hint naming the property when the plugin is on the classpath but disabled
+   */
+  public String missingHint(final String type) {
+    return disabled.containsKey(type) ? " (disabled; " + enableHint(type) + ")" : "";
+  }
+
+  /**
+   * How an operator enables a disabled plugin, for clients that cannot read the docs.
+   *
+   * @param type the plugin type
+   * @return the setting to add
+   */
+  public String enableHint(final String type) {
+    return "set yukta.plugins.enabled to include "
+        + type
+        + " (env YUKTA_PLUGINS_ENABLED="
+        + type
+        + ", or all) and restart";
+  }
+
+  /**
+   * Plugins on the classpath that are not enabled.
+   *
+   * @return the disabled plugins
+   */
+  public List<Plugin> listDisabled() {
+    return List.copyOf(disabled.values());
+  }
+
+  /**
+   * Finds a plugin that is on the classpath but not enabled.
+   *
+   * @param type the plugin type
+   * @return the plugin, or null
+   */
+  public Plugin getDisabled(final String type) {
+    return disabled.get(type);
   }
 
   /**

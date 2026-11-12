@@ -92,7 +92,18 @@ An unknown module name stops the build. A workflow that uses an uninstalled type
 
 Each `configSchema` entry has `name`, `type` (`STRING`, `NUMBER`, `BOOLEAN`, `ENUM`, `LIST`, `MAP`, `EXPRESSION`, `SECRET`), `required`, `defaultValue`, `options` and `description`. The MCP tools `list_plugins` and `get_plugin_details` return the same data. See the [catalogue API](/api/catalogue).
 
-## Related
+## Tiers and enabling plugins
+
+Each plugin has a tier (`CORE`, `EXTENDED`, `SPECIFIC`) and a `restricted` flag for plugins that reach outside the engine (processes, files, network, databases). Core and unrestricted extended plugins are always on. Specific and restricted ones, such as `PROCESS_EXECUTOR`, `HTTP_REQUEST`, `FILE_READ`, `FILE_WRITE`, `SQL_QUERY`, `LLM_CALL`, `MCP_TOOL_CALL`, `SESSION_MEMORY` and the decision types, are off until you name them:
+
+```yaml
+yukta:
+  plugins:
+    enabled: PROCESS_EXECUTOR,HTTP_REQUEST   # env YUKTA_PLUGINS_ENABLED; `all` enables every plugin
+```
+
+`GET /api/plugins` and the `list_plugins` MCP tool list every plugin with `tier`, `restricted`, `enabled` and, for a disabled one, `enableWith`. A workflow that uses a disabled type fails validation with that hint.
+
 
 - [Workflow JSON](/reference/workflow-json)
 - [Node options](/reference/node-options)

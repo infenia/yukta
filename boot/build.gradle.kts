@@ -109,6 +109,7 @@ dependencies {
 
 // Tells the tests whether the optional modules (PostgreSQL stores, remote workers) are part of this build.
 tasks.withType<Test>().configureEach {
+    systemProperty("yukta.plugins.enabled", "all") // the sweeps run every plugin
     providers.gradleProperty("yukta.persistence").orNull?.let { systemProperty("yukta.persistence", it) }
     providers.gradleProperty("yukta.edition").orNull?.let { systemProperty("yukta.edition", it) }
     providers.gradleProperty("yukta.workers").orNull?.let { systemProperty("yukta.build.workers", it) }

@@ -18,10 +18,14 @@ public record PluginSummary(
     @Schema(description = "The plugin category") PluginCategory category,
     @Schema(description = "How generic the plugin is") PluginTier tier,
     @Schema(description = "Whether the plugin reaches outside the engine; operators opt in")
-        boolean restricted) {
+        boolean restricted,
+    @Schema(description = "False when the plugin exists but the operator has not enabled it")
+        boolean enabled,
+    @Schema(description = "What an operator sets to enable it; null when already enabled")
+        String enableWith) {
 
   /** A core, unrestricted summary. */
   public PluginSummary(final String type, final PluginCategory category) {
-    this(type, category, PluginTier.CORE, false);
+    this(type, category, PluginTier.CORE, false, true, null);
   }
 }
