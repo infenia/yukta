@@ -90,13 +90,14 @@ func runAgent(ctx context.Context, c *client.Client, program string, args []stri
 			_, werr := io.WriteString(stdin, data+"\n")
 			return werr
 		})
+		// first: a stop kills the program too, and that is not "the program ended"
+		if ctx.Err() != nil {
+			break
+		}
 		select {
 		case perr := <-exited:
 			return fmt.Errorf("the program ended: %v", perr)
 		default:
-		}
-		if ctx.Err() != nil {
-			break
 		}
 		_, _ = fmt.Fprintln(log, "stream ended, reconnecting:", err)
 		select {
