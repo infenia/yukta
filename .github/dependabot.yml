@@ -71,7 +71,9 @@ updates:
           - "patch"
 
   - package-ecosystem: "docker"
-    directory: "/"
+    directories:
+      - "/"
+      - "/release"
     schedule:
       interval: "weekly"
     cooldown:
@@ -91,3 +93,50 @@ updates:
       - "dependencies"
       - "dependabot"
       - "python"
+
+  - package-ecosystem: "docker-compose"
+    directory: "/perf"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "dependencies"
+      - "dependabot"
+      - "docker"
+
+  - package-ecosystem: "gomod"
+    directory: "/examples/18-supervisor-agents/go"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "dependencies"
+      - "dependabot"
+      - "go"
+    groups:
+      go-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # The Bun packages: the dogfood, its channel and the Claude Code hooks.
+  - package-ecosystem: "bun"
+    directories:
+      - "/examples/dogfood"
+      - "/examples/dogfood/channel"
+      - "/.claude/hooks"
+    schedule:
+      interval: "weekly"
+    cooldown:
+      default-days: 7
+    labels:
+      - "dependencies"
+      - "dependabot"
+      - "javascript"
+    groups:
+      bun-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"

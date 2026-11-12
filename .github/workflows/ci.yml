@@ -11,7 +11,7 @@ on:
   merge_group:  # merge queue: required checks must also run on the queued commit
     types: [checks_requested]
   schedule:
-    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC) — nightly full run; failures open an issue (nightly-report.yml)
+    - cron: '7 0 * * *' # 5:37 AM IST (00:07 UTC) — nightly full run; failures open an issue (nightly-report.yml)
   workflow_dispatch:  # manual full run
 
 # Cancel superseded runs on PRs only; main / scheduled runs always complete
@@ -247,7 +247,7 @@ jobs:
         if: matrix.name == 'platform' && github.event_name != 'pull_request'
         uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
-          version: v0.72.0 # keep in sync with security.yml
+          version: v0.72.0 # keep in sync with security.yml and license-compliance.yml
           cache: true
 
       # Nightly and manual runs retry failed tests (-PretryFlakyTests) so the report can tell flaky

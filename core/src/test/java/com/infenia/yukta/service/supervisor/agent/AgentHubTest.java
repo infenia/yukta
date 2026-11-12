@@ -4,13 +4,18 @@ package com.infenia.yukta.service.supervisor.agent;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.infenia.yukta.plugin.control.ExecutionControlCommand.PauseWorkflowCommand;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
+import com.infenia.yukta.plugin.control.engine.Cause;
+import com.infenia.yukta.plugin.control.engine.Directive;
 import com.infenia.yukta.plugin.control.engine.EngineReads;
 import com.infenia.yukta.plugin.control.engine.Signal;
+import com.infenia.yukta.plugin.input.InputRequest;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 /** The hub remembers signals per supervisor and passes credential changes on. */
@@ -201,5 +206,58 @@ class AgentHubTest {
         .assertNext(s -> assertThat(s.cursor()).isEqualTo(2))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
+  }
+
+  @Test
+  void theReadsOfSupervisorWithSeveralEnginesAreTheirUnion() {
+    final AgentHub hub = new AgentHub();
+    final AgentHub.Lease first = hub.lease("s", () -> reading("e1", Instant.EPOCH));
+    final AgentHub.Lease second = hub.lease("s", () -> reading("e2", Instant.EPOCH.plusSeconds(5)));
+
+    assertThat(first.channel()).isSameAs(second.channel());
+    assertThat(first.channel().reads().executions(null, 10).collectList().block())
+        .extracting(EngineReads.RunView::executionId)
+        .containsExactly("e2", "e1");
+    assertThat(first.channel().reads().executions(null, 1).collectList().block()).hasSize(1);
+    first.close();
+    second.close();
+  }
+
+  @Test
+  void leaseTakesWhatIsNotItsCommandAndLetsGoOnlyOnce() {
+    final AgentHub hub = new AgentHub();
+    final AgentHub.Lease first = hub.lease("s", () -> reading("e1", Instant.EPOCH));
+    final AgentHub.Lease second = hub.lease("s", () -> reading("e2", Instant.EPOCH));
+    final AgentHub.Lease third = hub.lease("s", () -> reading("e4", Instant.EPOCH));
+    final Directive note = new Directive.NoOpinion("x");
+    final Directive command =
+        new Directive.Command("k", new PauseWorkflowCommand("e9"), Cause.initiative(), "r", null);
+
+    assertThat(first.takes(note).block()).isTrue();
+    first.close();
+    first.close();
+    assertThat(first.takes(note).block()).isTrue();
+    assertThat(first.takes(command).block()).isTrue();
+    assertThat(hub.channel("s")).contains(second.channel());
+    third.close();
+    second.close();
+    final AgentHub.Lease again = hub.lease("s", () -> reading("e3", Instant.EPOCH));
+    second.close();
+    assertThat(hub.channel("s")).contains(again.channel());
+    again.close();
+  }
+
+  private static EngineReads reading(final String executionId, final Instant started) {
+    return new EngineReads() {
+      @Override
+      public Flux<RunView> executions(final String status, final int limit) {
+        return Flux.just(new RunView("s", executionId, "w", "RUNNING", started));
+      }
+
+      @Override
+      public Flux<InputRequest> openInputs(final int limit) {
+        return Flux.empty();
+      }
+    };
   }
 }

@@ -103,7 +103,8 @@ public final class HttpEngineFactory implements SupervisorEngineFactory {
   @Override
   public SupervisorEngine create(final EngineConfig config, final EngineContext context) {
     final Outbound.@Nullable Config posting = outbound.read(config.settings());
-    final AgentHub.Channel channel = hub.open(context.self(), context::reads);
+    final AgentHub.Lease lease = hub.lease(context.self(), context::reads);
+    final AgentHub.Channel channel = lease.channel();
     return new SupervisorEngine() {
       @Override
       public Flux<Directive> run(final Flux<Signal> signals) {
@@ -117,12 +118,12 @@ public final class HttpEngineFactory implements SupervisorEngineFactory {
         return Flux.merge(
             posts,
             signals.doOnNext(channel::signal).thenMany(Flux.<Directive>empty()),
-            channel.directives());
+            channel.directives().filterWhen(lease::takes));
       }
 
       @Override
       public void close() {
-        hub.close(context.self(), channel);
+        lease.close();
       }
     };
   }
