@@ -4,6 +4,7 @@ package com.infenia.yukta.dto.response;
 
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
@@ -27,7 +28,10 @@ public record PluginDetails(
     @Schema(description = "The UI design metadata") UiDesign uiDesign,
     @Schema(description = "The list of available output ports") List<String> outputPorts,
     @Schema(description = "Declared configuration parameters; empty when the plugin declares none")
-        List<ConfigField> configSchema) {
+        List<ConfigField> configSchema,
+    @Schema(description = "How generic the plugin is") PluginTier tier,
+    @Schema(description = "Whether the plugin reaches outside the engine; operators opt in")
+        boolean restricted) {
 
   /** Compact constructor to ensure immutability. */
   public PluginDetails {
@@ -44,5 +48,26 @@ public record PluginDetails(
       final UiDesign uiDesign,
       final List<String> outputPorts) {
     this(type, category, description, usagePattern, uiDesign, outputPorts, List.of());
+  }
+
+  /** Details of a core, unrestricted plugin. */
+  public PluginDetails(
+      final String type,
+      final PluginCategory category,
+      final String description,
+      final String usagePattern,
+      final UiDesign uiDesign,
+      final List<String> outputPorts,
+      final List<ConfigField> configSchema) {
+    this(
+        type,
+        category,
+        description,
+        usagePattern,
+        uiDesign,
+        outputPorts,
+        configSchema,
+        PluginTier.CORE,
+        false);
   }
 }

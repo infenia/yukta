@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -199,6 +200,16 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
             ConfigField.Type.NUMBER,
             DEFAULT_CONCURRENCY,
             "Messages handled at once (each starts a process)"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.EXTENDED;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

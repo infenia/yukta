@@ -93,6 +93,16 @@ function PluginDetail({ type }: { type: string }) {
               />
               {pluginLabel(plugin.category)}
             </span>
+            {plugin.tier && (
+              <span>
+                {plugin.tier.charAt(0) + plugin.tier.slice(1).toLowerCase()}
+              </span>
+            )}
+            {plugin.restricted && (
+              <span title="Reaches outside the engine; an operator opts in">
+                Restricted
+              </span>
+            )}
             {/* the ID is what a workflow's JSON, the CLI and MCP calls use */}
             <code className="text-code-sm select-all">{plugin.type}</code>
           </div>

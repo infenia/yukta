@@ -9,6 +9,7 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.exception.RunAbortedException;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -207,6 +208,11 @@ public final class LlmCallPlugin implements ProcessorPlugin {
             ConfigField.Type.NUMBER,
             DEFAULT_CONCURRENCY,
             "Model calls in flight at once"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
   }
 
   @Override
