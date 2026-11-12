@@ -49,8 +49,6 @@ import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -283,124 +281,6 @@ public class SupervisorService {
         .register(meters);
   }
 
-  /**
-   * One owner per unit, for attachments saved before that rule: the first enabled attachment of a
-   * unit (by id) keeps it, and any other that overlaps is disabled and marked {@code conflict},
-   * with a WARN naming both. A failure to save a mark is logged and does not stop the restore; an
-   * unreadable store is retried by the caller.
-   */
-  private Mono<Void> markConflicts() {
-    final OwnershipValidator validator = new OwnershipValidator((s, w) -> Optional.empty());
-    return store
-        .attachments()
-        .filter(SupervisorAttachment::enabled)
-        .sort(Comparator.comparing(SupervisorAttachment::id))
-        .collectList()
-        .flatMapMany(
-            all -> {
-              final List<OwnershipValidator.Claim> kept = new ArrayList<>();
-              final List<SupervisorAttachment> losers = new ArrayList<>();
-              final List<OwnershipValidator.Claim> claims =
-                  all.stream()
-                      .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
-                      .toList();
-              for (int i = 0; i < all.size(); i++) {
-                final SupervisorAttachment attachment = all.get(i);
-                final var claim = claims.get(i);
-                final var conflicts = validator.conflicts(claim, kept);
-                if (conflicts.isEmpty()) {
-                  kept.add(claim);
-                } else {
-                  log.atWarn()
-                      .addKeyValue("attachment", attachment.id())
-                      .addKeyValue("conflict", conflicts.getFirst().message())
-                      .log("Attachment disabled at start-up: it overlaps one that keeps the unit");
-                  losers.add(attachment.asConflict());
-                }
-              }
-              return Flux.fromIterable(losers);
-            })
-        .concatMap(
-            marked ->
-                store
-                    .saveAttachment(marked)
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .setCause(error)
-                              .addKeyValue("attachment", marked.id())
-                              .log("Could not mark the overlapping attachment");
-                          return Mono.empty();
-                        }))
-        .then();
-  }
-
-  /**
-   * Converts stored supervisors of retired types (decision D8): each engine is asked whether it
-   * replaces the type ({@link SupervisorFactory#adopt}); the first answer is saved under the same
-   * id and what changed in meaning is logged. A supervisor that no engine adopts stays stored and
-   * does not start, with a WARN that names it; start-up never fails on it.
-   *
-   * @return completes when every retired supervisor was looked at
-   */
-  /* default */ Mono<Void> adoptRetired() {
-    return store
-        .supervisors()
-        .filter(supervisor -> !factories.containsKey(supervisor.type()))
-        .concatMap(
-            legacy -> {
-              final Optional<SupervisorFactory.Adoption> adoption =
-                  factories.values().stream()
-                      .map(factory -> adopt(factory, legacy))
-                      .flatMap(Optional::stream)
-                      .findFirst();
-              if (adoption.isEmpty()) {
-                log.atWarn()
-                    .addKeyValue(SUPERVISOR_KEY, legacy.id())
-                    .addKeyValue("type", legacy.type())
-                    .log(
-                        "No engine replaces this retired supervisor type; it does not start until"
-                            + " it is saved again with an engine from /api/supervisor-engines");
-                return Mono.<Void>empty();
-              }
-              final Supervisor converted = adoption.get().supervisor();
-              return store
-                  .saveSupervisor(converted)
-                  .doOnSuccess(
-                      done ->
-                          log.atInfo()
-                              .addKeyValue(SUPERVISOR_KEY, legacy.id())
-                              .addKeyValue("from", legacy.type())
-                              .addKeyValue("to", converted.type())
-                              .addKeyValue("notes", adoption.get().notes())
-                              .log(
-                                  adoption.get().notes().isEmpty()
-                                      ? "Retired supervisor type converted"
-                                      : "Retired supervisor type converted; check the notes"));
-            })
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Could not convert the retired supervisor types");
-              return Mono.empty();
-            })
-        .then();
-  }
-
-  /** One engine's answer; an engine that cannot read the old settings adopts nothing. */
-  private static Optional<SupervisorFactory.Adoption> adopt(
-      final SupervisorFactory factory, final Supervisor legacy) {
-    try {
-      return factory.adopt(legacy);
-    } catch (IllegalArgumentException e) {
-      log.atWarn()
-          .setCause(e)
-          .addKeyValue(SUPERVISOR_KEY, legacy.id())
-          .addKeyValue("type", legacy.type())
-          .log("The retired supervisor's settings could not be converted");
-      return Optional.empty();
-    }
-  }
-
   /** Starts the enabled attachments that were kept, on the leader only. */
   @EventListener(ApplicationReadyEvent.class)
   /* default */ void restore() {
@@ -411,12 +291,7 @@ public class SupervisorService {
     restoreFailed.set(0);
     // not in @PostConstruct: the store may need its schema first, and an unreadable store is
     // retried
-    Flux.defer(
-            () ->
-                adoptRetired()
-                    .then(refreshResolver())
-                    .then(markConflicts())
-                    .thenMany(Flux.defer(store::attachments)))
+    Flux.defer(() -> refreshResolver().thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
         .concatMap(

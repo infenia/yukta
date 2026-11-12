@@ -35,7 +35,7 @@ Contract details settled in S0 (recorded in the page and the plan): `notify` is 
 
 - **Loss of independent vetoes.** The owner and its delegation chain are the only authority. An administrator can always detach an unlocked supervisor.
 - **The default supervisor** makes D1 a no-op for unowned workflows. That is intended; the Supervision panel shows it and `yukta.supervisor.default.enabled` switches it off.
-- **Breaking changes** (alpha): `/api/supervisor-types`, `attach_supervisor`, `detach_supervisor`, the CLI `supervisors types` and the `supervisors` block of definitions are replaced (S2, S7). Old overlapping attachments are not merged: the oldest stays enabled and the rest show a `conflict` status.
+- **Breaking changes** (alpha): `/api/supervisor-types`, `attach_supervisor`, `detach_supervisor`, the CLI `supervisors types` and the `supervisors` block of definitions are replaced (S2, S7).
 - **Saving a workflow definition can fail** because of supervisor overlap. The error names the supervisor and the nodes.
 - **Trust.** In-JVM engines are trusted code and may depend on `plugin-api` only (an ArchUnit rule). `http`, `callout` and `process` engines are untrusted and reach the server only through directives.
 - **One choke point** (`SupervisedControl`, S1) and an ArchUnit rule make a new bypass fail the build.

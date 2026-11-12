@@ -95,7 +95,7 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 | Recent decisions | `GET /api/supervisors/decisions` | – | `supervisors decisions` | Supervisor activity |
 | Who owns a node or run | `GET /api/supervision/ownership` | `get_ownership` | `ownership` | Workflow supervision tab |
 | Who may send which command | `GET /api/supervision` | `get_supervision` | `supervision` | Run and node controls (disabled with the owner named) |
-| Unowned workflows, conflicts | `GET /api/supervision/summary` | `get_supervision_summary` | `supervision-summary` | Supervisors page |
+| Unowned workflows | `GET /api/supervision/summary` | `get_supervision_summary` | `supervision-summary` | Supervisors page |
 | Contract version | `GET /api/supervisor-contract` | `get_supervisor_contract` | `supervisor-contract` | – |
 
 ## Server and the Control dashboard

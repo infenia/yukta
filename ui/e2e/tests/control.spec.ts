@@ -235,7 +235,6 @@ test.describe('Control page', () => {
         envelope('/supervision/summary', {
           unowned: 2,
           unownedWorkflows: [{ sessionId: 's', workflowId: 'w' }],
-          conflicts: 1,
         })
       )
     );
@@ -243,7 +242,6 @@ test.describe('Control page', () => {
 
     const section = page.getByRole('region', { name: 'Supervisors' });
     await expect(section).toContainText('Under direct control2');
-    await expect(section).toContainText('Conflicts1');
     await expect(section).toContainText('Applied1');
     await section.getByRole('link', { name: 'guard' }).click();
     await expect(page).toHaveURL(/\/supervisors\?supervisor=guard/);

@@ -97,7 +97,7 @@ A cold start of the native binary, up to a user pasting the link /sessions/x int
 
 </Step>
 <Step title="SPA fallback">
-**What happens.** SpaWebFluxConfig answers any GET that is not /api, /actuator, /mcp, /sse, /v3, Swagger or a static file with index.html. The response is marked no-cache and carries a strict Content-Security-Policy.
+**What happens.** SpaWebFluxConfig answers any GET that is not /api, /actuator, /mcp, /v3, Swagger or a static file with index.html. The response is marked no-cache and carries a strict Content-Security-Policy.
 
 **Why it is built this way.** No-cache means a new release shows up on the next load. The CSP allows only same-origin scripts and connections, so HTML injected through a plugin's node design cannot load anything external.
 
@@ -211,10 +211,9 @@ Turns every module's classes into running beans inside one web server.
 Serves the React app from the ui jar and makes client-side routes work.
 
 - Files under /assets/ (Vite writes hashed file names) and flat top-level files ending in .js, .css, .woff, .woff2, .ttf, .svg, .png, .jpg, .webp, .ico, .json or .webmanifest are served with a 365-day cache. A hashed name changes when the content changes, so a long cache is safe for /assets/.
-- Every other GET is answered with index.html, except /api, /actuator, /mcp, /sse, /v3, /swagger-ui, /swagger-ui.html and /webjars, and except static asset paths. Reason: the router is looked at before the resource handler, so without these exclusions it would hide real files and real endpoints.
+- Every other GET is answered with index.html, except /api, /actuator, /mcp, /v3, /swagger-ui, /swagger-ui.html and /webjars, and except static asset paths. Reason: the router is looked at before the resource handler, so without these exclusions it would hide real files and real endpoints.
 - index.html is sent with Cache-Control no-cache, must-revalidate, and a Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline'; img-src and font-src also allow data:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'. In plain words: scripts and connections only from the same origin, no plugins or embedding in frames; inline styles are allowed because React Flow positions nodes with style attributes.
 - The CSP header exists only on this fallback response. API responses and static assets do not get it; they do not need it, since the CSP matters for the document the browser renders.
-- Exclusions include /sse/\*\*, a leftover alias. The MCP filter still maps the exact path /sse to /mcp for old clients, so the exclusion is harmless but keeps a historic name in the code.
 
 - **Guarantees.** A refresh or pasted deep link always returns the app; a new release is picked up on the next load because index.html is never cached.
 - **State.** Stateless. The files come from the ui jar on the classpath.
@@ -369,7 +368,7 @@ How a refresh or shared link on a client-side route reaches the right page.
 The path is a screen inside the React app, not a file. A plain file server would return 404.
 </Step>
 <Step title="Router checks exclusions">
-The path is not /api, /actuator, /mcp, /sse, /v3, Swagger, webjars or a static asset, so the fallback matches.
+The path is not /api, /actuator, /mcp, /v3, Swagger, webjars or a static asset, so the fallback matches.
 </Step>
 <Step title="index.html with CSP">
 The page comes back as 200 with no-cache and the CSP header. The browser then loads /assets/ files from its 365-day cache.
@@ -525,7 +524,7 @@ Boot's own defaults keep everything in memory.
 | Assets cache | 365 days for /assets/\*\* and the 12 top-level file patterns. |
 | index.html cache | no-cache, must-revalidate. |
 | CSP on index.html | Same-origin; inline styles allowed; no objects; no framing. |
-| Router exclusions | /api, /actuator, /mcp, /sse, /v3, /swagger-ui, /swagger-ui.html, /webjars. |
+| Router exclusions | /api, /actuator, /mcp, /v3, /swagger-ui, /swagger-ui.html, /webjars. |
 | Match order | Router is consulted before the resource handler, hence the exclusions. |
 
 ## Reference
@@ -591,7 +590,6 @@ JVM vs native.
 |---|---|---|
 | /api/\*\* | web controllers (REST and SSE) | `yukta.api-keys` if set |
 | /mcp | mcp server (stateless, async) | the same keys, if any is set |
-| /sse | alias rewritten to /mcp | same as /mcp |
 | /actuator/\*\* | actuator | ADMIN key when a key is set (health excepted) |
 | /swagger-ui.html, /v3/\*\* | springdoc | the key, when one is set; off in prod |
 | /assets/\*\* | SPA host | none |

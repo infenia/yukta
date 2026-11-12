@@ -158,7 +158,7 @@ Draws the header, breadcrumb and footer and maps each address to a screen. All r
 
 - The routes are: / (session list; /sessions redirects there), /sessions/new, /sessions/:sessionId, /sessions/:sessionId/workflow/:workflowId (the run view), the same path plus /edit (the builder), /plugins, /history and /control. The header links Sessions, Plugins, History and Control.
 - Every route except the session list is declared lazy: its code is downloaded the first time you visit. Example: the run view needs React Flow and dagre, about 257 KB; users who only browse sessions never download it.
-- boot serves index.html for any GET that is not /api, /actuator, /mcp, /v3, /swagger-ui, /webjars, /sse or a static file pattern (js, css, fonts, images, json, webmanifest). Without that fallback, reloading /sessions/demo would give a 404, because that path exists only in the browser.
+- boot serves index.html for any GET that is not /api, /actuator, /mcp, /v3, /swagger-ui, /webjars or a static file pattern (js, css, fonts, images, json, webmanifest). Without that fallback, reloading /sessions/demo would give a 404, because that path exists only in the browser.
 - index.html is sent with no-cache and a Content-Security-Policy (default-src 'self'; inline styles allowed; no objects, no framing). Files under /assets are hashed and cached for a year. The theme (light, dark or system) is read from localStorage by a tiny script before the app loads, to avoid a flash.
 - Breadcrumbs link the 'Sessions' crumb to /sessions, which redirects to /. The run page can replace its crumb text with the workflow description.
 
@@ -167,7 +167,7 @@ Draws the header, breadcrumb and footer and maps each address to a screen. All r
 - **Ceiling.** Each route is a separate download, so the first visit to a heavy page pays a round trip. The build budget keeps any one file under 300 KB.
 - **On failure.** If a route file fails to download, that screen does not render. There is no custom error boundary that I found in the router setup; the router's default error screen applies.
 
-**Settings:** `boot: SpaWebFluxConfig (fallback and CSP)`, `Vite dev server proxies /api, /sse and /actuator to :9858`
+**Settings:** `boot: SpaWebFluxConfig (fallback and CSP)`, `Vite dev server proxies /api and /actuator to :9858`
 
 ### API Client & Cache
 
@@ -661,7 +661,7 @@ Measured from the ui/dist/assets folder present in the working tree when this pa
 
 | Command or rule | What it does |
 |---|---|
-| cd ui && pnpm dev | Vite dev server on :5173 with hot reload; proxies /api, /sse, /actuator to :9858 |
+| cd ui && pnpm dev | Vite dev server on :5173 with hot reload; proxies /api, /actuator to :9858 |
 | ./gradlew :boot:bootRun | Backend on :9858 for the dev server |
 | ./gradlew :ui:build | Type check, vite build, size check; packs dist/ into the jar |
 | ./gradlew :ui:pnpmTest or pnpm test | Vitest unit and component tests |

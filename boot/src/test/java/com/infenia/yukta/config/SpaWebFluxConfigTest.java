@@ -258,7 +258,6 @@ class SpaWebFluxConfigTest {
         "/api/sessions/summaries",
         "/actuator/health",
         "/mcp/status",
-        "/sse/status",
         "/v3/api-docs",
         "/swagger-ui.html",
         "/swagger-ui/index.html"

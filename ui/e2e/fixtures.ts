@@ -378,7 +378,6 @@ export const test = base.extend<TestFixtures>({
     await quiet(/\/api\/supervision\/summary$/, 200, {
       unowned: 0,
       unownedWorkflows: [],
-      conflicts: 0,
     });
     await quiet(/\/api\/control\/heartbeats$/, 200, []);
     await quiet(/\/api\/sessions\/[^/]+\/inputs(\?|$)/, 200, []);

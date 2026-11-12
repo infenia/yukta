@@ -264,15 +264,4 @@ class SupervisorServiceUpkeepTest {
 
     verify(host, never()).attach(any());
   }
-
-  @Test
-  void retiredTypesAreLookedAtOnceAndStoreThatFailsIsOnlyLogged() {
-    final SupervisorStore broken = mock(SupervisorStore.class);
-    when(broken.supervisors()).thenReturn(Flux.error(new IllegalStateException("store down")));
-    final SupervisorService failing =
-        new SupervisorService(broken, List.of(factory), host, new InMemoryExecutionLogStore());
-
-    StepVerifier.create(failing.adoptRetired()).verifyComplete();
-    verify(broken, atLeast(1)).supervisors();
-  }
 }

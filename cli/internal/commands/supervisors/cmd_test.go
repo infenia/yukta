@@ -151,7 +151,7 @@ func TestSummaryReadsTheSupervisionSummary(t *testing.T) {
 	var got string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.URL.RequestURI()
-		_, _ = w.Write([]byte(`{"data":{"unowned":1,"unownedWorkflows":[],"conflicts":0}}`))
+		_, _ = w.Write([]byte(`{"data":{"unowned":1,"unownedWorkflows":[]}}`))
 	}))
 	defer srv.Close()
 	cmd := SummaryCmd(client.NewClient(srv.URL))

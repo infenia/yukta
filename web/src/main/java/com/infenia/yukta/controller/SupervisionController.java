@@ -42,13 +42,12 @@ public class SupervisionController {
   private final SupervisionSummary supervisionSummary;
 
   /**
-   * How many workflows nobody owns and how many assignments are in conflict. Internal sessions are
-   * left out.
+   * How many workflows nobody owns. Internal sessions are left out.
    *
    * @return the summary
    */
   @GetMapping("/summary")
-  @Operation(summary = "How many workflows nobody owns, and how many assignments conflict")
+  @Operation(summary = "How many workflows nobody owns")
   public Mono<ApiResponse<SupervisionSummary.Summary>> summary() {
     return supervisionSummary
         .summarize()

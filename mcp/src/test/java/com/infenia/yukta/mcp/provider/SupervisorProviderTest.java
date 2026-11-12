@@ -593,12 +593,12 @@ class SupervisorProviderTest {
   }
 
   @Test
-  void summaryNamesTheUnownedWorkflowsAndCountsConflicts() {
+  void summaryNamesTheUnownedWorkflows() {
     when(summary.summarize())
         .thenReturn(
             Mono.just(
                 new com.infenia.yukta.service.supervisor.SupervisionSummary.Summary(
-                    1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2)));
+                    1, List.of(new OwnershipMap.WorkflowRef("s", "w")))));
 
     StepVerifier.create(provider.summary())
         .assertNext(
@@ -608,7 +608,6 @@ class SupervisorProviderTest {
                   .containsExactly(
                       new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow(
                           "s", "w"));
-              assertThat(view.conflicts()).isEqualTo(2);
             })
         .verifyComplete();
   }

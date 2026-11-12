@@ -9,10 +9,8 @@ import java.util.List;
  *
  * @param unowned how many workflows nobody owns (the default supervisor carries them)
  * @param unownedWorkflows the first of them, at most 100
- * @param conflicts how many assignments start-up disabled because they overlapped another
  */
-public record SupervisionSummaryView(
-    int unowned, List<UnownedWorkflow> unownedWorkflows, long conflicts) {
+public record SupervisionSummaryView(int unowned, List<UnownedWorkflow> unownedWorkflows) {
 
   /** Keeps an unmodifiable copy of the workflows. */
   public SupervisionSummaryView {

@@ -407,8 +407,8 @@ class AppMcpToolsTest {
     final var summary =
         new com.infenia.yukta.mcp.dto.SupervisionSummaryView(
             2,
-            List.of(new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow("s", "w")),
-            1L);
+            List.of(
+                new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow("s", "w")));
     when(supervisorProvider.summary()).thenReturn(Mono.just(summary));
 
     StepVerifier.create(mcpTools.getSupervisionSummary()).expectNext(summary).verifyComplete();

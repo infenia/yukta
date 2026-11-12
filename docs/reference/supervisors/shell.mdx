@@ -174,7 +174,6 @@ A node's group is its `group` option, or the part of its id before the first dot
 - A `workflow` assignment forbids any other assignment on that workflow. A `session` assignment forbids any assignment inside the session.
 - Two selectors that match no node yet overlap if one prefix begins with the other.
 - A node with no owner is carried by the default supervisor, while `yukta.supervisor.default.enabled` is `true`.
-- At start-up, assignments that overlap another are saved disabled with `conflict: true`; the first by supervisor id stays on.
 - A locked assignment changes only by a lock holder, and removing it needs `unlock`.
 - A supervisor can be deleted only when it owns nothing, no definition names it and no supervisor reports to it.
 

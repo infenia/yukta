@@ -31,14 +31,14 @@ beforeAll(() => server.listen());
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const handlers = (decisions: unknown[], unowned = 3, conflicts = 2) => [
+const handlers = (decisions: unknown[], unowned = 3) => [
   http.get('/api/supervisors/assignments', () =>
     ok([{ id: 'a1' }, { id: 'a2' }, { id: 'a3' }])
   ),
   http.get('/api/supervisors', () => ok([{ id: 'ops' }, { id: 'ci' }])),
   http.get('/api/supervisors/decisions', () => ok(decisions)),
   http.get('/api/supervision/summary', () =>
-    ok({ unowned, unownedWorkflows: [], conflicts })
+    ok({ unowned, unownedWorkflows: [] })
   ),
 ];
 
@@ -61,7 +61,6 @@ describe('SupervisorsSummary', () => {
     await waitFor(() => expect(tile('Supervisors')).toHaveTextContent('2'));
     expect(tile('Assignments')).toHaveTextContent('3');
     expect(tile('Under direct control')).toHaveTextContent('3');
-    expect(tile('Conflicts')).toHaveTextContent('2');
     expect(tile('Applied')).toHaveTextContent('2');
     expect(tile('Refused')).toHaveTextContent('1');
     expect(screen.getByText(/Last 3 decisions/)).toBeInTheDocument();

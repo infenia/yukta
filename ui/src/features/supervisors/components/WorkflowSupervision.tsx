@@ -18,7 +18,6 @@ import {
   useSupervisors,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
-import { ConflictsBanner } from './ConflictsBanner';
 import { controlledBy } from './RequireControl';
 
 const supervisorLink = (owner: string) =>
@@ -400,7 +399,6 @@ export function SupervisionPanel({
   };
   return (
     <div className="flex flex-col gap-4">
-      <ConflictsBanner session={sessionId} workflow={workflowId} />
       {nobody ? (
         <Callout kind="warning" title="Nobody can control this workflow">
           Direct control is off and no supervisor owns {workflowId}. An ADMIN

@@ -9,7 +9,6 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { SupervisorsPage } from '../SupervisorsPage';
-import { ConflictsBanner } from '../ConflictsBanner';
 import { createTestQueryClient } from '@/test/utils/testUtils';
 
 const ok = (data: unknown) =>
@@ -156,7 +155,6 @@ describe('the Supervisors tab', () => {
         scope: 'run:s1/w1',
         enabled: true,
         source: 'MANUAL',
-        conflict: false,
       },
       {
         id: 'a2',
@@ -164,15 +162,13 @@ describe('the Supervisors tab', () => {
         scope: 'workflow:w2//deploy.*',
         enabled: false,
         source: 'DEFINITION',
-        conflict: false,
       },
       {
         id: 'a3',
         supervisorId: 'lead',
         scope: 'workflow:s1/w3',
-        enabled: false,
+        enabled: true,
         source: 'SYSTEM',
-        conflict: true,
       },
       {
         id: 'a4',
@@ -180,7 +176,6 @@ describe('the Supervisors tab', () => {
         scope: 'server',
         enabled: true,
         source: 'OTHER',
-        conflict: false,
       },
     ];
     renderAt('/supervisors?supervisor=lead');
@@ -196,7 +191,7 @@ describe('the Supervisors tab', () => {
     expect(rows[rows.length - 1]).toMatch(/^Direct control/);
     expect(within(nav()).getAllByText('http').length).toBeGreaterThan(0);
     expect(screen.getByText('Live')).toBeInTheDocument();
-    // Owns: a run-level target with its nodes, a whole workflow with no session, a conflict, the server
+    // Owns: a run-level target with its nodes, a whole workflow with no session, the server
     await expect
       .poll(() => screen.queryAllByText('Run level: lead').length)
       .toBe(2);
@@ -208,9 +203,6 @@ describe('the Supervisors tab', () => {
       screen.getByText(/by deploy\.\* · declared in the definition/)
     ).toBeInTheDocument();
     expect(screen.getByText('Disabled')).toBeInTheDocument();
-    expect(
-      screen.getByText('Disabled: overlaps another owner')
-    ).toBeInTheDocument();
     expect(
       within(screen.getByRole('tabpanel', { name: 'Owns' })).getByText(
         'The server'
@@ -543,88 +535,5 @@ describe('the Supervisors tab', () => {
     expect(await screen.findByLabelText('where')).toHaveTextContent(
       '?tab=activity'
     );
-  });
-});
-
-describe('ConflictsBanner', () => {
-  const renderBanner = (props: { session?: string; workflow?: string } = {}) =>
-    render(
-      <QueryClientProvider client={createTestQueryClient()}>
-        <ConflictsBanner {...props} />
-      </QueryClientProvider>
-    );
-  const conflict = (id: string, scope: string) => ({
-    id,
-    supervisorId: `s-${id}`,
-    scope,
-    enabled: false,
-    source: 'MANUAL',
-    conflict: true,
-  });
-
-  it('shows nothing without a conflict', async () => {
-    assignments = [{ ...conflict('a', 'workflow:s/w'), conflict: false }];
-    const { container } = renderBanner();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('counts the conflicts, lists them, and keeps one', async () => {
-    const user = userEvent.setup();
-    assignments = [conflict('a', 'workflow:s/w//x'), conflict('b', 'server')];
-    let put: unknown = null;
-    server.use(
-      http.get('/api/supervisors/s-a/assignments', () => ok([assignments[0]])),
-      http.put('/api/supervisors/s-a/assignments', async ({ request }) => {
-        put = await request.json();
-        return ok([]);
-      })
-    );
-    renderBanner();
-    expect(
-      await screen.findByText('2 assignments overlap and were disabled.')
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Review' }));
-    expect(screen.getByText('s / w · x')).toBeInTheDocument();
-    await user.click(
-      screen.getAllByRole('button', { name: 'Keep this one' })[0]
-    );
-    await screen.findByRole('button', { name: 'Hide' });
-    await expect
-      .poll(() => put)
-      .toEqual([{ target: 'workflow:s/w//x', enabled: true, locked: false }]);
-    await user.click(screen.getByRole('button', { name: 'Hide' }));
-    expect(screen.queryByText('s / w · x')).not.toBeInTheDocument();
-  });
-
-  it('shows only the conflicts of a workflow, and why keeping one failed', async () => {
-    const user = userEvent.setup();
-    assignments = [
-      conflict('a', 'workflow:s/w'),
-      conflict('b', 'workflow:other/w'),
-      conflict('c', 'workflow:w'),
-      conflict('d', 'workflow:s/x'),
-    ];
-    server.use(
-      http.get('/api/supervisors/s-a/assignments', () => ok([assignments[0]])),
-      http.put('/api/supervisors/s-a/assignments', () => failed(409))
-    );
-    renderBanner({ session: 's', workflow: 'w' });
-    expect(
-      await screen.findByText('2 assignments overlap and were disabled.')
-    ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Review' }));
-    await user.click(
-      screen.getAllByRole('button', { name: 'Keep this one' })[0]
-    );
-    expect(await screen.findByText('boom')).toBeInTheDocument();
-  });
-
-  it('says one assignment in the singular', async () => {
-    assignments = [conflict('a', 'server')];
-    renderBanner();
-    expect(
-      await screen.findByText('1 assignment overlaps and was disabled.')
-    ).toBeInTheDocument();
   });
 });

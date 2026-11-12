@@ -583,7 +583,7 @@ public class SupervisorProvider {
   }
 
   /**
-   * How many workflows nobody owns and how many assignments are in conflict.
+   * How many workflows nobody owns.
    *
    * @return the summary
    */
@@ -599,7 +599,6 @@ public class SupervisorProvider {
                             w ->
                                 new SupervisionSummaryView.UnownedWorkflow(
                                     w.sessionId(), w.workflowId()))
-                        .toList(),
-                    found.conflicts()));
+                        .toList()));
   }
 }

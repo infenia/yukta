@@ -89,10 +89,10 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
 
   /**
    * SPA fallback router: serves index.html for all unmatched routes to enable client-side routing.
-   * Excludes API routes (/api/**, /actuator/**, /mcp/**, /sse/**, OpenAPI /v3/** and Swagger UI)
-   * and static asset paths so the resource handler mapping (registered in {@link
-   * #addResourceHandlers}) can serve them — the router mapping is otherwise consulted before the
-   * resource handler mapping and would shadow it.
+   * Excludes API routes (/api/**, /actuator/**, /mcp/**, OpenAPI /v3/** and Swagger UI) and static
+   * asset paths so the resource handler mapping (registered in {@link #addResourceHandlers}) can
+   * serve them — the router mapping is otherwise consulted before the resource handler mapping and
+   * would shadow it.
    */
   @Bean
   public RouterFunction<ServerResponse> spaRouter() {
@@ -106,7 +106,6 @@ public class SpaWebFluxConfig implements WebFluxConfigurer {
             .and(RequestPredicates.path("/swagger-ui/**").negate())
             .and(RequestPredicates.path("/swagger-ui.html").negate())
             .and(RequestPredicates.path("/webjars/**").negate())
-            .and(RequestPredicates.path("/sse/**").negate())
             .and(SpaWebFluxConfig::wantsHtml);
     for (final String pattern : STATIC_ASSET_PATTERNS) {
       predicate = predicate.and(RequestPredicates.path(pattern).negate());
