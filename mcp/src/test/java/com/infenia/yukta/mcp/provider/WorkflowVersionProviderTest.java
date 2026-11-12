@@ -124,8 +124,7 @@ class WorkflowVersionProviderTest {
     when(definitions.findRevision("s", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s", "w1")).thenReturn(Mono.just(current));
     when(definitions.save("s", old)).thenReturn(Mono.empty());
-    when(definitions.replaceIfCurrent("s", old, Optional.of(current)))
-        .thenReturn(Mono.just(true));
+    when(definitions.replaceIfCurrent("s", old, Optional.of(current))).thenReturn(Mono.just(true));
     when(controlBus.compileAndCacheWorkflow("s", old))
         .thenReturn(Mono.error(new IllegalStateException("plugin type removed")));
 

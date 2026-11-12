@@ -162,8 +162,7 @@ class WorkflowVersionControllerTest {
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
     when(definitions.save("s1", old)).thenReturn(Mono.empty());
-    when(definitions.replaceIfCurrent("s1", old, Optional.of(current)))
-        .thenReturn(Mono.just(true));
+    when(definitions.replaceIfCurrent("s1", old, Optional.of(current))).thenReturn(Mono.just(true));
     when(controlBus.compileAndCacheWorkflow("s1", old))
         .thenReturn(Mono.error(new IllegalArgumentException("unknown plugin type")));
 
