@@ -160,7 +160,8 @@ export const SHOTS: Shot[] = [
   },
   {
     name: 'control-overview',
-    shows: 'Mission Control above the fold: run health, throughput and capacity.',
+    shows:
+      'Mission Control above the fold: run health, throughput and capacity.',
     route: '/control',
     stubs: [stub.control, stub.pendingInput],
     ready: (page) => page.getByTestId('command-strip'),
