@@ -61,7 +61,7 @@ export function SupervisorsSummary() {
   return (
     <section aria-label="Supervisors" className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-title-sm">Supervisors</h2>
+        <h2 className="text-headline-md text-on-surface">Supervisors</h2>
         <Link
           to="/supervisors"
           className={buttonVariants({ variant: 'outline', size: 'sm' })}
