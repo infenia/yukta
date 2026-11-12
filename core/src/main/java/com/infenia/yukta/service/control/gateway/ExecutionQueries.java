@@ -6,7 +6,6 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
 import com.infenia.yukta.model.execution.WorkflowProgress;
 import com.infenia.yukta.service.NotFoundException;
-import com.infenia.yukta.service.control.ControlBusService;
 import com.infenia.yukta.service.orchestrator.tracker.TaskTrackerService;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
@@ -21,13 +20,8 @@ final class ExecutionQueries {
   /** The task tracker service for tracking execution tasks. */
   private final TaskTrackerService taskTracker;
 
-  /** The control bus service for low-level plugin and message operations. */
-  private final ControlBusService controlBusService;
-
-  /* default */ ExecutionQueries(
-      final TaskTrackerService taskTracker, final ControlBusService controlBusService) {
+  /* default */ ExecutionQueries(final TaskTrackerService taskTracker) {
     this.taskTracker = taskTracker;
-    this.controlBusService = controlBusService;
   }
 
   /* default */ Flux<WorkflowProgress> watchExecution(

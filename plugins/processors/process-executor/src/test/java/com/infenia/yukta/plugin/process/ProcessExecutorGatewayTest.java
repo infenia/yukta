@@ -50,7 +50,6 @@ class ProcessExecutorGatewayTest {
   private static final String ECHO = "echo";
   private static final String HELLO = "hello";
   private static final String HELLO_WORLD_OUTPUT = "hello\nworld";
-  private static final String SLEEP = "sleep";
   private static final String PWD = "pwd";
   private static final String TEST = "test";
   private static final String LINE_1 = "line1";

@@ -92,9 +92,6 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   /** The execution control registry for managing active executions. */
   private final ExecutionControlStore executionControlStore;
 
-  /** Finished executions that can still be restarted. */
-  private final ExecutionArchive executionArchive;
-
   /** Limits and queues concurrent executions. */
   private final ExecutionScheduler executionScheduler;
 
@@ -142,14 +139,13 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     this.controlBusService = controlBusService;
     this.taskTracker = taskTracker;
     this.executionControlStore = executionControlStore;
-    this.executionArchive = executionArchive;
     this.executionScheduler = executionScheduler;
     this.executionLog = executionLog;
     this.dispatch = new ControlDispatch(this, executionControlStore);
     this.nodes = new NodeCommands(this, executionControlStore);
     this.restarts =
         new RestartCoordinator(this, executionControlStore, executionArchive, startIdempotency);
-    this.queries = new ExecutionQueries(taskTracker, controlBusService);
+    this.queries = new ExecutionQueries(taskTracker);
     this.starter =
         new WorkflowStarter(
             workflowDefinitionStore,

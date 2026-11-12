@@ -26,12 +26,6 @@ import reactor.core.publisher.Mono;
 @SuppressWarnings("PMD.TooManyStaticImports")
 class ControlBusControllerTest {
 
-  /** First test node identifier. */
-  private static final String NODE1 = "node1";
-
-  /** Second test node identifier. */
-  private static final String NODE2 = "node2";
-
   /** JSONPath for response message field. */
   private static final String MESSAGE_PATH = "$.message";
 
