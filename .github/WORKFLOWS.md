@@ -397,3 +397,16 @@ is published; the weekly schedule runs the same dry run on `main`. See `release/
 **Purpose**: Ask outside contributors to sign `CLA.md` (or `CLA-corporate.md`) and record it on the `cla-signatures` branch
 
 **Triggered on**: Pull request (`pull_request_target`, never checks out PR code) and the signing comment
+
+## Pinned by hand
+
+Dependabot does not see these. Bump them in every file listed.
+
+| Tool | Version | Files | How to bump |
+|---|---|---|---|
+| Trivy | `v0.72.0` | `ci.yml`, `security.yml`, `license-compliance.yml` | Change `version:` of `setup-trivy` in all three |
+| OpenGrep | `OPENGREP_VERSION` + sha256 | `ci.yml` (two jobs) | Change the env var and both hashes from the release page |
+| actionlint | `1.7.12@sha256:…` | `ci.yml` (`lint-workflows`) | New image tag and digest |
+| pnpm | `12.16.1` | `ci.yml`, `examples-nightly.yml`, `mutation.yml`, `license-compliance.yml`, `perf-nightly.yml` | `version:` of `pnpm/action-setup` |
+| Node | `24` | same workflows | `node-version:` of `setup-node` |
+| Java | `25` | same workflows, `release.yml` | `java-version:` of `setup-java` / `setup-graalvm` |
