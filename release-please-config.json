@@ -10,7 +10,7 @@
       "bump-patch-for-minor-pre-major": false,
       "prerelease": true,
       "versioning": "prerelease",
-      "prerelease-type": "alpha",
+      "prerelease-type": "beta",
       "draft": true,
       "force-tag-creation": true,
       "extra-files": [
