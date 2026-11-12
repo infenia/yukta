@@ -24,6 +24,7 @@ import type { SupervisorView } from '../types';
 import { Activity } from './Activity';
 import { CredentialPanel, ExternalFlow } from './ExternalSettings';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
+import { SupervisionMap } from './SupervisionMap';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
 
 export const DETAIL_TABS = [
@@ -282,6 +283,12 @@ export function SupervisorDetail({
         description={supervisor.description}
       />
       <KpiRow supervisor={supervisor} onOwns={() => setTab('owns')} />
+      <SupervisionMap
+        supervisor={supervisor}
+        all={all}
+        onSelect={onSelect}
+        onMore={() => setTab('owns')}
+      />
       <Tabs
         ariaLabel={`${supervisor.id} details`}
         items={DETAIL_TABS.map((id) => ({

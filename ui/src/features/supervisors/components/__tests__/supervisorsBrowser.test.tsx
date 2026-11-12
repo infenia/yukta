@@ -181,7 +181,11 @@ describe('the Supervisors tab', () => {
     expect(
       screen.getByText('Disabled: overlaps another owner')
     ).toBeInTheDocument();
-    expect(screen.getByText('The server')).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('tabpanel', { name: 'Owns' })).getByText(
+        'The server'
+      )
+    ).toBeInTheDocument();
     expect(screen.getAllByText('Direct control').length).toBeGreaterThan(0);
     // the decision maker tab names the one it decides with, and opens the catalog at its type
     await userEvent

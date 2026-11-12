@@ -101,7 +101,7 @@ describe('Direct control in the supervisors browser', () => {
     renderAt('/supervisors?supervisor=guard');
     await user.click(await screen.findByRole('tab', { name: 'Hierarchy' }));
     expect(
-      await screen.findByRole('img', { name: 'Reporting chain graph' })
+      await screen.findByRole('region', { name: 'Supervision map' })
     ).toBeInTheDocument();
   });
 });
