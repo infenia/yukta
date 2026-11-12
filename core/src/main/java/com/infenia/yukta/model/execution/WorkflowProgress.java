@@ -20,7 +20,8 @@ public record WorkflowProgress(
     @Schema(nullable = true) @Nullable String definitionVersion,
     @Schema(nullable = true) @Nullable String parentExecutionId,
     @Schema(nullable = true) @Nullable String rootExecutionId,
-    @Schema(nullable = true) @Nullable String restartOf) {
+    @Schema(nullable = true) @Nullable String restartOf,
+    @Schema(nullable = true) @Nullable String traceId) {
 
   /**
    * Compact constructor to ensure immutability.
@@ -37,6 +38,7 @@ public record WorkflowProgress(
    * @param parentExecutionId the run that started this one as a sub-workflow, or null
    * @param rootExecutionId the top of this run's tree of runs (itself without a parent), or null
    * @param restartOf the run this one restarts, or null
+   * @param traceId trace id of the run's span when a tracer is configured, or null
    */
   public WorkflowProgress {
     tasks = List.copyOf(tasks);

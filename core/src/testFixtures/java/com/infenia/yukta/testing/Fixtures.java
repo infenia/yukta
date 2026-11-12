@@ -82,6 +82,7 @@ public final class Fixtures {
         definitionVersion,
         null,
         null,
+        null,
         null);
   }
 
