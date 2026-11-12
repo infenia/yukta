@@ -99,9 +99,9 @@ describe('Direct control in the supervisors browser', () => {
   it('draws the reporting chain of the selected supervisor', async () => {
     const user = userEvent.setup();
     renderAt('/supervisors?supervisor=guard');
-    await user.click(await screen.findByRole('tab', { name: 'Reports to' }));
+    await user.click(await screen.findByRole('tab', { name: 'Hierarchy' }));
     expect(
-      await screen.findByRole('img', { name: 'Reporting chain graph' })
+      await screen.findByRole('region', { name: 'Supervision map' })
     ).toBeInTheDocument();
   });
 });

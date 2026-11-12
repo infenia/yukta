@@ -116,12 +116,12 @@ Open **Plugins** (`/plugins`). Plugins are grouped as triggers, processors and t
 ## See supervisors
 
 <UiShot
-  name="supervisors-catalogue"
-  alt="The Supervisors page with its tabs, listing each supervisor with its kind and what it owns."
-  caption="Notice the three tabs: Supervisors, Decision makers and Activity."
+  name="supervisors-page"
+  alt="The Supervisors page: a list of supervisors on the left, and on the right the chosen one with its numbers, a map of who decides and what it owns, and its tabs."
+  caption="Notice the map under the numbers: the decision maker and the supervisors it reports to on the left, the workflows and nodes it owns on the right."
 />
 
-**Supervisors** (`/supervisors`) has three tabs: **Supervisors**, **Decision makers** and **Activity**. Each supervisor has its own editor at `/supervisors/<id>/edit`, and `/supervisors/new` creates one. The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
+**Supervisors** (`/supervisors`) is a list on the left and the chosen supervisor on the right. Each row shows whether it is live or in dry run, the id of its decision maker and how many targets it owns; **Direct control** is last, for the workflows nobody owns. Selecting one shows its numbers (applied, refused, rate limited, what it owns, its last decision), a map of who decides, who it reports to and what it owns (click a supervisor, workflow or node to open it), and tabs: **Owns**, **Allowed operations**, **Hierarchy**, **Decision maker**, **Settings**, **Changes** and **Decisions**. The address keeps the choice: `?supervisor=<id>&section=<tab>`. **Decision maker types** opens the catalogue of kinds you can choose for a supervisor, and **New supervisor** (`/supervisors/new`) creates one; each supervisor has its own editor at `/supervisors/<id>/edit`. What the supervisors did, across all of them, is on the Activity tab of [Control](#check-the-server). The workflow page also shows who owns the run you are looking at. For what to do with them, see [Assign a supervisor](/guides/supervise/assign-a-supervisor).
 
 ## Check the server
 
