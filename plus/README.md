@@ -1,6 +1,6 @@
 # Plus
 
-Single-node durable storage on disk, licensed **AGPL-3.0-only** (see [`LICENSING.md`](../LICENSING.md)).
+Single-node durable storage on disk, licensed **AGPL-3.0-only** (the text is in [`LICENSE`](LICENSE); see [`LICENSING.md`](../LICENSING.md) for what that means in practice).
 
 Added to the application with `-Pyukta.edition=plus` (the file stores below). `plus/persistence-postgres` (`-Pyukta.persistence=postgres`) and `plus/workers` (`-Pyukta.workers=true`) are nested modules with the same licence.
 
