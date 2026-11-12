@@ -119,21 +119,8 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 // Serializes OpenGrep runs across modules: parallel `execvp` of the opengrep wrapper can fail with
-// "Text file busy" (ETXTBSY) while the binary is being prepared, which flakes the build. It also probes
-// the installed scanner once per build, so the answer is shared without touching rootProject.extra.
-abstract class OpengrepExecutionService : BuildService<BuildServiceParameters.None> {
-    /** `opengrep --version`, or null when the program is not on the PATH. */
-    val version: String? by lazy {
-        try {
-            ProcessBuilder("opengrep", "--version").redirectErrorStream(true).start().let { p ->
-                val out = String(p.inputStream.readAllBytes()).trim()
-                if (p.waitFor() == 0) out else null
-            }
-        } catch (_: java.io.IOException) {
-            null
-        }
-    }
-}
+// "Text file busy" (ETXTBSY) while the binary is being prepared, which flakes the build.
+abstract class OpengrepExecutionService : BuildService<BuildServiceParameters.None>
 
 val opengrepExecution = gradle.sharedServices.registerIfAbsent(
     "opengrepExecution",
@@ -158,13 +145,21 @@ val opengrep = tasks.register<Exec>("opengrep") {
     val projectPath = path
     val onCi = providers.environmentVariable("CI").isPresent
     val required = providers.gradleProperty("yukta.requireOpengrep").isPresent
-    val scanner = opengrepExecution
+    // `opengrep --version`, absent when the program is not on the PATH. A provider (not shared state),
+    // so it is safe in parallel and under the configuration cache; ponytail: one cheap probe per module.
+    val scannerVersion = providers.provider {
+        try {
+            providers.exec { commandLine("opengrep", "--version") }.standardOutput.asText.get().trim()
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     // Relative paths: the key must not depend on where the checkout is (worktrees, CI), or the
     // build cache never hits across them. The scanner version is an input, so an upgrade rescans.
     inputs.file(ruleFile).withPathSensitivity(PathSensitivity.RELATIVE)
     inputs.dir(sourceDir).withPathSensitivity(PathSensitivity.RELATIVE).optional()
-    inputs.property("opengrepVersion", scanner.map { it.version ?: "absent" })
+    inputs.property("opengrepVersion", scannerVersion.orElse("absent"))
     // Declared output makes the scan UP-TO-DATE / cacheable when sources and rules are unchanged.
     outputs.file(reportFile)
     outputs.cacheIf { true }
@@ -194,7 +189,7 @@ val opengrep = tasks.register<Exec>("opengrep") {
 
     onlyIf {
         val sourceExists = sourceDir.exists()
-        val opengrepExists = scanner.get().version != null
+        val opengrepExists = scannerVersion.isPresent
 
         // A scanner that is missing must not read as "no findings" on CI, or where the developer asks
         // for it (-Pyukta.requireOpengrep, e.g. for a pre-push hook); elsewhere say so loudly.
