@@ -218,6 +218,8 @@ function KpiRow({
 function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
   const types = useSupervisorTypes();
   const maker = decisionMaker(supervisor.type, types.data);
+  // a type the catalog does not list (a plugin's) has no page to open
+  const listed = types.data?.some((t) => t.type === supervisor.type) ?? false;
   return (
     <div className="flex flex-col gap-3">
       <div className="border-border bg-card text-body-md shadow-card flex flex-col gap-2 rounded-xl border p-4">
@@ -236,14 +238,16 @@ function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
           It controls only the workflows this supervisor owns. To change its
           type, edit the supervisor; its settings are under Settings.
         </p>
-        <div>
-          <Link
-            to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
-            className={buttonVariants({ variant: 'outline', size: 'sm' })}
-          >
-            Browse decision maker types
-          </Link>
-        </div>
+        {listed && (
+          <div>
+            <Link
+              to={`/supervisors?tab=decision-makers&type=${encodeURIComponent(supervisor.type)}`}
+              className={buttonVariants({ variant: 'outline', size: 'sm' })}
+            >
+              Browse decision maker types
+            </Link>
+          </div>
+        )}
       </div>
       {supervisor.type === 'http' && (
         <>

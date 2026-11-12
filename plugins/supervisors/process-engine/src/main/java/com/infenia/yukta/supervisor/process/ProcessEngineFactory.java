@@ -32,13 +32,14 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * The {@code process} engine: a program on this server decides. Every signal is written to its
- * standard input as one JSON line ({@code {"kind": "EVENT", "signal": {...}}}); every line it
- * writes to standard output is read as a directive (see {@link DirectiveJson}). The program runs
- * with an empty environment and only if its executable is in {@code yukta.process.allowed-commands}
- * (or {@code yukta.process.allow-any} is set and that list is empty), the same rule as the process
- * node. A line that is not a directive is dropped; the supervisor checks the rest as it checks any
- * engine's. If the program exits, the engine fails and starts it again with backoff.
+ * The {@code process} engine: a program on the machine where Yukta runs decides. Every signal is
+ * written to its standard input as one JSON line ({@code {"kind": "EVENT", "signal": {...}}});
+ * every line it writes to standard output is read as a directive (see {@link DirectiveJson}). The
+ * program runs with an empty environment and only if its executable is in {@code
+ * yukta.process.allowed-commands} (or {@code yukta.process.allow-any} is set and that list is
+ * empty), the same rule as the process node. A line that is not a directive is dropped; the
+ * supervisor checks the rest as it checks any engine's. If the program exits, the engine fails and
+ * starts it again with backoff.
  */
 @Slf4j
 @SuppressWarnings("PMD.TooManyMethods")
@@ -76,15 +77,15 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
   @Override
   public EngineDescriptor describe() {
     return new EngineDescriptor(
-        "Program on this server",
-        "A program reads the signals as JSON lines on standard input and writes directives as JSON"
-            + " lines on standard output. It runs with an empty environment, and only if its"
-            + " executable is in yukta.process.allowed-commands.",
+        "Local program",
+        "A program on the machine where Yukta runs reads the signals as JSON lines on standard"
+            + " input and writes directives as JSON lines on standard output. It runs with an empty"
+            + " environment, and only if its executable is in yukta.process.allowed-commands.",
         Set.of(
             Signal.Kind.EVENT, Signal.Kind.STARTED, Signal.Kind.DELEGATED, Signal.Kind.CONSULTED),
         true,
         SupervisorCategory.ON_THIS_SERVER,
-        "Use it for a decision program you install next to the server, in any language. Allow its"
+        "Use it for a decision program you install next to Yukta, in any language. Allow its"
             + " executable in yukta.process.allowed-commands first.",
         Optional.of(new UiDesign("green", "terminal", "Program", 140, 80)),
         Map.of(COMMAND, "/opt/yukta/decide"));

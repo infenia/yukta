@@ -18,7 +18,7 @@ The catalog is at `GET /api/supervisor-engines` (`GET /api/supervisor-engines/{t
 | `rules` | Rules | `RULES` | `Event`, `Tick`, `Review`, `Delegated` | yes | every command |
 | `http` | External system | `EXTERNAL_SYSTEM` | `Event`, `Review`, `Started`, `Delegated`, `Consulted` | yes | every command |
 | `workflow` | Workflow | `ON_THIS_SERVER` | `Event`, `Tick`, `Review`, `Delegated`, `Started` | yes | none |
-| `process` | Program on this server | `ON_THIS_SERVER` | `Event`, `Started`, `Delegated`, `Consulted` | yes | every command |
+| `process` | Local program | `ON_THIS_SERVER` | `Event`, `Started`, `Delegated`, `Consulted` | yes | every command |
 
 ## `rules`
 
@@ -183,7 +183,7 @@ Starts a workflow of an internal session for each matching signal. The workflow 
 
 ## `process`
 
-Runs a program next to the server. Signals arrive as JSON lines on its standard input; directives are read as JSON lines from its standard output.
+Runs a program on the machine where Yukta runs. Signals arrive as JSON lines on its standard input; directives are read as JSON lines from its standard output.
 
 ### `command`
 - **Type:** string

@@ -33,9 +33,29 @@ env:
   IMAGE: ghcr.io/${{ github.repository }}
 
 jobs:
+  # This workflow attests and signs as itself, so it must only build a commit that went through review:
+  # a v* tag on a branch commit would otherwise get valid provenance. The tag ruleset limits who can create
+  # one; this does not rely on it. Every job below needs this one (cli and plan directly, server through plan).
+  guard:
+    name: The tag is on main
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Is an ancestor of origin/main
+        if: github.ref_type == 'tag'   # a manual or weekly dry run publishes and attests nothing
+        run: |
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
+            { echo "::error::$GITHUB_REF_NAME is not a commit on main; nothing is built or signed"; exit 1; }
+
   cli:
     name: CLI binaries
-    runs-on: ubuntu-latest
+    needs: guard
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
@@ -91,7 +111,9 @@ jobs:
   # The servers to build: all of them, or the ones named in the manual run's "platforms" input.
   plan:
     name: Plan
-    runs-on: ubuntu-latest
+    needs: guard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       matrix: ${{ steps.matrix.outputs.matrix }}
     steps:
@@ -100,10 +122,10 @@ jobs:
           ONLY: ${{ inputs.platforms }}
         run: |
           all='[
-            {"platform":"linux-amd64","runner":"ubuntu-latest"},
+            {"platform":"linux-amd64","runner":"ubuntu-24.04"},
             {"platform":"linux-arm64","runner":"ubuntu-24.04-arm"},
             {"platform":"darwin-amd64","runner":"macos-15-intel","heap":"10g"},
-            {"platform":"windows-amd64","runner":"windows-latest","heap":"12g"}]'
+            {"platform":"windows-amd64","runner":"windows-2025","heap":"12g"}]'
           picked="$(jq -c --arg only "$ONLY" \
             '[.[] | . as $p | select($only == "" or ($only | split(",") | index($p.platform)))]' <<<"$all")"
           [ "$picked" != "[]" ] || { echo "::error::no platform matches '$ONLY'"; exit 1; }
@@ -179,10 +201,16 @@ jobs:
       - name: Native compile (${{ matrix.platform }})
         if: runner.os != 'Linux'
         timeout-minutes: 90
+        env:
+          HEAP: ${{ matrix.heap }}
+          PLATFORM: ${{ matrix.platform }}
+          QUICK: ${{ inputs.quick }}
         run: |
-          ./gradlew nativeCompile -x test --no-daemon -Pnative.heap=${{ matrix.heap }} ${{ inputs.quick && '-Pnative.quick' || '' }}
+          quick=()
+          [ "$QUICK" != true ] || quick=(-Pnative.quick)
+          ./gradlew nativeCompile -x test --no-daemon "-Pnative.heap=$HEAP" "${quick[@]}"
           source release/lib.sh
-          out="dist/${{ matrix.platform }}"
+          out="dist/$PLATFORM"
           mkdir -p "$out"
           cp boot/build/native/nativeCompile/yukta* "$out/"   # yukta or yukta.exe, plus any shared libraries
           write_build_marker "$out"
@@ -190,8 +218,10 @@ jobs:
       # Starts the binary, then runs the Quickstart workflow against it (release/smoke-test.sh), so a
       # native image whose expressions or reflection data are broken cannot be released.
       - name: Smoke test
+        env:
+          BINARY: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
         run: |
-          dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }} &
+          "$BINARY" &
           pid=$!
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
@@ -230,7 +260,7 @@ jobs:
     # A manual (workflow_dispatch) run must never push or sign, even when started on a tag.
     if: github.event_name == 'push' && github.ref_type == 'tag'
     needs: [cli, server]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       contents: write       # upload to the draft release
@@ -241,14 +271,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          fetch-depth: 0   # release.sh checks that HEAD is exactly the tag
-
-      # This job signs as the workflow, so it must only run for a commit that went through review:
-      # a v* tag on a branch commit would otherwise get a valid signature for its own release.yml.
-      - name: The tag is on main
-        run: |
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main ||
-            { echo "::error::$GITHUB_REF_NAME is not a commit on main; nothing is signed"; exit 1; }
+          fetch-depth: 0   # release.sh checks that HEAD is exactly the tag (the main check is the guard job)
 
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
@@ -291,8 +314,9 @@ jobs:
           path: dist/windows-amd64
 
       # build-image.sh smoke tests the arm64 image here, on an amd64 machine, under QEMU.
-      - name: Enable arm64 emulation
-        run: docker run --privileged --rm tonistiigi/binfmt --install arm64
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+        with:
+          platforms: arm64
 
       - name: Package, push the image, sign, upload
         env:
@@ -327,7 +351,7 @@ jobs:
   verify:
     name: Test the draft
     needs: assemble
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: write       # reading a draft release needs write access
@@ -395,10 +419,12 @@ jobs:
             --signer-workflow "$REPO/.github/workflows/release.yml" --source-ref "refs/tags/$TAG"
 
       - name: Install on a clean machine
+        env:
+          UBUNTU: ubuntu:24.04@sha256:2198e4c65076e9cb0b3d695219df667c0e3b0072da64ca3c2648aca17dcecaf5
         run: |
           (cd "$RUNNER_TEMP/rel" && python3 -m http.server 8765 --bind 127.0.0.1 &)
           sleep 2
-          docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" ubuntu:24.04 bash -euc "
+          docker run --rm --network host -v "$RUNNER_TEMP/rel/$TAG:/rel:ro" "$UBUNTU" bash -euc "
             apt-get update -qq && apt-get install -y -qq curl >/dev/null
             curl -fsSL http://127.0.0.1:8765/$TAG/install.sh | YUKTA_DOWNLOAD_BASE=http://127.0.0.1:8765 sh
             yukta-cli --version   # root installs to /usr/local/bin

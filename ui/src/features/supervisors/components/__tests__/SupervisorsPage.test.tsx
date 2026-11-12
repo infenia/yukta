@@ -37,7 +37,7 @@ const summaries = [
   },
   {
     type: 'process',
-    displayName: 'Program on this server',
+    displayName: 'Local program',
     category: 'ON_THIS_SERVER',
     icon: 'terminal',
   },
@@ -216,7 +216,7 @@ describe('the Decision makers tab', () => {
       screen.queryByRole('button', { name: /Rules/ })
     ).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Program on this server/ })
+      screen.getByRole('button', { name: /Local program/ })
     ).toBeInTheDocument();
   });
 

@@ -111,6 +111,36 @@ const renderAt = (url = '/supervisors') =>
 
 const nav = () => screen.getByRole('navigation', { name: 'Supervisors' });
 
+describe('a supervisor whose type the catalog does not list', () => {
+  it('shows the type as text, with no link to open', async () => {
+    supervisors = [sup('rules', { type: 'RuleSupervisor', system: true })];
+    renderAt();
+    const detail = within(await screen.findByRole('article'));
+    expect(detail.getAllByText('RuleSupervisor').length).toBeGreaterThan(0);
+    expect(
+      detail.queryByRole('link', { name: 'RuleSupervisor' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('opens the first decision maker for an old link to an unknown type', async () => {
+    const asked: string[] = [];
+    server.use(
+      http.get('/api/supervisor-engines/:type', ({ params }) => {
+        asked.push(String(params.type));
+        return ok({
+          ...types[0],
+          defaultAllowedCommands: null,
+          configSchema: [],
+          commonSchema: [],
+        });
+      })
+    );
+    renderAt('/supervisors?tab=decision-makers&type=RuleSupervisor');
+    await expect.poll(() => asked).toContain('rules');
+    expect(asked).not.toContain('RuleSupervisor');
+  });
+});
+
 describe('the Supervisors tab', () => {
   it('lists the supervisors flat with their engine id, and shows what the chosen one owns', async () => {
     supervisors = [
