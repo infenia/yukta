@@ -48,6 +48,7 @@ class McpToolAccess {
           Map.entry("get_rules", ApiRole.VIEWER),
           Map.entry("get_node_output", ApiRole.VIEWER),
           Map.entry("list_plugins", ApiRole.VIEWER),
+          Map.entry("list_ai_backends", ApiRole.VIEWER),
           Map.entry("get_plugin_details", ApiRole.VIEWER),
           Map.entry("get_control_bus_status", ApiRole.VIEWER),
           Map.entry("get_session_creation_instructions", ApiRole.VIEWER),
@@ -64,6 +65,7 @@ class McpToolAccess {
   private static final Set<String> SESSIONLESS =
       Set.of(
           "list_plugins",
+          "list_ai_backends",
           "get_plugin_details",
           "get_session_creation_instructions",
           "get_plugin_creation_guide",

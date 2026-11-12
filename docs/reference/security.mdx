@@ -64,7 +64,7 @@ A key limited to sessions reaches only `/api/sessions/{session}/...`, `/api/work
 
 ### MCP tool roles
 
-Each `tools/call` is checked against the key's role; a tool not in the role table needs `ADMIN`. A session-limited key must pass a `sessionId` it may reach, except for the tools that name no session (`list_plugins`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor_contract`, `list_supervisor_presets`, `whoami`). For a key that is not an unrestricted `ADMIN`, an unparsable `POST` body is refused with `403` and one above 1 MiB with `413`. The role of each tool is listed in the [MCP tools reference](/reference/mcp-tools).
+Each `tools/call` is checked against the key's role; a tool not in the role table needs `ADMIN`. A session-limited key must pass a `sessionId` it may reach, except for the tools that name no session (`list_plugins`, `list_ai_backends`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor_contract`, `list_supervisor_presets`, `whoami`). For a key that is not an unrestricted `ADMIN`, an unparsable `POST` body is refused with `403` and one above 1 MiB with `413`. The role of each tool is listed in the [MCP tools reference](/reference/mcp-tools).
 
 ## Host and Origin checks
 

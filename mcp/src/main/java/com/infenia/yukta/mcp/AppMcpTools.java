@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.mcp;
 
+import com.infenia.yukta.mcp.dto.AiBackendList;
 import com.infenia.yukta.mcp.dto.AssignmentInput;
 import com.infenia.yukta.mcp.dto.ControlActionResult;
 import com.infenia.yukta.mcp.dto.ControlBusStatus;
@@ -1472,6 +1473,23 @@ public class AppMcpTools {
       annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
   public Mono<PluginList> listPlugins() {
     return Mono.fromCallable(pluginInfoProvider::listPlugins).map(PluginList::new);
+  }
+
+  /**
+   * List AI backends.
+   *
+   * @return the backends with their options
+   */
+  @McpTool(
+      name = "list_ai_backends",
+      title = "List AI Backends",
+      description =
+          "List the model and agent backends a plugin's backend option can select, with the"
+              + " options each one reads (name, type, default, description)",
+      generateOutputSchema = true,
+      annotations = @McpTool.McpAnnotations(readOnlyHint = true, openWorldHint = false))
+  public Mono<AiBackendList> listAiBackends() {
+    return Mono.fromCallable(pluginInfoProvider::listAiBackends).map(AiBackendList::new);
   }
 
   /**

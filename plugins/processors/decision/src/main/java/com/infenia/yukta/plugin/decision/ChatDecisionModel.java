@@ -2,11 +2,13 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.decision;
 
+import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.llm.ChatTurn;
 import com.infenia.yukta.plugin.llm.LlmGateway;
 import com.infenia.yukta.plugin.llm.LlmRequest;
 import com.infenia.yukta.plugin.llm.Provider;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -26,7 +28,7 @@ import tools.jackson.databind.json.JsonMapper;
 @Component
 @RequiredArgsConstructor
 @SuppressWarnings({"PMD.InsufficientStringBufferDeclaration", "PMD.UseConcurrentHashMap"})
-public final class ChatDecisionModel implements DecisionModel {
+public final class ChatDecisionModel implements DecisionBackend {
 
   /** The instructions that make the model answer in a fixed shape. */
   private static final String SYSTEM =
@@ -40,6 +42,32 @@ public final class ChatDecisionModel implements DecisionModel {
 
   /** Calls the chat models. */
   private final LlmGateway gateway;
+
+  @Override
+  public String kind() {
+    return "LLM";
+  }
+
+  @Override
+  public String description() {
+    return "Any chat model (OpenAI-compatible, Anthropic, Ollama) prompted to answer as JSON. The"
+        + " probabilities are the model's own estimate, not calibrated.";
+  }
+
+  @Override
+  public List<ConfigField> options() {
+    return List.of(
+        ConfigField.choice(
+            "provider", true, null, "Which chat provider to call", "openai", "anthropic", "ollama"),
+        ConfigField.required("model", ConfigField.Type.STRING, "Model name"),
+        ConfigField.optional(
+            "baseUrl",
+            ConfigField.Type.STRING,
+            null,
+            "Endpoint override (OpenAI-compatible, Ollama)"),
+        ConfigField.optional("apiKey", ConfigField.Type.SECRET, null, "API key (decrypted:<key>)"),
+        ConfigField.optional("timeout", ConfigField.Type.NUMBER, 30, "Timeout in seconds"));
+  }
 
   @Override
   public Mono<Map<String, Answer>> answer(

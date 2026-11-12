@@ -610,6 +610,52 @@
         },
         "type" : "object"
       },
+      "ApiResponseListInfo" : {
+        "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
+        "properties" : {
+          "data" : {
+            "description" : "The response data",
+            "items" : {
+              "$ref" : "#/components/schemas/Info"
+            },
+            "type" : "array"
+          },
+          "error" : {
+            "description" : "The HTTP status error name",
+            "example" : "Bad Request",
+            "type" : "string"
+          },
+          "errors" : {
+            "description" : "The list of field validation errors",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldError"
+            },
+            "type" : "array"
+          },
+          "message" : {
+            "description" : "A human-readable message",
+            "example" : "Operation successful",
+            "type" : "string"
+          },
+          "path" : {
+            "description" : "The request path",
+            "example" : "/api/files",
+            "type" : "string"
+          },
+          "status" : {
+            "description" : "The HTTP status code",
+            "example" : 200,
+            "format" : "int32",
+            "type" : "integer"
+          },
+          "timestamp" : {
+            "description" : "The time the response was generated",
+            "format" : "date-time",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "ApiResponseListInputRequest" : {
         "description" : "Unified API response wrapper for both success and error responses. Success responses include data field; error responses include error, path, and errors fields.",
         "properties" : {
@@ -3879,6 +3925,23 @@
           },
           "workflowId" : {
             "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "Info" : {
+        "properties" : {
+          "description" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "options" : {
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigField"
+            },
+            "type" : "array"
           }
         },
         "type" : "object"
@@ -7257,6 +7320,26 @@
         },
         "summary" : "Read the shape of an owned workflow",
         "tags" : [ "Agent API" ]
+      }
+    },
+    "/api/ai/backends" : {
+      "get" : {
+        "description" : "Lists the model and agent backends a plugin's backend option can select, each with the options it reads (name, type, default, description).",
+        "operationId" : "list_5",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "List AI backends",
+        "tags" : [ "AI Backend API" ]
       }
     },
     "/api/control/audit" : {
@@ -11797,6 +11880,9 @@
   }, {
     "description" : "Answer an input request with a one-time token",
     "name" : "Input Requests API"
+  }, {
+    "description" : "Endpoints for discovering model and agent backends",
+    "name" : "AI Backend API"
   }, {
     "description" : "Who may do what to a node, a run or the server",
     "name" : "Supervision API"

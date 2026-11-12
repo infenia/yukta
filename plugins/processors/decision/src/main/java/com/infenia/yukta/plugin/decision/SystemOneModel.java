@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.decision;
 
+import com.infenia.yukta.plugin.core.ConfigField;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
@@ -19,7 +21,7 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @Component
 @SuppressWarnings("PMD.UseConcurrentHashMap")
-public final class SystemOneModel implements DecisionModel {
+public final class SystemOneModel implements DecisionBackend {
 
   /** The endpoint, below the base URL. */
   private static final String PATH = "/v1/systemone";
@@ -40,6 +42,31 @@ public final class SystemOneModel implements DecisionModel {
    */
   public SystemOneModel(final WebClient.Builder builder) {
     this.client = builder.build();
+  }
+
+  @Override
+  public String kind() {
+    return "SYSTEMONE";
+  }
+
+  @Override
+  public String description() {
+    return "Ollama System One (0.35+): a small local model with constrained answers and calibrated"
+        + " probabilities. The default; needs no API key. Use backend LLM where Ollama is not"
+        + " available.";
+  }
+
+  @Override
+  public List<ConfigField> options() {
+    return List.of(
+        ConfigField.required("model", ConfigField.Type.STRING, "Decision model, e.g. tev1:0.8b"),
+        ConfigField.optional(
+            "baseUrl", ConfigField.Type.STRING, "http://localhost:11434", "Ollama base URL"),
+        ConfigField.optional(
+            "keepAlive", ConfigField.Type.STRING, null, "How long Ollama keeps the model loaded"),
+        ConfigField.optional(
+            "numCtx", ConfigField.Type.NUMBER, null, "Context size to load the model with"),
+        ConfigField.optional("timeout", ConfigField.Type.NUMBER, 30, "Timeout in seconds"));
   }
 
   @Override
