@@ -7,16 +7,14 @@ import { buttonVariants } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
+import { Tabs } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
-  useAttachments,
   useSupervisorTypes,
   useSupervisors,
 } from '../hooks/useSupervisorTypes';
 import { decisionMaker } from '../lib/decisionMakers';
-import { hierarchyRows } from '../lib/hierarchy';
-import { parseScope, targetLabel } from '../lib/ownership';
-import type { AttachmentView, SupervisorView } from '../types';
+import type { SupervisorView } from '../types';
 import { HierarchyTab, OperationsTab, OwnsTab } from './SupervisorDetailTabs';
 import { Activity } from './Activity';
 import { HistoryTab, SettingsTab } from './SettingsHistoryTabs';
@@ -24,14 +22,14 @@ import { StaleNotice } from './StaleNotice';
 import { DefaultPeoplePanel } from './DefaultPeoplePanel';
 
 const DETAIL_TABS = [
-  'Owns',
-  'Allowed operations',
-  'Reports to',
-  'Settings',
-  'Changes',
-  'Decisions',
+  { id: 'owns', label: 'Owns' },
+  { id: 'operations', label: 'Allowed operations' },
+  { id: 'reports-to', label: 'Reports to' },
+  { id: 'settings', label: 'Settings' },
+  { id: 'changes', label: 'Changes' },
+  { id: 'decisions', label: 'Decisions' },
 ] as const;
-type DetailTab = (typeof DETAIL_TABS)[number];
+type DetailTab = (typeof DETAIL_TABS)[number]['id'];
 
 function NavItem({
   id,
@@ -39,13 +37,19 @@ function NavItem({
   sub,
   selected,
   onSelect,
+  live,
+  owns,
 }: {
   id: string;
   /** What is shown when it is not the id itself, such as "Direct control". */
   label?: string;
+  /** The engine id, in mono. */
   sub: string;
   selected: boolean;
   onSelect: (id: string) => void;
+  /** A Live or Dry-run dot; none for Direct control. */
+  live?: boolean;
+  owns?: number;
 }) {
   return (
     <button
@@ -53,30 +57,37 @@ function NavItem({
       aria-current={selected}
       onClick={() => onSelect(id)}
       className={cn(
-        'text-body-md transition-standard w-full rounded-lg px-3 py-1.5 text-left',
+        'text-body-md transition-standard flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left',
         selected
           ? 'bg-accent text-accent-foreground font-semibold'
           : 'text-on-surface-variant hover:bg-muted hover:text-on-surface'
       )}
     >
-      <span className="block">{label}</span>
-      <span className="text-code-sm block text-[11px] opacity-75">{sub}</span>
+      {live !== undefined && (
+        <span
+          role="img"
+          aria-label={live ? 'Live' : 'Dry run'}
+          title={live ? 'Live' : 'Dry run: recorded, not applied'}
+          className={cn(
+            'size-2 shrink-0 rounded-full',
+            live ? 'bg-success' : 'ring-attention ring-2 ring-inset'
+          )}
+        />
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate">{label}</span>
+        <span className="text-code-sm block text-[11px] opacity-75">{sub}</span>
+      </span>
+      {owns !== undefined && owns > 0 && (
+        <span
+          title={`Owns ${owns} ${owns === 1 ? 'target' : 'targets'}`}
+          className="bg-muted text-label-sm text-on-surface-variant rounded-full px-2 tabular-nums"
+        >
+          {owns}
+        </span>
+      )}
     </button>
   );
-}
-
-/** The workflows that supervisors own, each with its supervisors; the server and session rest. */
-function byWorkflow(assignments: AttachmentView[]) {
-  const groups = new Map<string, Set<string>>();
-  for (const a of assignments) {
-    const t = parseScope(a.scope);
-    const key =
-      t.kind === 'workflow' || t.kind === 'run'
-        ? [t.sessionId, t.workflowId].filter(Boolean).join(' / ')
-        : targetLabel(t);
-    groups.set(key, (groups.get(key) ?? new Set()).add(a.supervisorId));
-  }
-  return [...groups.entries()].sort(([a], [b]) => a.localeCompare(b));
 }
 
 /** Edit link for the supervisor, and the agent or CLI commands for changes made outside the UI. */
@@ -121,12 +132,15 @@ function SupervisorPanel({
   supervisor,
   all,
   onSelect,
+  tab,
+  setTab,
 }: {
   supervisor: SupervisorView;
   all: SupervisorView[];
   onSelect: (id: string) => void;
+  tab: DetailTab;
+  setTab: (tab: DetailTab) => void;
 }) {
-  const [tab, setTab] = useState<DetailTab>('Owns');
   const types = useSupervisorTypes();
   const maker = decisionMaker(supervisor.type, types.data);
   const parents = supervisor.parents ?? [];
@@ -197,58 +211,40 @@ function SupervisorPanel({
             type="button"
             className="text-primary font-semibold"
             title="A target is a workflow, node or session this supervisor is assigned to"
-            onClick={() => setTab('Owns')}
+            onClick={() => setTab('owns')}
           >
             {supervisor.attachments}{' '}
             {supervisor.attachments === 1 ? 'target' : 'targets'}
           </button>
         </p>
       </section>
+      <Tabs
+        ariaLabel={`${supervisor.id} details`}
+        items={DETAIL_TABS}
+        value={tab}
+        onChange={setTab}
+      />
       <div
-        role="tablist"
-        aria-label={`${supervisor.id} details`}
-        className="border-border flex flex-wrap gap-x-5 border-b"
+        role="tabpanel"
+        aria-label={DETAIL_TABS.find((t) => t.id === tab)?.label}
       >
-        {DETAIL_TABS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            role="tab"
-            aria-selected={tab === name}
-            onClick={() => setTab(name)}
-            className={cn(
-              'text-label-md -mb-px shrink-0 border-b-2 py-2',
-              tab === name
-                ? 'border-primary text-on-surface'
-                : 'text-on-surface-variant hover:text-on-surface border-transparent'
-            )}
-          >
-            {name}
-          </button>
-        ))}
-      </div>
-      <div role="tabpanel" aria-label={tab}>
-        {tab === 'Owns' && <OwnsTab supervisor={supervisor} />}
-        {tab === 'Allowed operations' && (
-          <OperationsTab supervisor={supervisor} />
-        )}
-        {tab === 'Reports to' && (
+        {tab === 'owns' && <OwnsTab supervisor={supervisor} />}
+        {tab === 'operations' && <OperationsTab supervisor={supervisor} />}
+        {tab === 'reports-to' && (
           <HierarchyTab supervisor={supervisor} all={all} onSelect={onSelect} />
         )}
-        {tab === 'Settings' && <SettingsTab supervisor={supervisor} />}
-        {tab === 'Changes' && <HistoryTab supervisor={supervisor} />}
-        {tab === 'Decisions' && <Activity supervisor={supervisor.id} />}
+        {tab === 'settings' && <SettingsTab supervisor={supervisor} />}
+        {tab === 'changes' && <HistoryTab supervisor={supervisor} />}
+        {tab === 'decisions' && <Activity supervisor={supervisor.id} />}
       </div>
       <ChangeSupervisor id={supervisor.id} />
     </article>
   );
 }
 
-/** The Supervisors tab: the hierarchy or the workflows on the left, the chosen supervisor right. */
+/** The flat list of supervisors on the left, the chosen one on the right. */
 export function SupervisorsBrowser() {
   const supervisors = useSupervisors();
-  const assignments = useAttachments();
-  const types = useSupervisorTypes();
   const [params, setParams] = useSearchParams();
   const [filter, setFilter] = useState('');
   if (supervisors.isPending) {
@@ -266,36 +262,29 @@ export function SupervisorsBrowser() {
       </StateMessage>
     );
   }
-  const all = supervisors.data;
-  if (all.length === 0) {
-    return (
-      <StateMessage title="No supervisors yet" icon="shield_person">
-        Every workflow is under Direct control: people and agents send its
-        commands themselves. An agent adds supervisors with MCP{' '}
-        <code className="text-code-sm">save_supervisor</code> or{' '}
-        <code className="text-code-sm">yukta supervisors</code>.
-      </StateMessage>
-    );
-  }
-  const view = params.get('view') === 'workflow' ? 'workflow' : 'hierarchy';
-  const selectedId = params.get('supervisor') ?? all[0].id;
+  // named supervisors alphabetically; Direct control comes last, below the list
+  const all = [...supervisors.data].sort((a, b) => a.id.localeCompare(b.id));
+  const selectedId = params.get('supervisor') ?? all[0]?.id ?? 'default';
   const selected = all.find((s) => s.id === selectedId) ?? all[0];
-  const showDefault = selectedId === 'default';
-  const select = (id: string) => {
+  const showDefault = selectedId === 'default' || !selected;
+  const section =
+    DETAIL_TABS.find((t) => t.id === params.get('section'))?.id ?? 'owns';
+  const update = (change: (next: URLSearchParams) => void) => {
     const next = new URLSearchParams(params);
-    next.set('supervisor', id);
+    change(next);
     setParams(next, { replace: true });
   };
-  const showView = (next: 'hierarchy' | 'workflow') => {
-    const updated = new URLSearchParams(params);
-    if (next === 'workflow') updated.set('view', next);
-    else updated.delete('view');
-    setParams(updated, { replace: true });
-  };
+  const select = (id: string) =>
+    update((next) => {
+      next.set('supervisor', id);
+      next.delete('section');
+    });
+  const setSection = (tab: DetailTab) =>
+    update((next) => {
+      if (tab === 'owns') next.delete('section');
+      else next.set('section', tab);
+    });
   const needle = filter.trim().toLowerCase();
-  const matches = (id: string) => id.toLowerCase().includes(needle);
-  const sub = (s: SupervisorView) => decisionMaker(s.type, types.data).name;
-  const byId = new Map(all.map((s) => [s.id, s]));
   return (
     <>
       <StaleNotice query={supervisors} />
@@ -311,88 +300,40 @@ export function SupervisorsBrowser() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
-          <div role="group" aria-label="Show" className="flex gap-1">
-            {(['hierarchy', 'workflow'] as const).map((v) => (
-              <button
-                key={v}
-                type="button"
-                aria-pressed={view === v}
-                onClick={() => showView(v)}
-                className={cn(
-                  'text-label-md rounded-full px-3 py-1',
-                  view === v
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-on-surface-variant hover:bg-muted'
-                )}
-              >
-                {v === 'hierarchy' ? 'Reporting tree' : 'By workflow'}
-              </button>
-            ))}
-          </div>
-          <p className="text-body-sm text-muted-foreground px-3">
-            {view === 'hierarchy'
-              ? 'Who reports to whom.'
-              : 'Which supervisor owns each workflow.'}
-          </p>
-          {view === 'hierarchy' ? (
-            <ul className="flex flex-col gap-0.5">
-              {hierarchyRows(all)
-                .filter((row) => matches(row.id))
-                .map((row, i) => (
-                  <li
-                    key={`${row.id}-${i}`}
-                    className={cn(row.depth > 0 && 'border-border border-l')}
-                    style={{ marginLeft: `${Math.max(0, row.depth) * 14}px` }}
-                  >
-                    <NavItem
-                      id={row.id}
-                      sub={
-                        sub(byId.get(row.id) as SupervisorView) +
-                        (row.alsoUnder.length > 0
-                          ? ` · also under ${row.alsoUnder.join(', ')}`
-                          : '')
-                      }
-                      selected={row.id === selected.id}
-                      onSelect={select}
-                    />
-                  </li>
-                ))}
-            </ul>
-          ) : (
-            byWorkflow(assignments.data ?? []).map(([where, ids]) => (
-              <section key={where}>
-                <h3 className="text-label-md text-on-surface mb-1 truncate">
-                  {where}
-                </h3>
-                <ul className="flex flex-col gap-0.5">
-                  {[...ids].filter(matches).map((id) => (
-                    <li key={id}>
-                      <NavItem
-                        id={id}
-                        sub={
-                          byId.has(id)
-                            ? sub(byId.get(id) as SupervisorView)
-                            : 'not configured'
-                        }
-                        selected={id === selected.id}
-                        onSelect={select}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))
+          <ul className="flex flex-col gap-0.5">
+            {all
+              .filter((s) => s.id.toLowerCase().includes(needle))
+              .map((s) => (
+                <li key={s.id}>
+                  <NavItem
+                    id={s.id}
+                    sub={s.type}
+                    live={!s.dryRun}
+                    owns={s.attachments}
+                    selected={!showDefault && s.id === selected?.id}
+                    onSelect={select}
+                  />
+                </li>
+              ))}
+          </ul>
+          {all.length === 0 && (
+            <p className="text-body-sm text-on-surface-variant px-3">
+              No supervisors yet. An agent adds them with MCP{' '}
+              <code className="text-code-sm">save_supervisor</code>, the CLI (
+              <code className="text-code-sm">yukta supervisors</code>) or the
+              API.
+            </p>
           )}
           <NavItem
             id="default"
             label="Direct control"
             sub="For workflows nobody owns"
-            selected={selectedId === 'default'}
+            selected={showDefault}
             onSelect={select}
           />
         </nav>
         <div className="min-w-0 flex-1">
-          {showDefault ? (
+          {showDefault || !selected ? (
             <DefaultPeoplePanel />
           ) : (
             <SupervisorPanel
@@ -400,6 +341,8 @@ export function SupervisorsBrowser() {
               supervisor={selected}
               all={all}
               onSelect={select}
+              tab={section}
+              setTab={setSection}
             />
           )}
         </div>

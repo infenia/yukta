@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
@@ -112,7 +112,7 @@ const renderAt = (url = '/supervisors') =>
 const nav = () => screen.getByRole('navigation', { name: 'Supervisors' });
 
 describe('the Supervisors tab', () => {
-  it('shows the hierarchy, a supervisor with two parents under each, and what the first owns', async () => {
+  it('lists the supervisors flat with their engine id, and shows what the chosen one owns', async () => {
     supervisors = [
       sup('lead', { type: 'http', description: 'The release agent.' }),
       sup('ops'),
@@ -153,25 +153,21 @@ describe('the Supervisors tab', () => {
         conflict: false,
       },
     ];
-    renderAt();
+    renderAt('/supervisors?supervisor=lead');
     expect(
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
     expect(screen.getByText('The release agent.')).toBeInTheDocument();
-    expect(
-      within(nav()).getByText(/External system · also under|External system$/, {
-        selector: 'span',
-      })
-    ).toBeInTheDocument();
-    expect(
-      within(nav()).getByText('Rules · also under ops')
-    ).toBeInTheDocument();
-    expect(
-      within(nav()).getByText('Rules · also under lead')
-    ).toBeInTheDocument();
+    // a flat list, alphabetical, with Direct control last
+    const rows = within(nav())
+      .getAllByRole('button')
+      .map((b) => b.textContent);
+    expect(rows[0]).toMatch(/^agent/);
+    expect(rows[rows.length - 1]).toMatch(/^Direct control/);
+    expect(within(nav()).getAllByText('http').length).toBeGreaterThan(0);
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'External system' })
+      await screen.findByRole('link', { name: 'External system' })
     ).toHaveAttribute('href', '/supervisors?tab=decision-makers&type=http');
     // Owns: a run-level target with its nodes, a whole workflow with no session, a conflict, the server
     await expect
@@ -192,7 +188,7 @@ describe('the Supervisors tab', () => {
     expect(screen.getAllByText('Direct control').length).toBeGreaterThan(0);
   });
 
-  it('marks dry run, built-in and the nodes it owns; switches tabs, supervisors and views', async () => {
+  it('marks dry run, built-in and the nodes it owns; switches tabs and supervisors', async () => {
     const user = userEvent.setup();
     supervisors = [
       sup('lead', { attachments: 1 }),
@@ -291,15 +287,6 @@ describe('the Supervisors tab', () => {
       'supervisor=guard'
     );
 
-    await user.click(screen.getByRole('button', { name: 'By workflow' }));
-    expect(screen.getByLabelText('where')).toHaveTextContent('view=workflow');
-    expect(
-      screen.getByRole('heading', { name: 's1 / w1' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'The server' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('not configured')).toBeInTheDocument();
     await user.click(within(nav()).getAllByRole('button', { name: /lead/ })[0]);
     expect(screen.getByLabelText('where')).toHaveTextContent('supervisor=lead');
 
@@ -310,8 +297,6 @@ describe('the Supervisors tab', () => {
     expect(
       within(nav()).queryByRole('button', { name: /lead/ })
     ).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Reporting tree' }));
-    expect(screen.getByLabelText('where')).not.toHaveTextContent('view=');
     expect(
       within(nav()).getByRole('button', { name: /guard/ })
     ).toBeInTheDocument();
@@ -329,15 +314,14 @@ describe('the Supervisors tab', () => {
       sup('guard', { parents: ['lead'] }),
     ];
     server.use(http.get('/api/supervisors/assignments', () => failed()));
-    renderAt('/supervisors?supervisor=nope&view=workflow');
+    renderAt('/supervisors?supervisor=nope');
     expect(
-      await screen.findByRole('heading', { name: 'bare' })
+      await screen.findByRole('heading', { name: 'agent' })
     ).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Reports to' }));
     expect(
       screen.getByText('Reports to it:', { exact: false })
     ).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Reporting tree' }));
     await user.click(within(nav()).getAllByRole('button', { name: /lead/ })[0]);
     await user.click(screen.getByRole('tab', { name: 'Reports to' }));
     const panel = screen.getByRole('tabpanel', { name: 'Reports to' });
@@ -396,7 +380,7 @@ describe('the Supervisors tab', () => {
 
   it('says when there are no supervisors, and when they cannot be read', async () => {
     renderAt();
-    expect(await screen.findByText('No supervisors yet')).toBeInTheDocument();
+    expect(await screen.findByText(/No supervisors yet/)).toBeInTheDocument();
   });
 
   it('offers a retry when the supervisors cannot be read', async () => {
@@ -414,31 +398,59 @@ describe('the Supervisors tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('switches page tabs and falls back to Supervisors for an unknown one', async () => {
+  it('keeps the section in the URL, opens the types sheet, and sends the activity to Control', async () => {
     const user = userEvent.setup();
     supervisors = [sup('lead')];
     renderAt('/supervisors?tab=nope');
     expect(
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
-    const page = within(
-      screen.getByRole('tablist', { name: 'Supervisors sections' })
-    );
     await user.click(
       within(screen.getByRole('tablist', { name: 'lead details' })).getByRole(
         'tab',
         { name: 'Decisions' }
       )
     );
+    expect(screen.getByLabelText('where')).toHaveTextContent(
+      'section=decisions'
+    );
     expect(await screen.findByText('No activity yet')).toBeInTheDocument();
-    await user.click(page.getByRole('tab', { name: 'Activity' }));
-    expect(screen.getByLabelText('where')).toHaveTextContent('tab=activity');
-    await user.click(screen.getByRole('tab', { name: 'Decision makers' }));
+    expect(
+      screen.getByRole('link', { name: 'New supervisor' })
+    ).toHaveAttribute('href', '/supervisors/new');
+    await user.click(
+      screen.getByRole('button', { name: 'Decision maker types' })
+    );
     expect(screen.getByLabelText('where')).toHaveTextContent(
       'tab=decision-makers'
     );
-    await user.click(screen.getByRole('tab', { name: 'Supervisors' }));
-    expect(screen.getByLabelText('where')).not.toHaveTextContent('tab=');
+    expect(
+      await screen.findByRole('dialog', { name: 'Decision maker types' })
+    ).toBeInTheDocument();
+  });
+
+  it('opens the types sheet on an old decision-makers link, falling back to the first for an unknown type', async () => {
+    supervisors = [sup('lead')];
+    renderAt('/supervisors?tab=decision-makers&type=nope');
+    expect(
+      await screen.findByRole('dialog', { name: 'Decision maker types' })
+    ).toBeInTheDocument();
+  });
+
+  it('redirects the old activity tab to the Control page', async () => {
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter initialEntries={['/supervisors?tab=activity']}>
+          <Routes>
+            <Route path="/supervisors" element={<SupervisorsPage />} />
+            <Route path="/control" element={<Where />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+    expect(await screen.findByLabelText('where')).toHaveTextContent(
+      '?tab=activity'
+    );
   });
 });
 

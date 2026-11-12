@@ -281,7 +281,10 @@ export function DecisionMakersTab() {
       </StateMessage>
     );
   }
-  const chosen = params.get('type') ?? all[0].type;
+  const requested = params.get('type');
+  const chosen = all.some((t) => t.type === requested)
+    ? (requested as string)
+    : all[0].type;
   const choose = (type: string) => {
     const next = new URLSearchParams(params);
     next.set('type', type);
