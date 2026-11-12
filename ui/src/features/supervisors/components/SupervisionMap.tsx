@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useQueries } from '@tanstack/react-query';
 import {
@@ -9,6 +9,9 @@ import {
   Handle,
   Position,
   ReactFlow,
+  ReactFlowProvider,
+  useReactFlow,
+  useStore,
   type Edge,
   type Node,
   type NodeProps,
@@ -69,6 +72,17 @@ function Card({ data }: NodeProps<Node<CardData>>) {
 }
 
 const NODE_TYPES = { card: Card };
+const FIT = { padding: 0.2, maxZoom: 1 };
+
+/** Fits the view again when the box is resized or the boxes change: the first fit runs too early. */
+function Refit({ signature }: { signature: string }) {
+  const { fitView } = useReactFlow();
+  const width = useStore((s) => s.width);
+  useEffect(() => {
+    void fitView(FIT);
+  }, [fitView, width, signature]);
+  return null;
+}
 
 /**
  * Who decides, who this supervisor reports to and who reports to it, the workflows it owns and the
@@ -153,19 +167,22 @@ export function SupervisionMap({
       aria-label="Supervision map"
       className="border-border bg-card shadow-card h-72 overflow-hidden rounded-xl border"
     >
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={NODE_TYPES}
-        onNodeClick={onClick}
-        fitView
-        fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background gap={16} size={1} />
-      </ReactFlow>
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={NODE_TYPES}
+          onNodeClick={onClick}
+          fitView
+          fitViewOptions={FIT}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background gap={16} size={1} />
+          <Refit signature={graph.nodes.map((n) => n.id).join('|')} />
+        </ReactFlow>
+      </ReactFlowProvider>
     </section>
   );
 }
