@@ -26,6 +26,8 @@ export function PageHeader({
 }) {
   return (
     <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+      {/* React 19 hoists this into <head>, so each page names its browser tab */}
+      {typeof title === 'string' && <title>{`Yukta | ${title}`}</title>}
       {backdrop && (
         <div
           aria-hidden="true"

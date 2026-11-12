@@ -197,13 +197,13 @@ describe('ActivityPanel', () => {
       await screen.findByRole('heading', { name: 'Execution limits' })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'activity' }));
+    await user.click(screen.getByRole('tab', { name: 'Activity' }));
     expect(screen.getByTestId('where')).toHaveTextContent('tab=activity');
     expect(
       screen.getByRole('region', { name: 'Activity' })
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
     expect(screen.getByTestId('where')).not.toHaveTextContent('tab=');
     expect(
       await screen.findByRole('heading', { name: 'Execution limits' })
