@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 env:
-  TRIVY_SKIP_DIRS: '.git,.gradle,build,**/build,node_modules,**/node_modules,jte-classes'
+  TRIVY_SKIP_DIRS: '.git,.gradle,build,**/build,node_modules,**/node_modules'
 
 jobs:
   security:
@@ -72,12 +72,15 @@ jobs:
             --skip-dirs "$TRIVY_SKIP_DIRS" .
           echo "✓ No high/critical secrets detected"
 
-      - name: Vulnerability & misconfiguration scan (SARIF)
+      # One tree walk; the SARIF and the table are converted from its JSON. The gate below stays its own run
+      # because it changes with the event (--ignore-unfixed on pull requests).
+      - name: Vulnerability & misconfiguration scan (JSON, then SARIF)
         run: |
           echo "▶ Scanning dependencies and configs for vulnerabilities..."
           trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 0 \
             --skip-dirs "$TRIVY_SKIP_DIRS" \
-            --format sarif --output trivy-results.sarif .
+            --format json --output trivy-results.json .
+          trivy convert --format sarif --output trivy-results.sarif trivy-results.json
 
       # SARIF upload needs security-events:write, which fork PRs don't get.
       - name: Upload Trivy SARIF to GitHub Security
@@ -92,8 +95,7 @@ jobs:
 
       - name: Report vulnerabilities (table)
         run: |
-          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 0 \
-            --skip-dirs "$TRIVY_SKIP_DIRS" --format table .
+          trivy convert --format table trivy-results.json
 
       - name: Enforce vulnerability gate
         env:

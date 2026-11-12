@@ -46,7 +46,7 @@ jobs:
           persist-credentials: false
       - name: Lint YAML workflows
         run: |
-          pip install --require-hashes -r .github/requirements/yamllint.txt
+          pip install --require-hashes -r .github/requirements/ci-tools.txt
           yamllint .github/workflows/
 
       - name: Check the labels (labels.yml defines every label the automation applies)
@@ -68,7 +68,10 @@ jobs:
         run: .github/scripts/ci-tasks.sh --check
 
       - name: Lint shell scripts (shellcheck)
-        run: shellcheck -x -P .github/scripts .github/scripts/*.sh
+        run: |
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d \
+            -x -P .github/scripts .github/scripts/*.sh
 
       - name: Check the .github guides name every workflow and no missing one
         run: .github/scripts/docs-drift.sh
@@ -102,7 +105,7 @@ jobs:
         uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
         with:
           advanced-security: false
-          min-severity: high   # medium findings are mostly pin-comment style; tighten later
+          min-severity: medium
 
   # ─────────────────────────────────────────────
   # Verify gradle-wrapper.jar is an official Gradle release (supply-chain guard)
@@ -272,7 +275,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      checks: write          # For test result annotations
     if: needs.changes.outputs.shards != '[]'
     strategy:
       fail-fast: false       # let every shard report, so one run shows all the failures
