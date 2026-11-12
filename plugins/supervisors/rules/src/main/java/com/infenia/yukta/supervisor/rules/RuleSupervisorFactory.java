@@ -23,7 +23,6 @@ import org.springframework.stereotype.Component;
  * [...]}}, read as strictly as the file is, next to the capability settings {@code
  * allowedCommands}, {@code canAnswer} and {@code maxRisk}.
  */
-@SuppressWarnings({"PMD.UseConcurrentHashMap"})
 @Component
 @NoArgsConstructor
 public class RuleSupervisorFactory implements SupervisorFactory {

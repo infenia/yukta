@@ -44,15 +44,6 @@ public record RuleSet(@Nullable Integer schemaVersion, List<Rule> rules) {
   }
 
   /**
-   * Rules of the current version.
-   *
-   * @param rules the rules, in order
-   */
-  public RuleSet(final List<Rule> rules) {
-    this(null, rules);
-  }
-
-  /**
    * One rule: a reaction to events ({@code when}/{@code then}) or a veto on commands ({@code
    * deny}).
    *

@@ -48,7 +48,7 @@ import reactor.core.publisher.Mono;
  * {@code yukta.mcp.heavy.refused}. An endpoint with no key (loopback only) is not limited.
  */
 @Component
-@SuppressWarnings({"PMD.TooManyMethods", "PMD.ExcessiveImports"})
+@SuppressWarnings("PMD.ExcessiveImports")
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class McpEndpointFilter implements WebFilter, MeterBinder {
 

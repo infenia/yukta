@@ -24,7 +24,6 @@ import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods"})
 class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
   private static final String RULES = "rules";
