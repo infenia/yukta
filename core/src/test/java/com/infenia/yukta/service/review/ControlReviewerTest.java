@@ -37,7 +37,11 @@ class ControlReviewerTest {
   @RequiredArgsConstructor
   /* default */ static final class Reviewer implements ExecutionSupervisor {
     private final String id;
+
+    // Documents the position the test gives the supervisor; the provider list order decides.
+    @SuppressWarnings("UnusedVariable")
     private final int order;
+
     private final Function<ControlRequest, Mono<Decision>> answer;
     private final List<String> asked;
 

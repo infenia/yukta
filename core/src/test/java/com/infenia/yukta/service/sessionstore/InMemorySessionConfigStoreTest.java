@@ -27,15 +27,6 @@ import reactor.test.StepVerifier;
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
 class InMemorySessionConfigStoreTest {
 
-  /** Placeholder string value used in test cases. */
-  private static final String OTHER = "Other";
-
-  /** Initiator field name. */
-  private static final String INITIATOR = "initiator";
-
-  /** Description field name. */
-  private static final String DESCRIPTION = "description";
-
   /** Short description field name. */
   private static final String DESC = "desc";
 

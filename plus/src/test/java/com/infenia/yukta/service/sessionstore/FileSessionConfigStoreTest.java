@@ -48,12 +48,6 @@ class FileSessionConfigStoreTest {
   /** A generic description string. */
   private static final String TEST_DESC = "desc";
 
-  /** A generic 'now' string. */
-  private static final String NOW = "now";
-
-  /** Shared 'Other' literal. */
-  private static final String OTHER = "Other";
-
   /** Temporary directory for file-based storage. */
   @TempDir /* default */ Path tempDir;
 
