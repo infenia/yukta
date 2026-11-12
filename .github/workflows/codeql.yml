@@ -70,7 +70,13 @@ jobs:
           config-file: ./.github/codeql/codeql-config.yml
 
       # The Go CLI lives in cli/ (no root go.mod), so autobuild cannot
-      # find it — build it explicitly instead.
+      # find it — build it explicitly instead, with the Go version of cli/go.mod.
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        if: matrix.language == 'go'
+        with:
+          go-version-file: 'cli/go.mod'
+          cache: false
+
       - name: Build Go CLI (manual build mode)
         if: matrix.language == 'go'
         working-directory: cli

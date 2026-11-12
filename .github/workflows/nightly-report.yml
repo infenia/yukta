@@ -16,6 +16,7 @@ on:
       - "Examples nightly"
       - "Perf nightly"
       - "Perf weekly"
+      - "Native smoke"
     types: [completed]
 
 # One report at a time per workflow, so two runs cannot both open an issue.
