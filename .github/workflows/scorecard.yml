@@ -9,7 +9,7 @@ on:
   push:
     branches: [ "main" ]
   schedule:
-    - cron: '0 3 * * 1' # Monday 8:30 AM IST (03:00 UTC)
+    - cron: '29 3 * * 1' # Monday 8:59 AM IST (03:29 UTC)
   workflow_dispatch:
 
 # Every trigger targets the default branch; cancel superseded runs so an

@@ -41,7 +41,7 @@ generation, weekly CodeQL and OpenSSF Scorecard runs.
 | PR opened/updated | any | Build the changed modules **and every module that depends on them** |
 | PR with the `ci:full` label | any | Full build (add the label, then re-run or push) |
 | Push | main | Full build — every module's tests + quality gates |
-| Scheduled | daily @ 5:30 AM IST | Full build **including E2E**, failed tests retried to spot flaky ones; failures open an issue (`nightly-report.yml`) |
+| Scheduled | daily @ 5:37 AM IST | Full build **including E2E**, failed tests retried to spot flaky ones; failures open an issue (`nightly-report.yml`) |
 | Manual | workflow_dispatch | Same as scheduled (no issue) |
 
 **What a PR builds**: `.github/scripts/ci-tasks.sh` reads the modules from

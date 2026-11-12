@@ -11,7 +11,7 @@ on:
   merge_group:  # merge queue: required checks must also run on the queued commit
     types: [checks_requested]
   schedule:
-    - cron: '0 0 * * *' # 5:30 AM IST (00:00 UTC) — nightly full run; failures open an issue (nightly-report.yml)
+    - cron: '7 0 * * *' # 5:37 AM IST (00:07 UTC) — nightly full run; failures open an issue (nightly-report.yml)
   workflow_dispatch:  # manual full run
 
 # Cancel superseded runs on PRs only; main / scheduled runs always complete
