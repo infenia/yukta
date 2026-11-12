@@ -9,6 +9,7 @@ import { CodeBlock } from '@/components/common/CodeBlock';
 import { StateMessage } from '@/components/common/StateMessage';
 import { IconButton } from '@/components/common/IconButton';
 import { Input } from '@/components/ui/input';
+import { Tabs } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { categoryAccent } from '@/features/workflow/lib/categoryAccent';
 import { pluginLabel } from '@/features/workflow/lib/pluginIcons';
@@ -104,30 +105,16 @@ function PluginDetail({ type }: { type: string }) {
         <section aria-label="On the canvas">
           <PluginCanvasPreview plugin={plugin} />
         </section>
-        <div role="tablist" className="border-border flex gap-5 border-b">
-          {tabs.map(({ key, label, count }) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
-              onClick={() => setChosen(key)}
-              className={cn(
-                'text-label-md -mb-px border-b-2 py-2',
-                tab === key
-                  ? 'border-primary text-on-surface'
-                  : 'text-on-surface-variant hover:text-on-surface border-transparent'
-              )}
-            >
-              {label}
-              {count !== undefined && (
-                <span className="text-body-sm text-muted-foreground ml-1.5 tabular-nums">
-                  {count}
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
+        <Tabs
+          ariaLabel="Plugin details"
+          items={tabs.map(({ key, label, count }) => ({
+            id: key,
+            label,
+            count,
+          }))}
+          value={tab}
+          onChange={setChosen}
+        />
         {tab === 'ports' && (
           <div className="flex flex-col gap-2">
             <p className="text-body-md text-on-surface-variant max-w-prose">

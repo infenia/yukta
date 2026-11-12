@@ -3,6 +3,7 @@
 
 import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { Tabs } from '@/components/ui/tabs';
 import { DashboardView } from '../dashboard/DashboardView';
 import { SupervisorsTile } from '@/features/supervisors/components/SupervisorsTile';
 import { ControlAuditPanel } from './ControlAuditPanel';
@@ -40,28 +41,16 @@ export function ControlPage() {
           backdrop
           title="Control bus"
           description="How the server is doing, who and what is steering runs, and every control command with who sent it."
-          actions={
-            <div role="tablist" className="border-border flex gap-4 border-b">
-              {TABS.map((name) => (
-                <button
-                  key={name}
-                  id={`control-tab-${name}`}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === name}
-                  aria-controls="control-tabpanel"
-                  onClick={() => show(name)}
-                  className={`text-label-md -mb-px h-9 border-b-2 px-0.5 capitalize ${
-                    tab === name
-                      ? 'border-primary text-on-surface'
-                      : 'text-on-surface-variant hover:text-on-surface border-transparent'
-                  }`}
-                >
-                  {name}
-                </button>
-              ))}
-            </div>
-          }
+        />
+        <Tabs
+          ariaLabel="Control bus sections"
+          idPrefix="control"
+          items={TABS.map((id) => ({
+            id,
+            label: id[0].toUpperCase() + id.slice(1),
+          }))}
+          value={tab}
+          onChange={show}
         />
         <div
           id="control-tabpanel"
