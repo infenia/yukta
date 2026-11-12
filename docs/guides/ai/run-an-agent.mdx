@@ -1,0 +1,67 @@
+---
+title: "Run an AI agent"
+sidebarTitle: "Run an AI agent"
+description: "Run an agent harness such as Claude Code or Codex from a workflow with AGENT_SESSION, approve its tool use through the input request system, continue a conversation, and add a harness as a JSON preset."
+keywords: ["AGENT_SESSION", "Claude Code", "Codex", "agent harness", "approvals", "session", "preset"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to run an AI agent from a workflow and decide what it may do"
+  time="15 minutes"
+  need="a server on localhost:9858 and the agent CLI (claude) installed and logged in"
+  end="a workflow that runs the agent, asks for approval of its tool use and ends in success, failure or incomplete"
+/>
+
+**Use this when** a step needs an AI agent to work on a task and you want to stay in control of what it does.
+
+`AGENT_SESSION` starts the agent CLI as a process (through the [process executor](/reference/plugins/external-io), so its limits apply), shows what the agent does in the run log as it works, and ends on the port `success`, `failure` or `incomplete`. Which agent is configuration: a **harness preset** says how to start it and read its output.
+
+## Steps
+
+<Steps>
+  <Step title="Enable it and allow the executable">
+    `AGENT_SESSION` starts a process, so it is off by default:
+
+    ```bash
+    YUKTA_PLUGINS_ENABLED=AGENT_SESSION YUKTA_PROCESS_ALLOWED_COMMANDS=claude ./gradlew bootRun
+    ```
+  </Step>
+
+  <Step title="Read the options from the server">
+    `GET /api/plugins` (and the `get_plugin_details` MCP tool) lists the option names, defaults, the harnesses and what each can do (resume, approvals). You do not need anything else to configure it.
+  </Step>
+
+  <Step title="Run a prompt">
+    ```json
+    { "nodeId": "agent", "type": "AGENT_SESSION", "config": { "harness": "claude-code", "prompt": "${payload.task}", "maxTurns": 20, "args": ["--allowedTools", "Read,Grep,Glob"] } }
+    ```
+
+    The payload is `{status, reason, text, sessionId, turn, exitCode}`. `args` are extra command-line arguments for the agent: give it the tools it may use without asking.
+  </Step>
+
+  <Step title="Approve its tool use">
+    Add `"approvals": "ASK"`. Each tool use the agent needs permission for becomes an `APPROVAL` request that a person, a supervisor or an agent answers (see [Ask for input](/guides/ai/ask-for-input)). `approvalRisk`, `approvalTimeout` and `approvalAudience` shape it. No answer in time, a rejection or any failure refuses the tool, and the agent sees the refusal.
+  </Step>
+
+  <Step title="Continue a conversation">
+    Add `"session": "${payload.ticket}"`. Messages with the same key continue one conversation; one turn runs at a time per key, and `onBusy` says whether the next one waits (`WAIT`) or goes to `failure` (`FAIL`). Sessions are kept in memory and are lost on restart.
+  </Step>
+</Steps>
+
+## Add a harness
+
+A harness is a JSON file in `agent-harnesses/` on the classpath, or in the directory `yukta.ai.presets-dir` names (a file there replaces a shipped one with the same id). It gives the command (`{prompt}`), how a `model`, `maxTurns` and a session are passed, which lines mean "the result" or "failed", which values to keep from earlier lines, which lines to show live, and optionally the conversation used for approvals. Start from `claude-code.json` or `codex.json` in the `process-executor` module.
+
+## Limits
+
+- The agent is a process on the server with the permissions of the server's user. Allow only the executables you mean to, and give it a `workingDir` that holds nothing you mind it reading.
+- No sandbox, secret handling or output redaction yet; they are planned as a separate hardening step.
+- Claude Code supports sessions and approvals. The Codex preset follows the documented `codex exec --json` events and has not been run against the real CLI; it has neither.
+
+## Related
+
+- [External I/O reference](/reference/plugins/external-io)
+- [Ask for input](/guides/ai/ask-for-input)
+- Example `19-agent-session` in the repository

@@ -1,0 +1,32 @@
+{
+  "id": "claude-code",
+  "description": "Claude Code CLI (claude -p, stream-json). Runs one prompt to the end. With approvals ASK each tool use that needs permission is asked through the input request system first. Without 'args' such as [\"--allowedTools\", \"Read,Edit\"] or [\"--permission-mode\", \"acceptEdits\"] it cannot use tools that need approval.",
+  "command": ["claude", "-p", "{prompt}", "--output-format", "stream-json", "--verbose"],
+  "modelArgs": ["--model", "{model}"],
+  "maxTurnsArgs": ["--max-turns", "{maxTurns}"],
+  "resumeArgs": ["--resume", "{session}"],
+  "capabilities": { "stream": true, "resume": true, "ask": true },
+  "interactive": {
+    "command": ["claude", "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose", "--permission-prompt-tool", "stdio"],
+    "userMessage": { "type": "user", "message": { "role": "user", "content": "{prompt}" }, "parent_tool_use_id": null },
+    "requestWhen": { "type": "control_request", "request.subtype": "can_use_tool" },
+    "requestId": "request_id",
+    "tool": "request.tool_name",
+    "input": "request.input",
+    "description": "request.description",
+    "allow": { "type": "control_response", "response": { "subtype": "success", "request_id": "{id}", "response": { "behavior": "allow", "updatedInput": "{input}" } } },
+    "deny": { "type": "control_response", "response": { "subtype": "success", "request_id": "{id}", "response": { "behavior": "deny", "message": "{message}" } } }
+  },
+  "output": {
+    "resultWhen": { "type": "result" },
+    "text": "result",
+    "sessionId": "session_id",
+    "isError": "is_error",
+    "subtype": "subtype",
+    "incompleteSubtypes": ["error_max_turns"],
+    "live": [
+      { "when": { "type": "assistant" }, "text": "message.content[*].text" },
+      { "when": { "type": "assistant" }, "text": "message.content[*].name", "prefix": "tool: " }
+    ]
+  }
+}

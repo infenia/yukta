@@ -1,9 +1,9 @@
 ---
 title: "External I/O reference"
 sidebarTitle: "External I/O"
-description: "Options, ports, outputs and server settings of HTTP_REQUEST, PROCESS_EXECUTOR, SQL_QUERY, FILE_READ and FILE_WRITE."
+description: "Options, ports, outputs and server settings of HTTP_REQUEST, PROCESS_EXECUTOR, AGENT_SESSION, SQL_QUERY, FILE_READ and FILE_WRITE."
 tag: "Optional"
-keywords: ["HTTP_REQUEST", "PROCESS_EXECUTOR", "SQL_QUERY", "FILE_READ", "FILE_WRITE"]
+keywords: ["HTTP_REQUEST", "PROCESS_EXECUTOR", "AGENT_SESSION", "SQL_QUERY", "FILE_READ", "FILE_WRITE"]
 ---
 
 # External I/O reference
@@ -144,6 +144,34 @@ Module `file-io`. Writes or appends text to a file in a sandbox directory and pa
 
 ```json
 { "nodeId": "save", "type": "FILE_WRITE", "config": { "baseDir": "/srv/work", "path": "out.log", "append": true } }
+```
+
+## `AGENT_SESSION`
+
+Module `process-executor`. Runs an AI agent harness, such as Claude Code, on a prompt and reports how it ended. Restricted: enable it with `yukta.plugins.enabled=AGENT_SESSION` and allow the harness executable (`yukta.process.allowed-commands=claude`). The process starts through the process executor, so its limits apply, and cancelling the run kills it.
+
+| Option | Type | Default | Required | Description |
+|---|---|---|---|---|
+| `harness` | string | none | yes | The preset id; `claude-code` ships. Presets are JSON files in `agent-harnesses/` or in `yukta.ai.presets-dir`. |
+| `prompt` | expression | none | yes | What to ask the agent. |
+| `model` | string | none | no | Only for a harness that takes a model. |
+| `maxTurns` | number | none | no | Only for a harness with a turn limit. |
+| `args` | list | none | no | Extra command-line arguments, for example `["--allowedTools", "Read,Edit"]`. Without them Claude Code cannot use tools that need approval. |
+| `session` | expression | none | no | A session key. Messages with the same key continue one conversation (the harness resumes from the token the last turn left). Needs a harness with resume (`claude-code` has it). Without it every message starts afresh. Sessions live in memory and are lost on restart. |
+| `onBusy` | `WAIT` or `FAIL` | `WAIT` | no | A session runs one turn at a time. `WAIT` queues the next turn; `FAIL` sends it to `failure` at once. |
+| `approvals` | `NONE` or `ASK` | `NONE` | no | `ASK`: each tool use the harness needs permission for becomes an `APPROVAL` request on the [input request system](/guides/ai/ask-for-input), answered by a person, a supervisor or an agent. No answer in time, a rejection or any failure refuses the tool; the agent sees the refusal. Needs a harness with the ask capability (`claude-code` has it). |
+| `approvalRisk` | `LOW`, `MEDIUM`, `HIGH` | `MEDIUM` | no | Risk of the requests; a supervisor may answer only up to its `maxRisk`. |
+| `approvalTimeout` | number | `300` | no | Seconds to wait for an answer. |
+| `approvalAudience` | list | current tier | no | Who may answer: `supervisor:<id>`, `role:OPERATOR`, `key:<name>`, ... |
+| `workingDir`, `env` | string, map | none | no | Where it runs and extra environment. |
+| `timeout` | number | `600` | no | Seconds. |
+
+- **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
+- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`.
+- **Run log:** the agent's text and the tools it uses appear as `agent` lines while it works.
+
+```json
+{ "nodeId": "fix", "type": "AGENT_SESSION", "config": { "harness": "claude-code", "prompt": "Fix the failing test", "args": ["--permission-mode", "acceptEdits"], "maxTurns": 20 } }
 ```
 
 ## Related
