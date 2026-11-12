@@ -61,8 +61,6 @@ perf/reports/
 # Release artifacts (release/)
 /dist/
 
-# PGO profile recorded per build (release/pgo-profile.sh); never committed
-/boot/pgo/
 
 # One-off backlog migration artifacts
 /backlog.json

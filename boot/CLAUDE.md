@@ -22,7 +22,7 @@ yk gradle nativeCompile
 
 ## Tech Stack
 - **Spring Boot 4.1.0**
-- **GraalVM**
+- **GraalVM CE** (not Oracle GraalVM: no -O3, PGO or --enable-sbom)
 
 ## Imports
 @.claude/rules/coding-standards.md

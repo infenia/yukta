@@ -4,6 +4,7 @@ plugins {
     id("com.infenia.yukta.spring-conventions")
     alias(libs.plugins.spring.boot)
     alias(libs.plugins.graalvm.buildtools.native)
+    alias(libs.plugins.cyclonedx)
 }
 
 // /actuator/info reports build.version. No build time, so the file stays the same and the task stays up to date.
@@ -150,15 +151,25 @@ tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configure
     }
 }
 
+// Software bill of materials (CycloneDX) of the runtime classpath, written as yukta.sbom.json next to the
+// native binary after every nativeCompile; the release attaches and attests it. (GraalVM CE has no
+// --enable-sbom; that option is Oracle GraalVM only.)
+tasks.cyclonedxDirectBom {
+    includeConfigs.set(listOf("runtimeClasspath"))
+    jsonOutput.set(layout.buildDirectory.file("reports/sbom/bom.json"))
+}
+val exportSbom by tasks.registering(Copy::class) {
+    from(tasks.cyclonedxDirectBom.flatMap { it.jsonOutput }) { rename { "yukta.sbom.json" } }
+    into(layout.buildDirectory.dir("native/nativeCompile"))
+}
+tasks.named("nativeCompile") { finalizedBy(exportSbom) }
+
 graalvmNative {
     binaries {
         named("main") {
             imageName.set("yukta")
             mainClass.set("com.infenia.yukta.YuktaApplication")
             buildArgs.add("--no-fallback")
-            // Software bill of materials (CycloneDX): Oracle GraalVM embeds one in the binary by default;
-            // "export" also writes yukta.sbom.json next to it, which the release attaches and attests.
-            buildArgs.add("--enable-sbom=embed,export")
             // System.console() must be the OS-backed provider (see RunMode.isTty)
             buildArgs.add("-Djdk.console=java.base")
             // Netty frees direct buffers through a shared Arena on Java 25; without this, shutdown logs
@@ -213,22 +224,11 @@ graalvmNative {
             // it runs on the distroless cc image (which has libc but no libz). Needs libz.a.
             if (providers.gradleProperty("native.static").isPresent) buildArgs.add("--static-nolibc")
 
-            // Optimization level (-O3, --pgo and --pgo-instrument are Oracle GraalVM features; -march=compatibility
-            // (below) keeps release binaries runnable on any x86-64 / arm64 CPU; the default is x86-64-v3):
-            //   -Pnative.quick          -Ob, much faster image compilation, slower at run time
-            //   -Pnative.pgoInstrument  instrumented binary that records a profile (release/pgo-profile.sh)
-            //   default                 -O3 with the committed boot/pgo/yukta.iprof; without that file
-            //                           Oracle GraalVM infers a profile itself (GraalNN)
+            // Optimization: GraalVM CE's default (-O2); -march=compatibility keeps release binaries runnable
+            // on any x86-64 / arm64 CPU (the default is x86-64-v3).
+            //   -Pnative.quick  -Ob, much faster image compilation, slower at run time
             buildArgs.add("-march=compatibility")
-            val pgoProfile = layout.projectDirectory.file("pgo/yukta.iprof").asFile
-            when {
-                providers.gradleProperty("native.quick").isPresent -> buildArgs.add("-Ob")
-                providers.gradleProperty("native.pgoInstrument").isPresent -> buildArgs.addAll("-O3", "--pgo-instrument")
-                else -> {
-                    buildArgs.add("-O3")
-                    if (pgoProfile.exists()) buildArgs.add("--pgo=${pgoProfile.absolutePath}")
-                }
-            }
+            if (providers.gradleProperty("native.quick").isPresent) buildArgs.add("-Ob")
 
             // Force prod profile + AOT compilation
             buildArgs.add("-Dspring.profiles.active=prod")

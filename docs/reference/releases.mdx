@@ -56,7 +56,7 @@ Current release: **`0.1.0-alpha.3`**.
 | `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped. From the release after `0.1.0-alpha.3`, also for `arm64` |
 | `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
 | `install.sh` | One-command installer, pinned to the release |
-| `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library compiled into that binary, with its version. From the release after `0.1.0-alpha.3`; the same list is embedded in every server binary |
+| `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library on the runtime classpath that is compiled into that binary, with its version. From the release after `0.1.0-alpha.3` |
 | `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums for every file, and a signature for the checksums |
 | `ghcr.io/infenia/yukta:<version>` | The container image (`linux/amd64` and `linux/arm64` from the release after `0.1.0-alpha.3`) |
 
