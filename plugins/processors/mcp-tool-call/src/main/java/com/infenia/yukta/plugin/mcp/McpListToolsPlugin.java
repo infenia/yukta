@@ -6,6 +6,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -82,6 +83,16 @@ public final class McpListToolsPlugin implements ProcessorPlugin {
         ConfigField.optional(
             TIMEOUT, ConfigField.Type.NUMBER, DEFAULT_TIMEOUT_SECONDS, "Timeout in seconds"),
         ConfigField.optional(ALLOWED_TOOLS, ConfigField.Type.LIST, null, "Tools to keep"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

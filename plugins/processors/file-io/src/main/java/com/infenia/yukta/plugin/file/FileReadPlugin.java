@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import java.io.IOException;
@@ -73,6 +74,16 @@ public final class FileReadPlugin extends AbstractFilePlugin {
         ConfigField.optional(
             "maxBytes", ConfigField.Type.NUMBER, DEFAULT_MAX_BYTES, "Largest file read, in bytes"),
         failureModeField());
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.EXTENDED;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

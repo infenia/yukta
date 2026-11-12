@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
@@ -204,6 +205,16 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
             ConfigField.Type.NUMBER,
             DEFAULT_CONCURRENCY,
             "Tool calls in flight at once"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

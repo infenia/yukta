@@ -7,6 +7,7 @@ import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -67,6 +68,16 @@ public final class FileWritePlugin extends AbstractFilePlugin {
         ConfigField.optional(
             "append", ConfigField.Type.BOOLEAN, false, "Append a line instead of overwriting"),
         failureModeField());
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.EXTENDED;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

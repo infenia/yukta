@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.decision;
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.exception.WorkflowExecutionException;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
@@ -108,6 +109,11 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
    * @throws IllegalArgumentException if it is invalid
    */
   protected abstract void check(Map<String, Object> config);
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
+  }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {

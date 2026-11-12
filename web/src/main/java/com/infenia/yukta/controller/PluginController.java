@@ -72,7 +72,12 @@ public class PluginController {
     return Mono.fromCallable(registry::listPlugins)
         .map(
             plugins ->
-                plugins.stream().map(p -> new PluginSummary(p.getType(), p.getCategory())).toList())
+                plugins.stream()
+                    .map(
+                        p ->
+                            new PluginSummary(
+                                p.getType(), p.getCategory(), p.getTier(), p.isRestricted()))
+                    .toList())
         .map(
             summaries ->
                 ResponseEntity.ok(
@@ -124,7 +129,9 @@ public class PluginController {
                             p.describe().usagePattern(),
                             p.describe().uiDesign().orElse(null),
                             p.getOutputPorts(),
-                            p.getConfigSchema()))))
+                            p.getConfigSchema(),
+                            p.getTier(),
+                            p.isRestricted()))))
         .switchIfEmpty(
             Mono.fromSupplier(
                 () -> {

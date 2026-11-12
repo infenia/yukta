@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.core.flow;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
@@ -112,6 +113,11 @@ public final class KvStoreProcessor implements ProcessorPlugin {
   @Override
   public boolean requiresControlPlane() {
     return true;
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.EXTENDED;
   }
 
   @Override
