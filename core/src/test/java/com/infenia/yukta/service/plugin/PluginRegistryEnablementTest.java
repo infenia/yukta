@@ -41,6 +41,8 @@ class PluginRegistryEnablementTest {
         .containsExactly("LLM_CALL", "PROCESS_EXECUTOR");
     assertThat(registry.missingHint("LLM_CALL")).contains("yukta.plugins.enabled", "LLM_CALL");
     assertThat(registry.missingHint("NOPE")).isEmpty();
+    assertThat(registry.getDisabled("LLM_CALL")).isSameAs(all.get(3));
+    assertThat(registry.getDisabled("BRANCH")).isNull();
   }
 
   @Test
