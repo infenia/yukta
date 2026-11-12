@@ -4,7 +4,7 @@
 name: Set up the build
 description: >-
   JDK, Gradle and, on request, Node with pnpm (and its store cache), Go and OpenGrep. The only place that
-  holds the Java and Node versions; pnpm comes from "packageManager" in ui/package.json.
+  holds the Java, Node and pnpm versions.
 
 inputs:
   node:
@@ -53,7 +53,7 @@ runs:
       if: inputs.node == 'true'
       uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       with:
-        package_json_file: ui/package.json
+        version: 12.16.1
 
     # Cached with actions/cache rather than setup-node's `cache: pnpm`, whose post step errors when a
     # job never runs `pnpm install`.
@@ -90,7 +90,8 @@ runs:
       env:
         OPENGREP_VERSION: v1.25.0
         OPENGREP_SHA256: 9ac4aebb47ba3f7b0d8fc641ac8749cb6c2f253f616131a67d9631e00d4bea33
-      run: |
+      # zizmor: a fixed path in $HOME and a sha256-checked binary; no input reaches GITHUB_PATH.
+      run: | # zizmor: ignore[github-env]
         mkdir -p "$HOME/.local/bin"
         curl -fsSL -o "$HOME/.local/bin/opengrep" \
           "https://github.com/opengrep/opengrep/releases/download/$OPENGREP_VERSION/opengrep_manylinux_x86"
