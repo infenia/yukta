@@ -35,7 +35,7 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 
 | # | Domain | Pain point | Key nodes |
 |---|---|---|---|
-| [02](02-agent-verification/) | AI-assisted development | An agent skips tests or verification and reports "done" | `LOOP_PREDICATE`, `SUB_WORKFLOW`, `PATCH_GUARD`, `BRANCH`, `OUTCOME_TERMINAL` |
+| [02](02-agent-verification/) | AI-assisted development | An agent skips tests or verification and reports "done" | `LOOP_PREDICATE`, `SUB_WORKFLOW`, `BRANCH`, `OUTCOME_TERMINAL` |
 | [03](03-release-approval/) | Release / DevOps | Production deploy with a human approval, a smoke check and a rollback | `WAIT_FOR_SIGNAL`, `PROCESS_EXECUTOR`, `BRANCH`, `NOTIFY_TERMINAL` |
 | [04](04-pr-risk-gate/) | Code review / app dev | Auto-merge low-risk PRs, block the worst, send borderline ones to a reviewer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
 | [05](05-dependency-updates/) | Supply chain | Auto-merge patch bumps, hold majors and CVE-flagged ones for a maintainer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |

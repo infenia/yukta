@@ -1,9 +1,9 @@
 ---
 title: "External I/O reference"
 sidebarTitle: "External I/O"
-description: "Options, ports, outputs and server settings of HTTP_REQUEST, PROCESS_EXECUTOR, SQL_QUERY, FILE_READ, FILE_WRITE and PATCH_GUARD."
+description: "Options, ports, outputs and server settings of HTTP_REQUEST, PROCESS_EXECUTOR, SQL_QUERY, FILE_READ and FILE_WRITE."
 tag: "Optional"
-keywords: ["HTTP_REQUEST", "PROCESS_EXECUTOR", "SQL_QUERY", "FILE_READ", "FILE_WRITE", "PATCH_GUARD"]
+keywords: ["HTTP_REQUEST", "PROCESS_EXECUTOR", "SQL_QUERY", "FILE_READ", "FILE_WRITE"]
 ---
 
 # External I/O reference
@@ -144,28 +144,6 @@ Module `file-io`. Writes or appends text to a file in a sandbox directory and pa
 
 ```json
 { "nodeId": "save", "type": "FILE_WRITE", "config": { "baseDir": "/srv/work", "path": "out.log", "append": true } }
-```
-
-## `PATCH_GUARD`
-
-Module `file-io`. Judges the working-tree change of a git checkout against rules. Staged, unstaged and new files count.
-
-| Option | Type | Default | Required | Description |
-|---|---|---|---|---|
-| `dir` | string | none | yes | The git checkout; inside `yukta.files.allowed-root` when that is set. |
-| `base` | string | `HEAD` | no | Git ref to compare with. |
-| `protectedPaths` | list | none | no | Globs the change must not touch. |
-| `forbidPatterns` | list | none | no | Regexes no added line may match. |
-| `noTestRemoval` | boolean | `false` | no | Refuse deleted test files and fewer test declarations. |
-| `requireChange` | boolean | `false` | no | Refuse an empty change. |
-| `failureMode` | `ERROR` or `CONTINUE` | `ERROR` | no | `CONTINUE` routes a failure to the `error` port. |
-
-- **Output ports:** `pass`, `reject`.
-- **Payload:** `{files, violations: [{rule, file, message}]}`.
-- **Errors:** `dir is required`; `base is not a git ref: <base>`.
-
-```json
-{ "nodeId": "guard", "type": "PATCH_GUARD", "config": { "dir": "/srv/checkout", "protectedPaths": ["**/pom.xml"], "noTestRemoval": true } }
 ```
 
 ## Related

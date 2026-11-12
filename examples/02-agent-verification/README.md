@@ -13,7 +13,7 @@ verify-change:   trigger ─► attempts (LOOP_PREDICATE, max 3) ─► decide �
                                │                                    └exhausted─► record-stop ─► stopped (OUTCOME ESCALATE)
                                ▼ runs the sub-workflow "attempt" until its outcome is SUCCESS
 attempt:         trigger ─► build ─► test ─► patch-guard ─► coverage ─► coverage-gate ─pass─► verified ─► ok (SUCCESS)
-                              │        │          │ reject       │ failure      │ fail
+                              │        │          │ failure      │ failure      │ fail
                               └────────┴──────────┴──────────────┴──────────────┴──► gate-failed ─► fix ─► retry (RETRY)
 ```
 
@@ -23,7 +23,7 @@ attempt:         trigger ─► build ─► test ─► patch-guard ─► cove
 |---|---|---|
 | `attempts` | `LOOP_PREDICATE` over `SUB_WORKFLOW` | Runs `attempt` again while its outcome is not `SUCCESS`, at most 3 times |
 | `build`, `test` | `PROCESS_EXECUTOR` | `sh build.sh` and `sh test.sh` in the project; a non-zero exit goes to `failure` |
-| `patch-guard` | `PATCH_GUARD` | Judges the uncommitted change: `requireChange`, `noTestRemoval`, forbidden patterns (`@Disabled`, `@Ignore`, `.skip(`), protected files (the build and test scripts, `coverage.txt`) |
+| `patch-guard` | `PROCESS_EXECUTOR` running `patch-guard.sh` | Judges the uncommitted change (exit 1 = `failure`): `requireChange`, `noTestRemoval`, forbidden patterns (`@Disabled`, `@Ignore`, `.skip(`), protected files (the build and test scripts, `coverage.txt`) |
 | `coverage`, `coverage-gate` | `PROCESS_EXECUTOR`, `BRANCH` | Reads `{"coverage": N}` from `coverage.sh`; N below 80 fails |
 | `gate-failed`, `fix` | `MAPPER`, `PROCESS_EXECUTOR` | Any failed gate calls the fixer and ends the attempt with `RETRY` |
 | `ok`, `retry` | `OUTCOME_TERMINAL` | Report how the attempt ended to the parent loop |
@@ -31,12 +31,12 @@ attempt:         trigger ─► build ─► test ─► patch-guard ─► cove
 | `record-stop`, `stopped` | `PROCESS_EXECUTOR`, `OUTCOME_TERMINAL` | Retry budget used up: hard stop, outcome `ESCALATE`, no "done" |
 
 The paths in `session.json` point at `/tmp/yukta-example-agent-verification/` (the project in `repo/`, the fixer in `fixer.sh`),
-because `PATCH_GUARD` does not resolve `${...}` in `dir`.
+because the guard script takes the project path as an argument.
 
 ## Make it yours
 
-- Project and gates: set `workingDir` and the commands of `build`, `test` and `coverage` (for example `["./gradlew","build"]`), and `dir` of `patch-guard`. The server must allow those executables (`yukta.process.allowed-commands`).
-- Guard rules: `protectedPaths`, `forbidPatterns`, `noTestRemoval`, `requireChange`.
+- Project and gates: set `workingDir` and the commands of `build`, `test` and `coverage` (for example `["./gradlew","build"]`), and `--dir` of `patch-guard`. The server must allow those executables (`yukta.process.allowed-commands`).
+- Guard rules: the arguments of `patch-guard.sh` (`--protected`, `--forbid`, `--no-test-removal`, `--require-change`, `--base`); `patch-guard-test.sh` checks each rule.
 - Coverage threshold: the two cases of `coverage-gate`.
 - Retry budget: `maxIterations` on `attempts`.
 - LLM: `fix` is the stand-in for the agent. Replace it with `LLM_CALL` (give it the failing output in the prompt and have a later node apply its patch) or a command that starts your agent CLI, for example `["claude","-p","fix the failing gate"]`.
@@ -50,7 +50,7 @@ curl -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/jso
 
 ## How to run
 
-Start the server with `yukta.process.allowed-commands=sh,echo` (environment: `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`). The server also needs `git` on its path for `PATCH_GUARD` (it is not a `PROCESS_EXECUTOR` command), and `git` must be installed where `run.sh` runs.
+Start the server with `yukta.process.allowed-commands=sh,echo` (environment: `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo`). `git` must be installed where the server and `run.sh` run (the guard script calls it).
 Replace the list with your real executables when you swap in your own commands.
 
 ```bash
