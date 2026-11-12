@@ -231,8 +231,8 @@ test.describe('Supervisors', () => {
     await shot(page, info, 'rules-settings');
 
     await page
-      .getByRole('tablist', { name: 'Supervisors sections' })
-      .getByRole('tab', { name: 'Activity' })
+      .getByRole('tablist', { name: 'release-guard details' })
+      .getByRole('tab', { name: 'Decisions' })
       .click();
     const activity = page.getByRole('list', { name: 'Activity' });
     await expect(activity).toContainText('on its own');
@@ -243,10 +243,7 @@ test.describe('Supervisors', () => {
     ).toContainText('not-owner: not owned');
     await shot(page, info, 'activity');
 
-    await page
-      .getByRole('tablist', { name: 'Supervisors sections' })
-      .getByRole('tab', { name: 'Decision makers' })
-      .click();
+    await page.getByRole('button', { name: 'Decision maker types' }).click();
     await expect(page.getByText('External system').first()).toBeVisible();
     await shot(page, info, 'decision-makers');
   });
@@ -282,7 +279,7 @@ test.describe('Supervisors', () => {
     page,
   }, info) => {
     await page.goto('/supervisors');
-    await expect(page.getByText('No supervisors yet')).toBeVisible();
+    await expect(page.getByText(/No supervisors yet/)).toBeVisible();
     await shot(page, info, 'empty');
 
     let fail = true;

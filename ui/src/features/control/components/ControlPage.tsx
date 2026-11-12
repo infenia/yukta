@@ -5,7 +5,7 @@ import { useSearchParams } from 'react-router';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs } from '@/components/ui/tabs';
 import { DashboardView } from '../dashboard/DashboardView';
-import { SupervisorsTile } from '@/features/supervisors/components/SupervisorsTile';
+import { SupervisorsSummary } from '@/features/supervisors/components/SupervisorsSummary';
 import { ControlAuditPanel } from './ControlAuditPanel';
 import { SchedulerPanel } from './SchedulerPanel';
 import { InputsTile } from './InputsTile';
@@ -63,7 +63,7 @@ export function ControlPage() {
           {tab === 'overview' && (
             <>
               <InputsTile />
-              <SupervisorsTile />
+              <SupervisorsSummary />
               <DashboardView />
               {/* the detail tables: per-workflow limits and each worker's pools and plugins
                   (supervisors have their own page) */}
