@@ -41,6 +41,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.13'
       - name: Lint YAML workflows
         run: |
           pip install --require-hashes -r .github/requirements/ci-tools.txt
@@ -380,6 +383,9 @@ jobs:
     name: E2E Tests (Playwright)
     needs: changes
     runs-on: ubuntu-latest
+    # Browsers and fonts come with the image, so local and CI screenshot baselines match.
+    # Keep the tag in sync with @playwright/test in ui/package.json (1.64.1).
+    container: mcr.microsoft.com/playwright:v1.64.1-noble
     timeout-minutes: 30
     # Not on push to main: the merge queue just ran the same tree through this job.
     # (The queue runs the full plan, e2e included, on the tree that lands; this holds only while the
@@ -407,16 +413,6 @@ jobs:
       - name: Install UI dependencies
         working-directory: ui
         run: pnpm install --frozen-lockfile
-
-      - name: Install Playwright browsers
-        working-directory: ui
-        # --with-deps needs apt, and the runners sometimes cannot resolve any Ubuntu archive host (seen in the merge
-        # queue). The image already has the browser libraries; only some fonts are missing, so fall back to the bare install.
-        run: |
-          pnpm exec playwright install --with-deps chromium || {
-            echo "::warning::apt unreachable, installing chromium without system deps"
-            pnpm exec playwright install chromium
-          }
 
       # Reporters (html, json -> test-results/results.json, junit, github) come from playwright.config.ts;
       # passing --reporter here would replace that list and drop the json output path.
