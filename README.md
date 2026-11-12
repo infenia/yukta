@@ -3,7 +3,7 @@
   <img alt="Yukta: workflows you can trust and control. Write a job down once as a flowchart; Yukta runs every step as written, whether it is a script, a rule or an AI model." src="docs/images/readme-hero.light.svg">
 </picture>
 
-<h1 align="center">Yukta</h1>
+<h1 align="center"><img src="docs/images/logo.svg" alt="" height="44" align="absmiddle"> Yukta</h1>
 
 <p align="center"><b>A workflow engine for people, scripts and AI agents.</b><br>Start the same workflow from a script, the web UI, a CLI or an AI assistant.</p>
 
@@ -48,19 +48,10 @@ You know how the work should go: build, test, review, approve, deploy. Written d
 | 🛡️ **Supervisors** | Every part of a run can have an owner (rules, an AI agent, another workflow or a program) that watches, steps in, and decides who may steer. [Supervisors →](https://yukta.infenia.com/concepts/supervisors) |
 | 💬 **AI-assisted setup over MCP** | An assistant such as Claude Code can write the workflow, start it, watch it and steer it, within the role you give it. [AI-assisted configuration →](https://yukta.infenia.com/concepts/ai-assisted-configuration) |
 
-```mermaid
-flowchart LR
-    T([Trigger]) --> V[Validate: rule]
-    V -->|valid| C[Classify: AI]
-    V -->|invalid| R([Reject])
-    C --> A{Approval: person or agent}
-    A -->|approved| D[Deploy: script]
-    A -->|rejected| R
-    classDef ai fill:#2f6feb,stroke:#1f4fb8,color:#ffffff
-    classDef gate fill:#fc8c45,stroke:#c2621f,color:#1a1a1a
-    class C ai
-    class A gate
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme-flow.dark.svg">
+  <img width="100%" alt="A workflow: a trigger starts the run, a rule validates it, an AI model classifies it, a person or supervisor approves it, and a script deploys it. Invalid or rejected runs end at Reject." src="docs/images/readme-flow.light.svg">
+</picture>
 
 <p align="center"><i>One workflow, two kinds of step. The AI step (blue) proposes; a rule gates it; a person or supervisor (orange) decides the risky part.</i></p>
 
@@ -69,13 +60,29 @@ flowchart LR
 > [!NOTE]
 > **Alpha.** Expect breaking changes to the workflow JSON and the APIs before 1.0. Sessions live in memory by default. See [Releases](https://yukta.infenia.com/reference/releases).
 
-**Linux (`amd64`)**
+One native server binary (no JVM to install) for the platforms below, plus a multi-architecture Docker image.
+
+| | `amd64` | `arm64` |
+|---|:---:|:---:|
+| 🐧 **Linux** | ✅ native | ✅ native |
+| 🍎 **macOS** | ✅ native (Intel; runs on Apple silicon through Rosetta 2) | client only |
+| 🪟 **Windows** | ✅ native | not yet |
+| 🐳 **Docker image** | ✅ | ✅ |
+
+**Linux and macOS**
 
 ```bash
 curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
 ```
 
-**Docker (any OS)**
+**Windows** (PowerShell): download `yukta-<version>-windows-amd64.zip` from the [release page](https://github.com/infenia/yukta/releases), then:
+
+```powershell
+Expand-Archive yukta-<version>-windows-amd64.zip .
+.\yukta-<version>-windows-amd64\yukta.exe
+```
+
+**Docker** (any OS)
 
 ```bash
 docker run --rm -p 127.0.0.1:9858:9858 \
@@ -85,20 +92,14 @@ docker run --rm -p 127.0.0.1:9858:9858 \
   ghcr.io/infenia/yukta:0.1.0-alpha.3
 ```
 
+`0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
+
 <details>
-<summary><b>Platform support</b>: macOS, Windows, Linux <code>arm64</code>, Debian, RPM, source</summary>
+<summary><b>Checksums, signing, Debian, RPM, source</b></summary>
 
 <br>
 
-| Platform | `0.1.0-alpha.3` | Next release |
-|----------|------|------|
-| Linux `amd64` | native (the install script above) | native |
-| Linux `arm64` | Docker | native |
-| macOS | client only; server with Docker | native (Intel; Apple silicon via Rosetta 2) |
-| Windows `amd64` | client `.exe`; server with Docker | native, a `.zip` on the [release page](https://github.com/infenia/yukta/releases) |
-| Docker image | `linux/amd64` | `linux/amd64` and `linux/arm64` |
-
-The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy).
+The macOS and Windows builds are not signed or notarized, so Gatekeeper and SmartScreen warn on a browser download; the install script avoids the macOS warning. Every release file is checksummed and signed. Debian, RPM, source: [Install](https://yukta.infenia.com/get-started/install) and [Deploy](https://yukta.infenia.com/guides/operate/deploy).
 
 </details>
 
@@ -132,6 +133,33 @@ Yukta refuses to run operating-system commands unless you allow them, which is w
 ```bash
 claude mcp add --transport http yukta http://localhost:9858/mcp
 ```
+
+<details>
+<summary><b>Other assistants</b>: Codex, Gemini CLI, Cursor, VS Code, any MCP client</summary>
+
+<br>
+
+`/mcp` is plain streamable HTTP, so any MCP client can use it. When the server has API keys, send `Authorization: Bearer <key>` and give the assistant the lowest role that does its job ([roles](https://yukta.infenia.com/guides/ai/connect-an-assistant)).
+
+```bash
+# Gemini CLI
+gemini mcp add --transport http yukta http://localhost:9858/mcp
+
+# OpenAI Codex CLI
+codex mcp add yukta --url http://localhost:9858/mcp
+```
+
+```jsonc
+// Cursor: ~/.cursor/mcp.json
+{ "mcpServers": { "yukta": { "url": "http://localhost:9858/mcp" } } }
+
+// VS Code (GitHub Copilot): .vscode/mcp.json
+{ "servers": { "yukta": { "type": "http", "url": "http://localhost:9858/mcp" } } }
+```
+
+Key names differ between clients (`url`, `httpUrl`, `type`); use the one yours documents for a streamable HTTP server. The [`yukta-workflows` skill](skills/yukta-workflows/SKILL.md) teaches an agent the tools, and [Connect an AI assistant](https://yukta.infenia.com/guides/ai/connect-an-assistant) has the full guide.
+
+</details>
 
 **Next:** [Your first workflow](https://yukta.infenia.com/learn/your-first-workflow) builds one by hand, step by step. [Let an assistant build a workflow](https://yukta.infenia.com/learn/let-an-assistant-build-a-workflow) does the same by asking. The web UI is at <http://localhost:9858>.
 
@@ -167,8 +195,10 @@ Every client goes through the same door, so a run started by a script and one st
 
 | | |
 |:---:|:---:|
-| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/workflow-editor.dark.png"><img alt="The workflow editor: a node list, the canvas, and the settings of an approval step that asks 'Deploy to production?'" src="docs/images/ui/workflow-editor.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/supervisor-chain.dark.png"><img alt="The Supervisors page: a rules supervisor named release-guard that pauses the release when deploys keep failing, and the supervisor it reports to." src="docs/images/ui/supervisor-chain.light.png"></picture> |
-| **Workflow editor.** Build the flowchart and set each step. | **Supervisors.** Who watches a run, and who they answer to. |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/sessions-list.dark.png"><img alt="The Sessions page: five sessions with tags, creator, working directory and the status of the last run." src="docs/images/ui/sessions-list.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/supervisors-page.dark.png"><img alt="The Supervisors page: the release-guard supervisor with its decision counts and the workflow it owns." src="docs/images/ui/supervisors-page.light.png"></picture> |
+| **Sessions.** Every workflow group and how its last run went. | **Supervisors.** Who watches a run, what they decided, who they answer to. |
+| <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/control-overview.dark.png"><img alt="The Control bus: supervisors, applied and refused decisions, runs per minute, success rate and approvals waiting." src="docs/images/ui/control-overview.light.png"></picture> | <picture><source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/plugin-catalogue.dark.png"><img alt="The Plugins page: triggers, processors and terminals, with the Classify plugin open and its output ports drawn." src="docs/images/ui/plugin-catalogue.light.png"></picture> |
+| **Control bus.** Run health, capacity and every steering command. | **Plugins.** The building blocks you place on a canvas. |
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/ui/inputs-panel.dark.png">
