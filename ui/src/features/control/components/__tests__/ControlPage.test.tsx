@@ -61,8 +61,8 @@ describe('ControlPage', () => {
       screen.queryByRole('heading', { name: 'Who did what' })
     ).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'audit' }));
-    expect(screen.getByRole('tab', { name: 'audit' })).toHaveAttribute(
+    await user.click(screen.getByRole('tab', { name: 'Audit' }));
+    expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -72,14 +72,14 @@ describe('ControlPage', () => {
     ).toBeInTheDocument();
     expect(screen.queryByTestId('mission-control')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'overview' }));
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
     expect(window.location.search).toBe('');
   });
 
   it('opens the audit for an old ?execution link', () => {
     window.history.pushState({}, '', '/control?execution=run-1');
     renderWithProviders(<ControlPage />);
-    expect(screen.getByRole('tab', { name: 'audit' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'Audit' })).toHaveAttribute(
       'aria-selected',
       'true'
     );

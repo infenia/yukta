@@ -67,6 +67,9 @@ jobs:
       - name: Lint shell scripts (shellcheck)
         run: shellcheck -x -P .github/scripts .github/scripts/*.sh
 
+      - name: Check the .github guides name every workflow and no missing one
+        run: .github/scripts/docs-drift.sh
+
       - name: Test the shard planner
         run: .github/scripts/ci-tasks.test.sh
 

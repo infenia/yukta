@@ -21,7 +21,7 @@ Your PR
     │                                   │
     ├─→ security.yml ───────────────────┘
     │   ├─ Secret scanning (blocking)
-    │   └─ Trivy vuln/misconfig scan (report-only on PRs)
+    │   └─ Trivy vuln/misconfig scan (PRs: findings with a fix block)
     │
     └─→ codeql.yml
         └─ CodeQL analysis (Java, Go, Actions)
@@ -148,8 +148,7 @@ Enables GitHub auto-merge (squash) on Dependabot PRs whose update type is
 GitHub merges only once branch protection passes, i.e. `CI Gate` is green and any
 required review is given. Major updates stay manual.
 
-**Requires**: Settings → General → *Allow auto-merge*, and `CI Gate` as a required
-status check on `main`. If auto-merge is off, the job logs a notice and does nothing.
+**Requires**: Settings → General → *Allow auto-merge*, and the required checks below on `main`. If auto-merge is off, the job logs a notice and does nothing.
 
 ---
 
@@ -159,14 +158,14 @@ status check on `main`. If auto-merge is off, the job logs a notice and does not
 
 | When | Trigger | Behavior |
 |------|---------|----------|
-| PR | pull_request | Secrets **blocking**; vulns/misconfigs report-only (table + SARIF) |
-| Push to main | push | All scans **blocking** (HIGH/CRITICAL fail the run) |
+| PR, merge queue | pull_request, merge_group | Secrets **blocking**; HIGH/CRITICAL vulns/misconfigs **blocking when a fix exists** (`--ignore-unfixed`); table + SARIF |
+| Push to main | push | All scans **blocking** (HIGH/CRITICAL fail the run, fixed or not) |
 | Weekly (Mon 6:30 AM IST) | schedule | Blocking rescan of main for newly published CVEs |
 | Manual | workflow_dispatch | Blocking scan |
 
-New HIGH/CRITICAL vulnerabilities *introduced by a PR* are blocked by
-`dependency-review` in ci.yml; the full-repo Trivy gate is enforced on main
-so unrelated PRs are not blocked by pre-existing CVEs.
+New HIGH/CRITICAL vulnerabilities *introduced by a PR* are also blocked by
+`dependency-review` in ci.yml; an unfixed CVE cannot be acted on, so it blocks only on main.
+Details: [SECURITY_SCANNING.md](SECURITY_SCANNING.md).
 
 **Artifacts**: `security-reports-{run_id}` — SARIF + CycloneDX SBOM
 (`sbom-yukta.cdx.json`, main/schedule/manual runs only). SARIF is uploaded to
@@ -293,6 +292,81 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 ---
 
+### `examples-nightly.yml` — Examples nightly
+
+**Purpose**: Find a merge that breaks an example (and the docs that quote it) the same night.
+**Triggered on**: daily schedule, manual.
+**Behavior**: starts the server from the commit and runs `examples/run-all.sh`; examples that need something the runner lacks (an LLM endpoint) print SKIP. Failures open the nightly issue (`nightly-report.yml`).
+
+---
+
+### `mutation.yml` — Mutation testing
+
+**Purpose**: Check that tests notice a change in the code (PIT), not just that lines ran.
+**Triggered on**: nightly (modules changed in the last day and their dependants), Saturday (every module), manual. Never on PRs: a full run takes hours.
+**Behavior**: `.github/scripts/mutation-ratchet.py` fails the run when a module's score drops below `config/mutation/baseline.json`. The Saturday cron is matched by string in the script: change both together.
+
+---
+
+### `native-smoke.yml` — Native smoke
+
+**Purpose**: Show missing reflection or resource entries between releases, not when the release build fails.
+**Triggered on**: daily schedule, manual.
+**Behavior**: builds the native server with `-Ob` and runs the Quickstart against it (`release/smoke-test.sh`). Failures open the nightly issue.
+
+---
+
+### `perf-nightly.yml` — Perf nightly
+
+**Purpose**: Catch performance and stability regressions of `main`.
+**Triggered on**: daily schedule, manual.
+**Behavior**: builds the jar, runs the k6 test (2 min) and a 30 minute soak in a container with fixed resources (`perf/run.sh`); `perf/compare.py` fails on a stuck run, a lost tracker event, success under 99%, a median or p99 above the baseline, or rising memory. The baseline is the last green run of `main`. Each failure becomes an `auto-found` issue.
+
+---
+
+### `perf-weekly.yml` — Perf weekly
+
+**Purpose**: The long run: a 4 h soak and a load ramp (200 starts/s) against the native binary.
+**Triggered on**: Sunday schedule, manual.
+**Behavior**: same checks as the nightly, relative ones only (hosted runners vary). Failures open the nightly issue.
+
+---
+
+### `pr-project-status.yml` — PR project status
+
+**Purpose**: Put a PR on the Yukta Roadmap project as *In review* (*In progress* while a draft), not *Triage*.
+**Triggered on**: `pull_request` opened, ready for review, converted to draft, edited; same-repository PRs only, not Dependabot or release PRs.
+**Behavior**: runs the default branch's `project-lib.sh`; does nothing without the project App ([PROJECT.md](PROJECT.md)).
+
+---
+
+### `release-please.yml` — Release PR
+
+**Purpose**: Keep one "release X.Y.Z" PR up to date (version in `gradle.properties` and `ui/package.json`, `CHANGELOG.md`).
+**Triggered on**: push to `main`.
+**Behavior**: merging the PR creates the tag and a draft release. Runs with an App token, because PRs and tags made with `GITHUB_TOKEN` start no workflows.
+
+---
+
+### `release.yml` — Release
+
+**Purpose**: Build, attest, sign and test the release; publishes nothing itself (a person publishes the draft).
+**Triggered on**: `v*` tag, weekly dry run (Saturday), manual dry run (`platforms`, `quick` inputs).
+**Jobs**: `guard` (tag is on `main`; every other job needs it), `cli`, `plan`, `server` (one per platform), `assemble` (tags only), `verify`.
+
+---
+
+### `cla.yml` — Contributor License Agreement
+
+**Purpose**: Ask outside contributors to sign `CLA.md` (or `CLA-corporate.md`) and record it on the `cla-signatures` branch.
+**Triggered on**: `pull_request_target` (never checks out PR code) and the signing comment.
+
+---
+
+## CodeRabbit
+
+The CodeRabbit GitHub App reviews every PR from `.coderabbit.yaml` (security and performance findings, complexity and length limits, Lombok and Spring Boot awareness). It is advisory: not a required check, and no workflow here depends on it.
+
 ## Conventions
 
 - **All actions are pinned to full commit SHAs** (with `# vN` comments).
@@ -305,16 +379,23 @@ Issues, issue types and the **Yukta Roadmap** project are described in
 
 ## Status Checks (Branch Protection)
 
-Recommended required checks on `main`:
+The `main-branch` ruleset (no bypass actor, squash only, merge queue, code-owner review, last-push
+approval) requires these nine checks. Change the ruleset and this list together.
 
 ```
-✓ Java CI with Gradle / Build & Check
-✓ Java CI with Gradle / Dependency Review
-✓ Security Scanning (Trivy) / Trivy Security Scan
-✓ License Compliance Check / REUSE License Headers
-✓ License Compliance Check / Dependency License Validation (Licensee)
-✓ CodeQL / Analyze (java-kotlin)
+CI Gate
+Dependency Review
+Trivy Security Scan
+REUSE License Headers
+Dependency License Validation (Licensee)
+Analyze (java-kotlin)
+Analyze (javascript-typescript)
+Analyze (go)
+Analyze (actions)
 ```
+
+`CI Gate` (ci.yml) fails when any job it needs failed or was cancelled, so a new CI job joins the gate
+by being added to its `needs`, not to the ruleset.
 
 ## One-time Setup
 
@@ -371,32 +452,29 @@ To catch those before pushing, enable the pre-push hook once:
 - **Compliance Summary workflow**: `.github/workflows/compliance-summary.yml`
 - **CodeQL workflow**: `.github/workflows/codeql.yml`
 - **Scorecard workflow**: `.github/workflows/scorecard.yml`
-- **Compliance reporting guide**: `.github/COMPLIANCE_REPORTING.md`
 - **Security scanning docs**: `.github/SECURITY_SCANNING.md`
 - **Trivy ignore list**: `.trivyignore`
 
-## Release (`release.yml`)
+## Release flow
 
-Pushing a `v*` tag builds the CLI for all platforms (with `SHA256SUMS`), attaches build-provenance
-attestations, and creates a GitHub release. Running it via `workflow_dispatch` is a dry run: nothing
-is published; the weekly schedule runs the same dry run on `main`. See `release/README.md`.
+1. `release-please.yml` keeps one release PR up to date from the Conventional Commits on `main`.
+2. Merging it creates the `v*` tag and a **draft** GitHub release.
+3. The tag starts `release.yml`: the `guard` job checks the tag is on `main`, then CLI and server binaries are
+   built (attested), `assemble` packages, pushes the image, signs and uploads to the draft, and `verify`
+   installs the draft the way a user would.
+4. A person publishes the draft. `released.yml` comments on the issues it fixed, closes the milestone, opens the
+   docs PR and installs the release on every supported system.
+
+See `release/README.md` and [PROJECT.md](PROJECT.md) ("Setting up the project").
 
 ## CI additions
 
-- `CI Gate` is the single check to require in branch protection.
-- `Lint Workflows` fails if a `project()` dependency names a module missing from `settings.gradle.kts`.
+- `CI Gate` is the single check that covers every CI job.
+- `Lint Workflows` fails if a `project()` dependency names a module missing from `settings.gradle.kts`, and if
+  `.github/scripts/docs-drift.sh` finds a workflow without a section in this file or a `.github/*.md` naming a
+  workflow that does not exist.
 - A new module needs no CI edits: the planner reads `settings.gradle.kts` and the build files.
-- **Nightly report**: `.github/workflows/nightly-report.yml`
-- **Dependabot auto-merge**: `.github/workflows/dependabot-automerge.yml`
 - **Code owners** (review requests per area): `.github/CODEOWNERS`
-
----
-
-### `cla.yml` — Contributor License Agreement
-
-**Purpose**: Ask outside contributors to sign `CLA.md` (or `CLA-corporate.md`) and record it on the `cla-signatures` branch
-
-**Triggered on**: Pull request (`pull_request_target`, never checks out PR code) and the signing comment
 
 ## Pinned by hand
 

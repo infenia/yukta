@@ -302,7 +302,7 @@ test.describe('Control page', () => {
       page.getByRole('heading', { name: 'Who did what' })
     ).toHaveCount(0);
 
-    await page.getByRole('tab', { name: 'audit' }).click();
+    await page.getByRole('tab', { name: 'Audit' }).click();
     await expect(page).toHaveURL(/tab=audit/);
     await expect(
       page.getByRole('heading', { name: 'Who did what' })
