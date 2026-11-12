@@ -10,3 +10,8 @@ rules:
       - cla.yml
       # Acts only on scheduled runs of main; reads run metadata and artifacts, never PR code.
       - nightly-report.yml
+  archived-uses:
+    ignore:
+      # The CLA assistant is archived upstream but pinned by SHA; replace it with a maintained
+      # CLA action when one is chosen.
+      - cla.yml

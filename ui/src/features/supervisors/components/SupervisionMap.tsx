@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router';
-import { useQueries } from '@tanstack/react-query';
 import {
   Background,
   Handle,
@@ -18,17 +17,11 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { cn } from '@/lib/utils';
-import { getOwnership } from '../api/supervision';
-import {
-  useAttachments,
-  useSupervisorTypes,
-} from '../hooks/useSupervisorTypes';
+import { useOwnedNodes } from '../hooks/useOwnedNodes';
+import { useSupervisorTypes } from '../hooks/useSupervisorTypes';
 import { decisionMaker } from '../lib/decisionMakers';
-import { parseScope } from '../lib/ownership';
 import {
-  MAX_WORKFLOWS,
   supervisionGraph,
-  workflowKey,
   type MapKind,
   type MapNode,
 } from '../lib/supervisionGraph';
@@ -101,36 +94,7 @@ export function SupervisionMap({
 }) {
   const navigate = useNavigate();
   const types = useSupervisorTypes();
-  const owned = useAttachments({ supervisor: supervisor.id });
-  const targets = useMemo(
-    () => (owned.data ?? []).map((a) => parseScope(a.scope)),
-    [owned.data]
-  );
-  // the nodes of a whole-workflow assignment come from the ownership map, for the workflows drawn
-  const whole = useMemo(() => {
-    const seen = new Map<string, (typeof targets)[number]>();
-    for (const t of targets) {
-      if (t.workflowId && t.sessionId && t.selectors.length === 0) {
-        seen.set(workflowKey(t), t);
-      }
-    }
-    return [...seen].slice(0, MAX_WORKFLOWS);
-  }, [targets]);
-  const ownership = useQueries({
-    queries: whole.map(([, t]) => ({
-      queryKey: ['supervision', 'ownership', t.sessionId, t.workflowId],
-      queryFn: () =>
-        getOwnership(t.sessionId as string, t.workflowId as string),
-    })),
-  });
-  const ownedNodes = Object.fromEntries(
-    whole.map(([key], i) => [
-      key,
-      Object.entries(ownership[i]?.data?.nodes ?? {})
-        .filter(([, owner]) => owner === supervisor.id)
-        .map(([node]) => node),
-    ])
-  );
+  const { targets, ownedNodes } = useOwnedNodes(supervisor.id);
   const maker = decisionMaker(supervisor.type, types.data);
   // dagre on a handful of boxes is cheap, so it runs on every render
   const graph = supervisionGraph({

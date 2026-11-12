@@ -15,9 +15,9 @@ The editions of Yukta, what each contains and which settings need which. This pa
 |---|---|---|---|
 | Community | Apache-2.0 | The engine, REST and MCP interfaces, web UI, CLI, all built-in plugins, in-memory state. | This repository, everything outside `plus/`. |
 | Plus | AGPL-3.0-only, or a commercial licence | State on disk (sessions, workflow definitions, execution log, checkpoints, chat history), PostgreSQL storage with high availability, remote workers. | This repository, the `plus/` directory. |
-| Enterprise | Commercial | Enterprise security, multi-tenancy and other features in a separate private repository that does not exist yet. PostgreSQL, high availability and remote workers are planned to move there later. | A separate private repository. |
+| Enterprise | Commercial | Enterprise security, multi-tenancy and other commercial features. | Not in this repository. |
 
-The default build, the Docker image and the installers are the Community edition. Named API keys, roles and session-limited keys are planned for Enterprise but are in the public build today.
+The default build, the Docker image and the installers are the Community edition. Named API keys, roles and session-limited keys are in the public build.
 
 ## Build switches
 

@@ -11,15 +11,15 @@ import { KpiTile } from '@/components/dashboard/KpiTile';
 import { Tabs } from '@/components/ui/tabs';
 import { formatRelative } from '@/features/workflow/lib/timeFormat';
 import { getSupervisionSummary } from '../api/supervision';
+import { getRules } from '../api/supervisors';
 import {
-  useAttachments,
   useOwnership,
   useSupervisorDecisions,
   useSupervisorTypes,
 } from '../hooks/useSupervisorTypes';
 import { decisionMaker } from '../lib/decisionMakers';
+import { useOwnedNodes } from '../hooks/useOwnedNodes';
 import { directControl } from '../lib/directControl';
-import { parseScope } from '../lib/ownership';
 import type { SupervisorView } from '../types';
 import { Activity } from './Activity';
 import { CredentialPanel, ExternalFlow } from './ExternalSettings';
@@ -170,14 +170,8 @@ function KpiRow({
   onOwns: () => void;
 }) {
   const decisions = useSupervisorDecisions(supervisor.id);
-  const owned = useAttachments({ supervisor: supervisor.id });
+  const owned = useOwnedNodes(supervisor.id);
   const times = (decisions.data ?? []).map((d) => Date.parse(d.time));
-  const workflows = new Set(
-    (owned.data ?? [])
-      .map((a) => parseScope(a.scope))
-      .filter((t) => t.workflowId)
-      .map((t) => `${t.sessionId}/${t.workflowId}`)
-  ).size;
   const newest = decisions.data?.[0]?.time;
   return (
     <section
@@ -194,15 +188,15 @@ function KpiRow({
       <div className="border-border bg-card flex min-w-0 flex-col gap-1 rounded-xl border p-4">
         <span className="text-label-md text-on-surface-variant">Owns</span>
         <span className="text-body-md">
-          {workflows} {workflows === 1 ? 'workflow' : 'workflows'} ·{' '}
+          {owned.workflows} {owned.workflows === 1 ? 'workflow' : 'workflows'} ·{' '}
           <button
             type="button"
             className="text-primary font-semibold"
-            title="A target is a workflow, node or session this supervisor is assigned to"
+            title={`A target is a workflow, node or session this supervisor is assigned to. It has ${supervisor.attachments} ${supervisor.attachments === 1 ? 'target' : 'targets'}.`}
             onClick={onOwns}
           >
-            {supervisor.attachments}{' '}
-            {supervisor.attachments === 1 ? 'target' : 'targets'}
+            {owned.count}
+            {owned.partial ? '+' : ''} {owned.count === 1 ? 'node' : 'nodes'}
           </button>
         </span>
       </div>
@@ -214,8 +208,162 @@ function KpiRow({
   );
 }
 
+const text = (value: unknown) =>
+  Array.isArray(value) ? value.join(', ') : String(value ?? '');
+
+function Facts({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="border-border bg-card text-body-md shadow-card grid gap-x-6 gap-y-2 rounded-xl border p-4 sm:grid-cols-[auto_1fr]">
+      {rows.map(([name, value]) => (
+        <div key={name} className="contents">
+          <dt className="text-label-md text-on-surface-variant">{name}</dt>
+          <dd className="min-w-0 break-words">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** A rules supervisor: how many rules and which version, and where they are read and changed. */
+function RulesFacts({
+  supervisor,
+  onOpen,
+}: {
+  supervisor: SupervisorView;
+  onOpen: () => void;
+}) {
+  const rules = useQuery({
+    queryKey: ['supervisors', 'rules', supervisor.id],
+    queryFn: () => getRules(supervisor.id),
+  });
+  const count = rules.data?.rules.rules?.length;
+  return (
+    <>
+      <Facts
+        rows={[
+          [
+            'Rules',
+            rules.isPending
+              ? 'Loading…'
+              : rules.data
+                ? `${count ?? 0} · version ${rules.data.version}`
+                : 'Could not be read',
+          ],
+          [
+            'Endpoint',
+            <code key="e" className="text-code-sm">
+              GET/PUT /api/supervisors/{supervisor.id}/engine/rules
+            </code>,
+          ],
+        ]}
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onOpen}
+          className={buttonVariants({ variant: 'outline', size: 'sm' })}
+        >
+          Open the rules
+        </button>
+        {!supervisor.system && (
+          <Link
+            to={`/supervisors/${encodeURIComponent(supervisor.id)}/edit`}
+            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+          >
+            Edit the rules
+          </Link>
+        )}
+      </div>
+    </>
+  );
+}
+
+/** What the engine of this supervisor is, in the terms of its own type. */
+function EngineFacts({
+  supervisor,
+  onOpen,
+}: {
+  supervisor: SupervisorView;
+  onOpen: () => void;
+}) {
+  const s = supervisor.settings;
+  if (supervisor.type === 'rules') {
+    return <RulesFacts supervisor={supervisor} onOpen={onOpen} />;
+  }
+  if (supervisor.type === 'http') {
+    return (
+      <>
+        <Facts
+          rows={[
+            [
+              'Posts to',
+              s.url ? text(s.url) : 'nothing: the system reads the signals',
+            ],
+            [
+              'Agent API',
+              <code key="a" className="text-code-sm">
+                /api/agent/v1
+              </code>,
+            ],
+          ]}
+        />
+        <ExternalFlow url={s.url} />
+        <CredentialPanel id={supervisor.id} />
+      </>
+    );
+  }
+  if (supervisor.type === 'workflow') {
+    const session = text(s.sessionId);
+    const workflow = text(s.workflowId);
+    return (
+      <Facts
+        rows={[
+          [
+            'Decision workflow',
+            session && workflow ? (
+              <Link
+                to={`/sessions/${encodeURIComponent(session)}/workflow/${encodeURIComponent(workflow)}`}
+                className="text-primary"
+              >
+                {session} / {workflow}
+              </Link>
+            ) : (
+              'not set'
+            ),
+          ],
+          ['Starts on', text(s.events) || '–'],
+          ['At most at once', text(s.maxConcurrent ?? 2)],
+          ['Time per run', `${text(s.timeout ?? 60)} s`],
+        ]}
+      />
+    );
+  }
+  if (supervisor.type === 'process') {
+    return (
+      <Facts
+        rows={[
+          [
+            'Program',
+            <code key="c" className="text-code-sm">
+              {text(s.command) || 'not set'}
+            </code>,
+          ],
+          ['Arguments', text(s.args).replace(/\n/g, ' ') || 'none'],
+        ]}
+      />
+    );
+  }
+  return null;
+}
+
 /** The one decision maker of this supervisor, as an instance: its settings live under Settings. */
-function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
+function DecisionMakerTab({
+  supervisor,
+  onOpenSettings,
+}: {
+  supervisor: SupervisorView;
+  onOpenSettings: () => void;
+}) {
   const types = useSupervisorTypes();
   const maker = decisionMaker(supervisor.type, types.data);
   // a type the catalog does not list (a plugin's) has no page to open
@@ -249,12 +397,7 @@ function DecisionMakerTab({ supervisor }: { supervisor: SupervisorView }) {
           </div>
         )}
       </div>
-      {supervisor.type === 'http' && (
-        <>
-          <ExternalFlow url={supervisor.settings.url} />
-          <CredentialPanel id={supervisor.id} />
-        </>
-      )}
+      <EngineFacts supervisor={supervisor} onOpen={onOpenSettings} />
     </div>
   );
 }
@@ -315,7 +458,10 @@ export function SupervisorDetail({
           <HierarchyTab supervisor={supervisor} all={all} onSelect={onSelect} />
         )}
         {tab === 'decision-maker' && (
-          <DecisionMakerTab supervisor={supervisor} />
+          <DecisionMakerTab
+            supervisor={supervisor}
+            onOpenSettings={() => setTab('settings')}
+          />
         )}
         {tab === 'settings' && <SettingsTab supervisor={supervisor} />}
         {tab === 'changes' && <HistoryTab supervisor={supervisor} />}
