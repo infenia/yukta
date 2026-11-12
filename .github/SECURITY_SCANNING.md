@@ -13,53 +13,21 @@ The security scanning workflow runs comprehensive security scans to detect:
 
 ## Workflow Architecture
 
-**Two workflows, one purpose:**
+`security.yml` is one job (`Trivy Security Scan`) that runs on its own events. It does not wait for
+`ci.yml`: both start together and both are required checks on `main`.
 
-```
-┌─────────────────────────────────┐
-│  ci.yml (Build & Test)          │
-│  ─ Compile, test, quality gates  │
-│  ─ Runs on: push/PR             │
-└──────────────┬──────────────────┘
-               │
-        (workflow_run trigger)
-               │
-┌──────────────▼──────────────────┐
-│  security.yml (Trivy Scans)     │
-│  ─ Secrets, vulns, SBOMs        │
-│  ─ Blocking on main             │
-│  ─ Async on PRs                 │
-└─────────────────────────────────┘
-```
+### Triggers and blocking
 
-### Blocking Behavior
+| Trigger | When | Secrets | HIGH/CRITICAL vulnerabilities and misconfigurations |
+|---------|------|---------|------------------------------------------------------|
+| `pull_request`, `merge_group` | PR to `main`, merge queue | **blocking** | **blocking when a fix exists** (`--ignore-unfixed`); an unfixed CVE cannot be acted on |
+| `push` | `main` | **blocking** | **blocking**, fixed or not |
+| `schedule` | Monday 6:30 AM IST | **blocking** | **blocking**: rescans `main` for newly published CVEs |
+| `workflow_dispatch` | manual | **blocking** | **blocking** |
 
-| Context | Trigger | Behavior | Failure Impact |
-|---------|---------|----------|-----------------|
-| **main branch** | Direct push | Blocking scan | **Fails push** if HIGH/CRITICAL |
-| **PR branch** | After CI succeeds | Blocking scan (via `workflow_run`) | **Fails PR check** if HIGH/CRITICAL |
-| **Manual** | `workflow_dispatch` | Blocking scan | **Fails** if HIGH/CRITICAL |
-
-## Workflow Triggers
-
-### `push` → main branch
-- **When**: Direct push to main (typically via PR merge)
-- **Behavior**: Blocking — security scan must pass
-- **Fails on**: HIGH/CRITICAL secrets, vulnerabilities, misconfigurations
-- **Artifacts**: Uploaded to `security-reports-{run_id}`
-
-### `workflow_run` ← ci.yml completion
-- **When**: After CI workflow completes on PR
-- **Condition**: Only runs if CI succeeded
-- **Behavior**: Mandatory — security findings block PR merge
-- **Fails on**: HIGH/CRITICAL secrets, vulnerabilities, misconfigurations (like main)
-- **Impact**: PR check will fail if security issues detected
-- **Artifacts**: Uploaded to `security-reports-{run_id}`
-
-### `workflow_dispatch` (manual)
-- **When**: Triggered manually via GitHub Actions UI
-- **Behavior**: Mandatory (same as main/PR)
-- **Use case**: On-demand security audits, testing scan changes
+The SBOM (CycloneDX) is generated on every run except PRs. New vulnerable dependencies in a PR are also
+blocked by `dependency-review` in `ci.yml`. Artifacts: `security-reports-{run_id}` (SARIF and SBOM, 30 days).
+SARIF goes to the Security tab, except for fork PRs (their token cannot upload).
 
 ## Scan Types
 
@@ -211,21 +179,15 @@ The SARIF report is automatically uploaded to GitHub's Security tab:
 
 ## How Blocking Works
 
-All Trivy scans are **mandatory** across all contexts. The workflow fails if HIGH/CRITICAL findings are detected, regardless of whether it's main, PR, or manual trigger.
+The vulnerability step is a separate "Enforce vulnerability gate" step, after the SARIF and table reports, so a
+failing run still uploads its findings.
 
-**Example Scenarios:**
-
-| Scenario | Event | Secrets Found | Result |
-|----------|-------|---------------|--------|
-| Push to main with critical secret | push | HIGH | ❌ FAIL — push blocked |
-| PR review finds critical secret | workflow_run | HIGH | ❌ FAIL — PR merge blocked |
-| Manual dispatch | workflow_dispatch | HIGH | ❌ FAIL — audit fails |
-
-### GitHub Status Checks
-
-- **Main (push)**: Shows as ❌ **Required status check** — must pass before merge
-- **PR (workflow_run)**: Shows as ❌ **Required status check** — must pass before merge  
-- **Manual**: Shows as ❌ in Actions tab — must pass to complete run
+| Scenario | Event | Result |
+|----------|-------|--------|
+| Secret in a PR | `pull_request` | FAIL, PR cannot merge |
+| Fixable HIGH CVE in a PR | `pull_request` | FAIL |
+| Unfixable HIGH CVE already in `main` | `pull_request` | pass (reported) |
+| Same CVE | `push`, `schedule` | FAIL: fix, or add a justified `.trivyignore` entry |
 
 ## Local Testing
 
@@ -285,57 +247,24 @@ trivy fs --format json --output compliance-report.json .
 trivy image --format cyclonedx --output sbom-full.json file://./build/libs/boot-*.jar
 ```
 
-## Configuring Branch Protection
+## Branch protection
 
-To enforce security scans on main, set up GitHub Branch Protection:
+`Trivy Security Scan` is one of the nine checks the `main-branch` ruleset requires; the full list is in
+[WORKFLOWS.md](WORKFLOWS.md#status-checks-branch-protection).
 
-**Steps:**
-1. Go to **Settings** → **Branches** → **Branch protection rules**
-2. Add rule for `main` branch
-3. Check ✅ **Require status checks to pass before merging**
-4. Search for and select:
-   - `Java CI with Gradle / Build & Check` (from ci.yml)
-   - `Security Scanning (Trivy) / Trivy Security Scan` (from security.yml)
-5. Check ✅ **Require branches to be up to date before merging**
-6. Click **Create**
+## Permissions
 
-**Result**: Both CI and security scans must pass before merging to main.
-
-## GitHub Actions Setup Notes
-
-### Permissions
-
-The `security.yml` workflow requires these permissions:
-
-```yaml
-permissions:
-  contents: read              # Read repo files
-  checks: write              # Post check results
-  security-events: write     # Upload SARIF to Security tab
-```
-
-These are already configured in `security.yml`.
-
-### Artifact Management
-
-- Artifacts named `security-reports-{run_id}` for each run
-- Retained for 30 days
-- Downloaded via: **Actions** → select workflow run → **Artifacts** section
+`security.yml` has `contents: read` at the top and `security-events: write` on the job (SARIF upload).
 
 ## Troubleshooting
 
-### Security scan runs after CI on PRs
+### A PR fails the scan for a CVE I did not add
 
-This is expected behavior. The scan runs **after** CI completes via `workflow_run` trigger:
-- ✅ CI checks show immediately
-- ⏳ Security scan runs in background
-- The PR **cannot be merged** while security scan is running — must wait for it to complete and pass
+Only CVEs with a fix block a PR. Bump the dependency, or add a justified, dated entry to `.trivyignore`.
 
-To see security findings: Check **Artifacts** in the Actions tab or GitHub Security dashboard.
+### SARIF upload fails
 
-### SARIF upload fails silently
-
-The workflow uses `continue-on-error: true` for SARIF uploads. This is intentional — a failed SARIF upload shouldn't fail the entire security scan. Check the job log for details.
+It does not fail the scan; see the upload step's log. Fork PRs skip the upload on purpose.
 
 ## References
 
