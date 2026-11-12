@@ -9,6 +9,10 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.input.InputAsk;
+import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputIdentity;
+import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -18,6 +22,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
@@ -37,6 +43,14 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
   private static final String MODEL = "model";
   private static final String MAX_TURNS = "maxTurns";
   private static final String ARGS = "args";
+  private static final String SESSION = "session";
+  private static final String ON_BUSY = "onBusy";
+  private static final String APPROVALS = "approvals";
+  private static final String APPROVAL_RISK = "approvalRisk";
+  private static final String APPROVAL_TIMEOUT = "approvalTimeout";
+  private static final String APPROVAL_AUDIENCE = "approvalAudience";
+  private static final long DEFAULT_APPROVAL_SECONDS = 300;
+  private static final Duration BUSY_POLL = Duration.ofMillis(250);
   private static final String TIMEOUT = "timeout";
   private static final long DEFAULT_TIMEOUT_SECONDS = 600;
   private static final long MARGIN_SECONDS = 30;
@@ -47,6 +61,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
   private final ProcessExecutorGateway gateway;
   private final VariableResolver resolver;
   private final AgentHarnesses harnesses;
+  private final AgentSessionStore sessions;
+  private final ObjectProvider<InputGateway> inputs;
   private final ObjectMapper json;
 
   /**
@@ -55,16 +71,22 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
    * @param gateway starts the process
    * @param resolver resolves config expressions
    * @param harnesses the presets
+   * @param sessions remembers sessions between turns
+   * @param inputs the input request system, for approvals
    * @param json the JSON mapper
    */
   public AgentSessionPlugin(
       final ProcessExecutorGateway gateway,
       final VariableResolver resolver,
       final AgentHarnesses harnesses,
+      final AgentSessionStore sessions,
+      final ObjectProvider<InputGateway> inputs,
       final ObjectMapper json) {
     this.gateway = gateway;
     this.resolver = resolver;
     this.harnesses = harnesses;
+    this.sessions = sessions;
+    this.inputs = inputs;
     this.json = json;
   }
 
@@ -93,7 +115,12 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             + "- harness: the preset id; the values are listed in this field's options.\n"
             + "- prompt: what to ask (an expression over the message is allowed).\n"
             + "- model, maxTurns: only for a harness that supports them.\n"
+            + "- session: a key; the same key continues the conversation (harness capability"
+            + " resume). onBusy WAIT (default) or FAIL for a second turn while one runs.\n"
             + "- args: extra command-line arguments, e.g. [\"--allowedTools\", \"Read,Edit\"].\n"
+            + "- approvals: ASK to have each tool use approved through the input request system"
+            + " (approvalRisk, approvalTimeout seconds, approvalAudience); needs a harness with the"
+            + " ask capability.\n"
             + "- workingDir, env, timeout (seconds, default 600).\n"
             + "Emits {status, reason, text, sessionId, turn, exitCode} on port success, failure"
             + " (the agent or harness failed, or timed out) or incomplete (stopped early, e.g. out"
@@ -135,6 +162,49 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             MAX_TURNS, ConfigField.Type.NUMBER, null, "Most turns, if the harness takes a limit"),
         ConfigField.optional(
             ARGS, ConfigField.Type.LIST, null, "Extra command-line arguments for the harness"),
+        ConfigField.optional(
+            SESSION,
+            ConfigField.Type.EXPRESSION,
+            null,
+            "Session key: nodes and messages with the same key continue one conversation (needs a"
+                + " harness with resume). Without it every message starts afresh."),
+        ConfigField.choice(
+            ON_BUSY,
+            false,
+            "WAIT",
+            "A session runs one turn at a time. WAIT queues the next turn; FAIL sends it to the"
+                + " failure port at once.",
+            "WAIT",
+            "FAIL"),
+        ConfigField.choice(
+            APPROVALS,
+            false,
+            "NONE",
+            "ASK: each tool use the harness needs permission for becomes an approval request on"
+                + " the input request system (answered by a person, a supervisor or an agent;"
+                + " no answer in time refuses the tool). NONE: the harness decides alone (see"
+                + " args). Needs a harness with the ask capability.",
+            "NONE",
+            "ASK"),
+        ConfigField.choice(
+            APPROVAL_RISK,
+            false,
+            "MEDIUM",
+            "Risk of the approval requests",
+            "LOW",
+            "MEDIUM",
+            "HIGH"),
+        ConfigField.optional(
+            APPROVAL_TIMEOUT,
+            ConfigField.Type.NUMBER,
+            DEFAULT_APPROVAL_SECONDS,
+            "Seconds to wait for an answer before the tool is refused"),
+        ConfigField.optional(
+            APPROVAL_AUDIENCE,
+            ConfigField.Type.LIST,
+            null,
+            "Who may answer: supervisor:<id>, role:OPERATOR, key:<name>, ... (default: the current"
+                + " tier)"),
         ConfigField.optional("workingDir", ConfigField.Type.STRING, null, "Working directory"),
         ConfigField.optional("env", ConfigField.Type.MAP, null, "Extra environment variables"),
         ConfigField.optional(
@@ -172,6 +242,16 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
         throw new IllegalArgumentException(
             "harness '" + preset.id() + "' has no turn limit; remove maxTurns");
       }
+      if (config.get(SESSION) != null && preset.resumeArgs().isEmpty()) {
+        throw new IllegalArgumentException(
+            "harness '" + preset.id() + "' cannot resume a session; remove session");
+      }
+      onBusy(config);
+      if (asks(config) && preset.interactive() == null) {
+        throw new IllegalArgumentException(
+            "harness '" + preset.id() + "' cannot ask for approvals; remove approvals");
+      }
+      settings(config);
       if (config.get(ARGS) != null && !(config.get(ARGS) instanceof List)) {
         throw new IllegalArgumentException("args must be a list of strings");
       }
@@ -197,45 +277,190 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             resolve(config.get(PROMPT), message),
             resolve(config.get("workingDir"), message),
             resolve(config.get(MODEL), message),
-            resolveEnv(config.get("env"), message))
+            resolveEnv(config.get("env"), message),
+            resolve(config.get(SESSION), message))
         .flatMap(
             t -> {
-              final long timeout = timeoutSeconds(config);
-              final ProcessExecutionSpec spec =
-                  ProcessExecutionSpec.builder()
-                      .command(command(preset, config, t.getT1(), t.getT3()))
-                      .workingDir(t.getT2().isEmpty() ? null : t.getT2())
-                      .timeoutSeconds(timeout)
-                      .env(t.getT4())
-                      .maxOutputLines(KEPT_LINES)
-                      .maxOutputBytes(KEPT_BYTES)
-                      .build();
-              return Mono.deferContextual(
-                  ctx -> {
-                    final AgentOutput output =
-                        new AgentOutput(
-                            preset.output(),
-                            ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
-                                .orElse(PluginLogSink.NOOP),
-                            json);
-                    return gateway
-                        .executeForResult(spec, output)
-                        .map(r -> output.outcome(r.exitCode(), r.timedOut(), timeout));
-                  });
+              final String key = t.getT5();
+              if (key.isEmpty()) {
+                return turn(
+                    message, config, preset, t.getT1(), t.getT2(), t.getT3(), t.getT4(), null);
+              }
+              return Mono.usingWhen(
+                  acquire(key, onBusy(config)),
+                  lease ->
+                      turn(
+                          message, config, preset, t.getT1(), t.getT2(), t.getT3(), t.getT4(),
+                          lease),
+                  lease -> Mono.fromRunnable(lease::close),
+                  (lease, e) -> Mono.fromRunnable(lease::close),
+                  lease -> Mono.fromRunnable(lease::close));
+            })
+        .onErrorResume(
+            SessionBusyException.class,
+            e ->
+                Mono.just(
+                    DefaultMessage.from(
+                            message,
+                            Map.<String, Object>of(
+                                "status", "failure", "reason", e.getMessage(), "text", ""))
+                        .withSourcePort("failure")));
+  }
+
+  /** Takes the session, waiting for the running turn when {@code onBusy} is WAIT. */
+  private Mono<AgentSessionStore.Lease> acquire(final String key, final boolean wait) {
+    // ponytail: polls every BUSY_POLL; a fair queue only matters with many waiters on one session
+    return Mono.defer(
+            () -> {
+              final AgentSessionStore.Lease lease = sessions.tryAcquire(key);
+              if (lease != null) {
+                return Mono.just(lease);
+              }
+              return wait
+                  ? Mono.<AgentSessionStore.Lease>empty()
+                  : Mono.error(new SessionBusyException("session '" + key + "' is busy"));
+            })
+        .repeatWhenEmpty(repeat -> repeat.delayElements(BUSY_POLL));
+  }
+
+  private Mono<Message<?>> turn(
+      final Message<?> message,
+      final Map<String, Object> config,
+      final AgentPreset preset,
+      final String prompt,
+      final String workingDir,
+      final String model,
+      final Map<String, String> env,
+      final AgentSessionStore.Lease lease) {
+    final long timeout = timeoutSeconds(config);
+    final String token = lease == null ? null : lease.token();
+    final int attempt = lease == null ? 1 : lease.turns() + 1;
+    final boolean ask = asks(config);
+    final AgentPreset.Interactive talk = ask ? preset.interactive() : null;
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(
+                command(
+                    talk == null ? preset.command() : talk.command(),
+                    preset,
+                    config,
+                    prompt,
+                    model,
+                    token))
+            .workingDir(workingDir.isEmpty() ? null : workingDir)
+            .timeoutSeconds(timeout)
+            .env(env)
+            .maxOutputLines(KEPT_LINES)
+            .maxOutputBytes(KEPT_BYTES)
+            .build();
+    return Mono.deferContextual(
+            ctx -> {
+              final AgentOutput output =
+                  new AgentOutput(
+                      preset.output(),
+                      talk,
+                      ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                          .orElse(PluginLogSink.NOOP),
+                      json);
+              if (talk == null) {
+                return gateway
+                    .executeForResult(spec, output)
+                    .map(r -> output.outcome(r.exitCode(), r.timedOut(), timeout));
+              }
+              final AtomicReference<AgentApprovals> approvals = new AtomicReference<>();
+              return gateway
+                  .executeInteractive(
+                      spec,
+                      output,
+                      stdin -> {
+                        final AgentApprovals a =
+                            new AgentApprovals(
+                                talk,
+                                settings(config),
+                                json,
+                                inputs::getIfAvailable,
+                                InputIdentity.from(ctx),
+                                message,
+                                preset.id(),
+                                stdin);
+                        approvals.set(a);
+                        output.converse(a::handle, stdin::close);
+                        stdin.write(AgentApprovals.userMessage(talk.userMessage(), prompt, json));
+                      })
+                  .doFinally(
+                      signal -> {
+                        final AgentApprovals a = approvals.get();
+                        if (a != null) {
+                          a.dispose();
+                        }
+                      })
+                  .map(r -> output.outcome(r.exitCode(), r.timedOut(), timeout));
             })
         .map(
-            outcome ->
-                DefaultMessage.from(message, outcome)
-                    .withSourcePort(String.valueOf(outcome.get("status"))));
+            outcome -> {
+              if (lease != null) {
+                if (!"failure".equals(outcome.get("status"))) {
+                  lease.complete(String.valueOf(outcome.get("sessionId")));
+                }
+                outcome.put("turn", attempt);
+              }
+              return (Message<?>)
+                  DefaultMessage.from(message, outcome)
+                      .withSourcePort(String.valueOf(outcome.get("status")));
+            });
+  }
+
+  private static boolean asks(final Map<String, Object> config) {
+    final String value =
+        String.valueOf(config.getOrDefault(APPROVALS, "NONE")).toUpperCase(java.util.Locale.ROOT);
+    if (!"NONE".equals(value) && !"ASK".equals(value)) {
+      throw new IllegalArgumentException("approvals must be NONE or ASK, got: " + value);
+    }
+    return "ASK".equals(value);
+  }
+
+  private static AgentApprovals.Settings settings(final Map<String, Object> config) {
+    final Object timeout = config.get(APPROVAL_TIMEOUT);
+    if (timeout != null && !(timeout instanceof final Number n && n.longValue() > 0)) {
+      throw new IllegalArgumentException("approvalTimeout must be positive, got: " + timeout);
+    }
+    return new AgentApprovals.Settings(
+        InputAsk.risk(config.get(APPROVAL_RISK), InputRisk.MEDIUM),
+        Duration.ofSeconds(
+            timeout == null ? DEFAULT_APPROVAL_SECONDS : ((Number) timeout).longValue()),
+        InputAsk.audience(config.get(APPROVAL_AUDIENCE)));
+  }
+
+  private static boolean onBusy(final Map<String, Object> config) {
+    final String value =
+        String.valueOf(config.getOrDefault(ON_BUSY, "WAIT")).toUpperCase(java.util.Locale.ROOT);
+    if (!"WAIT".equals(value) && !"FAIL".equals(value)) {
+      throw new IllegalArgumentException("onBusy must be WAIT or FAIL, got: " + value);
+    }
+    return "WAIT".equals(value);
+  }
+
+  /** A second turn of a session that runs one at a time, when the node says FAIL. */
+  private static final class SessionBusyException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
+    SessionBusyException(final String message) {
+      super(message);
+    }
   }
 
   private static List<String> command(
+      final List<String> base,
       final AgentPreset preset,
       final Map<String, Object> config,
       final String prompt,
-      final String model) {
+      final String model,
+      final String token) {
     final List<String> command = new ArrayList<>();
-    preset.command().forEach(a -> command.add(a.replace("{prompt}", prompt)));
+    base.forEach(a -> command.add(a.replace("{prompt}", prompt)));
+    if (token != null && !token.isBlank()) {
+      preset.resumeArgs().forEach(a -> command.add(a.replace("{session}", token)));
+    }
     if (!model.isEmpty()) {
       preset.modelArgs().forEach(a -> command.add(a.replace("{model}", model)));
     }

@@ -64,8 +64,28 @@ class AgentSessionPluginTest {
         + "\"prefix\":\"tool: \"}]}}";
   }
 
+  /** Gives a fixture preset the resume arguments. */
+  private static String resumable(final String preset) {
+    return preset.replace(
+        "\"modelArgs\":[]", "\"modelArgs\":[],\"resumeArgs\":[\"--resume\",\"{session}\"]");
+  }
+
   private static String lines(final String result) {
     return "echo '" + WORKING + "'; echo '" + result + "'";
+  }
+
+  /** The input request system the plugin sees; tests set it. */
+  private final java.util.concurrent.atomic.AtomicReference<
+          com.infenia.yukta.plugin.input.InputGateway>
+      inputGateway = new java.util.concurrent.atomic.AtomicReference<>();
+
+  @SuppressWarnings("unchecked")
+  private org.springframework.beans.factory.ObjectProvider<
+          com.infenia.yukta.plugin.input.InputGateway>
+      inputs() {
+    final var provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable()).thenAnswer(i -> inputGateway.get());
+    return provider;
   }
 
   @BeforeEach
@@ -93,7 +113,36 @@ class AgentSessionPluginTest {
             lines(
                 "{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":true,"
                     + "\"result\":\"\",\"session_id\":\"s3\"}")));
+    Files.writeString(
+        dir.resolve("asker.sh"),
+        """
+        read msg
+        echo '{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{"command":"ls"},"description":"list files"}}'
+        read reply
+        behavior=$(printf %s "$reply" | sed -n 's/.*"behavior":"\\([a-z]*\\)".*/\\1/p')
+        message=$(printf %s "$reply" | sed -n 's/.*"message":"\\([^"]*\\)".*/\\1/p')
+        echo "{\\"type\\":\\"result\\",\\"subtype\\":\\"success\\",\\"is_error\\":false,\\"result\\":\\"$behavior|$message\\",\\"session_id\\":\\"s\\"}"
+        """);
+    Files.writeString(
+        dir.resolve("asker.json"),
+        """
+        {"id":"asker","description":"fixture that asks","command":["sh","-c","exit 9"],
+         "capabilities":{"ask":true},
+         "interactive":{"command":["sh","%s"],
+           "userMessage":{"type":"user","message":{"role":"user","content":"{prompt}"}},
+           "requestWhen":{"type":"control_request","request.subtype":"can_use_tool"},
+           "requestId":"request_id","tool":"request.tool_name","input":"request.input","description":"request.description",
+           "allow":{"type":"control_response","response":{"request_id":"{id}","response":{"behavior":"allow","updatedInput":"{input}"}}},
+           "deny":{"type":"control_response","response":{"request_id":"{id}","response":{"behavior":"deny","message":"{message}"}}}},
+         "output":{"resultWhen":{"type":"result"},"text":"result","sessionId":"session_id","isError":"is_error","subtype":"subtype"}}
+        """
+            .formatted(dir.resolve("asker.sh")));
     Files.writeString(dir.resolve("crash.json"), preset("crash", "echo boom; exit 3"));
+    final String echoArgs =
+        "echo \"{\\\"type\\\":\\\"result\\\",\\\"subtype\\\":\\\"success\\\","
+            + "\\\"is_error\\\":false,\\\"result\\\":\\\"$*\\\",\\\"session_id\\\":\\\"sess-1\\\"}\"";
+    Files.writeString(dir.resolve("resumable.json"), resumable(preset("resumable", echoArgs)));
+    Files.writeString(dir.resolve("slow.json"), resumable(preset("slow", "sleep 1; " + echoArgs)));
     final VariableResolver resolver = mock(VariableResolver.class);
     when(resolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
         .thenAnswer(i -> Mono.just(i.getArgument(0)));
@@ -101,7 +150,13 @@ class AgentSessionPluginTest {
     gateway.setAllowAny(true);
     try {
       plugin =
-          new AgentSessionPlugin(gateway, resolver, new AgentHarnesses(JSON, dir.toString()), JSON);
+          new AgentSessionPlugin(
+              gateway,
+              resolver,
+              new AgentHarnesses(JSON, dir.toString()),
+              new InMemoryAgentSessionStore(),
+              inputs(),
+              JSON);
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -173,7 +228,9 @@ class AgentSessionPluginTest {
   @Test
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
-        .expectErrorMessage("unknown harness 'nope'; one of [claude-code, crash, failed, max, ok]")
+        .expectErrorMessage(
+            "unknown harness 'nope'; one of [asker, claude-code, codex, crash, failed, max, ok,"
+                + " resumable, slow]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -185,7 +242,8 @@ class AgentSessionPluginTest {
   @Test
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
-        .containsExactly("claude-code", "crash", "failed", "max", "ok");
+        .containsExactly(
+            "asker", "claude-code", "codex", "crash", "failed", "max", "ok", "resumable", "slow");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
 
@@ -222,5 +280,212 @@ class AgentSessionPluginTest {
         .containsEntry("status", "success")
         .containsEntry("text", "hi")
         .containsEntry("sessionId", "108aa031");
+  }
+
+  private Message<?> runIn(final String harness, final String session, final String onBusy) {
+    return plugin
+        .process(
+            Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")),
+            Map.of("harness", harness, "prompt", "go", "session", session, "onBusy", onBusy))
+        .collectList()
+        .block(Duration.ofSeconds(30))
+        .getFirst();
+  }
+
+  @Test
+  void aSessionKey_resumesFromTheTokenTheLastTurnLeft() {
+    final Message<?> first = runIn("resumable", "k1", "WAIT");
+    final Message<?> second = runIn("resumable", "k1", "WAIT");
+    final Message<?> other = runIn("resumable", "k2", "WAIT");
+
+    assertThat(payload(first)).containsEntry("turn", 1).containsEntry("text", "go");
+    assertThat(payload(second))
+        .containsEntry("turn", 2)
+        .containsEntry("text", "go --resume sess-1");
+    assertThat(payload(other)).containsEntry("turn", 1).containsEntry("text", "go");
+  }
+
+  @Test
+  void aBusySession_failsAtOnceWhenOnBusyIsFail() throws Exception {
+    final var running =
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> runIn("slow", "k", "WAIT"));
+    org.awaitility.Awaitility.await().pollDelay(Duration.ofMillis(300)).until(() -> true);
+
+    final Message<?> refused = runIn("slow", "k", "FAIL");
+
+    assertThat(refused.sourcePort()).isEqualTo("failure");
+    assertThat(payload(refused)).containsEntry("reason", "session 'k' is busy");
+    assertThat(running.get().sourcePort()).isEqualTo("success");
+  }
+
+  @Test
+  void aBusySession_queuesTheNextTurnWhenOnBusyIsWait() throws Exception {
+    final var running =
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> runIn("slow", "w", "WAIT"));
+    org.awaitility.Awaitility.await().pollDelay(Duration.ofMillis(300)).until(() -> true);
+
+    final Message<?> queued = runIn("slow", "w", "WAIT");
+
+    assertThat(running.get().sourcePort()).isEqualTo("success");
+    assertThat(payload(queued))
+        .containsEntry("turn", 2)
+        .containsEntry("text", "go --resume sess-1");
+  }
+
+  @Test
+  void validateConfig_refusesASessionOnAHarnessThatCannotResume() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "session", "k")))
+        .expectErrorMessage("harness 'ok' cannot resume a session; remove session")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "resumable", "prompt", "p", "onBusy", "NOW")))
+        .expectErrorMessage("onBusy must be WAIT or FAIL, got: NOW")
+        .verify();
+  }
+
+  private final List<com.infenia.yukta.plugin.input.InputRequestSpec> asked =
+      new CopyOnWriteArrayList<>();
+
+  private Message<?> runAsking(
+      final com.infenia.yukta.plugin.input.InputGateway gateway, final Map<String, Object> extra) {
+    inputGateway.set(gateway);
+    final java.util.HashMap<String, Object> config = new java.util.HashMap<>(extra);
+    config.putAll(Map.of("harness", "asker", "prompt", "list", "approvals", "ASK"));
+    return plugin
+        .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")), config)
+        .contextWrite(
+            Context.of(
+                "sessionId", "s-1", "workflowId", "w-1", "executionId", "e-1", "nodeId", "n-1"))
+        .collectList()
+        .block(Duration.ofSeconds(30))
+        .getFirst();
+  }
+
+  private com.infenia.yukta.plugin.input.InputGateway answering(
+      final String decision, final String why) {
+    return spec -> {
+      asked.add(spec);
+      return Mono.just(
+          new com.infenia.yukta.plugin.input.InputResponse(
+              "req-1",
+              decision,
+              null,
+              Map.of(),
+              com.infenia.yukta.plugin.input.Responder.SYSTEM,
+              why,
+              null,
+              java.time.Instant.now()));
+    };
+  }
+
+  @Test
+  void approvals_anApprovedToolUseIsAllowedAndAsksThroughTheInputSystem() {
+    final Message<?> out = runAsking(answering("approve", null), Map.of("approvalRisk", "HIGH"));
+
+    assertThat(out.sourcePort()).isEqualTo("success");
+    assertThat(payload(out)).containsEntry("text", "allow|");
+    assertThat(asked).hasSize(1);
+    final var spec = asked.getFirst();
+    assertThat(spec.kind()).isEqualTo(com.infenia.yukta.plugin.input.InputKind.APPROVAL);
+    assertThat(spec.risk()).isEqualTo(com.infenia.yukta.plugin.input.InputRisk.HIGH);
+    assertThat(spec.prompt()).contains("asker", "Bash", "list files");
+    assertThat(spec.context()).containsEntry("tool", "Bash");
+    assertThat(spec.context().get("input").toString()).contains("ls");
+  }
+
+  @Test
+  void approvals_aRejectionIsRefusedWithTheReason() {
+    final Message<?> out = runAsking(answering("reject", "too risky"), Map.of());
+
+    assertThat(payload(out)).containsEntry("text", "deny|Rejected: too risky");
+  }
+
+  @Test
+  void approvals_noAnswerOrNoInputSystemRefusesTheTool() {
+    final Message<?> failing =
+        runAsking(spec -> Mono.error(new IllegalStateException("nobody answered")), Map.of());
+    final Message<?> none = runAsking(null, Map.of());
+
+    assertThat(payload(failing)).containsEntry("text", "deny|Not approved: nobody answered");
+    assertThat(payload(none).get("text").toString()).startsWith("deny|Not approved");
+  }
+
+  @Test
+  void validateConfig_approvalsNeedAHarnessThatCanAsk() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "approvals", "ASK")))
+        .expectErrorMessage("harness 'ok' cannot ask for approvals; remove approvals")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "asker", "prompt", "p", "approvals", "MAYBE")))
+        .expectErrorMessage("approvals must be NONE or ASK, got: MAYBE")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "asker", "prompt", "p", "approvals", "ASK")))
+        .verifyComplete();
+  }
+
+  @Test
+  void theCodexPreset_readsTheThreadAndTheLastAgentMessage() throws IOException {
+    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
+    final List<String> log = new CopyOnWriteArrayList<>();
+    final AgentOutput output =
+        new AgentOutput(codex.output(), (stream, line, level) -> log.add(line), JSON);
+
+    // the shape documented for `codex exec --json`; not recorded from a real run
+    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-1\"}");
+    output.line("stdout", "{\"type\":\"turn.started\"}");
+    output.line(
+        "stdout",
+        "{\"type\":\"item.started\",\"item\":{\"id\":\"i1\",\"type\":\"command_execution\","
+            + "\"command\":\"ls\"}}");
+    output.line(
+        "stdout",
+        "{\"type\":\"item.completed\",\"item\":{\"id\":\"i2\",\"type\":\"agent_message\","
+            + "\"text\":\"all done\"}}");
+    output.line(
+        "stdout",
+        "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}");
+
+    assertThat(log).containsExactly("run: ls", "all done");
+    assertThat(output.outcome(0, false, 600))
+        .containsEntry("status", "success")
+        .containsEntry("text", "all done")
+        .containsEntry("sessionId", "th-1");
+  }
+
+  @Test
+  void theCodexPreset_aFailedTurnIsAFailureWithItsReason() throws IOException {
+    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
+    final AgentOutput output = new AgentOutput(codex.output(), PluginLogSink.NOOP, JSON);
+
+    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-2\"}");
+    output.line("stdout", "{\"type\":\"turn.failed\",\"error\":{\"message\":\"quota exceeded\"}}");
+
+    assertThat(output.outcome(1, false, 600))
+        .containsEntry("status", "failure")
+        .containsEntry("reason", "quota exceeded")
+        .containsEntry("sessionId", "th-2");
+  }
+
+  @Test
+  void theCodexPreset_cannotTakeMaxTurnsSessionsOrApprovals() {
+    // the shipped preset declares only what it was written to do
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "maxTurns", 3)))
+        .expectErrorMessage("harness 'codex' has no turn limit; remove maxTurns")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "session", "k")))
+        .expectErrorMessage("harness 'codex' cannot resume a session; remove session")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "approvals", "ASK")))
+        .expectErrorMessage("harness 'codex' cannot ask for approvals; remove approvals")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "codex", "prompt", "p", "model", "gpt-5")))
+        .verifyComplete();
   }
 }

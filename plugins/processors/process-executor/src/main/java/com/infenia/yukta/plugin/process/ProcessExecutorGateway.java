@@ -95,6 +95,46 @@ public class ProcessExecutorGateway {
    */
   public Mono<ProcessExecutionResult> executeForResult(
       final ProcessExecutionSpec spec, final PluginLogSink sink) {
+    return execute(spec, sink, null);
+  }
+
+  /**
+   * Like {@link #executeForResult(ProcessExecutionSpec, PluginLogSink)}, but leaves the process'
+   * standard input open: {@code onStart} gets a {@link StdinWriter} as soon as the process runs,
+   * and the caller writes lines to it while the process works and closes it when done (it is also
+   * closed when the process exits or the run is cancelled). For a process that holds a conversation
+   * over stdin and stdout, such as an agent asking for approvals.
+   *
+   * @param spec the execution specification; its {@code stdin}, if any, is written first
+   * @param sink receives each stdout/stderr line live
+   * @param onStart receives the writer once
+   * @return a Mono emitting the execution result
+   */
+  public Mono<ProcessExecutionResult> executeInteractive(
+      final ProcessExecutionSpec spec,
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> onStart) {
+    return execute(spec, sink, onStart);
+  }
+
+  /** Lines written to a running process' standard input. */
+  public interface StdinWriter {
+
+    /**
+     * Writes one line and flushes it; a process that has exited makes this a no-op.
+     *
+     * @param line the line, without a line break
+     */
+    void write(String line);
+
+    /** Closes the standard input; the process sees end of input. */
+    void close();
+  }
+
+  private Mono<ProcessExecutionResult> execute(
+      final ProcessExecutionSpec spec,
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> interactive) {
     if (spec == null) {
       return Mono.error(new IllegalArgumentException("spec is mandatory"));
     }
@@ -109,7 +149,7 @@ public class ProcessExecutorGateway {
         spec.useShell() ? wrapInShell(spec.command()) : spec.command();
 
     return Mono.fromSupplier(System::nanoTime)
-        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos, sink));
+        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos, sink, interactive));
   }
 
   /**
@@ -188,10 +228,11 @@ public class ProcessExecutorGateway {
       final ProcessExecutionSpec spec,
       final List<String> actualCommand,
       final long startNanos,
-      final PluginLogSink sink) {
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> interactive) {
     return Mono.usingWhen(
             startProcess(spec, actualCommand),
-            process -> collectResult(process, spec, startNanos, sink),
+            process -> collectResult(process, spec, startNanos, sink, interactive),
             this::cleanupProcess)
         .timeout(Duration.ofSeconds(spec.timeoutSeconds()))
         .onErrorResume(
@@ -258,9 +299,17 @@ public class ProcessExecutorGateway {
       final Process process,
       final ProcessExecutionSpec spec,
       final long startNanos,
-      final PluginLogSink sink) {
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> interactive) {
     final Mono<Boolean> stdinWriter =
-        Mono.fromRunnable(() -> writeStdin(process.getOutputStream(), spec.stdin()))
+        Mono.fromRunnable(
+                () -> {
+                  if (interactive == null) {
+                    writeStdin(process.getOutputStream(), spec.stdin());
+                  } else {
+                    openStdin(process.getOutputStream(), spec.stdin(), interactive);
+                  }
+                })
             .subscribeOn(Schedulers.boundedElastic())
             .thenReturn(Boolean.TRUE);
     final Mono<OutputCapture> stdoutCapture =
@@ -413,6 +462,39 @@ public class ProcessExecutorGateway {
     } catch (final RuntimeException e) {
       log.atDebug().setMessage("Live log sink rejected a line").setCause(e).log();
     }
+  }
+
+  /** Writes the initial text, leaves the stream open and hands it to the caller. */
+  private void openStdin(
+      final OutputStream stream, final String stdin, final Consumer<StdinWriter> onStart) {
+    final StdinWriter writer =
+        new StdinWriter() {
+          @Override
+          public synchronized void write(final String line) {
+            try {
+              stream.write((line + "\n").getBytes(StandardCharsets.UTF_8));
+              stream.flush();
+            } catch (final IOException e) {
+              log.atDebug()
+                  .setMessage("Stdin write failed (the process may have exited)")
+                  .setCause(e)
+                  .log();
+            }
+          }
+
+          @Override
+          public synchronized void close() {
+            try {
+              stream.close();
+            } catch (final IOException e) {
+              log.atDebug().setMessage("Stdin close failed").setCause(e).log();
+            }
+          }
+        };
+    if (stdin != null && !stdin.isEmpty()) {
+      writer.write(stdin);
+    }
+    onStart.accept(writer);
   }
 
   /**
