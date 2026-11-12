@@ -53,7 +53,7 @@ runs:
       if: inputs.node == 'true'
       uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       with:
-        version: 12.16.1
+        package_json_file: ui/package.json
 
     # Cached with actions/cache rather than setup-node's `cache: pnpm`, whose post step errors when a
     # job never runs `pnpm install`.
