@@ -1,0 +1,68 @@
+{
+  "sessionId": "example-19-agent-session",
+  "name": "Agent session with approvals",
+  "description": "Runs an AI agent (Claude Code) on a task. Each tool use that needs permission waits for an approval on the input request system; no answer in time refuses the tool.",
+  "initiator": "examples",
+  "projectPath": "/tmp",
+  "tags": {
+    "example": "19-agent-session"
+  },
+  "workflows": {
+    "fix": {
+      "workflowId": "fix",
+      "description": "Run the agent on payload.task; success, failure and incomplete end in different outcomes",
+      "nodes": [
+        {
+          "nodeId": "trigger",
+          "type": "API_TRIGGER",
+          "config": {}
+        },
+        {
+          "nodeId": "agent",
+          "type": "AGENT_SESSION",
+          "config": {
+            "harness": "claude-code",
+            "prompt": "${payload.task}",
+            "maxTurns": 20,
+            "args": ["--allowedTools", "Read,Grep,Glob"],
+            "approvals": "ASK",
+            "approvalRisk": "MEDIUM",
+            "approvalTimeout": 600,
+            "workingDir": "/tmp",
+            "timeout": 900
+          }
+        },
+        {
+          "nodeId": "done",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "SUCCESS",
+            "reason": "the agent finished"
+          }
+        },
+        {
+          "nodeId": "failed",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "ESCALATE",
+            "reason": "the agent or the harness failed"
+          }
+        },
+        {
+          "nodeId": "stopped-early",
+          "type": "OUTCOME_TERMINAL",
+          "config": {
+            "outcome": "RETRY",
+            "reason": "the agent stopped before it was done (out of turns)"
+          }
+        }
+      ],
+      "edges": [
+        { "source": "trigger", "target": "agent" },
+        { "source": "agent", "target": "done", "sourcePort": "success" },
+        { "source": "agent", "target": "failed", "sourcePort": "failure" },
+        { "source": "agent", "target": "stopped-early", "sourcePort": "incomplete" }
+      ]
+    }
+  }
+}
