@@ -40,7 +40,6 @@ import org.springframework.boot.test.context.SpringBootTest;
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
 @SuppressWarnings({
-  "PMD.AvoidInstantiatingObjectsInLoops",
   "PMD.MutableStaticState",
   "PMD.CommentDefaultAccessModifier",
   "PMD.AvoidFieldNameMatchingMethodName",

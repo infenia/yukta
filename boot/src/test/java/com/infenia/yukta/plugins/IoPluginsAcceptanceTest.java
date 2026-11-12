@@ -23,11 +23,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
     webEnvironment = SpringBootTest.WebEnvironment.MOCK,
     properties = "yukta.process.allow-any=true")
-@SuppressWarnings({
-  "PMD.UseConcurrentHashMap",
-  "PMD.AvoidDuplicateLiterals",
-  "PMD.SignatureDeclareThrowsException"
-})
+@SuppressWarnings("PMD.UseConcurrentHashMap")
 @NoArgsConstructor
 class IoPluginsAcceptanceTest {
 
