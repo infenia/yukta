@@ -64,6 +64,12 @@ class AgentSessionPluginTest {
         + "\"prefix\":\"tool: \"}]}}";
   }
 
+  /** Gives a fixture preset the resume arguments. */
+  private static String resumable(final String preset) {
+    return preset.replace(
+        "\"modelArgs\":[]", "\"modelArgs\":[],\"resumeArgs\":[\"--resume\",\"{session}\"]");
+  }
+
   private static String lines(final String result) {
     return "echo '" + WORKING + "'; echo '" + result + "'";
   }
@@ -94,6 +100,11 @@ class AgentSessionPluginTest {
                 "{\"type\":\"result\",\"subtype\":\"error_max_turns\",\"is_error\":true,"
                     + "\"result\":\"\",\"session_id\":\"s3\"}")));
     Files.writeString(dir.resolve("crash.json"), preset("crash", "echo boom; exit 3"));
+    final String echoArgs =
+        "echo \"{\\\"type\\\":\\\"result\\\",\\\"subtype\\\":\\\"success\\\","
+            + "\\\"is_error\\\":false,\\\"result\\\":\\\"$*\\\",\\\"session_id\\\":\\\"sess-1\\\"}\"";
+    Files.writeString(dir.resolve("resumable.json"), resumable(preset("resumable", echoArgs)));
+    Files.writeString(dir.resolve("slow.json"), resumable(preset("slow", "sleep 1; " + echoArgs)));
     final VariableResolver resolver = mock(VariableResolver.class);
     when(resolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
         .thenAnswer(i -> Mono.just(i.getArgument(0)));
@@ -101,7 +112,12 @@ class AgentSessionPluginTest {
     gateway.setAllowAny(true);
     try {
       plugin =
-          new AgentSessionPlugin(gateway, resolver, new AgentHarnesses(JSON, dir.toString()), JSON);
+          new AgentSessionPlugin(
+              gateway,
+              resolver,
+              new AgentHarnesses(JSON, dir.toString()),
+              new InMemoryAgentSessionStore(),
+              JSON);
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }
@@ -173,7 +189,8 @@ class AgentSessionPluginTest {
   @Test
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
-        .expectErrorMessage("unknown harness 'nope'; one of [claude-code, crash, failed, max, ok]")
+        .expectErrorMessage(
+            "unknown harness 'nope'; one of [claude-code, crash, failed, max, ok, resumable, slow]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -185,7 +202,7 @@ class AgentSessionPluginTest {
   @Test
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
-        .containsExactly("claude-code", "crash", "failed", "max", "ok");
+        .containsExactly("claude-code", "crash", "failed", "max", "ok", "resumable", "slow");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
 
@@ -222,5 +239,67 @@ class AgentSessionPluginTest {
         .containsEntry("status", "success")
         .containsEntry("text", "hi")
         .containsEntry("sessionId", "108aa031");
+  }
+
+  private Message<?> runIn(final String harness, final String session, final String onBusy) {
+    return plugin
+        .process(
+            Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")),
+            Map.of("harness", harness, "prompt", "go", "session", session, "onBusy", onBusy))
+        .collectList()
+        .block(Duration.ofSeconds(30))
+        .getFirst();
+  }
+
+  @Test
+  void aSessionKey_resumesFromTheTokenTheLastTurnLeft() {
+    final Message<?> first = runIn("resumable", "k1", "WAIT");
+    final Message<?> second = runIn("resumable", "k1", "WAIT");
+    final Message<?> other = runIn("resumable", "k2", "WAIT");
+
+    assertThat(payload(first)).containsEntry("turn", 1).containsEntry("text", "go");
+    assertThat(payload(second))
+        .containsEntry("turn", 2)
+        .containsEntry("text", "go --resume sess-1");
+    assertThat(payload(other)).containsEntry("turn", 1).containsEntry("text", "go");
+  }
+
+  @Test
+  void aBusySession_failsAtOnceWhenOnBusyIsFail() throws Exception {
+    final var running =
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> runIn("slow", "k", "WAIT"));
+    org.awaitility.Awaitility.await().pollDelay(Duration.ofMillis(300)).until(() -> true);
+
+    final Message<?> refused = runIn("slow", "k", "FAIL");
+
+    assertThat(refused.sourcePort()).isEqualTo("failure");
+    assertThat(payload(refused)).containsEntry("reason", "session 'k' is busy");
+    assertThat(running.get().sourcePort()).isEqualTo("success");
+  }
+
+  @Test
+  void aBusySession_queuesTheNextTurnWhenOnBusyIsWait() throws Exception {
+    final var running =
+        java.util.concurrent.CompletableFuture.supplyAsync(() -> runIn("slow", "w", "WAIT"));
+    org.awaitility.Awaitility.await().pollDelay(Duration.ofMillis(300)).until(() -> true);
+
+    final Message<?> queued = runIn("slow", "w", "WAIT");
+
+    assertThat(running.get().sourcePort()).isEqualTo("success");
+    assertThat(payload(queued))
+        .containsEntry("turn", 2)
+        .containsEntry("text", "go --resume sess-1");
+  }
+
+  @Test
+  void validateConfig_refusesASessionOnAHarnessThatCannotResume() {
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "session", "k")))
+        .expectErrorMessage("harness 'ok' cannot resume a session; remove session")
+        .verify();
+    StepVerifier.create(
+            plugin.validateConfig(Map.of("harness", "resumable", "prompt", "p", "onBusy", "NOW")))
+        .expectErrorMessage("onBusy must be WAIT or FAIL, got: NOW")
+        .verify();
   }
 }
