@@ -11,7 +11,7 @@ name: Mutation testing
 on:
   schedule:
     - cron: '37 20 * * 0-5' # nightly, 2:07 AM IST: modules changed in the last day
-    - cron: '7 21 * * 6'    # Saturday, 2:37 AM IST: every module
+    - cron: '7 21 * * 6'    # Saturday, 2:37 AM IST: every module ("Pick the modules" matches this exact string)
   workflow_dispatch:
     inputs:
       full:
@@ -37,29 +37,8 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          java-version: '25'
-          distribution: 'temurin'
-
       # spotless and the server jar reach the ui module, whose Gradle tasks run pnpm.
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
-        with:
-          node-version: '24'
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
-        with:
-          version: 12.16.1
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c # v6
-        with:
-          gradle-version: wrapper
-          dependency-graph: disabled
-          cache-provider: enhanced
+      - uses: ./.github/actions/setup-build
 
       # The weekly run and a "full" dispatch mutate everything; the nightly run asks the CI planner
       # which modules the last day's changes affect.

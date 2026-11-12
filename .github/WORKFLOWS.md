@@ -483,8 +483,8 @@ Dependabot does not see these. Bump them in every file listed.
 | Tool | Version | Files | How to bump |
 |---|---|---|---|
 | Trivy | `v0.72.0` | `ci.yml`, `security.yml`, `license-compliance.yml` | Change `version:` of `setup-trivy` in all three |
-| OpenGrep | `OPENGREP_VERSION` + sha256 | `ci.yml` (two jobs) | Change the env var and both hashes from the release page |
+| OpenGrep | `OPENGREP_VERSION` + sha256 | `.github/actions/setup-build/action.yml` | Change the env var and the hash from the release page |
 | actionlint | `1.7.12@sha256:…` | `ci.yml` (`lint-workflows`) | New image tag and digest |
-| pnpm | `12.16.1` | `ci.yml`, `examples-nightly.yml`, `mutation.yml`, `license-compliance.yml`, `perf-nightly.yml` | `version:` of `pnpm/action-setup` |
-| Node | `24` | same workflows | `node-version:` of `setup-node` |
-| Java | `25` | same workflows, `release.yml` | `java-version:` of `setup-java` / `setup-graalvm` |
+| pnpm | `12.16.1` | `.github/actions/setup-build/action.yml`, `ci.yml` (`e2e-tests`), `release.yml` (non-Linux `server`) | `version:` of `pnpm/action-setup` in all three |
+| Node | `24` | `.github/actions/setup-build/action.yml`, `release.yml` (non-Linux `server`) | `node-version:` of `setup-node` |
+| Java | `25` | `.github/actions/setup-build/action.yml`, `release.yml` (`setup-graalvm`) | `java-version:` |
