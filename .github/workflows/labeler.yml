@@ -6,15 +6,18 @@ name: Auto-label pull requests
 on:
   pull_request:
     types: [opened, reopened, synchronize]
-  workflow_dispatch: # Allow manual trigger
 
 permissions:
   contents: read
-  pull-requests: write
 
 jobs:
   labeler:
-    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release-please--')
+    name: Label the pull request
+    # Fork PRs get a read-only token, so only same-repository PRs are labelled.
+    if: github.event.pull_request.head.repo.full_name == github.repository && !startsWith(github.head_ref, 'release-please--')
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

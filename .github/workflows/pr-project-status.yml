@@ -17,7 +17,11 @@ permissions:
 jobs:
   status:
     name: Set PR status
-    if: ${{ !startsWith(github.head_ref, 'release-please--') && github.actor != 'dependabot[bot]' }}
+    # A fork PR has no secrets, so the App token cannot be minted for it.
+    if: >-
+      ${{ github.event.pull_request.head.repo.full_name == github.repository
+      && !startsWith(github.head_ref, 'release-please--')
+      && github.actor != 'dependabot[bot]' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
