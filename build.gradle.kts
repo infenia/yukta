@@ -15,6 +15,11 @@ spotless {
     }
 }
 
+// The included build's own check (its TestKit tests of the convention guards) is not part of ours.
+tasks.named("check") {
+    dependsOn(gradle.includedBuild("build-logic").task(":check"))
+}
+
 allprojects {
     group = "com.infenia.yukta"
 }

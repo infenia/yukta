@@ -24,7 +24,8 @@ pitest {
 }
 
 // Too slow or too dependent on containers to mutate: the acceptance tests of boot drive the whole
-// application, the other two need Docker. Their logic is mutated through the modules above.
+// application, and persistence-postgres and workers need Docker. test-support is the test
+// harness itself. Their logic is mutated through the modules above.
 if (path in setOf(":boot", ":plus:persistence-postgres", ":plus:workers", ":test-support")) {
     tasks.named("pitest") { enabled = false }
 }
