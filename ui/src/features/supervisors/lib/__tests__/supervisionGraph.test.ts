@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { parseScope } from '../ownership';
-import { supervisionGraph } from '../supervisionGraph';
+import { ownedNodeCount, supervisionGraph } from '../supervisionGraph';
 
 const base = {
   supervisor: {
@@ -73,5 +73,19 @@ describe('supervisionGraph', () => {
     expect(
       g.nodes.filter((x) => x.kind === 'target').map((x) => x.label)
     ).toEqual(['Everything (observes only)', 'The server']);
+  });
+});
+
+describe('ownedNodeCount', () => {
+  it('counts selectors and the nodes of the ownership map, once per workflow', () => {
+    const targets = [t('workflow:s/w//deploy.*'), t('workflow:s/w')];
+    const r = ownedNodeCount(targets, { 's/w': ['deploy.prod', 'smoke'] });
+    expect(r).toEqual({ count: 3, partial: false, workflows: 1 });
+  });
+
+  it('is a lower bound while a whole workflow has not been read, or has no session', () => {
+    expect(ownedNodeCount([t('workflow:s/w')]).partial).toBe(true);
+    expect(ownedNodeCount([t('workflow:w')], {}).partial).toBe(true);
+    expect(ownedNodeCount([t('workflow:s/w//a')]).partial).toBe(false);
   });
 });

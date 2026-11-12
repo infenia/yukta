@@ -57,6 +57,54 @@ export interface MapInput {
 export const workflowKey = (t: Pick<Target, 'sessionId' | 'workflowId'>) =>
   `${t.sessionId ?? ''}/${t.workflowId}`;
 
+/**
+ * The workflows a supervisor owns, one entry each however many assignments name it, with the nodes
+ * and selectors it owns in them; the other targets (server, session, global) apart.
+ */
+export function groupWorkflows(
+  targets: Target[],
+  ownedNodes: Record<string, string[]> = {}
+) {
+  const workflows = new Map<string, { target: Target; items: Set<string> }>();
+  const others: Target[] = [];
+  for (const t of targets) {
+    if (t.workflowId && (t.kind === 'workflow' || t.kind === 'run')) {
+      const key = workflowKey(t);
+      const entry = workflows.get(key) ?? {
+        target: t,
+        items: new Set<string>(),
+      };
+      t.selectors.forEach((s) => entry.items.add(s));
+      (ownedNodes[key] ?? []).forEach((n) => entry.items.add(n));
+      workflows.set(key, entry);
+    } else others.push(t);
+  }
+  return { workflows, others };
+}
+
+/**
+ * How many nodes the supervisor owns: selectors count as one each, a whole workflow counts the
+ * nodes of the ownership map. `partial` when some whole workflows could not be counted (more than
+ * the map draws, or no session to ask), so the number is a lower bound.
+ */
+export function ownedNodeCount(
+  targets: Target[],
+  ownedNodes: Record<string, string[]> = {}
+) {
+  const { workflows } = groupWorkflows(targets, ownedNodes);
+  let count = 0;
+  let partial = false;
+  for (const [key, { target, items }] of workflows) {
+    count += items.size;
+    const whole = targets.some(
+      (t) => t.workflowId && workflowKey(t) === key && t.selectors.length === 0
+    );
+    if (whole && !(key in ownedNodes) && target.sessionId) partial = true;
+    if (whole && !target.sessionId) partial = true;
+  }
+  return { count, partial, workflows: workflows.size };
+}
+
 const SIZE = { width: 190, height: 52 };
 const SMALL = { width: 170, height: 40 };
 const enc = encodeURIComponent;
@@ -115,21 +163,7 @@ export function supervisionGraph(input: MapInput): {
     link('self', `child:${child.id}`);
   }
 
-  // one box per workflow, however many assignments name it
-  const workflows = new Map<string, { target: Target; items: Set<string> }>();
-  const others: Target[] = [];
-  for (const t of targets) {
-    if (t.workflowId && (t.kind === 'workflow' || t.kind === 'run')) {
-      const key = workflowKey(t);
-      const entry = workflows.get(key) ?? {
-        target: t,
-        items: new Set<string>(),
-      };
-      t.selectors.forEach((s) => entry.items.add(s));
-      (ownedNodes[key] ?? []).forEach((n) => entry.items.add(n));
-      workflows.set(key, entry);
-    } else others.push(t);
-  }
+  const { workflows, others } = groupWorkflows(targets, ownedNodes);
   const drawn = [...workflows].slice(0, MAX_WORKFLOWS);
   const hidden = workflows.size - drawn.length;
   for (const [key, { target, items }] of drawn) {

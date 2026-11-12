@@ -279,8 +279,11 @@ describe('the Supervisors tab', () => {
       screen.getByText('Dry run: recorded, not applied')
     ).toBeInTheDocument();
     expect(screen.getByText('Built in (read only)')).toBeInTheDocument();
-    expect(screen.getByText('2 targets')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: '2 targets' }));
+    // the Owns tile counts workflows and the nodes it owns in them (a selector counts one)
+    await user.click(
+      await screen.findByRole('button', { name: /^\d+\+? nodes?$/ })
+    );
+    expect(screen.getByText(/\d+ workflows?/)).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: /^Owns/ })).toHaveAttribute(
       'aria-selected',
       'true'
@@ -310,7 +313,9 @@ describe('the Supervisors tab', () => {
     expect(
       await screen.findByRole('heading', { name: 'lead' })
     ).toBeInTheDocument();
-    expect(screen.getByText('1 target')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', { name: /^\d+\+? nodes?$/ })
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('tab', { name: 'Hierarchy' }));
     expect(
       screen.getByText('nobody; people answer what it asks in the inbox')
@@ -338,6 +343,55 @@ describe('the Supervisors tab', () => {
     expect(
       within(nav()).getByRole('button', { name: /guard/ })
     ).toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      'workflow',
+      { sessionId: 'sys', workflowId: 'decide', events: ['InputRequested'] },
+      ['Decision workflow', 'sys / decide', 'InputRequested'],
+    ],
+    [
+      'process',
+      { command: '/usr/bin/judge', args: 'a\nb' },
+      ['Program', '/usr/bin/judge', 'a b'],
+    ],
+    [
+      'http',
+      { url: 'https://agent.example/hook' },
+      ['Posts to', 'https://agent.example/hook'],
+    ],
+  ])(
+    'the Decision maker tab shows the %s engine in its own terms',
+    async (type, settings, shown) => {
+      supervisors = [sup('lead', { type, settings })];
+      renderAt('/supervisors?supervisor=lead&section=decision-maker');
+      for (const text of shown) {
+        expect(await screen.findByText(text)).toBeInTheDocument();
+      }
+    }
+  );
+
+  it('the Decision maker tab of a rules supervisor gives the rule count and version, and opens the rules', async () => {
+    const user = userEvent.setup();
+    supervisors = [sup('lead', { type: 'rules' })];
+    server.use(
+      http.get('/api/supervisors/:id/engine/rules', () =>
+        ok({
+          version: 7,
+          rules: { schemaVersion: 1, rules: [{ id: 'a' }, { id: 'b' }] },
+        })
+      )
+    );
+    renderAt('/supervisors?supervisor=lead&section=decision-maker');
+    expect(await screen.findByText('2 · version 7')).toBeInTheDocument();
+    expect(
+      screen.getByText('GET/PUT /api/supervisors/lead/engine/rules')
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Open the rules' }));
+    expect(screen.getByLabelText('where')).toHaveTextContent(
+      'section=settings'
+    );
   });
 
   it('lists several parents and children, and falls back to the first for an unknown id', async () => {
