@@ -45,6 +45,42 @@ class PluginInfoProviderTest {
   }
 
   @Test
+  void testDisabledPluginsAreListedWithHowToEnableThem() {
+    Plugin off = mock(Plugin.class);
+    when(off.getType()).thenReturn("LLM_TEST");
+    when(off.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(off.getTier()).thenReturn(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    when(off.isRestricted()).thenReturn(true);
+    when(registry.listPlugins()).thenReturn(List.of());
+    when(registry.listDisabled()).thenReturn(List.of(off));
+    when(registry.enableHint("LLM_TEST")).thenReturn("set it");
+
+    List<PluginSummary> plugins = provider.listPlugins();
+
+    assertEquals(1, plugins.size());
+    assertEquals(false, plugins.get(0).enabled());
+    assertEquals("set it", plugins.get(0).enableWith());
+    assertEquals(true, plugins.get(0).restricted());
+  }
+
+  @Test
+  void testDetailsOfADisabledPluginSayHowToEnableIt() {
+    Plugin off = mock(Plugin.class);
+    when(off.getType()).thenReturn("LLM_TEST");
+    when(off.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(off.describe()).thenReturn(new PluginDescriptor("desc", "pattern", Optional.empty()));
+    when(off.getOutputPorts()).thenReturn(List.of());
+    when(registry.get("LLM_TEST")).thenReturn(null);
+    when(registry.getDisabled("LLM_TEST")).thenReturn(off);
+    when(registry.enableHint("LLM_TEST")).thenReturn("set it");
+
+    PluginDetails details = provider.getPluginDetails("LLM_TEST");
+
+    assertEquals(false, details.enabled());
+    assertEquals("set it", details.enableWith());
+  }
+
+  @Test
   void testGetPluginDetails() {
     Plugin plugin = mock(Plugin.class);
     when(plugin.getType()).thenReturn("test-plugin");
