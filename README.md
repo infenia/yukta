@@ -92,6 +92,8 @@ docker run --rm -p 127.0.0.1:9858:9858 \
   ghcr.io/infenia/yukta:0.1.0-alpha.4
 ```
 
+**AI agents.** The install script can also connect the agents on your machine (Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode) to Yukta: it asks at the end on a terminal, or pass `--agents auto` (`$env:YUKTA_AGENTS = 'auto'` on Windows). Later: `yukta-cli agents install`.
+
 Releases `0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
 
 <details>
