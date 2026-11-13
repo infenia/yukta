@@ -105,6 +105,15 @@ class SupervisorCapabilitiesTest {
   }
 
   @Test
+  void theListedCommandNamesAreTheSealedInterfacesPermittedSubclasses() {
+    assertThat(SupervisorCapabilities.commandNames())
+        .containsExactlyInAnyOrderElementsOf(
+            java.util.Arrays.stream(ExecutionControlCommand.class.getPermittedSubclasses())
+                .map(Class::getSimpleName)
+                .toList());
+  }
+
+  @Test
   void operatorAccessIsNoneUnlessCommandsAreListed() {
     final SupervisorCapabilities none = SupervisorCapabilities.from(profile(Map.of()));
     final SupervisorCapabilities listed =
