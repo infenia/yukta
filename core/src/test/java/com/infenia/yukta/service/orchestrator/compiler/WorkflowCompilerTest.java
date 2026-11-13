@@ -5,6 +5,7 @@ package com.infenia.yukta.service.orchestrator.compiler;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -256,6 +257,45 @@ class WorkflowCompilerTest {
     final NodeAssembler[] assemblers = compiler.compileAssemblers(edges, parents, plugins, order);
 
     assertThat(assemblers[0]).isSameAs(mockAssembler);
+  }
+
+  @Test
+  void compileAssemblers_timeoutBelowThePluginFloor_isRaisedToIt() {
+    final WorkflowNode node = new WorkflowNode("n1", "trigger", Map.of("timeoutSeconds", 2));
+    when(plugin.getMinimumTimeout(any())).thenReturn(Duration.ofSeconds(32));
+
+    assertAssemblerTimeout(node, plugin, Duration.ofSeconds(32));
+  }
+
+  @Test
+  void compileAssemblers_timeoutAboveThePluginFloor_isKept() {
+    final WorkflowNode node = new WorkflowNode("n1", "trigger", Map.of("timeoutSeconds", 120));
+    when(plugin.getMinimumTimeout(any())).thenReturn(Duration.ofSeconds(32));
+
+    assertAssemblerTimeout(node, plugin, Duration.ofSeconds(120));
+  }
+
+  @Test
+  void compileAssemblers_timeoutWithoutPlugin_isKept() {
+    final WorkflowNode node = new WorkflowNode("n1", "trigger", Map.of("timeoutSeconds", 2));
+
+    assertAssemblerTimeout(node, null, Duration.ofSeconds(2));
+  }
+
+  /** Checks the idle timeout the compiler hands the assembler of a one-node workflow. */
+  private void assertAssemblerTimeout(
+      final WorkflowNode node, final Plugin nodePlugin, final Duration expected) {
+    final Map<String, Plugin> plugins = new HashMap<>();
+    plugins.put("n1", nodePlugin);
+    final NodeAssembler mockAssembler = mock(NodeAssembler.class);
+    when(assemblerStrategy.supports(nodePlugin, false)).thenReturn(true);
+    when(assemblerStrategy.createAssembler(any(), any(), any(), anyInt(), anyInt()))
+        .thenReturn(mockAssembler);
+
+    compiler.compileAssemblers(List.of(), Map.of("n1", List.of()), plugins, List.of(node));
+
+    verify(assemblerStrategy)
+        .createAssembler(eq(node), eq(nodePlugin), eq(expected), anyInt(), anyInt());
   }
 
   @Test
