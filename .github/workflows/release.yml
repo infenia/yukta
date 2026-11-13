@@ -446,10 +446,12 @@ jobs:
           export DOCKER_CONFIG
           image="ghcr.io/$REPO:${TAG#v}"
           docker pull "$image"
+          mkdir -p /tmp/yukta-examples
           docker run -d --rm --name ytest -p 127.0.0.1:18081:9858 \
-            -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=x \
+            --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp -v /tmp/yukta-examples:/tmp/yukta-examples \
+            -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=x \
             -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image"
           trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
           release/smoke-test.sh http://127.0.0.1:18081 x
-          # The image has no shell, so the examples that run commands skip; the others must pass.
-          SMOKE_NO_SHELL=1 release/examples-smoke.sh http://127.0.0.1:18081 x
+          # The image has no git and 08 needs a pager on the host, so those two skip; the others must pass.
+          SMOKE_IN_CONTAINER=1 release/examples-smoke.sh http://127.0.0.1:18081 x

@@ -34,7 +34,7 @@ trigger ─► build ─► test ─► staging ─► approve (WAIT_FOR_SIGNAL)
 | `deploy`, `smoke` | `PROCESS_EXECUTOR` | Deploy to production, then check it; a failure of either goes to `rollback` |
 | `rollback` | `PROCESS_EXECUTOR` | Restores the previous version |
 | `live`, `expired`, `rolled-back` | `MAPPER` | Set `result` and the notice `text` for each path |
-| `outbox` | `FILE_WRITE` | Appends the notice to `/tmp/yukta-example-release-approval/notices.log` (stand-in for chat or email) |
+| `outbox` | `FILE_WRITE` | Appends the notice to `/tmp/yukta-examples/release-approval/notices.log` (stand-in for chat or email) |
 | `finish` | `BRANCH` | Maps `result` to one of three outcome terminals |
 | `released`, `not-released`, `needs-owner`, `rejected` | `OUTCOME_TERMINAL` | Record how the run ended |
 
@@ -86,7 +86,7 @@ Replace the list with your real executables when you swap in your own commands.
 ./examples/03-release-approval/run.sh
 ```
 
-`run.sh` installs `release.sh` into `/tmp/yukta-example-release-approval`, then runs six releases and acts as the approver:
+`run.sh` installs `release.sh` into `/tmp/yukta-examples/release-approval`, then runs six releases and acts as the approver:
 approve, smoke check fails (rollback), build fails, tests fail, reject, and approval timeout (shortened to 2 seconds for the test).
 It exits 3 (SKIP) when the server does not allow commands.
 

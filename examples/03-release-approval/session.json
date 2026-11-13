@@ -23,7 +23,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "build",
               "${start.version}"
             ],
@@ -38,7 +38,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "test",
               "${start.version}"
             ],
@@ -53,7 +53,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "staging",
               "${start.version}"
             ],
@@ -115,7 +115,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "deploy",
               "${start.version}"
             ],
@@ -130,7 +130,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "smoke",
               "${start.version}"
             ],
@@ -156,7 +156,7 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-release-approval/release.sh",
+              "/tmp/yukta-examples/release-approval/release.sh",
               "rollback",
               "${start.version}"
             ],
@@ -179,7 +179,7 @@
           "nodeId": "outbox",
           "type": "FILE_WRITE",
           "config": {
-            "baseDir": "/tmp/yukta-example-release-approval",
+            "baseDir": "/tmp/yukta-examples/release-approval",
             "path": "notices.log",
             "contentField": "text",
             "append": true

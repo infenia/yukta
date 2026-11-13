@@ -107,7 +107,7 @@
         {
           "nodeId": "changelog",
           "type": "FILE_WRITE",
-          "config": { "baseDir": "/tmp/yukta-example-dependency-updates", "path": "changelog.log", "contentField": "changelogLine", "append": true }
+          "config": { "baseDir": "/tmp/yukta-examples/dependency-updates", "path": "changelog.log", "contentField": "changelogLine", "append": true }
         },
         {
           "nodeId": "redact",
@@ -122,7 +122,7 @@
         {
           "nodeId": "notify-maintainer",
           "type": "FILE_WRITE",
-          "config": { "baseDir": "/tmp/yukta-example-dependency-updates", "path": "outbox.log", "contentField": "text", "append": true }
+          "config": { "baseDir": "/tmp/yukta-examples/dependency-updates", "path": "outbox.log", "contentField": "text", "append": true }
         },
         { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
       ],

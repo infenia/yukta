@@ -64,10 +64,10 @@ COPY --from=builder /build/boot/build/native/nativeCompile/yukta /tmp/yukta
 RUN upx --best --lzma -o /tmp/yukta.compressed /tmp/yukta 2>/dev/null || cp /tmp/yukta /tmp/yukta.compressed
 
 # Stage 3: Final production image with distroless base (minimal footprint)
-FROM gcr.io/distroless/cc-debian12:nonroot@sha256:9dac0a79194e45a7da0158a9c6da57b217585af0786db3845d1f0ec1a0dd182f
+FROM gcr.io/distroless/cc-debian12:debug-nonroot@sha256:923320b891f20d5f4bd43ed3a72eeee2f3323d481d6f4bd8d0b2c96d1c0758bc
 
-# Distroless images: no shell, no package manager, no unnecessary files
-# Only libc6 + dynamic loader + application binary
+# Distroless debug image: libc6 + dynamic loader + BusyBox (sh, echo, cat, ...), no package manager.
+# The shell is there because workflows run commands (PROCESS_EXECUTOR) and the examples use sh and echo.
 
 COPY --from=compressor /tmp/yukta.compressed /app/yukta
 
@@ -80,7 +80,7 @@ EXPOSE 9858
 # The server refuses to start in this mode without an API key: run with -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<key> -e YUKTA_API_KEYS_0_ROLE=ADMIN.
 ENV YUKTA_SERVER_ADDRESS=0.0.0.0 \
     HOME=/home/nonroot \
-    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/busybox
 
 USER nonroot
 

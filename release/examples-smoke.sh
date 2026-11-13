@@ -12,8 +12,11 @@
 # Usage: release/examples-smoke.sh <base-url> [api-key]
 #   SMOKE_ALLOW_SKIP  space separated example names that may be skipped. The default names the
 #                     examples that need an LLM endpoint or are a walkthrough without run.sh.
-#   SMOKE_NO_SHELL    set for a server that cannot run commands (the Docker image has no `sh`): the
-#                     examples that run them (01, 02, 03, 08) may then skip.
+#   SMOKE_IN_CONTAINER set for a server in a Docker container with a published port: example 02 needs git,
+#                     which the image does not ship, so it may skip, and 08 is not run, because its local pager
+#                     listens on this machine's 127.0.0.1 and the container cannot reach it (run the
+#                     container with --network host to try it). The container needs the directory mount
+#                     and process allowlist shown in examples/README.md.
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
 # The server under test needs YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 03 and 08.
@@ -27,12 +30,13 @@ need curl
 need jq
 
 allow_skip=" ${SMOKE_ALLOW_SKIP:-09-llm-chat-agent 15-input-pull 16-supervisor-profiles 17-supervisor-workflow} "
-[[ -z "${SMOKE_NO_SHELL:-}" ]] || allow_skip+="01-hello-world 02-agent-verification 03-release-approval 08-alert-triage "
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || allow_skip+="02-agent-verification "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
 # EXAMPLES_SKIP=dogfood: that example runs this repository's own Gradle check.
 log "running the examples against $YUKTA_URL"
 set +e
+[[ -z "${SMOKE_IN_CONTAINER:-}" ]] || : "${EXAMPLES_SKIP:=dogfood 08-alert-triage}"
 output="$(EXAMPLES_SKIP="${EXAMPLES_SKIP:-dogfood}" bash "$REPO_ROOT/examples/run-all.sh" 2>&1)"
 code=$?
 set -e
