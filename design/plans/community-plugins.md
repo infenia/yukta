@@ -89,15 +89,17 @@ built-in type name; `PluginRegistry` already fails startup on a duplicate.
 
 One process per message.
 
-- **stdin:** one JSON object `{ "config": {...}, "message": { "id", "traceId", "headers", "payload" } }`. `SECRET` fields
-  are already resolved by the engine.
-- **stdout:** `{ "payload": ..., "port"?: "...", "headers"?: {...} }`, or one such object per line for several outputs.
+- **stdin:** one JSON object `{ "apiVersion": "yukta/message/v1", "config": {...}, "message": { "id", "traceId",
+  "metadata", "payload" } }`. `SECRET` fields are already resolved by the engine. A plugin ignores properties it does not
+  know and refuses an `apiVersion` it does not know.
+- **stdout:** `{ "payload": ..., "port"?: "...", "metadata"?: {...} }`, or one such object per line for several outputs.
 - **stderr:** live log lines, through the existing `PluginLogSink`.
 - **Exit code:** non-zero fails the node; the engine's retry and `onError` policies decide what follows.
 
 This is **message envelope v1**, published as JSON Schema. It is a trimmed view of `Message`: retry, dead-letter,
-sequence and history fields stay inside the engine. A plugin may set the payload, a declared port and its own headers; it
-cannot set engine fields such as trace or workflow id.
+sequence and history fields stay inside the engine. A plugin may set the payload, a declared port and metadata entries;
+it cannot set engine fields such as trace or workflow id. The map is called `metadata`, as in `Message.metadata()`.
+Schemas: `plugin-api/src/main/resources/schema/plugin/v1/` (`manifest`, `message-in`, `message-out`).
 
 ### Run forms
 
@@ -172,13 +174,15 @@ operator):
 Relaxed:
 
 - **Digest pinning** of a plugin's files is optional and recommended, not mandatory (an image digest does the same job
-  for `run.image`). See "Open points".
+  for `run.image`). The pin lives in the operator's enable list (`TYPE@sha256:<digest of the plugin directory>`), not in
+  the manifest, which it would have to protect; a mismatch fails startup.
 - A plugins directory writable by the Yukta service user is a startup warning, not a refusal.
 - No network or filesystem permission declarations in the manifest: nothing would enforce them.
 
-**Finding to fix first:** `ProcessExecutorGateway` adds the configured variables to the subprocess environment but does
-not appear to clear it *(to verify)*, so a subprocess inherits Yukta's whole environment, which is also where
-`EnvSecretProvider` reads secrets from. This affects `process-executor` today, independent of this design.
+**Finding fixed first (confirmed by a test):** `ProcessExecutorGateway` added the configured variables to the subprocess
+environment without clearing it, so a subprocess inherited Yukta's whole environment, which is also where
+`EnvSecretProvider` reads secrets from. Fixed in #2327: a process starts with `PATH` and its node's `env`;
+`yukta.process.pass-env` lists server variables to pass (`*` for all, a trusted local server only).
 
 ## Stateful plugins and the shared database
 
@@ -200,7 +204,9 @@ and no database credentials.
 ## Phases (each its own reviewed PR)
 
 1. **Prerequisites.** Clean subprocess environment in `process-executor` (security fix, ships on its own). Message
-   envelope v1 and manifest as JSON Schema. An SPI version with a startup check.
+   envelope v1 and manifest as JSON Schema. An SPI version with a startup check. The SPI version is `PluginApi.VERSION` (`MAJOR.MINOR`);
+   `Plugin.apiVersion()` defaults to it, a plugin built outside the repository overrides it, and `PluginRegistry` refuses
+   another major or a newer minor. The manifest's `yukta/plugin/v1` is checked against the same major in phase 2.
 2. **Command plugins.** Manifest loader, enable list, `ExternalProcessorPlugin` and `ExternalTerminalPlugin`, output
    validation and limits, `plugin validate` in the `cli`, one example plugin, author and operator docs.
 3. **Image plugins.** `run.image`, runtime choice, pull at startup, named containers and cleanup.
@@ -229,8 +235,6 @@ Later, only when a concrete need appears:
 
 ## Open points
 
-- Digest pinning is recorded as optional. It was first agreed as mandatory and relaxed when the sandbox was dropped;
-  confirm.
 - Where the adapter lives. It needs `ProcessExecutorGateway` and `McpClientGateway`, which sit inside plugin modules, and
   the ArchUnit rules on plugin independence may not allow one plugin module to depend on another. The gateways may need
   to move to a shared module.
