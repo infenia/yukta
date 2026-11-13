@@ -68,10 +68,14 @@ final class PolicyRules {
       final WorkflowDefinition.Node node, final PluginRegistry registry) {
     final Object configured = node.config().get("timeoutSeconds");
     final Plugin plugin = registry.get(node.type());
-    final Duration timeout =
+    Duration timeout =
         configured instanceof Number seconds && seconds.longValue() > 0
             ? Duration.ofSeconds(seconds.longValue())
             : plugin == null ? null : plugin.getDefaultTimeout(node.config());
+    if (timeout != null && plugin != null) {
+      final Duration floor = plugin.getMinimumTimeout(node.config());
+      timeout = timeout.compareTo(floor) < 0 ? floor : timeout;
+    }
     return timeout != null && timeout.isPositive() ? timeout : null;
   }
 

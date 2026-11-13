@@ -93,7 +93,12 @@ public class NodeTimeouts {
 
   private Duration timeout(final Map<String, Object> resolved, final Plugin plugin) {
     final long seconds = seconds(resolved.get(TIMEOUT_SECONDS));
-    return seconds > 0 ? Duration.ofSeconds(seconds) : plugin.getDefaultTimeout(resolved);
+    if (seconds <= 0) {
+      return plugin.getDefaultTimeout(resolved);
+    }
+    final Duration configured = Duration.ofSeconds(seconds);
+    final Duration floor = plugin.getMinimumTimeout(resolved);
+    return configured.compareTo(floor) < 0 ? floor : configured;
   }
 
   /** An expression resolves to text unless it is typed ({@code :int}), so accept both. */

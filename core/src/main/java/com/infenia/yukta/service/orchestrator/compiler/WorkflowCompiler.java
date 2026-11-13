@@ -401,7 +401,9 @@ public class WorkflowCompiler {
 
     final Duration result;
     if (timeoutVal instanceof Number numValue && numValue.longValue() > 0) {
-      result = Duration.ofSeconds(numValue.longValue());
+      final Duration configured = Duration.ofSeconds(numValue.longValue());
+      final Duration floor = plugin == null ? Duration.ZERO : plugin.getMinimumTimeout(node.config());
+      result = configured.compareTo(floor) < 0 ? floor : configured;
       log.atTrace()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .addKeyValue("timeoutMs", result.toMillis())
