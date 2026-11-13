@@ -163,7 +163,7 @@ class ChatDecisionModelTest {
   }
 
   @Test
-  void describesItselfAsABackend() {
+  void describesItselfAsBackend() {
     final ChatDecisionModel model = new ChatDecisionModel(mock(LlmGateway.class));
 
     assertThat(model.kind()).isEqualTo("LLM");

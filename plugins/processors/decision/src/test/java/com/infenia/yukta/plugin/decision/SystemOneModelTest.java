@@ -166,7 +166,7 @@ class SystemOneModelTest {
   }
 
   @Test
-  void describesItselfAsABackend() {
+  void describesItselfAsBackend() {
     final SystemOneModel model = new SystemOneModel(WebClient.builder());
 
     assertThat(model.kind()).isEqualTo("SYSTEMONE");

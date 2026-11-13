@@ -28,7 +28,7 @@ class AiBackendTest {
 
       @Override
       public List<ConfigField> options() {
-        return options;
+        return List.copyOf(options);
       }
     };
   }
