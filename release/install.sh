@@ -406,6 +406,16 @@ main() {
   if [ "$prev_kept" = "1" ]; then
     say "Previous version kept as *.prev; to roll back move them back, or run again with --version <old>."
   fi
+  # NixOS has no /lib64/ld-linux*: the dynamically linked server cannot start there without nix-ld.
+  # (yukta-cli is a static Go binary and runs anyway.)
+  if [ "$installed_server" = "1" ] && [ "$os" = linux ] && grep -qs '^ID=nixos' /etc/os-release &&
+    [ -z "${NIX_LD:-}" ]; then
+    say ""
+    say "Note: NixOS cannot run the yukta server as is (no dynamic loader at /lib64). Enable nix-ld"
+    say "and re-login, or run the server with Docker. In configuration.nix:"
+    say "  programs.nix-ld.enable = true;"
+    say "  programs.nix-ld.libraries = with pkgs; [ zlib stdenv.cc.cc.lib ];"
+  fi
   if [ "$installed_server" = "1" ] && command -v pgrep >/dev/null 2>&1 && pgrep -x yukta >/dev/null 2>&1; then
     say ""
     say "Note: a yukta server is running and keeps running the old version. Stop it, start the new one"
