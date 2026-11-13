@@ -25,7 +25,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".claude/**", "*/.claude/**", "examples/*/.claude/**", ".agents/**", ".codegraph/**", ".serena/**", ".idea/**", ".vscode/**"]
+path = [".claude/**", "*/.claude/**", "examples/*/.claude/**", ".idea/**", ".vscode/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -43,13 +43,13 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["bruno/**", "plugins/supervisors/rules/rules.example.json", "config/license/**", "docs/superpowers/plans/**"]
+path = ["plugins/supervisors/rules/rules.example.json", "config/license/**", "docs/superpowers/plans/**"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".reuse/dep5", ".mcp.json", "skills-lock.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
+path = [".reuse/dep5", ".mcp.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"

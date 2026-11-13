@@ -68,3 +68,18 @@ perf/reports/
 /backlog.json
 /id-map.json
 perf/.baseline/
+
+# Local Claude Code / AI tool state (only .claude/ config is tracked)
+.claude/worktrees/
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+.remember/
+.serena/
+.codegraph/
+.agents/
+.ai/
+
+# Local scratch
+*.local.md
+hs_err_pid*
+/cli/*.out
