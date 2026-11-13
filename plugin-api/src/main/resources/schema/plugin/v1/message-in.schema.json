@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/infenia/yukta/main/plugin-api/src/main/resources/schema/plugin/v1/message-in.schema.json",
+  "title": "Yukta message envelope v1, input",
+  "description": "The one JSON object Yukta writes to a plugin's stdin for each message. SECRET config fields are already resolved. Later v1 releases may add optional properties: a plugin must ignore properties it does not know, and refuse an apiVersion it does not know.",
+  "type": "object",
+  "required": ["apiVersion", "config", "message"],
+  "properties": {
+    "apiVersion": { "const": "yukta/message/v1" },
+    "config": {
+      "description": "The node's configuration, as declared in the manifest.",
+      "type": "object"
+    },
+    "message": {
+      "type": "object",
+      "required": ["id", "metadata", "payload"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "traceId": { "type": "string" },
+        "metadata": { "type": "object" },
+        "payload": { "description": "Any JSON value." }
+      }
+    }
+  }
+}

@@ -81,3 +81,10 @@ path = ["plus/**"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "AGPL-3.0-only"
+
+# Plugin wire contract (JSON Schema cannot carry a comment header) and its sample documents
+[[annotations]]
+path = ["plugin-api/src/main/resources/schema/**", "plugin-api/src/test/resources/schema/**"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 Infenia Private Limited"
+SPDX-License-Identifier = "Apache-2.0"

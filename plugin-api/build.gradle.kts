@@ -12,9 +12,12 @@ dependencies {
     implementation(libs.jackson.databind)
     api(project(":messaging"))
 
-    // PluginConformance (test fixtures) watches the logs for leaked secrets
+    // validates the plugin wire schemas (schema/plugin/v1)
+    testImplementation(libs.mcp.json.jackson3)
+
     testFixturesImplementation(project(":messaging"))
     testFixturesImplementation(libs.reactor.core)
+    // PluginConformance (test fixtures) watches the logs for leaked secrets
     testFixturesImplementation("ch.qos.logback:logback-classic")
 }
 
