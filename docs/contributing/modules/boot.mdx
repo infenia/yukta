@@ -284,10 +284,10 @@ Decides at build time which optional plugins are linked into the app.
 Compiles the app into a standalone executable with fast start and low memory.
 
 - nativeCompile builds a binary named yukta from the main class, with --no-fallback (fail rather than build a JVM-needing fallback). The build JVM gets -J-Xmx16g. The size flags are -H:+RemoveUnusedSymbols, -H:+StripDebugInfo and -H:-AddAllCharsets.
-- Optimization: the build uses GraalVM Community Edition at its default optimization level (-O2), with no PGO profile; Oracle GraalVM options (-O3, --pgo, --enable-sbom) are not used, so the binaries stay free of Oracle licence terms. -march=compatibility keeps the binary runnable on any x86-64 or arm64 CPU, and -Pnative.quick builds with -Ob instead. The SBOM (yukta.sbom.json, CycloneDX) is written next to the binary by the exportSbom task after nativeCompile. Only linux-amd64 is built today.
+- Optimization: the build uses BellSoft Liberica Native Image Kit (built from GraalVM Community Edition) at its default optimization level (-O2), with no PGO profile; Oracle GraalVM options (-O3, --pgo, --enable-sbom) are not used, so the binaries stay free of Oracle licence terms. -march=compatibility keeps the binary runnable on any x86-64 or arm64 CPU, and -Pnative.quick builds with -Ob instead. The SBOM (yukta.sbom.json, CycloneDX) is written next to the binary by the exportSbom task after nativeCompile. Only linux-amd64 is built today.
 - Build arguments -Dspring.profiles.active=prod and -Dspring.aot.enabled=true are also set. Spring AOT precomputes the bean wiring at build time, which is what makes native start-up fast.
 - Whether the -D profile argument reaches the running binary was not verified: it is passed to the native-image builder. The launcher's own prod rule in main() is the part that is covered by a test.
-- The Dockerfile builds the image in a GraalVM stage, optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 9858 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.
+- The Dockerfile builds the image in a Liberica NIK stage (glibc variant), optionally compresses the binary with UPX, then copies it into a distroless nonroot image that exposes 9858 and sets YUKTA_SERVER_ADDRESS=0.0.0.0. There is no shell in the final image.
 - script-js (GraalJS) is no longer in the default set: it is the largest part of the native image, so ask for it with -Pyukta.plugins=all or by name.
 - `META-INF/native-image/com.infenia.yukta/boot/reflect-config.json` (and `resource-config.json`) are hand-kept metadata for classes the AOT step cannot see, mostly cache and library internals. Prefer declaring reflection next to the class with `@RegisterReflectionForBinding` or a `RuntimeHintsRegistrar` (see `MessageReflectionHints`); both are merged into the same image. When a new dependency or plugin fails in the native binary with a missing-class error, add the entry in code, or regenerate the file by running the tests on a GraalVM JVM with the tracing agent (`-agentlib:native-image-agent=config-merge-dir=boot/src/main/resources/META-INF/native-image/com.infenia.yukta/boot`) and review the diff: the agent only records what the run touched, so entries it did not see are not removed for you.
 
@@ -560,7 +560,7 @@ JVM vs native.
 | Run without optional plugins | ./gradlew bootRun -Pyukta.plugins=none | Acceptance tests then fail |
 | Build a jar | ./gradlew :boot:bootJar | Then java -jar boot/build/libs/\*.jar --spring.profiles.active=prod |
 | Run as a daemon | java -jar boot/build/libs/\*.jar start | Also stop, status, restart, logs [-f]; state in $YUKTA_HOME |
-| Build native | ./gradlew :boot:nativeCompile | Output boot/build/native/nativeCompile/yukta; slow, needs GraalVM 25 |
+| Build native | ./gradlew :boot:nativeCompile | Output boot/build/native/nativeCompile/yukta; slow, needs GraalVM 25 or Liberica NIK 25 |
 | Run native | ./boot/build/native/nativeCompile/yukta | prod chosen by main() if no profile argument |
 | Remote access | YUKTA_SERVER_ADDRESS=0.0.0.0 yukta.api-keys=&lt;secret&gt; | Without a key the server refuses to start; the keys cover /mcp too. Swagger and /v3 are still open |
 | Run module tests | ./gradlew :boot:test | Needs the PROCESS_EXECUTOR plugin |

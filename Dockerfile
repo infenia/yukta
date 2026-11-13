@@ -15,12 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Stage 1: Build native image with GraalVM
-FROM ghcr.io/graalvm/native-image-community:25@sha256:0d936f32bb8acb5bc60c41b33e05f064d7a6aaf36b726538296c54949bd4a3c0 AS builder
+# Stage 1: Build native image with BellSoft Liberica Native Image Kit (NIK)
+FROM bellsoft/liberica-native-image-kit-container:jdk-25-nik-25-glibc AS builder
 
-# The base image ships GraalVM Community Edition for JDK 25 (GPLv2 with the Classpath Exception, so
-# the binaries can be redistributed under Apache-2.0 and AGPL-3.0; matches the build-logic toolchain).
-# It also has xargs and findutils, which the Gradle wrapper needs, and libz.a for the static link.
+# The base image ships Liberica NIK 25 (JDK 25), built from GraalVM Community Edition (GPLv2 with the
+# Classpath Exception, so the binaries can be redistributed under Apache-2.0 and AGPL-3.0; matches the
+# build-logic toolchain). It is Alpaquita Linux (glibc variant, not musl: the Gradle build downloads a
+# glibc Node.js, and the binary runs on the glibc distroless image below). xargs (findutils) is needed by
+# the Gradle wrapper and libz.a by the static link, so make sure both are there.
+RUN apk add --no-cache bash findutils zlib-static
 
 WORKDIR /build
 

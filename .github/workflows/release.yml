@@ -161,7 +161,7 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
-      # Builds inside the pinned GraalVM CE image, the same way the release machine does.
+      # Builds inside the Liberica NIK image, the same way the release machine does.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile
         if: runner.os == 'Linux'
@@ -170,13 +170,13 @@ jobs:
           NATIVE_HEAP: 12g
         run: release/build-server.sh
 
-      # GraalVM CE (same as the Docker builder image). On Windows the action also sets up the
+      # Liberica NIK (same as the Docker builder image). On Windows the action also sets up the
       # MSVC toolchain native-image needs.
       - uses: graalvm/setup-graalvm@f70bc8032f90a104502824a54bcb94b6f01715bc # v1.6.8
         if: runner.os != 'Linux'
         with:
           java-version: '25'
-          distribution: 'graalvm-community'
+          distribution: 'liberica'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # In CI the Gradle build uses the system Node.js and pnpm (build-logic node-conventions). The
