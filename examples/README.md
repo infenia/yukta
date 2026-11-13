@@ -38,6 +38,9 @@ Two examples need something the image does not have: **02** needs `git` where th
 place of `-p`, and set `SERVER_PORT` if 9858 is taken, to run 08; its pager also needs `python3` here. Example 09 needs an
 LLM endpoint and `YUKTA_SECRET_LLM_API_KEY` set on the server (see its README).
 
+The same examples from the browser: `release/ui-smoke.sh <url>` (Playwright against the real server, `ui/e2e/real/`) creates a
+session from each template and runs examples through the UI.
+
 Sessions are kept in memory. Re-run an example after restarting the server; `run.sh` applies
 its session again each time.
 
