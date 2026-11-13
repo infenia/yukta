@@ -102,6 +102,8 @@ com.infenia.yukta.plugin.decision.DedupePlugin
 com.infenia.yukta.plugin.decision.GatePlugin
 com.infenia.yukta.plugin.decision.ScorePlugin
 com.infenia.yukta.plugin.decision.SystemOneModel
+com.infenia.yukta.plugin.external.ExternalPlugins
+com.infenia.yukta.plugin.external.ExternalPluginsAutoConfiguration
 com.infenia.yukta.plugin.file.FileReadPlugin
 com.infenia.yukta.plugin.file.FileWritePlugin
 com.infenia.yukta.plugin.http.HttpRequestGateway

@@ -24,6 +24,8 @@ tasks.processResources {
 // of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
+    // community plugins from yukta.plugins.dir (needs process-executor, which it pulls in)
+    "external" to ":plugins:external",
     "http-request" to ":plugins:processors:http-request",
     "file-io" to ":plugins:processors:file-io",
     "sql-query" to ":plugins:processors:sql-query",
