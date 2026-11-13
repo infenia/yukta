@@ -215,11 +215,14 @@ jobs:
       - name: Smoke test
         env:
           BINARY: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
+          YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
         run: |
           "$BINARY" &
           pid=$!
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
+          # The examples (bash, curl, jq, python3) run on the Linux runners; macOS and Windows have the Quickstart only.
+          if [ "$RUNNER_OS" = Linux ]; then release/examples-smoke.sh http://127.0.0.1:9858; fi
 
       # The exportSbom Gradle task wrote the bill of materials next to the binary. Checked
       # on every run, so a rehearsal fails when it is missing, not the release.
@@ -436,3 +439,5 @@ jobs:
             -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image"
           trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
           release/smoke-test.sh http://127.0.0.1:18081 x
+          # The image has no shell, so the examples that run commands skip; the others must pass.
+          SMOKE_NO_SHELL=1 release/examples-smoke.sh http://127.0.0.1:18081 x
