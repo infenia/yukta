@@ -751,4 +751,10 @@ class McpToolCallPluginTest {
         .verifyErrorSatisfies(
             e -> assertThat(e).hasMessageEndingWith("Tool 'weather' was rejected: "));
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(plugin.isRestricted()).isEqualTo(true);
+  }
 }

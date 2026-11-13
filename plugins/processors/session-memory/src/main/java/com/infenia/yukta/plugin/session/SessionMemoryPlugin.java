@@ -6,6 +6,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.MapUtils;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -88,6 +89,11 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
   @Override
   public boolean requiresControlPlane() {
     return true;
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
   }
 
   @Override

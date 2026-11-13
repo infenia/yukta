@@ -76,6 +76,42 @@ class PluginControllerTest {
   }
 
   @Test
+  void testListPluginsShowsDisabledPluginWithHowToEnableIt() {
+    final Plugin on = Mockito.mock(Plugin.class);
+    when(on.getType()).thenReturn(TEST_PLUGIN);
+    when(on.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    final Plugin off = Mockito.mock(Plugin.class);
+    when(off.getType()).thenReturn("LLM_TEST");
+    when(off.getCategory()).thenReturn(PluginCategory.PROCESSOR);
+    when(off.getTier()).thenReturn(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    when(off.isRestricted()).thenReturn(true);
+    when(registry.listPlugins()).thenReturn(List.of(on));
+    when(registry.listDisabled()).thenReturn(List.of(off));
+    when(registry.enableHint("LLM_TEST")).thenReturn("set yukta.plugins.enabled to LLM_TEST");
+
+    webTestClient
+        .get()
+        .uri("/api/plugins")
+        .exchange()
+        .expectStatus()
+        .isOk()
+        .expectBody()
+        .jsonPath("$.data[0].enabled")
+        .isEqualTo(true)
+        .jsonPath("$.data[1].type")
+        .isEqualTo("LLM_TEST")
+        .jsonPath("$.data[1].enabled")
+        .isEqualTo(false)
+        .jsonPath("$.data[1].tier")
+        .isEqualTo("SPECIFIC")
+        .jsonPath("$.data[1].restricted")
+        .isEqualTo(true)
+        .jsonPath("$.data[1].enableWith")
+        .isEqualTo("set yukta.plugins.enabled to LLM_TEST");
+    assertThat(registry.listDisabled()).containsExactly(off);
+  }
+
+  @Test
   void testGetPluginDetails() {
     final Plugin plugin = Mockito.mock(Plugin.class);
     when(plugin.getType()).thenReturn(TEST_PLUGIN);

@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
@@ -108,6 +109,16 @@ public final class NotifyTerminal implements TerminalPlugin {
             "ERROR fails the node on a failed send; CONTINUE logs it and keeps sending",
             "ERROR",
             "CONTINUE"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.SPECIFIC;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

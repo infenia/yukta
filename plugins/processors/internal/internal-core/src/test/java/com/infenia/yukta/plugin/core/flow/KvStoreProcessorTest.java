@@ -210,4 +210,10 @@ class KvStoreProcessorTest {
     assertThat(other.get(":x").block()).isEqualTo(1);
     assertThat(other.get(":y").block()).isNull();
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(processor.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.EXTENDED);
+    assertThat(processor.isRestricted()).isEqualTo(false);
+  }
 }

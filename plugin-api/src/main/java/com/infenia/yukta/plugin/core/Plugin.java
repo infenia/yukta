@@ -94,6 +94,25 @@ public interface Plugin {
   }
 
   /**
+   * How generic this plugin is; {@link PluginTier#CORE} unless it overrides.
+   *
+   * @return the tier
+   */
+  default PluginTier getTier() {
+    return PluginTier.CORE;
+  }
+
+  /**
+   * Whether the plugin reaches outside the engine (processes, files, network, databases), so an
+   * operator should opt in to it.
+   *
+   * @return true when restricted
+   */
+  default boolean isRestricted() {
+    return false;
+  }
+
+  /**
    * Get the unique type string for this plugin.
    *
    * @return the plugin type
