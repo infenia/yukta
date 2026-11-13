@@ -16,14 +16,20 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import lombok.NoArgsConstructor;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
 import org.springframework.stereotype.Component;
 
 /**
  * Makes rule supervisors from profiles. The settings are the rules file as JSON: {@code {"rules":
  * [...]}}, read as strictly as the file is, next to the capability settings {@code
  * allowedCommands}, {@code canAnswer} and {@code maxRisk}.
+ *
+ * <p>The rules are read with Jackson, which needs the record components of {@link RuleSet} and its
+ * nested records; AOT cannot see that, so without the binding hint a native image answers every
+ * {@code PUT /api/supervisors/{id}} of a rules profile with 500.
  */
 @Component
+@RegisterReflectionForBinding(RuleSet.class)
 @NoArgsConstructor
 public class RuleSupervisorFactory implements SupervisorFactory {
 
