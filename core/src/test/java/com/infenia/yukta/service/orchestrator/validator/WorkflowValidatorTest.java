@@ -159,6 +159,7 @@ class WorkflowValidatorTest {
     // The checks after the plugin lookup assume every plugin is registered, so they must not run.
     when(registry.get(TRIGGER_ID)).thenReturn(triggerPlugin);
     when(registry.get(UNKNOWN_ID)).thenReturn(null);
+    when(registry.missingHint(UNKNOWN_ID)).thenReturn("");
 
     final WorkflowDefinition def =
         Fixtures.workflow(

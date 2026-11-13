@@ -261,4 +261,10 @@ class SqlQueryPluginTest {
     final var empty = new StaticListableBeanFactory().getBeanProvider(PluginMetricsReporter.class);
     assertThat(new SqlQueryPlugin(empty).getOutputPorts(Map.of())).containsExactly("default");
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.EXTENDED);
+    assertThat(plugin.isRestricted()).isEqualTo(true);
+  }
 }

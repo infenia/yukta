@@ -25,6 +25,7 @@ class PluginCoverageAcceptanceTest {
   // ponytail: a hand-kept list, it cannot tell that a listed type really has a test.
   private static final Set<String> TESTED =
       Set.of(
+          "AGENT_SESSION",
           "AGGREGATE",
           "ANOMALY",
           "API_TRIGGER",

@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.core.FailureMode;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginGuard;
 import com.infenia.yukta.plugin.core.PluginMetricsReporter;
+import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.UiDesign;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
@@ -135,6 +136,16 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
         ConfigField.optional("maxRows", ConfigField.Type.NUMBER, 1000, "Most rows returned"),
         ConfigField.optional(
             "timeoutSeconds", ConfigField.Type.NUMBER, 30, "Statement timeout in seconds"));
+  }
+
+  @Override
+  public PluginTier getTier() {
+    return PluginTier.EXTENDED;
+  }
+
+  @Override
+  public boolean isRestricted() {
+    return true;
   }
 
   @Override

@@ -86,6 +86,37 @@ class ProcessExecutorGatewayTest {
 
   @Test
   @DisabledOnOs(OS.WINDOWS)
+  void interactive_theCallerWritesToStdinWhileTheProcessRuns() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    final var result =
+        gateway
+            .executeInteractive(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "read a; echo got:$a; read b; echo got:$b"))
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> seen.add(line),
+                stdin -> {
+                  stdin.write("one");
+                  // the second line is written only after the first answer came back
+                  new Thread(
+                          () -> {
+                            await()
+                                .atMost(Duration.ofSeconds(5))
+                                .until(() -> seen.contains("got:one"));
+                            stdin.write("two");
+                            stdin.close();
+                          })
+                      .start();
+                })
+            .block(Duration.ofSeconds(10));
+
+    assertThat(result.stdoutLines()).containsExactly("got:one", "got:two");
+    assertThat(result.exitCode()).isZero();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
   void sink_getsEachLineWhileTheProcessIsStillRunning() {
     final List<String> seen = new CopyOnWriteArrayList<>();
     final Disposable run =
@@ -1361,5 +1392,44 @@ class ProcessExecutorGatewayTest {
       closed = true;
       super.close();
     }
+  }
+
+  @Test
+  void executeInteractive_writesTheInitialStdinFirst() {
+    final var result =
+        gateway
+            .executeInteractive(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "read a; echo got:$a"))
+                    .stdin("first")
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> {},
+                stdin -> {})
+            .blockOptional(Duration.ofSeconds(10))
+            .orElseThrow();
+
+    assertThat(result.stdoutLines()).containsExactly("got:first");
+  }
+
+  @Test
+  void executeInteractive_ignoresAnEmptyInitialStdin() {
+    final var result =
+        gateway
+            .executeInteractive(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "read a; echo got:$a"))
+                    .stdin("")
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> {},
+                stdin -> {
+                  stdin.write("later");
+                  stdin.close();
+                })
+            .blockOptional(Duration.ofSeconds(10))
+            .orElseThrow();
+
+    assertThat(result.stdoutLines()).containsExactly("got:later");
   }
 }

@@ -17,7 +17,17 @@ version=9.9.9-test
 rel="$work/srv/v$version"
 mkdir -p "$rel" "$work/stage/yukta-$version-linux-amd64"
 printf '#!/bin/sh\necho server\n' > "$work/stage/yukta-$version-linux-amd64/yukta"
-printf '#!/bin/sh\n[ "${1:-}" = --version ] && echo "yukta-cli version 9.9.9-test" || echo client\n' > "$work/stage/yukta-$version-linux-amd64/yukta-cli"
+# The fake client answers --version, logs `agents ...` calls to $AGENTS_LOG and lists two agents found.
+cat > "$work/stage/yukta-$version-linux-amd64/yukta-cli" <<'FAKE'
+#!/bin/sh
+case "${1:-}" in
+  --version) echo "yukta-cli version 9.9.9-test" ;;
+  agents)
+    echo "$*" >> "${AGENTS_LOG:-/dev/null}"
+    [ "${2:-}" != list ] || printf 'ID  AGENT  FOUND  CONNECTED\ncursor  Cursor  yes  no\ngeneric  Other agents (~/.agents/skills)  no  no\ncodex  Codex  no  no\nclaude  Claude Code  yes  no\n' ;;
+  *) echo client ;;
+esac
+FAKE
 chmod +x "$work"/stage/*/yukta*
 tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
 cp "$work/stage/yukta-$version-linux-amd64/yukta-cli" "$rel/yukta-cli-linux-amd64"
@@ -41,6 +51,8 @@ for _ in $(seq 1 50); do
 done
 [[ -n $port ]] || die "download server did not report a port"
 export YUKTA_DOWNLOAD_BASE="http://127.0.0.1:$port"
+# Never touch (or ask about) the agents of whoever runs this test; section 10 turns it on per call.
+export YUKTA_AGENTS=none
 script="$RELEASE_DIR/install.sh"
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -128,5 +140,41 @@ grep -q "Download server + client" "$work/plain.out" || fail "no step lines"
 echo tamper >> "$rel/yukta-$version-linux-amd64.tar.gz"
 sh "$script" --version "$version" --install-dir "$work/l" >"$work/plain.out" 2>&1 || true
 ! grep -q $'\033\|\r' "$work/plain.out" || fail "control characters on the failure path"
+
+echo "10. agents: none, a list, auto, ask (answered through YUKTA_TTY), refresh on upgrade, uninstall"
+tar -C "$work/stage" -czf "$rel/yukta-$version-linux-amd64.tar.gz" "yukta-$version-linux-amd64"
+(cd "$rel" && sha256sum -- $(ls | grep -v '^SHA256SUMS$') > SHA256SUMS)
+export AGENTS_LOG="$work/agents.log"; : > "$AGENTS_LOG"
+sh "$script" --version "$version" --install-dir "$work/m" --agents none >/dev/null
+[[ ! -s "$AGENTS_LOG" ]] || fail "--agents none called the client: $(cat "$AGENTS_LOG")"
+sh "$script" --version "$version" --install-dir "$work/n" --agents codex,cursor >/dev/null
+grep -qx "agents install --agent codex,cursor" "$AGENTS_LOG" || fail "a list was not passed on: $(cat "$AGENTS_LOG")"
+: > "$AGENTS_LOG"
+sh "$script" --version "$version" --install-dir "$work/o" --agents auto >/dev/null
+grep -qx "agents install --agent cursor,claude" "$AGENTS_LOG" || fail "auto must pick the agents found: $(cat "$AGENTS_LOG")"
+: > "$AGENTS_LOG"
+out="$(CI= YUKTA_TTY="$work/none" sh "$script" --version "$version" --install-dir "$work/p" --agents ask)"
+grep -q "Connect them with: yukta-cli agents install" <<<"$out" || fail "no hint when nobody can answer"
+! grep -q "agents install --agent" "$AGENTS_LOG" || fail "ask without a terminal configured agents"
+printf 'y\n' > "$work/yes"
+out="$(CI= YUKTA_TTY="$work/yes" sh "$script" --version "$version" --install-dir "$work/q" --agents ask)"
+grep -q "Found: cursor,claude" <<<"$out" || fail "the question does not name the agents"
+grep -qx "agents install --agent cursor,claude" "$AGENTS_LOG" || fail "yes did not connect the agents found"
+: > "$AGENTS_LOG"
+printf 'n\n' > "$work/no"
+CI= YUKTA_TTY="$work/no" sh "$script" --version "$version" --install-dir "$work/r" --agents ask >/dev/null
+! grep -q "agents install --agent" "$AGENTS_LOG" || fail "no still configured agents"
+printf 'c\ncodex\n' > "$work/choose"
+CI= YUKTA_TTY="$work/choose" sh "$script" --version "$version" --install-dir "$work/s" --agents ask >/dev/null
+grep -qx "agents install --agent codex" "$AGENTS_LOG" || fail "choose did not pass the typed list"
+: > "$AGENTS_LOG"
+sh "$script" --version "$version" --install-dir "$work/n" --force --agents codex >/dev/null
+grep -qx "agents install --refresh" "$AGENTS_LOG" || fail "an upgrade must refresh the skills"
+: > "$AGENTS_LOG"
+sh "$script" --install-dir "$work/n" --uninstall >/dev/null
+grep -qx "agents uninstall --all" "$AGENTS_LOG" || fail "uninstall must disconnect the agents first"
+if sh "$script" --version "$version" --install-dir "$work/t" --agents 'Bad Value' 2>/dev/null; then fail "bad --agents accepted"; fi
+sh "$script" --version "$version" --install-dir "$work/u2" --server-only --agents auto >/dev/null
+: > "$AGENTS_LOG"
 
 echo "install.sh: all checks passed"

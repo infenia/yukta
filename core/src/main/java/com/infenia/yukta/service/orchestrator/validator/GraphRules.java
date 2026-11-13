@@ -45,7 +45,12 @@ final class GraphRules {
       def.nodes().stream()
           .filter(node -> registry.get(node.type()) == null)
           .findFirst()
-          .ifPresent(node -> problems.add("Plugin not found for type: " + node.type()));
+          .ifPresent(
+              node ->
+                  problems.add(
+                      "Plugin not found for type: "
+                          + node.type()
+                          + registry.missingHint(node.type())));
       return problems;
     }
     final Set<String> targetIds =

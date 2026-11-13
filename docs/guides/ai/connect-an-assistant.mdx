@@ -1,8 +1,8 @@
 ---
 title: "Connect an AI assistant"
 sidebarTitle: "Connect an assistant"
-description: "Connect Claude Code, Gemini CLI or any MCP client to Yukta's /mcp endpoint with the right API key and role, and install the skill that teaches it the tools."
-keywords: ["MCP", "Claude Code", "Gemini CLI", "MCP client", "API key", "roles", "skill", "yukta-workflows"]
+description: "Connect Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode or any MCP client to Yukta's /mcp endpoint with the right API key and role, and install the skill that teaches it the tools."
+keywords: ["MCP", "Claude Code", "Codex", "Antigravity", "Cursor", "VS Code", "Windsurf", "OpenCode", "MCP client", "API key", "roles", "skill", "yukta-workflows", "agents install"]
 ---
 
 import { ReaderState } from "/snippets/reader-state.jsx";
@@ -10,13 +10,41 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 <ReaderState
   learn="how to let an assistant create, run, watch and steer your workflows over MCP"
   time="10 minutes"
-  need="a running server, and Claude Code, Gemini CLI or another MCP client that speaks streamable HTTP"
+  need="a running server, and an AI agent such as Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf or OpenCode"
   end="an assistant that calls Yukta tools with the lowest role that does its job"
 />
 
 **Use this when** you want an assistant to build or run workflows for you ("run the release checks and tell me what failed"). For a person or a script, the [REST API](/api/overview) and [CLI](/reference/cli) cover the same operations.
 
 **Prerequisites:** a server on `http://localhost:9858`. The MCP server is at `/mcp` on the same address and port, over streamable HTTP in stateless mode (no MCP session to keep, no standard-input transport).
+
+## The fast way: one command
+
+`yukta-cli agents install` finds the AI agents on your machine and, for each, registers the Yukta MCP server in the agent's own configuration and installs the Yukta skills. The installer script offers it at the end of an install; run it yourself any time:
+
+```bash
+yukta-cli agents list                 # the agents found, and which are connected
+yukta-cli agents install              # connect every agent found
+yukta-cli agents install --agent codex,cursor --dry-run   # see what would change first
+yukta-cli agents uninstall --all      # remove exactly what install added
+```
+
+| Agent (`--agent`) | MCP server goes to | Skills go to |
+|---|---|---|
+| Claude Code (`claude`) | the `yukta` plugin (MCP, skills and a live pane); `claude mcp add --scope user` for another server or a key | plugin; `~/.claude/skills` |
+| Codex (`codex`) | `codex mcp add`, else `~/.codex/config.toml` | `~/.codex/skills` |
+| Antigravity (`antigravity`) | `~/.gemini/config/mcp_config.json` | `~/.gemini/antigravity/skills`, `~/.gemini/skills` |
+| Cursor (`cursor`) | `~/.cursor/mcp.json` | `~/.cursor/skills` |
+| VS Code Copilot (`vscode`) | the user `mcp.json` of VS Code | `~/.copilot/skills` |
+| Windsurf (`windsurf`) | `~/.codeium/windsurf/mcp_config.json` | `~/.codeium/windsurf/skills` |
+| OpenCode (`opencode`) | `~/.config/opencode/opencode.json` | `~/.config/opencode/skills` |
+| Any agent that reads `~/.agents/skills` (`generic`) | not applicable | `~/.agents/skills` |
+
+It talks to the server at `--url` (default `http://localhost:9858`). For a server with API keys, add `--token-file <file>`, or `--token-env VAR` so that agents which support it read the key from an environment variable instead of a file. Without either, a key is written into the agent's configuration file, which then is private to you (mode `0600`).
+
+What it never does: it changes only a `yukta` entry in each agent's configuration and the skill folders `yukta-workflows` and `yukta-supervisor`; it keeps the first original of each file as `<file>.yukta-bak`; and it leaves a file it cannot parse as plain JSON (one with comments, say) alone and prints the entry to add by hand. Everything it did is recorded in `agents.json` in your user config folder, which `agents uninstall` reads. After upgrading `yukta-cli`, `yukta-cli agents install --refresh` updates the skills.
+
+The steps below do the same by hand, for an agent that is not in the list or a setup of your own.
 
 ## Steps
 
@@ -55,19 +83,22 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
         Leave out `--header` when the server has no keys.
       </Tab>
-      <Tab title="Gemini CLI">
+      <Tab title="Codex">
         ```bash
-        gemini mcp add --transport http yukta http://localhost:9858/mcp \
-          --header "Authorization: Bearer change-me"
+        export YUKTA_TOKEN=change-me
+        codex mcp add yukta --url http://localhost:9858/mcp --bearer-token-env-var YUKTA_TOKEN
         ```
 
-        Or in `~/.gemini/settings.json`:
+        Leave out `--bearer-token-env-var` when the server has no keys.
+      </Tab>
+      <Tab title="Antigravity">
+        In `~/.gemini/config/mcp_config.json` (Antigravity wants `serverUrl`, not `url`):
 
         ```json
         {
           "mcpServers": {
             "yukta": {
-              "httpUrl": "http://localhost:9858/mcp",
+              "serverUrl": "http://localhost:9858/mcp",
               "headers": { "Authorization": "Bearer change-me" }
             }
           }
@@ -100,7 +131,10 @@ import { ReaderState } from "/snippets/reader-state.jsx";
     | Agent | Folder |
     |---|---|
     | Claude Code | `.claude/skills/yukta-workflows/` in a project, or `~/.claude/skills/yukta-workflows/` for every project |
-    | Gemini CLI | `~/.agents/skills/yukta-workflows/`, or `.gemini/skills/yukta-workflows/` in a trusted project |
+    | Codex | `~/.codex/skills/yukta-workflows/` |
+    | Antigravity | `~/.gemini/antigravity/skills/yukta-workflows/` (or `~/.gemini/skills/`) |
+    | Cursor | `~/.cursor/skills/yukta-workflows/` |
+    | VS Code Copilot | `~/.copilot/skills/yukta-workflows/` |
     | Other agents that read `.agents/skills/` | `.agents/skills/yukta-workflows/` or `~/.agents/skills/yukta-workflows/` |
     | An agent without skills | Paste the body of `SKILL.md` into its instructions or rules file |
 
@@ -116,7 +150,7 @@ import { ReaderState } from "/snippets/reader-state.jsx";
 
 ## Verify it worked
 
-`claude mcp list` (or `gemini mcp list`) shows `yukta` as connected, and the assistant's first call returns something like:
+`claude mcp list` (or `codex mcp list`) shows `yukta` as connected, and the assistant's first call returns something like:
 
 ```json
 { "authenticated": true, "keyName": "assistant", "role": "OPERATOR", "sessions": ["team-a", "team-b"],

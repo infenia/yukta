@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
+.PHONY: sync-skills help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
 
 # Release binaries are reproducible: no cgo, no build time, and -trimpath keeps the checkout path out, so
 # the same commit, VERSION and Go toolchain (go.mod) give the same bytes anywhere. release.yml's verify
@@ -56,6 +56,17 @@ build: ## Build CLI for GOOS/GOARCH (default: current OS/arch)
 build-all: ## Build CLI for all platforms (Linux/macOS/Windows)
 	@for target in $(TARGETS); do \
 		$(MAKE) --no-print-directory build GOOS=$${target%/*} GOARCH=$${target#*/} || exit 1; \
+	done
+
+# ../skills is the source; the CLI embeds one copy and the Claude plugin ships the other.
+# agents/skills_test.go fails when either drifts.
+sync-skills: ## Copy ../skills into the CLI (embedded) and the Claude plugin
+	@for d in internal/agents/skills ../claude-mods/yukta/skills; do \
+		rm -rf $$d; \
+		for s in yukta-workflows yukta-supervisor; do \
+			mkdir -p $$d/$$s; cp ../skills/$$s/SKILL.md $$d/$$s/; \
+			if [ -d ../skills/$$s/references ]; then cp -r ../skills/$$s/references $$d/$$s/; fi; \
+		done; \
 	done
 
 test: ## Run Go tests

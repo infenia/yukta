@@ -9,6 +9,7 @@ import (
 
 	"com.infenia.yukta/go-cli/internal/client"
 	"com.infenia.yukta/go-cli/internal/commands"
+	"com.infenia.yukta/go-cli/internal/commands/agents"
 	"com.infenia.yukta/go-cli/internal/commands/controlbus"
 	"com.infenia.yukta/go-cli/internal/commands/inputs"
 	"com.infenia.yukta/go-cli/internal/commands/logs"
@@ -52,6 +53,7 @@ func run() (int, error) {
 	// Add the controlbus command group with all its subcommands
 	rootCmd.AddCommand(controlbus.ControlBusCmd(c))
 	rootCmd.AddCommand(whoami.WhoamiCmd(c))
+	rootCmd.AddCommand(agents.AgentsCmd(c))
 	rootCmd.AddCommand(server.ServerCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
 	rootCmd.AddCommand(inputs.InputsCmd(c))

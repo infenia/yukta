@@ -51,6 +51,19 @@ yukta
 
 It stays in the foreground and listens on `127.0.0.1:9858`, so only your machine can reach it.
 
+## Connect your AI agents
+
+At the end of an install on a terminal, the script lists the AI agents it found (Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode) and asks whether to connect them. Connecting registers the Yukta MCP server in the agent and installs the Yukta skills, so the agent can run and steer workflows through MCP, `yukta-cli` or REST. It asks only where someone can answer, and never edits an agent's configuration otherwise.
+
+```bash
+# connect the agents found, without asking
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --agents auto
+# or name them; "none" skips the step
+curl -fsSL <install.sh url> | sh -s -- --agents claude,codex
+```
+
+On Windows set `$env:YUKTA_AGENTS = 'auto'` (or a list, or `'none'`) before running `install.ps1`. Any time later, `yukta-cli agents list|install|uninstall` does the same; see [Connect an AI assistant](/guides/ai/connect-an-assistant) for what it changes and how to undo it. Uninstalling Yukta with the script disconnects the agents it connected.
+
 ## Install on macOS
 
 From `0.1.0-alpha.4`, the same script installs the native server too:
@@ -123,6 +136,18 @@ Session ID
 A new server has no sessions, so the second command prints only the column heading. Open `http://localhost:9858/` for the web UI.
 
 > **Stuck?** If `yukta: command not found`, the install folder is not on your `PATH`. Run `~/.local/bin/yukta`, or add that folder. If the server says the address is in use, another program holds port `9858`: stop it, or start Yukta with `--server.port=<other>` and pass `--url` to the client. If Docker exits at once with a message about an API key, you left out one of the three `YUKTA_API_KEYS_0_*` variables.
+
+## Uninstall
+
+On Linux and macOS, run the same script with `--uninstall`. It first disconnects the AI agents Yukta had set up, then removes `yukta` and `yukta-cli` (and the `*.prev` copies kept by an upgrade) from the install folder and nothing else:
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
+```
+
+Add `--install-dir <dir>` if you installed somewhere other than `/usr/local/bin` (as root) or `~/.local/bin`. Stop a running server first. Sessions kept in a folder with `YUKTA_BOOTSTRAP_DIR` are not touched; delete that folder yourself if you want them gone.
+
+On Windows, delete the folder you unzipped. With Docker, `docker rmi ghcr.io/infenia/yukta:<version>` removes the image (a container started with `--rm` is already gone).
 
 ## What you just did
 

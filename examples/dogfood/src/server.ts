@@ -176,6 +176,7 @@ export async function serverLaunch(kind: string, id: string, label: string, rule
       SERVER_PORT: DEV_PORT,
       YUKTA_SERVER_ADDRESS: '127.0.0.1',
       YUKTA_PROCESS_ALLOW_ANY: 'true',
+      YUKTA_PLUGINS_ENABLED: 'PROCESS_EXECUTOR',
       // the tools (gradle, go, pnpm, claude) need the user's environment; a trusted local server only
       YUKTA_PROCESS_PASS_ENV: '*',
       YUKTA_CONCURRENCY_GROUPS_GRADLE: par,

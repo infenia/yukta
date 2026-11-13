@@ -262,4 +262,10 @@ class SessionMemoryPluginTest {
           .verify();
     }
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(plugin.isRestricted()).isEqualTo(false);
+  }
 }

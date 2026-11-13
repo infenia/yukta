@@ -9,6 +9,8 @@ import type {
 export interface PluginSummary {
   type: string;
   category: PluginCategory;
+  tier?: 'CORE' | 'EXTENDED' | 'SPECIFIC';
+  restricted?: boolean;
 }
 
 export type ConfigFieldType =

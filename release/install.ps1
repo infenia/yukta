@@ -15,8 +15,15 @@
 #   $env:YUKTA_UNINSTALL = '1'               # remove the programs and the PATH entry
 #   $env:YUKTA_CHECK = '1'                   # say whether a newer release exists; install nothing
 #   $env:YUKTA_FORCE = '1'                   # reinstall even when this version is already installed
+#   $env:YUKTA_AGENTS = 'auto'               # connect AI agents (Claude Code, Codex, Antigravity, Cursor, VS Code,
+#                                            # Windsurf, OpenCode, ...) to Yukta: the MCP server and the Yukta skills.
+#                                            # ask (default: on a terminal, shows the agents found and asks first),
+#                                            # auto (every agent found), none, or a list such as 'claude,codex' or 'all'
 #   $env:YUKTA_NO_ANIMATION = '1'            # plain output: no colour, spinner or progress bar
 #   $env:YUKTA_QUIET = '1'                   # print nothing but errors
+#
+# For agents on another server set $env:YUKTA_SERVER_URL (and $env:YUKTA_TOKEN) first. Later:
+# yukta-cli agents list | install | uninstall.
 #
 # It downloads SHA256SUMS and the files for your system from the GitHub release, stops if a
 # checksum (or, when cosign is installed, the Sigstore signature of SHA256SUMS) does not match, keeps
@@ -112,8 +119,18 @@
     $cliOnly = $env:YUKTA_CLI_ONLY -eq '1'
     $serverOnly = $env:YUKTA_SERVER_ONLY -eq '1'
     if ($cliOnly -and $serverOnly) { Fail 'YUKTA_CLI_ONLY and YUKTA_SERVER_ONLY cannot be combined' }
+    $agents = if ($env:YUKTA_AGENTS) { $env:YUKTA_AGENTS } else { 'ask' }
+    if ($agents -notmatch '^[a-z,]+\z') { Fail "YUKTA_AGENTS takes ask, auto, none, all or a list like claude,codex (got '$agents')" }
 
     if ($env:YUKTA_UNINSTALL -eq '1') {
+        # Disconnect the agents first: the client that knows how is about to go.
+        $cliExe = Join-Path $dir 'yukta-cli.exe'
+        if (Test-Path $cliExe) {
+            try {
+                & $cliExe agents uninstall --all *> $null
+                if ($LASTEXITCODE -eq 0) { Say 'disconnected the AI agents Yukta had set up' }
+            } catch { }
+        }
         foreach ($f in 'yukta.exe', 'yukta-cli.exe') {
             $p = Join-Path $dir $f
             if (Test-Path $p) { Remove-Item $p -Force; Say "removed $p" }
@@ -265,6 +282,38 @@
 
         if ($pathAdded) { Say "Open a new terminal for other windows to see the PATH change." }
 
+        # Offer the agent integration (MCP server and skills). It never fails the install: the programs
+        # are already there, and `yukta-cli agents install` can be run any time.
+        if (-not $serverOnly -and $agents -ne 'none') {
+            $cliExe = Join-Path $dir 'yukta-cli.exe'
+            try {
+                & $cliExe agents install --refresh *> $null   # an upgrade refreshes the skills of agents connected earlier
+                $connect = ''
+                if ($agents -in 'ask', 'auto') {
+                    $found = (& $cliExe agents list -o json | ConvertFrom-Json | Where-Object { $_.detected -and $_.id -ne 'generic' } | ForEach-Object { $_.id }) -join ','
+                    $canAsk = (-not $quiet) -and (-not $env:CI) -and [Environment]::UserInteractive -and (-not [Console]::IsInputRedirected)
+                    if (-not $found) {
+                        Say ''; Say 'No AI agent found to connect (yukta-cli agents list shows what is looked for).'
+                    } elseif ($agents -eq 'auto') {
+                        $connect = $found
+                    } elseif (-not $canAsk) {
+                        Say ''; Say "AI agents found: $found. Connect them with: yukta-cli agents install"
+                    } else {
+                        Say ''
+                        $reply = Read-Host "Connect Yukta to your AI agents? Found: $found  [Y] connect them  [n] skip  [c] choose"
+                        if ($reply -match '^[Cc]') { $connect = Read-Host 'Agents (comma separated, or "all")' }
+                        elseif (-not $reply -or $reply -match '^[Yy]') { $connect = $found }
+                        else { Say 'Skipped. Later: yukta-cli agents install' }
+                    }
+                } else { $connect = $agents }
+                if ($connect) {
+                    Say ''
+                    if ($quiet) { & $cliExe agents install --agent $connect *> $null } else { & $cliExe agents install --agent $connect }
+                    if ($LASTEXITCODE -ne 0) { Say "Note: not every agent could be set up (see above). Retry later: yukta-cli agents install --agent $connect" }
+                }
+            } catch { Say "Note: could not set up the AI agents: $_. Run later: yukta-cli agents install" }
+        }
+
         Say ''
         if ($fun) {
             Write-Host -NoNewline '  '
@@ -272,10 +321,27 @@
             Write-Host ''
         }
         Say "$O${B}Done!$Z Yukta $version is ready (took $([int]((Get-Date) - $tStart).TotalSeconds)s)."
-        Say 'Next:'
-        if ($installedServer) { Say '  yukta                          # start the server on http://localhost:9858' }
-        if (-not $serverOnly) { Say '  yukta-cli session list         # talk to a running server' }
-        Say '  https://yukta.infenia.com      # docs and first workflow'
+        function Nx($cmd, $note) { Say ("  $B{0,-34}$Z $D{1}$Z" -f $cmd, $note) }
+        Say ''
+        Say "$O${B}Get started$Z"
+        if ($installedServer) {
+            Nx '1  yukta' 'start the server'
+            Nx '2  http://localhost:9858' 'open the web UI: sessions, live runs, logs'
+            Nx '3  yukta.infenia.com/learn/your-first-workflow' 'build and run one in 5 minutes'
+            Say ''
+            Say "$U${B}Let your AI assistant drive it$Z"
+            if (-not $serverOnly) { Say "  yukta-cli agents install        ${D}# connects Claude Code, Codex, Cursor, ... in one step$Z" }
+            Say '  claude mcp add --transport http yukta http://localhost:9858/mcp'
+            Say "  ${D}then ask: `"Create a Yukta workflow that runs my tests on every push`"$Z"
+        }
+        else {
+            Nx 'yukta-cli --url http://HOST:9858 session list' 'point the client at a running server'
+            Nx 'yukta.infenia.com/learn/your-first-workflow' 'build and run a workflow in 5 minutes'
+        }
+        Say ''
+        Say "$U${B}More$Z"
+        if (-not $serverOnly) { Nx 'yukta-cli session list' 'manage sessions and runs from the terminal' }
+        Nx 'yukta.infenia.com/examples' 'ready-made workflows: CI gates, pipelines, approvals'
     }
     catch {
         if ($st.cur) { Mark $st.cur "$O$BAD$Z" $st.text }

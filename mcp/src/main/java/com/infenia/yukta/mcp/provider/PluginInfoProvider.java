@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.ai.AiBackend;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
+import java.util.stream.Stream;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -67,8 +68,27 @@ public class PluginInfoProvider {
    * @return list of plugin summaries
    */
   public List<PluginSummary> listPlugins() {
-    return registry.listPlugins().stream()
-        .map(p -> new PluginSummary(p.getType(), p.getCategory()))
+    return Stream.concat(
+            registry.listPlugins().stream()
+                .map(
+                    p ->
+                        new PluginSummary(
+                            p.getType(),
+                            p.getCategory(),
+                            p.getTier(),
+                            p.isRestricted(),
+                            true,
+                            null)),
+            registry.listDisabled().stream()
+                .map(
+                    p ->
+                        new PluginSummary(
+                            p.getType(),
+                            p.getCategory(),
+                            p.getTier(),
+                            p.isRestricted(),
+                            false,
+                            registry.enableHint(p.getType()))))
         .toList();
   }
 
@@ -79,7 +99,8 @@ public class PluginInfoProvider {
    * @return plugin details
    */
   public PluginDetails getPluginDetails(final String type) {
-    final Plugin plugin = registry.get(type);
+    final Plugin enabledPlugin = registry.get(type);
+    final Plugin plugin = enabledPlugin != null ? enabledPlugin : registry.getDisabled(type);
     if (plugin == null) {
       throw new IllegalArgumentException("Plugin not found: " + type);
     }
@@ -89,7 +110,11 @@ public class PluginInfoProvider {
         plugin.describe().description(),
         plugin.describe().usagePattern(),
         plugin.describe().uiDesign().orElse(null),
-        plugin.getOutputPorts());
+        plugin.getOutputPorts(),
+        plugin.getTier(),
+        plugin.isRestricted(),
+        enabledPlugin != null,
+        enabledPlugin != null ? null : registry.enableHint(type));
   }
 
   /**

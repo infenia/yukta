@@ -38,6 +38,11 @@ class PluginContractDefaultsTest {
     assertThat(plugin.getOutputPorts()).containsExactly("default");
     assertThat(plugin.getOutputPorts(Map.of())).containsExactly("default");
     assertThat(plugin.isBlocking()).isFalse();
+    assertThat(plugin.getTier()).isEqualTo(PluginTier.CORE);
+    assertThat(plugin.isRestricted()).isFalse();
+    assertThat(PluginTier.values())
+        .containsExactly(PluginTier.CORE, PluginTier.EXTENDED, PluginTier.SPECIFIC);
+    assertThat(PluginTier.valueOf("SPECIFIC")).isSameAs(PluginTier.SPECIFIC);
     assertThat(plugin.isComputationallyHeavy(Map.of())).isFalse();
     assertThat(plugin.suppressOptimizationHint(Map.of())).isFalse();
     assertThat(plugin.requiresControlPlane()).isFalse();
