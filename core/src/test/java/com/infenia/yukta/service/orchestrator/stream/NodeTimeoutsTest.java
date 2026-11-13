@@ -79,6 +79,25 @@ class NodeTimeoutsTest {
   }
 
   @Test
+  void atLeastMinimum_raisesAShorterConfiguredTimeoutToThePluginsFloor() {
+    when(plugin.getMinimumTimeout(anyMap())).thenReturn(Duration.ofSeconds(32));
+
+    assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(2), plugin, Map.of()))
+        .isEqualTo(Duration.ofSeconds(32));
+    assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(90), plugin, Map.of()))
+        .isEqualTo(Duration.ofSeconds(90));
+  }
+
+  @Test
+  void atLeastMinimum_withoutAPluginOrAFloor_keepsTheConfiguredTimeout() {
+    // an unstubbed mock returns null for the floor, as a plugin written before it existed would not
+    assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(2), plugin, Map.of()))
+        .isEqualTo(Duration.ofSeconds(2));
+    assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(2), null, Map.of()))
+        .isEqualTo(Duration.ofSeconds(2));
+  }
+
+  @Test
   void secretsInTheConfigAreNotFetchedJustToReadTimeout() {
     final SecretProvider secrets = mock(SecretProvider.class);
     final VariableResolver withSecrets = new VariableResolver(secrets);

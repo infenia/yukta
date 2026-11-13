@@ -16,6 +16,7 @@ import com.infenia.yukta.service.orchestrator.assembly.ExecutionContextBuilder;
 import com.infenia.yukta.service.orchestrator.assembly.NodeAssembler;
 import com.infenia.yukta.service.orchestrator.strategy.NodeAssemblerStrategy;
 import com.infenia.yukta.service.orchestrator.strategy.ReplayNodeAssembler;
+import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.runtime.store.ExecutionControlStore;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -401,7 +402,9 @@ public class WorkflowCompiler {
 
     final Duration result;
     if (timeoutVal instanceof Number numValue && numValue.longValue() > 0) {
-      result = Duration.ofSeconds(numValue.longValue());
+      result =
+          NodeTimeouts.atLeastMinimum(
+              Duration.ofSeconds(numValue.longValue()), plugin, node.config());
       log.atTrace()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .addKeyValue("timeoutMs", result.toMillis())
