@@ -161,6 +161,18 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
+      # The 12g builder heap on a 16 GB runner leaves little for the OS and the linker; swap turns an
+      # OOM kill late in the build into a slower step.
+      - name: Add swap
+        if: runner.os == 'Linux'
+        run: |
+          sudo fallocate -l 8G /mnt/extra.swap
+          sudo chmod 600 /mnt/extra.swap
+          sudo mkswap /mnt/extra.swap
+          sudo swapon /mnt/extra.swap
+          swapon --show
+          free -m
+
       # Builds inside the Liberica NIK image, the same way the release machine does.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile

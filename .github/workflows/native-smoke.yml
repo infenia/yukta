@@ -33,6 +33,17 @@ jobs:
       - name: Free disk space
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
+      # The 12g builder heap on a 16 GB runner leaves little for the OS and the linker; swap turns an
+      # OOM kill late in the build into a slower step.
+      - name: Add swap
+        run: |
+          sudo fallocate -l 8G /mnt/extra.swap
+          sudo chmod 600 /mnt/extra.swap
+          sudo mkswap /mnt/extra.swap
+          sudo swapon /mnt/extra.swap
+          swapon --show
+          free -m
+
       - name: Native compile (quick)
         env:
           NATIVE_QUICK: '1'
