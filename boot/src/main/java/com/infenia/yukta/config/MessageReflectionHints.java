@@ -3,6 +3,7 @@
 package com.infenia.yukta.config;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.security.ApiKeys;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -36,6 +37,9 @@ public class MessageReflectionHints {
      * the call with "Cannot reflectively invoke method". The immutable and unmodifiable collections
      * are package-private, so they are named. Nothing outside the JDK is registered.
      */
+    /* default */ static final String FIELD_ERROR_ARRAY =
+        "com.infenia.yukta.model.api.ApiResponse$FieldError[]";
+
     /* default */ static final List<String> EXPRESSION_TYPES =
         List.of(
             "java.lang.Object",
@@ -107,6 +111,13 @@ public class MessageReflectionHints {
       // native binary reads no keys and the exposure guard refuses to start in a container.
       new BindingReflectionHintsRegistrar()
           .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
+      // Jackson builds the type of ApiResponse.errors through its array class; without the array
+      // registered every REST response fails in the native image ("Cannot reflectively instantiate
+      // the array class ...FieldError[]").
+      new BindingReflectionHintsRegistrar()
+          .registerReflectionHints(
+              hints.reflection(), ApiResponse.class, ApiResponse.FieldError.class);
+      hints.reflection().registerType(TypeReference.of(FIELD_ERROR_ARRAY));
       EXPRESSION_TYPES.forEach(
           name ->
               hints
