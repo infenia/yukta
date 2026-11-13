@@ -22,7 +22,7 @@ yk gradle nativeCompile
 
 ## Tech Stack
 - **Spring Boot 4.1.0**
-- **GraalVM CE** (not Oracle GraalVM: no -O3, PGO or --enable-sbom)
+- **Liberica NIK 25** (BellSoft, built from GraalVM CE; no -O3, PGO or --enable-sbom, as Oracle GraalVM has)
 
 ## Imports
 @.claude/rules/coding-standards.md

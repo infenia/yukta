@@ -26,9 +26,18 @@ out="$DIST/$platform"
 mkdir -p "$out"
 
 log "native compile for $platform (builder heap $heap)"
+# Peak memory of the whole machine during the build (the build runs in Docker, so a per-process
+# figure is not available): sample MemAvailable and swap every 5 s, print the extremes at the end.
+peak_log="$(mktemp)"
+(while sleep 5; do awk '/MemTotal/{t=$2} /MemAvailable/{a=$2} /SwapTotal/{st=$2} /SwapFree/{sf=$2} END{print int((t-a)/1024), int((st-sf)/1024)}' /proc/meminfo; done >"$peak_log") &
+sampler=$!
 docker build --target builder --build-arg "NATIVE_HEAP=$heap" \
   --build-arg "NATIVE_QUICK=${NATIVE_QUICK:-}" \
   -t "yukta-builder:$platform" "$REPO_ROOT"
+kill "$sampler" 2>/dev/null || true
+sort -n "$peak_log" | tail -1 | awk '{print "peak machine memory used: " $1 " MB"}'
+sort -k2 -n "$peak_log" | tail -1 | awk '{print "peak swap used: " $2 " MB"}'
+rm -f "$peak_log"
 cid="$(docker create "yukta-builder:$platform")"
 trap 'docker rm -f "$cid" >/dev/null 2>&1 || true' EXIT
 docker cp "$cid:/build/boot/build/native/nativeCompile/yukta" "$out/yukta"
