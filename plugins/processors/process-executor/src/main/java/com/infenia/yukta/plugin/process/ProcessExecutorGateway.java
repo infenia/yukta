@@ -47,8 +47,11 @@ public class ProcessExecutorGateway {
   /** The {@code yukta.process.pass-env} entry that passes the whole server environment. */
   private static final String PASS_ALL = "*";
 
+  /** The one server variable every process gets. */
+  private static final String PATH = "PATH";
+
   /** Server environment variables a process keeps; everything else is removed. */
-  private Set<String> passEnv = Set.of("PATH");
+  private Set<String> passEnv = Set.of(PATH);
 
   /** What a workflow may set for an allowed executable (environment, working directory). */
   private final ProcessLimits limits = new ProcessLimits();
@@ -124,6 +127,25 @@ public class ProcessExecutorGateway {
     return execute(spec, sink, onStart);
   }
 
+  /**
+   * Runs a command the operator installed, such as a community plugin, rather than one a workflow
+   * chose. The workflow limits ({@code yukta.process.allowed-commands}, {@code allow-any}, {@code
+   * allowed-env}, {@code working-dir-root}) do not apply, since the operator enabled the command by
+   * name. A shell never runs, and the process gets only {@code PATH} from the server's environment
+   * ({@code yukta.process.pass-env} does not apply) plus {@code spec.env()}.
+   *
+   * @param spec the execution specification; {@code useShell} is refused
+   * @param sink receives each stdout/stderr line live
+   * @return a Mono emitting the execution result
+   */
+  public Mono<ProcessExecutionResult> executeInstalled(
+      final ProcessExecutionSpec spec, final PluginLogSink sink) {
+    if (spec != null && spec.useShell()) {
+      return Mono.error(new IllegalArgumentException("an installed command never runs in a shell"));
+    }
+    return execute(spec, sink, null, true);
+  }
+
   /** Lines written to a running process' standard input. */
   public interface StdinWriter {
 
@@ -142,13 +164,21 @@ public class ProcessExecutorGateway {
       final ProcessExecutionSpec spec,
       final PluginLogSink sink,
       final Consumer<StdinWriter> interactive) {
+    return execute(spec, sink, interactive, false);
+  }
+
+  private Mono<ProcessExecutionResult> execute(
+      final ProcessExecutionSpec spec,
+      final PluginLogSink sink,
+      final Consumer<StdinWriter> interactive,
+      final boolean installed) {
     if (spec == null) {
       return Mono.error(new IllegalArgumentException("spec is mandatory"));
     }
     if (spec.command().isEmpty()) {
       return Mono.error(new IllegalArgumentException("command must not be empty"));
     }
-    final String refusal = refusalFor(spec);
+    final String refusal = installed ? null : refusalFor(spec);
     if (refusal != null) {
       return Mono.error(new IllegalArgumentException(refusal));
     }
@@ -156,7 +186,9 @@ public class ProcessExecutorGateway {
         spec.useShell() ? wrapInShell(spec.command()) : spec.command();
 
     return Mono.fromSupplier(System::nanoTime)
-        .flatMap(startNanos -> runProcess(spec, actualCommand, startNanos, sink, interactive));
+        .flatMap(
+            startNanos ->
+                runProcess(spec, actualCommand, startNanos, sink, interactive, installed));
   }
 
   /**
@@ -204,7 +236,7 @@ public class ProcessExecutorGateway {
   @Value("${yukta.process.pass-env:}")
   /* default */ void setPassEnv(final List<String> names) {
     final Set<String> pass = new HashSet<>(names);
-    pass.add("PATH");
+    pass.add(PATH);
     this.passEnv = Set.copyOf(pass);
     if (passEnv.contains(PASS_ALL)) {
       log.atWarn()
@@ -257,9 +289,10 @@ public class ProcessExecutorGateway {
       final List<String> actualCommand,
       final long startNanos,
       final PluginLogSink sink,
-      final Consumer<StdinWriter> interactive) {
+      final Consumer<StdinWriter> interactive,
+      final boolean installed) {
     return Mono.usingWhen(
-            startProcess(spec, actualCommand),
+            startProcess(spec, actualCommand, installed),
             process -> collectResult(process, spec, startNanos, sink, interactive),
             this::cleanupProcess)
         .timeout(Duration.ofSeconds(spec.timeoutSeconds()))
@@ -272,24 +305,25 @@ public class ProcessExecutorGateway {
    *
    * @param spec the execution specification
    * @param actualCommand the command after optional shell wrapping
+   * @param installed an operator-installed command: PATH only, directory not confined
    * @return a Mono emitting the started process
    */
   private Mono<Process> startProcess(
-      final ProcessExecutionSpec spec, final List<String> actualCommand) {
+      final ProcessExecutionSpec spec, final List<String> actualCommand, final boolean installed) {
     return Mono.fromCallable(
             () -> {
               log.atDebug().setMessage("Starting process: {}").addArgument(actualCommand).log();
               // an unknown command is left unwrapped, so it still fails to start (IOException)
               // instead of becoming setsid's exit code 127
               final boolean grouped =
-                  groupable(SETSID, actualCommand.get(0), System.getenv().getOrDefault("PATH", ""));
+                  groupable(SETSID, actualCommand.get(0), System.getenv().getOrDefault(PATH, ""));
               final List<String> launch =
                   grouped
                       ? Stream.concat(Stream.of(SETSID), actualCommand.stream()).toList()
                       : actualCommand;
               final ProcessBuilder processBuilder = new ProcessBuilder(launch);
               final File directory =
-                  limits.directory(spec.workingDir(), !allowedCommands.isEmpty());
+                  limits.directory(spec.workingDir(), !installed && !allowedCommands.isEmpty());
               if (directory != null) {
                 processBuilder.directory(directory);
                 log.atDebug()
@@ -297,7 +331,9 @@ public class ProcessExecutorGateway {
                     .addArgument(directory)
                     .log();
               }
-              if (!passEnv.contains(PASS_ALL)) {
+              if (installed) {
+                processBuilder.environment().keySet().retainAll(Set.of(PATH));
+              } else if (!passEnv.contains(PASS_ALL)) {
                 processBuilder.environment().keySet().retainAll(passEnv);
               }
               if (!spec.env().isEmpty()) {
