@@ -130,7 +130,7 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
-  void minimumTimeoutIsTheWaitPlusAMargin_soOnTimeoutRunsBeforeTheIdleTimeout() {
+  void minimumTimeoutIsTheWaitPlusMargin_soOnTimeoutRunsBeforeIdleTimeout() {
     final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
 
     assertThat(processor.getMinimumTimeout(Map.of("signal", "a", "timeoutSeconds", 2)))

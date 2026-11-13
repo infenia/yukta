@@ -33,6 +33,7 @@ class PluginContractDefaultsTest {
   @Test
   void defaultsAreStable() {
     assertThat(plugin.getDefaultTimeout()).isEqualTo(Duration.ofSeconds(30));
+    assertThat(plugin.getMinimumTimeout(Map.of())).isEqualTo(Duration.ZERO);
     assertThat(plugin.getDefaultBufferSize()).isEqualTo(1024);
     assertThat(plugin.getOutputPorts()).containsExactly("default");
     assertThat(plugin.getOutputPorts(Map.of())).containsExactly("default");

@@ -79,7 +79,7 @@ class NodeTimeoutsTest {
   }
 
   @Test
-  void atLeastMinimum_raisesAShorterConfiguredTimeoutToThePluginsFloor() {
+  void atLeastMinimum_raisesShorterConfiguredTimeoutToPluginFloor() {
     when(plugin.getMinimumTimeout(anyMap())).thenReturn(Duration.ofSeconds(32));
 
     assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(2), plugin, Map.of()))
@@ -89,7 +89,7 @@ class NodeTimeoutsTest {
   }
 
   @Test
-  void atLeastMinimum_withoutAPluginOrAFloor_keepsTheConfiguredTimeout() {
+  void atLeastMinimum_withoutPluginOrFloor_keepsConfiguredTimeout() {
     // an unstubbed mock returns null for the floor, as a plugin written before it existed would not
     assertThat(NodeTimeouts.atLeastMinimum(Duration.ofSeconds(2), plugin, Map.of()))
         .isEqualTo(Duration.ofSeconds(2));
