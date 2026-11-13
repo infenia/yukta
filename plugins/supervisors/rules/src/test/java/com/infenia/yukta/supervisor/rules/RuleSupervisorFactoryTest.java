@@ -13,6 +13,11 @@ import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
+import org.springframework.aot.hint.BindingReflectionHintsRegistrar;
+import org.springframework.aot.hint.MemberCategory;
+import org.springframework.aot.hint.RuntimeHints;
+import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
+import org.springframework.aot.hint.predicate.RuntimeHintsPredicates;
 
 /** Tests for the behaviour described by {@link RuleSupervisorFactory}. */
 @NoArgsConstructor
@@ -99,5 +104,23 @@ class RuleSupervisorFactoryTest {
     assertThatThrownBy(() -> factory.create(misspelled))
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> factory.create(noId)).isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void ruleRecordsAreBindableInANativeImage() {
+    final RegisterReflectionForBinding hint =
+        RuleSupervisorFactory.class.getAnnotation(RegisterReflectionForBinding.class);
+    final RuntimeHints hints = new RuntimeHints();
+
+    new BindingReflectionHintsRegistrar().registerReflectionHints(hints.reflection(), hint.value());
+
+    // the top record and a nested one: Jackson reads their components in the native binary
+    for (final Class<?> type : List.of(RuleSet.class, RuleSet.Deny.class, RuleSet.When.class)) {
+      assertThat(
+              RuntimeHintsPredicates.reflection()
+                  .onType(type)
+                  .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+          .accepts(hints);
+    }
   }
 }
