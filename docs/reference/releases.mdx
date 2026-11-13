@@ -61,14 +61,14 @@ Current release: **`0.1.0-alpha.4`**.
 
 | File | What it is |
 |---|---|
-| `yukta-<version>-linux-amd64.tar.gz` | The native server `yukta`, the client `yukta-cli`, the licence and a sample settings file. From the release after `0.1.0-alpha.3`, also `linux-arm64` and `darwin-amd64` (macOS) |
-| `yukta-<version>-windows-amd64.zip` | The same for Windows: `yukta.exe` and `yukta-cli.exe`. From the release after `0.1.0-alpha.3` |
-| `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped. From the release after `0.1.0-alpha.3`, also for `arm64` |
+| `yukta-<version>-linux-amd64.tar.gz` | The native server `yukta`, the client `yukta-cli`, the licence and a sample settings file. From `0.1.0-alpha.4`, also `linux-arm64` and `darwin-amd64` (macOS) |
+| `yukta-<version>-windows-amd64.zip` | The same for Windows: `yukta.exe` and `yukta-cli.exe`. From `0.1.0-alpha.4` |
+| `yukta_<version>_amd64.deb`, `yukta-<version>.x86_64.rpm` | The same programs as a package, with a `systemd` service that is installed stopped. From `0.1.0-alpha.4`, also for `arm64` |
 | `yukta-cli-linux-*`, `yukta-cli-darwin-*`, `yukta-cli-windows-amd64.exe` | The client alone, for each platform |
 | `install.sh` | One-command installer, pinned to the release |
-| `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library on the runtime classpath that is compiled into that binary, with its version. From the release after `0.1.0-alpha.3` |
+| `yukta-<version>-<platform>.sbom.json` | The server's software bill of materials ([CycloneDX](https://cyclonedx.org/)): every library on the runtime classpath that is compiled into that binary, with its version. From `0.1.0-alpha.4` |
 | `SHA256SUMS`, `SHA256SUMS.sigstore.json` | Checksums for every file, and a signature for the checksums |
-| `ghcr.io/infenia/yukta:<version>` | The container image (`linux/amd64` and `linux/arm64` from the release after `0.1.0-alpha.3`) |
+| `ghcr.io/infenia/yukta:<version>` | The container image (`linux/amd64` and `linux/arm64` from `0.1.0-alpha.4`) |
 
 ## Supported platforms
 
@@ -115,7 +115,7 @@ Files built by GitHub Actions (the command-line client binaries and the server b
 gh attestation verify yukta-cli-linux-amd64 -R infenia/yukta
 ```
 
-The container image is signed by the same workflow, and from the release after `0.1.0-alpha.3` it carries build provenance too (replace `X.Y.Z` with the version):
+The container image is signed by the same workflow, and from `0.1.0-alpha.4` it carries build provenance too (replace `X.Y.Z` with the version):
 
 ```bash
 cosign verify ghcr.io/infenia/yukta:X.Y.Z \

@@ -10,6 +10,14 @@ name: Release follow-up
 on:
   release:
     types: [published]
+  # Re-run only the docs job (a run that was cancelled or failed, or a draft published before the docs
+  # were ready): Actions > Release follow-up > Run workflow, with the tag, for example v0.1.0-alpha.4.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag the docs should pin (the latest published release)
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -17,6 +25,7 @@ permissions:
 jobs:
   follow-up:
     name: Comment on released issues
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -44,6 +53,7 @@ jobs:
   # that system: fix it in the next release, and say so in this one's notes.
   canary:
     name: Install on ${{ matrix.runner }}
+    if: github.event_name == 'release'
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -114,5 +124,5 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           REPO: ${{ github.repository }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
         run: .github/scripts/bump-docs.sh
