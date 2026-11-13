@@ -18,6 +18,9 @@ if (providers.gradleProperty("mutation").isPresent) {
 // needs a newer patch before Boot ships it, set the BOM property here (for example
 // extra["netty.version"] = "..."), and delete it again once Boot catches up.
 
+// Netty follows the catalog (boot/verifyNettyVersion checks it), ahead of the Boot BOM.
+extra["netty.version"] = libs.findVersion("netty").get().requiredVersion
+
 dependencyManagement {
     imports {
         mavenBom("org.springframework.boot:spring-boot-dependencies:${libs.findVersion("springBoot").get().requiredVersion}")
