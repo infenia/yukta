@@ -4,11 +4,13 @@ package com.infenia.yukta.config;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.security.ApiKeys;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.springframework.aot.hint.BindingReflectionHintsRegistrar;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
+import org.springframework.aot.hint.TypeReference;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
@@ -41,7 +43,76 @@ public class MessageReflectionHints {
       // native binary reads no keys and the exposure guard refuses to start in a container.
       new BindingReflectionHintsRegistrar()
           .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
+      EXPRESSION_TYPES.forEach(
+          name ->
+              hints
+                  .reflection()
+                  .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
     }
+
+    /**
+     * The JDK types whose methods a workflow expression may call ({@code SafeMethodResolver} lists
+     * the method names, and runs them by reflection): {@code items.toString()}, {@code
+     * name.substring(1)}, {@code payload.keySet()}. Without a registration the native image fails
+     * the call with "Cannot reflectively invoke method". The immutable and unmodifiable collections
+     * are package-private, so they are named. Nothing outside the JDK is registered.
+     */
+    /* default */ static final List<String> EXPRESSION_TYPES =
+        List.of(
+            "java.lang.Object",
+            "java.lang.String",
+            "java.lang.Number",
+            "java.lang.Integer",
+            "java.lang.Long",
+            "java.lang.Double",
+            "java.lang.Float",
+            "java.lang.Short",
+            "java.lang.Byte",
+            "java.lang.Boolean",
+            "java.lang.Character",
+            "java.lang.Enum",
+            "java.math.BigDecimal",
+            "java.math.BigInteger",
+            "java.util.Optional",
+            "java.util.AbstractCollection",
+            "java.util.AbstractList",
+            "java.util.AbstractSet",
+            "java.util.AbstractMap",
+            "java.util.ArrayList",
+            "java.util.LinkedList",
+            "java.util.HashSet",
+            "java.util.LinkedHashSet",
+            "java.util.TreeSet",
+            "java.util.HashMap",
+            "java.util.LinkedHashMap",
+            "java.util.TreeMap",
+            "java.util.HashMap$KeySet",
+            "java.util.HashMap$Values",
+            "java.util.LinkedHashMap$LinkedKeySet",
+            "java.util.LinkedHashMap$LinkedValues",
+            "java.util.ImmutableCollections$AbstractImmutableCollection",
+            "java.util.ImmutableCollections$AbstractImmutableList",
+            "java.util.ImmutableCollections$List12",
+            "java.util.ImmutableCollections$ListN",
+            "java.util.ImmutableCollections$AbstractImmutableSet",
+            "java.util.ImmutableCollections$Set12",
+            "java.util.ImmutableCollections$SetN",
+            "java.util.ImmutableCollections$AbstractImmutableMap",
+            "java.util.ImmutableCollections$Map1",
+            "java.util.ImmutableCollections$MapN",
+            "java.util.Collections$UnmodifiableCollection",
+            "java.util.Collections$UnmodifiableList",
+            "java.util.Collections$UnmodifiableRandomAccessList",
+            "java.util.Collections$UnmodifiableSet",
+            "java.util.Collections$UnmodifiableMap",
+            "java.time.Instant",
+            "java.time.LocalDate",
+            "java.time.LocalDateTime",
+            "java.time.LocalTime",
+            "java.time.OffsetDateTime",
+            "java.time.ZonedDateTime",
+            "java.time.Duration",
+            "java.time.Period");
 
     /**
      * Bean validation reads the record fields of the {@code yukta.*} properties (and their nested
