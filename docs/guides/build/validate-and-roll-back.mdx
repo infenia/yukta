@@ -1,0 +1,102 @@
+---
+title: "Validate a workflow and roll back a version"
+sidebarTitle: "Validate and roll back"
+description: "Check a draft workflow before anything is saved, read errors that name the node and option at fault, then list, compare, annotate and roll back saved versions."
+keywords: ["validation", "versions", "rollback", "diff", "note", "validate"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to catch a broken workflow before it is saved, and how to go back to an earlier version"
+  time="10 minutes"
+  need="the demo session from Define a workflow, and an ADMIN key if your server uses keys"
+  end="a draft you checked, and a rollback you made and can undo"
+/>
+
+**Use this when** you change a workflow and want to know it is sound before it replaces the current one, or when a change turns out to be wrong and you want the old one back. Yukta refuses a broken graph **before any plugin runs**, with an error naming the node and the option at fault, and keeps each workflow's newest 20 versions.
+
+<Diagram
+  name="guide-validate-and-roll-back"
+  alt="A draft is validated before it is saved; every save adds a version. When v3 breaks the workflow, rollback saves the old v1 definition again as the newest version, so history stays in a line."
+  caption="Validation stores nothing. A rollback is a new save, so it can be rolled back too."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Validate a draft">
+    Send one workflow (the object you would put under `workflows`). Nothing is stored, and the answer is `200` even for a bad draft:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/sessions/validate -H 'Content-Type: application/json' -d '{
+      "workflowId": "check", "description": "A draft with no terminal",
+      "nodes": [{ "nodeId": "trigger", "type": "API_TRIGGER", "config": {} }],
+      "edges": []
+    }'
+    ```
+
+    ```json
+    { "status": 200, "message": "Workflow validated",
+      "data": { "valid": false, "message": "Workflow must contain at least one TERMINAL node",
+                "outputPorts": { "trigger": ["default"] } } }
+    ```
+
+    `valid` says whether the draft would be accepted, `message` names the first problem found, and `outputPorts` lists each node's output ports for its configuration, so you know which `sourcePort` values are valid. Applying a session runs the same checks, so an invalid definition is never stored. The web UI validates before it saves.
+  </Step>
+
+  <Step title="Know what is checked">
+    | Check | Rejected when |
+    |---|---|
+    | Structure | A cycle, a duplicate node id or edge, or an edge to a node that does not exist |
+    | Roles | No trigger or no terminal, or an entry point that is not a trigger |
+    | Ports | An edge names a `sourcePort` the source plugin does not declare (`error` is allowed with `onError: ROUTE`) |
+    | Size | More than 500 nodes or 2000 edges |
+    | Failure policy | Unknown `engine` keys, bad ranges, `retryOn` and `noRetryOn` sharing a class ([Node options](/reference/node-options)) |
+    | Plugin options | A required option is missing or has the wrong type |
+    | Identifiers | A session, workflow or node id that is blank, too long or has a path separator |
+  </Step>
+
+  <Step title="List and compare versions">
+    Every change to a definition is saved as a version; applying an unchanged definition adds none.
+
+    ```bash
+    curl -s localhost:9858/api/sessions/demo/workflows/greet/versions
+    curl -s "localhost:9858/api/sessions/demo/workflows/greet/versions/diff?from=$OLD"
+    ```
+
+    Omit `to` to compare with the current definition. The diff lists a changed description, nodes added, removed or changed, and edges added or removed.
+  </Step>
+
+  <Step title="Annotate a version">
+    ```bash
+    curl -s -X POST localhost:9858/api/sessions/demo/workflows/greet/versions/note \
+      -H 'Content-Type: application/json' -d '{"version":"'$OLD'","note":"last version before the mapper change"}'
+    ```
+
+    Send the note in the body, not the URL, so it stays out of access logs. A blank note clears it.
+  </Step>
+
+  <Step title="Roll back">
+    ```bash
+    curl -s -X POST "localhost:9858/api/sessions/demo/workflows/greet/rollback?version=$OLD"
+    ```
+
+    The earlier version becomes the current definition and is saved again as a **new** version, so you can undo the rollback the same way. Runs that already started keep the definition they use.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+List the versions again: the newest entry is the rollback, and a diff from it to `$OLD` is empty. Start the workflow and it runs the restored definition. The MCP tools `diff_workflow_versions`, `list_workflow_versions`, `note_workflow_version` and `rollback_workflow`, the CLI (`session workflow versions|diff|rollback`) and the web UI's versions panel do the same.
+
+## Variations
+
+- **Run a saved version without changing the current one.** Set `options.version` in the start request (ADMIN keys only): `{"sessionId":"demo","workflowId":"greet","options":{"version":"<id>"}}`.
+- **Which graph did a run use?** Every run records a content hash of the graph it ran, carried by progress, history and the log.
+
+## Related
+
+- [Workflows API](/api/workflows) and [Sessions API](/api/sessions) for the full requests and answers.
+- [Workflow JSON reference](/reference/workflow-json) for the limits.

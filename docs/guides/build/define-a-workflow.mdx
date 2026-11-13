@@ -1,0 +1,111 @@
+---
+title: "Define a workflow in JSON"
+sidebarTitle: "Define a workflow"
+description: "Write a session with one workflow as JSON (nodes, edges, a terminal on every path), check it, apply it and start a run."
+keywords: ["workflow JSON", "session definition", "nodes", "edges", "define", "apply"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to describe a job as nodes and edges, send it to the server and run it"
+  time="10 minutes"
+  need="a server on localhost:9858 (and an ADMIN key if your server uses keys)"
+  end="a stored workflow you started once and read the result of"
+/>
+
+**Use this when** you want a new workflow on the server. A workflow is plain JSON: a list of steps (`nodes`) and a list of arrows between them (`edges`), stored inside a [session](/concepts/sessions-and-workflows).
+
+**Prerequisites:** a running server. If it uses API keys, add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl`.
+
+## Steps
+
+<Steps>
+  <Step title="Pick a trigger">
+    A trigger starts the run. `API_TRIGGER` emits the payload of the start request, `SCHEDULE_TRIGGER` ticks on a timer ([Schedule a workflow](/guides/build/schedule-a-workflow)) and `CONSTANT_SOURCE` emits fixed values.
+  </Step>
+
+  <Step title="Add processors">
+    Chain the plugins that fetch, transform, route or decide. The type string is used exactly as listed in the [plugin reference](/reference/plugins/overview). To see the options, ports and defaults of one plugin, ask the server:
+
+    ```bash
+    curl -s localhost:9858/api/plugins/MAPPER
+    ```
+  </Step>
+
+  <Step title="End every path with a terminal">
+    Every path must reach a terminal, such as `CONSOLE_TERMINAL`. A workflow with no terminal is refused.
+  </Step>
+
+  <Step title="Write it down">
+    Save this as `session.json`. It builds a greeting from the start payload:
+
+    ```json session.json
+    {
+      "sessionId": "demo",
+      "name": "Demo",
+      "description": "Greet a user",
+      "initiator": "docs",
+      "projectPath": "/tmp",
+      "workflows": {
+        "greet": {
+          "workflowId": "greet",
+          "description": "Build a greeting",
+          "nodes": [
+            { "nodeId": "trigger", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "map", "type": "MAPPER",
+              "config": { "mode": "PROJECTION", "mapping": { "greeting": "'Hello, ' + payload.name" } } },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "trigger", "target": "map" },
+            { "source": "map", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    The fields are in the [Workflow JSON reference](/reference/workflow-json). Only the node's `engine` object is read by the server (retries, error routing, time limits: [Node options](/reference/node-options)); everything else in `config` belongs to the plugin.
+  </Step>
+
+  <Step title="Check it, then apply it">
+    The check takes one workflow (the object under `workflows`) and stores nothing; see [Validate and roll back](/guides/build/validate-and-roll-back). Applying runs the same checks, so an invalid definition is never stored.
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @session.json
+    ```
+
+    Applying replaces the whole session with the same `sessionId`: workflows you leave out are removed. To edit, read it with `GET /api/sessions/demo/config`, change it and send it back.
+  </Step>
+
+  <Step title="Start a run">
+    ```bash
+    curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"demo","workflowId":"greet","payload":{"name":"Ada"}}'
+    ```
+
+    The answer is `202` with the new `executionId`.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/demo/executions/$EXEC/results
+```
+
+`$EXEC` is the `executionId` from the start call. The answer has `"status": "SUCCESS"` and a `RESULT` event from node `end` whose `payload` is `{"greeting": "Hello, Ada"}`. If the apply call answers `400`, its message names the node and the option at fault.
+
+## Variations
+
+- **No input needed.** Start from `CONSTANT_SOURCE` instead of `API_TRIGGER`.
+- **Group nodes in the UI.** Give nodes a `group`, or share an id prefix before the first dot (`lint`, `lint.fail`); display only.
+- **Use the CLI or the web UI.** `yukta-cli session apply session.json` ([CLI reference](/reference/cli)); the [web UI](/guides/operate/use-the-web-ui) renders a form from each plugin's options and previews the graph.
+- **Limits.** 500 nodes and 2000 edges per workflow; names and ids up to 256 characters. The newest 20 versions of a workflow are kept.
+
+## Related
+
+- [Route and branch](/guides/build/route-and-branch) to send messages down different paths.
+- [Use variables and expressions](/guides/build/use-variables-and-expressions) to read message data and secrets in `config`.
+- [Sessions and workflows](/concepts/sessions-and-workflows) for how the pieces relate.

@@ -1,0 +1,92 @@
+---
+title: "Loop and retry"
+sidebarTitle: "Loop and retry"
+description: "Pick between an engine retry for a failed message and LOOP_PREDICATE or LOOP_STREAM for repeating work until a condition holds, with the bounds that keep a loop finite."
+keywords: ["loops", "retries", "polling", "LOOP_PREDICATE", "LOOP_STREAM", "retry", "backoff"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="when to retry a failed step and when to loop until something is true, and how to bound both"
+  time="8 minutes"
+  need="a workflow with a node that can fail or has to be polled"
+  end="a node that retries with backoff, and a bounded polling loop"
+/>
+
+**Use this when** something has to happen again. Two different tools cover two different needs:
+
+| Need | Use | Scope |
+|---|---|---|
+| A step failed; try the same message again | `engine.retry` | One message, one node, with backoff |
+| Repeat an action until a condition becomes true (polling, waiting for readiness) | `LOOP_PREDICATE` | A target plugin, repeated and bounded |
+| Repeat an action and pass every result downstream | `LOOP_STREAM` | A target plugin, each result emitted as a message |
+
+<Diagram
+  name="guide-loop-and-retry"
+  alt="Two tools for two needs. engine.retry runs one failed message through the same node again and, when every attempt fails, sends it out of the error port. LOOP_PREDICATE runs a target again and again until its exit condition is true or a bound stops it."
+  caption="A retry reacts to a failure; a loop reacts to a condition. Both end in a bound."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Retry a failed message">
+    A retry runs the failed attempt again with exponential backoff and jitter. It is for transient faults, not for waiting. Add it in the node's `engine` object and send what still fails to an `error` edge:
+
+    ```json
+    { "nodeId": "call-api", "type": "HTTP_REQUEST",
+      "config": {
+        "url": "https://service.example.com/orders", "method": "POST",
+        "engine": { "retry": { "maxAttempts": 4, "backoffMs": 200, "maxBackoffMs": 5000 },
+                    "onError": "ROUTE" } } }
+    ```
+
+    ```json
+    { "source": "call-api", "target": "dead-letter", "sourcePort": "error" }
+    ```
+
+    Bad input (`IllegalArgumentException`) is not retried unless listed in `retryOn`. A retry can show the same message twice, so make side effects idempotent on the message id. All keys are in [Node options](/reference/node-options#retry).
+  </Step>
+
+  <Step title="Poll until a condition holds">
+    `LOOP_PREDICATE` wraps another processor, runs it again and again, and stops when `exitCondition` is true or a bound is reached. It emits only the final message. This polls a status endpoint every five seconds until the body says `done`:
+
+    ```json
+    { "nodeId": "poll", "type": "LOOP_PREDICATE",
+      "config": {
+        "targetPluginId": "HTTP_REQUEST",
+        "targetConfig": { "url": "https://example.com/status" },
+        "exitCondition": "payload.body.state == 'done'",
+        "maxIterations": 20,
+        "maxDuration": "PT2M",
+        "delayInterval": "PT5S",
+        "failureStrategy": "ABORT" } }
+    ```
+
+    `exitCondition` can read `#iterationCount` and `#elapsedTimeMs`. `maxIterations` defaults to 10 and `maxDuration` to `PT1M`; set both on purpose. `failureStrategy` says what a failing iteration does: `ABORT` (default), `RETRY`, `SKIP` or `ESCALATE`.
+  </Step>
+
+  <Step title="Emit every result instead">
+    `LOOP_STREAM` takes the same options but flattens every message the iterations produce into one stream, so downstream nodes work on results as they arrive. Use it to page through results or generate a series.
+  </Step>
+
+  <Step title="Mind the time limits">
+    A loop is one node, so the node's idle timeout and `deadlineMs` bound it. Raise `timeoutSeconds` for long polling. See [Time limits](/concepts/time-limits).
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start a run and read it: a retried node shows its attempts in the run log, and a message that used up its attempts arrives on the `error` edge with `failure.attempts` and `failure.message` (see [Messages](/reference/messages)). For the loop, the run ends once `exitCondition` is true, or at `maxIterations` or `maxDuration`, whichever comes first.
+
+## Variations
+
+- **A loop around several nodes.** A graph has no cycles. Put one round of work into its own workflow and call it with `SUB_WORKFLOW`: [Run a sub-workflow](/guides/build/run-a-sub-workflow).
+- **Do not retry AI calls blindly.** A model may return the same wrong answer, and each retry costs tokens; see the advice in the [failure model](/concepts/failure-model).
+
+## Related
+
+- [Handle failures](/guides/build/handle-failures) for routes, budgets and join rules.
+- [Routing and flow reference](/reference/plugins/routing-and-flow) for every loop option.

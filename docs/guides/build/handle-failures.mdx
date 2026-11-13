@@ -1,0 +1,105 @@
+---
+title: "Handle failures"
+sidebarTitle: "Handle failures"
+description: "Retry a failing step, route what still fails to a dead-letter node, cap the damage with a failure budget, and decide what a failed branch means at a join."
+keywords: ["failure handling", "retry", "onError", "ROUTE", "dead letter", "failureBudget", "trigger", "join rule"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to decide per node what a failure does: retry, route, drop or fail, and when a failed branch may be ignored"
+  time="12 minutes"
+  need="a server on localhost:9858"
+  end="a workflow that sends bad tickets to a dead-letter node and still ends SUCCESS"
+/>
+
+**Use this when** a step can fail and the whole run should not have to. The policy is a reserved `engine` object in the node's `config`; the plugin never sees it. Why the engine owns failure is in the [failure model](/concepts/failure-model).
+
+<Diagram
+  name="guide-handle-failures"
+  alt="A node with onError ROUTE retries a failing message, then sends it out of its error port to a dead-letter terminal, so the run carries on and still ends SUCCESS."
+  caption="Retry first; whatever still fails leaves on the error port to somewhere visible."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Route what fails to a dead-letter node">
+    `onError` says what happens to a message that still fails: `FAIL` (default) fails the node, `CONTINUE` drops the message, `ROUTE` sends it, with its failure attached, to the node's `error` port. Save as `failures.json`. A ticket whose `kind` is not `bug` matches no case, so the strict `BRANCH` fails it:
+
+    ```json failures.json
+    {
+      "sessionId": "failures", "name": "Failures",
+      "description": "Sort tickets, keep the bad ones", "initiator": "docs", "projectPath": "/tmp",
+      "workflows": {
+        "sort": {
+          "workflowId": "sort", "description": "Bugs to a queue, the rest to a dead letter",
+          "nodes": [
+            { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "by-kind", "type": "BRANCH",
+              "config": {
+                "selector": "payload.kind", "cases": { "bug": "bug-queue" },
+                "engine": { "retry": { "maxAttempts": 2 }, "onError": "ROUTE" } } },
+            { "nodeId": "bugs", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "dead-letter", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "ticket", "target": "by-kind" },
+            { "source": "by-kind", "target": "bugs", "sourcePort": "bug-queue" },
+            { "source": "by-kind", "target": "dead-letter", "sourcePort": "error" }
+          ]
+        }
+      }
+    }
+    ```
+
+    An edge with no `sourcePort` never carries a dead letter: the edge must say `"sourcePort": "error"`, or the failure is dropped.
+  </Step>
+
+  <Step title="Retry the transient">
+    `retry` runs the plugin again for the failing message with exponential backoff and jitter: `maxAttempts` (total, 1 to 10, default 3), `backoffMs` (default 200, doubling) and `maxBackoffMs` (default 10000). Narrow it with `retryOn` or `noRetryOn` (exception class names). Bad input (`IllegalArgumentException`) is never retried unless listed. A message produces all of its output or none: output emitted before a failed attempt is dropped.
+  </Step>
+
+  <Step title="Cap the damage with a failure budget">
+    `ROUTE` and `CONTINUE` can hide an outage: if a service is down, every message goes quietly to the dead letter. A budget makes the node fail instead once more than `maxFailures` messages fail within `windowMs`:
+
+    ```json
+    "engine": { "onError": "ROUTE", "failureBudget": { "maxFailures": 10, "windowMs": 60000 } }
+    ```
+
+    It needs `onError` set to `ROUTE` or `CONTINUE`; with `FAIL` the node is refused at validation.
+  </Step>
+
+  <Step title="Decide what a failed branch means at a join">
+    A node with several parents starts by `engine.trigger`: `ALL_SUCCESS` (default) fails when one parent fails, `ALL_DONE` carries on with the parents that worked, `ONE_SUCCESS` carries on but fails when every parent failed. This is how to send a report even if one optional check failed.
+  </Step>
+
+  <Step title="Bound time too">
+    A step that hangs is a failure. `elementTimeoutMs` limits one message (and counts as a failure, so retry and `onError` apply), `deadlineMs` limits the node's whole run. See [Time limits](/concepts/time-limits).
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @failures.json
+curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+  -d '{"sessionId":"failures","workflowId":"sort","payload":{"kind":"idea"}}'
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/failures/executions/$EXEC/results
+```
+
+The `RESULT` event comes from `dead-letter`, and the message carries `failure.attempts` (2), `failure.exception` and `failure.message`; the run still ends `SUCCESS`. With `"kind":"bug"` it comes from `bugs`. Change `onError` to `FAIL` and the same ticket fails the node (`FAILURE`) and ends the run: that run is what the supervisor guide replays ([Replay a supervisor](/guides/supervise/replay-a-supervisor)).
+
+## Variations
+
+- **A run can end `SUCCESS` with a failed branch inside it.** Look at node statuses ([Status values](/reference/status-values)), not only the run status.
+- **Make side effects idempotent.** A retried or resumed step can see a message twice ([Delivery and back-pressure](/concepts/delivery-and-backpressure)).
+- **Do not retry AI calls blindly.** Prefer a gate after the model, or a fallback model ([AI and deterministic work](/concepts/ai-and-deterministic-work)).
+
+## Related
+
+- [Node options reference](/reference/node-options) for every `engine` key.
+- [Messages reference](/reference/messages) for the `failure.*` labels.
+- [Loop and retry](/guides/build/loop-and-retry) for repeating work that has not failed.

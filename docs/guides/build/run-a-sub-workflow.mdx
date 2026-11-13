@@ -1,0 +1,113 @@
+---
+title: "Run a sub-workflow"
+sidebarTitle: "Run a sub-workflow"
+description: "Call one workflow from another with SUB_WORKFLOW: pass a payload, route on how the child ended, read the child's run, and respect the limits."
+keywords: ["sub-workflow", "SUB_WORKFLOW", "OUTCOME_TERMINAL", "routeByOutcome", "reuse", "child run"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to run a stored workflow as one step of another and branch on how it ended"
+  time="10 minutes"
+  need="a server on localhost:9858"
+  end="a parent workflow that ships on a passing check and stops on a failing one"
+/>
+
+**Use this when** the same sequence is needed in several workflows, or one round of work has to be repeated from a parent. A `SUB_WORKFLOW` node runs another workflow of the **same session** for each message, waits for it and emits the outcome. Why you would, and what it costs, is in [How sub-workflows work](/concepts/sub-workflows).
+
+<Diagram
+  name="guide-run-a-sub-workflow"
+  alt="The SUB_WORKFLOW node run-check starts the child workflow check and reads the outcome of the terminal the child reached. With routeByOutcome the parent leaves on success or failure."
+  caption="The child is an ordinary run. With routeByOutcome the parent branches on how it ended."
+/>
+
+## Steps
+
+<Steps>
+  <Step title="Write the child">
+    The child is a normal workflow. Its `OUTCOME_TERMINAL` names the exit it took. Here a check command runs and the child ends `SUCCESS` when it passes; a failing command fails the child. Save the whole session as `pipeline.json`:
+
+    ```json pipeline.json
+    {
+      "sessionId": "pipeline", "name": "Pipeline",
+      "description": "Check, then ship", "initiator": "docs", "projectPath": "/tmp",
+      "workflows": {
+        "check": {
+          "workflowId": "check", "description": "The child: one check",
+          "nodes": [
+            { "nodeId": "in", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "verdict", "type": "PROCESS_EXECUTOR",
+              "config": { "command": ["sh", "-c", "exit 0"] } },
+            { "nodeId": "done", "type": "OUTCOME_TERMINAL", "config": { "outcome": "SUCCESS" } }
+          ],
+          "edges": [ { "source": "in", "target": "verdict" }, { "source": "verdict", "target": "done" } ]
+        },
+        "release": {
+          "workflowId": "release", "description": "The parent: check, then ship",
+          "nodes": [
+            { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "run-check", "type": "SUB_WORKFLOW",
+              "config": { "workflowId": "check", "routeByOutcome": true } },
+            { "nodeId": "ship", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "stop-here", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "start", "target": "run-check" },
+            { "source": "run-check", "target": "ship", "sourcePort": "success" },
+            { "source": "run-check", "target": "stop-here", "sourcePort": "failure" }
+          ]
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Call it from the parent">
+    The node's options:
+
+    | Option | Meaning |
+    |---|---|
+    | `workflowId` | The child; it must exist in the same session |
+    | `payload` | The child's start payload, default the message's payload; values may use `${...}`, for example `{"module": "${payload.module}"}` |
+    | `routeByOutcome` | Leave on `success`, `failure`, `retry` or `escalate` by how the child ended, instead of failing this node when the child fails |
+    | `timeoutSeconds` | Longest the child may run, default 300 |
+    | `concurrency` | Messages whose children run at once, 1 to 16; results keep message order |
+
+    Without `routeByOutcome` a failing child fails the node, and the parent's [failure handling](/guides/build/handle-failures) applies.
+  </Step>
+
+  <Step title="Apply and start the parent">
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @pipeline.json
+    curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"pipeline","workflowId":"release"}'
+    ```
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/pipeline/executions/$EXEC/results
+curl -s localhost:9858/api/executions/$EXEC/tree
+```
+
+The `RESULT` event comes from `ship`, with a payload `{executionId, results, status, outcome}` where `outcome` is `SUCCESS` and `executionId` is the child's. The tree lists the parent and the child run. Change the command to `exit 3`, apply again and start: the result now comes from `stop-here`, and the parent run still ends `SUCCESS`, because the failure was routed, not raised.
+
+## Variations
+
+- **Outcome terminals.** `OUTCOME_TERMINAL` also takes `RETRY` and `ESCALATE` (with `restartFrom` and `reason`), which leave on the ports of the same names.
+- **Pass less than the whole message.** Set `payload`; the child reads it as `${start...}` from every node ([Use variables and expressions](/guides/build/use-variables-and-expressions)).
+
+## Limits
+
+- Nesting is capped at **5 levels**; deeper is refused.
+- A child runs on the slot its parent holds, so `yukta.execution.max-concurrent` must allow the parent and its children together.
+- A `SUB_WORKFLOW` node cannot run on a remote worker, and stopping the node cancels the child.
+
+## Related
+
+- [How sub-workflows work](/concepts/sub-workflows) for the model.
+- [Routing and flow reference](/reference/plugins/routing-and-flow#sub_workflow) and [Terminal reference](/reference/plugins/terminals) for every option.

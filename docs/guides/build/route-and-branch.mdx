@@ -1,0 +1,120 @@
+---
+title: "Route and branch"
+sidebarTitle: "Route and branch"
+description: "Send messages down different paths: by value with BRANCH, by exit code or HTTP status, with a filter, a validation, a recipient list, or the error port."
+keywords: ["routing", "branching", "BRANCH", "sourcePort", "conditional paths", "FILTER", "RECIPIENT_LIST"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to make a workflow decide: which node sends a message where, and how to wire each exit"
+  time="10 minutes"
+  need="a workflow with a trigger and terminals, as in Define a workflow"
+  end="a workflow that sends tickets to one of three terminals by their kind"
+/>
+
+**Use this when** the next step depends on the message: build passed or failed, a bug or a feature. A node publishes each message on a named **output port**, and an edge listens to one port with `sourcePort`.
+
+<Diagram
+  name="guide-route-and-branch"
+  alt="A BRANCH node looks up the value in its cases; each case names an output port, an edge with that sourcePort carries the message on, and defaultPort catches the rest."
+  caption="The case names the port, the edge's sourcePort picks it up, and defaultPort catches everything else."
+/>
+
+An edge with no `sourcePort` receives every port except `error`. A message on a port with no listening edge is dropped, so wire every port you care about.
+
+## Steps
+
+<Steps>
+  <Step title="Branch on a value">
+    `BRANCH` in its default mode `SELECT_KEY` evaluates `selector` and looks the result up in `cases`; each case names an output port. `defaultPort` catches the rest. Save as `router.json`:
+
+    ```json router.json
+    {
+      "sessionId": "router",
+      "name": "Router",
+      "description": "Sort tickets by kind",
+      "initiator": "docs",
+      "projectPath": "/tmp",
+      "workflows": {
+        "sort": {
+          "workflowId": "sort",
+          "description": "Bugs, features and the rest",
+          "nodes": [
+            { "nodeId": "ticket", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "by-kind", "type": "BRANCH",
+              "config": { "selector": "payload.kind",
+                          "cases": { "bug": "bug-queue", "feature": "feature-queue" },
+                          "defaultPort": "other-queue" } },
+            { "nodeId": "bugs", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "features", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "other", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "ticket", "target": "by-kind" },
+            { "source": "by-kind", "target": "bugs", "sourcePort": "bug-queue" },
+            { "source": "by-kind", "target": "features", "sourcePort": "feature-queue" },
+            { "source": "by-kind", "target": "other", "sourcePort": "other-queue" }
+          ]
+        }
+      }
+    }
+    ```
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @router.json
+    curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"router","workflowId":"sort","payload":{"kind":"bug"}}'
+    ```
+
+    The ports are the distinct values of `cases`, plus `defaultPort`. A case that routes to a port with no outgoing edge fails validation.
+  </Step>
+
+  <Step title="Branch on a condition instead">
+    With `mode: EXPRESSION`, each case key is a predicate and the first one that is true names the port:
+
+    ```json
+    { "nodeId": "decide", "type": "BRANCH",
+      "config": { "mode": "EXPRESSION",
+                  "cases": { "payload.coverage < 80 || payload.lintErrors > 0": "fail" },
+                  "defaultPort": "pass" } }
+    ```
+
+    The syntax is in the [Expressions reference](/reference/expressions). With `strictMode` on (the default) a message that matches nothing and has no `defaultPort` fails the node; `allowMultipleMatches` emits on every matching case.
+  </Step>
+
+  <Step title="Route on how a command or request went">
+    `PROCESS_EXECUTOR` with `"failureMode": "CONTINUE", "routeByExitCode": true` leaves on `success` or `failure`; `HTTP_REQUEST` does the same with `"routeByStatus": true`. Wire `"sourcePort": "success"` and `"failure"`.
+  </Step>
+
+  <Step title="Filter, validate, fan out">
+    - `FILTER` passes messages that match `condition` and drops the rest.
+    - `VALIDATE` sends messages that fail to its `invalid` port.
+    - `RECIPIENT_LIST` sends one message to several recipients, each recipient a port, optionally in parallel.
+    - To send the **same** message to several nodes without choosing, give the node several edges without `sourcePort`: every child receives every message.
+  </Step>
+
+  <Step title="Route failures and rejoin branches">
+    With `"onError": "ROUTE"` in a node's `engine` object, a message that fails all its attempts leaves on the `error` port: `{ "source": "classify", "target": "dead-letter", "sourcePort": "error" }`. See [Handle failures](/guides/build/handle-failures). Several branches may lead into one node; when it has several parents its `engine.trigger` join rule decides what a failed branch means.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s -H 'Accept: application/json' localhost:9858/api/sessions/router/executions/$EXEC/results
+```
+
+The `RESULT` event comes from node `bugs`. Start again with `"kind":"idea"` and it comes from `other`. To check the wiring before running, validate the workflow: the answer lists each node's output ports ([Validate and roll back](/guides/build/validate-and-roll-back)).
+
+## Variations
+
+- **Exact options for every routing plugin.** [Routing and flow reference](/reference/plugins/routing-and-flow).
+- **Route on an AI decision.** `CLASSIFY` writes its choice to a port: [Classify, gate and score](/guides/ai/classify-gate-and-score).
+
+## Related
+
+- [How Yukta works](/concepts/how-it-works) for nodes, edges and ports.
+- [Failure model](/concepts/failure-model) for join rules and error routes.

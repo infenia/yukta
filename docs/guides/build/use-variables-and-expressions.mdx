@@ -1,0 +1,84 @@
+---
+title: "Use variables, expressions and secrets"
+sidebarTitle: "Variables and expressions"
+description: "Put ${...} placeholders in node configuration to read message data, start payloads, server values and secrets, and keep secrets out of the stored workflow."
+keywords: ["variables", "expressions", "secrets", "placeholders", "decrypted", "templating"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to let one definition adapt to its input and keep passwords out of the file"
+  time="8 minutes"
+  need="a workflow with a node that calls something, such as HTTP_REQUEST"
+  end="a node whose URL, body and token come from the message, the run and the secret store"
+/>
+
+**Use this when** a value in a node's `config` must come from somewhere else: a field of the message, what the run was started with, a server setting or a secret. Write `${...}` where the value belongs; the server fills it in just before the node runs.
+
+## Steps
+
+<Steps>
+  <Step title="Read the message and the run">
+    | Placeholder | Resolves to |
+    |---|---|
+    | `${payload.a.b}` | A nested field of the message in hand (maps only) |
+    | `${metadata.key}` | A label on the message, such as `${metadata.signal.decision}` |
+    | `${start.a.b}` | A field of the run's start payload, readable from every node however far down |
+    | `${context.name}` | A plain value the caller put in the run context |
+
+    A value that is exactly one placeholder keeps its type (`"${payload.count}"` stays a number); inside a longer string the result is text. Force a type with a suffix: `${payload.secs:int}` (`int`, `long`, `double`, `bool`, `string`). The full list is in the [Expressions reference](/reference/expressions).
+  </Step>
+
+  <Step title="Read the server, on an allow-list">
+    `${env.NAME}` and `${sys.name}` read the server's environment and system properties, but only names with the prefix `YUKTA_VAR_` (`yukta.var.`), a short list of harmless ones (`HOME`, `TZ`, `os.name` and a few more) and names you list in `YUKTA_VARIABLES_ALLOWED`. Names that look like secrets (`PASSWORD`, `TOKEN`, `KEY` and similar) stay blocked even when listed.
+
+    ```bash
+    export YUKTA_VAR_REGION=eu-west
+    ```
+
+    Then use `${env.YUKTA_VAR_REGION}` in a node.
+  </Step>
+
+  <Step title="Keep a secret out of the definition">
+    Write the whole value as `decrypted:name`. The server reads the environment variable `YUKTA_SECRET_` plus the name upper-cased, every other character turned into `_`. `decrypted:chat-token` reads `YUKTA_SECRET_CHAT_TOKEN`; a session or tenant scope is possible (see the reference).
+
+    ```bash
+    export YUKTA_SECRET_CHAT_TOKEN=xoxb-example   # in the server's environment
+    ```
+
+    ```json
+    { "nodeId": "notify", "type": "HTTP_REQUEST",
+      "config": {
+        "url": "https://chat.example.com/hooks/ops", "method": "POST",
+        "headers": { "Authorization": "decrypted:chat-token" },
+        "body": { "text": "Build ${payload.build} finished with ${payload.status}" } } }
+    ```
+
+    A literal in a field the plugin declares secret is refused when the workflow is saved or run, so a pasted token cannot slip into a stored definition ([Security reference](/reference/security)).
+  </Step>
+
+  <Step title="Use an expression where a plugin takes one">
+    Branch cases, filter conditions, mapper projections and loop exit conditions are expressions, not placeholders. They read the message through `payload` and `metadata`:
+
+    ```text
+    payload.coverage >= 80 && payload.lintErrors == 0
+    ```
+
+    Only a short list of safe methods is allowed and each evaluation has a time limit.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+Start a run with `{"build":"42","status":"passed"}` and open the run log: the node's request body reads `Build 42 finished with passed`, and the token appears nowhere in the stored workflow (`GET /api/sessions/{id}/config`). A placeholder that finds nothing gives an empty value; a configuration that cannot be resolved at all, or a missing secret, fails that message like any plugin failure, so retries and error routing apply.
+
+## Variations
+
+- **Numeric options.** Write them as typed placeholders (`${payload.secs:int}`); an unknown value such as a timeout is applied when the first message arrives.
+- **Scripts.** The `MAPPER` `SCRIPT` mode runs JavaScript with time and statement limits ([Transform plugins](/reference/plugins/transform)).
+
+## Related
+
+- [Expressions reference](/reference/expressions) for every source, suffix and limit.
+- [Secure the server](/guides/operate/secure-the-server) for keys and roles.
