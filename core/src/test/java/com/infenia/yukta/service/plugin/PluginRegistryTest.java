@@ -8,10 +8,13 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.core.PluginSource;
 import java.util.List;
+import java.util.stream.Stream;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
 
@@ -226,6 +229,76 @@ class PluginRegistryTest {
     assertThatThrownBy(() -> new PluginRegistry(List.of(first, second)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Duplicate plugin type 'dup'");
+  }
+
+  @Test
+  void springConstructor_readsTheSourcesFromTheProvider() {
+    @SuppressWarnings("unchecked")
+    final ObjectProvider<PluginSource> provider = mock(ObjectProvider.class);
+    final PluginSource source = () -> List.of(plugin("FROM_SOURCE"));
+    when(provider.orderedStream()).thenReturn(Stream.of(source));
+
+    final PluginRegistry registry =
+        new PluginRegistry(List.of(plugin("BEAN")), List.of(), provider);
+
+    assertThat(registry.contains("FROM_SOURCE")).isTrue();
+  }
+
+  @Test
+  void sourcePlugin_isRegisteredWithoutTheEnableList() {
+    final Plugin builtIn = plugin("BUILT_IN");
+    final Plugin external = plugin("EXTERNAL");
+
+    final PluginRegistry registry =
+        new PluginRegistry(List.of(builtIn), List.of(), List.of(() -> List.of(external)));
+
+    assertThat(registry.contains("EXTERNAL")).isTrue();
+    assertThat(registry.contains("BUILT_IN")).isTrue();
+  }
+
+  @Test
+  void sourcePlugin_mayNotShadowAnEnabledPlugin() {
+    final Plugin builtIn = plugin("SHARED");
+    final Plugin external = plugin("SHARED");
+
+    assertThatThrownBy(
+            () -> new PluginRegistry(List.of(builtIn), List.of(), List.of(() -> List.of(external))))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Plugin type 'SHARED'")
+        .hasMessageContaining("is already used by");
+  }
+
+  @Test
+  void sourcePlugin_mayNotTakeTheTypeOfDisabledPlugin() {
+    final Plugin restricted = plugin("RESTRICTED");
+    when(restricted.isRestricted()).thenReturn(true);
+    final Plugin external = plugin("RESTRICTED");
+
+    assertThatThrownBy(
+            () ->
+                new PluginRegistry(
+                    List.of(restricted), List.of(), List.of(() -> List.of(external))))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("is already used by");
+  }
+
+  @Test
+  void sourcePlugin_builtForAnotherSpi_failsStartup() {
+    final Plugin external = plugin("OLD_EXTERNAL");
+    when(external.apiVersion()).thenReturn("2.0");
+
+    assertThatThrownBy(
+            () ->
+                new PluginRegistry(
+                    List.of(plugin("ANY")), List.of(), List.of(() -> List.of(external))))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Plugin 'OLD_EXTERNAL'");
+  }
+
+  private static Plugin plugin(final String type) {
+    final Plugin plugin = mock(Plugin.class);
+    when(plugin.getType()).thenReturn(type);
+    return plugin;
   }
 
   @Test
