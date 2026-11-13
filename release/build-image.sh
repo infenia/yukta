@@ -50,6 +50,13 @@ smoke_test() {
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
       "$RELEASE_DIR/smoke-test.sh" "http://127.0.0.1:$port" smoke-test-key ||
         { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "smoke test failed for $platform"; }
+      # The examples, on the image that runs natively here (arm64 runs under QEMU: the Quickstart is enough). The
+      # image has no shell, so the examples that run commands skip; the others must pass.
+      if [[ "$platform" == "amd64" ]]; then
+        SMOKE_ALLOW_SKIP="01-hello-world 02-agent-verification 03-release-approval 08-alert-triage 09-llm-chat-agent 15-input-pull 16-supervisor-profiles 17-supervisor-workflow" \
+          "$RELEASE_DIR/examples-smoke.sh" "http://127.0.0.1:$port" smoke-test-key ||
+          { docker logs "$name" >&2 || true; docker rm -f "$name" >/dev/null 2>&1 || true; die "examples smoke failed for $platform"; }
+      fi
       # /actuator/info needs the key and must report the version this image was built for.
       curl -fsS -H "Authorization: Bearer smoke-test-key" "http://127.0.0.1:$port/actuator/info" 2>/dev/null |
         grep -q "\"version\":\"$version\"" || die "smoke test failed for $platform: /actuator/info does not report version $version"

@@ -62,7 +62,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-          sparse-checkout: release   # smoke-test.sh, from the released tag
+          sparse-checkout: |   # the smoke tests and the examples, from the released tag
+            release
+            examples
 
       # With cosign present the installers also verify the signature of SHA256SUMS.
       - uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
@@ -83,10 +85,11 @@ jobs:
         run: |
           exe=""; [ "$RUNNER_OS" != Windows ] || exe=.exe
           "$YUKTA_INSTALL_DIR/yukta-cli$exe" --version | grep -F "${TAG#v}"
-          "$YUKTA_INSTALL_DIR/yukta$exe" &
+          YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 "$YUKTA_INSTALL_DIR/yukta$exe" &
           pid=$!
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
+          if [ "$RUNNER_OS" = Linux ]; then release/examples-smoke.sh http://127.0.0.1:9858; fi
 
   docs:
     name: Point the docs at the release

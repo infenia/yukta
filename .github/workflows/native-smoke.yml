@@ -39,12 +39,16 @@ jobs:
           NATIVE_HEAP: 12g
         run: release/build-server.sh
 
-      - name: Smoke test
+      # The examples run commands (sh, echo) and a Python pager stand-in, which a default server refuses.
+      - name: Smoke test and examples
+        env:
+          YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
         run: |
           dist/linux-amd64/yukta &
           pid=$!
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
+          release/examples-smoke.sh http://127.0.0.1:9858
 
       # Run modes of the same binary: daemon commands and the console on a pseudo-terminal. Here and
       # not on pull requests, because it needs the native build above.
