@@ -107,7 +107,7 @@ class RuleSupervisorFactoryTest {
   }
 
   @Test
-  void ruleRecordsAreBindableInANativeImage() {
+  void ruleRecordsAreBindableInNativeImage() {
     final RegisterReflectionForBinding hint =
         RuleSupervisorFactory.class.getAnnotation(RegisterReflectionForBinding.class);
     final RuntimeHints hints = new RuntimeHints();
