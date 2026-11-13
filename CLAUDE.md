@@ -95,7 +95,7 @@ writes into the shared copy, so run it deliberately when a branch changes `ui/pa
 `worktree.sparsePaths` is **not** set (measured 2026-10-31): the tracked tree is 16 MB and a full worktree is created in 0.2 s (0.1 s sparse),
 and a sparse tree breaks the build: Gradle fails with "Configuring project ':plugins:processors:internal' without an existing directory is not
 allowed" because `settings.gradle.kts` includes every module, and `yk` itself lives in `examples/dogfood`. Keeping all modules and `examples`
-leaves only `docs`, `design`, `bruno` and `.github` out, a few MB.
+leaves only `docs`, `design` and `.github` out, a few MB.
 
 ## Testing Strategy
 - Unit tests use JUnit 5 + Mockito (for reactive: `reactor.test`).
