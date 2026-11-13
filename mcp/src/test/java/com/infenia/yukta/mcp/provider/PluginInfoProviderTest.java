@@ -102,4 +102,34 @@ class PluginInfoProviderTest {
     assertNotNull(guide.templateCode());
     assertFalse(guide.templateCode().isEmpty());
   }
+
+  @Test
+  void listAiBackends_isEmptyByDefaultAndListsBeansWhenPresent() {
+    assertEquals(List.of(), provider.listAiBackends());
+
+    var beans = new org.springframework.beans.factory.support.StaticListableBeanFactory();
+    beans.addBean(
+        "b",
+        new com.infenia.yukta.plugin.ai.AiBackend() {
+          @Override
+          public String kind() {
+            return "B";
+          }
+
+          @Override
+          public String description() {
+            return "d";
+          }
+
+          @Override
+          public List<com.infenia.yukta.plugin.core.ConfigField> options() {
+            return List.of();
+          }
+        });
+    var withBackend =
+        new PluginInfoProvider(
+            registry, beans.getBeanProvider(com.infenia.yukta.plugin.ai.AiBackend.class));
+
+    assertEquals("B", withBackend.listAiBackends().get(0).kind());
+  }
 }

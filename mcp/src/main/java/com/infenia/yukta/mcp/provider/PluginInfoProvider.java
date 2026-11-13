@@ -6,10 +6,12 @@ import com.infenia.yukta.mcp.dto.PluginCreationGuide;
 import com.infenia.yukta.mcp.dto.PluginDetails;
 import com.infenia.yukta.mcp.dto.PluginSummary;
 import com.infenia.yukta.mcp.util.PluginTemplateBuilder;
+import com.infenia.yukta.plugin.ai.AiBackend;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -17,11 +19,47 @@ import org.springframework.stereotype.Component;
  * generation with templates.
  */
 @Component
-@RequiredArgsConstructor
 public class PluginInfoProvider {
 
   /** Registry for accessing all available plugins. */
   private final PluginRegistry registry;
+
+  /** The AI backends in this build. */
+  private final ObjectProvider<AiBackend> aiBackends;
+
+  /**
+   * Creates the provider.
+   *
+   * @param registry the plugin registry
+   * @param aiBackends the AI backends, if any plugin offers them
+   */
+  @Autowired
+  public PluginInfoProvider(
+      final PluginRegistry registry, final ObjectProvider<AiBackend> aiBackends) {
+    this.registry = registry;
+    this.aiBackends = aiBackends;
+  }
+
+  /**
+   * Creates a provider with no AI backends.
+   *
+   * @param registry the plugin registry
+   */
+  public PluginInfoProvider(final PluginRegistry registry) {
+    this(
+        registry,
+        new org.springframework.beans.factory.support.StaticListableBeanFactory()
+            .getBeanProvider(AiBackend.class));
+  }
+
+  /**
+   * List the AI backends with the options each one reads.
+   *
+   * @return the backends
+   */
+  public List<AiBackend.Info> listAiBackends() {
+    return aiBackends.orderedStream().map(AiBackend::info).toList();
+  }
 
   /**
    * List all available plugins.

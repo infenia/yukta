@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
@@ -23,17 +24,31 @@ class DecisionModelsTest {
   @Test
   void answer_routesByBackend() {
     final SystemOneModel systemOne = mock(SystemOneModel.class);
+    when(systemOne.kind()).thenReturn("SYSTEMONE");
     final ChatDecisionModel chat = mock(ChatDecisionModel.class);
+    when(chat.kind()).thenReturn("LLM");
     final Map<String, Answer> fromSystemOne = Map.of("q", new Answer.YesNo(1));
     final Map<String, Answer> fromChat = Map.of("q", new Answer.YesNo(0));
     when(systemOne.answer(spec(ModelSpec.Backend.SYSTEMONE), "s", Map.of()))
         .thenReturn(Mono.just(fromSystemOne));
     when(chat.answer(spec(ModelSpec.Backend.LLM), "s", Map.of())).thenReturn(Mono.just(fromChat));
-    final DecisionModels models = new DecisionModels(systemOne, chat);
+    final DecisionModels models = new DecisionModels(List.of(systemOne, chat));
 
     assertThat(models.answer(spec(ModelSpec.Backend.SYSTEMONE), "s", Map.of()).block())
         .isSameAs(fromSystemOne);
     assertThat(models.answer(spec(ModelSpec.Backend.LLM), "s", Map.of()).block())
         .isSameAs(fromChat);
+  }
+
+  @Test
+  void answer_namesTheAvailableKindsWhenOneIsMissing() {
+    final SystemOneModel systemOne = mock(SystemOneModel.class);
+    when(systemOne.kind()).thenReturn("SYSTEMONE");
+    final DecisionModels models = new DecisionModels(List.of(systemOne));
+
+    assertThat(models.answer(spec(ModelSpec.Backend.LLM), "s", Map.of()).materialize().block())
+        .extracting(s -> String.valueOf(s.getThrowable()))
+        .asString()
+        .contains("No decision backend 'LLM'", "SYSTEMONE");
   }
 }

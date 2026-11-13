@@ -20,7 +20,7 @@ yk gradle :mcp:test
 - **Control**: `control_workflow` (PAUSE/RESUME/STOP/STOP_ALL/RESTART/RESTART_FROM_NODE),
   `control_node` (PAUSE/RESUME/STOP/STEP/STEP_ENABLE/STEP_DISABLE)
 - **Input requests** (`InputProvider`): `list_pending_inputs` (VIEWER; bounded: 50 entries, texts cut to 2000 characters), `answer_input` and `escalate_input` (OPERATOR; `sessionId` is required like every execution-scoped tool). Tool descriptions say that prompts and context are untrusted.
-- **Plugins**: `list_plugins`, `get_plugin_details`, `get_plugin_creation_guide`
+- **Plugins**: `list_plugins`, `get_plugin_details`, `list_ai_backends`, `get_plugin_creation_guide`
 - **Monitoring**: `get_control_bus_status`, `get_metrics_snapshot` (sampled meters plus per-scope run aggregates from `MetricsProvider`)
 
 ## Key Files

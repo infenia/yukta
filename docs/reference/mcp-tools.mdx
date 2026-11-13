@@ -34,7 +34,7 @@ claude mcp add --transport http yukta http://localhost:9858/mcp \
 - **Header:** `Authorization: Bearer <key>` or `X-API-Key: <key>`, checked against the same `yukta.api-keys` as the REST API.
 - **No key configured:** the server accepts loopback requests only, and the effective role is `ADMIN`.
 - **Refusal:** a tool call the key's role does not allow is refused with HTTP `403`.
-- **Session keys:** a key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. Tools that name no session and are open to such a key: `list_plugins`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor_contract`, `list_supervisor_presets`, `whoami`.
+- **Session keys:** a key limited to sessions can call a tool only with a `sessionId` argument that names one of its sessions. Tools that name no session and are open to such a key: `list_plugins`, `list_ai_backends`, `get_plugin_details`, `get_session_creation_instructions`, `get_plugin_creation_guide`, `list_supervisor_engines`, `get_supervisor_engine`, `get_supervisor_contract`, `list_supervisor_presets`, `whoami`.
 - **Audit:** control commands sent over MCP with a named key are recorded as `key:<name>`.
 
 ### Roles
@@ -72,6 +72,7 @@ Create, read and version sessions and workflows, and discover plugins.
 | `delete_session` | ADMIN | `sessionId`, `force?` | Deletes a session and its workflows; run history stays. Refused while runs are active unless `force` cancels them. |
 | `delete_workflow` | ADMIN | `sessionId`, `workflowId`, `force?` | Deletes one workflow and its versions; run history stays. Same `force` rule. |
 | `list_plugins` | VIEWER | none | Lists plugins with categories. |
+| `list_ai_backends` | VIEWER | none | Lists the model and agent backends a plugin's `backend` option can select, with the options each reads. |
 | `get_plugin_details` | VIEWER | `type` | One plugin with its usage pattern. |
 | `get_plugin_creation_guide` | VIEWER | `templateType?` (`trigger`, `processor`, `terminal` or `all`) | Guide and templates for writing a plugin. |
 

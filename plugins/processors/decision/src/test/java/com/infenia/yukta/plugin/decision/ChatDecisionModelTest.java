@@ -161,4 +161,15 @@ class ChatDecisionModelTest {
 
     assertThatThrownBy(() -> answer(gateway)).hasMessageContaining("down");
   }
+
+  @Test
+  void describesItselfAsBackend() {
+    final ChatDecisionModel model = new ChatDecisionModel(mock(LlmGateway.class));
+
+    assertThat(model.kind()).isEqualTo("LLM");
+    assertThat(model.description()).contains("chat model");
+    assertThat(model.info().options())
+        .extracting("name")
+        .contains("provider", "model", "baseUrl", "apiKey", "timeout");
+  }
 }

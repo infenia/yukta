@@ -164,4 +164,13 @@ class SystemOneModelTest {
     assertThat(answers.get("yes")).isEqualTo(new Answer.YesNo(0));
     assertThat(answers.get("rate")).isEqualTo(new Answer.Score(0));
   }
+
+  @Test
+  void describesItselfAsBackend() {
+    final SystemOneModel model = new SystemOneModel(WebClient.builder());
+
+    assertThat(model.kind()).isEqualTo("SYSTEMONE");
+    assertThat(model.description()).contains("System One");
+    assertThat(model.info().options()).extracting("name").contains("model", "baseUrl", "timeout");
+  }
 }
