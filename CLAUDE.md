@@ -29,7 +29,7 @@ This is a multi-module Gradle monorepo. Launch Claude from the specific package 
 ## Global Commands
 
 Builds, tests and lint (Gradle, Go, pnpm/npx) run **through Yukta**, never `./gradlew` directly (the `yukta-dogfood` mod blocks it and names the command to
-use). `yk` is `examples/dogfood/yk` (on PATH in Claude Code sessions); `yk gradle` and `yk tool` run every call as
+use). `yk` is the one of the sibling [yukta-dogfood](https://github.com/infenia/yukta-dogfood) checkout: run `scripts/dogfood-setup.sh` once (it clones the ref pinned in `.dogfood-ref`; on PATH in Claude Code sessions after that); `yk gradle` and `yk tool` run every call as
 the `tool` Yukta workflow on the **dev server: built from `origin/main`, on `http://127.0.0.1:9858`**, started
 on demand. See the `yukta` skill.
 
@@ -41,7 +41,7 @@ yk gradle :architecture:test :plus:plus-architecture:test   # the ArchUnit archi
 yk check                    # the scoped, self-healing gate for your changes (yk check --full before a PR); yk plan shows what it would run
 yk tool -C cli go test ./...                      # Go (cli/)
 yk tool -C ui npx --no-install prettier --check .  # UI (ui/): pnpm/npx/node_modules/.bin commands
-yk tool -C examples/dogfood bun test            # the dogfood itself (yk, heal, plan; TypeScript on Bun); examples/dogfood and .claude/hooks likewise
+# yk, heal, plan, hooks (TypeScript on Bun) are tested in the yukta-dogfood repository, not here
 
 # Run the application you are developing (not a build: stays direct; Swagger UI at http://localhost:9858/swagger-ui.html)
 ./gradlew bootRun
@@ -50,7 +50,7 @@ yk tool -C examples/dogfood bun test            # the dogfood itself (yk, heal, 
 Every run ends with one `RESULT status=… failed_node=…` line; read that and the `ERROR` lines before it, not logs.
 Run the smallest scope that covers your change (a test class, then a package, then a module's tasks).
 
-> Rebuild in progress (see `examples/dogfood/README.md`): only `yk gradle`, `yk tool`, `yk plan` and `yk check` (with healing) are exposed so far. The
+> Rebuild in progress (see the yukta-dogfood README): only `yk gradle`, `yk tool`, `yk plan` and `yk check` (with healing) are exposed so far. The
 > previous guide, with issue pickup, steering and the heal reports, is in git history (`examples/11-dogfood/backup/CLAUDE.md`).
 
 ## GitHub API budget
@@ -76,7 +76,7 @@ Checked-in generated or vendored files that would fill the context are denied to
 
 `build/`, `dist/` and `node_modules` are not denied: they are gitignored (search skips them) and `build/test-results` is read on purpose.
 The rules are in `.claude/settings.json`; Claude Code reads the shared settings of the **directory it starts in**, not of the repository
-root, so `ui/`, `boot/`, `docs/` and `examples/dogfood/` carry their own `.claude/settings.json` with the rules for their files. Add a
+root, so `ui/`, `boot/` and `docs/` carry their own `.claude/settings.json` with the rules for their files. Add a
 rule to the root file and to the module that holds the path. Worktree sessions get them with the checkout. To work on a denied file,
 remove its rule in your own checkout for the session (a deny cannot be overridden by `allow` or `settings.local.json`).
 
@@ -94,7 +94,7 @@ writes into the shared copy, so run it deliberately when a branch changes `ui/pa
 
 `worktree.sparsePaths` is **not** set (measured 2026-10-31): the tracked tree is 16 MB and a full worktree is created in 0.2 s (0.1 s sparse),
 and a sparse tree breaks the build: Gradle fails with "Configuring project ':plugins:processors:internal' without an existing directory is not
-allowed" because `settings.gradle.kts` includes every module, and `yk` itself lives in `examples/dogfood`. Keeping all modules and `examples`
+allowed" because `settings.gradle.kts` includes every module, and `yk` itself lives in the sibling yukta-dogfood checkout. Keeping all modules and `examples`
 leaves only `docs`, `design` and `.github` out, a few MB.
 
 ## Testing Strategy

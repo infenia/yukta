@@ -37,7 +37,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = ["claude-mods/**", ".claude-plugin/**", "examples/dogfood/mod/**", "examples/dogfood/channel/**", "examples/**/*.json", "examples/**/*.sh", "examples/**/*.jq", "examples/dogfood/package.json", "examples/dogfood/tsconfig.json", "examples/dogfood/bunfig.toml", "examples/dogfood/bun.lock", "examples/dogfood/package.json", "examples/dogfood/tsconfig.json", "examples/dogfood/bun.lock", ".claude/hooks/package.json", ".claude/hooks/tsconfig.json", ".claude/hooks/bun.lock", "examples/dogfood/eval/**", "release/smoke-session.json", "config/mutation/baseline.json", "perf/baseline.json"]
+path = ["claude-mods/**", ".claude-plugin/**", "examples/**/*.json", "examples/**/*.sh", "examples/**/*.jq", "release/smoke-session.json", "config/mutation/baseline.json", "perf/baseline.json"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
