@@ -1,2 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: 2026 Infenia Private Limited
+#
 # The yukta-dogfood commit or tag this checkout works with; scripts/dogfood-setup.sh checks it out.
 80b58901bcfbfd869044dd9d247af0a27b1fed36
