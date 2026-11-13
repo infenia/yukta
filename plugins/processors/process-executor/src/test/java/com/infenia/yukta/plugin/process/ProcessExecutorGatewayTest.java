@@ -84,6 +84,59 @@ class ProcessExecutorGatewayTest {
         .flatMapMany(r -> Flux.fromIterable(r.stdoutLines()));
   }
 
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void sink_getsEachLineWhileTheProcessIsStillRunning() {
+    final List<String> seen = new CopyOnWriteArrayList<>();
+    final Disposable run =
+        gateway
+            .executeForResult(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "echo first; sleep 30"))
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> seen.add(stream + ":" + line))
+            .subscribe();
+    try {
+      await()
+          .atMost(Duration.ofSeconds(5))
+          .untilAsserted(() -> assertThat(seen).contains("stdout:first"));
+      assertThat(run.isDisposed()).as("the process has not exited yet").isFalse();
+    } finally {
+      run.dispose();
+    }
+  }
+
+  @Test
+  @EnabledOnOs(OS.LINUX)
+  void cancelling_killsTheProcessAndItsChildren(@TempDir final Path dir) throws IOException {
+    final Path pidFile = dir.resolve("child.pid");
+    final Disposable run =
+        gateway
+            .executeForResult(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("sh", "-c", "sleep 60 & echo $! > " + pidFile + "; wait"))
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                (stream, line, level) -> {})
+            .subscribe();
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .until(() -> Files.exists(pidFile) && Files.size(pidFile) > 0);
+    final long childPid = Long.parseLong(Files.readString(pidFile).strip());
+    assertThat(ProcessHandle.of(childPid)).as("the child runs before the cancel").isPresent();
+
+    run.dispose();
+
+    await()
+        .atMost(Duration.ofSeconds(5))
+        .untilAsserted(
+            () ->
+                assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
+                    .as("the background child is gone")
+                    .isFalse());
+  }
+
   @BeforeEach
   void setUp() {
     gateway = new ProcessExecutorGateway();
