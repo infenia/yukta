@@ -14,6 +14,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -42,6 +43,12 @@ public class ProcessExecutorGateway {
 
   /** Whether any executable may run while the list is empty. */
   private boolean allowAny;
+
+  /** The {@code yukta.process.pass-env} entry that passes the whole server environment. */
+  private static final String PASS_ALL = "*";
+
+  /** Server environment variables a process keeps; everything else is removed. */
+  private Set<String> passEnv = Set.of("PATH");
 
   /** What a workflow may set for an allowed executable (environment, working directory). */
   private final ProcessLimits limits = new ProcessLimits();
@@ -147,6 +154,27 @@ public class ProcessExecutorGateway {
   }
 
   /**
+   * Server environment variables a process receives besides {@code PATH}. A process starts with a
+   * clean environment, since the server's own environment can hold secrets ({@code
+   * YUKTA_SECRET_*}); the variables a workflow sets in {@code env} are added on top. {@code *}
+   * passes the whole server environment (a trusted local server only).
+   *
+   * @param names the variable names, exactly as written, or {@code *}
+   */
+  @Value("${yukta.process.pass-env:}")
+  /* default */ void setPassEnv(final List<String> names) {
+    final Set<String> pass = new HashSet<>(names);
+    pass.add("PATH");
+    this.passEnv = Set.copyOf(pass);
+    if (passEnv.contains(PASS_ALL)) {
+      log.atWarn()
+          .log(
+              "yukta.process.pass-env=*: processes inherit the whole server environment,"
+                  + " including any secrets in it");
+    }
+  }
+
+  /**
    * Confines the working directory of a process to a directory while the list of commands is set: a
    * relative {@code workingDir} is taken from it, no working directory means it, and one that
    * leaves it (by {@code ..} or a link) is refused.
@@ -227,6 +255,9 @@ public class ProcessExecutorGateway {
                     .setMessage("Process working directory set to: {}")
                     .addArgument(directory)
                     .log();
+              }
+              if (!passEnv.contains(PASS_ALL)) {
+                processBuilder.environment().keySet().retainAll(passEnv);
               }
               if (!spec.env().isEmpty()) {
                 processBuilder.environment().putAll(spec.env());

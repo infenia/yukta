@@ -491,6 +491,47 @@ class ProcessExecutorGatewayTest {
   }
 
   @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void process_doesNotInheritTheServerEnvironment() {
+    // Yukta's own environment holds secrets (EnvSecretProvider reads YUKTA_SECRET_*): a process
+    // sees only PATH and the variables the workflow sets.
+    final List<String> names =
+        executeStream(List.of("env"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(TEST_VAR, FOO), false)
+            .map(line -> line.substring(0, line.indexOf('=')))
+            .collectList()
+            .block();
+
+    assertThat(System.getenv()).containsKey("HOME");
+    assertThat(names).containsExactlyInAnyOrder("PATH", TEST_VAR);
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void passEnv_addsTheNamedServerVariables() {
+    gateway.setPassEnv(List.of("HOME"));
+
+    StepVerifier.create(
+            executeStream(List.of("env"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false)
+                .map(line -> line.substring(0, line.indexOf('=')))
+                .collectList())
+        .assertNext(names -> assertThat(names).containsExactlyInAnyOrder("PATH", "HOME"))
+        .verifyComplete();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void passEnvStar_passesTheWholeServerEnvironment() {
+    gateway.setPassEnv(List.of("*"));
+
+    StepVerifier.create(
+            executeStream(List.of("env"), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false)
+                .map(line -> line.substring(0, line.indexOf('=')))
+                .collectList())
+        .assertNext(names -> assertThat(names).contains("PATH", "HOME"))
+        .verifyComplete();
+  }
+
+  @Test
   void executeStream_processAliveAfterCompletion_destroyNotCalled() {
     // Normal completion flow - process cleanup happens
     StepVerifier.create(
