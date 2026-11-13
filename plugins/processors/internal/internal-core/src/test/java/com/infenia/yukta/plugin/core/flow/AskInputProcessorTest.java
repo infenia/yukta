@@ -312,6 +312,11 @@ class AskInputProcessorTest {
     assertThat(processor.getDefaultTimeout(config("ttlSeconds", 100)))
         .isEqualTo(Duration.ofSeconds(130));
     assertThat(processor.getDefaultTimeout(config())).isEqualTo(Duration.ofSeconds(3630));
+    // a timeoutSeconds shorter than the wait is raised to it; an expression has no floor
+    assertThat(processor.getMinimumTimeout(config("ttlSeconds", 100)))
+        .isEqualTo(Duration.ofSeconds(130));
+    assertThat(processor.getMinimumTimeout(config("ttlSeconds", "${payload.s}")))
+        .isEqualTo(Duration.ZERO);
     assertThat(processor.getConfigSchema())
         .extracting("name")
         .containsExactly(

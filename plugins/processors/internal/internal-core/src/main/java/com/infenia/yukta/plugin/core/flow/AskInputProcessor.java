@@ -221,6 +221,16 @@ public final class AskInputProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Duration getMinimumTimeout(final Map<String, Object> config) {
+    // a timeoutSeconds shorter than the wait would fail the node before onTimeout can act
+    try {
+      return getDefaultTimeout(config);
+    } catch (final IllegalArgumentException e) {
+      return Duration.ZERO; // an expression, not known until the first message: validateConfig says
+    }
+  }
+
+  @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.fromRunnable(() -> new Question(config));
   }

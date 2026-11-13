@@ -130,6 +130,17 @@ class WaitForSignalProcessorTest {
   }
 
   @Test
+  void minimumTimeoutIsTheWaitPlusMargin_soOnTimeoutRunsBeforeIdleTimeout() {
+    final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
+
+    assertThat(processor.getMinimumTimeout(Map.of("signal", "a", "timeoutSeconds", 2)))
+        .isEqualTo(Duration.ofSeconds(32));
+    // an expression is not known until the first message: no floor, and no failure
+    assertThat(processor.getMinimumTimeout(Map.of("signal", "a", "timeoutSeconds", "${payload.s}")))
+        .isEqualTo(Duration.ZERO);
+  }
+
+  @Test
   void defaultTimeoutOutlastsTheWait_andTheTypeIsRegistered() {
     final var processor = new WaitForSignalProcessor(InputFakes.provider(null));
     assertThat(processor.getDefaultTimeout(Map.of("signal", "a", "timeoutSeconds", 10)))

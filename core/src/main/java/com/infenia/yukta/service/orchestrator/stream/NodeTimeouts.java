@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -93,7 +94,25 @@ public class NodeTimeouts {
 
   private Duration timeout(final Map<String, Object> resolved, final Plugin plugin) {
     final long seconds = seconds(resolved.get(TIMEOUT_SECONDS));
-    return seconds > 0 ? Duration.ofSeconds(seconds) : plugin.getDefaultTimeout(resolved);
+    if (seconds <= 0) {
+      return plugin.getDefaultTimeout(resolved);
+    }
+    return atLeastMinimum(Duration.ofSeconds(seconds), plugin, resolved);
+  }
+
+  /**
+   * Raises a configured idle timeout to the plugin's minimum for that configuration, so a wait that
+   * runs on its own timer finishes before the engine's idle timeout fails the node.
+   *
+   * @param configured the {@code timeoutSeconds} of the node
+   * @param plugin the node's plugin, or null if it is unknown
+   * @param config the node configuration
+   * @return {@code configured}, or the plugin's minimum if that is longer
+   */
+  public Duration atLeastMinimum(
+      final Duration configured, final @Nullable Plugin plugin, final Map<String, Object> config) {
+    final Duration floor = plugin == null ? null : plugin.getMinimumTimeout(config);
+    return floor != null && configured.compareTo(floor) < 0 ? floor : configured;
   }
 
   /** An expression resolves to text unless it is typed ({@code :int}), so accept both. */

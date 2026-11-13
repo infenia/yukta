@@ -157,6 +157,17 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
   }
 
   @Override
+  public Duration getMinimumTimeout(final Map<String, Object> config) {
+    // timeoutSeconds is the wait; an idle timeout of the same length would fail the node before
+    // onTimeout: CONTINUE can let the message go on
+    try {
+      return getDefaultTimeout(config);
+    } catch (final IllegalArgumentException e) {
+      return Duration.ZERO; // an expression, not known until the first message: validateConfig says
+    }
+  }
+
+  @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.fromRunnable(
         () -> {

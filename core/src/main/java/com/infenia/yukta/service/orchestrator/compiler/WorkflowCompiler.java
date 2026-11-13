@@ -401,7 +401,10 @@ public class WorkflowCompiler {
 
     final Duration result;
     if (timeoutVal instanceof Number numValue && numValue.longValue() > 0) {
-      result = Duration.ofSeconds(numValue.longValue());
+      // a wait that runs on its own timer must not be cut off by an idle timeout of the same length
+      final Duration configured = Duration.ofSeconds(numValue.longValue());
+      final Duration floor = plugin == null ? null : plugin.getMinimumTimeout(node.config());
+      result = floor != null && configured.compareTo(floor) < 0 ? floor : configured;
       log.atTrace()
           .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
           .addKeyValue("timeoutMs", result.toMillis())
