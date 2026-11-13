@@ -54,8 +54,8 @@ public class MessageReflectionHints {
      * The JDK types whose methods a workflow expression may call ({@code SafeMethodResolver} lists
      * the method names, and runs them by reflection): {@code items.toString()}, {@code
      * name.substring(1)}, {@code payload.keySet()}. Without a registration the native image fails
-     * the call with "Cannot reflectively invoke method". The immutable and unmodifiable
-     * collections are package-private, so they are named. Nothing outside the JDK is registered.
+     * the call with "Cannot reflectively invoke method". The immutable and unmodifiable collections
+     * are package-private, so they are named. Nothing outside the JDK is registered.
      */
     /* default */ static final List<String> EXPRESSION_TYPES =
         List.of(
