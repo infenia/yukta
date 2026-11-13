@@ -508,11 +508,26 @@ main() {
     printf '\n'
   fi
   say "${O}${B}Done!${Z} Yukta $version is ready (took $(($(date +%s) - t_start))s)."
-  say "Next:"
-  [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:9858"
-  [ "$do_cli" = "0" ] || say "  yukta-cli session list         # talk to a running server"
-  [ "$do_cli" = "0" ] || say "  yukta-cli agents install       # connect Claude Code, Codex, Cursor, ... to Yukta"
-  say "  https://yukta.infenia.com      # docs and first workflow"
+  nx() { printf '  %s%-34s%s %s%s%s\n' "$B" "$1" "$Z" "$D" "$2" "$Z"; }
+  say ""
+  say "${O}${B}Get started${Z}"
+  if [ "$installed_server" = "1" ]; then
+    nx "1  yukta" "start the server"
+    nx "2  http://localhost:9858" "open the web UI: sessions, live runs, logs"
+    nx "3  yukta.infenia.com/learn/your-first-workflow" "build and run one in 5 minutes"
+    say ""
+    say "${U}${B}Let your AI assistant drive it${Z}"
+    [ "$do_cli" = "0" ] || say "  yukta-cli agents install        ${D}# connects Claude Code, Codex, Cursor, ... in one step${Z}"
+    say "  claude mcp add --transport http yukta http://localhost:9858/mcp"
+    say "  ${D}then ask: \"Create a Yukta workflow that runs my tests on every push\"${Z}"
+  else
+    nx "yukta-cli --url http://HOST:9858 session list" "point the client at a running server"
+    nx "yukta.infenia.com/learn/your-first-workflow" "build and run a workflow in 5 minutes"
+  fi
+  say ""
+  say "${U}${B}More${Z}"
+  [ "$do_cli" = "0" ] || nx "yukta-cli session list" "manage sessions and runs from the terminal"
+  nx "yukta.infenia.com/examples" "ready-made workflows: CI gates, pipelines, approvals"
 }
 
 main "$@"
