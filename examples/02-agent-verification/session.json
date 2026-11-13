@@ -127,7 +127,7 @@
               "sh",
               "build.sh"
             ],
-            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "workingDir": "/tmp/yukta-examples/agent-verification/repo",
             "timeout": 60,
             "failureMode": "CONTINUE",
             "routeByExitCode": true
@@ -141,7 +141,7 @@
               "sh",
               "test.sh"
             ],
-            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "workingDir": "/tmp/yukta-examples/agent-verification/repo",
             "timeout": 60,
             "failureMode": "CONTINUE",
             "routeByExitCode": true
@@ -153,9 +153,9 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-agent-verification/patch-guard.sh",
+              "/tmp/yukta-examples/agent-verification/patch-guard.sh",
               "--dir",
-              "/tmp/yukta-example-agent-verification/repo",
+              "/tmp/yukta-examples/agent-verification/repo",
               "--protected",
               "build.sh",
               "--protected",
@@ -187,7 +187,7 @@
               "sh",
               "coverage.sh"
             ],
-            "workingDir": "/tmp/yukta-example-agent-verification/repo",
+            "workingDir": "/tmp/yukta-examples/agent-verification/repo",
             "timeout": 60,
             "outputFormat": "JSON",
             "failureMode": "CONTINUE",
@@ -222,8 +222,8 @@
           "config": {
             "command": [
               "sh",
-              "/tmp/yukta-example-agent-verification/fixer.sh",
-              "/tmp/yukta-example-agent-verification/repo"
+              "/tmp/yukta-examples/agent-verification/fixer.sh",
+              "/tmp/yukta-examples/agent-verification/repo"
             ],
             "timeout": 120,
             "failureMode": "CONTINUE"

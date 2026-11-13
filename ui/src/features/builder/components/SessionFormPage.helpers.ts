@@ -49,3 +49,9 @@ export function newSession(
       : starterSession(fields).workflows,
   };
 }
+
+/** The working directory a template suggests; a placeholder such as `__PROJECT_PATH__` is no path. */
+export function templatePath(template?: TemplateDetail): string {
+  const path = template?.session.projectPath ?? '';
+  return path.startsWith('/') ? path : '';
+}

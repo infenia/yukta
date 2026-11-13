@@ -3,6 +3,7 @@
 package com.infenia.yukta.config;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.model.api.ApiResponse;
 import com.infenia.yukta.security.ApiKeys;
 import java.util.List;
 import lombok.NoArgsConstructor;
@@ -11,6 +12,9 @@ import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
 import org.springframework.aot.hint.TypeReference;
+import org.springframework.beans.factory.annotation.AnnotatedBeanDefinition;
+import org.springframework.beans.factory.config.BeanDefinition;
+import org.springframework.context.annotation.ClassPathScanningCandidateComponentProvider;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportRuntimeHints;
 
@@ -36,9 +40,17 @@ public class MessageReflectionHints {
      * the call with "Cannot reflectively invoke method". The immutable and unmodifiable collections
      * are package-private, so they are named. Nothing outside the JDK is registered.
      */
+    /* default */ static final List<String> RECORD_PACKAGES =
+        List.of("com.infenia.yukta", "io.modelcontextprotocol.spec");
+
     /* default */ static final List<String> EXPRESSION_TYPES =
         List.of(
             "java.lang.Object",
+            "java.lang.Iterable",
+            "java.util.Collection",
+            "java.util.List",
+            "java.util.Set",
+            "java.util.Map",
             "java.lang.String",
             "java.lang.Number",
             "java.lang.Integer",
@@ -107,11 +119,42 @@ public class MessageReflectionHints {
       // native binary reads no keys and the exposure guard refuses to start in a container.
       new BindingReflectionHintsRegistrar()
           .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
+      // Jackson builds the type of ApiResponse.errors through its array class; without the array
+      // registered every REST response fails in the native image ("Cannot reflectively instantiate
+      // the array class ...FieldError[]").
+      new BindingReflectionHintsRegistrar()
+          .registerReflectionHints(
+              hints.reflection(), ApiResponse.class, ApiResponse.FieldError.class);
+      registerRecordArrays(hints);
       EXPRESSION_TYPES.forEach(
           name ->
               hints
                   .reflection()
                   .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
+    }
+
+    /**
+     * Jackson reads a {@code List<Record>} field through the record's array class, which a native
+     * image only allows when it is registered: {@code TaskProgress[]}, {@code InputOptionView[]},
+     * {@code McpSchema$Tool[]} each failed a REST or MCP call. Every record of Yukta and of the MCP
+     * schema gets its array registered, so a new DTO does not need a hint of its own.
+     */
+    private static void registerRecordArrays(final RuntimeHints hints) {
+      final ClassPathScanningCandidateComponentProvider scanner =
+          new ClassPathScanningCandidateComponentProvider(false) {
+            @Override
+            protected boolean isCandidateComponent(final AnnotatedBeanDefinition definition) {
+              return true;
+            }
+          };
+      scanner.addIncludeFilter(
+          (reader, factory) ->
+              "java.lang.Record".equals(reader.getClassMetadata().getSuperClassName()));
+      for (final String basePackage : RECORD_PACKAGES) {
+        for (final BeanDefinition definition : scanner.findCandidateComponents(basePackage)) {
+          hints.reflection().registerType(TypeReference.of(definition.getBeanClassName() + "[]"));
+        }
+      }
     }
 
     /**

@@ -33,7 +33,7 @@ require_server() {
 # require_plugin TYPE: exit 3 (SKIP) when the running server has no such plugin.
 require_plugin() {
   if ! api GET "/api/plugins/$1" >/dev/null 2>&1; then
-    echo "SKIP: plugin '$1' is not registered on this server (build with it enabled)"
+    echo "SKIP: plugin '$1' is not available on this server (disabled by default? start it with YUKTA_PLUGINS_ENABLED=all, or name the plugin)"
     exit 3
   fi
 }

@@ -16,6 +16,7 @@
     "lint:headers": "node scripts/validate-headers.js",
     "test": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:real": "playwright test -c playwright.real.config.ts",
     "docs:screenshots": "node e2e/docs-screenshots/run.mjs",
     "docs:screenshots:check": "node e2e/docs-screenshots/run.mjs --check",
     "docs:screenshots:types": "tsc -p e2e/docs-screenshots/tsconfig.json",
