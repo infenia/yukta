@@ -149,22 +149,34 @@
         },
         {
           "nodeId": "patch-guard",
-          "type": "PATCH_GUARD",
+          "type": "PROCESS_EXECUTOR",
           "config": {
-            "dir": "/tmp/yukta-example-agent-verification/repo",
-            "protectedPaths": [
+            "command": [
+              "sh",
+              "/tmp/yukta-example-agent-verification/patch-guard.sh",
+              "--dir",
+              "/tmp/yukta-example-agent-verification/repo",
+              "--protected",
               "build.sh",
+              "--protected",
               "test.sh",
+              "--protected",
               "coverage.sh",
-              "coverage.txt"
-            ],
-            "forbidPatterns": [
+              "--protected",
+              "coverage.txt",
+              "--forbid",
               "@Disabled",
+              "--forbid",
               "@Ignore",
-              "\\.skip\\("
+              "--forbid",
+              "\\.skip\\(",
+              "--no-test-removal",
+              "--require-change"
             ],
-            "noTestRemoval": true,
-            "requireChange": true
+            "timeout": 60,
+            "failureMode": "CONTINUE",
+            "routeByExitCode": true,
+            "outputFormat": "JSON"
           }
         },
         {
@@ -271,12 +283,12 @@
         {
           "source": "patch-guard",
           "target": "coverage",
-          "sourcePort": "pass"
+          "sourcePort": "success"
         },
         {
           "source": "patch-guard",
           "target": "gate-failed",
-          "sourcePort": "reject"
+          "sourcePort": "failure"
         },
         {
           "source": "coverage",

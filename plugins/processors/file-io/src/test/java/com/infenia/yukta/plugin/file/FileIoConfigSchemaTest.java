@@ -31,19 +31,4 @@ class FileIoConfigSchemaTest {
         .containsExactly("baseDir", "path", "contentField", "append", "failureMode");
     assertThat(schema.getFirst().required()).isTrue();
   }
-
-  @Test
-  void patchGuardNeedsDirectory() {
-    final var schema = new PatchGuardPlugin().getConfigSchema();
-    assertThat(names(schema))
-        .containsExactly(
-            "dir",
-            "base",
-            "protectedPaths",
-            "forbidPatterns",
-            "noTestRemoval",
-            "requireChange",
-            "failureMode");
-    assertThat(schema.getFirst().required()).isTrue();
-  }
 }

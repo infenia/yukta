@@ -7,12 +7,13 @@ set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
 require_server
-for p in PATCH_GUARD OUTCOME_TERMINAL PROCESS_EXECUTOR SUB_WORKFLOW LOOP_PREDICATE; do require_plugin "$p"; done
+for p in OUTCOME_TERMINAL PROCESS_EXECUTOR SUB_WORKFLOW LOOP_PREDICATE; do require_plugin "$p"; done
 
 SID=$(jq -r .sessionId session.json)
 BASE=/tmp/yukta-example-agent-verification   # the paths in session.json point here
 REPO=$BASE/repo
 rm -rf "$BASE"; mkdir -p "$BASE"
+cp patch-guard.sh "$BASE/"
 
 # --- helpers (local to this example) -------------------------------------------------------
 # require_process: SKIP (exit 3) when the server refuses to run commands
