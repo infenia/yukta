@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "PICK", "category": "processor", "description": "x",
+  "config": [{ "name": "mode", "type": "ENUM" }], "run": { "command": ["a"] }
+}

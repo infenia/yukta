@@ -277,7 +277,7 @@ Sessions, workflows and the execution log live in memory by default. File storag
 
 <br>
 
-Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `examples/dogfood/yk`: each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See [`examples/dogfood/README.md`](examples/dogfood/README.md).
+Contributors (and Claude Code, held to it by hooks) run builds, tests and checks through `yk` from [yukta-dogfood](https://github.com/infenia/yukta-dogfood) (`scripts/dogfood-setup.sh`): each Gradle call becomes a Yukta workflow on a local dev server built from `origin/main` at `http://127.0.0.1:9858`, and `yk check` is the staged, self-healing quality gate. See [`examples/dogfood/README.md`](examples/dogfood/README.md).
 
 </details>
 

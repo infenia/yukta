@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "ESCAPE", "category": "processor", "description": "x",
+  "run": { "image": "--privileged" }
+}

@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "NO_TRANSPORT", "category": "processor", "description": "x",
+  "run": { "mcp": { "tool": "t" } }
+}

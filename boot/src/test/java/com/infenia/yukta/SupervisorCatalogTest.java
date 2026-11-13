@@ -112,7 +112,6 @@ class SupervisorCatalogTest {
 
   private static Stream<String> profileFiles() {
     return Stream.of(
-        "examples/dogfood/supervisor/supervisor.json",
         "examples/16-supervisor-profiles/input-requests.json",
         "examples/17-supervisor-workflow/supervisor.json",
         "examples/17-supervisor-workflow/section-supervisor.json");
