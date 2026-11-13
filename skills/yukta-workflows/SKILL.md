@@ -31,6 +31,7 @@ Every tool that takes an `executionId` also takes the `sessionId` that owns it.
 | `get_session_details` | `VIEWER` | `sessionId` |
 | `get_session_creation_instructions` | `VIEWER` | none |
 | `list_plugins` | `VIEWER` | none |
+| `list_ai_backends` | `VIEWER` | none |
 | `get_plugin_details` | `VIEWER` | `type` |
 | `get_plugin_creation_guide` | `VIEWER` | optional `templateType` |
 | `create_session` | `ADMIN` | `config` |

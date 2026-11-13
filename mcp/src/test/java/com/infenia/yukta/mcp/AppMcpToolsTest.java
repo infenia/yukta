@@ -265,6 +265,16 @@ class AppMcpToolsTest {
   }
 
   @Test
+  void testListAiBackends() {
+    var info = new com.infenia.yukta.plugin.ai.AiBackend.Info("A", "d", List.of());
+    when(pluginInfoProvider.listAiBackends()).thenReturn(List.of(info));
+
+    StepVerifier.create(mcpTools.listAiBackends())
+        .expectNext(new com.infenia.yukta.mcp.dto.AiBackendList(List.of(info)))
+        .verifyComplete();
+  }
+
+  @Test
   void testListPlugins() {
     var summary = mock(PluginSummary.class);
     when(pluginInfoProvider.listPlugins()).thenReturn(List.of(summary));

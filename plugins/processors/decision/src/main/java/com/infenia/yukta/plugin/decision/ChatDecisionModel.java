@@ -84,7 +84,7 @@ public final class ChatDecisionModel implements DecisionBackend {
                         null,
                         spec.timeout(),
                         SYSTEM,
-                        java.util.List.of(new ChatTurn("user", prompt(state, questions))))))
+                        List.of(new ChatTurn("user", prompt(state, questions))))))
         .subscribeOn(Schedulers.boundedElastic())
         .timeout(spec.timeout().plusSeconds(1))
         .map(response -> parse(response.text(), questions));
