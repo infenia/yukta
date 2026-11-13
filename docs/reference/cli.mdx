@@ -90,6 +90,16 @@ On failure the command prints `error: <message>` to standard error.
 | `scheduler limits` | Shows the execution limits and the slots in use. |
 | `scheduler set --max-concurrent N --max-per-workflow M` | Changes the limits; both flags are required, `0` is unlimited. |
 
+## AI agents
+
+| Command | Description |
+|---|---|
+| `agents list` | The AI agents found on this machine and which Yukta has connected. |
+| `agents install` | Registers the Yukta MCP server (for the server at `--url`) in each agent and installs the Yukta skills. Flags: `--agent <list\|all\|auto>` (default: the agents found), `--skills-only`, `--mcp-only`, `--token-env <VAR>`, `--dry-run`, `--refresh` (copy the current skills again for agents already connected). |
+| `agents uninstall` | Removes what `install` added. Flags: `--agent <list>` or `--all`. |
+
+The key for the agents comes from `--token`, `--token-file` or `YUKTA_TOKEN`, like every other command. See [Connect an AI assistant](/guides/ai/connect-an-assistant).
+
 ## Sessions and workflow definitions
 
 | Command | Description |

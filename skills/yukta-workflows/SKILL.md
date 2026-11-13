@@ -150,6 +150,10 @@ Some clients report `output validation failed` with `null found, string expected
 with `whoami`, `get_plugin_details`, `get_node_output` and `get_workflow_details`, where the answer is lost). Do not repeat a destructive call
 because of it: check the effect with a read tool first (`list_sessions` after a delete), and tell the user what you saw.
 
+## No `yukta` MCP tools?
+
+Use `yukta-cli` (`references/cli.md`) or REST (`references/rest.md`): the same operations, the same roles and the same ask-first rules.
+
 ## Connect
 
 Add the server with its URL and, when it has a key, an `Authorization: Bearer <key>` header. The key is the user's: ask them to set it in the

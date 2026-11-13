@@ -18,13 +18,22 @@
 #   --server-only         install only the server
 #   --check               say whether a newer release exists; install nothing (exit 1 if behind)
 #   --force               reinstall even when this version is already installed
-#   --uninstall           remove yukta and yukta-cli from the install directory
+#   --agents <how>        connect AI agents (Claude Code, Codex, Antigravity, Cursor, VS Code,
+#                         Windsurf, OpenCode, ...) to Yukta: the MCP server and the Yukta skills
+#                           ask (default)  on a terminal, show the agents found and ask first
+#                           auto           connect every agent found, without asking
+#                           none           do not touch any agent
+#                           codex,cursor   connect exactly these (or "all")        [YUKTA_AGENTS]
+#   --uninstall           remove yukta and yukta-cli and disconnect the agents they connected
 #   --no-animation        plain output: no colour, spinner or progress bar    [YUKTA_NO_ANIMATION]
 #   --quiet               print nothing but errors
 #   --help
 #
 # On a terminal the install shows its steps, a progress bar per download and a summary; with output
 # redirected, NO_COLOR, TERM=dumb or CI set, it prints one plain line per step instead.
+#
+# Agents: set YUKTA_SERVER_URL (and YUKTA_TOKEN, or use `yukta-cli agents install --token-file`) before
+# running to point the agents at another server. Later: yukta-cli agents list | install | uninstall.
 #
 # What it does: downloads SHA256SUMS and the files for your system from the GitHub release,
 # refuses to continue if a checksum does not match (and, when cosign is installed, if the Sigstore
@@ -44,6 +53,8 @@ REPO="infenia/yukta"
 DEFAULT_VERSION="@VERSION@"
 # Test and mirror hook: a server laid out like GitHub release downloads (<base>/v<ver>/<file>).
 BASE_URL="${YUKTA_DOWNLOAD_BASE:-https://github.com/$REPO/releases/download}"
+# Test hook: where the agents question is answered. stdin is the script itself under `curl | sh`.
+TTY="${YUKTA_TTY:-/dev/tty}"
 
 say() { printf '%s\n' "$*"; }
 # Animation and colour only on a terminal (and never with NO_COLOR, CI or --no-animation), so pipes
@@ -160,7 +171,9 @@ Options (environment variable in brackets):
   --server-only         install only the server
   --check               say whether a newer release exists; install nothing (exit 1 if behind)
   --force               reinstall even when this version is already installed
-  --uninstall           remove yukta and yukta-cli from the install directory
+  --agents <how>        connect AI agents to Yukta (MCP server + skills): ask (default, on a
+                        terminal), auto, none, or a list such as claude,codex,cursor [YUKTA_AGENTS]
+  --uninstall           remove yukta and yukta-cli and disconnect the agents they connected
   --no-animation        plain output: no colour, spinner or progress bar
   --quiet               print nothing but errors
   --help
@@ -246,10 +259,51 @@ latest_version() {
   esac
 }
 
+# Offer the agent integration (MCP server and skills) once the client is in place. It never fails the
+# install: the programs are already there, and `yukta-cli agents install` can be run any time.
+connect_agents() {
+  cli="$dir/yukta-cli"
+  [ "$do_cli" = "1" ] && [ -x "$cli" ] && [ "$agents" != none ] || return 0
+  # An upgrade refreshes the skills of agents connected earlier; quiet, and nothing else changes.
+  "$cli" agents install --refresh >/dev/null 2>&1 || true
+  list="$agents"
+  case "$agents" in
+    ask | auto)
+      list="$("$cli" agents list 2>/dev/null |
+        awk 'NR > 1 && $(NF - 1) == "yes" && $1 != "generic" { printf "%s%s", sep, $1; sep = "," }')"
+      if [ -z "$list" ]; then
+        say ""; say "No AI agent found to connect (yukta-cli agents list shows what is looked for)."; return 0
+      fi
+      if [ "$agents" = ask ]; then
+        # Ask only where someone can answer; otherwise stay out of their configuration.
+        { [ -z "${CI:-}" ] && [ "$quiet" = "0" ] && [ -r "$TTY" ] && : <"$TTY"; } 2>/dev/null || {
+          say ""; say "AI agents found: $list. Connect them with: yukta-cli agents install"; return 0
+        }
+        say ""
+        say "Connect Yukta to your AI agents? Found: $list"
+        printf '  [Y] connect them   [n] skip   [c] choose: '
+        exec 3<"$TTY" # one descriptor for both questions, so a file as the answer source reads on
+        read -r reply <&3 || reply=n
+        case "$reply" in
+          "" | [Yy]*) ;;
+          [Cc]*) printf '  Agents (comma separated, or "all"): '; read -r list <&3 || list="" ;;
+          *) exec 3<&-; say "Skipped. Later: yukta-cli agents install"; return 0 ;;
+        esac
+        exec 3<&-
+        [ -n "$list" ] || return 0
+      fi
+      ;;
+  esac
+  say ""
+  "$cli" agents install --agent "$list" ||
+    say "Note: not every agent could be set up (see above). Retry later: yukta-cli agents install --agent $list"
+}
+
 main() {
   version="${YUKTA_VERSION:-}"
   dir="${YUKTA_INSTALL_DIR:-}"
   do_cli=1; do_server=1; uninstall=0; check=0; force=0; quiet=0
+  agents="${YUKTA_AGENTS:-ask}"
 
   while [ $# -gt 0 ]; do
     case "$1" in
@@ -259,6 +313,7 @@ main() {
       --server-only) do_cli=0 ;;
       --check) check=1 ;;
       --force) force=1 ;;
+      --agents) [ $# -ge 2 ] || err "--agents needs a value"; agents="$2"; shift ;;
       --uninstall) uninstall=1 ;;
       --no-animation) plain ;;
       --quiet) quiet=1; plain ;;
@@ -270,12 +325,19 @@ main() {
   # --quiet silences stdout (errors go to stderr); --check exists to print.
   [ "$quiet" = "0" ] || [ "$check" = "1" ] || exec >/dev/null
   [ "$do_cli$do_server" != "00" ] || err "--cli-only and --server-only cannot be combined"
+  case "$agents" in
+    "" | *[!a-z,]*) err "--agents takes ask, auto, none, all or a list like claude,codex (got '$agents')" ;;
+  esac
 
   if [ -z "$dir" ]; then
     if [ "$(id -u)" = "0" ]; then dir=/usr/local/bin; else dir="${HOME:?HOME is not set}/.local/bin"; fi
   fi
 
   if [ "$uninstall" = "1" ]; then
+    # Disconnect the agents first: the client that knows how is about to go.
+    if [ -x "$dir/yukta-cli" ] && "$dir/yukta-cli" agents uninstall --all >/dev/null 2>&1; then
+      say "disconnected the AI agents Yukta had set up"
+    fi
     for f in yukta yukta-cli; do
       if [ -f "$dir/$f" ]; then rm -f "$dir/$f" && say "removed $dir/$f"; fi
     done
@@ -423,6 +485,8 @@ main() {
     say ""; say "$dir is not on your PATH. Add it, for example:"; say "  export PATH=\"$dir:\$PATH\""
   fi
 
+  connect_agents
+
   say ""
   if [ "$fun" = "1" ]; then
     printf '  '
@@ -437,6 +501,7 @@ main() {
   say "Next:"
   [ "$installed_server" = "0" ] || say "  yukta                          # start the server on http://localhost:9858"
   [ "$do_cli" = "0" ] || say "  yukta-cli session list         # talk to a running server"
+  [ "$do_cli" = "0" ] || say "  yukta-cli agents install       # connect Claude Code, Codex, Cursor, ... to Yukta"
   say "  https://yukta.infenia.com      # docs and first workflow"
 }
 

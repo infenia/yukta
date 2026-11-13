@@ -1,8 +1,8 @@
 {
   "name": "yukta",
   "displayName": "Yukta",
-  "version": "0.1.0",
-  "description": "Live view of Yukta runs and approvals in Claude Code: a /yukta pane, status line, toasts, an approval band and the Yukta MCP server",
+  "version": "0.2.0",
+  "description": "Live view of Yukta runs and approvals in Claude Code: a /yukta pane, status line, toasts, an approval band, the Yukta MCP server and the Yukta skills",
   "repository": "https://github.com/infenia/yukta",
   "license": "Apache-2.0",
   "author": {

@@ -6,6 +6,9 @@ A live view of your Yukta server inside Claude Code.
 - toasts when a run ends or waits for approval
 - a band above the prompt while an approval waits
 - the Yukta MCP server (`mcp__plugin_yukta_yukta__*` tools)
+- the `yukta-workflows` and `yukta-supervisor` skills, which teach Claude to use Yukta over MCP, `yukta-cli` or REST
+
+The `skills/` folder is a generated copy of the repository's `skills/` (`make sync-skills` in `cli/`); `yukta-cli agents install` installs this plugin for you.
 
 ## Install
 

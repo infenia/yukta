@@ -5,7 +5,7 @@
     {
       "name": "yukta",
       "source": "./claude-mods/yukta",
-      "description": "Live view of Yukta runs and approvals in Claude Code"
+      "description": "Live view of Yukta runs and approvals in Claude Code, with the Yukta MCP server and skills"
     },
     {
       "name": "yukta-dogfood",
