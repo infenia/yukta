@@ -771,7 +771,6 @@ public class SupervisorsController {
         a.source().name(),
         a.originSessionId(),
         a.originWorkflowId(),
-        a.conflict(),
         a.locked());
   }
 
@@ -786,15 +785,7 @@ public class SupervisorsController {
           default -> "global";
         };
     return new AssignmentView(
-        info.id(),
-        info.id(),
-        scope,
-        true,
-        SupervisorSource.SYSTEM.name(),
-        null,
-        null,
-        false,
-        false);
+        info.id(), info.id(), scope, true, SupervisorSource.SYSTEM.name(), null, null, false);
   }
 
   /** Whether runs of the session and workflow fall in the scope; no filter means everything. */

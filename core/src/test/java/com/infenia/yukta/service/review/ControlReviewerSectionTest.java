@@ -38,7 +38,11 @@ class ControlReviewerSectionTest {
   @RequiredArgsConstructor
   private static final class Recorder implements ExecutionSupervisor {
     private final String id;
+
+    // Documents the position the test gives the supervisor; the provider list order decides.
+    @SuppressWarnings("UnusedVariable")
     private final int order;
+
     private final SupervisorScope scope;
     private final boolean allow;
     private final List<String> asked;

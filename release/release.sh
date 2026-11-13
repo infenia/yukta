@@ -74,12 +74,7 @@ assets="$DIST/assets"
 rm -rf "$assets"
 mkdir -p "$assets"
 cp "$DIST"/packages/* "$DIST"/cli/yukta-cli-* "$assets/"
-# The PGO profile each server binary was built with (it sits next to the binary, also when the binary
-# comes from CI), kept with the release so it can be rebuilt: NATIVE_PGO_PROFILE=<this file>.
 for platform in "${PLATFORMS[@]}"; do
-  if [[ -s "$DIST/$platform/yukta.iprof" ]]; then
-    gzip -9c "$DIST/$platform/yukta.iprof" > "$assets/pgo-profile-$platform.iprof.gz"
-  fi
   # The bill of materials native-image wrote for this server binary (CycloneDX; the same one is embedded).
   if [[ -s "$DIST/$platform/yukta.sbom.json" ]]; then
     cp "$DIST/$platform/yukta.sbom.json" "$assets/yukta-$version-$platform.sbom.json"

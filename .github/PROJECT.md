@@ -102,6 +102,15 @@ Aim to triage within 5 working days. P0 issues get an assignee the same day.
    `GITHUB_TOKEN` cannot write org projects. Until all three are set, the workflows below still
    label and file issues and only skip the project.
 
+   The project App should not have `contents: write`. Releases use a second App
+   (`yukta-release-bot`, Contents and Pull requests: read and write, installed on `infenia/yukta`
+   and the only bypass actor of the "Protect release tags" ruleset). Its key is kept only in the
+   `release` environment, so a workflow on a feature branch cannot mint a token that creates `v*` tags:
+
+   1. Settings → Environments → New environment `release`; deployment branches and tags: `main` and `v*`.
+   2. In it, set the variable `YUKTA_RELEASE_APP_CLIENT_ID` and the secret `YUKTA_RELEASE_APP_KEY`.
+   3. Used by `release-please.yml` and the `docs` job of `released.yml` (`environment: release`).
+
 ## Automation that writes to the project
 
 | Workflow | When | What it sets |

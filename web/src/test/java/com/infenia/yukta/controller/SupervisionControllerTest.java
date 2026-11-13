@@ -149,7 +149,7 @@ class SupervisionControllerTest {
   @Test
   void summaryIsWhatTheCoreCounts() {
     final SupervisionSummary.Summary counted =
-        new SupervisionSummary.Summary(1, List.of(new OwnershipMap.WorkflowRef("s", "w")), 2);
+        new SupervisionSummary.Summary(1, List.of(new OwnershipMap.WorkflowRef("s", "w")));
     when(summary.summarize()).thenReturn(Mono.just(counted));
 
     StepVerifier.create(controller.summary())

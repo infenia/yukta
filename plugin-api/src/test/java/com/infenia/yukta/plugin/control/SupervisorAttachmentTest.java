@@ -44,26 +44,6 @@ class SupervisorAttachmentTest {
   }
 
   @Test
-  void attachmentCanBeMarkedAsConflictAndThenIsDisabled() {
-    final SupervisorAttachment declared =
-        new SupervisorAttachment(
-            "a",
-            "p",
-            new SupervisorScope.Run("w", "s"),
-            true,
-            SupervisorSource.DEFINITION,
-            "s",
-            "w");
-
-    assertThat(declared.conflict()).isFalse();
-    final SupervisorAttachment marked = declared.asConflict();
-    assertThat(marked.conflict()).isTrue();
-    assertThat(marked.enabled()).isFalse();
-    assertThat(marked.source()).isEqualTo(SupervisorSource.DEFINITION);
-    assertThat(marked.originWorkflowId()).isEqualTo("w");
-  }
-
-  @Test
   void profileKeepsAnImmutableCopyOfItsSettingsAndAllowsNullValues() {
     final Map<String, Object> settings = Collections.singletonMap("k", null);
     final Supervisor profile = new Supervisor("p", "rule-supervisor", settings, true);
@@ -95,23 +75,14 @@ class SupervisorAttachmentTest {
   }
 
   @Test
-  void attachmentsCanBeBuiltWithConflictFlagAndLockedOrNot() {
+  void attachmentsCanBeLockedOrNot() {
     final SupervisorAttachment stored =
         new SupervisorAttachment(
-            "a",
-            "p",
-            new SupervisorScope.Run("w", "s"),
-            true,
-            SupervisorSource.MANUAL,
-            null,
-            null,
-            true);
+            "a", "p", new SupervisorScope.Run("w", "s"), true, SupervisorSource.MANUAL, null, null);
 
-    assertThat(stored.conflict()).isTrue();
     assertThat(stored.locked()).isFalse();
     final SupervisorAttachment locked = stored.withLocked(true);
     assertThat(locked.locked()).isTrue();
-    assertThat(locked.conflict()).isTrue();
     assertThat(locked.withLocked(false).locked()).isFalse();
   }
 }

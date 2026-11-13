@@ -1551,7 +1551,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** How many workflows nobody owns, and how many assignments conflict */
+        /** How many workflows nobody owns */
         get: operations["summary"];
         put?: never;
         post?: never;
@@ -4658,7 +4658,6 @@ export interface components {
         };
         /** @description What a supervisor owns: one assignment */
         AssignmentView: {
-            conflict?: boolean;
             enabled?: boolean;
             id?: string;
             locked?: boolean;
@@ -5643,8 +5642,6 @@ export interface components {
             reason?: string | null;
         };
         Summary: {
-            /** Format: int64 */
-            conflicts?: number;
             /** Format: int32 */
             unowned?: number;
             unownedWorkflows?: components["schemas"]["WorkflowRef"][];
@@ -6026,6 +6023,7 @@ export interface components {
             /** @enum {string} */
             status?: "PENDING" | "QUEUED" | "RUNNING" | "SUCCESS" | "FAILURE" | "STOPPED" | "CANCELLED" | "TIMED_OUT" | "SKIPPED" | "UPSTREAM_FAILED" | "ABORTED";
             tasks?: components["schemas"]["TaskProgress"][];
+            traceId?: string | null;
             workflowId?: string;
         };
         WorkflowRef: {

@@ -30,10 +30,12 @@ spotless {
     }
 
     kotlinGradle {
-        target("*.gradle.kts", "build-logic/**/*.gradle.kts")
+        target("*.gradle.kts")
         licenseHeaderFile(licenseHeader, "(plugins|id|import|apply)")
     }
 
+    // A parent project (:plus) also walks its child projects' directories; each child formats its own
+    // files too, which is harmless because the header is only added once.
     format("xml") {
         target("**/*.xml")
         targetExclude("**/build/**", "**/bin/**", "**/out/**", "**/.gradle/**", "**/node_modules/**", "**/test-results/**", "**/playwright-report/**")
@@ -57,18 +59,10 @@ licensee {
     allow("EPL-1.0")
     allow("EPL-2.0")
     allow("UPL-1.0")
-    // Other permissive licenses
-    // Per-artifact decisions for weak/strong-copyleft licences (statically linked into the native
-    // image; needs legal sign-off before distribution). Nothing else may use these licences.
-    // Flyway Community Edition is Apache-2.0 (its POM only links the README); needs a legal check
-    // before it ships in a distribution.
-    allowDependency("org.flywaydb", "flyway-core", "12.4.0") {
-        because("Apache-2.0 (Flyway Community Edition; POM links the README); used by persistence-postgres")
-    }
-    allowDependency("org.flywaydb", "flyway-database-postgresql", "12.4.0") {
-        because("Apache-2.0 (Flyway Community Edition; POM links the README); used by persistence-postgres")
-    }
-    // Allow specific license URLs (non-standard but compatible)
+    // Licences that a POM names only by URL (non-standard but compatible).
+    // Flyway Community Edition is Apache-2.0, but its POM links the README instead of the licence; only
+    // Flyway declares this URL. Needs a legal check before it ships in a distribution.
+    allowUrl("https://github.com/flyway/flyway/blob/main/README.txt")
     allowUrl("https://spdx.org/licenses/BSD-2-Clause")
     allowUrl("https://jdbc.postgresql.org/about/license.html")
     allowUrl("http://antlr.org/license.html")
@@ -102,15 +96,20 @@ pmd {
 }
 
 spotbugs {
+    // Strictest useful setting: MAX effort finds more (deeper analysis, slower), MEDIUM confidence
+    // drops the low-confidence noise. Reviewed false positives go in exclude.xml, each with a reason.
+    effort.set(com.github.spotbugs.snom.Effort.MAX)
+    reportLevel.set(com.github.spotbugs.snom.Confidence.MEDIUM)
     excludeFilter.set(rootProject.file("config/spotbugs/exclude.xml"))
 }
 
 // Error Prone configuration
 dependencies {
     add("errorprone", libs.findLibrary("errorprone").get())
-    // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
     constraints {
-        add("checkstyle", "org.codehaus.plexus:plexus-utils:4.1.0")        // Keep spotbugs-annotations on the version SpotBugs itself uses
+        // Resolve CVE-2025-67030: Plexus-utils directory traversal vulnerability
+        add("checkstyle", "org.codehaus.plexus:plexus-utils:4.1.0")
+        // Keep spotbugs-annotations on the version SpotBugs itself uses
         add("implementation", "com.github.spotbugs:spotbugs-annotations:${libs.findVersion("spotbugsAnnotations").get().requiredVersion}")
     }
 }
@@ -120,6 +119,9 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         excludedPaths.set(".*/build/generated/.*")
+        // Warnings promoted to errors: each hides a real bug (a missing enum case, a dead local or
+        // a discarded result) behind a log line nobody reads. Add to this list; do not blanket -Werror.
+        error("MissingCasesInEnumSwitch", "UnusedVariable", "CheckReturnValue", "ReturnValueIgnored")
     }
 }
 
@@ -134,7 +136,7 @@ val opengrepExecution = gradle.sharedServices.registerIfAbsent(
     maxParallelUsages.set(1)
 }
 
-tasks.register<Exec>("opengrep") {
+val opengrep = tasks.register<Exec>("opengrep") {
     description = "Run OpenGrep static analysis with the pinned local ruleset"
     group = "verification"
     usesService(opengrepExecution)
@@ -143,58 +145,66 @@ tasks.register<Exec>("opengrep") {
     // the OpenGrep security rules. Rules scoped to tests in the ruleset therefore do not run here.
     val sourceDir = project.file("src/main")
     val ruleFile = rootProject.file("config/opengrep/.semgrep.yml")
-    val reportDir = project.layout.buildDirectory.dir("reports/opengrep").get()
-    val reportFile = reportDir.file("opengrep-report.sarif").asFile
+    val reportDir = project.layout.buildDirectory.dir("reports/opengrep")
+    val reportFile = reportDir.map { it.file("opengrep-report.sarif").asFile }
+    val home = project.layout.buildDirectory.dir("tmp/opengrep-home")
+    val rootDir = rootProject.projectDir
+    val projectPath = path
+    val onCi = providers.environmentVariable("CI").isPresent
+    val required = providers.gradleProperty("yukta.requireOpengrep").isPresent
+    // `opengrep --version`, absent when the program is not on the PATH. A provider (not shared state),
+    // so it is safe in parallel and under the configuration cache; ponytail: one cheap probe per module.
+    // The shell makes a missing program an empty answer instead of a failure to start a process, which
+    // the configuration cache would record as a problem.
+    val windows = System.getProperty("os.name").startsWith("Windows")
+    val scannerVersion = providers.exec {
+        commandLine(if (windows) listOf("cmd", "/c", "opengrep --version 2>nul") else listOf("sh", "-c", "opengrep --version 2>/dev/null"))
+        isIgnoreExitValue = true
+    }.standardOutput.asText.map { it.trim() }.filter { it.isNotEmpty() }
 
-    inputs.file(ruleFile)
-    inputs.dir(sourceDir).optional()
+    // Relative paths: the key must not depend on where the checkout is (worktrees, CI), or the
+    // build cache never hits across them. The scanner version is an input, so an upgrade rescans.
+    inputs.file(ruleFile).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.dir(sourceDir).withPathSensitivity(PathSensitivity.RELATIVE).optional()
+    inputs.property("opengrepVersion", scannerVersion.orElse("absent"))
     // Declared output makes the scan UP-TO-DATE / cacheable when sources and rules are unchanged.
     outputs.file(reportFile)
     outputs.cacheIf { true }
 
-    doFirst {
-        reportDir.asFile.mkdirs()
-    }
-
     // A per-project settings dir (not the shared tmpdir) so concurrent builds do not share it, and it
     // stays writable on a read-only home.
-    environment("HOME", project.layout.buildDirectory.dir("tmp/opengrep-home").get().asFile.also { it.mkdirs() })
+    doFirst {
+        reportDir.get().asFile.mkdirs()
+        home.get().asFile.mkdirs()
+        environment("HOME", home.get().asFile)
+    }
 
     // --error: any finding exits non-zero, which fails the build.
     // Run from the repo root with relative paths so rule ids stay short (`nosem: <id>` matches).
-    workingDir = rootProject.projectDir
-    commandLine("opengrep", "scan",
-        "--config=config/opengrep/.semgrep.yml",
-        "--error",
-        "--sarif-output=${reportFile.absolutePath}",
-        "--quiet",
-        sourceDir.relativeTo(rootProject.projectDir).path
-    )
+    workingDir = rootDir
+    argumentProviders.add(CommandLineArgumentProvider {
+        listOf(
+            "scan",
+            "--config=config/opengrep/.semgrep.yml",
+            "--error",
+            "--sarif-output=${reportFile.get().absolutePath}",
+            "--quiet",
+            sourceDir.relativeTo(rootDir).path
+        )
+    })
+    executable = "opengrep"
 
     onlyIf {
         val sourceExists = sourceDir.exists()
-        // Probe once per build, not once per module.
-        val opengrepExists = rootProject.extra.let { extra ->
-            if (!extra.has("opengrepInstalled")) {
-                extra["opengrepInstalled"] = try {
-                    ProcessBuilder("opengrep", "--version").redirectErrorStream(true).start().let {
-                        it.inputStream.readAllBytes()
-                        it.waitFor() == 0
-                    }
-                } catch (_: java.io.IOException) {
-                    false
-                }
-            }
-            extra["opengrepInstalled"] as Boolean
-        }
+        val opengrepExists = scannerVersion.isPresent
 
         // A scanner that is missing must not read as "no findings" on CI, or where the developer asks
         // for it (-Pyukta.requireOpengrep, e.g. for a pre-push hook); elsewhere say so loudly.
         if (sourceExists && !opengrepExists) {
-            if (System.getenv("CI") != null || providers.gradleProperty("yukta.requireOpengrep").isPresent) {
+            if (onCi || required) {
                 throw GradleException("opengrep is not on the PATH; CI must install it (see ci.yml) instead of skipping the scan")
             }
-            logger.warn("WARNING: $path:opengrep skipped, opengrep is not installed; CI will run it.")
+            logger.warn("WARNING: $projectPath:opengrep skipped, opengrep is not installed; CI will run it.")
         }
 
         sourceExists && opengrepExists
@@ -217,21 +227,28 @@ tasks.withType<SpotBugsTask>().configureEach { if (name.contains("Aot")) enabled
 // Quality tasks that a module may switch off, each with the reason. Anything else fails the build,
 // like lowering coverage does. Burn these down; do not add to them without a tracking issue.
 val allowedDisabledQualityTasks = mapOf(
-    ":mcp:pmdTest" to "336 test-source PMD violations still to fix",
+    ":mcp:pmdTest" to "336 test-source PMD violations still to fix (tracked in #2270)",
     ":ui" to "no Java sources; its JS checks run through node-conventions",
 )
 
-afterEvaluate {
-    tasks.matching { t ->
-        !t.enabled && !t.name.contains("Aot") &&
-            (t is Checkstyle || t is Pmd || t::class.java.name.contains("SpotBugs") || t.name.startsWith("spotless"))
-    }.forEach { t ->
-        if ("$path:${t.name}" !in allowedDisabledQualityTasks && path !in allowedDisabledQualityTasks) {
-            throw GradleException("${t.path} must not be disabled; fix the findings or add a reasoned entry to allowedDisabledQualityTasks in quality-conventions")
+// Checked on the tasks that are about to run, once the graph is known: that sees every late change
+// (a module's own afterEvaluate, ignoreFailures) and creates no task. `onlyIf { false }` cannot be read
+// back from a task; code review has to catch that one.
+fun isGate(t: Task) =
+    !t.name.contains("Aot") &&
+        (t is Checkstyle || t is Pmd || t is SpotBugsTask || t is JacocoCoverageVerification ||
+            t.name.startsWith("spotless") || t.name in setOf("opengrep", "licensee", "verifyCoverageData"))
+
+gradle.taskGraph.whenReady {
+    allTasks.filter { it.project == project && isGate(it) }.forEach { t ->
+        val allowed = "$path:${t.name}" in allowedDisabledQualityTasks || path in allowedDisabledQualityTasks
+        val ignoring = (t as? VerificationTask)?.ignoreFailures == true
+        if ((!t.enabled || ignoring) && !allowed) {
+            throw GradleException("${t.path} must not be disabled or set to ignore failures; fix the findings or add a reasoned entry to allowedDisabledQualityTasks in quality-conventions")
         }
     }
 }
 
 tasks.named("check") {
-    dependsOn(tasks.withType<Task>().matching { it.name == "opengrep" })
+    dependsOn(opengrep)
 }

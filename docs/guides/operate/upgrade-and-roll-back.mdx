@@ -69,7 +69,7 @@ import { Diagram } from "/snippets/diagram.jsx";
         Pull the new tag, then recreate the container with the same options (keep the volume if you have one):
 
         ```bash
-        docker pull ghcr.io/infenia/yukta:0.1.0-alpha.3
+        docker pull ghcr.io/infenia/yukta:0.1.0-alpha.4
         docker stop yukta && docker rm yukta
         # run it again with your usual docker run options and the new tag
         ```
@@ -80,7 +80,7 @@ import { Diagram } from "/snippets/diagram.jsx";
         Run the script again. It prints the version it found and the one it installs, skips the download when you are current, and keeps the previous programs as `yukta.prev` and `yukta-cli.prev`:
 
         ```bash
-        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
         ```
 
         It warns when a running server must be restarted and when another copy earlier on your `PATH` hides the new one. Restart the server yourself.

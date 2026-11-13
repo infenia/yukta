@@ -42,11 +42,10 @@ export const getSupervision = (target: ControlTarget) => {
   );
 };
 
-/** What the Control page's tile shows: workflows nobody owns, and assignments in conflict. */
+/** What the Control page's tile shows: workflows nobody owns. */
 export interface SupervisionSummary {
   unowned: number;
   unownedWorkflows: { sessionId: string; workflowId: string }[];
-  conflicts: number;
 }
 
 export const getSupervisionSummary = () =>

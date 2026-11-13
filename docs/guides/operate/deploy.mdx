@@ -29,7 +29,7 @@ import { Diagram } from "/snippets/diagram.jsx";
 |---|---|---|
 | Docker image `ghcr.io/infenia/yukta` | Linux, and macOS or Windows through Docker Desktop (`linux/amd64`; `linux/arm64` from the release after `0.1.0-alpha.3`) | You already run containers. The image holds the native server and nothing else |
 | `.deb` or `.rpm` package | Linux `amd64` (`arm64` from the release after `0.1.0-alpha.3`) | You want a `systemd` service, a service user and a settings file |
-| Install script (`install.sh`) | Linux and macOS; with `0.1.0-alpha.3` only Linux `amd64` gets the server | You want the binaries in `/usr/local/bin` with checked checksums |
+| Install script (`install.sh`) | Linux and macOS; with `0.1.0-alpha.3` and earlier only Linux `amd64` gets the server | You want the binaries in `/usr/local/bin` with checked checksums |
 | Archive (`.tar.gz`, `.zip` on Windows) | Linux, macOS and Windows, from the release after `0.1.0-alpha.3` (`0.1.0-alpha.3`: Linux `amd64`) | You manage the service yourself |
 | From source | Anything with JDK 25 | You need a Plus build, extra plugins or a custom plugin. See [Write a plugin](/guides/extend/write-a-plugin) |
 
@@ -62,7 +62,7 @@ import { Diagram } from "/snippets/diagram.jsx";
           -e YUKTA_API_KEYS_0_NAME=admin \
           -e YUKTA_API_KEYS_0_KEY="$YUKTA_KEY" \
           -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-          ghcr.io/infenia/yukta:0.1.0-alpha.3
+          ghcr.io/infenia/yukta:0.1.0-alpha.4
         ```
 
         The image has no shell and no `curl`. It runs as the unprivileged user 65532.
@@ -83,7 +83,7 @@ import { Diagram } from "/snippets/diagram.jsx";
       </Tab>
       <Tab title="Install script" icon="terminal">
         ```bash
-        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+        curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
         ```
 
         This puts `yukta` and `yukta-cli` in `/usr/local/bin` (as root) or `~/.local/bin`, after checking their checksums. It starts nothing. Run the server under a service manager of your choice, with the same three `YUKTA_API_KEYS_0_*` variables:

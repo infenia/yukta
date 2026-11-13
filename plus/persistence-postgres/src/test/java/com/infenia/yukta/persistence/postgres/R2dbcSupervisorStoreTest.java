@@ -13,7 +13,6 @@ import com.infenia.yukta.plugin.control.SupervisorAttachment;
 import com.infenia.yukta.plugin.control.SupervisorScope;
 import com.infenia.yukta.plugin.control.SupervisorSource;
 import com.infenia.yukta.service.supervisor.SupervisorVersions;
-import io.r2dbc.spi.ConnectionFactories;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -21,12 +20,10 @@ import java.util.Map;
 import java.util.Set;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
-import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.test.StepVerifier;
 import tools.jackson.databind.ObjectMapper;
 
 @NoArgsConstructor
-@SuppressWarnings({"PMD.TooManyMethods"})
 class R2dbcSupervisorStoreTest extends PostgresTestSupport {
 
   private static final String RULES = "rules";
@@ -136,23 +133,6 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void conflictMarkIsStoredAndReadBack() {
-    final SupervisorAttachment marked =
-        new SupervisorAttachment("c1", "p", new SupervisorScope.Run("w", "A"), true).asConflict();
-
-    StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
-    StepVerifier.create(store.saveAttachment(marked)).verifyComplete();
-
-    StepVerifier.create(store.attachments())
-        .assertNext(
-            a -> {
-              assertThat(a.conflict()).isTrue();
-              assertThat(a.enabled()).isFalse();
-            })
-        .verifyComplete();
-  }
-
-  @Test
   void sectionScopeIsStoredAsTextAndReadBack() {
     StepVerifier.create(store.saveSupervisor(profile("p", false))).verifyComplete();
     final Set<String> nodes = new LinkedHashSet<>();
@@ -173,33 +153,6 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
                 new SupervisorAttachment("b", "ghost", new SupervisorScope.Global(), true)))
         .expectError()
         .verify();
-  }
-
-  @Test
-  void renamedIdsAreReadWithoutFailing() {
-    db.sql(
-            "INSERT INTO supervisor_id_migration (kind, old_id, new_id) VALUES ('profile', 'a:b',"
-                + " 'a_b')")
-        .fetch()
-        .rowsUpdated()
-        .block();
-    try {
-      StepVerifier.create(store.renamedIdsWarning()).verifyComplete();
-      store.warnRenamedIds();
-    } finally {
-      db.sql("DELETE FROM supervisor_id_migration").fetch().rowsUpdated().block();
-    }
-  }
-
-  @Test
-  void anUnreadableMappingTableIsLoggedNotRaised() {
-    final R2dbcSupervisorStore broken =
-        new R2dbcSupervisorStore(
-            DatabaseClient.create(
-                ConnectionFactories.get("r2dbc:postgresql://u:p@127.0.0.1:1/none")),
-            new ObjectMapper());
-
-    StepVerifier.create(broken.renamedIdsWarning()).verifyComplete();
   }
 
   @Test

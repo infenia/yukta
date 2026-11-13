@@ -15,6 +15,11 @@ dependencies {
     implementation(libs.spring.boot.starter.validation)
     implementation(libs.micrometer.core)
     implementation("io.micrometer:context-propagation")
+    // API only: reads the trace id (the exporter is in boot); aopalliance (Public Domain, no
+    // licence URL) is for its @NewSpan aspects, which core does not use
+    implementation("io.micrometer:micrometer-tracing") {
+        exclude(group = "aopalliance", module = "aopalliance")
+    }
     implementation(libs.caffeine)
 
     // @Schema on the model records; the application brings the full OpenAPI stack (web, boot)

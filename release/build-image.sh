@@ -68,6 +68,7 @@ for platform in "${PLATFORMS[@]}"; do
   [[ "$platform" == linux-* ]] || continue   # macOS and Windows have no image
   arch="$(arch_of "$platform")"
   if [[ ! -x "$DIST/$platform/yukta" ]]; then
+    $push && die "no server binary in $DIST/$platform: a pushed image must cover linux-amd64 and linux-arm64"
     log "skipping $platform: no server binary in $DIST/$platform"
     continue
   fi

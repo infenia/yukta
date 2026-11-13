@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
  * @param source {@code MANUAL}, {@code DEFINITION} or {@code SYSTEM}
  * @param originSessionId for a DEFINITION attachment, the session that declared it
  * @param originWorkflowId for a DEFINITION attachment, the workflow that declared it
- * @param conflict whether it was disabled at start-up because it overlapped another
  * @param locked whether it changes only when the request asks to unlock
  */
 @Schema(description = "What a supervisor owns: one assignment")
@@ -31,5 +30,4 @@ public record AssignmentView(
     @Schema(description = "MANUAL, DEFINITION or SYSTEM") String source,
     String originSessionId,
     String originWorkflowId,
-    boolean conflict,
     boolean locked) {}

@@ -17,9 +17,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
@@ -30,11 +27,9 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Supervisors and attachments in PostgreSQL (tables {@code supervisor} and {@code
- * supervisor_attachment}, migrations V7, V8 and V10; versions in {@code supervisor_version}, V17),
- * so supervisors attached at run time come back after a restart. Settings are stored as given, a
- * model API key included.
+ * supervisor_attachment}, V1; versions in {@code supervisor_version}), so supervisors attached at
+ * run time come back after a restart. Settings are stored as given, a model API key included.
  */
-@Slf4j
 @SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"})
 public class R2dbcSupervisorStore implements SupervisorStore {
 
@@ -72,39 +67,6 @@ public class R2dbcSupervisorStore implements SupervisorStore {
   public R2dbcSupervisorStore(final DatabaseClient client, final ObjectMapper mapper) {
     this.client = client;
     this.mapper = mapper;
-  }
-
-  /** Warns once at start-up about every supervisor id that migration V8 renamed. */
-  @EventListener(ApplicationReadyEvent.class)
-  public void warnRenamedIds() {
-    renamedIdsWarning().subscribe();
-  }
-
-  /** Logs a warning per renamed id; a store that cannot be read is logged, never an error. */
-  /* default */ Mono<Void> renamedIdsWarning() {
-    return client
-        .sql("SELECT kind, old_id, new_id FROM supervisor_id_migration ORDER BY kind, old_id")
-        .map(
-            row ->
-                new String[] {
-                  row.get("kind", String.class),
-                  row.get("old_id", String.class),
-                  row.get("new_id", String.class)
-                })
-        .all()
-        .doOnNext(
-            renamed ->
-                log.atWarn()
-                    .addKeyValue("kind", renamed[0])
-                    .addKeyValue("oldId", renamed[1])
-                    .addKeyValue("newId", renamed[2])
-                    .log("A supervisor id broke the naming rule and was renamed by migration V8"))
-        .then()
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Could not read the renamed supervisor ids");
-              return Mono.empty();
-            });
   }
 
   @Override
@@ -204,7 +166,7 @@ public class R2dbcSupervisorStore implements SupervisorStore {
     return client
         .sql(
             "SELECT id, supervisor_id, scope, enabled, source, origin_session_id,"
-                + " origin_workflow_id, conflict, locked FROM supervisor_attachment ORDER BY id")
+                + " origin_workflow_id, locked FROM supervisor_attachment ORDER BY id")
         .map(
             row ->
                 new SupervisorAttachment(
@@ -215,7 +177,6 @@ public class R2dbcSupervisorStore implements SupervisorStore {
                     SupervisorSource.valueOf(row.get("source", String.class)),
                     row.get("origin_session_id", String.class),
                     row.get("origin_workflow_id", String.class),
-                    Boolean.TRUE.equals(row.get("conflict", Boolean.class)),
                     Boolean.TRUE.equals(row.get("locked", Boolean.class))))
         .all();
   }
@@ -226,13 +187,13 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .sql(
             """
             INSERT INTO supervisor_attachment (id, supervisor_id, scope, enabled, source,
-              origin_session_id, origin_workflow_id, conflict, locked, updated_at)
+              origin_session_id, origin_workflow_id, locked, updated_at)
             VALUES (:id, :supervisor, :scope, :enabled, :source, :originSession,
-              :originWorkflow, :conflict, :locked, now())
+              :originWorkflow, :locked, now())
             ON CONFLICT (id) DO UPDATE SET supervisor_id = EXCLUDED.supervisor_id,
               scope = EXCLUDED.scope, enabled = EXCLUDED.enabled, source = EXCLUDED.source,
               origin_session_id = EXCLUDED.origin_session_id,
-              origin_workflow_id = EXCLUDED.origin_workflow_id, conflict = EXCLUDED.conflict,
+              origin_workflow_id = EXCLUDED.origin_workflow_id,
               locked = EXCLUDED.locked, updated_at = now()
             """)
         .bind("id", binding.id())
@@ -242,7 +203,6 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .bind("source", binding.source().name())
         .bind("originSession", nullable(binding.originSessionId()))
         .bind("originWorkflow", nullable(binding.originWorkflowId()))
-        .bind("conflict", binding.conflict())
         .bind("locked", binding.locked())
         .fetch()
         .rowsUpdated()

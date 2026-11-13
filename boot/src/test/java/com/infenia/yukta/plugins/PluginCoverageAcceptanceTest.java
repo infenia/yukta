@@ -54,7 +54,6 @@ class PluginCoverageAcceptanceTest {
           "NOTIFY_TERMINAL",
           "OUTCOME_TERMINAL",
           "SUPERVISOR_DECISION",
-          "PATCH_GUARD",
           "PROCESS_EXECUTOR",
           "RECIPIENT_LIST",
           "SCHEDULE_TRIGGER",

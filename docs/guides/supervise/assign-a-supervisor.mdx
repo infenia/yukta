@@ -168,7 +168,7 @@ curl -s "localhost:9858/api/supervisors/assignments?session=steer"
 curl -s localhost:9858/api/supervision/summary
 ```
 
-The list shows `release-guard` with target `workflow:steer/slow` and its `source` (`MANUAL`, `DEFINITION` or `SYSTEM`). The summary counts workflows nobody owns and assignments that start-up disabled as conflicts. Stopping the run as a person is refused with `409 CONTROLLED_BY_SUPERVISOR`, pausing it works, and `GET /api/control/audit` records both.
+The list shows `release-guard` with target `workflow:steer/slow` and its `source` (`MANUAL`, `DEFINITION` or `SYSTEM`). The summary counts workflows nobody owns. Stopping the run as a person is refused with `409 CONTROLLED_BY_SUPERVISOR`, pausing it works, and `GET /api/control/audit` records both.
 
 <UiShot name="supervisor-details" alt="A supervisor's page showing its settings, what it owns and its recent decisions" caption="A supervisor's page: its settings (secrets shown as ***), what it owns and what became of its commands." />
 

@@ -32,6 +32,11 @@ dependencies {
     implementation("app.cash.licensee:licensee-gradle-plugin:${libs.versions.licensee.get()}")
     implementation("org.gradle:test-retry-gradle-plugin:${libs.versions.testRetry.get()}")
     implementation("info.solidsoft.gradle.pitest:gradle-pitest-plugin:${libs.versions.pitestPlugin.get()}")
+    testImplementation(gradleTestKit())
+    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+
     // plexus-utils 4 moved its XML classes (XmlPullParserException, Xpp3Dom) to plexus-xml; Licensee's
     // Maven 3 model builder still needs them. The 3.x line is the Maven 3 one (4.x needs the Maven 4 API).
     implementation("org.codehaus.plexus:plexus-xml:4.2.0")
@@ -46,4 +51,8 @@ dependencies {
         // GHSA-xxph-c9ww-hj94: Guava <= 33.7.1 deserialization allocates without bound
         implementation("com.google.guava:guava:33.8.0-jre")
     }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

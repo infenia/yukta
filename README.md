@@ -72,7 +72,7 @@ From `0.1.0-alpha.4` on (earlier releases: see the note below the commands), the
 **Linux and macOS**
 
 ```bash
-curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.3/install.sh | sh
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh
 ```
 
 **Windows** (PowerShell): download `yukta-<version>-windows-amd64.zip` from the [release page](https://github.com/infenia/yukta/releases), then:
@@ -89,7 +89,7 @@ docker run --rm -p 127.0.0.1:9858:9858 \
   -e YUKTA_API_KEYS_0_NAME=admin \
   -e YUKTA_API_KEYS_0_KEY=change-me-to-a-long-random-secret \
   -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-  ghcr.io/infenia/yukta:0.1.0-alpha.3
+  ghcr.io/infenia/yukta:0.1.0-alpha.4
 ```
 
 Releases `0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).

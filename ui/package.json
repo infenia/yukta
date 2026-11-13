@@ -1,8 +1,9 @@
 {
   "name": "yukta-ui",
   "private": true,
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "type": "module",
+  "packageManager": "pnpm@12.16.1",
   "scripts": {
     "dev": "vite",
     "build": "tsc && tsc -p tsconfig.vitest.json && vite build && node scripts/check-bundle-size.js",

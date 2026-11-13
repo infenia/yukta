@@ -65,6 +65,11 @@ import org.jline.utils.AttributedStyle;
   private boolean quit;
 
   /** Whether the environment asks for plain text: NO_COLOR is set (any value) or TERM is dumb. */
+  // a fresh pty reports 0x0 and JLine would then allocate a negative array: use 80x24
+  /* default */ static org.jline.terminal.Size fit(final org.jline.terminal.Size size) {
+    return size.getRows() > 0 && size.getColumns() > 0 ? size : new org.jline.terminal.Size(80, 24);
+  }
+
   /* default */ static boolean colorWanted(final java.util.Map<String, String> env) {
     final String term = env.get("TERM");
     return !env.containsKey("NO_COLOR") && term != null && !"dumb".equals(term);

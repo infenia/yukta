@@ -6,7 +6,6 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { buttonVariants } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { DecisionMakersTab } from './DecisionMakersTab';
-import { ConflictsBanner } from './ConflictsBanner';
 import { SupervisorsBrowser } from './SupervisorsBrowser';
 
 /**
@@ -59,7 +58,6 @@ export function SupervisorsPage() {
           </div>
         }
       />
-      <ConflictsBanner />
       <SupervisorsBrowser />
       <Sheet open={typesOpen} onOpenChange={setTypesOpen}>
         <SheetContent className="sm:w-[min(72rem,92vw)]">

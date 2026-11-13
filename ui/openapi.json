@@ -3119,9 +3119,6 @@
       "AssignmentView" : {
         "description" : "What a supervisor owns: one assignment",
         "properties" : {
-          "conflict" : {
-            "type" : "boolean"
-          },
           "enabled" : {
             "type" : "boolean"
           },
@@ -5601,10 +5598,6 @@
       },
       "Summary" : {
         "properties" : {
-          "conflicts" : {
-            "format" : "int64",
-            "type" : "integer"
-          },
           "unowned" : {
             "format" : "int32",
             "type" : "integer"
@@ -6571,6 +6564,9 @@
               "$ref" : "#/components/schemas/TaskProgress"
             },
             "type" : "array"
+          },
+          "traceId" : {
+            "type" : [ "string", "null" ]
           },
           "workflowId" : {
             "type" : "string"
@@ -10009,7 +10005,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "How many workflows nobody owns, and how many assignments conflict",
+        "summary" : "How many workflows nobody owns",
         "tags" : [ "Supervision API" ]
       }
     },

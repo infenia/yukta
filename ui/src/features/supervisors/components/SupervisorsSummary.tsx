@@ -69,7 +69,7 @@ export function SupervisorsSummary() {
           Open supervisors
         </Link>
       </div>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Link to="/supervisors" aria-label="Supervisors tile">
           <KpiTile label="Supervisors" value={na(supervisors.data?.length)} />
         </Link>
@@ -83,7 +83,6 @@ export function SupervisorsSummary() {
             value={na(summary.data?.unowned)}
           />
         </Link>
-        <KpiTile label="Conflicts" value={na(summary.data?.conflicts)} />
         <KpiTile
           label="Applied"
           value={decisions.data ? String(count('applied')) : '–'}

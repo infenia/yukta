@@ -125,7 +125,23 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
     java -jar boot/build/libs/boot-*.jar --spring.profiles.active=prod,postgres
     ```
 
-    The profile sets `yukta.session.store-type=postgres`. Give the migration account the right to change the schema, and the run-time account the right to read and write the tables. The server applies migrations first and does not start if one fails.
+    The profile sets `yukta.session.store-type=postgres`. Use two accounts, not one: with a single account the running server can alter or drop tables, and an SQL injection anywhere would have the same reach. The migration account owns the schema (DDL); the run-time account gets data rights only. The server applies migrations first and does not start if one fails.
+
+    ```sql
+    -- as the database owner, once
+    CREATE ROLE yukta_migrate LOGIN PASSWORD '...';
+    CREATE ROLE yukta_app LOGIN PASSWORD '...';
+    GRANT CONNECT ON DATABASE yukta TO yukta_migrate, yukta_app;
+    GRANT CREATE, USAGE ON SCHEMA public TO yukta_migrate;
+    GRANT USAGE ON SCHEMA public TO yukta_app;
+    -- tables and sequences Flyway creates later are owned by yukta_migrate
+    ALTER DEFAULT PRIVILEGES FOR ROLE yukta_migrate IN SCHEMA public
+      GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO yukta_app;
+    ALTER DEFAULT PRIVILEGES FOR ROLE yukta_migrate IN SCHEMA public
+      GRANT USAGE, SELECT ON SEQUENCES TO yukta_app;
+    ```
+
+    The database owner's password is used only for this one-off setup. Keep it in your secret manager, not in the server's environment; the server needs only the two account passwords. Keep the host and database name in both URLs identical.
   </Step>
   <Step title="Move the other data you need">
     Sessions, workflows and the execution log move with the profile. Each of these is a separate switch:

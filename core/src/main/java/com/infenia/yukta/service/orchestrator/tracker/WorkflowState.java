@@ -42,6 +42,9 @@ final class WorkflowState {
   /** The run this one restarts, or null. */
   /* default */ volatile String restartOf;
 
+  /** Trace id of the run's span when a tracer is configured, or null. */
+  /* default */ volatile String traceId;
+
   /** Who or what started the run, or null when not known. */
   /* default */ volatile String initiator;
 

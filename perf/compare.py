@@ -9,7 +9,7 @@ Usage: compare.py <report dir> [--baseline perf/baseline.json] [--findings FILE]
   * stuck runs and lost tracker events: none, ever;
   * success rate: at least 99%, overall and per workflow;
   * latency per workflow against the baseline: the median may grow by 25% and the p99 by 30%, each
-    plus 25 ms, because the test polls every 50 ms. The p95 is not checked: across identical runs it
+    plus 50 ms, because the test polls every 50 ms and a median sits on a poll tick: it flips between ~57 and ~107 ms (#2240). The p95 is not checked: across identical runs it
     moved by up to 13% (BASELINE.md) while the median moved by 2 ms, and the p99 already covers the
     tail, so a third latency gate would only add false alarms;
   * memory, for a run of 15 minutes or more: the mean of the last tenth of the run may not exceed the
@@ -26,7 +26,7 @@ import pathlib
 import re
 import sys
 
-MEDIAN_GROWTH, P99_GROWTH, SLACK_MS = 1.25, 1.30, 25
+MEDIAN_GROWTH, P99_GROWTH, SLACK_MS = 1.25, 1.30, 50
 MIN_SUCCESS = 0.99
 MEMORY_GROWTH_MIB = 150
 MEMORY_MIN_SECONDS = 15 * 60

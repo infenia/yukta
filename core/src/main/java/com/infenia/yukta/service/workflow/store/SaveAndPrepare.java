@@ -18,8 +18,9 @@ public class SaveAndPrepare {
 
   /**
    * Applies for the same workflow run one after another, so a failed apply puts back the definition
-   * it replaced and not one that a concurrent apply saved in between. ponytail: within this server
-   * only; with several servers a compare-and-set on the stored version would be needed.
+   * it replaced and not one that a concurrent apply saved in between. That holds within this
+   * server; across servers the undo is a compare-and-set in the store ({@link
+   * WorkflowDefinitionStore#replaceIfCurrent}), which skips it when another apply saved since.
    */
   private static final CommandSequencer SEQUENCE = new CommandSequencer();
 
@@ -59,18 +60,9 @@ public class SaveAndPrepare {
                     .then(Mono.defer(() -> prepare.apply(definition)))
                     .onErrorResume(
                         failure ->
-                            restore(store, sessionId, definition.workflowId(), previous)
+                            store
+                                .replaceIfCurrent(sessionId, definition, previous)
                                 .onErrorResume(_ -> Mono.empty())
                                 .then(Mono.error(failure))));
-  }
-
-  private static Mono<Void> restore(
-      final WorkflowDefinitionStore store,
-      final String sessionId,
-      final String workflowId,
-      final Optional<WorkflowDefinition> previous) {
-    return previous.isPresent()
-        ? store.save(sessionId, previous.get())
-        : store.remove(sessionId, workflowId);
   }
 }

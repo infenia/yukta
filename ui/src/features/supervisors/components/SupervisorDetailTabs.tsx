@@ -50,7 +50,7 @@ function WorkflowOwners({
               : `by ${target.selectors.join(', ')}`}{' '}
           · {SOURCE[assignment.source]}
         </span>
-        {(!assignment.enabled || assignment.conflict) && (
+        {!assignment.enabled && (
           <span className="text-body-sm text-error inline-flex items-center gap-1">
             <span
               aria-hidden="true"
@@ -58,9 +58,7 @@ function WorkflowOwners({
             >
               block
             </span>
-            {assignment.conflict
-              ? 'Disabled: overlaps another owner'
-              : 'Disabled'}
+            Disabled
           </span>
         )}
         <span className="flex-1" />

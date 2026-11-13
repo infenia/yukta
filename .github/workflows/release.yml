@@ -7,7 +7,7 @@ on:
   push:
     tags: [ "v*" ]
   # The tag is created by release-please (release-please.yml) when the release PR is merged.
-  # Weekly rehearsal: the same dry run as a manual one, the full -O3 build on every platform, so a build
+  # Weekly rehearsal: the same dry run as a manual one, the full optimized build on every platform, so a build
   # that broke on macOS or Windows (native-smoke.yml covers linux-amd64 only) shows up before the release
   # PR is merged, not after the tag exists.
   schedule:
@@ -161,27 +161,22 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
 
-      # Builds inside the pinned Oracle GraalVM image, the same way the release machine does. No PGO
-      # profile is recorded here: the instrumented build runs out of memory or hangs on the hosted runner
-      # (alpha.2, alpha.3), so the binary is -O3 with the profile Graal infers itself (GraalNN). To
-      # release with a recorded profile, record it with release/pgo-profile.sh on a machine with
-      # enough memory and rebuild with NATIVE_PGO_PROFILE=<file>, or use a larger runner here.
+      # Builds inside the pinned GraalVM CE image, the same way the release machine does.
       # NATIVE_HEAP is lowered from 16g in case the hosted runner has less memory.
       - name: Native compile
         if: runner.os == 'Linux'
         timeout-minutes: 75   # alpha.2 built in about 30 min; a stall fails here, not after hours
         env:
           NATIVE_HEAP: 12g
-          NATIVE_PGO: 0
         run: release/build-server.sh
 
-      # Oracle GraalVM (-O3, same as the Docker builder image). On Windows the action also sets up the
+      # GraalVM CE (same as the Docker builder image). On Windows the action also sets up the
       # MSVC toolchain native-image needs.
       - uses: graalvm/setup-graalvm@f70bc8032f90a104502824a54bcb94b6f01715bc # v1.6.8
         if: runner.os != 'Linux'
         with:
           java-version: '25'
-          distribution: 'graalvm'
+          distribution: 'graalvm-community'
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       # In CI the Gradle build uses the system Node.js and pnpm (build-logic node-conventions). The
@@ -195,22 +190,22 @@ jobs:
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
         if: runner.os != 'Linux'
         with:
-          version: 12.16.1   # keep in sync with .github/actions/setup-build
+          package_json_file: ui/package.json
 
-      # No PGO profile and no static link here (both are Linux/Docker only), -O3 with GraalNN.
+      # No static link here (Linux/Docker only).
       - name: Native compile (${{ matrix.platform }})
         if: runner.os != 'Linux'
         timeout-minutes: 90
         env:
           HEAP: ${{ matrix.heap }}
-          PLATFORM: ${{ matrix.platform }}
+          TARGET_PLATFORM: ${{ matrix.platform }}
           QUICK: ${{ inputs.quick }}
         run: |
           quick=()
           [ "$QUICK" != true ] || quick=(-Pnative.quick)
           ./gradlew nativeCompile -x test --no-daemon "-Pnative.heap=$HEAP" "${quick[@]}"
           source release/lib.sh
-          out="dist/$PLATFORM"
+          out="dist/$TARGET_PLATFORM"
           mkdir -p "$out"
           cp boot/build/native/nativeCompile/yukta* "$out/"   # yukta or yukta.exe, plus any shared libraries
           write_build_marker "$out"
@@ -226,7 +221,7 @@ jobs:
           trap 'kill "$pid" || true' EXIT
           release/smoke-test.sh http://127.0.0.1:9858
 
-      # native-image wrote the bill of materials next to the binary (--enable-sbom=embed,export). Checked
+      # The exportSbom Gradle task wrote the bill of materials next to the binary. Checked
       # on every run, so a rehearsal fails when it is missing, not the release.
       - name: SBOM was exported
         env:
@@ -241,7 +236,7 @@ jobs:
 
       - name: Attest the SBOM
         if: github.ref_type == 'tag'
-        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-path: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
           sbom-path: dist/${{ matrix.platform }}/yukta.sbom.json

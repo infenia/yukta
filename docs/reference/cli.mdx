@@ -211,7 +211,7 @@ All take `<session-id> <execution-id> <node-id>` except where noted.
 | `supervisors agent --credential-file <file> --exec <program> [-- args...]` | Runs a program as the decision maker of an `http` supervisor: signals on its standard input as JSON lines, directives from its standard output. |
 | `supervision [--session S] [--workflow W] [--execution E] [--node N]` | Who owns a target and which commands people may send. |
 | `ownership --session S --workflow W` | Which supervisor owns the run level and each node; both flags required. |
-| `supervision-summary` | Workflows nobody owns and assignments in conflict. |
+| `supervision-summary` | Workflows nobody owns. |
 | `supervisor-contract` | The contract version and its operations. |
 
 ## Not in the CLI

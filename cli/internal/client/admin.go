@@ -271,7 +271,7 @@ func (c *Client) GetOwnership(session, workflow string) (any, error) {
 	return c.getData("/api/supervision/ownership?" + query.Encode())
 }
 
-// GetSupervisionSummary counts the workflows nobody owns and the assignments in conflict.
+// GetSupervisionSummary counts the workflows nobody owns.
 func (c *Client) GetSupervisionSummary() (any, error) { return c.getData("/api/supervision/summary") }
 
 // GetSupervisorContract reads the supervisor contract version and its operation names.
