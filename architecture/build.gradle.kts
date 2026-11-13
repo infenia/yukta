@@ -15,6 +15,7 @@ dependencies {
     testImplementation(project(":web"))
     testImplementation(project(":mcp"))
     testImplementation(project(":plugins:processors:process-executor"))
+    testImplementation(project(":plugins:external"))
     testImplementation(project(":plugins:processors:http-request"))
     testImplementation(project(":plugins:processors:mcp-tool-call"))
     testImplementation(project(":plugins:processors:file-io"))

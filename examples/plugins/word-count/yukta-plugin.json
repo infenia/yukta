@@ -1,0 +1,13 @@
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "WORD_COUNT",
+  "category": "processor",
+  "description": "Count the words of a text field; long texts go to the 'long' port",
+  "config": [
+    { "name": "field", "type": "STRING", "default": "text", "description": "Payload field that holds the text" },
+    { "name": "longOver", "type": "NUMBER", "default": 100, "description": "Word count above which the message goes to 'long'" }
+  ],
+  "ports": ["default", "long"],
+  "timeout": "5s",
+  "run": { "command": ["python3", "main.py"] }
+}

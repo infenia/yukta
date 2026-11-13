@@ -40,6 +40,7 @@ public final class ModuleRules {
           "guards>rule-supervisor",
           "script-js>internal-core",
           "decision>llm-call",
+          "external>process-executor",
           "model-control-plane>decision",
           "rule-control-plane>rule-supervisor",
           "rules-first-control-plane>rule-control-plane",
