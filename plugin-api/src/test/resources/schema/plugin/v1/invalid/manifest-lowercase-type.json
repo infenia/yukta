@@ -1,0 +1,4 @@
+{
+  "apiVersion": "yukta/plugin/v1", "type": "slack_notify", "category": "processor", "description": "x",
+  "run": { "command": ["a"] }
+}

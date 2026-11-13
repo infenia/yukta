@@ -10,6 +10,8 @@ spotless = "8.10.4"
 lombok = "9.8.3"
 mapstruct = "1.6.3"
 springAi = "2.0.0"
+# the MCP SDK version Spring AI uses; keep in step with springAi
+mcpSdk = "2.0.0"
 springdoc = "3.2.0"
 swagger-annotations = "2.2.55"
 lombokMapstructBinding = "0.2.0"
@@ -54,6 +56,7 @@ jackson-dataformat-yaml = { group = "tools.jackson.dataformat", name = "jackson-
 mapstruct = { group = "org.mapstruct", name = "mapstruct", version.ref = "mapstruct" }
 mapstruct-processor = { group = "org.mapstruct", name = "mapstruct-processor", version.ref = "mapstruct" }
 lombok-mapstruct-binding = { group = "org.projectlombok", name = "lombok-mapstruct-binding", version.ref = "lombokMapstructBinding" }
+mcp-json-jackson3 = { group = "io.modelcontextprotocol.sdk", name = "mcp-json-jackson3", version.ref = "mcpSdk" }
 spring-ai-mcp-server-webflux = { group = "org.springframework.ai", name = "spring-ai-starter-mcp-server-webflux" }
 spring-ai-client-chat = { group = "org.springframework.ai", name = "spring-ai-client-chat" }
 spring-ai-openai = { group = "org.springframework.ai", name = "spring-ai-openai" }
