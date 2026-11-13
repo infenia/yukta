@@ -1,5 +1,7 @@
 .gradle
 build/
+# the "Build workflows" guides live in docs/guides/build
+!docs/guides/build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/resources/gradle/wrapper/gradle-wrapper.jar
 

@@ -1,0 +1,121 @@
+---
+title: "Schedule a workflow"
+sidebarTitle: "Schedule a workflow"
+description: "Run a workflow every few minutes or on a cron schedule: let SCHEDULE_TRIGGER keep time inside one open run, or start a short run from your own scheduler."
+keywords: ["scheduling", "SCHEDULE_TRIGGER", "cron", "interval", "maxRuns", "Idempotency-Key"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to repeat a workflow on a timer, and which of the two ways to keep time suits you"
+  time="10 minutes"
+  need="a server on localhost:9858"
+  end="a workflow that probes a URL every minute, and a way to stop it"
+/>
+
+**Use this when** a job should run every five minutes or every weekday at 09:00. There are two ways, and the choice matters.
+
+<Diagram
+  name="guide-schedule-a-workflow"
+  alt="Two ways to repeat a job. SCHEDULE_TRIGGER ticks inside one run that stays open; an external scheduler starts a short, separate run for every tick."
+  caption="Left: Yukta keeps time inside one open run. Right: your scheduler starts one short run per tick."
+/>
+
+| | `SCHEDULE_TRIGGER` | External scheduler |
+|---|---|---|
+| Who keeps time | Yukta, inside one run | Your scheduler (cron, CI, cloud) |
+| Runs | One that stays open | One per tick |
+| After a server restart | Start the workflow again; the position is lost | The next start goes through when the server is up |
+| Holds a run slot | All the time | Only while a run is active |
+| Gap longer than 30 s | Set `timeoutSeconds` on the trigger | Not an issue |
+
+## Steps
+
+<Steps>
+  <Step title="Put a SCHEDULE_TRIGGER at the start">
+    Set exactly one of `intervalMs` and `cron`. The first tick comes after one interval, or at the next cron time. Each tick is a message `{"tick": 1, "firedAt": "..."}`; `tick` counts from 1.
+
+    | Option | Meaning |
+    |---|---|
+    | `intervalMs` | A tick every this many milliseconds, from when the run starts |
+    | `cron` | A 6-field expression: second, minute, hour, day of month, month, day of week |
+    | `zone` | Time zone of `cron`, such as `Europe/Berlin` (default: the server's) |
+    | `maxRuns` | Stop after this many ticks; the run then ends once the work is done |
+
+    `0 */5 * * * *` is every five minutes, `0 0 9 * * MON-FRI` is 09:00 on weekdays. Both set, neither set, a non-positive interval and a cron with no future date are refused at validation.
+
+    <Warning>
+      A trigger node has an idle timeout of 30 seconds like any other node. When the gap between ticks is longer, set `timeoutSeconds` on the trigger to more than the longest gap (above `86400` for a daily cron), or it times out between ticks.
+    </Warning>
+  </Step>
+
+  <Step title="Write the workflow">
+    This probes a URL every minute and sends a notification when it fails. Save as `uptime.json`:
+
+    ```json uptime.json
+    {
+      "sessionId": "uptime-watch", "name": "Uptime watch",
+      "description": "Probe a URL every minute and notify on failure",
+      "initiator": "docs", "projectPath": "/tmp",
+      "workflows": {
+        "probe": {
+          "workflowId": "probe", "description": "Runs until stopped",
+          "nodes": [
+            { "nodeId": "every-minute", "type": "SCHEDULE_TRIGGER",
+              "config": { "intervalMs": 60000, "timeoutSeconds": 120 } },
+            { "nodeId": "check", "type": "HTTP_REQUEST",
+              "config": { "url": "https://example.com/health", "timeout": 10,
+                          "failureMode": "CONTINUE", "routeByStatus": true } },
+            { "nodeId": "ok", "type": "CONSOLE_TERMINAL", "config": {} },
+            { "nodeId": "alert", "type": "NOTIFY_TERMINAL",
+              "config": { "url": "https://hooks.example.com/services/T000/B000/XXXX", "text": "Health check failed" } }
+          ],
+          "edges": [
+            { "source": "every-minute", "target": "check" },
+            { "source": "check", "target": "ok", "sourcePort": "success" },
+            { "source": "check", "target": "alert", "sourcePort": "failure" }
+          ]
+        }
+      }
+    }
+    ```
+  </Step>
+
+  <Step title="Apply it and start it once">
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @uptime.json
+    curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -H 'Idempotency-Key: uptime-start' -d '{"sessionId":"uptime-watch","workflowId":"probe"}'
+    ```
+
+    Starting twice gives two runs and two independent schedules, so start it once; the `Idempotency-Key` makes a retried start return the first run.
+  </Step>
+
+  <Step title="Stop it when you are done">
+    A run with a schedule stays open until you stop it, the trigger reaches `maxRuns`, or the server stops. The default `DRAIN` mode stops the trigger and lets in-flight work finish:
+
+    ```bash
+    curl -s -X POST localhost:9858/api/workflow/uptime-watch/probe/stop
+    ```
+
+    CLI: `yukta-cli workflow stop uptime-watch probe`.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+After a minute and a bit, the run is still `RUNNING` and the `ok` terminal has received a message with `tick` 1; a minute later, `tick` 2. Read it with the [results stream](/api/streams) or the run log.
+
+## Variations
+
+- **A schedule that survives restarts.** The schedule position is not stored: after a restart nothing starts the workflow, missed ticks are not replayed, and a resumed run starts its schedule again from the beginning. Run the clock outside Yukta instead: start a run per tick with `POST /api/workflow/start`, `yukta-cli workflow start <session> <workflow> --payload '{...}'` or the MCP tool `start_workflow`, from a workflow that begins with `API_TRIGGER`. An `Idempotency-Key` such as `nightly-2026-10-15` stops a retried start from running twice.
+- **Ticks arrive faster than the work.** All ticks belong to one run and an interval tick that arrives while the previous start is still running is dropped and logged; keep the interval longer than the work, or put `engine.edgeBuffer` on the slow node ([Delivery and back-pressure](/concepts/delivery-and-backpressure)).
+- **Limits on concurrent runs.** A schedule holds one slot all the time: [Tune capacity and limits](/guides/operate/tune-capacity-and-limits).
+
+## Related
+
+- [Trigger reference](/reference/plugins/triggers) for `SCHEDULE_TRIGGER`'s every option.
+- [Control a run](/guides/build/control-a-run) to pause or stop an open run.
+- [Time limits](/concepts/time-limits) for the idle timeout.

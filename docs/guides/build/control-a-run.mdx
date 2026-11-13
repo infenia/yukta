@@ -1,0 +1,175 @@
+---
+title: "Control a run"
+sidebarTitle: "Control a run"
+description: "Pause, resume, step, set breakpoints, skip, stop, restart and retry a live run through one ordered, audited command path, and run the server in the console or in the background."
+keywords: ["run controls", "pause", "resume", "step", "breakpoint", "skip", "stop", "DRAIN", "restart", "retry", "audit", "daemon"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+import { Diagram } from "/snippets/diagram.jsx";
+
+<ReaderState
+  learn="how to steer a run that is going: hold it, inspect it a message at a time, skip or retry a node, and stop it the way you mean to"
+  time="15 minutes"
+  need="a server on localhost:9858, and an OPERATOR key if your server uses keys"
+  end="a 45-second run you paused, stepped, restarted and stopped"
+/>
+
+**Use this when** a run is live and you need to act on it. Every change to a running execution is a **command**. People, supervisors, REST, MCP, the CLI and the web UI all send the same commands through the same pipeline: commands for one run are applied **in the order sent**, the caller's answer arrives after the command was applied, and each one is recorded in the run log with its actor (`key:<name>`, a supervisor id or the UI user).
+
+<Diagram
+  name="guide-control-a-run"
+  alt="Control commands reach a live run in order: pause and resume hold it with every time limit frozen, and a stop has three modes. DRAIN lets in-flight work finish, CANCEL cancels it and KILL ends the run at once."
+  caption="Pausing freezes every time limit, so a pause never causes a timeout. A stop picks one of three strengths."
+/>
+
+**Prerequisites:** add `-H "X-API-Key: $YUKTA_API_KEY"` to every `curl` if your server has keys. Before a command runs, [supervisors](/concepts/supervisors) may refuse it; a refusal answers `403` and is logged.
+
+## Steps
+
+<Steps>
+  <Step title="Create a run that lasts long enough">
+    Save as `steer.json`. The `wait` node holds each message for 45 seconds, then `go` shapes it:
+
+    ```json steer.json
+    {
+      "sessionId": "steer", "name": "Steer",
+      "description": "A slow workflow to practise run controls", "initiator": "docs", "projectPath": "/tmp",
+      "workflows": {
+        "slow": {
+          "workflowId": "slow", "description": "Waits 45 seconds, then finishes",
+          "nodes": [
+            { "nodeId": "start", "type": "API_TRIGGER", "config": {} },
+            { "nodeId": "wait", "type": "DELAY", "config": { "delayMs": 45000, "timeoutSeconds": 60 } },
+            { "nodeId": "go", "type": "MAPPER",
+              "config": { "mode": "PROJECTION", "mapping": { "done": "true" } } },
+            { "nodeId": "end", "type": "CONSOLE_TERMINAL", "config": {} }
+          ],
+          "edges": [
+            { "source": "start", "target": "wait" },
+            { "source": "wait", "target": "go" },
+            { "source": "go", "target": "end" }
+          ]
+        }
+      }
+    }
+    ```
+
+    ```bash
+    curl -X POST localhost:9858/api/sessions -H 'Content-Type: application/json' -d @steer.json
+    EXEC=$(curl -s -X POST localhost:9858/api/workflow/start -H 'Content-Type: application/json' \
+      -d '{"sessionId":"steer","workflowId":"slow"}' | jq -r .data.executionId)
+    ```
+  </Step>
+
+  <Step title="Pause and resume">
+    Pausing stops the run, or one node, from taking new messages; the message in hand finishes. **All time limits freeze while paused.**
+
+    ```bash
+    curl -s -X POST localhost:9858/api/executions/$EXEC/pause
+    curl -s -X POST localhost:9858/api/executions/$EXEC/resume
+    curl -s -X POST localhost:9858/api/executions/$EXEC/nodes/go/pause     # one node
+    ```
+  </Step>
+
+  <Step title="Step, or stop at a breakpoint">
+    Step mode holds a node's input so you see one message at a time: enable it, call `step` once per message, disable it to return to normal flow. A breakpoint holds a node **before** the first message whose `payload`, a path such as `payload.order.id`, or a `metadata.key` equals a given text.
+
+    ```bash
+    N=localhost:9858/api/executions/$EXEC/nodes/go
+    curl -s -X POST $N/step/enable ; curl -s -X POST $N/step ; curl -s -X POST $N/step/disable
+    curl -s -X POST "$N/breakpoint?field=payload.id&equals=42"
+    curl -s -X DELETE $N/breakpoint
+    ```
+
+    Resume the node to continue past a breakpoint. The call is in the [control API](/api/control).
+  </Step>
+
+  <Step title="Skip a node">
+    Skipping a **processor** passes messages through it without calling its plugin, from the next message on; a message already inside finishes. Other node kinds reject it. A second call unskips.
+
+    ```bash
+    curl -s -X POST localhost:9858/api/executions/$EXEC/nodes/go/skip
+    ```
+  </Step>
+
+  <Step title="Stop the way you mean to">
+    | Mode | Effect |
+    |---|---|
+    | `DRAIN` (default) | Stops the triggers and lets work in flight finish, within `yukta.stop.drain-timeout` (30 s); then it is cancelled |
+    | `CANCEL` | Cancels every node's subscription at once so plugins can clean up |
+    | `KILL` | Ends the run at once and removes it; no further commands are accepted for it |
+
+    ```bash
+    curl -s -X POST "localhost:9858/api/executions/$EXEC/stop?mode=CANCEL"
+    curl -s -X POST "localhost:9858/api/workflow/steer/slow/stop?mode=DRAIN"   # every run of a workflow
+    ```
+
+    A single node can be stopped too: `POST /api/executions/{id}/nodes/{node}/stop`.
+  </Step>
+
+  <Step title="Restart, or retry a node">
+    | Action | What it does |
+    |---|---|
+    | Restart | Runs the whole workflow again with its original start payload |
+    | Restart from a node | Re-runs that node and everything after it; the recorded outputs of its parents are replayed |
+    | Retry a node | The same for a node that ended `FAILURE` or `TIMED_OUT`, as a new run |
+
+    ```bash
+    curl -s -X POST localhost:9858/api/executions/$EXEC/restart
+    curl -s -X POST localhost:9858/api/executions/$EXEC/nodes/go/retry
+    ```
+
+    Recent finished runs stay restartable (the newest 10 by default). A node over the replay caps makes a restart refuse rather than replay half. After a server restart, resume instead ([Durability](/concepts/durability-and-high-availability)). A restart takes a slot like a new start, so it can queue or answer `429`.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+```bash
+curl -s localhost:9858/api/control/audit
+```
+
+lists the commands you sent with their actor and whether each was applied or rejected. A paused run shows `controlState` `PAUSED` in its progress, and its `wait` node does not finish while paused: the 45 seconds do not elapse until you resume. The CLI has the node commands (`yukta-cli workflow node pause|resume|stop|skip|retry|breakpoint|step`) and `workflow executions stop|restart`; MCP has `control_workflow` and `control_node`.
+
+## Who can do what
+
+| Role | Commands |
+|---|---|
+| `VIEWER` | None, read only |
+| `OPERATOR` | Start, pause, resume, step, skip, stop, restart, retry, signal, recover, change a queued priority |
+| `ADMIN` | Everything, including defining sessions and changing scheduler limits |
+
+A node that waits for a person is answered through an [input request](/concepts/who-decides) rather than a control command ([Ask for approval](/learn/ask-for-approval)).
+
+## Variations
+
+- **Let a supervisor own it.** [Assign a supervisor](/guides/supervise/assign-a-supervisor) decides who may send which command.
+- **Change the queue.** Scheduler limits and a queued run's priority can change while the server runs ([Tune capacity and limits](/guides/operate/tune-capacity-and-limits)).
+
+## Run the server in the console or in the background
+
+`yukta` shows itself three ways, picked in this order: `--plain`, then `--mode=console|plain|daemon`, then `YUKTA_MODE`.
+
+| Mode | What you get | Default when |
+|---|---|---|
+| `console` | A full-screen dashboard: version, URL, uptime, health, run counts, recent runs and a log pane | stdin and stdout are a terminal |
+| `plain` | Log lines on stdout | not a terminal (service, container, pipe) |
+| `daemon` | A detached background process managed with the commands below | only through `yukta start` |
+
+In the console, `q` stops the server, `l` shows full-screen logs, `r` the longer run list, `f` cycles the log level filter and `?` helps. Set `NO_COLOR` for plain text.
+
+```bash
+yukta start      # detached, plain mode; waits until /actuator/health answers
+yukta status     # running or not, pid, URL, health (exit status 3 when stopped)
+yukta logs -f    # the last 100 lines, then follow
+yukta stop       # drain, then SIGTERM, then SIGKILL after 30 s
+```
+
+State is kept in `$YUKTA_HOME`, else `$XDG_STATE_HOME/yukta`, else `~/.local/state/yukta` (`yukta.pid` and `yukta.log`, not rotated). Use systemd or the container image on servers; do not run `yukta start` inside either ([Deploy](/guides/operate/deploy)). The daemon commands are for Linux and macOS.
+
+## Related
+
+- [Runs](/concepts/runs) for the life of a run and its statuses.
+- [Control API](/api/control) and [Status values](/reference/status-values) for every call and value.
+- [Supervisors](/concepts/supervisors) for who reviews commands.
