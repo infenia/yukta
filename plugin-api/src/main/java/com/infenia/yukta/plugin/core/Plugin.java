@@ -72,9 +72,10 @@ public interface Plugin {
 
   /**
    * Get the shortest idle timeout the engine may give a node with this configuration. A node's
-   * {@code timeoutSeconds} below it is raised to it. A plugin that waits on its own timer (a wait for
-   * an approval with {@code timeoutSeconds}) returns that wait plus a margin, so its own handling of
-   * the timeout ({@code onTimeout: CONTINUE}) runs before the engine's idle timeout fails the node.
+   * {@code timeoutSeconds} below it is raised to it. A plugin that waits on its own timer (a wait
+   * for an approval with {@code timeoutSeconds}) returns that wait plus a margin, so its own
+   * handling of the timeout ({@code onTimeout: CONTINUE}) runs before the engine's idle timeout
+   * fails the node.
    *
    * @param config the node configuration
    * @return the floor, {@link Duration#ZERO} for none

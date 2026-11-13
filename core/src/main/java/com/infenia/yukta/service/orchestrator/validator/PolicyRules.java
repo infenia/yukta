@@ -6,6 +6,7 @@ import com.infenia.yukta.model.workflow.NodePolicy;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.service.orchestrator.stream.NodeTimeouts;
 import com.infenia.yukta.service.plugin.PluginRegistry;
 import java.time.Duration;
 import java.util.Optional;
@@ -68,14 +69,11 @@ final class PolicyRules {
       final WorkflowDefinition.Node node, final PluginRegistry registry) {
     final Object configured = node.config().get("timeoutSeconds");
     final Plugin plugin = registry.get(node.type());
-    Duration timeout =
+    final Duration timeout =
         configured instanceof Number seconds && seconds.longValue() > 0
-            ? Duration.ofSeconds(seconds.longValue())
+            ? NodeTimeouts.atLeastMinimum(
+                Duration.ofSeconds(seconds.longValue()), plugin, node.config())
             : plugin == null ? null : plugin.getDefaultTimeout(node.config());
-    if (timeout != null && plugin != null) {
-      final Duration floor = plugin.getMinimumTimeout(node.config());
-      timeout = timeout.compareTo(floor) < 0 ? floor : timeout;
-    }
     return timeout != null && timeout.isPositive() ? timeout : null;
   }
 
