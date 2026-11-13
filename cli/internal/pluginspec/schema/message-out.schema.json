@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/infenia/yukta/main/plugin-api/src/main/resources/schema/plugin/v1/message-out.schema.json",
+  "title": "Yukta message envelope v1, output",
+  "description": "One output message a plugin writes to stdout; several outputs are written one object per line. Yukta treats the output as untrusted: anything not allowed here is refused. Engine fields (ids, trace, workflow) cannot be set.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["payload"],
+  "properties": {
+    "payload": { "description": "Any JSON value." },
+    "port": {
+      "description": "One of the ports declared in the manifest; the first declared port when absent.",
+      "type": "string",
+      "pattern": "^[a-z][a-zA-Z0-9_-]{0,63}$"
+    },
+    "metadata": {
+      "description": "Entries added to the message's metadata.",
+      "type": "object"
+    }
+  }
+}
