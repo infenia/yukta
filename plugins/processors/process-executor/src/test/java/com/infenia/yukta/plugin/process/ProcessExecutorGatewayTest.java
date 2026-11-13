@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.awaitility.Awaitility.await;
 
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -534,6 +535,51 @@ class ProcessExecutorGatewayTest {
 
     assertThat(System.getenv()).containsKey("HOME");
     assertThat(names).containsExactlyInAnyOrder("PATH", TEST_VAR);
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
+  void installedCommand_ignoresTheWorkflowLimitsAndGetsPathOnly(@TempDir final Path dir) {
+    gateway.setAllowAny(false);
+    gateway.setAllowedCommands(List.of("echo"));
+    gateway.setWorkingDirRoot(dir.resolve("root").toString());
+    gateway.setPassEnv(List.of("*"));
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("env"))
+            .env(Map.of("LD_PRELOAD", ""))
+            .workingDir(dir.toString())
+            .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(gateway.executeInstalled(spec, PluginLogSink.NOOP))
+        .assertNext(
+            r ->
+                assertThat(r.stdoutLines())
+                    .extracting(line -> line.substring(0, line.indexOf('=')))
+                    .containsExactlyInAnyOrder("PATH", "LD_PRELOAD"))
+        .verifyComplete();
+  }
+
+  @Test
+  void installedCommand_needsSpec() {
+    StepVerifier.create(gateway.executeInstalled(null, PluginLogSink.NOOP))
+        .expectErrorMessage("spec is mandatory")
+        .verify();
+  }
+
+  @Test
+  void installedCommand_refusesShell() {
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("echo hi"))
+            .useShell(true)
+            .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(gateway.executeInstalled(spec, PluginLogSink.NOOP))
+        .expectErrorMessage("an installed command never runs in a shell")
+        .verify();
   }
 
   @Test
