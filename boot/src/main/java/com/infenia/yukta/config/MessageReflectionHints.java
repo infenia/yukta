@@ -29,27 +29,6 @@ public class MessageReflectionHints {
   @NoArgsConstructor
   /* default */ static class Hints implements RuntimeHintsRegistrar {
 
-    @Override
-    public void registerHints(final RuntimeHints hints, final ClassLoader classLoader) {
-      hints
-          .reflection()
-          .registerType(
-              DefaultMessage.class,
-              MemberCategory.INVOKE_PUBLIC_METHODS,
-              MemberCategory.INVOKE_DECLARED_METHODS,
-              MemberCategory.ACCESS_DECLARED_FIELDS);
-      registerFields(hints, YuktaProperties.class);
-      // ApiKeys binds yukta.api-keys with a raw Binder, which AOT does not see: without this the
-      // native binary reads no keys and the exposure guard refuses to start in a container.
-      new BindingReflectionHintsRegistrar()
-          .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
-      EXPRESSION_TYPES.forEach(
-          name ->
-              hints
-                  .reflection()
-                  .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
-    }
-
     /**
      * The JDK types whose methods a workflow expression may call ({@code SafeMethodResolver} lists
      * the method names, and runs them by reflection): {@code items.toString()}, {@code
@@ -113,6 +92,27 @@ public class MessageReflectionHints {
             "java.time.ZonedDateTime",
             "java.time.Duration",
             "java.time.Period");
+
+    @Override
+    public void registerHints(final RuntimeHints hints, final ClassLoader classLoader) {
+      hints
+          .reflection()
+          .registerType(
+              DefaultMessage.class,
+              MemberCategory.INVOKE_PUBLIC_METHODS,
+              MemberCategory.INVOKE_DECLARED_METHODS,
+              MemberCategory.ACCESS_DECLARED_FIELDS);
+      registerFields(hints, YuktaProperties.class);
+      // ApiKeys binds yukta.api-keys with a raw Binder, which AOT does not see: without this the
+      // native binary reads no keys and the exposure guard refuses to start in a container.
+      new BindingReflectionHintsRegistrar()
+          .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
+      EXPRESSION_TYPES.forEach(
+          name ->
+              hints
+                  .reflection()
+                  .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
+    }
 
     /**
      * Bean validation reads the record fields of the {@code yukta.*} properties (and their nested
