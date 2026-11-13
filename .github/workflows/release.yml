@@ -440,5 +440,4 @@ jobs:
           trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
           release/smoke-test.sh http://127.0.0.1:18081 x
           # The image has no shell, so the examples that run commands skip; the others must pass.
-          SMOKE_ALLOW_SKIP="01-hello-world 02-agent-verification 03-release-approval 08-alert-triage 09-llm-chat-agent 15-input-pull 16-supervisor-profiles 17-supervisor-workflow" \
-            release/examples-smoke.sh http://127.0.0.1:18081 x
+          SMOKE_NO_SHELL=1 release/examples-smoke.sh http://127.0.0.1:18081 x

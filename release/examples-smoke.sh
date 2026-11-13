@@ -12,8 +12,8 @@
 # Usage: release/examples-smoke.sh <base-url> [api-key]
 #   SMOKE_ALLOW_SKIP  space separated example names that may be skipped. The default names the
 #                     examples that need an LLM endpoint or are a walkthrough without run.sh.
-#                     A server that does not allow `sh` (the Docker image has none) must name
-#                     the examples that run commands.
+#   SMOKE_NO_SHELL    set for a server that cannot run commands (the Docker image has no `sh`): the
+#                     examples that run them (01, 02, 03, 08) may then skip.
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
 # The server under test needs YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 03 and 08.
@@ -27,6 +27,7 @@ need curl
 need jq
 
 allow_skip=" ${SMOKE_ALLOW_SKIP:-09-llm-chat-agent 15-input-pull 16-supervisor-profiles 17-supervisor-workflow} "
+[[ -z "${SMOKE_NO_SHELL:-}" ]] || allow_skip+="01-hello-world 02-agent-verification 03-release-approval 08-alert-triage "
 
 # run-all.sh ends with one line per example: "PASS  name", "SKIP  name" or "FAIL  name (exit N)".
 # EXAMPLES_SKIP=dogfood: that example runs this repository's own Gradle check.
