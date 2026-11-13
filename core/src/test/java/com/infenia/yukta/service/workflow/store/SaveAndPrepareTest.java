@@ -19,6 +19,12 @@ import reactor.test.StepVerifier;
 @NoArgsConstructor
 class SaveAndPrepareTest {
 
+  /** The description of a definition that fails to prepare. */
+  private static final String BROKEN = "broken";
+
+  /** The description of the definition saved before each test's change. */
+  private static final String OLD = "old";
+
   /** The session used by every test. */
   private static final String SESSION = "s";
 
@@ -63,14 +69,14 @@ class SaveAndPrepareTest {
 
   @Test
   void failedPrepareRestoresThePreviousDefinition() {
-    final WorkflowDefinition old = definition("old");
+    final WorkflowDefinition old = definition(OLD);
     store.save(SESSION, old).block();
 
     StepVerifier.create(
             SaveAndPrepare.run(
                 store,
                 SESSION,
-                definition("broken"),
+                definition(BROKEN),
                 _ -> Mono.error(new IllegalStateException(UNKNOWN_TYPE))))
         .verifyErrorMessage(UNKNOWN_TYPE);
 
@@ -83,7 +89,7 @@ class SaveAndPrepareTest {
             SaveAndPrepare.run(
                 store,
                 SESSION,
-                definition("broken"),
+                definition(BROKEN),
                 _ -> Mono.error(new IllegalStateException(UNKNOWN_TYPE))))
         .verifyErrorMessage(UNKNOWN_TYPE);
 
@@ -104,20 +110,20 @@ class SaveAndPrepareTest {
                 : super.save(sessionId, definition);
           }
         };
-    failing.save(SESSION, definition("old")).block();
+    failing.save(SESSION, definition(OLD)).block();
 
     StepVerifier.create(
             SaveAndPrepare.run(
                 failing,
                 SESSION,
-                definition("broken"),
+                definition(BROKEN),
                 _ -> Mono.error(new IllegalStateException(UNKNOWN_TYPE))))
         .verifyErrorMessage(UNKNOWN_TYPE);
   }
 
   @Test
   void failedApplyDoesNotUndoConcurrentApply() throws Exception {
-    store.save(SESSION, definition("old")).block();
+    store.save(SESSION, definition(OLD)).block();
     final reactor.core.publisher.Sinks.Empty<Void> gate = reactor.core.publisher.Sinks.empty();
     final WorkflowDefinition second = definition("second");
 
@@ -133,5 +139,24 @@ class SaveAndPrepareTest {
     done.get(5, java.util.concurrent.TimeUnit.SECONDS);
 
     assertThat(store.find(SESSION, WORKFLOW).block()).isEqualTo(second);
+  }
+
+  @Test
+  void failedPrepareDoesNotUndoWhatAnotherServerSavedInBetween() {
+    final WorkflowDefinition theirs = definition("theirs");
+    store.save(SESSION, definition(OLD)).block();
+
+    StepVerifier.create(
+            SaveAndPrepare.run(
+                store,
+                SESSION,
+                definition(BROKEN),
+                _ ->
+                    store
+                        .save(SESSION, theirs)
+                        .then(Mono.error(new IllegalStateException(UNKNOWN_TYPE)))))
+        .verifyErrorMessage(UNKNOWN_TYPE);
+
+    StepVerifier.create(store.find(SESSION, WORKFLOW)).expectNext(theirs).verifyComplete();
   }
 }

@@ -18,6 +18,7 @@ import com.infenia.yukta.testing.Fixtures;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -161,7 +162,7 @@ class WorkflowVersionControllerTest {
     when(definitions.findRevision("s1", "w1", "0001-a")).thenReturn(Mono.just(old));
     when(definitions.find("s1", "w1")).thenReturn(Mono.just(current));
     when(definitions.save("s1", old)).thenReturn(Mono.empty());
-    when(definitions.save("s1", current)).thenReturn(Mono.empty());
+    when(definitions.replaceIfCurrent("s1", old, Optional.of(current))).thenReturn(Mono.just(true));
     when(controlBus.compileAndCacheWorkflow("s1", old))
         .thenReturn(Mono.error(new IllegalArgumentException("unknown plugin type")));
 
@@ -171,7 +172,7 @@ class WorkflowVersionControllerTest {
         .exchange()
         .expectStatus()
         .is4xxClientError();
-    verify(definitions).save("s1", current);
+    verify(definitions).replaceIfCurrent("s1", old, Optional.of(current));
   }
 
   @Test

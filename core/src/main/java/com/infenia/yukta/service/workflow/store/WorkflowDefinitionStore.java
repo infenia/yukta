@@ -4,6 +4,7 @@ package com.infenia.yukta.service.workflow.store;
 
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import java.util.Map;
+import java.util.Optional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -18,6 +19,32 @@ public interface WorkflowDefinitionStore {
    * @return Mono that completes when saved
    */
   Mono<Void> save(String sessionId, WorkflowDefinition definition);
+
+  /**
+   * Replace the current definition of a workflow, or remove it, only while it still equals {@code
+   * expected}: a compare-and-set, so a rollback does not overwrite what another apply (on this or
+   * another server) saved in between. The default checks and then writes, which holds for a store
+   * that one process owns; a store shared by several servers overrides it to be atomic.
+   *
+   * @param sessionId the session identifier
+   * @param expected the definition the caller saved and expects to be current
+   * @param replacement the definition to put back, or empty to remove the workflow
+   * @return true when the replacement was made, false when the current definition had changed
+   */
+  default Mono<Boolean> replaceIfCurrent(
+      final String sessionId,
+      final WorkflowDefinition expected,
+      final Optional<WorkflowDefinition> replacement) {
+    return find(sessionId, expected.workflowId())
+        .filter(expected::equals)
+        .flatMap(
+            _ ->
+                replacement
+                    .map(previous -> save(sessionId, previous))
+                    .orElseGet(() -> remove(sessionId, expected.workflowId()))
+                    .thenReturn(true))
+        .defaultIfEmpty(false);
+  }
 
   /**
    * Find a workflow definition.

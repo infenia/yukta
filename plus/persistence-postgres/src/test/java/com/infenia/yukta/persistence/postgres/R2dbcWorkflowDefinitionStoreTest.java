@@ -107,4 +107,28 @@ class R2dbcWorkflowDefinitionStoreTest extends PostgresTestSupport {
             () -> store.saveNote("s", "w1", "nope", "x").block())
         .isInstanceOf(com.infenia.yukta.service.NotFoundException.class);
   }
+
+  @Test
+  void replaceIfCurrentSwapsOnlyWhileTheDefinitionIsStillTheExpectedOne() {
+    final WorkflowDefinition old = definition("w", "old");
+    final WorkflowDefinition mine = definition("w", "mine");
+    store.save("s", old).block();
+    store.save("s", mine).block();
+
+    assertThat(store.replaceIfCurrent("s", mine, java.util.Optional.of(old)).block()).isTrue();
+    assertThat(store.find("s", "w").block()).isEqualTo(old);
+
+    // another server saved in between: the stale undo changes nothing
+    store.save("s", definition("w", "theirs")).block();
+    assertThat(store.replaceIfCurrent("s", mine, java.util.Optional.of(old)).block()).isFalse();
+    assertThat(store.replaceIfCurrent("s", mine, java.util.Optional.empty()).block()).isFalse();
+    assertThat(store.find("s", "w").block().description()).isEqualTo("theirs");
+
+    assertThat(
+            store
+                .replaceIfCurrent("s", definition("w", "theirs"), java.util.Optional.empty())
+                .block())
+        .isTrue();
+    assertThat(store.find("s", "w").block()).isNull();
+  }
 }

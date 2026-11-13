@@ -13,6 +13,7 @@ import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.r2dbc.core.DatabaseClient;
 import reactor.core.publisher.Flux;
@@ -93,6 +94,39 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
         .fetch()
         .rowsUpdated()
         .then();
+  }
+
+  /** Locks the current row while it equals the expected definition, so no server can change it. */
+  @Override
+  public Mono<Boolean> replaceIfCurrent(
+      final String sessionId,
+      final WorkflowDefinition expected,
+      final Optional<WorkflowDefinition> replacement) {
+    final Mono<Boolean> swap =
+        Mono.fromCallable(() -> mapper.writeValueAsString(expected))
+            .flatMap(
+                json ->
+                    client
+                        .sql(
+                            """
+                            SELECT 1 AS one FROM workflow_definition
+                            WHERE session_id = :s AND workflow_id = :w
+                              AND definition = CAST(:d AS jsonb)
+                            FOR UPDATE
+                            """)
+                        .bind("s", sessionId)
+                        .bind("w", expected.workflowId())
+                        .bind("d", json)
+                        .map(row -> 1)
+                        .first())
+            .flatMap(
+                _ ->
+                    replacement
+                        .map(previous -> write(sessionId, previous))
+                        .orElseGet(() -> delete(sessionId, expected.workflowId()))
+                        .thenReturn(true))
+            .defaultIfEmpty(false);
+    return Transactions.inTransaction(client, swap);
   }
 
   @Override
