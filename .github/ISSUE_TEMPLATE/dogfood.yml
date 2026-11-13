@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
 name: Dogfood finding
-description: A Yukta defect noticed while Yukta ran its own checks (examples/dogfood)
+description: A Yukta defect noticed while Yukta ran its own checks (yukta-dogfood)
 type: Bug
 labels: ["dogfood", "needs-triage"]
 body:

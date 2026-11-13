@@ -81,6 +81,9 @@ jobs:
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
 
+      - name: Check out the pinned yukta-dogfood
+        run: scripts/dogfood-setup.sh
+
       - name: Check yk check plans the same modules as CI
         run: .github/scripts/plan-vs-ci.test.sh
 

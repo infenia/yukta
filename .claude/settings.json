@@ -3,8 +3,6 @@
     "allow": [
       "Bash(yk *)",
       "Bash(yk)",
-      "Bash(examples/dogfood/yk *)",
-      "Bash(examples/dogfood/yk)",
       "mcp__yukta__get_execution_tree",
       "mcp__yukta__get_execution_logs",
       "mcp__yukta__get_execution_result",
@@ -32,11 +30,17 @@
         "source": "github",
         "repo": "infenia/yukta"
       }
+    },
+    "yukta-dogfood": {
+      "source": {
+        "source": "github",
+        "repo": "infenia/yukta-dogfood"
+      }
     }
   },
   "enabledPlugins": {
     "yukta@yukta": true,
-    "yukta-dogfood@yukta": true
+    "yukta-dogfood@yukta-dogfood": true
   },
   "worktree": {
     "symlinkDirectories": [
@@ -49,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.ts session-start",
+            "command": "bash \"$(git rev-parse --show-toplevel)\"/scripts/dogfood-hook.sh session-start",
             "timeout": 90
           }
         ]
@@ -60,7 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.ts prompt",
+            "command": "bash \"$(git rev-parse --show-toplevel)\"/scripts/dogfood-hook.sh prompt",
             "timeout": 30
           }
         ]
@@ -72,7 +76,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.ts pre-bash",
+            "command": "bash \"$(git rev-parse --show-toplevel)\"/scripts/dogfood-hook.sh pre-bash",
             "timeout": 30
           }
         ]
@@ -83,7 +87,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun \"$(git rev-parse --show-toplevel)\"/.claude/hooks/yk-hook.ts stop",
+            "command": "bash \"$(git rev-parse --show-toplevel)\"/scripts/dogfood-hook.sh stop",
             "timeout": 30
           }
         ]

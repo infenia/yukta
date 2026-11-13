@@ -1,7 +1,0 @@
-#!/usr/bin/env bun
-// SPDX-License-Identifier: Apache-2.0
-// SPDX-FileCopyrightText: 2026 Infenia Private Limited
-// yk: develop Yukta with Yukta. The commands are in src/yk.ts; `yk help` lists them.
-import { main } from './src/yk.ts'
-
-process.exit(await main(process.argv.slice(2)))

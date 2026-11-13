@@ -55,10 +55,7 @@ jobs:
           echo "::error::the server never reported UP"
           exit 1
 
-      # dogfood runs this repository's own Gradle check, which CI already does elsewhere.
       - name: Run the examples
-        env:
-          EXAMPLES_SKIP: dogfood
         run: examples/run-all.sh
 
       - name: Upload the server log

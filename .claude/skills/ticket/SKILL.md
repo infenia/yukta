@@ -1,6 +1,6 @@
 ---
 name: ticket
-description: Use when the user wants to raise, file or create a GitHub ticket/issue for the Yukta ticket pipeline (examples/dogfood). Drafts the goal, acceptance criteria and sizing facts the router picks models from, then files it with `yk ticket new`, or changes an existing one with `yk ticket edit`.
+description: Use when the user wants to raise, file or create a GitHub ticket/issue for the Yukta ticket pipeline (the yukta-dogfood repository). Drafts the goal, acceptance criteria and sizing facts the router picks models from, then files it with `yk ticket new`, or changes an existing one with `yk ticket edit`.
 ---
 
 # Raise a ticket for the ticket pipeline

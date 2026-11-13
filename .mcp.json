@@ -7,7 +7,7 @@
     "yukta": {
       "type": "http",
       "url": "http://127.0.0.1:9858/mcp",
-      "headersHelper": "bash -c 'exec \"$(git rev-parse --show-toplevel)\"/examples/dogfood/yk mcp-headers'"
+      "headersHelper": "bash -c 'exec \"${YUKTA_DOGFOOD_HOME:-${YUKTA_DEV_HOME:-${XDG_STATE_HOME:-$HOME/.local/state}/yukta-dev}/dogfood}\"/yk mcp-headers'"
     }
   }
 }
