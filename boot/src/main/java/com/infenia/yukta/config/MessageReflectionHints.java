@@ -3,7 +3,9 @@
 package com.infenia.yukta.config;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.security.ApiKeys;
 import lombok.NoArgsConstructor;
+import org.springframework.aot.hint.BindingReflectionHintsRegistrar;
 import org.springframework.aot.hint.MemberCategory;
 import org.springframework.aot.hint.RuntimeHints;
 import org.springframework.aot.hint.RuntimeHintsRegistrar;
@@ -35,6 +37,10 @@ public class MessageReflectionHints {
               MemberCategory.INVOKE_DECLARED_METHODS,
               MemberCategory.ACCESS_DECLARED_FIELDS);
       registerFields(hints, YuktaProperties.class);
+      // ApiKeys binds yukta.api-keys with a raw Binder, which AOT does not see: without this the
+      // native binary reads no keys and the exposure guard refuses to start in a container.
+      new BindingReflectionHintsRegistrar()
+          .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
     }
 
     /**

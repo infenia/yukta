@@ -29,4 +29,18 @@ class MessageReflectionHintsTest {
                     MemberCategory.INVOKE_PUBLIC_METHODS, MemberCategory.ACCESS_DECLARED_FIELDS))
         .accepts(hints);
   }
+
+  @Test
+  void registerHints_apiKeyEntry_isBindableInNative() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new MessageReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    assertThat(
+            RuntimeHintsPredicates.reflection()
+                .onType(com.infenia.yukta.security.ApiKeys.KeyEntry.class)
+                .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
+        .accepts(hints);
+  }
 }
