@@ -90,7 +90,9 @@ built-in type name; `PluginRegistry` already fails startup on a duplicate.
 One process per message.
 
 - **stdin:** one JSON object `{ "apiVersion": "yukta/message/v1", "config": {...}, "message": { "id", "traceId",
-  "metadata", "payload" } }`. `SECRET` fields are already resolved by the engine. A plugin ignores properties it does not
+  "metadata", "payload" } }`. `SECRET` fields, `decrypted:` values and `${...}` placeholders are
+  resolved for the message by the adapter (`VariableResolver`, as built-in plugins do; the engine does not resolve
+  config), and only the fields the manifest declares are sent. A plugin ignores properties it does not
   know and refuses an `apiVersion` it does not know.
 - **stdout:** `{ "payload": ..., "port"?: "...", "metadata"?: {...} }`, or one such object per line for several outputs.
 - **stderr:** live log lines, through the existing `PluginLogSink`.
