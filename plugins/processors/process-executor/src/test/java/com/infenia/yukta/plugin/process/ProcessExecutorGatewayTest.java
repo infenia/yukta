@@ -124,6 +124,7 @@ class ProcessExecutorGatewayTest {
         .atMost(Duration.ofSeconds(5))
         .until(() -> Files.exists(pidFile) && Files.size(pidFile) > 0);
     final long childPid = Long.parseLong(Files.readString(pidFile).strip());
+    assertThat(ProcessHandle.of(childPid)).as("the child runs before the cancel").isPresent();
 
     run.dispose();
 
