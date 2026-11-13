@@ -31,14 +31,16 @@ Yukta comes in editions. Community and Plus are in this repository.
 
 ## Native binaries and the Docker image
 
-The release binaries and the Docker image are built with GraalVM Community Edition (GPLv2 with the
-Classpath Exception), not Oracle GraalVM (GFTC). The Classpath Exception lets the runtime parts
+The release binaries and the Docker image are built with BellSoft Liberica Native Image Kit (NIK),
+which is built on OpenJDK and GraalVM Community Edition (GPLv2 with the Classpath Exception, plus the
+permissive licences of the upstream GraalVM code), not Oracle GraalVM (GFTC). BellSoft states that NIK
+is compatible with both AGPL and Apache-2.0 applications. The Classpath Exception lets the runtime parts
 linked into a native executable be distributed under Yukta's own terms (Apache-2.0, or AGPL-3.0 for
 Plus), with no extra restriction on fees or recipients. Do not switch the builder to Oracle GraalVM
 without a licence review: its GFTC allows redistribution only free of charge and does not fit the
 AGPL, which allows no added recipient terms. Because of this the build does not use `-O3`, PGO or
 `--enable-sbom` (Oracle-only); `boot/build.gradle.kts` generates the SBOM with CycloneDX instead.
-Keep the notices that GraalVM CE and its licensors ship in the builder image's output.
+Keep the notices that Liberica NIK, GraalVM CE and their licensors ship in the builder image's output.
 
 ## Extending Yukta
 
