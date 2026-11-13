@@ -1321,4 +1321,10 @@ class ProcessExecutorPluginTest {
                 new ObjectMapper()))
         .isNotNull();
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.EXTENDED);
+    assertThat(plugin.isRestricted()).isEqualTo(true);
+  }
 }

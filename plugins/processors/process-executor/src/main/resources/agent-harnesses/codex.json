@@ -1,0 +1,20 @@
+{
+  "id": "codex",
+  "description": "OpenAI Codex CLI (codex exec --json). Runs one prompt to the end. It reads only by default: add args [\"--sandbox\", \"workspace-write\"] so it can edit, and [\"--skip-git-repo-check\"] outside a git repository. No resume and no approvals through this preset.",
+  "command": ["codex", "exec", "--json", "{prompt}"],
+  "modelArgs": ["--model", "{model}"],
+  "capabilities": { "stream": true },
+  "output": {
+    "resultWhen": { "type": "turn.completed" },
+    "failureWhen": { "type": "turn.failed" },
+    "failureText": "error.message",
+    "captures": [
+      { "when": { "type": "thread.started" }, "path": "thread_id", "into": "sessionId" },
+      { "when": { "type": "item.completed", "item.type": "agent_message" }, "path": "item.text", "into": "text" }
+    ],
+    "live": [
+      { "when": { "type": "item.completed", "item.type": "agent_message" }, "text": "item.text" },
+      { "when": { "type": "item.started", "item.type": "command_execution" }, "text": "item.command", "prefix": "run: " }
+    ]
+  }
+}

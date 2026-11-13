@@ -111,6 +111,9 @@ com.infenia.yukta.plugin.llm.LlmGateway
 com.infenia.yukta.plugin.mcp.McpClientGateway
 com.infenia.yukta.plugin.mcp.McpListToolsPlugin
 com.infenia.yukta.plugin.mcp.McpToolCallPlugin
+com.infenia.yukta.plugin.process.AgentHarnesses
+com.infenia.yukta.plugin.process.AgentSessionPlugin
+com.infenia.yukta.plugin.process.InMemoryAgentSessionStore
 com.infenia.yukta.plugin.process.ProcessExecutorAutoConfiguration
 com.infenia.yukta.plugin.process.ProcessExecutorGateway
 com.infenia.yukta.plugin.process.ProcessExecutorPlugin

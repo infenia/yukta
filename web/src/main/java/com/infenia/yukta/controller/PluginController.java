@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -69,10 +70,30 @@ public class PluginController {
       description = "Internal server error",
       content = @Content(mediaType = APPLICATION_JSON))
   public Mono<ResponseEntity<ApiResponse<List<PluginSummary>>>> listPlugins() {
-    return Mono.fromCallable(registry::listPlugins)
-        .map(
-            plugins ->
-                plugins.stream().map(p -> new PluginSummary(p.getType(), p.getCategory())).toList())
+    return Mono.fromCallable(
+            () ->
+                Stream.concat(
+                        registry.listPlugins().stream()
+                            .map(
+                                p ->
+                                    new PluginSummary(
+                                        p.getType(),
+                                        p.getCategory(),
+                                        p.getTier(),
+                                        p.isRestricted(),
+                                        true,
+                                        null)),
+                        registry.listDisabled().stream()
+                            .map(
+                                p ->
+                                    new PluginSummary(
+                                        p.getType(),
+                                        p.getCategory(),
+                                        p.getTier(),
+                                        p.isRestricted(),
+                                        false,
+                                        registry.enableHint(p.getType()))))
+                    .toList())
         .map(
             summaries ->
                 ResponseEntity.ok(
@@ -124,7 +145,9 @@ public class PluginController {
                             p.describe().usagePattern(),
                             p.describe().uiDesign().orElse(null),
                             p.getOutputPorts(),
-                            p.getConfigSchema()))))
+                            p.getConfigSchema(),
+                            p.getTier(),
+                            p.isRestricted()))))
         .switchIfEmpty(
             Mono.fromSupplier(
                 () -> {

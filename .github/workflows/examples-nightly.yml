@@ -40,6 +40,7 @@ jobs:
       - name: Start the server
         env:
           YUKTA_PROCESS_ALLOW_ANY: 'true'
+          YUKTA_PLUGINS_ENABLED: 'all'
         run: |
           jar=''
           for candidate in boot/build/libs/boot-*.jar; do

@@ -127,4 +127,11 @@ class AskPluginTest {
         .expectErrorMessage("At most 64 questions")
         .verify();
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin(FakeModel.always(Map.of())).getTier())
+        .isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(plugin(FakeModel.always(Map.of())).isRestricted()).isEqualTo(false);
+  }
 }

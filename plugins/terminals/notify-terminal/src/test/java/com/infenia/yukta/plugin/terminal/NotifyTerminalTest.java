@@ -201,4 +201,10 @@ class NotifyTerminalTest {
     assertThat(new NotifyTerminal(WebClient.builder(), empty).getType())
         .isEqualTo("NOTIFY_TERMINAL");
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(terminal.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(terminal.isRestricted()).isEqualTo(true);
+  }
 }

@@ -254,4 +254,12 @@ class FileIoPluginsTest {
     assertThat(writer.getOutputPorts(Map.of())).containsExactly("default");
     StepVerifier.create(writer.validateConfig(Map.of(BASE_DIR, dir.toString()))).verifyComplete();
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(reader.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.EXTENDED);
+    assertThat(reader.isRestricted()).isEqualTo(true);
+    assertThat(writer.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.EXTENDED);
+    assertThat(writer.isRestricted()).isTrue();
+  }
 }

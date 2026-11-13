@@ -122,4 +122,10 @@ class McpListToolsPluginTest {
     assertThat(plugin.describe().description()).contains("tools");
     assertThat(plugin.getConfigSchema()).extracting("name").contains("url", "allowedTools");
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(plugin.isRestricted()).isEqualTo(true);
+  }
 }

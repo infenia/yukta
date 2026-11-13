@@ -697,4 +697,10 @@ class LlmCallPluginTest {
         .isEqualTo(1_000_000.0);
     assertThat(meters.get("llm.cost").tag("provider", "OPENAI").counter().count()).isEqualTo(4.0);
   }
+
+  @Test
+  void tierAndRestriction() {
+    assertThat(plugin.getTier()).isEqualTo(com.infenia.yukta.plugin.core.PluginTier.SPECIFIC);
+    assertThat(plugin.isRestricted()).isEqualTo(false);
+  }
 }

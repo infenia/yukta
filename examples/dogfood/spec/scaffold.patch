@@ -1,0 +1,6 @@
+diff --git a/core/src/main/java/A.java b/core/src/main/java/A.java
+new file mode 100644
+--- /dev/null
++++ b/core/src/main/java/A.java
+@@ -0,0 +1 @@
++class X {}
