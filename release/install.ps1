@@ -321,11 +321,27 @@
             Write-Host ''
         }
         Say "$O${B}Done!$Z Yukta $version is ready (took $([int]((Get-Date) - $tStart).TotalSeconds)s)."
-        Say 'Next:'
-        if ($installedServer) { Say '  yukta                          # start the server on http://localhost:9858' }
-        if (-not $serverOnly) { Say '  yukta-cli session list         # talk to a running server' }
-        if (-not $serverOnly) { Say '  yukta-cli agents install       # connect Claude Code, Codex, Cursor, ... to Yukta' }
-        Say '  https://yukta.infenia.com      # docs and first workflow'
+        function Nx($cmd, $note) { Say ("  $B{0,-34}$Z $D{1}$Z" -f $cmd, $note) }
+        Say ''
+        Say "$O${B}Get started$Z"
+        if ($installedServer) {
+            Nx '1  yukta' 'start the server'
+            Nx '2  http://localhost:9858' 'open the web UI: sessions, live runs, logs'
+            Nx '3  yukta.infenia.com/learn/your-first-workflow' 'build and run one in 5 minutes'
+            Say ''
+            Say "$U${B}Let your AI assistant drive it$Z"
+            if (-not $serverOnly) { Say "  yukta-cli agents install        ${D}# connects Claude Code, Codex, Cursor, ... in one step$Z" }
+            Say '  claude mcp add --transport http yukta http://localhost:9858/mcp'
+            Say "  ${D}then ask: `"Create a Yukta workflow that runs my tests on every push`"$Z"
+        }
+        else {
+            Nx 'yukta-cli --url http://HOST:9858 session list' 'point the client at a running server'
+            Nx 'yukta.infenia.com/learn/your-first-workflow' 'build and run a workflow in 5 minutes'
+        }
+        Say ''
+        Say "$U${B}More$Z"
+        if (-not $serverOnly) { Nx 'yukta-cli session list' 'manage sessions and runs from the terminal' }
+        Nx 'yukta.infenia.com/examples' 'ready-made workflows: CI gates, pipelines, approvals'
     }
     catch {
         if ($st.cur) { Mark $st.cur "$O$BAD$Z" $st.text }
