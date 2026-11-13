@@ -148,15 +148,16 @@ public record AgentPreset(
   public static AgentPreset parse(final JsonNode root) {
     final String id = required(root, "id");
     final JsonNode out = root.path("output");
-    final List<Live> live = new ArrayList<>();
-    out.path("live")
-        .forEach(
-            n ->
-                live.add(
+    final List<Live> live =
+        out.path("live")
+            .valueStream()
+            .map(
+                n ->
                     new Live(
                         strings(n.path("when")),
                         required(n, "text"),
-                        n.path("prefix").asString(""))));
+                        n.path("prefix").asString("")))
+            .toList();
     return new AgentPreset(
         id,
         root.path("description").asString(""),
