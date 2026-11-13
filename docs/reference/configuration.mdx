@@ -181,6 +181,7 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 |---|---|---|---|
 | `yukta.process.allowed-commands` | list | empty | Executables `PROCESS_EXECUTOR` may run; empty runs nothing. |
 | `yukta.process.allowed-env` | list | empty | Risky environment names a `PROCESS_EXECUTOR` node may set. |
+| `yukta.process.pass-env` | list | empty | Server environment variables a `PROCESS_EXECUTOR` process receives besides `PATH`; `*` passes the whole environment, secrets included. |
 | `yukta.process.working-dir-root` | path | none | Working directories must lie inside it while `allowed-commands` is set. |
 | `yukta.process.allow-any` | boolean | `false` | Any executable, only while no list is set. |
 | `yukta.script.timeout-ms` | int | `10000` | Longest a script runs. System property only. |

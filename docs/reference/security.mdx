@@ -120,6 +120,7 @@ A supervisor of type `http` is operated with its own credential, made by `POST /
 | `yukta.process.allowed-commands` | Executables a workflow may run, matched by exact name; while set, shell mode (`useShell`) is refused. |
 | `yukta.process.allow-any` | Any executable; only while the list is empty. |
 | `yukta.process.allowed-env` | Names a node may set although they change what an allowed program runs. While `allowed-commands` is set, `PATH`, `HOME`, `LD_*`, `DYLD_*`, `GIT_*`, `XDG_*`, `NODE_*`, `PYTHON*`, `PERL*`, `RUBY*`, `*_OPTIONS`, `*_OPTS`, `BASH_ENV`, `CLASSPATH` and similar are refused; the list is best-effort, not isolation. |
+| `yukta.process.pass-env` | Server environment variables a process receives. A process starts with `PATH` and the node's `env` only, so it cannot read `YUKTA_SECRET_*` or other server variables; list names here to pass them, or `*` to pass everything (a trusted local server only; logged as a warning at startup). |
 | `yukta.process.working-dir-root` | While `allowed-commands` is set, `workingDir` is taken from this directory and must stay inside it (`..` and escaping links refused). |
 
 The allow-list names an executable, not what it does with its arguments; it is not a sandbox. A supervisor of engine type `process` also needs its executable in the list and runs with an empty environment, reading one output line of at most 64 KB.
