@@ -152,7 +152,7 @@ tasks.withType<org.springframework.boot.gradle.tasks.aot.ProcessAot>().configure
 }
 
 // Software bill of materials (CycloneDX) of the runtime classpath, written as yukta.sbom.json next to the
-// native binary after every nativeCompile; the release attaches and attests it. (GraalVM CE has no
+// native binary after every nativeCompile; the release attaches and attests it. (GraalVM CE and Liberica NIK have no
 // --enable-sbom; that option is Oracle GraalVM only.)
 tasks.cyclonedxDirectBom {
     includeConfigs.set(listOf("runtimeClasspath"))

@@ -229,7 +229,7 @@ Built with Java 25, Spring Boot 4.1 (WebFlux), Gradle 9.8, Project Reactor, Spri
 
 ```bash
 ./gradlew bootRun          # run the server
-./gradlew nativeCompile    # optional GraalVM native image (needs a GraalVM JDK)
+./gradlew nativeCompile    # optional native image (needs a GraalVM JDK, for example Liberica NIK)
 ./gradlew check            # tests + Checkstyle + PMD + SpotBugs + JaCoCo
 ./gradlew spotlessApply    # format before committing
 ```

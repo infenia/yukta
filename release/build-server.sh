@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 
-# Build the native server (GraalVM) for the architecture of THIS machine, inside the same pinned
-# builder image the Dockerfile uses, so the result does not depend on what is installed locally.
-# GraalVM native-image cannot cross-compile: run it on an amd64 host for linux-amd64 and on an
+# Build the native server (Liberica NIK) for the architecture of THIS machine, inside the same builder
+# image the Dockerfile uses, so the result does not depend on what is installed locally.
+# native-image cannot cross-compile: run it on an amd64 host for linux-amd64 and on an
 # arm64 host (for example a GitHub-hosted ubuntu-24.04-arm runner) for linux-arm64.
 #
-# Builds with GraalVM Community Edition (default -O2, no PGO).
+# Builds with Liberica NIK, which is GraalVM Community Edition based (default -O2, no PGO).
 # Usage: [NATIVE_HEAP=16g] [NATIVE_QUICK=1] release/build-server.sh
 # NATIVE_QUICK=1 compiles with -Ob: much faster, for rehearsals and smoke tests. release.sh refuses
 # to publish such a binary.
