@@ -5,6 +5,7 @@ package com.infenia.yukta.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
+import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 import org.springframework.aot.hint.MemberCategory;
@@ -42,5 +43,40 @@ class MessageReflectionHintsTest {
                 .onType(com.infenia.yukta.security.ApiKeys.KeyEntry.class)
                 .withMemberCategory(MemberCategory.INVOKE_DECLARED_CONSTRUCTORS))
         .accepts(hints);
+  }
+
+  @Test
+  void registerHints_jdkTypesOfExpressionMethods_areInvocableInNative() {
+    final RuntimeHints hints = new RuntimeHints();
+
+    new MessageReflectionHints.Hints()
+        .registerHints(hints, Thread.currentThread().getContextClassLoader());
+
+    // items.toString() on a projection runs AbstractCollection.toString by reflection
+    for (final Class<?> type :
+        List.of(
+            java.util.AbstractCollection.class,
+            java.util.ArrayList.class,
+            java.util.LinkedHashMap.class,
+            String.class,
+            java.time.Instant.class)) {
+      assertThat(
+              RuntimeHintsPredicates.reflection()
+                  .onType(type)
+                  .withMemberCategory(MemberCategory.INVOKE_PUBLIC_METHODS))
+          .as(type.getName())
+          .accepts(hints);
+    }
+  }
+
+  @Test
+  void expressionTypes_namedClasses_exist() {
+    // a misspelt or removed JDK class would be registered for nothing
+    for (final String name : MessageReflectionHints.Hints.EXPRESSION_TYPES) {
+      org.assertj.core.api.Assertions.assertThatCode(
+              () -> Class.forName(name, false, ClassLoader.getSystemClassLoader()))
+          .as(name)
+          .doesNotThrowAnyException();
+    }
   }
 }
