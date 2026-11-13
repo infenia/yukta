@@ -53,6 +53,7 @@ jobs:
       # The examples run commands (sh, echo) and a Python pager stand-in, which a default server refuses.
       - name: Smoke test and examples
         env:
+          YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
         run: |
           dist/linux-amd64/yukta &

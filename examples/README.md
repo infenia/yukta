@@ -9,6 +9,9 @@ example is a session JSON plus a small bash script.
 - A running Yukta server: `./gradlew bootRun`, or the native binary, or the Docker image
   (set `YUKTA_SERVER_ADDRESS=0.0.0.0` in a container). Default address: `http://localhost:9858`.
 - `curl` and `jq`.
+- Plugins that touch the outside (`PROCESS_EXECUTOR`, `FILE_*`, `HTTP_REQUEST`, `NOTIFY_TERMINAL`, `SESSION_MEMORY`,
+  `LLM_CALL`, ...) are off until named. Start the server with `YUKTA_PLUGINS_ENABLED=all` (or list the plugins) or the examples
+  that use them exit `3` (SKIP) or fail; `GET /api/plugins` shows what is enabled.
 - Examples 01, 02, 03 and 08 run operating-system commands, which Yukta refuses by default. Allow only what they need, for
   example `YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo` (property `yukta.process.allowed-commands`); each README names its set.
   Example 08 also needs `python3` for its local pager stand-in. Without an allowlist those examples exit `3` (SKIP).
@@ -25,7 +28,7 @@ mkdir -p /tmp/yukta-examples
 docker run --rm -p 127.0.0.1:9858:9858 --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp \
   -v /tmp/yukta-examples:/tmp/yukta-examples \
   -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=<a-long-random-key> -e YUKTA_API_KEYS_0_ROLE=ADMIN \
-  -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
+  -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo \
   ghcr.io/infenia/yukta:<version>
 YUKTA_API_KEY=<the-key> ./examples/run-all.sh
 ```

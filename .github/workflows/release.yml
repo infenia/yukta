@@ -227,6 +227,7 @@ jobs:
       - name: Smoke test
         env:
           BINARY: dist/${{ matrix.platform }}/yukta${{ runner.os == 'Windows' && '.exe' || '' }}
+          YUKTA_PLUGINS_ENABLED: all
           YUKTA_PROCESS_ALLOWED_COMMANDS: sh,echo,python3
         run: |
           "$BINARY" &
@@ -449,7 +450,7 @@ jobs:
           mkdir -p /tmp/yukta-examples
           docker run -d --rm --name ytest -p 127.0.0.1:18081:9858 \
             --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp -v /tmp/yukta-examples:/tmp/yukta-examples \
-            -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=x \
+            -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=x \
             -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image"
           trap 'docker rm -f ytest >/dev/null 2>&1 || true' EXIT
           release/smoke-test.sh http://127.0.0.1:18081 x

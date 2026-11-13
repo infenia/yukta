@@ -19,7 +19,8 @@
 #                     and process allowlist shown in examples/README.md.
 #   EXAMPLES_SKIP     examples not run at all (see examples/run-all.sh)
 #
-# The server under test needs YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 03 and 08.
+# The server under test needs YUKTA_PLUGINS_ENABLED=all (the examples use plugins that are off by default)
+# and YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3 for examples 01, 02, 03 and 08.
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 

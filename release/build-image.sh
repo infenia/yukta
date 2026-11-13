@@ -48,7 +48,7 @@ smoke_test() {
   mkdir -p /tmp/yukta-examples
   docker run -d --rm --name "$name" --platform "linux/$platform" -p "127.0.0.1:$port:9858" \
     --user "$(id -u):$(id -g)" --workdir /tmp -e HOME=/tmp -v /tmp/yukta-examples:/tmp/yukta-examples \
-    -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
+    -e YUKTA_PLUGINS_ENABLED=all -e YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo -e YUKTA_API_KEYS_0_NAME=admin -e YUKTA_API_KEYS_0_KEY=smoke-test-key -e YUKTA_API_KEYS_0_ROLE=ADMIN "$image" >/dev/null
   trap 'docker rm -f "$name" >/dev/null 2>&1 || true' RETURN
   for _ in $(seq 1 60); do
     if curl -fsS "http://127.0.0.1:$port/actuator/health" 2>/dev/null | grep -q '"status":"UP"'; then
