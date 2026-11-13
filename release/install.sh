@@ -338,7 +338,7 @@ main() {
     if [ -x "$dir/yukta-cli" ] && "$dir/yukta-cli" agents uninstall --all >/dev/null 2>&1; then
       say "disconnected the AI agents Yukta had set up"
     fi
-    for f in yukta yukta-cli; do
+    for f in yukta yukta-cli yukta.prev yukta-cli.prev; do
       if [ -f "$dir/$f" ]; then rm -f "$dir/$f" && say "removed $dir/$f"; fi
     done
     exit 0

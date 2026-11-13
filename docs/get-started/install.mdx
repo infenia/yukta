@@ -137,6 +137,18 @@ A new server has no sessions, so the second command prints only the column headi
 
 > **Stuck?** If `yukta: command not found`, the install folder is not on your `PATH`. Run `~/.local/bin/yukta`, or add that folder. If the server says the address is in use, another program holds port `9858`: stop it, or start Yukta with `--server.port=<other>` and pass `--url` to the client. If Docker exits at once with a message about an API key, you left out one of the three `YUKTA_API_KEYS_0_*` variables.
 
+## Uninstall
+
+On Linux and macOS, run the same script with `--uninstall`. It first disconnects the AI agents Yukta had set up, then removes `yukta` and `yukta-cli` (and the `*.prev` copies kept by an upgrade) from the install folder and nothing else:
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
+```
+
+Add `--install-dir <dir>` if you installed somewhere other than `/usr/local/bin` (as root) or `~/.local/bin`. Stop a running server first. Sessions kept in a folder with `YUKTA_BOOTSTRAP_DIR` are not touched; delete that folder yourself if you want them gone.
+
+On Windows, delete the folder you unzipped. With Docker, `docker rmi ghcr.io/infenia/yukta:<version>` removes the image (a container started with `--rm` is already gone).
+
 ## What you just did
 
 You installed one program that holds the engine, the REST API, the MCP endpoint, the web UI and the built-in plugins, plus a small client for it. Nothing was installed system-wide and nothing leaves your machine except the download.

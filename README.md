@@ -94,6 +94,12 @@ docker run --rm -p 127.0.0.1:9858:9858 \
 
 **AI agents.** The install script can also connect the agents on your machine (Claude Code, Codex, Antigravity, Cursor, VS Code, Windsurf, OpenCode) to Yukta: it asks at the end on a terminal, or pass `--agents auto` (`$env:YUKTA_AGENTS = 'auto'` on Windows). Later: `yukta-cli agents install`.
 
+**Uninstall** (Linux and macOS; stop the server first). Windows: delete the unzipped folder. Docker: `docker rmi` the image. It also disconnects the AI agents set up by `yukta-cli agents install`.
+
+```bash
+curl -fsSL https://github.com/infenia/yukta/releases/download/v0.1.0-alpha.4/install.sh | sh -s -- --uninstall
+```
+
 Releases `0.1.0-alpha.3` and earlier ship a native server for Linux `amd64` only; on any other system use Docker for the server (the `yukta-cli` client is native everywhere).
 
 <details>
