@@ -7,6 +7,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.core.ConfigField;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -80,5 +81,28 @@ class SupervisorDecisionTerminalTest {
     assertThatThrownBy(
             () -> terminal.consume(Flux.just(of(Map.of("commands", many))), Map.of()).block())
         .hasMessageContaining("at most 10");
+  }
+
+  @Test
+  void exactlyTenCommandsPass() {
+    final List<Object> ten = new ArrayList<>();
+    for (int i = 0; i < 10; i++) {
+      ten.add(Map.of("type", "PauseWorkflow", "executionId", "e" + i));
+    }
+    StepVerifier.create(terminal.consume(Flux.just(of(Map.of("commands", ten))), Map.of()))
+        .verifyComplete();
+  }
+
+  @Test
+  void theOutcomeFieldIsAChoiceOfFourAndTheRestKeepTheirShape() {
+    assertThat(terminal.getConfigSchema())
+        .filteredOn(field -> "outcome".equals(field.name()))
+        .singleElement()
+        .satisfies(
+            field -> {
+              assertThat(field.type()).isEqualTo(ConfigField.Type.ENUM);
+              assertThat(field.options()).containsExactly("SUCCESS", "RETRY", "ESCALATE", "FAILED");
+            });
+    assertThat(terminal.getConfigSchema()).anyMatch(f -> !"outcome".equals(f.name()));
   }
 }
