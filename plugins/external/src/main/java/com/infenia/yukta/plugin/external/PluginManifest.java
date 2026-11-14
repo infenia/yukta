@@ -2,14 +2,19 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.plugin.external;
 
+import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginCategory;
+import com.infenia.yukta.plugin.util.VariableResolver;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.With;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 /**
  * A community plugin's {@code yukta-plugin.json}, read after it passed {@code
@@ -23,6 +28,8 @@ import lombok.With;
  * @param timeout how long one message may take
  * @param command the argv of {@code run.command}; empty for another run form
  * @param image the image of {@code run.image}; empty for another run form
+ * @param mcp {@code run.mcp} ({@code command}, {@code image} or {@code url}, and {@code tool});
+ *     empty for another run form
  * @param runForm the run form: {@code command}, {@code image} or {@code mcp}
  * @param dir the plugin's directory
  */
@@ -36,6 +43,7 @@ public record PluginManifest(
     Duration timeout,
     List<String> command,
     String image,
+    Map<String, Object> mcp,
     String runForm,
     Path dir) {
 
@@ -47,6 +55,27 @@ public record PluginManifest(
     config = List.copyOf(config);
     ports = List.copyOf(ports);
     command = List.copyOf(command);
+    mcp = Map.copyOf(mcp);
+  }
+
+  /**
+   * The declared fields of a node's configuration, each resolved for the message; undeclared fields
+   * are left out, so a plugin never sees them.
+   *
+   * @param resolver resolves placeholders and secrets
+   * @param message the message being handled
+   * @param config the node configuration
+   * @return the resolved fields, in declaration order
+   */
+  public Mono<Map<String, Object>> resolve(
+      final VariableResolver resolver, final Message<?> message, final Map<String, Object> config) {
+    return Flux.fromIterable(config())
+        .map(ConfigField::name)
+        .filter(name -> config.get(name) != null)
+        .concatMap(
+            name ->
+                resolver.resolve(config.get(name), message).map(value -> Map.entry(name, value)))
+        .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new);
   }
 
   /**
@@ -77,6 +106,7 @@ public record PluginManifest(
         json.containsKey("timeout") ? duration((String) json.get("timeout")) : DEFAULT_TIMEOUT,
         "command".equals(form) ? (List<String>) run.getValue() : List.of(),
         "image".equals(form) ? (String) run.getValue() : "",
+        "mcp".equals(form) ? (Map<String, Object>) run.getValue() : Map.of(),
         form,
         dir);
   }
