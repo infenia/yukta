@@ -186,6 +186,8 @@ A tier name matches `[A-Za-z0-9._-]{1,64}`. A tier's `type` defaults to `AUTO` w
 | `yukta.plugins.dir` | path | none | Directory of community plugins, one subdirectory with a `yukta-plugin.json` each. See [Write a community plugin](/guides/extend/write-a-community-plugin). |
 | `yukta.plugins.external.max-output-bytes` | long | `1048576` | Most a community plugin may write to stdout for one message; more fails the message. |
 | `yukta.plugins.external.max-outputs` | int | `1000` | Most output objects a community plugin may write for one message; more fails the message. |
+| `yukta.plugins.container.runtime` | string | `docker` | Container CLI that runs `run.image` community plugins: `docker`, `podman` or `nerdctl`, a name on `PATH` or a path. |
+| `yukta.plugins.container.args.<TYPE>` | list | empty | Extra `run` arguments for one image plugin, such as `--network=none` or `--memory=256m`. The type matches ignoring case and separators, so `YUKTA_PLUGINS_CONTAINER_ARGS_WORD_COUNT` works. |
 | `yukta.process.working-dir-root` | path | none | Working directories must lie inside it while `allowed-commands` is set. |
 | `yukta.process.allow-any` | boolean | `false` | Any executable, only while no list is set. |
 | `yukta.script.timeout-ms` | int | `10000` | Longest a script runs. System property only. |

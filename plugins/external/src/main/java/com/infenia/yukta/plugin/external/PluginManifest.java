@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import lombok.With;
 
 /**
  * A community plugin's {@code yukta-plugin.json}, read after it passed {@code
@@ -21,9 +22,11 @@ import java.util.Map;
  * @param ports the output ports of a processor; empty for a terminal
  * @param timeout how long one message may take
  * @param command the argv of {@code run.command}; empty for another run form
+ * @param image the image of {@code run.image}; empty for another run form
  * @param runForm the run form: {@code command}, {@code image} or {@code mcp}
  * @param dir the plugin's directory
  */
+@With
 public record PluginManifest(
     String type,
     PluginCategory category,
@@ -32,6 +35,7 @@ public record PluginManifest(
     List<String> ports,
     Duration timeout,
     List<String> command,
+    String image,
     String runForm,
     Path dir) {
 
@@ -72,6 +76,7 @@ public record PluginManifest(
         ports,
         json.containsKey("timeout") ? duration((String) json.get("timeout")) : DEFAULT_TIMEOUT,
         "command".equals(form) ? (List<String>) run.getValue() : List.of(),
+        "image".equals(form) ? (String) run.getValue() : "",
         form,
         dir);
   }
