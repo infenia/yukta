@@ -16,6 +16,7 @@ import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.mcp.McpClientGateway;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.type.TerminalPlugin;
@@ -57,6 +58,7 @@ class ExternalPluginsTest {
   private static final String ECHO = "ECHO";
   private static final String RUN_SH = "run.sh";
   private static final Containers NO_CONTAINERS = new Containers("docker", Map.of());
+  private static final McpClientGateway NO_HTTP = mock(McpClientGateway.class);
 
   /** Writes the whole stdin envelope back as the payload, and one line to stderr. */
   private static final String ECHO_SCRIPT =
@@ -145,7 +147,8 @@ class ExternalPluginsTest {
     final ProcessorPlugin echo =
         (ProcessorPlugin)
             only(
-                new ExternalPlugins(root, List.of(ECHO), gateway, resolver, 1024, 1, NO_CONTAINERS)
+                new ExternalPlugins(
+                        root, List.of(ECHO), gateway, resolver, 1024, 1, NO_CONTAINERS, NO_HTTP)
                     .plugins());
 
     StepVerifier.create(echo.process(Flux.just(input("x")), Map.of()))
@@ -186,19 +189,6 @@ class ExternalPluginsTest {
     plugin(ECHO, "processor", ECHO_SCRIPT, ",\"timout\":\"30s\"");
 
     assertThatThrownBy(() -> load(List.of(ECHO))).hasMessageContaining("is invalid");
-  }
-
-  @Test
-  void mcpRunFormIsNotSupportedYet() throws IOException {
-    final Path dir = Files.createDirectories(root.resolve("TOOL"));
-    Files.writeString(
-        dir.resolve(ExternalPlugins.MANIFEST),
-        "{\"apiVersion\":\"yukta/plugin/v1\",\"type\":\"TOOL\",\"category\":\"processor\","
-            + "\"description\":\"d\",\"run\":{\"mcp\":{\"url\":\"http://localhost:1/mcp\","
-            + "\"tool\":\"t\"}}}");
-
-    assertThatThrownBy(() -> load(List.of("TOOL")))
-        .hasMessageContaining("run.mcp is not supported");
   }
 
   @Test
@@ -283,7 +273,8 @@ class ExternalPluginsTest {
     final ProcessorPlugin big =
         (ProcessorPlugin)
             only(
-                new ExternalPlugins(root, List.of("BIG"), gateway, resolver, 50, 10, NO_CONTAINERS)
+                new ExternalPlugins(
+                        root, List.of("BIG"), gateway, resolver, 50, 10, NO_CONTAINERS, NO_HTTP)
                     .plugins());
     StepVerifier.create(big.process(Flux.just(input("x")), Map.of()))
         .expectErrorMessage("Plugin BIG wrote more than 50 bytes")
@@ -353,7 +344,8 @@ class ExternalPluginsTest {
   @Test
   void pluginsDirectory_problems() throws IOException {
     assertThat(
-            new ExternalPlugins(null, List.of(ECHO), gateway, resolver, 1, 1, NO_CONTAINERS)
+            new ExternalPlugins(
+                    null, List.of(ECHO), gateway, resolver, 1, 1, NO_CONTAINERS, NO_HTTP)
                 .plugins())
         .isEmpty();
     assertThatThrownBy(() -> sourceAt(root.resolve("missing")).plugins())
@@ -404,7 +396,15 @@ class ExternalPluginsTest {
     assertThat(
             config
                 .externalPlugins(
-                    "", List.of(), 1, 1, "docker", new StandardEnvironment(), gateway, resolver)
+                    "",
+                    List.of(),
+                    1,
+                    1,
+                    "docker",
+                    new StandardEnvironment(),
+                    gateway,
+                    mock(McpClientGateway.class),
+                    resolver)
                 .plugins())
         .isEmpty();
     assertThat(
@@ -416,6 +416,7 @@ class ExternalPluginsTest {
                 "docker",
                 new StandardEnvironment(),
                 gateway,
+                mock(McpClientGateway.class),
                 resolver))
         .hasToString("yukta.plugins.dir " + root);
   }
@@ -438,7 +439,7 @@ class ExternalPluginsTest {
   }
 
   private ExternalPlugins sourceAt(final Path dir) {
-    return new ExternalPlugins(dir, List.of(), gateway, resolver, 1, 1, NO_CONTAINERS);
+    return new ExternalPlugins(dir, List.of(), gateway, resolver, 1, 1, NO_CONTAINERS, NO_HTTP);
   }
 
   private void assertFails(final String script, final String message) throws IOException {
@@ -471,7 +472,8 @@ class ExternalPluginsTest {
   }
 
   private List<Plugin> load(final List<String> enabled) {
-    return new ExternalPlugins(root, enabled, gateway, resolver, 1 << 20, 1000, NO_CONTAINERS)
+    return new ExternalPlugins(
+            root, enabled, gateway, resolver, 1 << 20, 1000, NO_CONTAINERS, NO_HTTP)
         .plugins();
   }
 

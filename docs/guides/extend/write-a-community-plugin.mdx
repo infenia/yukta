@@ -51,7 +51,7 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
     }
     ```
 
-    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. To ship the program with its dependencies, use `run.image` instead of `run.command` (see [Run it from a container image](#run-it-from-a-container-image)). `run.mcp` is planned and refused for now.
+    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. To ship the program with its dependencies, use `run.image` instead of `run.command` (see [Run it from a container image](#run-it-from-a-container-image)). To wrap a tool of an MCP server, use `run.mcp` (see [Wrap an MCP tool](#wrap-an-mcp-tool)).
   </Step>
 
   <Step title="Write the program">
@@ -124,13 +124,41 @@ YUKTA_PLUGINS_CONTAINER_ARGS_WORD_COUNT=--network=none,--memory=256m # extra doc
 
 Pin the image by digest: the plugin's directory digest covers the manifest, so a pinned directory with an `@sha256` image runs exactly what was checked. `yukta-cli plugin validate` runs an image plugin the same way (it reads `YUKTA_PLUGINS_CONTAINER_RUNTIME` too). A container starts per message, so expect a second or so per message; the server needs a container runtime, which the stock Yukta Docker image does not have.
 
+## Wrap an MCP tool
+
+A plugin can be one tool of an existing MCP server. The server stays running, so there is no process start per message:
+
+```json
+{
+  "apiVersion": "yukta/plugin/v1",
+  "type": "GITHUB_ISSUE",
+  "category": "processor",
+  "description": "Open a GitHub issue",
+  "config": [{ "name": "token", "type": "SECRET", "required": true }],
+  "timeout": "30s",
+  "run": { "mcp": { "command": ["node", "server.js"], "tool": "create_issue" } }
+}
+```
+
+`run.mcp` takes one of:
+
+| Key | The server |
+|---|---|
+| `command` | A process Yukta starts once and talks to over stdio, with `PATH` as its only variable, like `run.command`. It starts again on the next message if it exits. |
+| `image` | The same, in a container (`docker run --rm -i`), with the container settings above. |
+| `url` | An HTTP endpoint (streamable HTTP). The `yukta.mcp-client.*` settings apply, such as `allowed-hosts` and `allowed-tools`. |
+
+At startup Yukta lists the server's tools and reads the tool's input schema: each of its properties becomes a configuration field (a `SECRET` the manifest declares stays first). For each message the node's configuration, with `${...}` placeholders resolved, is the tool's arguments. The output payload is the tool's structured result, or its text when it has none; a tool error fails the message. A missing tool fails startup.
+
+The digest to pin covers the plugin's directory **and the tool's input schema**, so a server that changes the tool after you accepted it fails startup. `yukta-cli plugin validate` checks the manifest of an MCP plugin but does not run it; take the digest from the server's startup log (`Plugin GITHUB_ISSUE from ..., sha256:...`).
+
 ## Verify it worked
 
 `GET /api/plugins` (or the `list_plugins` MCP tool) lists `WORD_COUNT` with its options and ports. A node of that type in a workflow shows the program's stderr lines in its output.
 
 ## Security
 
-The operator who installs a plugin trusts it: a command runs as the server's user and can read what the server can. An image plugin is isolated by its container: it sees no server files, variables or processes unless the operator's arguments add them. What Yukta still enforces:
+The operator who installs a plugin trusts it: a command runs as the server's user and can read what the server can. An image plugin is isolated by its container: it sees no server files, variables or processes unless the operator's arguments add them. An MCP tool over HTTP sees only the arguments Yukta sends. What Yukta still enforces:
 
 - A workflow can never define a plugin; only the operator installs and enables one.
 - No shell, and a clean environment: the process gets `PATH` and nothing else from the server, so it cannot read server secrets. Secrets it declares as `SECRET` fields arrive on stdin, never in arguments or the environment.

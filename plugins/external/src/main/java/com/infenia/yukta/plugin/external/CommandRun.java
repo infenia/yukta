@@ -4,7 +4,6 @@ package com.infenia.yukta.plugin.external;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
-import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
 import com.infenia.yukta.plugin.process.ProcessExecutionResult;
@@ -32,7 +31,7 @@ import tools.jackson.databind.json.JsonMapper;
   "PMD.TooManyMethods", // one run: resolve, start, check, parse
   "PMD.UseConcurrentHashMap" // maps local to one message
 })
-/* default */ final class CommandRun {
+/* default */ final class CommandRun implements PluginRun {
 
   private static final String STDERR = "stderr";
 
@@ -76,8 +75,8 @@ import tools.jackson.databind.json.JsonMapper;
    * @param config the node configuration
    * @return the output messages, in the order the plugin wrote them
    */
-  /* default */ Flux<Message<?>> outputs(
-      final Message<?> message, final Map<String, Object> config) {
+  @Override
+  public Flux<Message<?>> outputs(final Message<?> message, final Map<String, Object> config) {
     return run(message, config).flatMapIterable(result -> parse(message, result));
   }
 
@@ -88,7 +87,8 @@ import tools.jackson.databind.json.JsonMapper;
    * @param config the node configuration
    * @return completes when the plugin exited with 0
    */
-  /* default */ Mono<Void> consume(final Message<?> message, final Map<String, Object> config) {
+  @Override
+  public Mono<Void> consume(final Message<?> message, final Map<String, Object> config) {
     return run(message, config).then();
   }
 
@@ -97,7 +97,8 @@ import tools.jackson.databind.json.JsonMapper;
     final @Nullable String container =
         manifest.image().isEmpty() ? null : Containers.name(manifest.type());
     final Mono<ProcessExecutionResult> result =
-        resolve(message, config)
+        manifest
+            .resolve(resolver, message, config)
             .flatMap(
                 resolved ->
                     Mono.deferContextual(
@@ -121,18 +122,6 @@ import tools.jackson.databind.json.JsonMapper;
         .flatMap(
             r -> r.timedOut() ? containers.remove(container, gateway).thenReturn(r) : Mono.just(r))
         .doOnCancel(() -> containers.remove(container, gateway).subscribe());
-  }
-
-  /** The declared fields of the configuration, each resolved for the message. */
-  private Mono<Map<String, Object>> resolve(
-      final Message<?> message, final Map<String, Object> config) {
-    return Flux.fromIterable(manifest.config())
-        .map(ConfigField::name)
-        .filter(name -> config.get(name) != null)
-        .concatMap(
-            name ->
-                resolver.resolve(config.get(name), message).map(value -> Map.entry(name, value)))
-        .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new);
   }
 
   private ProcessExecutionSpec spec(

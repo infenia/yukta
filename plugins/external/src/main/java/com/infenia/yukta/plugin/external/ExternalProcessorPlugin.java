@@ -10,7 +10,7 @@ import reactor.core.publisher.Flux;
 /** A community processor: one run of its command per message, in order. */
 public final class ExternalProcessorPlugin extends ExternalPlugin implements ProcessorPlugin {
 
-  /* default */ ExternalProcessorPlugin(final PluginManifest manifest, final CommandRun run) {
+  /* default */ ExternalProcessorPlugin(final PluginManifest manifest, final PluginRun run) {
     super(manifest, run);
   }
 

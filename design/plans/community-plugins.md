@@ -250,7 +250,8 @@ Later, only when a concrete need appears:
 
 ## Open points
 
-- Where the adapter lives. It needs `ProcessExecutorGateway` and `McpClientGateway`, which sit inside plugin modules, and
-  the ArchUnit rules on plugin independence may not allow one plugin module to depend on another. The gateways may need
-  to move to a shared module.
+- Where the adapter lives: resolved in phase 2, `plugins/external`, allowed to depend on `process-executor` and (phase 4)
+  `mcp-tool-call` in the ArchUnit rules.
 - Whether terminals need anything beyond "run once per message" (for example `completionMetadata`).
+- `yukta-cli plugin validate` does not run an MCP plugin; the server logs its digest. Add an MCP client to the CLI if
+  authors need the check without a server.

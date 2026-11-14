@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.plugin.core.Plugin;
+import com.infenia.yukta.plugin.mcp.McpClientGateway;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.VariableResolver;
@@ -149,6 +150,7 @@ class ImagePluginsTest {
             Duration.ofSeconds(1),
             List.of(),
             "ghcr.io/acme/wc:1",
+            Map.of(),
             "image",
             root);
     assertThat(containers.run(manifest, "n"))
@@ -192,7 +194,8 @@ class ImagePluginsTest {
             resolver,
             1 << 20,
             1000,
-            new Containers(cli.toString(), args))
+            new Containers(cli.toString(), args),
+            mock(McpClientGateway.class))
         .plugins();
   }
 
