@@ -51,7 +51,7 @@ Module `process-executor`. Runs an external process per message.
 | `inputMode` | `NONE`, `ENV` or `STDIN` | `NONE` | no | `ENV` exports metadata as `YUKTA_METADATA_*` and the payload as `YUKTA_PAYLOAD`; `STDIN` writes the payload to standard input. Non-string payloads are JSON-serialized. |
 | `workingDir` | string | current directory | no | Working directory; SpEL supported. |
 | `timeout` | number | `300` | no | Seconds, positive; SpEL supported. |
-| `env` | map | none | no | Extra environment variables. |
+| `env` | map | none | no | Environment variables for the process. The process gets only `PATH`, the server variables listed in `yukta.process.pass-env`, and these. |
 | `useShell` | boolean | `false` | no | Run the elements as one shell script (`sh -c`, `cmd.exe /c`) so pipes and `&&` work; a literal `true` or `false`, not an expression. |
 | `captureStderr` | boolean | `false` | no | Capture stderr separately instead of merging it into stdout. |
 | `outputFormat` | `STRUCTURED`, `RAW`, `JSON` or `PASSTHROUGH` | `STRUCTURED` | no | Shape of the emitted payload. |
@@ -77,7 +77,7 @@ Module `process-executor`. Runs an external process per message.
 - **Output ports:** `default`, or `success` and `failure` with `routeByExitCode`.
 - **Metadata:** `exitCode` (`-1` on timeout). `reports` adds `failures` (at most 50 of `{kind, file, line, rule, message, test?}`) and `totalFailures` to `STRUCTURED` and `JSON` payloads. Output past the caps is discarded and `outputTruncated` is set.
 - **Default node timeout:** `timeout` plus the larger of 5 seconds and a tenth of `timeout`.
-- **Server settings:** execution is off until `yukta.process.allowed-commands` lists executables or `yukta.process.allow-any` is `true` (default `false`). While `allowed-commands` is set, `useShell` is refused, the executable must be listed and environment names such as `PATH` or `LD_*` need `yukta.process.allowed-env`. `yukta.process.working-dir-root` confines `workingDir`. See [Configuration](/reference/configuration).
+- **Server settings:** execution is off until `yukta.process.allowed-commands` lists executables or `yukta.process.allow-any` is `true` (default `false`). While `allowed-commands` is set, `useShell` is refused, the executable must be listed and environment names such as `PATH` or `LD_*` need `yukta.process.allowed-env`. `yukta.process.working-dir-root` confines `workingDir`. A process does not inherit the server's environment: it starts with `PATH` only, plus the names in `yukta.process.pass-env` (`*` passes everything, for a trusted local server). See [Configuration](/reference/configuration).
 - **Variable safety:** `${metadata.<key>}` refuses keys containing `PASSWORD`, `SECRET` or `KEY`. With `useShell`, an element that uses `${...}` becomes one quoted word.
 - **Errors:** `command is mandatory`; `timeout must be positive, got: <n>`; `routeByExitCode requires failureMode: CONTINUE`; `Process timed out after <n>s`; `Process execution is off: set yukta.process.allowed-commands (or yukta.process.allow-any=true to run any executable)`; `Command '<name>' is not in yukta.process.allowed-commands`.
 
