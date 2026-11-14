@@ -51,7 +51,7 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
     }
     ```
 
-    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. `run.image` and `run.mcp` are planned and refused for now.
+    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. To ship the program with its dependencies, use `run.image` instead of `run.command` (see [Run it from a container image](#run-it-from-a-container-image)). `run.mcp` is planned and refused for now.
   </Step>
 
   <Step title="Write the program">
@@ -105,13 +105,32 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
   </Step>
 </Steps>
 
+## Run it from a container image
+
+Instead of a command, the manifest can name an image that holds the program and everything it needs:
+
+```json
+"run": { "image": "ghcr.io/acme/word-count@sha256:<digest>" }
+```
+
+The image's entrypoint gets the same envelope on stdin and writes the same lines to stdout. For each message Yukta runs `docker run --rm -i --name yukta-<type>-<id> <image>`: no mounts, not privileged, no environment variables, network on. At startup the server checks the image is there and pulls it when it is not (never per message); an image it cannot pull fails startup. A container that outlives its timeout, or a stopped run, is removed by name.
+
+The operator picks the container CLI and adds `run` arguments per plugin:
+
+```bash
+YUKTA_PLUGINS_CONTAINER_RUNTIME=podman                               # docker (default), podman or nerdctl
+YUKTA_PLUGINS_CONTAINER_ARGS_WORD_COUNT=--network=none,--memory=256m # extra docker run arguments for WORD_COUNT
+```
+
+Pin the image by digest: the plugin's directory digest covers the manifest, so a pinned directory with an `@sha256` image runs exactly what was checked. `yukta-cli plugin validate` runs an image plugin the same way (it reads `YUKTA_PLUGINS_CONTAINER_RUNTIME` too). A container starts per message, so expect a second or so per message; the server needs a container runtime, which the stock Yukta Docker image does not have.
+
 ## Verify it worked
 
 `GET /api/plugins` (or the `list_plugins` MCP tool) lists `WORD_COUNT` with its options and ports. A node of that type in a workflow shows the program's stderr lines in its output.
 
 ## Security
 
-The operator who installs a plugin trusts it: a command runs as the server's user and can read what the server can. What Yukta still enforces:
+The operator who installs a plugin trusts it: a command runs as the server's user and can read what the server can. An image plugin is isolated by its container: it sees no server files, variables or processes unless the operator's arguments add them. What Yukta still enforces:
 
 - A workflow can never define a plugin; only the operator installs and enables one.
 - No shell, and a clean environment: the process gets `PATH` and nothing else from the server, so it cannot read server secrets. Secrets it declares as `SECRET` fields arrive on stdin, never in arguments or the environment.

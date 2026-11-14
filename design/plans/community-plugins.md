@@ -118,9 +118,12 @@ Schemas: `plugin-api/src/main/resources/schema/plugin/v1/` (`manifest`, `message
   `docker`, `podman` or `nerdctl` in configuration.
 - Defaults: no volume mounts, not privileged, no environment passed in, network on. The operator may add mounts, resource
   limits or `--network none` per plugin.
-- Images are pulled at startup, never per message; a missing image fails startup.
-- Each container is named and removed explicitly on timeout, because killing the `docker run` client can leave the
-  container running *(to verify)*.
+- At startup the image is inspected and pulled only when missing, never per message; a failed pull fails startup.
+- Operator arguments per plugin: `yukta.plugins.container.args.<TYPE>`, beside `yukta.plugins.container.runtime`. The CLI
+  process gets `PATH` plus its own connection variables (`HOME`, `DOCKER_HOST`, `XDG_RUNTIME_DIR`, ...), none of which
+  reach the container.
+- Each container is named and removed explicitly on timeout or cancel, because killing the `docker run` client can leave
+  the container running.
 - Cost: a container start per message. Use the MCP form when latency matters.
 
 `run.mcp`:
@@ -202,6 +205,16 @@ Rules:
 
 All other built-ins stay in-process Java. External plugins satisfy rule 2 by construction: they get no store interface
 and no database credentials.
+
+Decisions for phases 4 and 5 (2026-11-14):
+
+- MCP over stdio uses a small hand-written JSON-RPC client (initialize, tools/list, tools/call), one long-lived process
+  per plugin with a clean environment. The MCP Java SDK's stdio transport passes the whole server environment.
+- MCP over HTTP reuses `McpClientGateway` (`external` may depend on `mcp-tool-call`), so `allowed-hosts` applies.
+- The tool pin lives in the enable list: for an MCP plugin `TYPE@sha256:<digest>` covers the directory and the tool's
+  input schema read at startup; a changed tool fails startup.
+- Phase 5 removes `KV_STORE` and `SESSION_MEMORY` in this repository and drops their tables in a migration; their
+  replacements are built outside it.
 
 ## Phases (each its own reviewed PR)
 

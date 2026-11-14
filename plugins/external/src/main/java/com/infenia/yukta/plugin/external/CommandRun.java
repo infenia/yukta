@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import tools.jackson.core.JacksonException;
@@ -41,6 +42,7 @@ import tools.jackson.databind.json.JsonMapper;
   private final JsonMapper json;
   private final WireSchemas schemas;
   private final OutputLimits limits;
+  private final Containers containers;
 
   /**
    * What a plugin may write to stdout for one message.
@@ -56,13 +58,15 @@ import tools.jackson.databind.json.JsonMapper;
       final VariableResolver resolver,
       final JsonMapper json,
       final WireSchemas schemas,
-      final OutputLimits limits) {
+      final OutputLimits limits,
+      final Containers containers) {
     this.manifest = manifest;
     this.gateway = gateway;
     this.resolver = resolver;
     this.json = json;
     this.schemas = schemas;
     this.limits = limits;
+    this.containers = containers;
   }
 
   /**
@@ -90,17 +94,33 @@ import tools.jackson.databind.json.JsonMapper;
 
   private Mono<ProcessExecutionResult> run(
       final Message<?> message, final Map<String, Object> config) {
-    return resolve(message, config)
-        .flatMap(
-            resolved ->
-                Mono.deferContextual(
-                    ctx ->
-                        gateway.executeInstalled(
-                            spec(message, resolved),
-                            stderrOnly(
-                                ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
-                                    .orElse(PluginLogSink.NOOP)))))
+    final @Nullable String container =
+        manifest.image().isEmpty() ? null : Containers.name(manifest.type());
+    final Mono<ProcessExecutionResult> result =
+        resolve(message, config)
+            .flatMap(
+                resolved ->
+                    Mono.deferContextual(
+                        ctx ->
+                            gateway.executeInstalled(
+                                spec(message, resolved, container),
+                                stderrOnly(
+                                    ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                                        .orElse(PluginLogSink.NOOP)))));
+    return (container == null ? result : removedWhenStopped(result, container))
         .flatMap(this::requireSuccess);
+  }
+
+  /**
+   * Stopping the container CLI on a timeout or a cancel can leave the container running, so it is
+   * removed by name then.
+   */
+  private Mono<ProcessExecutionResult> removedWhenStopped(
+      final Mono<ProcessExecutionResult> result, final String container) {
+    return result
+        .flatMap(
+            r -> r.timedOut() ? containers.remove(container, gateway).thenReturn(r) : Mono.just(r))
+        .doOnCancel(() -> containers.remove(container, gateway).subscribe());
   }
 
   /** The declared fields of the configuration, each resolved for the message. */
@@ -115,7 +135,10 @@ import tools.jackson.databind.json.JsonMapper;
         .collectMap(Map.Entry::getKey, Map.Entry::getValue, LinkedHashMap::new);
   }
 
-  private ProcessExecutionSpec spec(final Message<?> message, final Map<String, Object> config) {
+  private ProcessExecutionSpec spec(
+      final Message<?> message,
+      final Map<String, Object> config,
+      final @Nullable String container) {
     final Map<String, Object> msg = new LinkedHashMap<>();
     msg.put("id", message.id());
     if (message.traceId() != null) {
@@ -128,7 +151,8 @@ import tools.jackson.databind.json.JsonMapper;
     envelope.put("config", config);
     envelope.put("message", msg);
     return ProcessExecutionSpec.builder()
-        .command(manifest.command())
+        .command(container == null ? manifest.command() : containers.run(manifest, container))
+        .env(container == null ? Map.of() : Containers.clientEnv())
         .workingDir(manifest.dir().toString())
         .timeoutSeconds(Math.max(1L, (manifest.timeout().toMillis() + 999) / 1000))
         .stdin(json.writeValueAsString(envelope))

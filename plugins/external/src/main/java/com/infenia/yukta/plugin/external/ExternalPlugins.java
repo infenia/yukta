@@ -42,6 +42,7 @@ public final class ExternalPlugins implements PluginSource {
   private final ProcessExecutorGateway gateway;
   private final VariableResolver resolver;
   private final CommandRun.OutputLimits limits;
+  private final Containers containers;
   private final JsonMapper json = JsonMapper.builder().build();
   private final WireSchemas schemas = new WireSchemas(json);
 
@@ -54,6 +55,7 @@ public final class ExternalPlugins implements PluginSource {
    * @param resolver resolves the node configuration per message
    * @param maxOutputBytes the most a plugin may write to stdout for one message
    * @param maxOutputs the most output objects a plugin may write for one message
+   * @param containers runs {@code run.image} plugins
    */
   public ExternalPlugins(
       final @Nullable Path dir,
@@ -61,12 +63,14 @@ public final class ExternalPlugins implements PluginSource {
       final ProcessExecutorGateway gateway,
       final VariableResolver resolver,
       final long maxOutputBytes,
-      final int maxOutputs) {
+      final int maxOutputs,
+      final Containers containers) {
     this.dir = dir;
     this.enabled = pins(enabled);
     this.gateway = gateway;
     this.resolver = resolver;
     this.limits = new CommandRun.OutputLimits(maxOutputBytes, maxOutputs);
+    this.containers = containers;
   }
 
   /** Type to pinned digest ({@code ""} when not pinned). */
@@ -154,7 +158,21 @@ public final class ExternalPlugins implements PluginSource {
     final PluginManifest manifest =
         PluginManifest.from((Map<String, Object>) doc, pluginDir.toAbsolutePath().normalize());
     requirePin(manifest);
-    return withLocalExecutable(manifest);
+    return runnable(manifest);
+  }
+
+  /** The manifest ready to run: a local executable resolved, an image present. */
+  private PluginManifest runnable(final PluginManifest manifest) {
+    return switch (manifest.runForm()) {
+      case "command" -> withLocalExecutable(manifest);
+      case "image" -> {
+        containers.ensureImage(manifest, gateway);
+        yield manifest;
+      }
+      default ->
+          throw new IllegalStateException(
+              PREFIX + manifest.type() + ": run." + manifest.runForm() + " is not supported yet");
+    };
   }
 
   /** Checks the directory against the digest pinned in the enable list, if any, and logs it. */
@@ -181,14 +199,6 @@ public final class ExternalPlugins implements PluginSource {
    */
   private static PluginManifest withLocalExecutable(final PluginManifest manifest) {
     final List<String> argv = manifest.command();
-    if (argv.isEmpty()) {
-      throw new IllegalStateException(
-          PREFIX
-              + manifest.type()
-              + ": run."
-              + manifest.runForm()
-              + " is not supported yet; use run.command");
-    }
     final String executable = argv.get(0);
     if (!executable.contains("/")) {
       return manifest;
@@ -200,20 +210,12 @@ public final class ExternalPlugins implements PluginSource {
     }
     final List<String> command = new ArrayList<>(argv);
     command.set(0, path.toString());
-    return new PluginManifest(
-        manifest.type(),
-        manifest.category(),
-        manifest.description(),
-        manifest.config(),
-        manifest.ports(),
-        manifest.timeout(),
-        List.copyOf(command),
-        manifest.runForm(),
-        manifest.dir());
+    return manifest.withCommand(List.copyOf(command));
   }
 
   private Plugin plugin(final PluginManifest manifest) {
-    final CommandRun run = new CommandRun(manifest, gateway, resolver, json, schemas, limits);
+    final CommandRun run =
+        new CommandRun(manifest, gateway, resolver, json, schemas, limits, containers);
     return manifest.category() == PluginCategory.TERMINAL
         ? new ExternalTerminalPlugin(manifest, run)
         : new ExternalProcessorPlugin(manifest, run);
