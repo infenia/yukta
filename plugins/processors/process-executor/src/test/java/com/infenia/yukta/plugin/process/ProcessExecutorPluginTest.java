@@ -1263,6 +1263,7 @@ class ProcessExecutorPluginTest {
   @Test
   void defaultTimeout_ignoresUnusableTimeout() {
     assertThat(plugin.getDefaultTimeout(Map.of("timeout", -1))).isEqualTo(Duration.ofSeconds(330));
+    assertThat(plugin.getDefaultTimeout(Map.of("timeout", 0))).isEqualTo(Duration.ofSeconds(330));
     assertThat(plugin.getDefaultTimeout(Map.of("timeout", "#{expr}")))
         .isEqualTo(Duration.ofSeconds(330));
   }

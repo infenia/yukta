@@ -63,6 +63,8 @@ class AgentSessionConfigTest {
         .hasMessage("approvalTimeout must be positive, got: soon");
     assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of("approvalTimeout", -1)))
         .hasMessage("approvalTimeout must be positive, got: -1");
+    assertThatThrownBy(() -> AgentSessionConfig.settings(Map.of("approvalTimeout", 0)))
+        .hasMessage("approvalTimeout must be positive, got: 0");
     assertThat(AgentSessionConfig.settings(Map.of("approvalTimeout", 60)).ttl())
         .isEqualTo(Duration.ofSeconds(60));
     assertThat(AgentSessionConfig.settings(Map.of()).ttl()).isEqualTo(Duration.ofMinutes(5));
