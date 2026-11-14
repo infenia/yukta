@@ -140,7 +140,8 @@
             "group": "Extend",
             "public": true,
             "pages": [
-              "guides/extend/write-a-plugin"
+              "guides/extend/write-a-plugin",
+              "guides/extend/write-a-community-plugin"
             ]
           }
         ]

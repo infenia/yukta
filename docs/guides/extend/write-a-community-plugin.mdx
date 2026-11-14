@@ -1,0 +1,125 @@
+---
+title: "Write a community plugin"
+sidebarTitle: "Community plugins"
+description: "Add a processor or terminal in any language, outside the Yukta repository: a directory with a yukta-plugin.json manifest and a command that reads one JSON message on stdin and writes JSON on stdout."
+keywords: ["plugin", "community plugin", "external plugin", "manifest", "yukta-plugin.json", "Python", "any language", "message envelope"]
+---
+
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to write a plugin in any language and how an operator installs it"
+  time="15 minutes"
+  need="a server you operate and a program you can run on it (Python, Node, Go, a shell script)"
+  end="a WORD_COUNT processor that appears in the plugin catalogue and runs in a workflow"
+/>
+
+**Use this when** you need a node type the built-in ones do not cover and do not want to change or rebuild Yukta. A community plugin is a directory with a manifest; Yukta runs its command once per message. It can be a processor or a terminal. For a trigger, start a workflow from outside with `WEBHOOK_TRIGGER` or `API_TRIGGER` instead. To write a plugin in Java inside the server, see [Write a plugin](/guides/extend/write-a-plugin).
+
+## The contract
+
+For each message, Yukta starts the command in the plugin's directory and:
+
+| Channel | What |
+|---|---|
+| stdin | One JSON object: `{"apiVersion": "yukta/message/v1", "config": {...}, "message": {"id", "traceId", "metadata", "payload"}}`. `config` holds only the fields the manifest declares, with `${...}` placeholders and `decrypted:` secrets already filled in. |
+| stdout | One output object per line: `{"payload": ..., "port": "...", "metadata": {...}}`. `port` and `metadata` are optional; without `port` the message goes to the first declared port. No line means no output. A terminal's stdout is ignored. |
+| stderr | Log lines, shown with the node's output. |
+| exit code | Anything but 0 fails the message; the node's `engine` policy (retry, `onError`) decides what follows. |
+
+Ignore properties you do not know (later v1 releases may add some) and refuse an `apiVersion` you do not know. Yukta checks each output line against the schema and refuses anything else: a line that is not JSON, an unknown property such as `traceId`, an undeclared port. The schemas are in [`plugin-api/src/main/resources/schema/plugin/v1`](https://github.com/infenia/yukta/tree/main/plugin-api/src/main/resources/schema/plugin/v1).
+
+## Steps
+
+<Steps>
+  <Step title="Write the manifest">
+    A plugin is its own directory (usually its own git repository), outside the Yukta repository. Create `word-count/yukta-plugin.json`:
+
+    ```json
+    {
+      "apiVersion": "yukta/plugin/v1",
+      "type": "WORD_COUNT",
+      "category": "processor",
+      "description": "Count the words of a text field; long texts go to the 'long' port",
+      "config": [
+        { "name": "field", "type": "STRING", "default": "text", "description": "Payload field that holds the text" },
+        { "name": "longOver", "type": "NUMBER", "default": 100, "description": "Word count above which the message goes to 'long'" }
+      ],
+      "ports": ["default", "long"],
+      "timeout": "5s",
+      "run": { "command": ["python3", "main.py"] }
+    }
+    ```
+
+    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. `run.image` and `run.mcp` are planned and refused for now.
+  </Step>
+
+  <Step title="Write the program">
+    `word-count/main.py` reads the envelope, logs to stderr and writes one output object:
+
+    ```python
+    import json
+    import sys
+
+    envelope = json.load(sys.stdin)
+    if envelope.get("apiVersion") != "yukta/message/v1":
+        sys.exit(f"unsupported envelope {envelope.get('apiVersion')}")
+
+    config = envelope["config"]
+    payload = envelope["message"]["payload"]
+    field = config.get("field", "text")
+    text = payload.get(field, "") if isinstance(payload, dict) else str(payload)
+    words = len(str(text).split())
+    print(f"counted {words} words", file=sys.stderr)  # stderr goes to the node's log
+
+    port = "long" if words > config.get("longOver", 100) else "default"
+    out = {**payload, "words": words} if isinstance(payload, dict) else {"words": words}
+    print(json.dumps({"payload": out, "port": port}))
+    ```
+
+    Try it without a server by piping a message into it:
+
+    ```bash
+    echo '{"apiVersion":"yukta/message/v1","config":{"longOver":3},"message":{"id":"1","metadata":{},"payload":{"text":"one two three four"}}}' \
+      | python3 main.py
+    ```
+
+    Then check it the way the server will, with no server needed:
+
+    ```bash
+    yukta-cli plugin validate ./word-count --payload '{"text":"a b c"}'
+    ```
+
+    It checks the manifest against the schema, runs the command once with `PATH` as its only environment variable, checks every output line, and prints the digest to pin.
+  </Step>
+
+  <Step title="Install it (operator)">
+    Put the plugin's directory (for example a `git clone` of its repository) under the plugins directory and name the type in the enable list, then restart:
+
+    ```bash
+    YUKTA_PLUGINS_DIR=/opt/yukta/plugins       # holds word-count/yukta-plugin.json
+    YUKTA_PLUGINS_ENABLED=WORD_COUNT           # or WORD_COUNT@sha256:<digest>
+    ```
+
+    Only a type you name runs: `all` does not cover community plugins, and a directory without its type in the list is only logged. Pin the directory with `TYPE@sha256:<digest>` (from `yukta-cli plugin validate`); the server also logs each plugin's digest at startup, and a pinned plugin whose files changed fails startup. An enabled plugin with an invalid manifest, a symbolic link in its directory, or a type another plugin has, also fails startup.
+  </Step>
+</Steps>
+
+## Verify it worked
+
+`GET /api/plugins` (or the `list_plugins` MCP tool) lists `WORD_COUNT` with its options and ports. A node of that type in a workflow shows the program's stderr lines in its output.
+
+## Security
+
+The operator who installs a plugin trusts it: a command runs as the server's user and can read what the server can. What Yukta still enforces:
+
+- A workflow can never define a plugin; only the operator installs and enables one.
+- No shell, and a clean environment: the process gets `PATH` and nothing else from the server, so it cannot read server secrets. Secrets it declares as `SECRET` fields arrive on stdin, never in arguments or the environment.
+- Limits: the manifest's timeout, at most 1 MiB on stdout (`yukta.plugins.external.max-output-bytes`) and 1,000 outputs (`yukta.plugins.external.max-outputs`) per message, more fails the message; one message at a time per node.
+- The server warns at startup when the plugins directory is writable by its own user.
+
+## Related
+
+- [Write a plugin](/guides/extend/write-a-plugin): a node type in Java, built into the server.
+- [Configuration](/reference/configuration): `yukta.plugins.*` settings.
+- [Use variables, expressions and secrets](/guides/build/use-variables-and-expressions): what `config` placeholders can read.
