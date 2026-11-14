@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.core.env.StandardEnvironment;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -55,6 +56,7 @@ class ExternalPluginsTest {
 
   private static final String ECHO = "ECHO";
   private static final String RUN_SH = "run.sh";
+  private static final Containers NO_CONTAINERS = new Containers("docker", Map.of());
 
   /** Writes the whole stdin envelope back as the payload, and one line to stderr. */
   private static final String ECHO_SCRIPT =
@@ -142,7 +144,9 @@ class ExternalPluginsTest {
     plugin(ECHO, "processor", "echo '{\"payload\":1}'; echo '{\"payload\":2}'\n", "");
     final ProcessorPlugin echo =
         (ProcessorPlugin)
-            only(new ExternalPlugins(root, List.of(ECHO), gateway, resolver, 1024, 1).plugins());
+            only(
+                new ExternalPlugins(root, List.of(ECHO), gateway, resolver, 1024, 1, NO_CONTAINERS)
+                    .plugins());
 
     StepVerifier.create(echo.process(Flux.just(input("x")), Map.of()))
         .expectErrorMessage("Plugin ECHO wrote 2 outputs, more than 1")
@@ -185,17 +189,16 @@ class ExternalPluginsTest {
   }
 
   @Test
-  void otherRunFormsAreNotSupportedYet() throws IOException {
-    final Path dir = Files.createDirectories(root.resolve("IMG"));
+  void mcpRunFormIsNotSupportedYet() throws IOException {
+    final Path dir = Files.createDirectories(root.resolve("TOOL"));
     Files.writeString(
         dir.resolve(ExternalPlugins.MANIFEST),
-        "{\"apiVersion\":\"yukta/plugin/v1\",\"type\":\"IMG\",\"category\":\"processor\","
-            + "\"description\":\"d\",\"run\":{\"image\":\"ghcr.io/acme/x@sha256:"
-            + "0".repeat(64)
-            + "\"}}");
+        "{\"apiVersion\":\"yukta/plugin/v1\",\"type\":\"TOOL\",\"category\":\"processor\","
+            + "\"description\":\"d\",\"run\":{\"mcp\":{\"url\":\"http://localhost:1/mcp\","
+            + "\"tool\":\"t\"}}}");
 
-    assertThatThrownBy(() -> load(List.of("IMG")))
-        .hasMessageContaining("run.image is not supported");
+    assertThatThrownBy(() -> load(List.of("TOOL")))
+        .hasMessageContaining("run.mcp is not supported");
   }
 
   @Test
@@ -279,7 +282,9 @@ class ExternalPluginsTest {
     plugin("BIG", "processor", "printf '%0200d' 0\n", "");
     final ProcessorPlugin big =
         (ProcessorPlugin)
-            only(new ExternalPlugins(root, List.of("BIG"), gateway, resolver, 50, 10).plugins());
+            only(
+                new ExternalPlugins(root, List.of("BIG"), gateway, resolver, 50, 10, NO_CONTAINERS)
+                    .plugins());
     StepVerifier.create(big.process(Flux.just(input("x")), Map.of()))
         .expectErrorMessage("Plugin BIG wrote more than 50 bytes")
         .verify();
@@ -347,7 +352,9 @@ class ExternalPluginsTest {
 
   @Test
   void pluginsDirectory_problems() throws IOException {
-    assertThat(new ExternalPlugins(null, List.of(ECHO), gateway, resolver, 1, 1).plugins())
+    assertThat(
+            new ExternalPlugins(null, List.of(ECHO), gateway, resolver, 1, 1, NO_CONTAINERS)
+                .plugins())
         .isEmpty();
     assertThatThrownBy(() -> sourceAt(root.resolve("missing")).plugins())
         .hasMessageContaining("is not a directory");
@@ -394,8 +401,22 @@ class ExternalPluginsTest {
   @Test
   void autoConfiguration_buildsTheSource() {
     final ExternalPluginsAutoConfiguration config = new ExternalPluginsAutoConfiguration();
-    assertThat(config.externalPlugins("", List.of(), 1, 1, gateway, resolver).plugins()).isEmpty();
-    assertThat(config.externalPlugins(root.toString(), List.of(), 1, 1, gateway, resolver))
+    assertThat(
+            config
+                .externalPlugins(
+                    "", List.of(), 1, 1, "docker", new StandardEnvironment(), gateway, resolver)
+                .plugins())
+        .isEmpty();
+    assertThat(
+            config.externalPlugins(
+                root.toString(),
+                List.of(),
+                1,
+                1,
+                "docker",
+                new StandardEnvironment(),
+                gateway,
+                resolver))
         .hasToString("yukta.plugins.dir " + root);
   }
 
@@ -417,7 +438,7 @@ class ExternalPluginsTest {
   }
 
   private ExternalPlugins sourceAt(final Path dir) {
-    return new ExternalPlugins(dir, List.of(), gateway, resolver, 1, 1);
+    return new ExternalPlugins(dir, List.of(), gateway, resolver, 1, 1, NO_CONTAINERS);
   }
 
   private void assertFails(final String script, final String message) throws IOException {
@@ -450,7 +471,8 @@ class ExternalPluginsTest {
   }
 
   private List<Plugin> load(final List<String> enabled) {
-    return new ExternalPlugins(root, enabled, gateway, resolver, 1 << 20, 1000).plugins();
+    return new ExternalPlugins(root, enabled, gateway, resolver, 1 << 20, 1000, NO_CONTAINERS)
+        .plugins();
   }
 
   private static Plugin only(final List<Plugin> plugins) {
