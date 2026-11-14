@@ -195,7 +195,7 @@ Rules:
 
 | Kind | Plugins | Decision |
 |---|---|---|
-| Persistent user data | `KV_STORE` (`R2dbcKeyValueStore`), `SESSION_MEMORY` (`R2dbcSessionHistoryStore`) | Deprecate for one release, then ship as example external plugins with their own store (a SQLite file or Redis); delete the two stores from `persistence-postgres`. **Breaking** for workflows that use them. |
+| Persistent user data | `KV_STORE` (`R2dbcKeyValueStore`), `SESSION_MEMORY` (`R2dbcSessionHistoryStore`) | Deprecate for one release, then ship as external plugins with their own store (a SQLite file or Redis) in a repository outside Yukta (community plugins are not kept in this repository; which repository is decided in phase 5); delete the two stores from `persistence-postgres`. **Breaking** for workflows that use them. |
 | Shared in-memory state | `SUPERVISOR_DECISION` (`DecisionWindow` has a static shared map) | Review *(to verify how it is bounded and whether it breaks rule 1)* |
 | Engine run state | `WAIT_FOR_SIGNAL`, `ASK_INPUT` | Allowed: engine features packaged as plugins |
 | Disposable caches and limits | template, expression, model and MCP session caches, LLM rate limits | Allowed |
