@@ -2,9 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.persistence.postgres;
 
-import com.infenia.yukta.plugin.store.KeyValueStore;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
-import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import com.infenia.yukta.service.input.InputRequestStore;
 import com.infenia.yukta.service.log.ExecutionLogStore;
 import com.infenia.yukta.service.sessionstore.SessionConfigStore;
@@ -138,37 +136,6 @@ public class PostgresPersistenceAutoConfiguration {
       @Value("${yukta.ha.lease:15s}") final java.time.Duration lease,
       final io.micrometer.core.instrument.MeterRegistry meters) {
     return new R2dbcLeaderElection(client, instanceId, lease, meters);
-  }
-
-  /**
-   * The state of {@code KV_STORE} nodes, when {@code yukta.kv.store-type=postgres}.
-   *
-   * @param client runs the statements
-   * @param mapper reads and writes JSON
-   * @return the store
-   */
-  @Bean
-  @ConditionalOnProperty(name = "yukta.kv.store-type", havingValue = "postgres")
-  public KeyValueStore keyValueStore(final DatabaseClient client, final ObjectMapper mapper) {
-    return new R2dbcKeyValueStore(client, mapper);
-  }
-
-  /**
-   * The chat history of {@code SESSION_MEMORY} nodes, when {@code
-   * yukta.session-memory.store-type=postgres}.
-   *
-   * @param client runs the statements
-   * @param mapper reads and writes JSON
-   * @param ttl how long a session that is not written is kept; unset keeps all
-   * @return the store
-   */
-  @Bean
-  @ConditionalOnProperty(name = "yukta.session-memory.store-type", havingValue = "postgres")
-  public SessionHistoryStore sessionHistoryStore(
-      final DatabaseClient client,
-      final ObjectMapper mapper,
-      @Value("${yukta.session-memory.ttl:#{null}}") final java.time.Duration ttl) {
-    return new R2dbcSessionHistoryStore(client, mapper, ttl);
   }
 
   /**

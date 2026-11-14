@@ -21,7 +21,6 @@ dependencies {
     testImplementation(project(":plugins:processors:file-io"))
     testImplementation(project(":plugins:processors:sql-query"))
     testImplementation(project(":plugins:processors:llm-call"))
-    testImplementation(project(":plugins:processors:session-memory"))
     testImplementation(project(":plugins:processors:decision"))
     testImplementation(project(":plugins:processors:internal:internal-core"))
     testImplementation(project(":plugins:processors:internal:script-js"))

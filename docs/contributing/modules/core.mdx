@@ -184,7 +184,7 @@ The contract between the engine and the work a node does: triggers produce messa
 - Safety rails: workflows may read only allow-listed environment variables, scripts may use only a small set of Java classes, and process execution can be limited to named commands. The expression and script engines are not part of core: expressions run in plugin-api and scripts in the script plugin (see Expressions & Secrets).
 
 - **Guarantees.** With retry or error routing on, the plugin is called once per message and receives a stable message id plus an attempt counter (1, 2, 3...). Retries repeat the same id, so a plugin can use it to avoid doing the same side effect twice.
-- **State.** State inside a plugin is the plugin's own business. Signal waits (WAIT_FOR_SIGNAL and MCP_TOOL_CALL approvals) and KV_STORE are held in memory.
+- **State.** State inside a plugin is the plugin's own business. Signal waits (WAIT_FOR_SIGNAL and MCP_TOOL_CALL approvals) are held in memory.
 - **Ceiling.** Plugins run inside the same server process today, so a heavy or untrusted plugin competes with the engine for CPU and memory.
 - **On failure.** Throwing IllegalArgumentException means 'bad input' and is never retried.
 
@@ -557,7 +557,7 @@ What this module does, how, what it guarantees and where the guarantee stops.
 | Output atomicity | With retry or onError, a message yields all of its output or none. |
 | Start | Exactly one execution id per slot; same Idempotency-Key returns the first id. |
 | Resume | Once per run, only with an unchanged definition. |
-| Durability switches | Each backend has its own switch (session.store-type, execution-log.dir, restart.dir, session-memory.dir), so a deployment can be half durable. The profiles above assume the matching ones are set. |
+| Durability switches | Each backend has its own switch (session.store-type, execution-log.dir, restart.dir), so a deployment can be half durable. The profiles above assume the matching ones are set. |
 
 
 ### The five clocks
@@ -584,7 +584,6 @@ What this module does, how, what it guarantees and where the guarantee stops.
 | Resume an aborted run | \*\*No.\*\* Not possible | \*\*Yes.\*\* Needs log dir and restart dir | \*\*Partly.\*\* Log in PostgreSQL, outputs on files |
 | Queued starts and slots | \*\*No.\*\* Lost | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered | \*\*Partly.\*\* Place in line and slot lost. The start was logged before the wait, so the run is marked ABORTED on boot and can be recovered |
 | Signal waits (approvals) | \*\*No.\*\* Lost | \*\*No.\*\* Lost; a resumed run waits again | \*\*No.\*\* Lost; a resumed run waits again |
-| Session memory (chat history) | \*\*No.\*\* Gone | \*\*Yes.\*\* Durable with its own directory | \*\*Partly.\*\* Not in PostgreSQL; durable only if its own directory is set |
 | Limits changed at run time | \*\*No.\*\* Reset | \*\*Yes.\*\* Restored from the log | \*\*Yes.\*\* Restored from the log |
 | Live progress and metrics | \*\*No.\*\* Gone: the in-memory log is empty after a restart | \*\*Partly.\*\* Newest 500 runs restored | \*\*Partly.\*\* Newest 500 runs restored |
 

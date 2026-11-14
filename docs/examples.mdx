@@ -31,11 +31,8 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 | [03](https://github.com/infenia/yukta/tree/main/examples/03-release-approval) | Production deploy that needs a person, then a check | Approval with a timeout, smoke check, rollback |
 | [04](https://github.com/infenia/yukta/tree/main/examples/04-pr-risk-gate) | Merging risky PRs, or reviewing every routine one | Risk scoring, reviewer gate, secrets stripped from messages |
 | [05](https://github.com/infenia/yukta/tree/main/examples/05-dependency-updates) | Dependency bumps that are either routine or dangerous | Risk routing, maintainer review queue, changelog |
-| [06](https://github.com/infenia/yukta/tree/main/examples/06-crash-report-triage) | The same crash reported hundreds of times | Fingerprint, dedupe, auto-link known issues, escalate new ones |
-| [07](https://github.com/infenia/yukta/tree/main/examples/07-event-data-pipeline) | A nightly event load that lets bad rows into the warehouse | Schedule, validate, dedupe, quarantine, fail above a limit |
 | [08](https://github.com/infenia/yukta/tree/main/examples/08-alert-triage) | Alerts that need a restart before anyone is paged | Bounded auto-remediation, then page and incident record |
 | [12](https://github.com/infenia/yukta/tree/main/examples/12-model-promotion) | A retrained model promoted without a real check | Eval checks, reviewer gate, retrain limit, registry promotion |
-| [13](https://github.com/infenia/yukta/tree/main/examples/13-multi-agent) | Several agents with no one checking the result | Researcher, writer and independent verifier with a retry cap |
 | [14](https://github.com/infenia/yukta/tree/main/examples/14-security-findings) | Hundreds of scanner findings and nobody triaging them | Batch scoring, secrets redacted, engineer decides fix, accept or suppress |
 
 ## Building blocks and reference
@@ -43,7 +40,6 @@ git clone https://github.com/infenia/yukta.git && cd yukta
 | # | Job | What it shows |
 |---|---|---|
 | [01](https://github.com/infenia/yukta/tree/main/examples/01-hello-world) | Smallest end-to-end check | One trigger, one processor, one terminal |
-| [09](https://github.com/infenia/yukta/tree/main/examples/09-llm-chat-agent) | Chat agent with per-user memory | Model calls with memory |
 | [10](https://github.com/infenia/yukta/tree/main/examples/10-mcp-agent) | An AI agent creates and runs a workflow | Using Yukta over MCP |
 
 

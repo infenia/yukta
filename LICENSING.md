@@ -17,8 +17,8 @@ Yukta comes in editions. Community and Plus are in this repository.
   (`-Pyukta.persistence=postgres`, `plus/persistence-postgres`), and remote workers
   (`-Pyukta.workers=true`, `plus/workers`). Code already published stays available under the
   licence it was published with. Without Plus, those settings
-  (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`,
-  `yukta.session-memory.dir`) stop start-up with a clear message; state otherwise stays in memory.
+  (`yukta.session.store-type=file`, `yukta.execution-log.dir`, `yukta.restart.dir`)
+  stop start-up with a clear message; state otherwise stays in memory.
 - **The AGPL applies to the Plus build as a whole**, because it combines Apache and AGPL code.
   Running it unmodified inside your company costs you nothing. If you modify it and let other
   people use it over a network, section 13 of the AGPL requires you to offer them your modified

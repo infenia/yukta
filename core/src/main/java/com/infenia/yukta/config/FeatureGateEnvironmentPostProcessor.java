@@ -54,18 +54,10 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
           new Gate("yukta.session.store-type", "file", FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.execution-log.dir", null, FILES, Edition.PLUS, FILES_HINT),
           new Gate("yukta.restart.dir", null, FILES, Edition.PLUS, FILES_HINT),
-          new Gate("yukta.session-memory.dir", null, FILES, Edition.PLUS, FILES_HINT),
           new Gate(
               "yukta.session.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate(
               "yukta.restart.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
-          new Gate("yukta.kv.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
-          new Gate(
-              "yukta.session-memory.store-type",
-              POSTGRES_TYPE,
-              POSTGRES,
-              Edition.PLUS,
-              POSTGRES_HINT),
           new Gate("yukta.input.store-type", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.ha.mode", POSTGRES_TYPE, POSTGRES, Edition.PLUS, POSTGRES_HINT),
           new Gate("yukta.workers.token", null, WORKERS, Edition.PLUS, WORKERS_HINT),

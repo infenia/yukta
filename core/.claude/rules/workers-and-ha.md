@@ -19,7 +19,7 @@ the gauges `yukta.workers` and `yukta.worker.slots` report them. The optional `w
 `engine.placement {pool}` runs on a worker of that pool: `WorkflowPreparator` swaps its plugin for a
 `RemoteProcessor` (`RemoteNodes`; the plugin on this server still provides type, schema, timeouts and
 validation), so retries, `onError`, timeouts, valves, checkpoints and status work as for a local node.
-Triggers, terminals and the stateful plugins (`SESSION_MEMORY`, `KV_STORE`, `WAIT_FOR_SIGNAL`,
+Triggers, terminals and the stateful plugins (`WAIT_FOR_SIGNAL`,
 `SUB_WORKFLOW`) cannot be placed, and without the `workers` module a placed node fails to prepare. The control
 plane sends each attempt down the worker's own RSocket connection (`node.run`, one `requestChannel`: START,
 the input messages, COMPLETE; back come the output, HEARTBEATs that restart the node's idle clock, and COMPLETE

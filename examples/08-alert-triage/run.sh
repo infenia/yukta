@@ -11,7 +11,7 @@ set -euo pipefail
 source "$(dirname "$0")/../lib/common.sh"
 cd "$(dirname "$0")"
 require_server
-for p in LOOP_PREDICATE SUB_WORKFLOW NOTIFY_TERMINAL WAIT_FOR_SIGNAL RECIPIENT_LIST KV_STORE FILE_WRITE; do require_plugin "$p"; done
+for p in LOOP_PREDICATE SUB_WORKFLOW NOTIFY_TERMINAL WAIT_FOR_SIGNAL RECIPIENT_LIST FILE_WRITE; do require_plugin "$p"; done
 command -v python3 >/dev/null || { echo "SKIP: python3 is needed for the local pager"; exit 3; }
 
 SANDBOX=/tmp/yukta-examples/alert-triage       # same folder as baseDir in session.json

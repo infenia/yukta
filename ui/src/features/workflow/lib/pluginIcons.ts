@@ -19,8 +19,6 @@ const PLUGIN_ICONS: Record<string, string> = {
   DELAY: 'timer',
   LOOP_PREDICATE: 'repeat',
   LOOP_STREAM: 'repeat_on',
-  KV_STORE: 'database',
-  SESSION_MEMORY: 'memory',
   HTTP_REQUEST: 'http',
   LLM_CALL: 'smart_toy',
   MCP_TOOL_CALL: 'hub',

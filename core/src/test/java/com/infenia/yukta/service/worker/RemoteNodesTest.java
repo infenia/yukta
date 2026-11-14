@@ -117,7 +117,7 @@ class RemoteNodesTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("only for processor nodes");
     when(local.requiresControlPlane()).thenReturn(true);
-    assertThatThrownBy(() -> nodes(executor).place("KV_STORE", PLACED, local))
+    assertThatThrownBy(() -> nodes(executor).place("WAIT_FOR_SIGNAL", PLACED, local))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("keeps state on this server");
     when(local.requiresControlPlane()).thenReturn(false);

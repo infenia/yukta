@@ -66,7 +66,6 @@ class PluginTierAcceptanceTest {
     final var specific =
         Set.of(
             "LLM_CALL",
-            "SESSION_MEMORY",
             "MCP_LIST_TOOLS",
             "MCP_TOOL_CALL",
             "NOTIFY_TERMINAL",
@@ -83,8 +82,7 @@ class PluginTierAcceptanceTest {
             "SQL_QUERY",
             "FILE_READ",
             "FILE_WRITE",
-            "HTTP_REQUEST",
-            "KV_STORE");
+            "HTTP_REQUEST");
     final var core =
         Set.of(
             "AGGREGATE",

@@ -5,7 +5,6 @@ package com.infenia.yukta.plus;
 import com.infenia.yukta.edition.Edition;
 import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
-import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import com.infenia.yukta.plus.ext.EnterpriseModule;
 import com.infenia.yukta.plus.ext.EnterpriseModuleRegistry;
 import com.infenia.yukta.plus.ext.LicenseVerifier;
@@ -54,21 +53,6 @@ public class PlusConfiguration {
   public NodeCheckpointStore fileNodeCheckpointStore(
       @Value("${yukta.restart.dir}") final String dir, final ObjectMapper mapper) {
     return new FileNodeCheckpointStore(dir, mapper);
-  }
-
-  /**
-   * Keeps chat history on disk when {@code yukta.session-memory.dir} is set.
-   *
-   * @param dir directory for the session files
-   * @return the store
-   */
-  @Bean
-  @ConditionalOnExpression(
-      "!'${yukta.session-memory.dir:}'.isEmpty()"
-          + " && !'postgres'.equalsIgnoreCase('${yukta.session-memory.store-type:}'.trim())")
-  public SessionHistoryStore fileSessionHistoryStore(
-      @Value("${yukta.session-memory.dir}") final String dir) {
-    return new FileSessionHistoryStore(dir);
   }
 
   /**
