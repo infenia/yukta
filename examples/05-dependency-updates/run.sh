@@ -9,7 +9,7 @@ require_server
 for p in VALIDATE WAIT_FOR_SIGNAL CONTENT_FILTER FILE_WRITE OUTCOME_TERMINAL; do require_plugin "$p"; done
 
 SID=$(jq -r .sessionId session.json)
-OUT=/tmp/yukta-example-dependency-updates
+OUT=/tmp/yukta-examples/dependency-updates
 rm -rf "$OUT"; mkdir -p "$OUT"; : >"$OUT/changelog.log"; : >"$OUT/outbox.log"
 
 # --- helpers (local to this example) -------------------------------------------------------

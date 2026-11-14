@@ -195,7 +195,7 @@
           "nodeId": "notify",
           "type": "FILE_WRITE",
           "config": {
-            "baseDir": "/tmp/yukta-example-pr-risk-gate",
+            "baseDir": "/tmp/yukta-examples/pr-risk-gate",
             "path": "outbox.log",
             "contentField": "text",
             "append": true

@@ -344,6 +344,23 @@ describe('SessionFormPage, new', () => {
     });
   });
 
+  it('prefills the working directory from the template and opens its first workflow', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<SessionFormPage />);
+    await user.click(
+      await screen.findByRole('button', { name: 'Use template' })
+    );
+    expect(await screen.findByLabelText('Working directory')).toHaveValue(
+      '/tmp'
+    );
+    await user.click(screen.getByRole('button', { name: 'Create session' }));
+    await waitFor(() =>
+      expect(window.location.pathname).toBe(
+        '/sessions/01-hello-world-1/workflow/hello'
+      )
+    );
+  });
+
   it('previews the README as text and uses the template from the preview', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SessionFormPage />);

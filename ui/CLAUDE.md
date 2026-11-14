@@ -35,6 +35,16 @@ yk gradle :ui:pnpmTest
 yk gradle :ui:pnpmTestE2e -PrunE2e=true
 ```
 
+### E2E against a real server
+`e2e/real/examples.spec.ts` (config `playwright.real.config.ts`, no MSW) drives the UI of a running server: it creates a session from
+every bundled template and runs examples, one with a human answer in the UI. Sessions are named `e2e-<template>-<run>` and deleted
+afterwards, so it repeats on the same server. Start the server as the examples need it (`YUKTA_PLUGINS_ENABLED=all`,
+`YUKTA_PROCESS_ALLOWED_COMMANDS=sh,echo,python3`; see `examples/README.md`), then:
+```bash
+YUKTA_URL=http://127.0.0.1:9858 pnpm test:e2e:real     # or: release/ui-smoke.sh http://127.0.0.1:9858
+```
+`native-smoke.yml` runs it on the native binary.
+
 ### Test Coverage Reporting
 ```bash
 # Generate coverage report and auto-open in browser (line + branch coverage)

@@ -319,7 +319,7 @@ Declares what the library depends on and how it is tested, since every other mod
 
 - **Guarantees.** The tests pin the sandbox and the documented defaults, so a change in them fails the build.
 - **State.** None.
-- **Ceiling.** No version marker exists on the contract, so a plugin built against an older release cannot declare what it needs and can only fail at runtime.
+- **Ceiling.** The contract carries an SPI version (`PluginApi.VERSION`, `MAJOR.MINOR`; a minor release only adds). `Plugin.apiVersion()` defaults to the server's own version, so only a plugin built outside this repository that overrides it with `return PluginApi.VERSION;` reports what it was built against; `PluginRegistry` then fails startup, naming the plugin, on another major or a newer minor. No test yet checks that a minor release stays binary compatible.
 - **On failure.** A change to a default method's behaviour can silently change every plugin that relied on it; only tests in this module guard that.
 
 **Settings:** `./gradlew :plugin-api:test`

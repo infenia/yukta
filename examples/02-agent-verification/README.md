@@ -30,7 +30,7 @@ attempt:         trigger ─► build ─► test ─► patch-guard ─► cove
 | `decide`, `record-done`, `done` | `BRANCH`, `PROCESS_EXECUTOR`, `OUTCOME_TERMINAL` | Only a `SUCCESS` outcome records "done" |
 | `record-stop`, `stopped` | `PROCESS_EXECUTOR`, `OUTCOME_TERMINAL` | Retry budget used up: hard stop, outcome `ESCALATE`, no "done" |
 
-The paths in `session.json` point at `/tmp/yukta-example-agent-verification/` (the project in `repo/`, the fixer in `fixer.sh`),
+The paths in `session.json` point at `/tmp/yukta-examples/agent-verification/` (the project in `repo/`, the fixer in `fixer.sh`),
 because the guard script takes the project path as an argument.
 
 ## Make it yours

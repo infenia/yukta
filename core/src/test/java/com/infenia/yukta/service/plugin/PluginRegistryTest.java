@@ -227,4 +227,16 @@ class PluginRegistryTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Duplicate plugin type 'dup'");
   }
+
+  @Test
+  void pluginBuiltForAnotherSpiMajor_failsStartupNamingIt() {
+    final Plugin plugin = mock(Plugin.class);
+    when(plugin.getType()).thenReturn("OLD");
+    when(plugin.apiVersion()).thenReturn("0.9");
+
+    assertThatThrownBy(() -> new PluginRegistry(List.of(plugin)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Plugin 'OLD'")
+        .hasMessageContaining("built for SPI 0.9");
+  }
 }

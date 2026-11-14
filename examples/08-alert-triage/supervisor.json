@@ -3,6 +3,7 @@
   "type": "rules",
   "dryRun": false,
   "settings": {
+    "operatorAccess": ["StartWorkflowCommand", "AnswerInputCommand"],
     "rules": [
       {
         "id": "advise-the-on-call",

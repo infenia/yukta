@@ -9,7 +9,20 @@ import java.util.Map;
 import reactor.core.publisher.Mono;
 
 /** Base interface for all workflow plugins. */
+@SuppressWarnings("PMD.TooManyMethods") // the plugin contract: each method is a documented hook
 public interface Plugin {
+
+  /**
+   * The plugin SPI version this plugin was built against; the server refuses to start with a plugin
+   * it cannot run (see {@link PluginApi}). The default is the server's own version, right for
+   * plugins built with the server. A plugin built separately overrides it with {@code return
+   * PluginApi.VERSION;}, which the compiler fixes at the version it was built against.
+   *
+   * @return the SPI version, as {@code MAJOR.MINOR}
+   */
+  default String apiVersion() {
+    return PluginApi.VERSION;
+  }
 
   /**
    * Get the human-facing metadata of this plugin: description, usage pattern and UI design.
