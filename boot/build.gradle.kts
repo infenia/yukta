@@ -21,7 +21,7 @@ tasks.processResources {
 }
 
 // Optional plugins are chosen with -Pyukta.plugins=default (all except script-js), all, none, or a comma-separated list
-// of: process-executor, http-request, file-io, sql-query, llm-call, session-memory, mcp-tool-call, decision, script-js.
+// of: process-executor, http-request, file-io, sql-query, llm-call, mcp-tool-call, decision, script-js.
 val optionalPlugins = mapOf(
     "process-executor" to ":plugins:processors:process-executor",
     // community plugins from yukta.plugins.dir (needs process-executor and mcp-tool-call, which it pulls in)
@@ -30,7 +30,6 @@ val optionalPlugins = mapOf(
     "file-io" to ":plugins:processors:file-io",
     "sql-query" to ":plugins:processors:sql-query",
     "llm-call" to ":plugins:processors:llm-call",
-    "session-memory" to ":plugins:processors:session-memory",
     "decision" to ":plugins:processors:decision",
     "mcp-tool-call" to ":plugins:processors:mcp-tool-call",
     "script-js" to ":plugins:processors:internal:script-js",

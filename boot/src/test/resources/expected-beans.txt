@@ -82,7 +82,6 @@ com.infenia.yukta.plugin.core.filter.FilterProcessor
 com.infenia.yukta.plugin.core.filter.ValidateProcessor
 com.infenia.yukta.plugin.core.flow.AskInputProcessor
 com.infenia.yukta.plugin.core.flow.DelayProcessor
-com.infenia.yukta.plugin.core.flow.KvStoreProcessor
 com.infenia.yukta.plugin.core.flow.LoopPredicateProcessor
 com.infenia.yukta.plugin.core.flow.LoopStreamProcessor
 com.infenia.yukta.plugin.core.flow.SubWorkflowProcessor
@@ -119,8 +118,6 @@ com.infenia.yukta.plugin.process.InMemoryAgentSessionStore
 com.infenia.yukta.plugin.process.ProcessExecutorAutoConfiguration
 com.infenia.yukta.plugin.process.ProcessExecutorGateway
 com.infenia.yukta.plugin.process.ProcessExecutorPlugin
-com.infenia.yukta.plugin.session.SessionMemoryPlugin
-com.infenia.yukta.plugin.session.SessionStore
 com.infenia.yukta.plugin.sql.SqlQueryPlugin
 com.infenia.yukta.plugin.terminal.ConsoleTerminalPlugin
 com.infenia.yukta.plugin.terminal.NotifyTerminal

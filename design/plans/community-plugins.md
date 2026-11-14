@@ -198,8 +198,8 @@ Rules:
 
 | Kind | Plugins | Decision |
 |---|---|---|
-| Persistent user data | `KV_STORE` (`R2dbcKeyValueStore`), `SESSION_MEMORY` (`R2dbcSessionHistoryStore`) | Deprecate for one release, then ship as external plugins with their own store (a SQLite file or Redis) in a repository outside Yukta (community plugins are not kept in this repository; which repository is decided in phase 5); delete the two stores from `persistence-postgres`. **Breaking** for workflows that use them. |
-| Shared in-memory state | `SUPERVISOR_DECISION` (`DecisionWindow` has a static shared map) | Review *(to verify how it is bounded and whether it breaks rule 1)* |
+| Persistent user data | `KV_STORE` (`R2dbcKeyValueStore`), `SESSION_MEMORY` (`R2dbcSessionHistoryStore`) | **Removed** in phase 5 with every store (memory, file, PostgreSQL) and examples 06, 07, 09 and 13; migration `V2` drops `kv_entry` and `session_history`. Replacements are community plugins with their own store, outside this repository. **Breaking** for workflows that use them. |
+| Shared in-memory state | `ANOMALY`, `DEDUPE` (`DecisionWindow`, a static map) | Reviewed in phase 5: bounded (LRU of 1,000 windows, each capped at the node's `max` items), memory only, lost on restart. Only the opt-in `persist: session` shares a window between runs of a session. Kept as a bounded cache; revisit if it must survive a restart. |
 | Engine run state | `WAIT_FOR_SIGNAL`, `ASK_INPUT` | Allowed: engine features packaged as plugins |
 | Disposable caches and limits | template, expression, model and MCP session caches, LLM rate limits | Allowed |
 
@@ -213,8 +213,8 @@ Decisions for phases 4 and 5 (2026-11-14):
 - MCP over HTTP reuses `McpClientGateway` (`external` may depend on `mcp-tool-call`), so `allowed-hosts` applies.
 - The tool pin lives in the enable list: for an MCP plugin `TYPE@sha256:<digest>` covers the directory and the tool's
   input schema read at startup; a changed tool fails startup.
-- Phase 5 removes `KV_STORE` and `SESSION_MEMORY` in this repository and drops their tables in a migration; their
-  replacements are built outside it.
+- Phase 5 removes `KV_STORE` and `SESSION_MEMORY` in this repository, their stores and the examples that use them
+  (06, 07, 09, 13), and drops their tables in a migration; their replacements are built outside it.
 
 ## Phases (each its own reviewed PR)
 
@@ -227,8 +227,8 @@ Decisions for phases 4 and 5 (2026-11-14):
 3. **Image plugins.** `run.image`, runtime choice, pull at startup, named containers and cleanup.
 4. **MCP plugins.** Stdio transport in `McpClientGateway`, the `run.mcp` form, config derived from the tool schema, tool
    schema pin.
-5. **Stateful built-ins.** Deprecation notices, the two example external plugins, removal of the two PostgreSQL stores,
-   review of `DecisionWindow`.
+5. **Stateful built-ins.** Removal of `KV_STORE` and `SESSION_MEMORY` (decided 2026-11-14: no deprecation release), their
+   stores and tables, and the examples built on them; review of `DecisionWindow`.
 
 Later, only when a concrete need appears:
 
@@ -245,7 +245,7 @@ Later, only when a concrete need appears:
   offering `run.image` and MCP over HTTP.
 - **Cold start per message** for command and image plugins. Mitigated by the MCP form.
 - **Mounting the Docker socket** into a Yukta container gives root on the host. Documented, never the default.
-- **Removing `KV_STORE` and `SESSION_MEMORY`** breaks existing workflows. One release of deprecation and a migration note.
+- **Removing `KV_STORE` and `SESSION_MEMORY`** breaks existing workflows, with no deprecation release (decided 2026-11-14). The commit carries a `BREAKING CHANGE` note for the changelog.
 - **Envelope v1 becomes a public contract.** Keep it small; version it from the first release.
 
 ## Open points
