@@ -24,8 +24,8 @@ func TestPluginCmd_registersSubcommands(t *testing.T) {
 	cmd := PluginCmd(c)
 
 	subcommands := cmd.Commands()
-	if len(subcommands) != 2 {
-		t.Errorf("expected 2 subcommands, got %d", len(subcommands))
+	if len(subcommands) != 3 {
+		t.Errorf("expected 3 subcommands, got %d", len(subcommands))
 	}
 
 	subcommandUses := make(map[string]bool)
