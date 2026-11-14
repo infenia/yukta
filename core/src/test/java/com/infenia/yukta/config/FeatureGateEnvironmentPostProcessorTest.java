@@ -20,15 +20,11 @@ class FeatureGateEnvironmentPostProcessorTest {
     "yukta.session.store-type, file, yukta.session.store-type=file, -Pyukta.edition=plus",
     "yukta.execution-log.dir, /tmp/l, yukta.execution-log.dir, -Pyukta.edition=plus",
     "yukta.restart.dir, /tmp/r, yukta.restart.dir, -Pyukta.edition=plus",
-    "yukta.session-memory.dir, /tmp/m, yukta.session-memory.dir, -Pyukta.edition=plus",
     "yukta.session.store-type, postgres, yukta.session.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
     "yukta.restart.store-type, postgres, yukta.restart.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
-    "yukta.kv.store-type, postgres, yukta.kv.store-type=postgres, -Pyukta.persistence=postgres",
     "yukta.input.store-type, postgres, yukta.input.store-type=postgres,"
-        + " -Pyukta.persistence=postgres",
-    "yukta.session-memory.store-type, postgres, yukta.session-memory.store-type=postgres,"
         + " -Pyukta.persistence=postgres",
     "yukta.ha.mode, postgres, yukta.ha.mode=postgres, -Pyukta.persistence=postgres",
     "yukta.workers.token, secret, yukta.workers.token, -Pyukta.workers=true",
@@ -71,7 +67,7 @@ class FeatureGateEnvironmentPostProcessorTest {
             () ->
                 FeatureGateEnvironmentPostProcessor.check(
                     new MockEnvironment()
-                        .withProperty("yukta.session-memory.dir", " ")
+                        .withProperty("yukta.restart.dir", " ")
                         .withProperty("yukta.session.store-type", "in-memory")
                         .withProperty("yukta.ha.mode", ""),
                     name -> false))

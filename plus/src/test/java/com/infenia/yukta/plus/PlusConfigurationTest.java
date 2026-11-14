@@ -7,7 +7,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.edition.Edition;
 import com.infenia.yukta.edition.EditionInfo;
 import com.infenia.yukta.plugin.store.NodeCheckpointStore;
-import com.infenia.yukta.plugin.store.SessionHistoryStore;
 import com.infenia.yukta.plus.ext.EnterpriseModule;
 import com.infenia.yukta.plus.ext.EnterpriseModuleRegistry;
 import com.infenia.yukta.plus.ext.LicenseVerifier;
@@ -40,7 +39,6 @@ class PlusConfigurationTest {
     runner.run(
         context -> {
           assertThat(context).doesNotHaveBean(NodeCheckpointStore.class);
-          assertThat(context).doesNotHaveBean(SessionHistoryStore.class);
           final EditionInfo edition = context.getBean(EditionInfo.class);
           assertThat(edition.edition()).isEqualTo(Edition.PLUS);
           assertThat(edition.features()).contains(FILE_STORES);
@@ -88,30 +86,18 @@ class PlusConfigurationTest {
   @Test
   void withDirectories_fileStoresAreRegistered(@TempDir final Path dir) {
     runner
-        .withPropertyValues(
-            "yukta.restart.dir=" + dir.resolve("r"), "yukta.session-memory.dir=" + dir.resolve("m"))
+        .withPropertyValues("yukta.restart.dir=" + dir.resolve("r"))
         .run(
-            context -> {
-              assertThat(context.getBean(NodeCheckpointStore.class))
-                  .isInstanceOf(FileNodeCheckpointStore.class);
-              assertThat(context.getBean(SessionHistoryStore.class))
-                  .isInstanceOf(FileSessionHistoryStore.class);
-            });
+            context ->
+                assertThat(context.getBean(NodeCheckpointStore.class))
+                    .isInstanceOf(FileNodeCheckpointStore.class));
   }
 
   @Test
   void withPostgres_noFileStoreIsRegistered(@TempDir final Path dir) {
     runner
-        .withPropertyValues(
-            "yukta.restart.dir=" + dir,
-            "yukta.restart.store-type=postgres",
-            "yukta.session-memory.dir=" + dir,
-            "yukta.session-memory.store-type=postgres")
-        .run(
-            context -> {
-              assertThat(context).doesNotHaveBean(NodeCheckpointStore.class);
-              assertThat(context).doesNotHaveBean(SessionHistoryStore.class);
-            });
+        .withPropertyValues("yukta.restart.dir=" + dir, "yukta.restart.store-type=postgres")
+        .run(context -> assertThat(context).doesNotHaveBean(NodeCheckpointStore.class));
   }
 
   @Test

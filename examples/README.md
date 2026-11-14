@@ -39,11 +39,8 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | [03](03-release-approval/) | Release / DevOps | Production deploy with a human approval, a smoke check and a rollback | `WAIT_FOR_SIGNAL`, `PROCESS_EXECUTOR`, `BRANCH`, `NOTIFY_TERMINAL` |
 | [04](04-pr-risk-gate/) | Code review / app dev | Auto-merge low-risk PRs, block the worst, send borderline ones to a reviewer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `CONTENT_FILTER` |
 | [05](05-dependency-updates/) | Supply chain | Auto-merge patch bumps, hold majors and CVE-flagged ones for a maintainer | `VALIDATE`, `MAPPER`, `BRANCH`, `WAIT_FOR_SIGNAL`, `FILE_WRITE` |
-| [06](06-crash-report-triage/) | Backend / observability | Link known crashes to their ticket, escalate new ones, skip duplicates | `KV_STORE`, `BRANCH`, `SUB_WORKFLOW`, `RECIPIENT_LIST` |
-| [07](07-event-data-pipeline/) | Data engineering | Nightly event-log load with validation, dedupe, quarantine and a bad-row limit | `SCHEDULE_TRIGGER`, `FILE_READ`, `SPLITTER`, `VALIDATE`, `AGGREGATE` |
 | [08](08-alert-triage/) | SRE / operations | Try to fix an alert automatically, page a person if it persists | `LOOP_PREDICATE`, `PROCESS_EXECUTOR`, `NOTIFY_TERMINAL`, `WAIT_FOR_SIGNAL` |
 | [12](12-model-promotion/) | MLOps | A model candidate is eval-checked, reviewed, retrained up to a limit, then promoted | `SUB_WORKFLOW`, `WAIT_FOR_SIGNAL`, `BRANCH`, `FILE_WRITE` |
-| [13](13-multi-agent/) | Multi-agent | Researcher, writer and independent verifier, with a retry cap and shared state | `SUB_WORKFLOW`, `LOOP_PREDICATE`, `KV_STORE`, `BRANCH` |
 | [14](14-security-findings/) | AppSec | Score a batch of scanner findings; an engineer decides with secrets redacted | `SPLITTER`, `CONTENT_FILTER`, `WAIT_FOR_SIGNAL`, `AGGREGATE` |
 
 ### Building blocks and reference
@@ -51,7 +48,6 @@ by default (fixed rules, no model, no internet), so they run offline and in `run
 | # | Use case | Graph | Trigger |
 |---|---|---|---|
 | [01](01-hello-world/) | Smallest workflow, end-to-end check | CONSTANT_SOURCE → PROCESS_EXECUTOR → terminal | REST |
-| [09](09-llm-chat-agent/) | Chat agent with per-user memory (needs an LLM endpoint) | SESSION_MEMORY → LLM_CALL → SESSION_MEMORY | REST |
 | [10](10-mcp-agent/) | AI agent drives Yukta over MCP | MCP `create_session` / `start_workflow` | MCP |
 | [19](19-agent-session/) | Run an AI agent (Claude Code, Codex) with approvals through the input request system (needs an agent CLI; no `run.sh`) | API_TRIGGER → AGENT_SESSION → three outcomes | REST |
 | [dogfood](dogfood/) | How Yukta develops itself: this repo's `gradle check` as a staged, self-healing workflow (failed stages are repaired by `spotlessApply` and headless Claude Code, then rechecked) | CONSTANT_SOURCE → PROCESS_EXECUTOR stages with `routeByExitCode` repair chains → terminal | REST / CLI |

@@ -1,14 +1,14 @@
 ---
 title: "AI plugin reference"
 sidebarTitle: "AI"
-description: "Options, ports, outputs and server settings of LLM_CALL, MCP_LIST_TOOLS, MCP_TOOL_CALL and SESSION_MEMORY."
+description: "Options, ports, outputs and server settings of LLM_CALL, MCP_LIST_TOOLS, and MCP_TOOL_CALL."
 tag: "Optional"
-keywords: ["LLM_CALL", "MCP_LIST_TOOLS", "MCP_TOOL_CALL", "SESSION_MEMORY", "AI plugins", "budget", "ask_for_input"]
+keywords: ["LLM_CALL", "MCP_LIST_TOOLS", "MCP_TOOL_CALL", "AI plugins", "budget", "ask_for_input"]
 ---
 
 # AI plugin reference
 
-These processors call a chat model, call tools on another MCP server and keep conversation history. `LLM_CALL` is in module `llm-call`, `MCP_LIST_TOOLS` and `MCP_TOOL_CALL` in `mcp-tool-call`, `SESSION_MEMORY` in `session-memory`.
+These processors call a chat model, and call tools on another MCP server. `LLM_CALL` is in module `llm-call`, `MCP_LIST_TOOLS` and `MCP_TOOL_CALL` in `mcp-tool-call`. To keep a conversation between runs, use a [community plugin](/guides/extend/write-a-community-plugin) with its own store.
 
 All option values support `${...}` unless a row says otherwise. Write secrets as `decrypted:<key>`.
 
@@ -116,26 +116,6 @@ Calls a tool on a remote MCP server per message.
   "type": "MCP_TOOL_CALL",
   "config": { "url": "https://mcp.example.com/mcp", "tool": "create_issue", "arguments": "payload.toolCall.args", "requireApproval": ["create_issue"] }
 }
-```
-
-## `SESSION_MEMORY`
-
-Chat memory per conversation id and workflow. Needs the control plane. History is per workflow: another workflow that knows the id cannot read it.
-
-| Option | Type | Default | Required | Description |
-|---|---|---|---|---|
-| `mode` | `load`, `append` or `delete` | none | yes | `load` adds history; `append` records the user turn and the reply together; `delete` removes the history. |
-| `sessionId` | string | `${metadata.sessionId}` for `append` | `load` and `delete` | Conversation id. |
-| `message` | expression | none | `load` | The user turn to record. |
-| `assistant` | expression | `${payload.content}` | no | The reply to record (`append`). |
-| `maxTurns` | number | `20` | no | Turns kept per session and returned by `load`; positive. |
-
-- **Output port:** `default`. `load` outputs the payload (an object; other payloads become `{input: payload}`) plus `history: [{role, content}]`, and sets metadata `sessionId`. `append` and `delete` pass the message through.
-- **Storage:** in memory by default and lost on restart; `yukta.session-memory.max-sessions` (default `10000`, least recently used leave first) and `yukta.session-memory.ttl` apply. Storing state on disk (`yukta.session-memory.dir`) belongs to the Plus edition; see [Licensing](/reference/licensing).
-- **Errors:** `maxTurns must be positive, got: <n>`.
-
-```json
-{ "nodeId": "memory-load", "type": "SESSION_MEMORY", "config": { "mode": "load", "sessionId": "${payload.sessionId}", "message": "${payload.message}" } }
 ```
 
 ## Related

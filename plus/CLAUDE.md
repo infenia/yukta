@@ -2,7 +2,7 @@
 
 AGPL-3.0-only module (see `../LICENSING.md`): the on-disk stores. Same packages as before the move
 (`com.infenia.yukta.service.*`) so component scanning, `@ConditionalOn*` and package-private
-helpers keep working; `PlusConfiguration` adds the checkpoint and chat-history files and the
+helpers keep working; `PlusConfiguration` adds the checkpoint files and the
 `/actuator/info` source offer.
 
 - Build and test: `yk gradle :plus:test`; end to end: `yk gradle -Pyukta.edition=plus :boot:test --tests '*FileStoreAcceptanceTest'`.

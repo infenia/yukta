@@ -53,23 +53,15 @@ In theory plugins depend only on plugin-api. In practice 11 of the 19 plugin mod
 
 ### One example, end to end
 
-A chat agent that remembers the conversation, lets the model use a tool and posts the reply. Click a node to see what happens, why it is built that way, and what can go wrong.
+A chat agent that lets the model use a tool and posts the reply; the client sends the earlier turns. Click a node to see what happens, why it is built that way, and what can go wrong.
 
 <Steps>
 <Step title="Chat message">
-**What happens.** The REST or MCP start call carries a payload such as \{sessionId: 's1', message: 'What is the weather in Pune?'\}. The trigger emits it as one message.
+**What happens.** The REST or MCP start call carries a payload such as \{history: [...], message: 'What is the weather in Pune?'\}. The trigger emits it as one message.
 
 **Why it is built this way.** Core hands the start payload to the trigger through the Reactor context (the per-run bag of values that follows the stream). The trigger needs no settings of its own.
 
-**Can go wrong.** If the caller sends no payload, the trigger emits an empty message, and later nodes that expect sessionId fail on their own checks.
-
-</Step>
-<Step title="Load history">
-**What happens.** In mode 'load' it reads the last maxTurns (default 20) turns stored for the session id, attaches them to the payload as 'history', then records the user's new message as a turn. It also copies the session id into metadata for the later 'append' node.
-
-**Why it is built this way.** Resolves $\{payload.sessionId\} and $\{payload.message\} for each message, so one node serves many conversations. The store is a single bean shared by every workflow.
-
-**Can go wrong.** The in-memory cache has no eviction, so abandoned sessions stay until a restart; the history survives a restart only if a directory or PostgreSQL is configured. The user turn is stored before the model answers, so a failed model call leaves a question without an answer.
+**Can go wrong.** If the caller sends no payload, the trigger emits an empty message, and later nodes that expect message fail on their own checks.
 
 </Step>
 <Step title="Ask the model">
@@ -102,14 +94,6 @@ A chat agent that remembers the conversation, lets the model use a tool and post
 **Why it is built this way.** Nothing new: the same retry, timeout and failureMode behaviour. A graph is acyclic, so a 'loop' of model, tool, model is written as separate nodes, not as a cycle.
 
 **Can go wrong.** Only one round of tool use is possible this way. Needing three rounds means three more nodes, or a model that batches its actions.
-
-</Step>
-<Step title="Save reply">
-**What happens.** In mode 'append' it stores the assistant's reply (default $\{payload.content\}) under the session id that 'load' left in metadata.
-
-**Why it is built this way.** Trims the session to maxTurns so the stored history cannot grow past the limit per session.
-
-**Can go wrong.** If the run crashes before this node, the user turn is stored and the reply is not. The next turn then shows the model a question with no answer.
 
 </Step>
 <Step title="Post reply">
@@ -209,22 +193,21 @@ Reshapes the payload: MAPPER (projection, template or script) and CONTENT_FILTER
 
 ### Flow & state
 
-*DELAY, loops, KV_STORE*
+*DELAY and loops*
 
-Pace messages, repeat another plugin, and keep small facts: DELAY, LOOP_STREAM, LOOP_PREDICATE and KV_STORE.
+Pace messages and repeat another plugin: DELAY, LOOP_STREAM and LOOP_PREDICATE.
 
 - DELAY holds each message for delayMs and releases them one at a time, in order. Ten messages with delayMs 100 take about a second, which is a simple way to stay under a rate limit.
 - LOOP_STREAM and LOOP_PREDICATE run another processor again and again on the same message. You name it with targetPluginId and give it targetConfig. After each run an exitCondition (SpEL; it can use #iterationCount and #elapsedTimeMs) decides whether to stop. With no exitCondition the loop stops after the first iteration. Safety limits: maxIterations (default 10), maxDuration (ISO-8601 duration, default PT1M) and delayInterval between rounds (default PT0S). LOOP_STREAM emits every message every iteration produced; LOOP_PREDICATE emits only the last one.
 - failureStrategy (default ABORT) says what a failing iteration does: ABORT fails the node, RETRY and SKIP both move on to the next iteration with the same last message and use up an iteration (a failed iteration emits nothing, so they behave identically), ESCALATE ends the run with a RunAbortedException. A RunAbortedException from the target is never absorbed by RETRY or SKIP.
 - A loop finds its target through the plugin registry and calls it directly. The loop's own validateConfig, initialize and prepare pass the call on to the target with targetConfig, so a wrong targetConfig fails at submit and the target (for example a MAPPER in TEMPLATE mode) is set up before the first round (risk: loopSkipsValidation, now only about modelling loops as sub-graphs). This is how Yukta gets polling and retry-until without breaking the 'no cycles' rule of a graph.
-- KV_STORE is a shared map (in memory, or the kv_entry table with yukta.kv.store-type=postgres) with operations get, put, incr and delete. The key comes from config or the payload's 'key' field, 'namespace' prefixes keys to keep users apart, and the output is \{key, value\}. 'put' stores payload.value, 'incr' adds payload.value (default 1) to a whole number. maxEntries (default 10000) refuses new keys beyond the cap, but in the in-memory store the size check and the insert are not one atomic step, so the cap can be slightly overshot under heavy concurrency. In PostgreSQL incr is one statement.
 
-- **Guarantees.** Loops always end: by exit condition, maxIterations or maxDuration. KV_STORE operations on one key are atomic (incr uses an atomic merge), and a full store refuses new keys.
-- **State.** KV_STORE is one store for the whole server: shared by every workflow and run. By default it is in memory, lost on restart and not shared between servers; with yukta.kv.store-type=postgres it survives a restart and is shared. Loops keep their iteration state only for the duration of one message.
-- **Ceiling.** KV_STORE is capped at 10,000 keys by default, in one JVM. A loop's cost is iterations times the target's cost, and maxDuration is checked between iterations, not during one.
+- **Guarantees.** Loops always end: by exit condition, maxIterations or maxDuration.
+- **State.** Loops keep their iteration state only for the duration of one message.
+- **Ceiling.** A loop's cost is iterations times the target's cost, and maxDuration is checked between iterations, not during one.
 - **On failure.** A full KV store throws 'KV store is full'. A non-whole number in incr throws. A loop target that is missing or is not a processor fails the node with a message naming it.
 
-**Settings:** `DELAY: delayMs`, `LOOP_*: targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT)`, `KV_STORE: op, key, namespace, maxEntries (10000)`
+**Settings:** `DELAY: delayMs`, `LOOP_*: targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT)`
 
 ### External I/O
 
@@ -249,20 +232,19 @@ Calls the outside world: PROCESS_EXECUTOR, HTTP_REQUEST, FILE_READ, FILE_WRITE, 
 
 *LLM, memory, decisions*
 
-Model-backed nodes: LLM_CALL, SESSION_MEMORY and the decision family CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE.
+Model-backed nodes: LLM_CALL and the decision family CLASSIFY, GATE, SCORE, ASK, ANOMALY and DEDUPE.
 
 - LLM_CALL calls a chat model through Spring AI for providers openai (and openai-compatible endpoints such as Groq or vLLM through baseUrl), anthropic and ollama. It takes messages (a list of \{role, content\} turns or a SpEL expression), an optional prompt appended as the last user turn, and a system prompt. It emits \{success, content, actions, usage, latencyMs, model, cost?\}. Spring AI's own retry is switched off so the plugin's retries (default 0, exponential backoff from 500 ms) are the only ones.
 - Tool use is by text: the model is asked to put JSON inside &lt;agent_action&gt; tags, LLM_CALL cuts those out into the 'actions' list, and the graph decides what to do (BRANCH then MCP_TOOL_CALL). It does not use the providers' native tool-calling. 'prices' (\{input, output\} per million tokens) adds a cost figure, and a 'budget' (\{maxTokens, maxCost, maxCalls, agent, hardStop\}) stops further calls once a run has used it up (hardStop ends the whole run). With failureMode CONTINUE the original payload passes through with llmSuccess=false and llmError in metadata, so a second LLM_CALL with the same config can act as a fallback model.
-- SESSION_MEMORY keeps chat history per session id. Mode 'load' (before the model) adds 'history' to the payload and records the user turn; mode 'append' (after) records the reply. maxTurns defaults to 20. One bean holds all sessions, keyed by id alone, cached in memory; the history is also kept in a file per session (yukta.session-memory.dir) or in PostgreSQL (yukta.session-memory.store-type=postgres).
 - The decision family asks a model a constrained question about the message and writes the answer into metadata under 'into'. CLASSIFY picks one of two or more labels (routeByLabel gives one port per label, plus 'uncertain' below minProbability 0.6). GATE asks a yes/no question and routes to 'pass' or 'reject' (threshold 0.5). SCORE rates on 2 to 26 ordered levels and can route 'high' or 'low' by threshold. ASK asks up to 64 mixed questions in one call. ANOMALY and DEDUPE compare each message with the last window messages of the node's current run (ANOMALY window 20, minHistory 5, threshold 0.5; DEDUPE window 10, minProbability 0.6).
 - Two backends: SYSTEMONE (default) calls Ollama's /v1/systemone endpoint (needs Ollama 0.35 or newer and a decision model) and returns calibrated probabilities; LLM goes through LLM_CALL's gateway and asks the model for JSON, where the probability is the model's own estimate. What the model sees is the 'state' expression (default the whole payload), cut to maxStateChars (default and highest 15,000; stateKeep chooses the part, onOverflow fail rejects instead). A model failure fails the message; use the engine's retry and onError for recovery.
 
 - **Guarantees.** Decision nodes always produce a value in a known shape or an error: a label that is not one of the options, or a reply that is not JSON, is rejected. Probabilities are clamped to 0..1. History per session is trimmed to maxTurns.
-- **State.** Conversation history (SESSION_MEMORY), the ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
-- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node. Session memory is bounded by `yukta.session-memory.max-sessions` (10,000) and the optional `yukta.session-memory.ttl`; with memory-only history an evicted session loses its history.
-- **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message. The user turn in SESSION_MEMORY is stored before the model answers.
+- **State.** The ANOMALY and DEDUPE windows and LLM_CALL's cache of model clients are all in memory. Windows live only for one node in one run. Nothing survives a restart.
+- **Ceiling.** Each model call is a network call that can take seconds and cost money, at up to `concurrency` (default 16) concurrent calls per node.
+- **On failure.** Timeouts and provider errors fail the node (ERROR) or pass the original payload on (CONTINUE). A decision model that is down fails each message.
 
-**Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `SESSION_MEMORY: mode, sessionId, message, assistant, maxTurns 20`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`
+**Settings:** `LLM_CALL: provider, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout 120, retries 0, prices, failureMode, routeByStatus`, `Decision common: backend, provider, model, baseUrl, apiKey, timeout 30, state, into`
 
 ### Terminals
 
@@ -291,7 +273,7 @@ The rules every plugin follows and the shared helpers they use: type registratio
 
 - A plugin is a Spring bean implementing one of three interfaces (trigger, processor, terminal). The registry collects every plugin bean by getType(); a duplicate type id stops startup. Plugins are singletons: one instance serves every node of that type, with the node's config passed on each call. Per-node state goes in the object returned by `forNode(config)` (default: the plugin itself), which the engine asks for once per node when a run is assembled.
 - A plugin may describe itself (text and a UI card), list its config fields (name, type, required, default; this generates the form in the UI, and field names must equal the keys the plugin reads), declare its output ports (possibly depending on config) and validate its own config. Four hooks run in order: validateConfig at submit, initialize and prepare at compile, shutdown at the end.
-- Variables ($\{...\}) are NOT resolved by the engine. Each plugin that wants them calls core's resolver itself: HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, PROCESS_EXECUTOR, CONSTANT_SOURCE and the decision plugins (for model, baseUrl and apiKey). FILTER, BRANCH, SPLITTER and others use SpEL instead; FILE_\*, SQL_QUERY, NOTIFY_TERMINAL and KV_STORE use their config literally. So SQL_QUERY's password 'decrypted:db' is NOT resolved, although the form text suggests it.
+- Variables ($\{...\}) are NOT resolved by the engine. Each plugin that wants them calls core's resolver itself: HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, PROCESS_EXECUTOR, CONSTANT_SOURCE and the decision plugins (for model, baseUrl and apiKey). FILTER, BRANCH, SPLITTER and others use SpEL instead; FILE_\*, SQL_QUERY, and NOTIFY_TERMINAL use their config literally. So SQL_QUERY's password 'decrypted:db' is NOT resolved, although the form text suggests it.
 - decrypted:key asks a SecretProvider. The default one reads the environment variable YUKTA_SECRET_&lt;KEY&gt; (key upper-cased, other characters become underscores), so a workflow cannot read arbitrary environment variables through it. $\{env.X\} and $\{sys.p\} read only an allow-list: YUKTA_VAR_\* variables, yukta.var.\* properties, a short list of harmless ones and names listed in YUKTA_VARIABLES_ALLOWED; names that look like secrets stay blocked even if listed.
 - The shared helpers: FailureMode and a guard that turns a failure into an 'error'-port message, a metrics counter hook, config validators (positive numbers, required strings) and SpelUtils, which runs SpEL in a restricted mode (read properties and call methods only; no types, constructors or bean references) with a 1,000-entry LRU cache.
 
@@ -327,7 +309,7 @@ Watches the run-event stream from outside the graph and can pause or stop runs o
 
 Decides which plugin modules are compiled in and holds each module to code-quality checks.
 
-- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, nine modules: process-executor, http-request, file-io, sql-query, llm-call, session-memory, decision, mcp-tool-call and script-js.
+- Always included: internal-core (the 12 routing, transform and flow types), the three triggers, both terminals, the rule supervisor and the three control planes. Optional, eight modules: process-executor, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js.
 - Selection is a build property: -Pyukta.plugins=all (default), none, or a comma-separated list such as http-request,llm-call. An unknown name fails the build with a list of valid names. Choosing fewer modules shrinks the application and, more importantly, removes whole capabilities (for example, no PROCESS_EXECUTOR means a workflow cannot run programs at all).
 - The three control-plane modules are always compiled in, the model plane exposes the decision module, and the decision module depends on llm-call. So, reading the build files, CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE and LLM_CALL are on the runtime classpath even with -Pyukta.plugins=none (not confirmed by running a build). Optional means optional to name, not necessarily absent (risk: optionalNotOptional).
 - Each module is checked by the normal gates (formatting, Checkstyle, PMD, SpotBugs, coverage). internal-core and constant-source switch off PMD main and test, and internal-core also switches off Checkstyle on tests, with a note to re-enable. The riskiest code (the script mapper) therefore has the lightest checks.
@@ -344,26 +326,23 @@ Decides which plugin modules are compiled in and holds each module to code-quali
 
 ### Tool-using chat turn
 
-A chat agent that remembers the conversation, lets a model call a tool, and posts the reply. Use it first to learn how the families fit together.
+A chat agent that lets a model call a tool and posts the reply; the client sends the earlier turns. Use it first to learn how the families fit together.
 
 <Steps>
 <Step title="A message arrives">
-A client starts the chat workflow with \{sessionId: 's1', message: 'Weather in Pune?'\}. API_TRIGGER emits it as one message, taking the payload from the run's Reactor context.
-</Step>
-<Step title="History is loaded">
-SESSION_MEMORY in 'load' mode resolves $\{payload.sessionId\} and $\{payload.message\}, attaches the last 20 turns as 'history', then stores the new user turn. The ordering matters: it reads before it writes, so the model does not see the question twice.
+A client starts the chat workflow with \{history: [...], message: 'Weather in Pune?'\}. API_TRIGGER emits it as one message, taking the payload from the run's Reactor context.
 </Step>
 <Step title="The model answers">
 LLM_CALL sends history plus prompt to the configured provider. The reply says 'I need the weather tool' inside &lt;agent_action&gt; tags. The plugin lifts the JSON out into the 'actions' list and leaves clean text in 'content'. The node timeout was computed from the plugin's timeout and retries, so a slow model is not cut off at the engine's 30 s default.
 </Step>
 <Step title="BRANCH picks a path">
-A condition on the reply says an action was requested, so the message leaves on port 'tool'. A reply with no action would take 'default' straight to the save step. strictMode means an unmatched message is an error, not a silent drop.
+A condition on the reply says an action was requested, so the message leaves on port 'tool'. A reply with no action would take 'default' straight to the post step. strictMode means an unmatched message is an error, not a silent drop.
 </Step>
 <Step title="The tool runs">
 MCP_TOOL_CALL opens (or reuses) a session to the tool server, calls the tool and streams back progress, which restarts the engine's idle timer. The result is \{success, text, content, ...\}. The server address and token come from config.
 </Step>
-<Step title="Final answer, save, post">
-A second LLM_CALL turns the tool result into the final text, SESSION_MEMORY 'append' stores it under the session id kept in metadata, and NOTIFY_TERMINAL posts it. If the run dies before 'append', the question is remembered without an answer.
+<Step title="Final answer, post">
+A second LLM_CALL turns the tool result into the final text and NOTIFY_TERMINAL posts it.
 </Step>
 </Steps>
 
@@ -504,7 +483,6 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Pacing and repeating | Slows a stream and repeats another plugin. | DELAY (delayMs); LOOP_STREAM and LOOP_PREDICATE with maxIterations 10, maxDuration PT1M. | Loops always end. | Loops skip the target's config check; RETRY equals SKIP. |
-| Shared counters and flags | Keeps small facts between messages and runs. | KV_STORE get, put, incr, delete with namespace and maxEntries 10000. | incr is atomic; a full store refuses new keys. | In memory, one JVM, shared by all workflows. |
 
 ### Calling out
 
@@ -521,7 +499,6 @@ Eighteen things the plugins can do, grouped by purpose, each with what it guaran
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
 | Asking a model | Gets text and parsed actions from a model. | LLM_CALL for openai(-compatible), anthropic, ollama with retries, prices and failureMode. | Provider-level retries are off; the plugin's retries are the only ones. | Cost is reported and can be capped per run with budget (tokens, cost, calls; hardStop ends the run). |
-| Remembering a chat | Stores turns per session id. | SESSION_MEMORY load and append, trimmed to maxTurns. | Bounded history per session. | Memory only; no eviction of sessions. |
 | Constrained decisions | Routes on a model's label, yes/no, score, answers, anomaly or duplicate verdict. | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE with SYSTEMONE or LLM backend. | Answers outside the options or non-JSON replies are rejected. | Text sent to the model is cut to 15,000 characters. |
 
 ### Watching runs
@@ -547,7 +524,7 @@ The engine hands each plugin a stream. How a plugin consumes it decides ordering
 
 | Plugins | How messages are handled | What it means |
 |---|---|---|
-| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, SESSION_MEMORY, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; `concurrency` per node (4 for PROCESS_EXECUTOR, 16 for the network plugins and decision plugins); SESSION_MEMORY runs one message at a time | \*\*Yes.\*\* A burst of 1,000 messages starts at most `concurrency` calls at once; raise it in config for more throughput |
+| PROCESS_EXECUTOR, HTTP_REQUEST, MCP_TOOL_CALL, LLM_CALL, decision plugins (except ANOMALY, DEDUPE) | Started concurrently, output kept in input order; `concurrency` per node (4 for PROCESS_EXECUTOR, 16 for the network plugins and decision plugins) | \*\*Yes.\*\* A burst of 1,000 messages starts at most `concurrency` calls at once; raise it in config for more throughput |
 | FILE_READ, FILE_WRITE, SQL_QUERY, NOTIFY_TERMINAL, ANOMALY, DEDUPE, loops | One message at a time, in order | \*\*Yes.\*\* Safe for order-dependent state; a slow call paces everything behind it |
 | FILTER, MAPPER, RECIPIENT_LIST (parallel true), SPLITTER (parallel true, 1024) | Handled concurrently; order of output is not guaranteed across messages | \*\*Note.\*\* Fine for independent items; set parallel false when order matters |
 | DELAY | Each message waits delayMs, released one at a time | \*\*Yes.\*\* Spaces out a stream; a plain way to stay under a rate limit |
@@ -557,8 +534,6 @@ The engine hands each plugin a stream. How a plugin consumes it decides ordering
 
 | State | Where it lives | After a restart |
 |---|---|---|
-| KV_STORE contents | In-memory map in one bean | \*\*No.\*\* Gone; also not shared between servers |
-| SESSION_MEMORY history | In-memory map keyed by session id | \*\*No.\*\* Gone; replace the SessionStore bean for durability |
 | ANOMALY and DEDUPE windows | Local to one node run | \*\*No.\*\* Gone, and also reset at the start of every run |
 | Schedule position (SCHEDULE_TRIGGER) | The running stream | \*\*No.\*\* Gone; a restarted run starts counting again |
 | MCP sessions, LLM model clients, compiled scripts and templates | Caches in plugin beans | \*\*Note.\*\* Rebuilt on demand; no data is lost |
@@ -622,7 +597,6 @@ Type id, what it does, key settings with defaults, and notes. All 'strictMode' d
 | DELAY | Processor | Holds each message delayMs, one at a time | delayMs (required, positive) |  |
 | LOOP_STREAM | Processor | Runs a target processor repeatedly, emits every round's output | targetPluginId, targetConfig, exitCondition, maxIterations (10), maxDuration (PT1M), delayInterval (PT0S), failureStrategy (ABORT) | No exitCondition means one round; loopEscalate, loopSkipsValidation |
 | LOOP_PREDICATE | Processor | Same, emits only the last message | same as LOOP_STREAM | Same risks |
-| KV_STORE | Processor | Shared in-memory key-value store | op get\|put\|incr\|delete, key (payload.key), namespace (none), maxEntries (10000) | Emits \{key, value\}; kvVolatile |
 
 ### Catalogue 2: external I/O and AI
 
@@ -637,7 +611,6 @@ All of these use failureMode ERROR (default) or CONTINUE. Where routeByStatus or
 | SQL_QUERY | Runs one parameterised statement | url, username, password, sql, params, maxRows (1000), timeoutSeconds (30) | \{rows, count\} or \{updated\} | Driver from deployer; connection per message; password is not variable-resolved |
 | MCP_TOOL_CALL | Calls a tool on a remote MCP server | url, tool, arguments (payload), headers, authToken, timeout (60 s), resultKey, routeByStatus (false) | \{success, tool, text, content, structured, error\}; metadata mcpSuccess, mcpTool, mcpLatencyMs | Control signal 'reset' drops cached sessions; routeByStatus restricts edge ports to success, failure, error |
 | LLM_CALL | Calls a chat model | provider openai\|openai-compatible\|anthropic\|ollama, model, prompt, messages, system, baseUrl, apiKey, temperature, maxTokens, timeout (120 s), retries (0), prices, routeByStatus (false) | \{success, content, actions, usage, latencyMs, model, cost?\} | CONTINUE passes the original payload on with llmSuccess=false; budget \{maxTokens, maxCost, maxCalls, agent, hardStop\} |
-| SESSION_MEMORY | Per-session chat history | mode load\|append, sessionId, message, assistant, maxTurns (20) | load adds payload.history; append passes through | In memory; keyed by session id alone |
 | CLASSIFY | Picks one of 2+ labels | labels (map), question, minProbability (0.6), routeByLabel (false) | metadata 'classification' \{label, probabilities, uncertain\} | Ports: one per label plus 'uncertain', or 'default' |
 | GATE | Yes/no question | question, threshold (0.5) | metadata 'gate' \{probability, passed\} | Ports 'pass', 'reject' |
 | SCORE | Rates on ordered levels | question, levels (2 to 26), threshold (none) | metadata 'score' \{score, level\} | Ports 'high', 'low' with a threshold, else 'default' |
@@ -681,7 +654,7 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 
 | Module (name in yukta.plugins) | Always on? | Types or components it provides |
 |---|---|---|
-| internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT_FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE, KV_STORE |
+| internal-core | Always | FILTER, BRANCH, RECIPIENT_LIST, SPLITTER, AGGREGATE, VALIDATE, MAPPER, CONTENT_FILTER, DELAY, LOOP_STREAM, LOOP_PREDICATE |
 | api-trigger, constant-source, schedule-trigger, webhook-trigger | Always | API_TRIGGER, CONSTANT_SOURCE, SCHEDULE_TRIGGER, WEBHOOK_TRIGGER |
 | console-terminal, notify-terminal, outcome-terminal | Always | CONSOLE_TERMINAL, NOTIFY_TERMINAL, OUTCOME_TERMINAL |
 | rule-supervisor, rule-control-plane, model-control-plane, rules-first-control-plane | Always | RuleSupervisor, RuleControlPlane, ModelControlPlane, RulesFirstControlPlane (each active only if its property is set) |
@@ -690,7 +663,6 @@ Always-on modules are compiled into every build. Optional modules are picked wit
 | file-io | Optional | FILE_READ, FILE_WRITE |
 | sql-query | Optional | SQL_QUERY (JDBC driver supplied by the deployer) |
 | llm-call | Optional | LLM_CALL |
-| session-memory | Optional | SESSION_MEMORY |
 | decision | Optional (but pulled in by the control planes) | CLASSIFY, GATE, SCORE, ASK, ANOMALY, DEDUPE; pulls in llm-call |
 | mcp-tool-call | Optional | MCP_TOOL_CALL |
 | script-js | Optional | GraalJS implementation of the ScriptEngine interface, enabling MAPPER SCRIPT mode |
@@ -719,7 +691,7 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 
 **Decision.** Every plugin is a Spring bean implementing a plugin-api interface; the registry maps getType() to the bean, rejects duplicates at startup, and passes the node's config on each call.
 
-**Consequences.** Simple discovery and a stable contract. Plugins must be thread-safe and any state they hold is shared by all nodes and runs of that type (KV_STORE and SESSION_MEMORY are exactly that).
+**Consequences.** Simple discovery and a stable contract. Plugins must be thread-safe and any state they hold is shared by all nodes and runs of that type
 
 **Alternatives considered.** A new instance per node (cleaner state, more objects, harder to keep a shared client or cache); separate class loaders or processes per plugin (strong isolation, much more complex, slower).
 
@@ -799,15 +771,15 @@ One JSON file, \{"rules": [...]\}. Each rule has an id and either when/then or d
 
 </Accordion>
 <Accordion title="State is in memory first">
-**Context.** KV_STORE, SESSION_MEMORY, anomaly windows and schedule positions need somewhere to live, and a database would add setup and a dependency.
+**Context.** Anomaly windows and schedule positions need somewhere to live, and a database would add setup and a dependency.
 
-**Decision.** They live in plain in-process maps by default, with 'ponytail' comments in the code naming what to add later (eviction, a pool); KV_STORE and SESSION_MEMORY now also have opt-in PostgreSQL stores.
+**Decision.** They live in plain in-process maps by default, with 'ponytail' comments in the code naming what to add later (eviction, a pool); KV_STORE and SESSION_MEMORY, which kept data between runs, were removed (state that must outlive a run belongs in a community plugin with its own store).
 
 **Consequences.** Zero setup and fast. Nothing survives a restart or is shared between servers, and some of it grows without bounds.
 
 **Alternatives considered.** A store interface with memory and database implementations from day one (more work now, easy to swap); an external cache such as Redis (shared, one more service).
 
-**Revisit when.** Yukta runs on more than one server, or users depend on chat history or counters surviving a restart.
+**Revisit when.** Yukta runs on more than one server, or users depend on windows or schedule positions surviving a restart.
 
 </Accordion>
 </AccordionGroup>

@@ -22,8 +22,8 @@ import { Diagram } from "/snippets/diagram.jsx";
 | Option | Edition | What survives a restart |
 |---|---|---|
 | 1. Session files loaded at start-up | Community and Plus | Your workflow definitions. Run history does not |
-| 2. State on disk | Plus (AGPL-3.0-only) | Definitions and versions, run history, checkpoints, chat history |
-| 3. PostgreSQL | Plus (AGPL-3.0-only) | The same, shared between servers, plus input requests and `KV_STORE` state |
+| 2. State on disk | Plus (AGPL-3.0-only) | Definitions and versions, run history, checkpoints |
+| 3. PostgreSQL | Plus (AGPL-3.0-only) | The same, shared between servers, plus input requests |
 
 How the stores work and what each keeps is in [How durability and high availability work](/concepts/durability-and-high-availability). The licence terms are in [Licensing and editions](/reference/licensing).
 
@@ -94,7 +94,6 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
     yukta.session.base-dir=/var/lib/yukta
     yukta.execution-log.dir=/var/lib/yukta/log
     yukta.restart.dir=/var/lib/yukta/checkpoints
-    yukta.session-memory.dir=/var/lib/yukta/chat
     ```
 
     As environment variables, replace each dot and dash with `_` and upper-case the name, for example `YUKTA_SESSION_STORE_TYPE=file`. Use one server per set of directories: do not share them. In Docker, mount a host folder that user 65532 can write and point the directories at it.
@@ -148,8 +147,6 @@ A file that cannot be read, is invalid or cannot be applied is logged and skippe
 
     ```properties
     yukta.restart.store-type=postgres        # checkpoints, needed to resume runs
-    yukta.kv.store-type=postgres             # KV_STORE node state
-    yukta.session-memory.store-type=postgres # SESSION_MEMORY chat history
     yukta.input.store-type=postgres          # open input requests and their deliveries
     ```
 

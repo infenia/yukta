@@ -49,7 +49,7 @@ logging:
 
 yukta:
   # Plugins. CORE and unrestricted EXTENDED plugins are always on. SPECIFIC ones (LLM_CALL, MCP_*, the
-  # decision types, SESSION_MEMORY) and RESTRICTED ones (PROCESS_EXECUTOR, SQL_QUERY, FILE_*,
+  # decision types) and RESTRICTED ones (PROCESS_EXECUTOR, SQL_QUERY, FILE_*,
   # HTTP_REQUEST, NOTIFY_TERMINAL) are off until named. GET /api/plugins and the list_plugins MCP tool
   # show every plugin with tier, restricted, enabled and enableWith.
   #   plugins:
