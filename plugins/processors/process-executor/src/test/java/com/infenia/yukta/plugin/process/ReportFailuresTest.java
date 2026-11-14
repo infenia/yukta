@@ -240,4 +240,37 @@ class ReportFailuresTest {
     assertThat(ReportFailures.spec(Map.of("format", "JUnit", "glob", " a ")))
         .isEqualTo(new ReportFailures.Spec("junit", "a"));
   }
+
+  @Test
+  void xmlWithADoctype_isRefusedNotExpanded() throws IOException {
+    write(
+        "build/TEST-evil.xml",
+        """
+        <!DOCTYPE testsuite [<!ENTITY name "p.EvilTest">]>
+        <testsuite><testcase classname="&name;" name="bad"><failure message="m"/></testcase></testsuite>
+        """);
+
+    final Map<String, Object> result = read("junit", "build/TEST-*.xml");
+
+    assertThat(result).containsEntry("totalFailures", 0);
+  }
+
+  @Test
+  void onlyFilesMatchingTheGlobAndNewerThanTheStartAreRead() throws IOException {
+    final String bad =
+        "<testsuite><testcase classname=\"p.T\" name=\"x\"><failure"
+            + " message=\"m\"/></testcase></testsuite>";
+    write("build/other.xml", bad);
+
+    assertThat(read("junit", "build/TEST-*.xml")).containsEntry("totalFailures", 0);
+
+    write("build/TEST-a.xml", bad);
+    final Map<String, Object> later =
+        ReportFailures.read(
+            List.of(new ReportFailures.Spec("junit", "build/TEST-*.xml")),
+            dir,
+            Instant.now().plusSeconds(3600));
+    assertThat(later).containsEntry("totalFailures", 0);
+    assertThat(read("junit", "build/TEST-*.xml")).containsEntry("totalFailures", 1);
+  }
 }

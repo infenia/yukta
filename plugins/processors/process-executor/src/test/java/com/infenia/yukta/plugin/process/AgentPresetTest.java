@@ -56,4 +56,12 @@ class AgentPresetTest {
         .contains("claude-code", "codex")
         .isInstanceOf(List.class);
   }
+
+  @Test
+  void onlyCapabilitiesSetToTrueAreDeclared() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.set("capabilities", JSON.readTree("{\"stream\":true,\"resume\":false}"));
+
+    assertThat(AgentPreset.parse(root).capabilities()).containsExactly("stream");
+  }
 }

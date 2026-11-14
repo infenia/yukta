@@ -49,4 +49,25 @@ class LockedStdinTest {
             })
         .doesNotThrowAnyException();
   }
+
+  @Test
+  void closeClosesTheStream() {
+    final boolean[] closed = {false};
+    final OutputStream stream =
+        new OutputStream() {
+          @Override
+          public void write(final int b) {
+            // not used
+          }
+
+          @Override
+          public void close() {
+            closed[0] = true;
+          }
+        };
+
+    new LockedStdin(stream).close();
+
+    assertThat(closed[0]).isTrue();
+  }
 }
