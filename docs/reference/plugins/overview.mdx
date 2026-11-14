@@ -23,6 +23,8 @@ The option tables on the pages below are taken from each plugin's declared schem
 | [Decisions](/reference/plugins/decisions) | `CLASSIFY`, `GATE`, `SCORE`, `ASK`, `ANOMALY`, `DEDUPE` |
 | [Terminals](/reference/plugins/terminals) | `CONSOLE_TERMINAL`, `NOTIFY_TERMINAL`, `OUTCOME_TERMINAL`, `SUPERVISOR_DECISION` |
 
+An operator can add processors and terminals written in any language as community plugins, outside the server build; they appear in the catalogue like built-in types. See [Write a community plugin](/guides/extend/write-a-community-plugin).
+
 ## Roles
 
 | Role | Contract | Output ports |
@@ -101,6 +103,8 @@ yukta:
   plugins:
     enabled: PROCESS_EXECUTOR,HTTP_REQUEST   # env YUKTA_PLUGINS_ENABLED; `all` enables every plugin
 ```
+
+A community plugin runs only when its own type is named (`WORD_COUNT`, or `WORD_COUNT@sha256:<digest>` to pin its directory); `all` does not enable it.
 
 `GET /api/plugins` and the `list_plugins` MCP tool list every plugin with `tier`, `restricted`, `enabled` and, for a disabled one, `enableWith`. A workflow that uses a disabled type fails validation with that hint.
 
