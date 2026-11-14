@@ -1,5 +1,45 @@
 # Changelog
 
+## [0.1.0-alpha.5](https://github.com/infenia/yukta/compare/v0.1.0-alpha.4...v0.1.0-alpha.5) (2026-11-14)
+
+
+### ⚠ BREAKING CHANGES
+
+* **file-io:** node type PATCH_GUARD no longer exists. Use PROCESS_EXECUTOR with routeByExitCode and examples/02-agent-verification/patch-guard.sh (ports pass/reject are now success/failure).
+
+### New features
+
+* **cli:** connect AI agents to Yukta with yukta-cli agents and the install scripts ([#2323](https://github.com/infenia/yukta/issues/2323)) ([8fb893a](https://github.com/infenia/yukta/commit/8fb893a603b73d8e8e325b657f2e79f6de7aede7))
+* **cli:** server status and logs commands for the daemon ([#2319](https://github.com/infenia/yukta/issues/2319)) ([42c6518](https://github.com/infenia/yukta/commit/42c651881bf61399831b5351367537992238b130))
+* **decision:** decision backends as AiBackend beans, listed by API and MCP ([#2295](https://github.com/infenia/yukta/issues/2295)) ([0aafe73](https://github.com/infenia/yukta/commit/0aafe732015bb4e3fbead1ff0e6cf0ab60e15c71))
+* **plugin-api:** add an SPI version with a startup check ([#2329](https://github.com/infenia/yukta/issues/2329)) ([eb17c81](https://github.com/infenia/yukta/commit/eb17c815efd0fd6669872138f6c9de536942df6e))
+* **plugin-api:** add the plugin manifest and message envelope v1 schemas ([#2328](https://github.com/infenia/yukta/issues/2328)) ([91e1863](https://github.com/infenia/yukta/commit/91e18631bb873611bce111f4c784bfe7e6b1b426))
+* **process-executor:** plugin tiers, AGENT_SESSION with sessions and approvals, Codex preset ([#2317](https://github.com/infenia/yukta/issues/2317)) ([c2eef25](https://github.com/infenia/yukta/commit/c2eef25c5bc529a4c03d7cb568cab90ff6f5c50b))
+* **release:** next-steps screen after install, documented uninstall ([#2325](https://github.com/infenia/yukta/issues/2325)) ([bff183e](https://github.com/infenia/yukta/commit/bff183ef2ed01378777b7350b950dd5f0eef115d))
+
+
+### Bug fixes
+
+* **boot:** register the JDK types expression methods run on for the native image ([#2313](https://github.com/infenia/yukta/issues/2313)) ([f53d6b9](https://github.com/infenia/yukta/commit/f53d6b9eddfd38f37f6864b144e5883386d1e8ca))
+* **core:** compare-and-set on the stored definition when SaveAndPrepare undoes a save ([#2290](https://github.com/infenia/yukta/issues/2290)) ([cf149f9](https://github.com/infenia/yukta/commit/cf149f90cedfa81e1625219fdc7c5803e302fd1e))
+* **engine:** a wait's own timeout runs before the node's idle timeout ([#2314](https://github.com/infenia/yukta/issues/2314)) ([e5d5d02](https://github.com/infenia/yukta/commit/e5d5d02a234b8a3e3f00bf13db571a7a76027937))
+* **native:** make the examples run in the native image and the Docker image ([#2330](https://github.com/infenia/yukta/issues/2330)) ([38371b8](https://github.com/infenia/yukta/commit/38371b89c873b8ba88db3743af7b779e51bec0bd))
+* **release:** tell NixOS users to enable nix-ld for the native server ([#2322](https://github.com/infenia/yukta/issues/2322)) ([dcd31b7](https://github.com/infenia/yukta/commit/dcd31b723704a68e4c6dc581957d67c07f49b0f7))
+* **supervisor:** register RuleSet for binding so rules profiles load in the native image ([#2312](https://github.com/infenia/yukta/issues/2312)) ([7d8a291](https://github.com/infenia/yukta/commit/7d8a29192c2dc45b77aa77833de95484b236de3b))
+
+
+### Documentation
+
+* add community plugins design ([#2324](https://github.com/infenia/yukta/issues/2324)) ([9afce08](https://github.com/infenia/yukta/commit/9afce0882c83e8b75b5238b17d17000a1ea225c4))
+* plan for the unified AI backend and AGENT_SESSION ([#2293](https://github.com/infenia/yukta/issues/2293)) ([68f6552](https://github.com/infenia/yukta/commit/68f6552f3b4887a7ae13dbb8e2c4e98be4b361bd))
+* point the install commands and release notes at 0.1.0-alpha.4 ([#2309](https://github.com/infenia/yukta/issues/2309)) ([0d27115](https://github.com/infenia/yukta/commit/0d27115d04df7b6bcda53ef288b697d0d747726a))
+* restore the Build workflows guides hidden by the build/ gitignore rule ([#2318](https://github.com/infenia/yukta/issues/2318)) ([3a080fa](https://github.com/infenia/yukta/commit/3a080faefdf2334a9428e98fc8814c766458cd6a))
+
+
+### Refactoring
+
+* **file-io:** remove PATCH_GUARD, replace with PROCESS_EXECUTOR and a script ([#2291](https://github.com/infenia/yukta/issues/2291)) ([6949735](https://github.com/infenia/yukta/commit/694973565b19277e934ce15667694fd57a64dc98))
+
 ## [0.1.0-alpha.4](https://github.com/infenia/yukta/compare/v0.1.0-alpha.3...v0.1.0-alpha.4) (2026-11-12)
 
 
