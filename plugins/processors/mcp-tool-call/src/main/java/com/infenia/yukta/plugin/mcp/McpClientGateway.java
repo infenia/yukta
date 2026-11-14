@@ -16,7 +16,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +45,6 @@ import tools.jackson.databind.ObjectMapper;
   "PMD.GodClass",
   "PMD.TooManyMethods",
   "PMD.UseConcurrentHashMap",
-  "PMD.ExcessiveImports",
   "PMD.CouplingBetweenObjects"
 })
 public class McpClientGateway {
@@ -548,18 +546,7 @@ public class McpClientGateway {
     if (answer.get("error") instanceof final Map<?, ?> error) {
       return McpCallResult.transportFailure(String.valueOf(error.get("message")));
     }
-    final Map<String, Object> result = (Map<String, Object>) answer.getOrDefault(RESULT, Map.of());
-    final List<Object> content = (List<Object>) result.getOrDefault("content", List.of());
-    final String text =
-        content.stream()
-            .filter(Map.class::isInstance)
-            .map(item -> (Map<String, Object>) item)
-            .filter(item -> "text".equals(item.get("type")))
-            .map(item -> String.valueOf(item.get("text")))
-            .collect(Collectors.joining("\n"));
-    final boolean isError = Boolean.TRUE.equals(result.get("isError"));
-    return new McpCallResult(
-        isError, text, content, result.get("structuredContent"), isError ? text : null);
+    return McpCallResult.fromResult((Map<String, Object>) answer.getOrDefault(RESULT, Map.of()));
   }
 
   private static Map<String, Object> request(

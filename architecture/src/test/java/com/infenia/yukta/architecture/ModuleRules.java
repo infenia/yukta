@@ -41,6 +41,7 @@ public final class ModuleRules {
           "script-js>internal-core",
           "decision>llm-call",
           "external>process-executor",
+          "external>mcp-tool-call",
           "model-control-plane>decision",
           "rule-control-plane>rule-supervisor",
           "rules-first-control-plane>rule-control-plane",

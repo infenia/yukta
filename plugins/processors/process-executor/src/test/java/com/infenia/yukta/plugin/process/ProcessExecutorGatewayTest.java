@@ -584,6 +584,42 @@ class ProcessExecutorGatewayTest {
 
   @Test
   @DisabledOnOs(OS.WINDOWS)
+  void installedInteractive_talksOverStdin() {
+    gateway.setPassEnv(List.of("*"));
+    final ProcessExecutionSpec spec =
+        ProcessExecutionSpec.builder()
+            .command(List.of("sh", "-c", "read line; echo \"got $line\""))
+            .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+            .build();
+
+    StepVerifier.create(
+            gateway.executeInstalledInteractive(
+                spec,
+                PluginLogSink.NOOP,
+                writer -> {
+                  writer.write("hello");
+                  writer.close();
+                }))
+        .assertNext(r -> assertThat(r.stdoutLines()).first().isEqualTo("got hello"))
+        .verifyComplete();
+    StepVerifier.create(
+            gateway.executeInstalledInteractive(
+                ProcessExecutionSpec.builder()
+                    .command(List.of("x"))
+                    .useShell(true)
+                    .timeoutSeconds(DEFAULT_TIMEOUT_SECONDS)
+                    .build(),
+                PluginLogSink.NOOP,
+                writer -> {}))
+        .expectErrorMessage("an installed command never runs in a shell")
+        .verify();
+    StepVerifier.create(gateway.executeInstalledInteractive(null, PluginLogSink.NOOP, w -> {}))
+        .expectErrorMessage("spec is mandatory")
+        .verify();
+  }
+
+  @Test
+  @DisabledOnOs(OS.WINDOWS)
   void passEnv_addsTheNamedServerVariables() {
     gateway.setPassEnv(List.of("HOME"));
 

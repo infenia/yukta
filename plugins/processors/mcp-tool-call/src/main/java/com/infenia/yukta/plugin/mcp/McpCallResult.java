@@ -3,6 +3,8 @@
 package com.infenia.yukta.plugin.mcp;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * Outcome of an MCP tool call. A tool-reported error is data, not an exception.
@@ -29,5 +31,26 @@ public record McpCallResult(
    */
   public static McpCallResult transportFailure(final String message) {
     return new McpCallResult(true, "", List.of(), null, message);
+  }
+
+  /**
+   * Reads the {@code result} of a {@code tools/call} reply.
+   *
+   * @param result the JSON-RPC result: {@code content}, {@code isError}, {@code structuredContent}
+   * @return the outcome
+   */
+  @SuppressWarnings("unchecked")
+  public static McpCallResult fromResult(final Map<String, Object> result) {
+    final List<Object> content = (List<Object>) result.getOrDefault("content", List.of());
+    final String text =
+        content.stream()
+            .filter(Map.class::isInstance)
+            .map(item -> (Map<String, Object>) item)
+            .filter(item -> "text".equals(item.get("type")))
+            .map(item -> String.valueOf(item.get("text")))
+            .collect(Collectors.joining("\n"));
+    final boolean isError = Boolean.TRUE.equals(result.get("isError"));
+    return new McpCallResult(
+        isError, text, content, result.get("structuredContent"), isError ? text : null);
   }
 }

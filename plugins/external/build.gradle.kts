@@ -11,6 +11,8 @@ dependencies {
     implementation(project(":plugin-api"))
     // runs the plugin commands (ModuleRules.ALLOWED: external>process-executor)
     implementation(project(":plugins:processors:process-executor"))
+    // reaches run.mcp plugins over HTTP (ModuleRules.ALLOWED: external>mcp-tool-call)
+    implementation(project(":plugins:processors:mcp-tool-call"))
     implementation(libs.jackson.databind)
     // validates manifests and plugin output against the plugin-api schemas
     implementation(libs.mcp.json.jackson3)
