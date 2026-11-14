@@ -33,17 +33,17 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
 
 <Steps>
   <Step title="Write the manifest">
-    `yukta-plugin.json` in the plugin's directory:
+    A plugin is its own directory (usually its own git repository), outside the Yukta repository. Create `word-count/yukta-plugin.json`:
 
     ```json
     {
       "apiVersion": "yukta/plugin/v1",
       "type": "WORD_COUNT",
       "category": "processor",
-      "description": "Count the words of a text field",
+      "description": "Count the words of a text field; long texts go to the 'long' port",
       "config": [
-        { "name": "field", "type": "STRING", "default": "text" },
-        { "name": "token", "type": "SECRET", "required": true }
+        { "name": "field", "type": "STRING", "default": "text", "description": "Payload field that holds the text" },
+        { "name": "longOver", "type": "NUMBER", "default": 100, "description": "Word count above which the message goes to 'long'" }
       ],
       "ports": ["default", "long"],
       "timeout": "5s",
@@ -51,14 +51,36 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
     }
     ```
 
-    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. `run.image` and `run.mcp` are planned and refused for now.
+    `type` is upper case and may not be the type of any other plugin. `config` fields have the same shape as a built-in plugin's, so the UI shows a form; declare a credential as a `SECRET` field. `command` is an argument list, never a shell line: an executable with a `/` is taken from the plugin's directory, a bare name from `PATH`. `timeout` defaults to `30s`. `run.image` and `run.mcp` are planned and refused for now.
   </Step>
 
   <Step title="Write the program">
-    The [WORD_COUNT example](https://github.com/infenia/yukta/tree/main/examples/plugins/word-count) is 20 lines of Python. Try yours without a server by piping a message into it:
+    `word-count/main.py` reads the envelope, logs to stderr and writes one output object:
+
+    ```python
+    import json
+    import sys
+
+    envelope = json.load(sys.stdin)
+    if envelope.get("apiVersion") != "yukta/message/v1":
+        sys.exit(f"unsupported envelope {envelope.get('apiVersion')}")
+
+    config = envelope["config"]
+    payload = envelope["message"]["payload"]
+    field = config.get("field", "text")
+    text = payload.get(field, "") if isinstance(payload, dict) else str(payload)
+    words = len(str(text).split())
+    print(f"counted {words} words", file=sys.stderr)  # stderr goes to the node's log
+
+    port = "long" if words > config.get("longOver", 100) else "default"
+    out = {**payload, "words": words} if isinstance(payload, dict) else {"words": words}
+    print(json.dumps({"payload": out, "port": port}))
+    ```
+
+    Try it without a server by piping a message into it:
 
     ```bash
-    echo '{"apiVersion":"yukta/message/v1","config":{},"message":{"id":"1","metadata":{},"payload":{"text":"a b c"}}}' \
+    echo '{"apiVersion":"yukta/message/v1","config":{"longOver":3},"message":{"id":"1","metadata":{},"payload":{"text":"one two three four"}}}' \
       | python3 main.py
     ```
 
@@ -72,7 +94,7 @@ Ignore properties you do not know (later v1 releases may add some) and refuse an
   </Step>
 
   <Step title="Install it (operator)">
-    Put the directory under the plugins directory and name the type in the enable list, then restart:
+    Put the plugin's directory (for example a `git clone` of its repository) under the plugins directory and name the type in the enable list, then restart:
 
     ```bash
     YUKTA_PLUGINS_DIR=/opt/yukta/plugins       # holds word-count/yukta-plugin.json
