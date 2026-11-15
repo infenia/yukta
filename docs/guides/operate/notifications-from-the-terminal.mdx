@@ -5,6 +5,15 @@ description: "Read your inbox from the command line, and get a desktop notificat
 keywords: ["notifications", "notify", "desktop", "inbox", "systemd", "launchd", "notify-send"]
 ---
 
+import { ReaderState } from "/snippets/reader-state.jsx";
+
+<ReaderState
+  learn="how to read your inbox from the command line and get a desktop notification without a browser"
+  time="10 minutes"
+  need="the Yukta CLI and an API key that may read notifications"
+  end="yukta notify running at login, raising a native notification for each new alert or question"
+/>
+
 Your inbox holds the alerts and questions Yukta has for you. The CLI reads it, and `yukta notify` raises a native desktop notification for each new item, so you do not need a browser tab open.
 
 ## Read and acknowledge
