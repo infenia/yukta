@@ -1147,7 +1147,7 @@ export interface paths {
         };
         /**
          * Stream my notifications
-         * @description created, updated, resolved and receipt events for the caller, with ids <epoch>-<seq>. A reconnect with Last-Event-ID replays the changes after it (at most 500); a position of another epoch (the server restarted) or too far back gets one reset event, and the client loads the list again. At most 8 streams per key; 503 on a standby server.
+         * @description created, updated, resolved and receipt events for the caller (the type is in the data; the events have no SSE name, so a browser EventSource delivers them to onmessage), with ids <epoch>-<seq>. A reconnect with Last-Event-ID replays the changes after it (at most 500); a position of another epoch (the server restarted) or too far back gets one reset event, and the client loads the list again. At most 8 streams per key; 503 on a standby server.
          */
         get: operations["stream"];
         put?: never;

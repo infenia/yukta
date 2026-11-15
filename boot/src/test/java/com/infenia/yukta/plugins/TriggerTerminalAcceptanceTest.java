@@ -113,7 +113,7 @@ class TriggerTerminalAcceptanceTest {
   }
 
   @Test
-  void notifyTerminalWithInboxTargetRaisesANotificationOwnedByItsRun() {
+  void notifyTerminalWithInboxTargetRaisesNotificationOwnedByItsRun() {
     final var key =
         wf.save(
             List.of(

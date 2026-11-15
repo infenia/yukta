@@ -483,7 +483,8 @@ public class NotificationsController {
       return Mono.empty();
     }
     return inputs
-        .require(Objects.requireNonNull(n.executionId()), Objects.requireNonNull(n.inputRequestId()))
+        .require(
+            Objects.requireNonNull(n.executionId()), Objects.requireNonNull(n.inputRequestId()))
         .flatMap(request ->
             inputs
                 .answer(request)
