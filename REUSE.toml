@@ -49,7 +49,7 @@ SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
 
 [[annotations]]
-path = [".reuse/dep5", ".mcp.json", "cli/go.mod", "cli/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
+path = [".reuse/dep5", ".mcp.json", "cli/go.mod", "cli/go.sum", "design/decisions/0004-agent-console/spike/go.mod", "design/decisions/0004-agent-console/spike/go.sum", "cli/.gitignore", ".gitmessage", ".git-commit-guide.md" ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "none"
 SPDX-License-Identifier = "CC0-1.0"
@@ -69,7 +69,7 @@ SPDX-License-Identifier = "MIT"
 
 # Markdown, CSV (test fixtures and example data) and bean-inventory files are covered here rather than with in-file headers, so no SPDX block is ever needed in them
 [[annotations]]
-path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json", "ui/openapi.json", "release-please-config.json", ".release-please-manifest.json", "version.txt", "**/src/test/resources/**/*.csv", "examples/**/*.csv", "boot/src/test/resources/expected-beans.txt"]
+path = ["**/*.md", "docs/**/*.mdx", "docs/docs.json", "docs/.mintignore", "docs/style.css", "docs/api/openapi.json", "ui/openapi.json", "release-please-config.json", ".release-please-manifest.json", "version.txt", "**/src/test/resources/**/*.csv", "**/src/test/resources/agent-sessions/**/*.jsonl", "examples/**/*.csv", "boot/src/test/resources/expected-beans.txt"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 Infenia Private Limited"
 SPDX-License-Identifier = "Apache-2.0"
