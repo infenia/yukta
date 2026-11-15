@@ -3,6 +3,7 @@
 package com.infenia.yukta.service.control.directive;
 
 import com.infenia.yukta.plugin.control.ExecutionControlCommand;
+import com.infenia.yukta.service.control.processor.AgentCommandProcessor;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.NodeValveCommands;
@@ -38,6 +39,7 @@ public class CommandHandler {
   private final SetBreakpointCommandProcessor setBreakpoint;
   private final AnswerInputCommandProcessor answerInput;
   private final EscalateInputCommandProcessor escalateInput;
+  private final AgentCommandProcessor agent;
 
   /**
    * Runs one command.
@@ -70,6 +72,9 @@ public class CommandHandler {
       case ExecutionControlCommand.DrainCommand _ -> noProcessor();
       case ExecutionControlCommand.AnswerInputCommand c -> answerInput.process(c);
       case ExecutionControlCommand.EscalateInputCommand c -> escalateInput.process(c);
+      case ExecutionControlCommand.AgentMessageCommand c -> agent.process(c);
+      case ExecutionControlCommand.AgentInterruptCommand c -> agent.process(c);
+      case ExecutionControlCommand.AgentEndCommand c -> agent.process(c);
     };
   }
 

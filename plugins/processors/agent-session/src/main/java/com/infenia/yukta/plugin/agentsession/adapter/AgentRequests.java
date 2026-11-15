@@ -58,7 +58,7 @@ public final class AgentRequests {
   private static final int CONTEXT_VALUE_MAX_BYTES = 1000;
 
   private final AgentPreset.Interactive talk;
-  private final Settings settings;
+  private final @Nullable Settings settings;
   private final ObjectMapper json;
   private final Supplier<@Nullable InputGateway> gateway;
   private final InputIdentity who;
@@ -89,7 +89,7 @@ public final class AgentRequests {
    */
   /* default */ AgentRequests(
       final AgentPreset.Interactive talk,
-      final Settings settings,
+      final @Nullable Settings settings,
       final ObjectMapper json,
       final Supplier<@Nullable InputGateway> gateway,
       final InputIdentity who,
@@ -123,7 +123,7 @@ public final class AgentRequests {
    */
   /* default */ AgentRequests(
       final AgentPreset.Interactive talk,
-      final Settings settings,
+      final @Nullable Settings settings,
       final ObjectMapper json,
       final Supplier<@Nullable InputGateway> gateway,
       final InputIdentity who,
@@ -174,13 +174,19 @@ public final class AgentRequests {
    * @param request what the harness wants
    */
   /* default */ void handle(final AgentOutput.Request request) {
+    final Settings asked = settings;
+    if (asked == null) {
+      // approvals are off for this node: the agent asks, the answer is no
+      stdin.write(deny(request, "approvals are off for this node"));
+      return;
+    }
     final String prompt = prompt(request);
     conversation.emit(AgentEventKind.REQUEST, request.id(), opened(request, prompt));
     if (open.incrementAndGet() == FIRST_OPEN) {
       conversation.state(AgentState.WAITING, "approval");
     }
     pending.add(
-        Mono.defer(() -> InputAsk.ask(gateway, spec(request, prompt)))
+        Mono.defer(() -> InputAsk.ask(gateway, spec(request, prompt, asked)))
             .doOnNext(answer -> answered(request, answer))
             .map(answer ->
                 "approve".equalsIgnoreCase(answer.decision())
@@ -199,6 +205,31 @@ public final class AgentRequests {
               }
             })
             .subscribe(stdin::write));
+  }
+
+  /**
+   * Writes the line that stops the turn.
+   *
+   * @return false when the harness has no interrupt line
+   */
+  /* default */ boolean interrupt() {
+    if (!talk.canInterrupt()) {
+      return false;
+    }
+    final AgentOutput.Request id =
+        new AgentOutput.Request(
+            java.util.UUID.randomUUID().toString(), "", json.getNodeFactory().nullNode(), "");
+    stdin.write(render(talk.interrupt(), id, ""));
+    return true;
+  }
+
+  /**
+   * Writes a message of a user to the agent.
+   *
+   * @param text the message
+   */
+  /* default */ void say(final String text) {
+    stdin.write(userMessage(talk.userMessage(), text, json));
   }
 
   /** The {@code REQUEST} event of a request that was just raised. */
@@ -249,7 +280,8 @@ public final class AgentRequests {
         InputLimits.PROMPT_MAX_BYTES);
   }
 
-  private InputRequestSpec spec(final AgentOutput.Request request, final String text) {
+  private InputRequestSpec spec(
+      final AgentOutput.Request request, final String text, final Settings asked) {
     final Map<String, Object> context = new LinkedHashMap<>();
     context.put("tool", request.tool());
     context.put("input", InputAsk.clean(request.input().toString(), CONTEXT_VALUE_MAX_BYTES));
@@ -261,9 +293,9 @@ public final class AgentRequests {
         context,
         List.of(),
         null,
-        settings.risk(),
-        settings.audience(),
-        settings.ttl(),
+        asked.risk(),
+        asked.audience(),
+        asked.ttl(),
         TimeoutAction.FAIL,
         null,
         null,

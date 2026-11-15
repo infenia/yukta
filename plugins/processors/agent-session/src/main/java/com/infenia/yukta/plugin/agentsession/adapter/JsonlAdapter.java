@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Mono;
 import tools.jackson.databind.ObjectMapper;
@@ -60,30 +61,38 @@ public final class JsonlAdapter implements AgentAdapter {
   @Override
   public Mono<Map<String, Object>> run(final AgentRun run) {
     return Mono.defer(() -> {
-      final AgentConversationHandle conversation = run.conversation();
+      final AgentConversationHandle conversation = run.handle();
       final AgentOutput output =
           new AgentOutput(
               run.preset().output(), run.talk(), new LogMirror(run.log()), conversation, json);
       conversation.emit(AgentEventKind.MESSAGE, PROMPT_ITEM, prompt(run.prompt()));
       conversation.state(AgentState.RUNNING, null);
+      final AtomicReference<Chat> chat = new AtomicReference<>();
       final Mono<ProcessExecutionResult> ended =
           run.talk() == null
               ? gateway.executeForResult(run.spec(), output)
-              : converse(run, run.talk(), output);
+              : converse(run, run.talk(), output, chat);
       return ended
-          .map(r -> output.outcome(r.exitCode(), r.timedOut(), run.timeoutSeconds()))
-          .doOnNext(outcome -> finish(conversation, output, outcome))
+          .map(r ->
+              settle(chat.get(), output.outcome(r.exitCode(), r.timedOut(), run.timeoutSeconds())))
+          .doOnNext(outcome -> finish(conversation, output, outcome, chat.get()))
           .doOnError(
               error -> conversation.end(AgentOutcome.FAILURE, String.valueOf(error.getMessage())))
           .doOnCancel(() -> conversation.end(AgentOutcome.INCOMPLETE, "cancelled"));
     });
   }
 
+  private static Map<String, Object> settle(
+      final @Nullable Chat chat, final Map<String, Object> outcome) {
+    return chat == null ? outcome : chat.settle(outcome);
+  }
+
   /** Records the result of the turn and ends the conversation with its status as the outcome. */
   private static void finish(
       final AgentConversationHandle conversation,
       final AgentOutput output,
-      final Map<String, Object> outcome) {
+      final Map<String, Object> outcome,
+      final @Nullable Chat chat) {
     final String status = String.valueOf(outcome.get("status"));
     final Object reason = outcome.get("reason");
     output.closeTools(AgentOutcome.FAILURE.equals(status));
@@ -94,7 +103,10 @@ public final class JsonlAdapter implements AgentAdapter {
     }
     result.put("text", outcome.get("text"));
     result.put("turn", outcome.get("turn"));
-    conversation.emit(AgentEventKind.RESULT, null, result);
+    // a turn that ended with its result line has written its RESULT already
+    if (chat == null || chat.busy()) {
+      conversation.emit(AgentEventKind.RESULT, null, result);
+    }
     conversation.end(status, reason == null ? null : String.valueOf(reason));
   }
 
@@ -108,10 +120,12 @@ public final class JsonlAdapter implements AgentAdapter {
   }
 
   private Mono<ProcessExecutionResult> converse(
-      final AgentRun run, final AgentPreset.Interactive talk, final AgentOutput output) {
+      final AgentRun run,
+      final AgentPreset.Interactive talk,
+      final AgentOutput output,
+      final AtomicReference<Chat> chat) {
     final InputIdentity who =
-        Objects.requireNonNull(
-            run.who(), "an agent that asks for approvals must run inside a node");
+        Objects.requireNonNull(run.who(), "an agent that takes messages must run inside a node");
     final AtomicReference<AgentRequests> requests = new AtomicReference<>();
     return gateway
         .executeInteractive(
@@ -128,11 +142,15 @@ public final class JsonlAdapter implements AgentAdapter {
                       run.message(),
                       run.preset().id(),
                       stdin,
-                      run.conversation());
+                      run.handle());
               requests.set(a);
-              output.converse(a::handle, stdin::close);
-              stdin.write(AgentRequests.userMessage(talk.userMessage(), run.prompt(), json));
+              final Chat c = new Chat(run, output, a, stdin);
+              chat.set(c);
+              c.start();
             })
-        .doFinally(signal -> Mono.justOrEmpty(requests.get()).subscribe(AgentRequests::dispose));
+        .doFinally(signal -> {
+          Mono.justOrEmpty(requests.get()).subscribe(AgentRequests::dispose);
+          Mono.justOrEmpty(chat.get()).subscribe(Chat::dispose);
+        });
   }
 }

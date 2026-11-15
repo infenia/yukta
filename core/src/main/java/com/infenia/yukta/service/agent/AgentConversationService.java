@@ -111,6 +111,16 @@ public class AgentConversationService implements DisposableBean {
   }
 
   /**
+   * Finds a conversation, live or ended.
+   *
+   * @param conversationId the conversation
+   * @return the conversation, or empty when it is unknown
+   */
+  public Mono<AgentConversation> find(final String conversationId) {
+    return store.find(conversationId);
+  }
+
+  /**
    * Opens a conversation in state {@code STARTING}.
    *
    * @param spec what the plugin knows about it

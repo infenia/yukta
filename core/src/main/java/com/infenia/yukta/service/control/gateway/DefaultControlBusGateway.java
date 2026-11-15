@@ -721,6 +721,38 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
   }
 
   @Override
+  public Mono<Void> agentMessage(
+      final String executionId,
+      final String nodeId,
+      final String conversationId,
+      final String text,
+      final boolean interrupt) {
+    return nodes.agentCommand(
+        new ExecutionControlCommand.AgentMessageCommand(
+            executionId, nodeId, conversationId, text, interrupt));
+  }
+
+  @Override
+  public Mono<Void> agentInterrupt(
+      final String executionId, final String nodeId, final String conversationId) {
+    return nodes.agentCommand(
+        new ExecutionControlCommand.AgentInterruptCommand(executionId, nodeId, conversationId));
+  }
+
+  @Override
+  @SuppressWarnings("PMD.UseObjectForClearerAPI")
+  public Mono<Void> agentEnd(
+      final String executionId,
+      final String nodeId,
+      final String conversationId,
+      @Nullable final String outcome,
+      @Nullable final String reason) {
+    return nodes.agentCommand(
+        new ExecutionControlCommand.AgentEndCommand(
+            executionId, nodeId, conversationId, outcome, reason));
+  }
+
+  @Override
   @SuppressWarnings("PMD.UseObjectForClearerAPI")
   public Mono<Void> escalateInput(
       final String executionId,

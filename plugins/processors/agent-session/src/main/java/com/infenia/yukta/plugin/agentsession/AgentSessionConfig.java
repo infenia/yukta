@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.agentsession;
 
 import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.core.ConfigField;
+import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.util.ConfigValidation;
@@ -34,6 +35,14 @@ final class AgentSessionConfig {
   private static final String APPROVAL_TIMEOUT = "approvalTimeout";
   private static final String APPROVAL_AUDIENCE = "approvalAudience";
   private static final String TIMEOUT = "timeout";
+  private static final String MODE = "mode";
+  private static final String IDLE_TIMEOUT = "idleTimeout";
+  private static final String CONVERSATION_TIMEOUT = "conversationTimeout";
+  /* default */ static final String STEER_AUDIENCE = "steerAudience";
+  private static final String CONVERSATION = "CONVERSATION";
+  private static final String TASK = "TASK";
+  private static final long DEFAULT_IDLE_SECONDS = 900;
+  private static final long DEFAULT_CONVERSATION_SECONDS = 14_400;
   private static final String WAIT = "WAIT";
   private static final String FAIL = "FAIL";
   private static final String NONE = "NONE";
@@ -106,6 +115,32 @@ final class AgentSessionConfig {
             null,
             "Who may answer: supervisor:<id>, role:OPERATOR, key:<name>, ... (default: the current"
                 + " tier)"),
+        ConfigField.choice(
+            MODE,
+            false,
+            TASK,
+            "TASK: the node ends when the agent finishes its turn. CONVERSATION: the node stays"
+                + " open for more messages (sent to the conversation) until it is ended, idle for"
+                + " idleTimeout or running for conversationTimeout. Needs a harness that takes"
+                + " messages on stdin (interactive) or can resume.",
+            TASK,
+            CONVERSATION),
+        ConfigField.optional(
+            IDLE_TIMEOUT,
+            ConfigField.Type.NUMBER,
+            DEFAULT_IDLE_SECONDS,
+            "CONVERSATION: seconds the agent may wait for a message before the node ends"),
+        ConfigField.optional(
+            CONVERSATION_TIMEOUT,
+            ConfigField.Type.NUMBER,
+            DEFAULT_CONVERSATION_SECONDS,
+            "CONVERSATION: seconds the whole node may run"),
+        ConfigField.optional(
+            STEER_AUDIENCE,
+            ConfigField.Type.LIST,
+            null,
+            "Who may send a message, interrupt or end the conversation: role:OPERATOR (default),"
+                + " key:<name>, supervisor:<id>, supervisor:*"),
         ConfigField.optional(WORKING_DIR, ConfigField.Type.STRING, null, "Working directory"),
         ConfigField.optional(ENV, ConfigField.Type.MAP, null, "Extra environment variables"),
         ConfigField.optional(
@@ -163,6 +198,12 @@ final class AgentSessionConfig {
         preset,
         "cannot ask for approvals",
         APPROVALS);
+    refuse(
+        converses(config) && preset.interactive() == null,
+        preset,
+        "takes no messages on stdin (it has no interactive mode), so it cannot hold a"
+            + " conversation",
+        MODE);
     validateValues(config);
   }
 
@@ -173,6 +214,10 @@ final class AgentSessionConfig {
       throw new IllegalArgumentException("args must be a list of strings");
     }
     timeoutSeconds(config);
+    positive(config, IDLE_TIMEOUT, DEFAULT_IDLE_SECONDS);
+    positive(config, CONVERSATION_TIMEOUT, DEFAULT_CONVERSATION_SECONDS);
+    steerAudience(config);
+    converses(config);
     ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
   }
 
@@ -232,7 +277,36 @@ final class AgentSessionConfig {
         InputAsk.audience(config.get(APPROVAL_AUDIENCE)));
   }
 
+  /* default */ static Audience steerAudience(final Map<String, Object> config) {
+    return config.get(STEER_AUDIENCE) == null
+        ? new Audience(List.of("role:OPERATOR"))
+        : InputAsk.audience(config.get(STEER_AUDIENCE));
+  }
+
+  /* default */ static boolean converses(final Map<String, Object> config) {
+    return CONVERSATION.equals(choice(config, MODE, TASK, CONVERSATION));
+  }
+
+  /* default */ static Duration idleTimeout(final Map<String, Object> config) {
+    return Duration.ofSeconds(positive(config, IDLE_TIMEOUT, DEFAULT_IDLE_SECONDS));
+  }
+
+  private static long positive(
+      final Map<String, Object> config, final String key, final long fallback) {
+    final Object value = config.get(key);
+    if (value == null) {
+      return fallback;
+    }
+    if (value instanceof final Number n && n.longValue() > 0) {
+      return n.longValue();
+    }
+    throw new IllegalArgumentException(key + " must be positive, got: " + value);
+  }
+
   /* default */ static long timeoutSeconds(final Map<String, Object> config) {
+    if (converses(config)) {
+      return positive(config, CONVERSATION_TIMEOUT, DEFAULT_CONVERSATION_SECONDS);
+    }
     final Object value = config.get(TIMEOUT);
     if (value == null) {
       return DEFAULT_TIMEOUT_SECONDS;

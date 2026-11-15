@@ -22,6 +22,7 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.security.ApiRole;
 import com.infenia.yukta.service.archive.ExecutionArchiveFixture;
 import com.infenia.yukta.service.control.ControlBusService;
+import com.infenia.yukta.service.control.processor.AgentCommandProcessor;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.NodeValveCommands;
@@ -98,7 +99,8 @@ class DirectiveDispatcherInputTest {
             mock(SkipNodeCommandProcessor.class),
             mock(SetBreakpointCommandProcessor.class),
             new AnswerInputCommandProcessor(guard, flow.broker),
-            mock(EscalateInputCommandProcessor.class)),
+            mock(EscalateInputCommandProcessor.class),
+            mock(AgentCommandProcessor.class)),
         registry,
         mock(ControlBusService.class),
         ExecutionArchiveFixture.create(),

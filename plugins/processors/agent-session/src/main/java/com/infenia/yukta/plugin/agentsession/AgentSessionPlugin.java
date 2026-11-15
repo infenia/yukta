@@ -18,7 +18,6 @@ import com.infenia.yukta.plugin.core.PluginDescriptor;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.core.WorkflowContext;
-import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.process.ProcessExecutionSpec;
@@ -59,9 +58,6 @@ import tools.jackson.databind.ObjectMapper;
 public final class AgentSessionPlugin implements ProcessorPlugin {
 
   private static final String TYPE = "AGENT_SESSION";
-
-  /** Who may steer a conversation until the node can say (Q1 of ADR 0004: operators only). */
-  private static final Audience STEER_AUDIENCE = new Audience(List.of("role:OPERATOR"));
 
   private static final String FAILURE = "failure";
   private static final String STATUS = "status";
@@ -246,27 +242,20 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final AgentSessionStore.Lease lease) {
     final long timeout = AgentSessionConfig.timeoutSeconds(config);
     final boolean ask = AgentSessionConfig.asks(config);
-    final AgentPreset.Interactive talk = ask ? preset.interactive() : null;
     final String token = lease == null ? null : lease.token();
     final int attempt = lease == null ? 1 : lease.turns() + 1;
-    final ProcessExecutionSpec spec =
-        ProcessExecutionSpec.builder()
-            .command(
-                AgentSessionConfig.command(
-                    talk == null ? preset.command() : talk.command(), preset, config, turn, token))
-            .workingDir(turn.workingDir().isEmpty() ? null : turn.workingDir())
-            .timeoutSeconds(timeout)
-            .env(turn.env())
-            .maxOutputLines(KEPT_LINES)
-            .maxOutputBytes(KEPT_BYTES)
-            // standard error is kept apart so the conversation can show it as notices; the run log
-            // still gets its lines as it always did (LogMirror)
-            .captureStderr(true)
-            .build();
+    final boolean chat = AgentSessionConfig.converses(config);
     final AgentRequests.Settings approvals = ask ? AgentSessionConfig.settings(config) : null;
     return Mono.deferContextual(ctx -> {
-      final InputIdentity who = talk == null ? identity(ctx) : InputIdentity.from(ctx);
-      return open(who, message, preset, turn, ask)
+      final InputIdentity who = ask ? InputIdentity.from(ctx) : identity(ctx);
+      // a preset with an interactive mode always starts in it when the run is recorded, so a
+      // message can be sent; without a node identity there is no one to ask or to steer
+      final AgentPreset.Interactive talk =
+          who != null && (ask || conversations.getIfAvailable() != null)
+              ? preset.interactive()
+              : null;
+      final ProcessExecutionSpec spec = spec(config, preset, turn, talk, token, timeout);
+      return open(who, message, preset, turn, capabilities(preset, talk, ask), config)
           .flatMap(conversation ->
               adapters
                   .get(preset.protocol())
@@ -282,9 +271,34 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                           conversation,
                           ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
                               .orElse(PluginLogSink.NOOP),
-                          who))
+                          who,
+                          chat,
+                          AgentSessionConfig.idleTimeout(config),
+                          ctx.<Runnable>getOrDefault(WorkflowContext.HEARTBEAT_KEY, () -> {})))
                   .map(outcome -> reply(message, outcome, lease, attempt, conversation)));
     });
+  }
+
+  private static ProcessExecutionSpec spec(
+      final Map<String, Object> config,
+      final AgentPreset preset,
+      final Turn turn,
+      final AgentPreset.@Nullable Interactive talk,
+      final @Nullable String token,
+      final long timeout) {
+    return ProcessExecutionSpec.builder()
+        .command(
+            AgentSessionConfig.command(
+                talk == null ? preset.command() : talk.command(), preset, config, turn, token))
+        .workingDir(turn.workingDir().isEmpty() ? null : turn.workingDir())
+        .timeoutSeconds(timeout)
+        .env(turn.env())
+        .maxOutputLines(KEPT_LINES)
+        .maxOutputBytes(KEPT_BYTES)
+        // standard error is kept apart so the conversation can show it as notices; the run log
+        // still gets its lines as it always did (LogMirror)
+        .captureStderr(true)
+        .build();
   }
 
   /**
@@ -297,7 +311,8 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final Message<?> message,
       final AgentPreset preset,
       final Turn turn,
-      final boolean ask) {
+      final Set<String> capabilities,
+      final Map<String, Object> config) {
     final AgentConversationGateway gateway = conversations.getIfAvailable();
     if (gateway == null || who == null) {
       return Mono.just(AgentConversationHandle.none());
@@ -310,18 +325,28 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
                 preset.id(),
                 preset.protocol(),
                 turn.model().isEmpty() ? null : turn.model(),
-                capabilities(preset, ask),
-                STEER_AUDIENCE))
+                capabilities,
+                AgentSessionConfig.steerAudience(config)))
         .onErrorResume(e -> {
           log.atWarn().setCause(e).log("Could not open an agent conversation; running without");
           return Mono.just(AgentConversationHandle.none());
         });
   }
 
-  /** What this conversation can do: the preset's capabilities that exist before steering does. */
-  private static Set<String> capabilities(final AgentPreset preset, final boolean ask) {
+  /** What this conversation can do, from the preset and how the agent runs. */
+  private static Set<String> capabilities(
+      final AgentPreset preset, final AgentPreset.@Nullable Interactive talk, final boolean ask) {
     final Set<String> found = new LinkedHashSet<>();
-    if (ask && preset.interactive() != null) {
+    if (talk != null) {
+      found.add(AgentCapability.MESSAGE);
+      if (talk.steer()) {
+        found.add(AgentCapability.STEER);
+      }
+      if (talk.canInterrupt()) {
+        found.add(AgentCapability.INTERRUPT);
+      }
+    }
+    if (ask && talk != null) {
       found.add(AgentCapability.ASK);
     }
     if (preset.capabilities().contains("resume")) {

@@ -46,6 +46,9 @@ final class AgentOutput implements PluginLogSink {
    */
   private final AtomicInteger items = new AtomicInteger();
 
+  /** The turn being worked on; the first is 1. */
+  private final AtomicInteger turns = new AtomicInteger(1);
+
   /** The tool calls that have not been closed yet. */
   private final Queue<String> runningTools = new ConcurrentLinkedQueue<>();
 
@@ -205,6 +208,13 @@ final class AgentOutput implements PluginLogSink {
    *
    * @param failed whether the turn failed, which fails the calls that never reported an end
    */
+  /** Forgets the result of the last turn: the next turn starts. */
+  /* default */ void nextTurn() {
+    result.set(null);
+    failure.set(null);
+    turns.incrementAndGet();
+  }
+
   /* default */ void closeTools(final boolean failed) {
     String id = runningTools.poll();
     while (id != null) {
@@ -251,7 +261,7 @@ final class AgentOutput implements PluginLogSink {
   /* default */ Map<String, Object> outcome(
       final int exitCode, final boolean timedOut, final long timeoutSeconds) {
     final Map<String, Object> out = new LinkedHashMap<>();
-    out.put("turn", 1);
+    out.put("turn", turns.get());
     out.put("exitCode", exitCode);
     if (timedOut) {
       return fail(out, "timed out after " + timeoutSeconds + "s", "");

@@ -10,6 +10,7 @@ import com.infenia.yukta.plugin.input.InputRejectedException;
 import com.infenia.yukta.service.ConflictException;
 import com.infenia.yukta.service.ExecutionRejectedException;
 import com.infenia.yukta.service.NotFoundException;
+import com.infenia.yukta.service.agent.AgentSteeringException;
 import com.infenia.yukta.service.input.InputAnsweredException;
 import com.infenia.yukta.service.input.token.InvalidAnswerTokenException;
 import com.infenia.yukta.service.leader.NotLeaderException;
@@ -312,6 +313,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         .getConflicts()
         .forEach(c -> errors.add(new ApiResponse.FieldError("supervisor", c.otherSupervisorId())));
     return buildErrorResponse(HttpStatus.CONFLICT, exception.getMessage(), request, errors);
+  }
+
+  /**
+   * Handles a command to an agent that was refused: the status of the reason (403, 409, 413 or 429)
+   * and a {@code code} (and the missing {@code capability}) in the {@code errors}.
+   *
+   * @param exception the refusal
+   * @param request the request
+   * @return the error response
+   */
+  @ExceptionHandler(AgentSteeringException.class)
+  public ResponseEntity<ApiResponse<Object>> handleAgentSteering(
+      final AgentSteeringException exception, final ServerHttpRequest request) {
+    final List<ApiResponse.FieldError> errors = new java.util.ArrayList<>();
+    errors.add(new ApiResponse.FieldError("code", exception.reason().code()));
+    if (exception.capability() != null) {
+      errors.add(new ApiResponse.FieldError("capability", exception.capability()));
+    }
+    return buildErrorResponse(
+        HttpStatus.valueOf(exception.reason().status()), exception.getMessage(), request, errors);
   }
 
   /**

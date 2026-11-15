@@ -8,6 +8,7 @@ import com.infenia.yukta.plugin.agentsession.AgentPreset;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.input.InputIdentity;
 import com.infenia.yukta.plugin.process.ProcessExecutionSpec;
+import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -20,10 +21,14 @@ import org.jspecify.annotations.Nullable;
  * @param talk how the harness converses over stdin, or null for a one-shot run
  * @param approvals risk, time to answer and who answers; null when approvals are off
  * @param timeoutSeconds the process timeout, for the outcome
- * @param conversation where the run records what happens; a handle that drops everything when
+ * @param handle where the run records what happens; a handle that drops everything when
  *     conversations are off
  * @param log the run log of the node
  * @param who the run and node, or null when the run has no identity (a test, a direct call)
+ * @param chat true when the node stays open for more messages ({@code mode: CONVERSATION}), false
+ *     when it ends with the first turn
+ * @param idleTimeout how long a conversation may wait for a message
+ * @param heartbeat tells the engine the node is alive
  */
 public record AgentRun(
     Message<?> message,
@@ -33,6 +38,9 @@ public record AgentRun(
     AgentPreset.@Nullable Interactive talk,
     AgentRequests.@Nullable Settings approvals,
     long timeoutSeconds,
-    AgentConversationHandle conversation,
+    AgentConversationHandle handle,
     PluginLogSink log,
-    @Nullable InputIdentity who) {}
+    @Nullable InputIdentity who,
+    boolean chat,
+    Duration idleTimeout,
+    Runnable heartbeat) {}

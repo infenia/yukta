@@ -4,6 +4,7 @@ package com.infenia.yukta.service.control.directive;
 
 import static org.mockito.Mockito.mock;
 
+import com.infenia.yukta.service.control.processor.AgentCommandProcessor;
 import com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor;
 import com.infenia.yukta.service.control.processor.NodeValveCommands;
@@ -36,6 +37,7 @@ final class CommandHandlerFixture {
       mock(AnswerInputCommandProcessor.class);
   /* default */ final EscalateInputCommandProcessor escalateInput =
       mock(EscalateInputCommandProcessor.class);
+  /* default */ final AgentCommandProcessor agent = mock(AgentCommandProcessor.class);
 
   /* default */ final CommandHandler handler =
       new CommandHandler(
@@ -49,5 +51,6 @@ final class CommandHandlerFixture {
           skipNode,
           setBreakpoint,
           answerInput,
-          escalateInput);
+          escalateInput,
+          agent);
 }

@@ -112,6 +112,9 @@ public record AgentPreset(
    * @param description dotted path of a human-readable description
    * @param allow the reply that approves ({@code {id}} and {@code {input}} are replaced)
    * @param deny the reply that refuses ({@code {id}} and {@code {message}} are replaced)
+   * @param steer true when the harness takes a user message written during a turn
+   * @param interrupt the line that stops the turn ({@code {id}} is a new request id), or a missing
+   *     node when the harness cannot be interrupted
    */
   public record Interactive(
       List<String> command,
@@ -122,11 +125,22 @@ public record AgentPreset(
       String input,
       String description,
       JsonNode allow,
-      JsonNode deny) {
+      JsonNode deny,
+      boolean steer,
+      JsonNode interrupt) {
     /** Copies the collections so the record stays immutable. */
     public Interactive {
       command = List.copyOf(command);
       requestWhen = Map.copyOf(requestWhen);
+    }
+
+    /**
+     * Whether the harness can be interrupted.
+     *
+     * @return true when the preset has an {@code interrupt} line
+     */
+    public boolean canInterrupt() {
+      return !interrupt.isMissingNode() && !interrupt.isNull();
     }
   }
 
@@ -259,7 +273,9 @@ public record AgentPreset(
         required(node, "input"),
         node.path("description").asString(""),
         node.path("allow"),
-        node.path("deny"));
+        node.path("deny"),
+        node.path("steer").asBoolean(false),
+        node.path("interrupt"));
   }
 
   private static String required(final JsonNode node, final String field) {
