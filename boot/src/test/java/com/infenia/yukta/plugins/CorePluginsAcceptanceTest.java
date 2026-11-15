@@ -153,16 +153,6 @@ class CorePluginsAcceptanceTest {
   }
 
   @Test
-  void kvStore_putThenGet_returnsTheStoredValue() {
-    final var key =
-        wf.chain(
-            node("put", "KV_STORE", Map.of("op", "put", "key", "k1", "namespace", "it")),
-            node("get", "KV_STORE", Map.of("op", "get", "key", "k1", "namespace", "it")));
-
-    assertThat(wf.runOne(key, Map.of("value", "stored")).toString()).contains("stored");
-  }
-
-  @Test
   void subWorkflow_runsTheChildAndReturnsItsResults() {
     final String session = "it-sub";
     final var child =

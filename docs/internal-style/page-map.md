@@ -34,7 +34,7 @@ Route = path under `docs/` without `.mdx`. "From" = old pages whose facts to reu
 
 ## Guides (how-to, "you")
 Build (A3): guides/build/define-a-workflow, route-and-branch, loop-and-retry, use-variables-and-expressions, validate-and-roll-back, schedule-a-workflow, run-a-sub-workflow, handle-failures, control-a-run (run-controls + run-modes)
-AI (A3): guides/ai/call-an-llm, use-tools-and-mcp-servers, set-token-budgets, keep-session-memory, classify-gate-and-score (plugins/decisions how-to), connect-an-assistant (Claude Code, Gemini CLI, any MCP client), ask-for-input (ASK_INPUT, ask_for_input tool, wait for signal)
+AI (A3): guides/ai/call-an-llm, use-tools-and-mcp-servers, set-token-budgets, classify-gate-and-score (plugins/decisions how-to), connect-an-assistant (Claude Code, Gemini CLI, any MCP client), ask-for-input (ASK_INPUT, ask_for_input tool, wait for signal)
 Supervise (A3): guides/supervise/assign-a-supervisor, write-a-rules-supervisor, write-an-agent-supervisor (http engine), write-a-workflow-supervisor, build-a-hierarchy, replay-a-supervisor, route-input-requests, use-the-control-dashboard
 Operate (A4): guides/operate/deploy, upgrade-and-roll-back, persist-sessions, run-highly-available, add-remote-workers, secure-the-server, observe-runs, tune-capacity-and-limits, troubleshoot, use-the-web-ui, use-the-cli
 Extend (A4): guides/extend/write-a-plugin

@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-.PHONY: sync-skills help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
+.PHONY: sync-skills sync-schemas help build build-all test cover cover-check fmt fmt-check mod-tidy mod-verify vet lint sec vuln check clean
 
 # Release binaries are reproducible: no cgo, no build time, and -trimpath keeps the checkout path out, so
 # the same commit, VERSION and Go toolchain (go.mod) give the same bytes anywhere. release.yml's verify
@@ -68,6 +68,10 @@ sync-skills: ## Copy ../skills into the CLI (embedded) and the Claude plugin
 			if [ -d ../skills/$$s/references ]; then cp -r ../skills/$$s/references $$d/$$s/; fi; \
 		done; \
 	done
+
+sync-schemas: ## Copy the plugin wire schemas from plugin-api (embedded by plugin validate)
+	@cp ../plugin-api/src/main/resources/schema/plugin/v1/manifest.schema.json \
+		../plugin-api/src/main/resources/schema/plugin/v1/message-out.schema.json internal/pluginspec/schema/
 
 test: ## Run Go tests
 	@go test ./...
