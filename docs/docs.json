@@ -282,7 +282,8 @@
             "pages": [
               "reference/releases",
               "reference/whats-new-alpha-4",
-              "reference/migration-alpha-4"
+              "reference/migration-alpha-4",
+              "reference/migration-alpha-5"
             ]
           }
         ]

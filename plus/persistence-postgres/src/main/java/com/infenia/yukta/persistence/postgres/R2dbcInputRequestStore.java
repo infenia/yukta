@@ -9,7 +9,6 @@ import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Vote;
 import com.infenia.yukta.service.input.InputRequestStore;
-import com.infenia.yukta.service.input.delivery.InputDelivery;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.r2dbc.spi.Readable;
 import java.time.Instant;
@@ -263,56 +262,6 @@ public class R2dbcInputRequestStore implements InputRequestStore {
         .bind("now", now)
         .map(this::request)
         .all();
-  }
-
-  @Override
-  public Mono<InputDelivery> enqueueDelivery(final InputDelivery delivery) {
-    return saveDelivery(delivery).thenReturn(delivery);
-  }
-
-  @Override
-  public Flux<InputDelivery> dueDeliveries(final Instant now) {
-    return client
-        .sql(
-            "SELECT id, request_id, tier, responder, state, attempts, next_attempt, last_error"
-                + " FROM input_delivery WHERE state = 'PENDING' AND next_attempt <= :now"
-                + " ORDER BY next_attempt, id")
-        .bind("now", now)
-        .map(row ->
-            new InputDelivery(
-                row.get("id", String.class),
-                row.get("request_id", String.class),
-                row.get("tier", String.class),
-                row.get("responder", String.class),
-                InputDelivery.State.valueOf(row.get("state", String.class)),
-                Objects.requireNonNull(row.get("attempts", Integer.class)),
-                row.get("next_attempt", Instant.class),
-                row.get("last_error", String.class)))
-        .all();
-  }
-
-  @Override
-  public Mono<Void> saveDelivery(final InputDelivery delivery) {
-    return client
-        .sql(
-            """
-            INSERT INTO input_delivery (id, request_id, tier, responder, state, attempts,
-              next_attempt, last_error)
-            VALUES (:id, :request, :tier, :responder, :state, :attempts, :next, :error)
-            ON CONFLICT (id) DO UPDATE SET state = EXCLUDED.state, attempts = EXCLUDED.attempts,
-              next_attempt = EXCLUDED.next_attempt, last_error = EXCLUDED.last_error
-            """)
-        .bind("id", delivery.id())
-        .bind("request", delivery.requestId())
-        .bind("tier", delivery.tier())
-        .bind("responder", delivery.responder())
-        .bind("state", delivery.state().name())
-        .bind("attempts", delivery.attempts())
-        .bind("next", delivery.nextAttempt())
-        .bind("error", nullable(delivery.lastError(), String.class))
-        .fetch()
-        .rowsUpdated()
-        .then();
   }
 
   @Override

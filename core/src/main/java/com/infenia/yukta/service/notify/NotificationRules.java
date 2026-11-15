@@ -20,8 +20,8 @@ import org.springframework.stereotype.Component;
  * cannot use it.
  *
  * <p>With no rule for a category, the built-in default applies: {@code run.failed} is on for
- * operators, every other category is off. With rules for a category, only a rule that matches the
- * run raises; the first by name wins.
+ * operators, {@code delivery.failed} for administrators, every other category is off. With rules
+ * for a category, only a rule that matches the run raises; the first by name wins.
  */
 @Component
 public class NotificationRules {
@@ -34,6 +34,12 @@ public class NotificationRules {
 
   /** The category of a root run a supervisor paused or stopped. */
   public static final String RUN_HELD = "run.held";
+
+  /** The category of a delivery the outbox gave up. */
+  public static final String DELIVERY_FAILED = "delivery.failed";
+
+  /** Who is told when a delivery fails and no rule says otherwise. */
+  private static final List<String> ADMINS = List.of("role:ADMIN");
 
   /** Who is told when a rule names nobody. */
   private static final List<String> OPERATORS = List.of("role:OPERATOR");
@@ -77,9 +83,11 @@ public class NotificationRules {
     final List<NotificationRuleSettings> ofCategory =
         rules.values().stream().filter(rule -> category.equals(rule.category())).toList();
     if (ofCategory.isEmpty()) {
-      return RUN_FAILED.equals(category)
-          ? Optional.of(new Applied(OPERATORS, null, Duration.ZERO, List.of()))
-          : Optional.empty();
+      return switch (category) {
+        case RUN_FAILED -> Optional.of(new Applied(OPERATORS, null, Duration.ZERO, List.of()));
+        case DELIVERY_FAILED -> Optional.of(new Applied(ADMINS, null, Duration.ZERO, List.of()));
+        default -> Optional.empty();
+      };
     }
     return ofCategory.stream()
         .filter(

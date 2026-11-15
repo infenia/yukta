@@ -96,6 +96,31 @@ public interface NotificationStore {
   Mono<Void> savePreferences(NotificationPreferences preferences);
 
   /**
+   * Queues a delivery. A delivery with the id of an existing one changes nothing, so enqueueing the
+   * same notification, channel and tier twice is safe.
+   *
+   * @param delivery the delivery
+   * @return the stored delivery
+   */
+  Mono<NotificationDelivery> enqueueDelivery(NotificationDelivery delivery);
+
+  /**
+   * Lists the deliveries that are due.
+   *
+   * @param now the time to compare with
+   * @return pending deliveries whose next attempt is {@code now} or earlier, oldest first
+   */
+  Flux<NotificationDelivery> dueDeliveries(Instant now);
+
+  /**
+   * Replaces a delivery after a try.
+   *
+   * @param delivery the delivery as it is now
+   * @return completes when it is stored
+   */
+  Mono<Void> saveDelivery(NotificationDelivery delivery);
+
+  /**
    * Removes resolved actions and info notifications not changed since a time, with their receipts.
    * An active action stays.
    *

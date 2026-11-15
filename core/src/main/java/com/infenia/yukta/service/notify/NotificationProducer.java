@@ -7,6 +7,7 @@ import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.plugin.control.ExecutionEvent;
 import com.infenia.yukta.plugin.input.InputRequest;
 import com.infenia.yukta.plugin.input.Responder;
+import com.infenia.yukta.plugin.notify.Notification;
 import com.infenia.yukta.plugin.notify.NotificationKind;
 import com.infenia.yukta.plugin.notify.NotificationSeverity;
 import com.infenia.yukta.service.input.InputRequestStore;
@@ -81,6 +82,7 @@ public class NotificationProducer implements SmartLifecycle {
 
   private final ExecutionEventFeed feed;
   private final NotificationService service;
+  private final NotificationOutbox outbox;
   private final InputRequestStore inputs;
   private final TaskTrackerService tracker;
   private final InternalSessions internalSessions;
@@ -108,6 +110,7 @@ public class NotificationProducer implements SmartLifecycle {
    *
    * @param feed the event feed
    * @param service writes the notifications
+   * @param outbox queues the deliveries to outbound channels
    * @param inputs the input requests, to see whether one is still open
    * @param tracker tells whether a run is a child run
    * @param internalSessions tells whether a session is internal
@@ -117,9 +120,11 @@ public class NotificationProducer implements SmartLifecycle {
    * @param properties the {@code yukta.notifications} settings
    */
   @Autowired
+  @SuppressWarnings("PMD.ExcessiveParameterList")
   public NotificationProducer(
       final ExecutionEventFeed feed,
       final NotificationService service,
+      final NotificationOutbox outbox,
       final InputRequestStore inputs,
       final TaskTrackerService tracker,
       final InternalSessions internalSessions,
@@ -130,6 +135,7 @@ public class NotificationProducer implements SmartLifecycle {
     this(
         feed,
         service,
+        outbox,
         inputs,
         tracker,
         internalSessions,
@@ -147,6 +153,7 @@ public class NotificationProducer implements SmartLifecycle {
    *
    * @param feed the event feed
    * @param service writes the notifications
+   * @param outbox queues the deliveries to outbound channels
    * @param inputs the input requests
    * @param tracker tells whether a run is a child run
    * @param internalSessions tells whether a session is internal
@@ -162,6 +169,7 @@ public class NotificationProducer implements SmartLifecycle {
   public NotificationProducer(
       final ExecutionEventFeed feed,
       final NotificationService service,
+      final NotificationOutbox outbox,
       final InputRequestStore inputs,
       final TaskTrackerService tracker,
       final InternalSessions internalSessions,
@@ -174,6 +182,7 @@ public class NotificationProducer implements SmartLifecycle {
       final Scheduler scheduler) {
     this.feed = feed;
     this.service = service;
+    this.outbox = outbox;
     this.inputs = inputs;
     this.tracker = tracker;
     this.internalSessions = internalSessions;
@@ -230,10 +239,11 @@ public class NotificationProducer implements SmartLifecycle {
 
   private Mono<Void> requested(final InputRequest request, final @Nullable String reason) {
     final List<String> people = people(request.targets());
-    if (people.isEmpty()) {
+    if (!reaches(request)) {
       return Mono.empty();
     }
-    if (withSupervisors(request.targets()) && !grace.isZero()) {
+    // a tier that names a channel is delivered at once; only people wait the grace
+    if (withSupervisors(request.targets()) && !grace.isZero() && !hasChannel(request)) {
       pending.add(
           Mono.delay(grace, scheduler)
               .then(Mono.defer(() -> afterGrace(request.id(), reason)))
@@ -245,7 +255,7 @@ public class NotificationProducer implements SmartLifecycle {
               .subscribe());
       return Mono.empty();
     }
-    return raiseInput(request, people, reason);
+    return raiseInput(request, people, reason).then();
   }
 
   /** After the grace: raise only if the request is still waiting, from its current tier. */
@@ -257,8 +267,9 @@ public class NotificationProducer implements SmartLifecycle {
         .findById(requestId)
         .filter(request -> !request.state().isTerminal())
         .flatMap(request -> {
-          final List<String> people = people(request.targets());
-          return people.isEmpty() ? Mono.empty() : raiseInput(request, people, reason);
+          return reaches(request)
+              ? raiseInput(request, people(request.targets()), reason).then()
+              : Mono.<Void>empty();
         })
         .then(Mono.defer(() -> endedMeanwhile(requestId)));
   }
@@ -285,7 +296,7 @@ public class NotificationProducer implements SmartLifecycle {
         .then();
   }
 
-  private Mono<Void> raiseInput(
+  private Mono<Notification> raiseInput(
       final InputRequest request, final List<String> audience, final @Nullable String reason) {
     final String prompt = request.spec().prompt();
     final int newline = prompt.indexOf('\n');
@@ -315,7 +326,17 @@ public class NotificationProducer implements SmartLifecycle {
                 .audience(audience)
                 .cooldown(Duration.ZERO)
                 .build())
-        .then();
+        .flatMap(raised -> channelsOf(raised, request).thenReturn(raised));
+  }
+
+  /** Queues the deliveries of a question: its tier's channels, then those of an input rule. */
+  private Mono<Void> channelsOf(final Notification raised, final InputRequest request) {
+    return outbox
+        .enqueueTier(raised, request)
+        .then(
+            Mono.defer(() ->
+                Mono.justOrEmpty(rules.forRun("input", request.sessionId(), request.workflowId()))
+                    .flatMap(applied -> outbox.enqueueAll(raised, applied.channels()))));
   }
 
   private Mono<Void> resolve(final String requestId, final String resolution) {
@@ -327,6 +348,15 @@ public class NotificationProducer implements SmartLifecycle {
     return targets.stream()
         .filter(target -> target.startsWith(PERSON_ROLE) || target.startsWith(PERSON_KEY))
         .toList();
+  }
+
+  /** Whether a person or a channel is asked by the current tier. */
+  private static boolean reaches(final InputRequest request) {
+    return !people(request.targets()).isEmpty() || hasChannel(request);
+  }
+
+  private static boolean hasChannel(final InputRequest request) {
+    return request.targets().stream().anyMatch(NotificationOutbox::isExternal);
   }
 
   private static boolean withSupervisors(final List<String> targets) {
@@ -404,21 +434,25 @@ public class NotificationProducer implements SmartLifecycle {
         .flatMap(_ ->
             Mono.justOrEmpty(rules.forRun(category, sessionId, workflowId))
                 .flatMap(applied ->
-                    service.raise(
-                        NotificationDraft.builder()
-                            .key(category + ":" + executionId)
-                            .kind(NotificationKind.INFO)
-                            .severity(
-                                applied.severity() == null ? defaultSeverity : applied.severity())
-                            .category(category)
-                            .title(title)
-                            .body(body)
-                            .sessionId(sessionId)
-                            .workflowId(workflowId)
-                            .executionId(executionId)
-                            .audience(applied.audience())
-                            .cooldown(applied.cooldown())
-                            .build())))
+                    service
+                        .raise(
+                            NotificationDraft.builder()
+                                .key(category + ":" + executionId)
+                                .kind(NotificationKind.INFO)
+                                .severity(
+                                    applied.severity() == null
+                                        ? defaultSeverity
+                                        : applied.severity())
+                                .category(category)
+                                .title(title)
+                                .body(body)
+                                .sessionId(sessionId)
+                                .workflowId(workflowId)
+                                .executionId(executionId)
+                                .audience(applied.audience())
+                                .cooldown(applied.cooldown())
+                                .build())
+                        .flatMap(raised -> outbox.enqueueAll(raised, applied.channels()))))
         .then();
   }
 
@@ -440,13 +474,13 @@ public class NotificationProducer implements SmartLifecycle {
   /* default */ Mono<Void> reconcile() {
     return inputs
         .listOpen(null, null)
-        .filter(request -> !people(request.targets()).isEmpty())
+        .filter(NotificationProducer::reaches)
         .concatMap(request ->
             service
                 .byKey(INPUT_KEY + request.id())
                 .switchIfEmpty(
-                    Mono.defer(() ->
-                        raiseInput(request, people(request.targets()), null).then(Mono.empty()))))
+                    Mono.defer(() -> raiseInput(request, people(request.targets()), null)))
+                .flatMap(existing -> channelsOf(existing, request)))
         .then(Mono.defer(this::refreshActive));
   }
 

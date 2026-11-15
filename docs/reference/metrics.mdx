@@ -88,7 +88,7 @@ Values of the `reason` tag on `yukta.executions.rejected`, from `ExecutionSchedu
 | `yukta.input.taken-over` | counter | none | Requests taken over |
 | `yukta.input.sweep` | timer | none | Duration of the expiry sweep |
 | `yukta.input.token` | counter | `outcome` | Answers by token (`accepted`, `failed`, others by outcome) |
-| `yukta.input.delivery` | counter | `responder`, `outcome` | Deliveries to responders: `sent`, `retry`, `failed` |
+| `yukta.notifications.delivery` | counter | `channel`, `outcome` | Deliveries to outbound channels: `sent`, `retry`, `failed` |
 | `yukta.control.approval` | counter | `outcome` | Parked supervisor commands awaiting approval, by outcome |
 
 ## Supervisors

@@ -15,7 +15,6 @@ import com.infenia.yukta.plugin.input.InputState;
 import com.infenia.yukta.plugin.input.Responder;
 import com.infenia.yukta.plugin.input.TimeoutAction;
 import com.infenia.yukta.plugin.input.Vote;
-import com.infenia.yukta.service.input.delivery.InputDelivery;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -87,11 +86,6 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
   void newStoreOnTheSameDatabaseSeesOpenRequestsAndTheirDeadlines() {
     final InputRequest request = request("r1", "k1");
     store.createIfAbsent(request).block();
-    store
-        .enqueueDelivery(
-            new InputDelivery(
-                "d1", "r1", "auto", "external:x", InputDelivery.State.PENDING, 0, T0, null))
-        .block();
 
     // a restart: nothing is carried over but the database
     final R2dbcInputRequestStore restarted =
@@ -100,9 +94,6 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
     StepVerifier.create(restarted.listOpen(null, null)).expectNext(request).verifyComplete();
     StepVerifier.create(restarted.dueBefore(request.tierDeadline()))
         .expectNext(request)
-        .verifyComplete();
-    StepVerifier.create(restarted.dueDeliveries(T0).map(InputDelivery::id))
-        .expectNext("d1")
         .verifyComplete();
   }
 
@@ -196,26 +187,6 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
   }
 
   @Test
-  void deliveriesAreDueUntilSentAndGoWithTheirRequest() {
-    store.createIfAbsent(request("r1", "k1")).block();
-    final InputDelivery delivery =
-        new InputDelivery(
-            "d1", "r1", "auto", "external:webhook:ops", InputDelivery.State.PENDING, 0, T0, null);
-    store.enqueueDelivery(delivery).block();
-
-    StepVerifier.create(store.dueDeliveries(T0)).expectNext(delivery).verifyComplete();
-    StepVerifier.create(store.dueDeliveries(T0.minusSeconds(1))).verifyComplete();
-
-    final InputDelivery retry = delivery.failed("503", T0.plusSeconds(60), false);
-    store.saveDelivery(retry).block();
-    StepVerifier.create(store.dueDeliveries(T0.plusSeconds(30))).verifyComplete();
-    StepVerifier.create(store.dueDeliveries(T0.plusSeconds(60))).expectNext(retry).verifyComplete();
-
-    store.saveDelivery(retry.sent()).block();
-    StepVerifier.create(store.dueDeliveries(T0.plusSeconds(600))).verifyComplete();
-  }
-
-  @Test
   void purgeTakesTheAnswersAndTheDeliveriesOfWhatItRemoves() {
     final InputRequest first = request("r1", "k1");
     store.createIfAbsent(first).block();
@@ -254,11 +225,6 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
                 null,
                 T0))
         .block();
-    store
-        .enqueueDelivery(
-            new InputDelivery(
-                "d1", "r1", "auto", "external:x", InputDelivery.State.SENT, 1, T0, null))
-        .block();
 
     StepVerifier.create(store.purgeTerminalOlderThan(T0.plusSeconds(10)))
         .expectNext(1L)
@@ -266,11 +232,5 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
 
     StepVerifier.create(store.findById("r1")).verifyComplete();
     StepVerifier.create(store.findResponse("r1")).verifyComplete();
-    assertThat(
-            db.sql("SELECT count(*) AS n FROM input_delivery")
-                .map(row -> row.get("n", Long.class))
-                .one()
-                .block())
-        .isZero();
   }
 }

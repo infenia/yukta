@@ -64,6 +64,7 @@ class NotificationProducerTest {
   private final InMemoryNotificationStore store = new InMemoryNotificationStore(100);
   private final NotificationService service =
       new NotificationService(store, new InputRedactor(List.of()), clock);
+  private final NotificationOutbox outbox = new NotificationOutbox(store, clock);
   private final InputRequestStore inputs = mock(InputRequestStore.class);
   private final TaskTrackerService tracker = mock(TaskTrackerService.class);
   private final InternalSessions internal = mock(InternalSessions.class);
@@ -83,7 +84,16 @@ class NotificationProducerTest {
         null,
         null,
         new YuktaProperties.Notifications(
-            true, Duration.ofDays(7), 100, Duration.ofSeconds(2), rules, Map.of()),
+            true,
+            Duration.ofDays(7),
+            100,
+            Duration.ofSeconds(2),
+            rules,
+            Map.of(
+                "webhook",
+                Map.of(
+                    "ops", Map.<String, Object>of("url", "https://h.example/x"),
+                    "chat", Map.<String, Object>of("url", "https://h.example/y")))),
         null,
         null,
         null,
@@ -101,6 +111,7 @@ class NotificationProducerTest {
     return new NotificationProducer(
         feed,
         service,
+        outbox,
         inputs,
         tracker,
         internal,
@@ -626,6 +637,7 @@ class NotificationProducerTest {
         new NotificationProducer(
             feed,
             service,
+            outbox,
             inputs,
             tracker,
             internal,
@@ -648,6 +660,7 @@ class NotificationProducerTest {
         new NotificationProducer(
             feed,
             service,
+            outbox,
             inputs,
             tracker,
             internal,
@@ -665,6 +678,7 @@ class NotificationProducerTest {
         new NotificationProducer(
             feed,
             service,
+            outbox,
             inputs,
             tracker,
             internal,
@@ -703,5 +717,95 @@ class NotificationProducerTest {
         .containsExactlyInAnyOrder(
             org.assertj.core.api.Assertions.tuple("input:r1", null),
             org.assertj.core.api.Assertions.tuple("input:r2", "Handed up: slow"));
+  }
+
+  private List<NotificationDelivery> deliveries() {
+    return store.dueDeliveries(Instant.now().plus(Duration.ofDays(1))).collectList().block();
+  }
+
+  @Test
+  void tierThatNamesChannelRaisesAtOnceForNobodyAndQueuesAnAnswerableDelivery() {
+    final InputRequest hook =
+        request("r1", InputState.OPEN, InputRisk.LOW, SUPERVISORS, "external:webhook:ops");
+
+    handle(new ExecutionEvent.InputRequested(hook, NOW));
+
+    assertThat(items()).singleElement().satisfies(n -> assertThat(n.audience()).isEmpty());
+    assertThat(deliveries())
+        .singleElement()
+        .satisfies(d -> {
+          assertThat(d.channel()).isEqualTo("webhook:ops");
+          assertThat(d.tier()).isEqualTo("default");
+          assertThat(d.notificationId()).isEqualTo(items().getFirst().id());
+        });
+    handle(new ExecutionEvent.InputRequested(hook, NOW));
+    assertThat(deliveries()).hasSize(1);
+  }
+
+  @Test
+  void ruleForRunFailedQueuesItsChannelsWithoutTier() {
+    producer.stop();
+    producer =
+        producer(
+            Map.of(
+                "ops",
+                new NotificationRuleSettings(
+                    "run.failed",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    List.of("webhook:ops"),
+                    Duration.ZERO)));
+
+    handle(status("FAILURE"));
+
+    assertThat(deliveries())
+        .singleElement()
+        .satisfies(d -> {
+          assertThat(d.channel()).isEqualTo("webhook:ops");
+          assertThat(d.tier()).isNull();
+        });
+  }
+
+  @Test
+  void ruleForInputQueuesItsChannelsAndTheRepairQueuesTheTierDeliveryOfAnExistingItem() {
+    producer.stop();
+    producer =
+        producer(
+            Map.of(
+                "in",
+                new NotificationRuleSettings(
+                    "input",
+                    List.of(),
+                    List.of(),
+                    List.of(),
+                    null,
+                    List.of("webhook:chat"),
+                    Duration.ZERO)));
+    final InputRequest hook =
+        request("r1", InputState.OPEN, InputRisk.LOW, OPERATOR, "external:webhook:ops");
+    when(inputs.listOpen(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
+        .thenReturn(Flux.just(hook));
+
+    handle(new ExecutionEvent.InputRequested(hook, NOW));
+    producer.reconcile().block();
+
+    assertThat(deliveries())
+        .extracting(NotificationDelivery::channel, NotificationDelivery::tier)
+        .containsExactlyInAnyOrder(
+            org.assertj.core.api.Assertions.tuple("webhook:ops", "default"),
+            org.assertj.core.api.Assertions.tuple("webhook:chat", null));
+  }
+
+  @Test
+  void mixedTierWithChannelDoesNotWaitTheGrace() {
+    final InputRequest hook =
+        request(
+            "r1", InputState.OPEN, InputRisk.LOW, SUPERVISORS, OPERATOR, "external:webhook:ops");
+
+    handle(new ExecutionEvent.InputRequested(hook, NOW));
+
+    assertThat(items()).hasSize(1);
   }
 }

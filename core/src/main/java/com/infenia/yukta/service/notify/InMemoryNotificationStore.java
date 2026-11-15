@@ -44,6 +44,9 @@ public final class InMemoryNotificationStore implements NotificationStore {
   /** The preferences by recipient. */
   private final Map<String, NotificationPreferences> preferencesByRecipient = new HashMap<>();
 
+  /** The deliveries by id. */
+  private final Map<String, NotificationDelivery> deliveries = new HashMap<>();
+
   /** Most notifications kept. */
   private final int maxItems;
 
@@ -167,6 +170,41 @@ public final class InMemoryNotificationStore implements NotificationStore {
   }
 
   @Override
+  public Mono<NotificationDelivery> enqueueDelivery(final NotificationDelivery delivery) {
+    return Mono.fromSupplier(() ->
+        locked(() -> {
+          final NotificationDelivery existing = deliveries.putIfAbsent(delivery.id(), delivery);
+          return existing == null ? delivery : existing;
+        }));
+  }
+
+  @Override
+  public Flux<NotificationDelivery> dueDeliveries(final Instant now) {
+    return Flux.defer(() ->
+        Flux.fromIterable(
+            locked(() ->
+                deliveries.values().stream()
+                    .filter(d -> d.state() == NotificationDelivery.State.PENDING)
+                    .filter(d -> !d.nextAttempt().isAfter(now))
+                    .sorted(Comparator.comparing(NotificationDelivery::nextAttempt))
+                    .toList())));
+  }
+
+  @Override
+  public Mono<Void> saveDelivery(final NotificationDelivery delivery) {
+    // a delivery of a notification that is gone is not kept
+    return Mono.fromRunnable(() ->
+        locked(() -> {
+          if (byKey.values().stream().anyMatch(n -> n.id().equals(delivery.notificationId()))) {
+            deliveries.put(delivery.id(), delivery);
+          } else {
+            deliveries.remove(delivery.id());
+          }
+          return null;
+        }));
+  }
+
+  @Override
   public Mono<Long> purge(final Instant before) {
     return Mono.fromSupplier(() ->
         locked(() -> {
@@ -213,6 +251,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
 
   private void forget(final Notification n) {
     receiptsByRecipient.values().forEach(mine -> mine.remove(n.id()));
+    deliveries.values().removeIf(d -> d.notificationId().equals(n.id()));
   }
 
   private <T> T locked(final Supplier<T> body) {
