@@ -238,7 +238,7 @@ class ReportFailuresTest {
   }
 
   @Test
-  void xmlWithADoctype_isRefusedNotExpanded() throws IOException {
+  void xmlWithDoctype_isRefusedNotExpanded() throws IOException {
     write(
         "build/TEST-evil.xml",
         """

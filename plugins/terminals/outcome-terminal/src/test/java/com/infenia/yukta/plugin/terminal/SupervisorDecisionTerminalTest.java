@@ -94,7 +94,7 @@ class SupervisorDecisionTerminalTest {
   }
 
   @Test
-  void theOutcomeFieldIsAChoiceOfFourAndTheRestKeepTheirShape() {
+  void outcomeFieldIsOneOfFourAndTheRestKeepTheirShape() {
     assertThat(terminal.getConfigSchema())
         .filteredOn(field -> "outcome".equals(field.name()))
         .singleElement()

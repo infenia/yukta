@@ -12,12 +12,12 @@ import org.junit.jupiter.api.Test;
 class InputModeTest {
 
   @Test
-  void aMissingValueMeansNone() {
+  void missingValueMeansNone() {
     assertThat(InputMode.from(null)).isEqualTo(InputMode.NONE);
   }
 
   @Test
-  void aNameIsReadIgnoringCaseAndSpaces() {
+  void nameIsReadIgnoringCaseAndSpaces() {
     assertThat(InputMode.from(" stdin ")).isEqualTo(InputMode.STDIN);
   }
 }
