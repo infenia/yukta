@@ -120,4 +120,35 @@ class DefaultControlBusGatewayInputTest {
         .expectError(ControlRejectedException.class)
         .verify();
   }
+
+  @Test
+  void agentCommandsAreEmittedAsControlCommands() {
+    runExists("exec");
+    when(controlBusService.emit(any())).thenReturn(Mono.empty());
+
+    StepVerifier.create(gateway.agentMessage("exec", "n", "c-1", "hi", true)).verifyComplete();
+    StepVerifier.create(gateway.agentInterrupt("exec", "n", "c-1")).verifyComplete();
+    StepVerifier.create(gateway.agentEnd("exec", "n", "c-1", "failure", "why")).verifyComplete();
+
+    final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+    verify(controlBusService, org.mockito.Mockito.times(3)).emit(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(m -> (Object) m.payload())
+        .containsExactly(
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentMessageCommand(
+                "exec", "n", "c-1", "hi", true),
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentInterruptCommand(
+                "exec", "n", "c-1"),
+            new com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentEndCommand(
+                "exec", "n", "c-1", "failure", "why"));
+  }
+
+  @Test
+  void agentCommandsForAnUnknownRunAreNotFound() {
+    when(store.findByExecutionId("gone")).thenReturn(Optional.empty());
+
+    StepVerifier.create(gateway.agentInterrupt("gone", "n", "c-1"))
+        .expectError(NotFoundException.class)
+        .verify();
+  }
 }

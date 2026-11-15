@@ -70,6 +70,15 @@ class DirectiveDispatcherInputTest {
   private final DirectiveDispatcher dispatcher = dispatcherWith(flow.guard);
 
   private DirectiveDispatcher dispatcherWith(final InputCommandGuard guard) {
+    return dispatcherWith(guard, mock(AgentCommandProcessor.class));
+  }
+
+  private DirectiveDispatcher dispatcherWithAgent(final AgentCommandProcessor agent) {
+    return dispatcherWith(flow.guard, agent);
+  }
+
+  private DirectiveDispatcher dispatcherWith(
+      final InputCommandGuard guard, final AgentCommandProcessor agent) {
     registry.save(
         new ExecutionControl(
             "session",
@@ -100,7 +109,7 @@ class DirectiveDispatcherInputTest {
             mock(SetBreakpointCommandProcessor.class),
             new AnswerInputCommandProcessor(guard, flow.broker),
             mock(EscalateInputCommandProcessor.class),
-            mock(AgentCommandProcessor.class)),
+            agent),
         registry,
         mock(ControlBusService.class),
         ExecutionArchiveFixture.create(),
@@ -236,5 +245,35 @@ class DirectiveDispatcherInputTest {
           assertThat(entry.status()).containsIgnoringCase("cancel");
         });
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
+  }
+
+  @Test
+  void anAgentMessageIsAuditedWithItsActorAndAReviewerCanRefuseIt() {
+    final var agent = org.mockito.Mockito.mock(AgentCommandProcessor.class);
+    when(agent.process(
+            any(
+                com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentMessageCommand
+                    .class)))
+        .thenReturn(Mono.empty());
+    final DirectiveDispatcher open = dispatcherWithAgent(agent);
+    final var message =
+        new com.infenia.yukta.plugin.control.ExecutionControlCommand.AgentMessageCommand(
+            "exec", "node", "c-1", "hi", false);
+
+    StepVerifier.create(
+            open.dispatchOrdered(message).contextWrite(InputFlow.asKey("ann", ApiRole.OPERATOR)))
+        .verifyComplete();
+    when(reviewer.review(any())).thenReturn(Mono.just(Decision.deny("agents are frozen")));
+    StepVerifier.create(
+            open.dispatchOrdered(message).contextWrite(InputFlow.asKey("ann", ApiRole.OPERATOR)))
+        .expectError(ControlRejectedException.class)
+        .verify();
+
+    assertThat(controlEntries())
+        .hasSize(2)
+        .allSatisfy(entry -> assertThat(entry.toString()).contains("key:ann"));
+    assertThat(controlEntries().get(0).type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
+    assertThat(controlEntries().get(1).type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+    assertThat(controlEntries().get(1).status()).contains("agents are frozen");
   }
 }

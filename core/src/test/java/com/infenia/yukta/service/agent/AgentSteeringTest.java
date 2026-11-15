@@ -325,6 +325,16 @@ class AgentSteeringTest {
   }
 
   @Test
+  void aSelectorForSupervisorsMatchesNoKeyAndAViewerIsRefusedEvenWhenNamed() {
+    final String id = open(List.of("supervisor:*", "key:eve"), AgentCapability.MESSAGE);
+    as(operator("ann"));
+    refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
+    as(ActorInfo.human("eve", ApiRole.VIEWER, Set.of()));
+
+    refused(steering.message(id, "hi", false), Reason.FORBIDDEN);
+  }
+
+  @Test
   void eachReasonHasItsHttpStatusAndCode() {
     assertThat(Reason.FORBIDDEN.status()).isEqualTo(403);
     assertThat(Reason.NOT_LIVE.status()).isEqualTo(409);

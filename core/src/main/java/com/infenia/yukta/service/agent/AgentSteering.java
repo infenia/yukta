@@ -185,8 +185,7 @@ public class AgentSteering {
     final boolean allowed =
         switch (actor.type()) {
           case HUMAN, AGENT ->
-              actor.role() != null
-                  && actor.role().compareTo(ApiRole.OPERATOR) >= 0
+              operator(actor)
                   && conversation.steerAudience().selectors().stream()
                       .anyMatch(selector -> human(actor, selector));
           case SUPERVISOR ->
@@ -202,6 +201,10 @@ public class AgentSteering {
     }
   }
 
+  private static boolean operator(final ActorInfo actor) {
+    return actor.role() == ApiRole.OPERATOR || actor.role() == ApiRole.ADMIN;
+  }
+
   private static boolean human(final ActorInfo actor, final String selector) {
     if (("key:" + actor.id()).equals(selector)) {
       return true;
@@ -211,7 +214,7 @@ public class AgentSteering {
       return false;
     }
     return switch (selector) {
-      case "role:OPERATOR" -> actor.role().compareTo(ApiRole.OPERATOR) >= 0;
+      case "role:OPERATOR" -> operator(actor);
       case "role:ADMIN" -> actor.role() == ApiRole.ADMIN;
       default -> false;
     };

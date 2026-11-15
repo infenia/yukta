@@ -140,6 +140,7 @@ com.infenia.yukta.service.EnvSecretProvider
 com.infenia.yukta.service.agent.AgentConversationQueries
 com.infenia.yukta.service.agent.AgentConversationService
 com.infenia.yukta.service.agent.AgentRetention
+com.infenia.yukta.service.agent.AgentSteering
 com.infenia.yukta.service.agent.DefaultAgentConversationGateway
 com.infenia.yukta.service.agent.InMemoryAgentConversationStore
 com.infenia.yukta.service.archive.ExecutionArchive
@@ -154,6 +155,7 @@ com.infenia.yukta.service.control.gateway.LeaderLoss
 com.infenia.yukta.service.control.gateway.StartIdempotency
 com.infenia.yukta.service.control.gateway.TokenAnswerService
 com.infenia.yukta.service.control.gateway.WorkflowService
+com.infenia.yukta.service.control.processor.AgentCommandProcessor
 com.infenia.yukta.service.control.processor.AnswerInputCommandProcessor
 com.infenia.yukta.service.control.processor.EscalateInputCommandProcessor
 com.infenia.yukta.service.control.processor.NodeValveCommands
