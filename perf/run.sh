@@ -3,15 +3,15 @@
 # SPDX-FileCopyrightText: 2026 Infenia Private Limited
 #
 # Run a k6 test against Yukta in a container with fixed resources and keep a report.
-#   perf/run.sh <perf|load|soak> [extra k6 args]
+#   perf/run.sh <perf|load|soak|inputs|notifications> [extra k6 args]
 # Env: PORT=9858 (the host port; a run on another port has its own compose project) CPUS=2 CPUSET=0,1 MEMORY=8g K6_CPUSET=2-15 (default: all cores after the server's; unpinned below 3 cores) JAVA_OPTS=... IMAGE=... KEEP=1 (leave server up)
 #      MODE=native builds the native binary (release/build-server.sh; NATIVE_QUICK=1, NATIVE_HEAP=24g) and runs it
 #      BINARY=dist/linux-amd64/yukta runs an existing native binary without building (image debian:12-slim)
 #      plus the k6 -e variables, e.g. RATE=50 WORKFLOWS=mapper DURATION=10m
 set -euo pipefail
 
-type=${1:?usage: run.sh <perf|load|soak|inputs> [k6 args]}; shift
-[[ $type =~ ^(perf|load|soak|inputs)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
+type=${1:?usage: run.sh <perf|load|soak|inputs|notifications> [k6 args]}; shift
+[[ $type =~ ^(perf|load|soak|inputs|notifications)$ ]] || { echo "unknown test '$type'" >&2; exit 2; }
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
 
@@ -68,6 +68,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# notifications: STREAMS (200) stream clients need STREAMS/8 keys, the server allows 8 streams per key
+STREAMS=${STREAMS:-200}
+if [[ $type == notifications ]]; then
+  KEYS_ENV=$dir/keys.env; : > "$KEYS_ENV"; export KEYS_ENV
+  for i in $(seq 1 $(( (STREAMS + 7) / 8 ))); do
+    printf 'YUKTA_API_KEYS_%d_NAME=stream%d\nYUKTA_API_KEYS_%d_KEY=stream-key-%d-%s\nYUKTA_API_KEYS_%d_ROLE=OPERATOR\nYUKTA_API_KEYS_%d_SESSIONS_0=*\n' \
+      "$i" "$i" "$i" "$i" "$API_KEY" "$i" "$i" >> "$KEYS_ENV"
+  done
+fi
 "${compose[@]}" up -d --wait
 healthy=
 for _ in $(seq 60); do
@@ -95,6 +104,15 @@ for v in RATE RAMP HOLD DURATION WORKFLOWS LENIENT GRACE MAX_REJECTED; do
   [[ -n ${!v:-} ]] && envs+=(-e "$v=${!v}")
 done
 
+stream_pids=()
+if [[ $type == notifications ]]; then
+  for n in $(seq 0 $((STREAMS - 1))); do
+    curl -sN -m 3600 -H "Authorization: Bearer stream-key-$((n / 8 + 1))-$API_KEY" -o "$dir/stream-$n.out" \
+      -w '%{http_code}\n' localhost:$PORT/api/notifications/stream > "$dir/stream-$n.code" 2>/dev/null &
+    stream_pids+=($!)
+  done
+  sleep 2
+fi
 set +e
 K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHBOARD_PERIOD=5s \
 "${pin[@]}" k6 run "perf/k6/$type.js" \
@@ -103,5 +121,16 @@ K6_WEB_DASHBOARD=true K6_WEB_DASHBOARD_EXPORT="$dir/dashboard.html" K6_WEB_DASHB
   --summary-trend-stats 'avg,min,med,p(90),p(95),p(99),max' \
   --out csv="$dir/metrics.csv" "$@" 2>&1 | tee "$dir/k6.log"
 rc=${PIPESTATUS[0]}
+if [[ $type == notifications ]]; then
+  sleep 5; [[ ${#stream_pids[@]} -eq 0 ]] || { kill "${stream_pids[@]}" 2>/dev/null || true; wait "${stream_pids[@]}" 2>/dev/null || true; }
+  ok=0; reset=0
+  for n in $(seq 0 $((STREAMS - 1))); do
+    [[ -s $dir/stream-$n.out ]] && ok=$((ok + 1))
+    grep -q '"type":"reset"' "$dir/stream-$n.out" 2>/dev/null && reset=$((reset + 1))
+  done
+  echo "streams: $ok of $STREAMS received events, $reset got a reset" | tee -a "$dir/k6.log"
+  [[ $ok -eq $STREAMS && $reset -eq 0 ]] || rc=1
+  rm -f "$dir"/stream-*.out "$dir"/stream-*.code
+fi
 gzip -f "$dir/metrics.csv" 2>/dev/null
 exit "$rc"

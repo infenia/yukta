@@ -36,6 +36,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.Nullable;
 import org.springframework.aot.hint.annotation.RegisterReflectionForBinding;
@@ -99,6 +100,9 @@ public class NotificationsController {
 
   /** Tells whether this server is the leader. */
   private final LeaderElection leader;
+
+  /** The changes of every stream, each with its input request read once; built on first use. */
+  private final AtomicReference<Flux<Shared>> sharedChanges = new AtomicReference<>();
 
   /** The caller's items, newest first. */
   @GetMapping
@@ -309,9 +313,8 @@ public class NotificationsController {
               Sinks.many().unicast().onBackpressureBuffer();
           final AtomicLong sent = new AtomicLong(-1);
           final Disposable feed =
-              service
-                  .changes()
-                  .concatMap(change -> event(me, epoch, change))
+              shared()
+                  .concatMap(shared -> event(me, epoch, shared))
                   .filter(sse -> after(sse, sent))
                   .subscribe(live::tryEmitNext);
           return SseStreams.named(
@@ -391,7 +394,8 @@ public class NotificationsController {
 
   /** The stream event of a change, or nothing when the caller may not see it. */
   private Flux<ServerSentEvent<NotificationEvent>> event(
-      final Me me, final String epoch, final NotificationChange change) {
+      final Me me, final String epoch, final Shared shared) {
+    final NotificationChange change = shared.change();
     final Notification n = change.notification();
     final Receipt receipt = change.receipt();
     if (change.kind() == NotificationChange.Kind.RECEIPT) {
@@ -417,7 +421,7 @@ public class NotificationsController {
         .next()
         .map(r -> new Item(n, true, r.dismissedAt() != null))
         .defaultIfEmpty(new Item(n, false, false))
-        .flatMap(this::view)
+        .flatMap(item -> build(item, Mono.justOrEmpty(shared.input())))
         .map(v -> sse(epoch, type, v, n))
         .flux();
   }
@@ -462,24 +466,49 @@ public class NotificationsController {
   }
 
   private Mono<NotificationView> view(final Item item) {
+    return build(item, inputOf(item.notification()));
+  }
+
+  private static Mono<NotificationView> build(final Item item, final Mono<InputRequestView> input) {
     final Notification n = item.notification();
-    final Mono<InputRequestView> input =
-        n.kind() == NotificationKind.ACTION
-            ? inputs
-                .require(
-                    Objects.requireNonNull(n.executionId()),
-                    Objects.requireNonNull(n.inputRequestId()))
-                .flatMap(request ->
-                    inputs
-                        .answer(request)
-                        .map(response -> InputRequestView.from(request, response))
-                        .switchIfEmpty(
-                            Mono.fromSupplier(() -> InputRequestView.from(request, null))))
-                .onErrorResume(NotFoundException.class, _ -> Mono.empty())
-            : Mono.empty();
     return input
         .map(v -> NotificationView.from(n, item.read(), item.dismissed(), v))
         .switchIfEmpty(
             Mono.fromSupplier(() -> NotificationView.from(n, item.read(), item.dismissed(), null)));
+  }
+
+  /** The input request an action points at, with its answer; empty for an alert or a gone one. */
+  private Mono<InputRequestView> inputOf(final @Nullable Notification n) {
+    if (n == null || n.kind() != NotificationKind.ACTION) {
+      return Mono.empty();
+    }
+    return inputs
+        .require(Objects.requireNonNull(n.executionId()), Objects.requireNonNull(n.inputRequestId()))
+        .flatMap(request ->
+            inputs
+                .answer(request)
+                .map(response -> InputRequestView.from(request, response))
+                .switchIfEmpty(Mono.fromSupplier(() -> InputRequestView.from(request, null))))
+        .onErrorResume(NotFoundException.class, _ -> Mono.empty());
+  }
+
+  /** A change with the input request it points at, read once for every stream. */
+  private record Shared(NotificationChange change, @Nullable InputRequestView input) {}
+
+  /**
+   * Every change once, with its input request. Each stream used to read and redact the request
+   * itself, so 200 streams did that 200 times per change; now they share one read.
+   */
+  private Flux<Shared> shared() {
+    return sharedChanges.updateAndGet(current ->
+        current != null
+            ? current
+            : service
+                .changes()
+                .concatMap(change ->
+                    inputOf(change.notification())
+                        .map(input -> new Shared(change, input))
+                        .defaultIfEmpty(new Shared(change, null)))
+                .share());
   }
 }

@@ -683,7 +683,7 @@ A plugin can ask for a decision or an input and wait for the answer. This phase 
 - The default rules, in order: `audience`, `tier` (until routes exist the targets are `supervisor:*` and `role:OPERATOR`), `risk` (answers only: `HIGH` only a human, a supervisor needs `canAnswer` and a `maxRisk` that reaches the request), `scope` (a supervisor's scope, a key's sessions) and `separation` (a supervisor cannot answer for a run whose start payload names it under `yukta.supervisor.id`). Escalating needs no right to answer. A bean of type `AnswerAuthorizer` replaces the rules.
 - The sender is read from the actor kind the caller authenticated as (`ControlActor.KIND_KEY`: `KEY`, `SUPERVISOR`, `TOKEN`), never from the shape of the actor string, so a key named like a supervisor gains none of its rights. A call with an actor but no kind, or with no identity where keys are required, has no rights.
 
-**Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys` · `yukta.input.routes.<name>` · `yukta.notifications.channels.webhook.<name>` · `yukta.input.token-secret` · `yukta.input.responders.` (removed: refused at start-up, now `yukta.notifications.channels.webhook.<name>`)
+**Configure:** `yukta.input.default-ttl` · `yukta.input.max-ttl` · `yukta.input.max-open-per-execution` · `yukta.input.max-open-per-session` · `yukta.input.memory-max` · `yukta.input.sweep-interval` · `yukta.input.redact-keys` · `yukta.input.routes.<name>` · `yukta.notifications.enabled` · `yukta.notifications.retention` · `yukta.notifications.max-items` · `yukta.notifications.action-grace` · `yukta.notifications.rules.<name>` · `yukta.notifications.channels.webhook.<name>` · `yukta.input.token-secret` · `yukta.input.responders.` (removed: refused at start-up, now `yukta.notifications.channels.webhook.<name>`)
 
 **Source:** `InputBroker` `InputRequestStore` `InMemoryInputRequestStore` `InputDeadlineSweeper` `DefaultInputGateway` `InputRedactor` `AnswerAuthorizer` `DefaultAnswerAuthorizer` `ActorResolver` `InputCommandGuard` `AnswerShape` `SchemaSubset` `AnswerInputCommandProcessor` `EscalateInputCommandProcessor`
 
@@ -1070,6 +1070,11 @@ Lookup tables. Each row names the feature that owns it, so a change to a feature
 | `yukta.input.memory-max` | 10000 | [CTL-09](#ctl-09-input-requests) | Finished requests the in-memory store keeps |
 | `yukta.input.sweep-interval` | 1s | [CTL-09](#ctl-09-input-requests) | How often requests past their deadline are ended |
 | `yukta.input.redact-keys` | none | [CTL-09](#ctl-09-input-requests) | Context keys whose value is replaced |
+| `yukta.notifications.enabled` | true | [CTL-09](#ctl-09-input-requests) | Off stops the producer, the inbox and every delivery |
+| `yukta.notifications.retention` | 7d | [CTL-09](#ctl-09-input-requests) | How long a finished notification is kept |
+| `yukta.notifications.max-items` | 5000 | [CTL-09](#ctl-09-input-requests) | Most notifications kept |
+| `yukta.notifications.action-grace` | 2s | [CTL-09](#ctl-09-input-requests) | A question reaches people only if still open after this time |
+| `yukta.notifications.rules.<name>.*` | none | [CTL-09](#ctl-09-input-requests) | category, sessions, workflows, audience, severity, channels, cooldown |
 | `yukta.tracker.max-sessions` | 0 (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Evict the oldest session without a running run beyond this count |
 | `yukta.tracker.session-ttl` | unset (off) | [OBS-01](#obs-01-tracker-and-live-progress) | Drop a session with no running run once it has been idle this long |
 | `yukta.tracker.cleanup-ttl` | 10m | [OBS-01](#obs-01-tracker-and-live-progress) | How long execution data is kept after a terminal status |
@@ -1143,6 +1148,9 @@ All meters are Micrometer. Tags in braces.
 | `yukta.input.denied` `{rule}` | counter | [CTL-09](#ctl-09-input-requests) | Asks refused: ttl, open-per-execution, open-per-session |
 | `yukta.input.escalations` `{tier}` | counter | [CTL-09](#ctl-09-input-requests) | Requests handed up, by the tier they moved into |
 | `yukta.notifications.delivery` `{channel,outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Deliveries to outbound channels (a tier's external responders and a rule's channels): sent, retry, failed |
+| `yukta.notifications.raised` `{category,kind}` | counter | [CTL-09](#ctl-09-input-requests) | Notifications created |
+| `yukta.notifications.active` `{kind}` | gauge | [CTL-09](#ctl-09-input-requests) | Active notifications by kind |
+| `yukta.notifications.tap.dropped` | counter | [CTL-09](#ctl-09-input-requests) | Events the producer's bounded queue (10 000) dropped; should stay zero |
 | `yukta.input.token` `{outcome}` | counter | [CTL-09](#ctl-09-input-requests) | One-time token answers: accepted, failed, invalid, replay, refused |
 | `yukta.control.approval` `{outcome}` | counter | [CTL-09](#ctl-09-input-requests) | Control commands parked for approval: requested, approved, rejected, expired, cancelled |
 | `yukta.workers` · `yukta.worker.slots` | gauge | [SCL-01](#scl-01-remote-workers) | Connected workers and free slots |

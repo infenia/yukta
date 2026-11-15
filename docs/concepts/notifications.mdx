@@ -1,0 +1,52 @@
+---
+title: "How notifications work"
+sidebarTitle: "Notifications"
+description: "What a notification is, the difference between an alert and a question, who sees which one, and where each reaches you: the bell, the Inbox page, the desktop, the CLI, MCP and outbound channels."
+keywords: ["notifications", "inbox", "alert", "action", "input request", "recipients", "desktop", "webhook"]
+---
+
+Yukta tells people two kinds of things. An **info** notification says something happened: a run failed, a supervisor held a run, a delivery gave up. An **action** notification asks for something: an input request is waiting for an answer. Both are stored as one record, the notification, and every surface reads that same record.
+
+<Info>
+  **In plain terms:** the inbox is the single list of what Yukta wants you to know and what it needs from you. The bell, the Inbox page, `yukta notify` and a webhook are different ways to look at the same list.
+</Info>
+
+## One record, many views
+
+| Where | What it shows | Needs |
+|---|---|---|
+| Bell and toast (web UI) | the count of open questions and unread alerts, a toast for each new one | the tab open |
+| Inbox page (`/inbox`) | three tabs (needs action, all, resolved), filters, the answer form, a link per item (`/inbox?item=<id>`) | the web UI |
+| Desktop | an operating system notification when the tab is hidden and your level for that category is `DESKTOP` | the browser permission, switched on per device |
+| CLI | `yukta notifications` and `yukta notify` (see [Notifications from the terminal](/guides/operate/notifications-from-the-terminal)) | a key |
+| MCP | `list_notifications`, `mark_notifications_read` | a key |
+| Webhook and other channels | a JSON post per notification that a rule or a route tier names | a configured channel |
+
+Only the outbound channels go through a delivery queue. Everything else reads the stored record, so a notification is never lost because a screen was closed.
+
+## Alerts and questions
+
+- An **alert** (`INFO`) is read or dismissed. It carries a severity (`INFO`, `WARN`, `ERROR`) and a category.
+- A **question** (`ACTION`) is an input request. It stays `ACTIVE` until it is answered, expires or is cancelled, then becomes `RESOLVED` with who ended it. A resolved question stays visible under *Resolved* until retention removes it. Reading or dismissing never answers a question: answering goes through the input endpoints and the same authorization rules as always.
+
+The categories are `input`, `run.failed`, `run.finished`, `run.held`, `delivery.failed` and `workflow` (what a `NOTIFY_TERMINAL` with `target: inbox` or your own plugin raises).
+
+## Who sees what
+
+Every notification has an audience, written as selectors: `role:VIEWER`, `role:OPERATOR`, `role:ADMIN` or `key:<name>`. The caller sees an item only if one selector matches and, for a key limited to some sessions, only items of those sessions. This holds for the list, the summary, the event stream, the CLI and MCP alike.
+
+- Read state and preferences are kept **per named API key**. A server with no keys, or an unnamed key, shares one inbox, `local`.
+- A question that a supervisor can answer reaches people only if it is still open after `yukta.notifications.action-grace` (default 2 s), so a request a supervisor answers in milliseconds never flashes on a screen.
+- Titles and bodies are plain text, redacted with the same keys as input requests (`yukta.input.redact-keys`). A desktop notification shows the title and the workflow, never the question's context, and a per-device switch reduces it to "Yukta needs your input". It has no answer buttons.
+
+## Your preferences
+
+Per category you choose *off*, *inbox* or *desktop* (`input` cannot be turned off) and you can mute sessions. They are kept on the server, so the browser and `yukta notify` agree. Whether this browser raises desktop notifications, and whether they show details, is a per-device switch in the browser.
+
+## What it does not do
+
+- No push to a closed browser (no Web Push) and no tray application: use `yukta notify` for the desktop without a browser.
+- An outbound channel never receives an answer back through the notification; a receiver answers with the one-time token at the token-answer endpoint, so the answer is reviewed and audited like any other.
+- Community keeps notifications in memory; they are lost on a restart. Plus keeps them in PostgreSQL.
+
+Next: [Configure notifications](/guides/operate/notifications), [Write a notification channel](/guides/extend/write-a-notification-channel).

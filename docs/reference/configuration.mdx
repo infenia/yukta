@@ -144,6 +144,17 @@ Settings that store state on disk (`yukta.session.store-type=file`, `yukta.execu
 | `yukta.input.memory-max` | int | `10000` | Finished requests kept in memory. |
 | `yukta.input.sweep-interval` | duration | `1s` | How often overdue requests are ended. |
 | `yukta.input.retention` | duration | `30d` | How long a finished request is kept before the hourly purge. |
+| `yukta.notifications.enabled` | boolean | `true` | `false` stops the producer, the inbox and every delivery. |
+| `yukta.notifications.retention` | duration | `7d` | How long a finished notification is kept; an open question is never purged. Must be positive. |
+| `yukta.notifications.max-items` | int | `5000` | Most notifications kept. |
+| `yukta.notifications.action-grace` | duration | `2s` | A question reaches people only if still open after this time. Not negative. |
+| `yukta.notifications.rules.<name>.category` | string | none | Required: `input`, `run.failed`, `run.finished`, `run.held`, `delivery.failed` or `workflow`. |
+| `yukta.notifications.rules.<name>.sessions` / `.workflows` | list of globs | all | Limits the rule. |
+| `yukta.notifications.rules.<name>.audience` | list | category default | `role:VIEWER`, `role:OPERATOR`, `role:ADMIN` or `key:<name>`. |
+| `yukta.notifications.rules.<name>.severity` | enum | none | `INFO`, `WARN` or `ERROR`. |
+| `yukta.notifications.rules.<name>.channels` | list | none | `<type>:<name>`, each configured under `channels`. |
+| `yukta.notifications.rules.<name>.cooldown` | duration | `0s` | A repeat inside it raises the count. Not negative. |
+| `yukta.notifications.channels.webhook.<name>.*` | map | none | `url`, `headers`, `timeout`, `signing-secret`, `answer-url`. |
 | `yukta.input.redact-keys` | list | `[]` | Context keys whose value is replaced, besides built-in secret names. |
 | `yukta.input.routes.<name>` | object | none | A named route: `tiers[]` (each `name`, `responders[]`, `timeout`, `mode` `FIRST`/`QUORUM`/`UNANIMOUS` default `FIRST`, `quorum` 2 or more with `QUORUM`, `minConfidence` 0 to 1, `type` `HUMAN`/`AUTO`, `settings`) and `onFinalTimeout` (`FAIL` or `USE_DEFAULT`). The route `default` applies when a request and its session name none. A bad route stops start-up. |
 | `yukta.input.token-secret` | string | random per start | Signing secret of one-time answer tokens; unset tokens do not survive a restart. |

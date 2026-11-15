@@ -1,0 +1,44 @@
+---
+title: "Write a notification channel"
+sidebarTitle: "Write a notification channel"
+description: "Send notifications to a system of your own, such as chat or e-mail, by implementing NotificationChannel as a Spring bean: the contract, idempotency, retries and the answer token."
+keywords: ["NotificationChannel", "channel", "extend", "plugin-api", "outbound", "SPI", "webhook"]
+---
+
+A **channel** carries a notification out of Yukta. The built-in `webhook` channel covers a JSON post; write your own for anything else. It replaces the alpha.4 `InputResponder` (see [Migrate to alpha.5](/reference/migration-alpha-5)).
+
+## The contract
+
+```java
+@Component
+public class ChatChannel implements NotificationChannel {
+
+  @Override
+  public String type() {
+    return "chat";
+  }
+
+  @Override
+  public Mono<Void> deliver(Notification notification, ChannelContext context) {
+    // post it; an error is retried with backoff
+    return client.post(context.settings(), render(notification));
+  }
+}
+```
+
+- `type()` is the name a rule uses: `channels: ["chat:team"]`, or `external:chat:team` in a route tier.
+- `ChannelContext` has the target name (`team`), its settings merged from `yukta.notifications.channels.chat.team.*`, and, for a question delivered by a route tier, the request, the one-time `answerToken` and `answerExpires`. A rule's channel never gets a token.
+- The notification arrives **already redacted**; do not look for secrets in it.
+- Return an error to retry. Delivery is **at least once**: be idempotent by the notification id.
+
+## Rules to keep
+
+- The channel never receives an answer. A receiver answers with the token at the token-answer endpoint, so the answer is reviewed and audited like any other. Never put the token in a log line.
+- Check URLs you call against the egress policy in your own code if you do not use the shared HTTP client.
+- Keep `deliver` quick; the worker retries after 1 s, doubling to 5 minutes, and gives up after 10 tries, raising a `delivery.failed` notification.
+
+## Test it
+
+Unit test `deliver` with a fake `ChannelContext` and `StepVerifier`; deliver the same notification twice and assert the receiver sees one effect. Then add the channel settings and a rule, raise a notification (a `NOTIFY_TERMINAL` with `target: inbox` does it) and check the receiver.
+
+The SPI version is `1.1`.
