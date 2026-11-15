@@ -9,7 +9,7 @@ keywords: ["PostgreSQL", "persistence", "Flyway"]
   This module is part of the **Plus** edition (AGPL-3.0-only). See [Licensing and editions](/reference/licensing).
 </Note>
 
-By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server. **persistence-postgres** is the optional module that moves them into PostgreSQL, adds a leader lease so two servers can share the database, and holds the small state of KV_STORE and SESSION_MEMORY nodes. It has no engine logic: it implements storage interfaces that core and plugin-api define. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
+By default Yukta keeps its definitions, sessions, run history and node outputs in memory or in files on one server. **persistence-postgres** is the optional module that moves them into PostgreSQL and adds a leader lease so two servers can share the database. It has no engine logic: it implements storage interfaces that core and plugin-api define. This page is for thinking about it: open a component, play a scenario, then challenge the weak spots.
 
 | Property | What it means |
 |---|---|
@@ -36,7 +36,7 @@ A Yukta server forgets everything when it restarts unless it writes state somewh
 |---|---|
 | Clients | REST, web UI, MCP agents, the CLI |
 | core | Engine, scheduler, startup recovery and the store interfaces |
-| plugin-api | The KeyValueStore, SessionHistoryStore and NodeCheckpointStore interfaces |
+| plugin-api | The NodeCheckpointStore interface |
 | persistence-postgres | Implements them on PostgreSQL. This page. (this module) |
 | PostgreSQL | R2DBC at run time, Flyway over JDBC for the schema |
 
@@ -150,8 +150,8 @@ old runs are deleted once there are more than 500; runs without an end are kept.
 Decides, from properties, which store beans the application gets: PostgreSQL ones, or none (then the in-memory and file defaults in core stay).
 
 - `PostgresPersistenceAutoConfiguration` is registered through `AutoConfiguration.imports`. Its three always-on beans (workflow definitions, session config, execution log) exist when `yukta.session.store-type=postgres`.
-- Four more beans are switched on one by one: `yukta.restart.store-type=postgres` (node checkpoints), `yukta.ha.mode=postgres` (leader lease), `yukta.kv.store-type=postgres` (KV_STORE state) and `yukta.session-memory.store-type=postgres` (chat history). So a deployment can be half on PostgreSQL.
-- The log store takes `yukta.execution-log.retained-runs` (500) and `compact-after` (10,000); the lease takes `yukta.ha.instance-id` (random if unset) and `yukta.ha.lease` (15 s); the history store takes an optional `yukta.session-memory.ttl`.
+- More beans are switched on one by one: `yukta.restart.store-type=postgres` (node checkpoints) and `yukta.ha.mode=postgres` (leader lease). So a deployment can be half on PostgreSQL.
+- The log store takes `yukta.execution-log.retained-runs` (500) and `compact-after` (10,000); the lease takes `yukta.ha.instance-id` (random if unset) and `yukta.ha.lease` (15 s).
 - The module is only on the classpath when the application is built with `-Pyukta.persistence=postgres`, so the choice is made twice: at build time and by properties.
 
 - **Guarantees.** With the matching property set, the matching bean exists; without it, core's default store is used.
@@ -159,7 +159,7 @@ Decides, from properties, which store beans the application gets: PostgreSQL one
 - **Ceiling.** Nothing checks that the properties agree: the session store can be PostgreSQL while checkpoints stay in memory, which is a half-durable deployment.
 - **On failure.** A missing `spring.r2dbc.url` fails the application at start. A wrong `store-type` value silently selects the default store.
 
-**Settings:** `yukta.session.store-type`, `yukta.restart.store-type`, `yukta.ha.mode`, `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.session-memory.ttl`
+**Settings:** `yukta.session.store-type`, `yukta.restart.store-type`, `yukta.ha.mode`
 
 ### Connections & drivers
 
@@ -185,7 +185,7 @@ Provides the two connections the module needs: R2DBC for all run-time statements
 
 Creates and evolves the nine tables. Each migration is a numbered SQL file that runs once per database.
 
-- V1 creates `workflow_definition`, `workflow_definition_revision`, `session_config` and `execution_log` (with an index on execution id). V2 adds the version `note`. V3 adds `node_checkpoint` and `node_checkpoint_state`. V4 adds `leader_lease`. V5 adds `kv_entry`. V6 adds `session_history`.
+- V1 creates `workflow_definition`, `workflow_definition_revision`, `session_config` and `execution_log` (with an index on execution id). V2 adds the version `note`. V3 adds `node_checkpoint` and `node_checkpoint_state`. V4 adds `leader_lease`. V5 and V6 added `kv_entry` and `session_history`, which the current V2 (after the alpha squash) drops with `KV_STORE` and `SESSION_MEMORY`.
 - Flyway runs on every server at start. It locks the schema history table, so two servers starting together do not both migrate.
 - All state is stored as JSONB documents plus a few key columns, so most changes to the Java records need no migration; a migration is needed only for a new table or column.
 - There are no down scripts. Nothing is partitioned, and the only indexes besides the primary keys are on `execution_log(execution_id)` and `node_checkpoint(execution_id, node_id, seq)`.
@@ -196,24 +196,6 @@ Creates and evolves the nine tables. Each migration is a numbered SQL file that 
 - **On failure.** A failing migration stops the application at start, before any store is used.
 
 **Settings:** `spring.flyway.*`
-
-### KV and chat history
-
-*two small stores*
-
-Keep the state of KV_STORE nodes and the chat history of SESSION_MEMORY nodes in PostgreSQL, so both survive a restart and are shared by servers.
-
-- `R2dbcKeyValueStore` (table `kv_entry`, key + JSONB value) implements the plugin-api `KeyValueStore`. `put` and `incr` are single statements: a counter is incremented in the database, so concurrent increments do not lose updates. `incr` on a value that is not a whole number turns the database error into an `IllegalArgumentException`.
-- The size cap (`maxEntries`) is a condition inside the insert: it counts all rows, and refuses a new key when the count has reached the cap. The count and the insert are one statement but not serialised against other inserts, so two concurrent new keys can both pass.
-- `R2dbcSessionHistoryStore` (table `session_history`, session id + JSONB turns) implements `SessionHistoryStore`. Its calls block the calling thread, up to 10 s; a failure is logged and the chat goes on from memory.
-- With `yukta.session-memory.ttl`, every save also deletes the sessions whose `updated_at` is older than the ttl. A load does not check the ttl.
-
-- **Guarantees.** Counters are exact; a history save never fails the chat.
-- **State.** Tables `kv_entry` and `session_history`.
-- **Ceiling.** The ttl delete scans the table on every save (no index on `updated_at`); the KV cap counts all rows on every new key.
-- **On failure.** A database failure on the history store means the history lives only in memory until the next successful save.
-
-**Settings:** `yukta.kv.store-type`, `yukta.session-memory.store-type`, `yukta.session-memory.ttl`
 
 ### Definitions & sessions
 
@@ -450,8 +432,6 @@ What this module does, how, what it guarantees and where the guarantee stops.
 
 | Capability | What it does | How | Guarantee | Limit |
 |---|---|---|---|---|
-| KV store | State of KV_STORE nodes in a table. | `incr` and `put` as single statements. | Counters are exact across servers. | The size cap can be passed by concurrent new keys. |
-| Chat history | Chat history of SESSION_MEMORY in a table, with an optional ttl. | One JSONB cell per session, replaced on every turn. | Conversations survive a restart and are shared. | The ttl is applied on write only and scans the table. |
 
 ### Schema
 
@@ -491,8 +471,6 @@ Compare with the in-memory and file defaults in core.
 | Execution log | \*\*Partly.\*\* Durable once inserted. Events still queued (up to 10,000), dropped on overflow or failing to insert are lost. |
 | Node outputs | \*\*Yes.\*\* Durable per message; a node is finished only with its stamp. |
 | Leader lease | \*\*Yes.\*\* Expires by itself; a new holder is chosen without help. |
-| KV_STORE state | \*\*Yes.\*\* Durable and shared (with the KV switch set). |
-| Chat history | \*\*Yes.\*\* Durable and shared (with the history switch set); a failed save leaves it only in memory. |
 | Live approval waits, queued starts, scheduler slots | \*\*No.\*\* Not stored here (core keeps them in memory). |
 
 ### Limits and defaults
@@ -506,8 +484,6 @@ Compare with the in-memory and file defaults in core.
 | Versions per workflow | 20 |
 | Lease / renewal | 15 s / every 5 s (`yukta.ha.lease`) |
 | Log writer shutdown wait | 5 s |
-| KV entries | Set by the KV_STORE node (default 10,000) |
-| Chat history ttl | None unless `yukta.session-memory.ttl` is set |
 
 ## Reference
 
@@ -524,8 +500,6 @@ Nine tables from six migrations. 'Cleaned by' says what removes rows; 'nothing' 
 | node_checkpoint | V3 | Checkpoint save | get, getAll | clear when the run leaves the archive of retained executions; recovery for dropped runs |
 | node_checkpoint_state | V3 | markComplete, failed saves | isComplete, isFinished | clear |
 | leader_lease | V4 | Every server, every 5 s | The same statement | nothing (one row) |
-| kv_entry | V5 | KV store put, incr | get | remove (by the plugin) |
-| session_history | V6 | History save | load | ttl delete on save (if set) |
 
 ### Settings that choose a store
 
@@ -537,8 +511,6 @@ Set the build flag once, then one property per kind of data.
 | yukta.session.store-type=postgres | Definitions, session config and the execution log | in-memory |
 | yukta.restart.store-type=postgres | Node checkpoints | files if `yukta.restart.dir`, else memory |
 | yukta.ha.mode=postgres | The leader lease | single server |
-| yukta.kv.store-type=postgres | KV_STORE state | memory |
-| yukta.session-memory.store-type=postgres | SESSION_MEMORY history | memory or a directory |
 | spring.r2dbc.url | Run-time connection | none |
 | spring.flyway.url / user / password | Migration connection (JDBC) | none |
 
@@ -618,7 +590,7 @@ Short rules that follow from the guarantees.
 
 </Accordion>
 <Accordion title="Blocking waits behind the blocking interfaces">
-**Context.** NodeCheckpointStore.isFinished, SessionHistoryStore and the log store are plain methods in their interfaces.
+**Context.** NodeCheckpointStore.isFinished and the log store are plain methods in their interfaces.
 
 **Decision.** Implement them by waiting on the reactive statement with a timeout, and fall back to a safe value.
 
@@ -667,8 +639,6 @@ Short rules that follow from the guarantees.
 | Standby | A server that is not the leader. | Refuses to admit runs. |
 | TOAST | PostgreSQL's way of storing large values out of line. | Why the checkpoint table needs no size cap. |
 | Testcontainers | A library that starts a real PostgreSQL in Docker for tests. | The tests need Docker. |
-| KV_STORE | A workflow node type that keeps counters and flags. | Its state can live in the kv_entry table. |
-| SESSION_MEMORY | A workflow node type that keeps chat history. | Its history can live in the session_history table. |
 | Half durable | A deployment where some stores are in PostgreSQL and others in memory. | Possible because each store has its own switch. |
 | Advisory lock | A PostgreSQL lock that the application names and takes itself. | Not used here; mentioned as an alternative for the lease. |
 

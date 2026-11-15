@@ -19,6 +19,7 @@ func PluginCmd(c *client.Client) *cobra.Command {
 
 	cmd.AddCommand(ListCmd(c))
 	cmd.AddCommand(GetCmd(c))
+	cmd.AddCommand(ValidateCmd())
 
 	return cmd
 }
