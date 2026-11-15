@@ -134,12 +134,11 @@ class ControlReviewerParentsTest {
     parent("boss", answering(Decision.deny("not now")));
 
     StepVerifier.create(verdict())
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.Denied.class,
-                        d -> assertThat(d.reason()).isEqualTo("boss: not now")))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.Denied.class,
+                    d -> assertThat(d.reason()).isEqualTo("boss: not now")))
         .verifyComplete();
   }
 
@@ -150,12 +149,11 @@ class ControlReviewerParentsTest {
     owner(needing(InputRisk.LOW), child);
 
     StepVerifier.create(verdict())
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.NeedsApproval.class,
-                        n -> assertThat(n.reason()).contains("asked [boss:silent]")))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.NeedsApproval.class,
+                    n -> assertThat(n.reason()).contains("asked [boss:silent]")))
         .verifyComplete();
   }
 
@@ -199,12 +197,10 @@ class ControlReviewerParentsTest {
     parent("b", answering(Decision.deny("closed")));
 
     StepVerifier.create(verdict())
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.Denied.class,
-                        d -> assertThat(d.reason()).contains("b: closed")))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.Denied.class, d -> assertThat(d.reason()).contains("b: closed")))
         .verifyComplete();
   }
 
@@ -230,12 +226,11 @@ class ControlReviewerParentsTest {
     parent("boss", needing(InputRisk.LOW));
 
     StepVerifier.create(verdict())
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.NeedsApproval.class,
-                        n -> assertThat(n.reason()).contains("asked [boss:NO_OPINION]")))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.NeedsApproval.class,
+                    n -> assertThat(n.reason()).contains("asked [boss:NO_OPINION]")))
         .verifyComplete();
   }
 

@@ -107,11 +107,10 @@ class ControlReviewerOwnerTest {
   @Test
   void nothingOwnedWithTheDefaultOffIsRefusedToPeople() {
     StepVerifier.create(verdict(reviewer(false), RUN_COMMAND, ControlActor.Channel.OPERATOR))
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.Controlled.class, c -> assertThat(c.supervisorId()).isNull()))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.Controlled.class, c -> assertThat(c.supervisorId()).isNull()))
         .verifyComplete();
   }
 
@@ -120,15 +119,14 @@ class ControlReviewerOwnerTest {
     own("a", new SupervisorScope.Workflow("w", "s"), answering(Decision.ALLOW));
 
     StepVerifier.create(verdict(reviewer(true), RUN_COMMAND, ControlActor.Channel.OPERATOR))
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.Controlled.class,
-                        c -> {
-                          assertThat(c.supervisorId()).isEqualTo("a-sup");
-                          assertThat(c.reason()).contains("a-sup controls this");
-                        }))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.Controlled.class,
+                    c -> {
+                      assertThat(c.supervisorId()).isEqualTo("a-sup");
+                      assertThat(c.reason()).contains("a-sup controls this");
+                    }))
         .verifyComplete();
   }
 
@@ -140,12 +138,11 @@ class ControlReviewerOwnerTest {
             reviewer(true)
                 .review(RUN_COMMAND)
                 .contextWrite(contextOf(ControlActor.Channel.OPERATOR)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOfSatisfying(
-                        ControlledBySupervisorException.class,
-                        controlled -> assertThat(controlled.getSupervisorId()).isEqualTo("a-sup")))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOfSatisfying(
+                    ControlledBySupervisorException.class,
+                    controlled -> assertThat(controlled.getSupervisorId()).isEqualTo("a-sup")))
         .verify();
   }
 
@@ -310,12 +307,11 @@ class ControlReviewerOwnerTest {
                 .contextWrite(
                     contextOf(ControlActor.Channel.OPERATOR)
                         .put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR)))
-        .assertNext(
-            v ->
-                assertThat(v)
-                    .isInstanceOfSatisfying(
-                        ReviewVerdict.Denied.class,
-                        d -> assertThat(d.reason()).contains("review returned nothing")))
+        .assertNext(v ->
+            assertThat(v)
+                .isInstanceOfSatisfying(
+                    ReviewVerdict.Denied.class,
+                    d -> assertThat(d.reason()).contains("review returned nothing")))
         .verifyComplete();
   }
 

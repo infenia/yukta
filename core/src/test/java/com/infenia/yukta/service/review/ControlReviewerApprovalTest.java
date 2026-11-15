@@ -111,15 +111,14 @@ class ControlReviewerApprovalTest {
                 new Fake(
                     "c", 3, Decision.requireApproval(null, new ApprovalNeed(null, null, null))),
                 new Fake("d", 4, Decision.ALLOW)))
-        .assertNext(
-            verdict -> {
-              final ReviewVerdict.NeedsApproval needs = (ReviewVerdict.NeedsApproval) verdict;
-              assertThat(needs.askedBy()).containsExactly("a", "b", "c");
-              assertThat(needs.need())
-                  .isEqualTo(new ApprovalNeed(InputRisk.HIGH, "ops", Duration.ofMinutes(2)));
-              assertThat(needs.reason())
-                  .isEqualTo("a: a wants it; b: b wants it; c: approval required");
-            })
+        .assertNext(verdict -> {
+          final ReviewVerdict.NeedsApproval needs = (ReviewVerdict.NeedsApproval) verdict;
+          assertThat(needs.askedBy()).containsExactly("a", "b", "c");
+          assertThat(needs.need())
+              .isEqualTo(new ApprovalNeed(InputRisk.HIGH, "ops", Duration.ofMinutes(2)));
+          assertThat(needs.reason())
+              .isEqualTo("a: a wants it; b: b wants it; c: approval required");
+        })
         .verifyComplete();
   }
 
@@ -131,10 +130,9 @@ class ControlReviewerApprovalTest {
                 Set.of(),
                 need("a", 1, new ApprovalNeed(InputRisk.HIGH, null, Duration.ofMinutes(1))),
                 need("b", 2, new ApprovalNeed(InputRisk.LOW, null, Duration.ofMinutes(9)))))
-        .assertNext(
-            verdict ->
-                assertThat(((ReviewVerdict.NeedsApproval) verdict).need())
-                    .isEqualTo(new ApprovalNeed(InputRisk.HIGH, null, Duration.ofMinutes(1))))
+        .assertNext(verdict ->
+            assertThat(((ReviewVerdict.NeedsApproval) verdict).need())
+                .isEqualTo(new ApprovalNeed(InputRisk.HIGH, null, Duration.ofMinutes(1))))
         .verifyComplete();
   }
 
@@ -145,9 +143,8 @@ class ControlReviewerApprovalTest {
         .verifyComplete();
     StepVerifier.create(
             verdict(PAUSE, Set.of("a"), need("a", 1, LOW_ROUTE), need("b", 2, LOW_ROUTE)))
-        .assertNext(
-            verdict ->
-                assertThat(((ReviewVerdict.NeedsApproval) verdict).askedBy()).containsExactly("b"))
+        .assertNext(verdict ->
+            assertThat(((ReviewVerdict.NeedsApproval) verdict).askedBy()).containsExactly("b"))
         .verifyComplete();
     StepVerifier.create(
             verdict(
@@ -213,9 +210,8 @@ class ControlReviewerApprovalTest {
             ControlReviewerFixture.pipeline(
                     providerOf(need("a", 1, LOW_ROUTE)), Duration.ofMillis(200))
                 .review(PAUSE))
-        .expectErrorMatches(
-            error ->
-                error instanceof ControlRejectedException && error.getMessage().contains("a wants"))
+        .expectErrorMatches(error ->
+            error instanceof ControlRejectedException && error.getMessage().contains("a wants"))
         .verify();
     StepVerifier.create(
             ControlReviewerFixture.pipeline(

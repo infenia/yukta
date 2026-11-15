@@ -215,11 +215,10 @@ class RestartFromNodeCommandProcessorTest {
     verify(completionSink)
         .completeRestartFailure(
             eq("new-1"),
-            argThat(
-                e ->
-                    e instanceof IllegalArgumentException
-                        && e.getMessage().contains("'trigger'")
-                        && e.getMessage().contains("incomplete")));
+            argThat(e ->
+                e instanceof IllegalArgumentException
+                    && e.getMessage().contains("'trigger'")
+                    && e.getMessage().contains("incomplete")));
     verify(orchestrator, never())
         .restartFromNode(any(), any(), any(), any(), any(), any(), any(), any());
   }

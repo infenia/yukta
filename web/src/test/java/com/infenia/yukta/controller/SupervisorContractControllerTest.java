@@ -16,12 +16,11 @@ class SupervisorContractControllerTest {
   @Test
   void returnsTheVersionAndOperations() {
     StepVerifier.create(new SupervisorContractController().get())
-        .assertNext(
-            r -> {
-              assertThat(r.data().version()).isEqualTo(1);
-              assertThat(r.data().operations()).isEqualTo(SupervisorContract.operations());
-              assertThat(r.data().operations().get("act")).contains("run.pause", "run.start");
-            })
+        .assertNext(r -> {
+          assertThat(r.data().version()).isEqualTo(1);
+          assertThat(r.data().operations()).isEqualTo(SupervisorContract.operations());
+          assertThat(r.data().operations().get("act")).contains("run.pause", "run.start");
+        })
         .verifyComplete();
   }
 }

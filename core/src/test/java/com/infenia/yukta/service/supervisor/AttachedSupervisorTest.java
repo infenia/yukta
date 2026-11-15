@@ -105,13 +105,12 @@ class AttachedSupervisorTest {
   private void publishUntilSeen(final String execution, final String session) {
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      execution, session, "w", "RUNNING", Instant.now()));
-              assertThat(seen).contains(execution);
-            });
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged(
+                  execution, session, "w", "RUNNING", Instant.now()));
+          assertThat(seen).contains(execution);
+        });
   }
 
   @Test
@@ -154,14 +153,13 @@ class AttachedSupervisorTest {
 
     assertThat(host.status())
         .singleElement()
-        .satisfies(
-            info -> {
-              assertThat(info.id()).isEqualTo("b1");
-              assertThat(info.kind()).isEqualTo("SUPERVISOR");
-              assertThat(info.scope()).isEqualTo("WORKFLOW");
-              assertThat(info.scopeSessionId()).isEqualTo("A");
-              assertThat(info.dryRun()).isTrue();
-            });
+        .satisfies(info -> {
+          assertThat(info.id()).isEqualTo("b1");
+          assertThat(info.kind()).isEqualTo("SUPERVISOR");
+          assertThat(info.scope()).isEqualTo("WORKFLOW");
+          assertThat(info.scopeSessionId()).isEqualTo("A");
+          assertThat(info.dryRun()).isTrue();
+        });
   }
 
   @Test
@@ -172,10 +170,9 @@ class AttachedSupervisorTest {
     publishUntilSeen("r1", "A");
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters())
-                    .isNotEmpty());
+        .untilAsserted(() ->
+            assertThat(meters.find("yukta.supervisor.commands").tag("id", "b1").counters())
+                .isNotEmpty());
 
     host.detach("b1");
 
@@ -268,15 +265,14 @@ class AttachedSupervisorTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(host.decisions("live", 10))
-                  .extracting(SupervisorDecision::outcome)
-                  .contains("applied");
-              assertThat(host.decisions("dry", 10))
-                  .extracting(SupervisorDecision::outcome)
-                  .contains("dry-run");
-            });
+        .untilAsserted(() -> {
+          assertThat(host.decisions("live", 10))
+              .extracting(SupervisorDecision::outcome)
+              .contains("applied");
+          assertThat(host.decisions("dry", 10))
+              .extracting(SupervisorDecision::outcome)
+              .contains("dry-run");
+        });
     assertThat(host.decisions(null, 1)).hasSize(1);
     assertThat(host.decisions("nobody", 10)).isEmpty();
     assertThat(host.decisions(null, 0)).isEmpty();
@@ -295,10 +291,9 @@ class AttachedSupervisorTest {
           public Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
             return events
                 .take(1)
-                .flatMap(
-                    e ->
-                        Flux.range(0, 600)
-                            .map(i -> new ExecutionControlCommand.PauseWorkflowCommand("e" + i)));
+                .flatMap(e ->
+                    Flux.range(0, 600)
+                        .map(i -> new ExecutionControlCommand.PauseWorkflowCommand("e" + i)));
           }
         };
     host.setAttachedSupervisors(attached);
@@ -310,15 +305,13 @@ class AttachedSupervisorTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      "x", "A", "w", "RUNNING", Instant.now()));
-              assertThat(host.decisions("chatty", 1000)).hasSize(500);
-              // the commands land one by one: wait for the last before reading the newest
-              assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
-            });
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged("x", "A", "w", "RUNNING", Instant.now()));
+          assertThat(host.decisions("chatty", 1000)).hasSize(500);
+          // the commands land one by one: wait for the last before reading the newest
+          assertThat(host.decisions("chatty", 1000).getFirst().executionId()).isEqualTo("e599");
+        });
   }
 
   @Test
@@ -332,14 +325,12 @@ class AttachedSupervisorTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(host.decisions("b1", 10))
-                    .anySatisfy(
-                        d -> {
-                          assertThat(d.outcome()).isEqualTo("rejected");
-                          assertThat(d.reason()).contains("no");
-                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
-                        }));
+        .untilAsserted(() ->
+            assertThat(host.decisions("b1", 10))
+                .anySatisfy(d -> {
+                  assertThat(d.outcome()).isEqualTo("rejected");
+                  assertThat(d.reason()).contains("no");
+                  assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                }));
   }
 }

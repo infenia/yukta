@@ -109,10 +109,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(failing.getProgressByExecutionId("b-exec").status())
-                    .isEqualTo(TaskStatus.SUCCESS));
+        .untilAsserted(() ->
+            assertThat(failing.getProgressByExecutionId("b-exec").status())
+                .isEqualTo(TaskStatus.SUCCESS));
   }
 
   @Test
@@ -129,12 +128,10 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(failing.startWorkflow("n-exec", "n-sess", "n-wf", List.of("a")))
         .verifyComplete();
     StepVerifier.create(failing.getStatusStream("n-exec", false).take(1))
-        .then(
-            () ->
-                failing.handleEvents(
-                    List.of(
-                        TaskStatusEvent.create(
-                            "n-exec", "a", "echo", TaskStatus.SUCCESS, Map.of()))))
+        .then(() ->
+            failing.handleEvents(
+                List.of(
+                    TaskStatusEvent.create("n-exec", "a", "echo", TaskStatus.SUCCESS, Map.of()))))
         .expectNextCount(1)
         .verifyComplete();
 
@@ -334,10 +331,9 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(traced.finishWorkflow("l-exec", TaskStatus.SUCCESS)).verifyComplete();
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(traced.getProgressByExecutionId("l-exec").status())
-                    .isEqualTo(TaskStatus.SUCCESS));
+        .untilAsserted(() ->
+            assertThat(traced.getProgressByExecutionId("l-exec").status())
+                .isEqualTo(TaskStatus.SUCCESS));
 
     traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.RUNNING, Map.of());
     traced.emitTaskStatusEvent("l-exec", "a", "echo", TaskStatus.SUCCESS, Map.of());
@@ -364,18 +360,17 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(
-                      meters
-                          .get("yukta.node.executions")
-                          .tags("module", "echo", "status", "SUCCESS")
-                          .counter()
-                          .count())
-                  .isEqualTo(2.0);
-              // only the node that actually ran has a duration
-              assertThat(meters.get("yukta.node.duration").timer().count()).isEqualTo(1);
-            });
+        .untilAsserted(() -> {
+          assertThat(
+                  meters
+                      .get("yukta.node.executions")
+                      .tags("module", "echo", "status", "SUCCESS")
+                      .counter()
+                      .count())
+              .isEqualTo(2.0);
+          // only the node that actually ran has a duration
+          assertThat(meters.get("yukta.node.duration").timer().count()).isEqualTo(1);
+        });
   }
 
   @Test
@@ -400,10 +395,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(burst.getProgress("b-sess", "b-exec").tasks().getFirst().status())
-                    .isEqualTo(TaskStatus.SUCCESS));
+        .untilAsserted(() ->
+            assertThat(burst.getProgress("b-sess", "b-exec").tasks().getFirst().status())
+                .isEqualTo(TaskStatus.SUCCESS));
     assertThat(meters.get("yukta.tracker.dropped").tag("type", "log").counter().count())
         .isEqualTo(50.0);
 
@@ -453,10 +447,9 @@ class DefaultTaskTrackerServiceTest {
     // Loop to wait for state update
     await()
         .atMost(1, TimeUnit.SECONDS)
-        .until(
-            () ->
-                TaskStatus.SUCCESS
-                    == tracker.getProgress(sessionId, executionId).tasks().getFirst().status());
+        .until(() ->
+            TaskStatus.SUCCESS
+                == tracker.getProgress(sessionId, executionId).tasks().getFirst().status());
 
     progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
@@ -502,12 +495,11 @@ class DefaultTaskTrackerServiceTest {
 
     StepVerifier.create(tracker.getStatusStream(executionId))
         .then(() -> tracker.emitControlStateEvent(executionId, ControlState.NODE_PAUSED))
-        .assertNext(
-            p -> {
-              assertThat(p.status()).isEqualTo(TaskStatus.RUNNING);
-              assertThat(p.controlState()).isEqualTo("NODE_PAUSED");
-              assertThat(p.endTime()).isNull();
-            })
+        .assertNext(p -> {
+          assertThat(p.status()).isEqualTo(TaskStatus.RUNNING);
+          assertThat(p.controlState()).isEqualTo("NODE_PAUSED");
+          assertThat(p.endTime()).isNull();
+        })
         .then(() -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.STOPPED))
         .assertNext(p -> assertThat(p.status()).isEqualTo(TaskStatus.STOPPED))
         .expectComplete()
@@ -531,11 +523,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .pollDelay(500, TimeUnit.MILLISECONDS)
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(tracker.getProgress("sess-idx", "idx-1")).isNotNull();
-              assertThat(tracker.getProgressByExecutionId("idx-1")).isNotNull();
-            });
+        .untilAsserted(() -> {
+          assertThat(tracker.getProgress("sess-idx", "idx-1")).isNotNull();
+          assertThat(tracker.getProgressByExecutionId("idx-1")).isNotNull();
+        });
   }
 
   @Test
@@ -546,14 +537,13 @@ class DefaultTaskTrackerServiceTest {
 
     // the watcher asks for one snapshot and stalls while many more and the end are emitted
     StepVerifier.create(tracker.getStatusStream(executionId, false), 1)
-        .then(
-            () -> {
-              for (int i = 0; i < 100; i++) {
-                tracker.emitControlStateEvent(executionId, ControlState.NODE_PAUSED);
-                tracker.emitControlStateEvent(executionId, ControlState.NODE_RESUMED);
-              }
-              tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
-            })
+        .then(() -> {
+          for (int i = 0; i < 100; i++) {
+            tracker.emitControlStateEvent(executionId, ControlState.NODE_PAUSED);
+            tracker.emitControlStateEvent(executionId, ControlState.NODE_RESUMED);
+          }
+          tracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
+        })
         .expectNextCount(1)
         .thenAwait(Duration.ofMillis(500))
         .thenRequest(Long.MAX_VALUE)
@@ -609,11 +599,10 @@ class DefaultTaskTrackerServiceTest {
     // the event is applied asynchronously: the null value is dropped, the other one kept
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId("meta-1").tasks().getFirst().metadata())
-                    .containsEntry("ok", "yes")
-                    .doesNotContainKey("exitCode"));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("meta-1").tasks().getFirst().metadata())
+                .containsEntry("ok", "yes")
+                .doesNotContainKey("exitCode"));
   }
 
   @Test
@@ -628,10 +617,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getHistory("sess-hist").block())
-                    .hasSize(DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION));
+        .untilAsserted(() ->
+            assertThat(tracker.getHistory("sess-hist").block())
+                .hasSize(DefaultTaskTrackerService.MAX_FINISHED_PER_SESSION));
   }
 
   @Test
@@ -643,9 +631,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId))
-        .then(
-            () ->
-                tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.SUCCESS, Map.of()))
+        .then(() ->
+            tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.SUCCESS, Map.of()))
         .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo("wf-1"))
         .thenCancel()
         .verify();
@@ -727,13 +714,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
@@ -760,13 +746,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
@@ -791,11 +776,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null && TaskStatus.SUCCESS == progress.status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null && TaskStatus.SUCCESS == progress.status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
@@ -869,12 +853,11 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getHistory(sessionId, workflowId))
-        .assertNext(
-            history -> {
-              assertThat(history).hasSize(1);
-              assertThat(history.getFirst().executionId()).isEqualTo("exec-scoped-1");
-              assertThat(history.getFirst().workflowId()).isEqualTo(workflowId);
-            })
+        .assertNext(history -> {
+          assertThat(history).hasSize(1);
+          assertThat(history.getFirst().executionId()).isEqualTo("exec-scoped-1");
+          assertThat(history.getFirst().workflowId()).isEqualTo(workflowId);
+        })
         .verifyComplete();
   }
 
@@ -890,14 +873,12 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                StepVerifier.create(tracker.getHistory("sess-nodes"))
-                    .assertNext(
-                        history ->
-                            assertThat(history.getFirst().nodes())
-                                .isEqualTo(new WorkflowExecutionSummary.Nodes(3, 4, "b")))
-                    .verifyComplete());
+        .untilAsserted(() ->
+            StepVerifier.create(tracker.getHistory("sess-nodes"))
+                .assertNext(history ->
+                    assertThat(history.getFirst().nodes())
+                        .isEqualTo(new WorkflowExecutionSummary.Nodes(3, 4, "b")))
+                .verifyComplete());
   }
 
   @Test
@@ -933,11 +914,10 @@ class DefaultTaskTrackerServiceTest {
         .during(Duration.ofMillis(500))
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.PENDING);
-            });
+        .untilAsserted(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.PENDING);
+        });
   }
 
   @Test
@@ -957,14 +937,13 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.FAILURE == progress.tasks().getFirst().status()
-                  && progress.tasks().getFirst().endTime() != null;
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.FAILURE == progress.tasks().getFirst().status()
+              && progress.tasks().getFirst().endTime() != null;
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.FAILURE);
@@ -992,14 +971,13 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status()
-                  && progress.tasks().getFirst().startTime() != null;
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status()
+              && progress.tasks().getFirst().startTime() != null;
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().startTime()).isNotNull();
@@ -1022,13 +1000,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress1 = tracker.getProgress(sessionId, executionId);
     assertThat(progress1.tasks().getFirst().endTime()).isNotNull();
@@ -1042,11 +1019,10 @@ class DefaultTaskTrackerServiceTest {
         .during(Duration.ofMillis(500))
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              final WorkflowProgress progress2 = tracker.getProgress(sessionId, executionId);
-              assertThat(progress2.tasks().getFirst().endTime()).isEqualTo(firstEndTime);
-            });
+        .untilAsserted(() -> {
+          final WorkflowProgress progress2 = tracker.getProgress(sessionId, executionId);
+          assertThat(progress2.tasks().getFirst().endTime()).isEqualTo(firstEndTime);
+        });
   }
 
   @Test
@@ -1071,16 +1047,15 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(20))
-        .untilAsserted(
-            () -> {
-              // After cleanup, getLogStream and getStatusStream should return empty
-              StepVerifier.create(shortTtlTracker.getLogStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-              StepVerifier.create(shortTtlTracker.getStatusStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-            });
+        .untilAsserted(() -> {
+          // After cleanup, getLogStream and getStatusStream should return empty
+          StepVerifier.create(shortTtlTracker.getLogStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+          StepVerifier.create(shortTtlTracker.getStatusStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+        });
   }
 
   @Test
@@ -1205,16 +1180,15 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(20))
-        .untilAsserted(
-            () -> {
-              // Verify streams are now empty after cleanup
-              StepVerifier.create(tracker.getLogStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-              StepVerifier.create(tracker.getStatusStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-            });
+        .untilAsserted(() -> {
+          // Verify streams are now empty after cleanup
+          StepVerifier.create(tracker.getLogStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+          StepVerifier.create(tracker.getStatusStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+        });
   }
 
   @Test
@@ -1234,13 +1208,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     // Now emit workflow status with terminal status — should set endTime
     tracker.emitWorkflowStatusEvent(executionId, TaskStatus.FAILURE);
@@ -1249,11 +1222,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null && TaskStatus.FAILURE == progress.status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null && TaskStatus.FAILURE == progress.status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.status()).isEqualTo(TaskStatus.FAILURE);
@@ -1272,10 +1244,9 @@ class DefaultTaskTrackerServiceTest {
 
     // Subscribe to status changes and emit a task status update
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
-        .then(
-            () ->
-                tracker.emitTaskStatusEvent(
-                    executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
+        .then(() ->
+            tracker.emitTaskStatusEvent(
+                executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
         .assertNext(progress -> assertThat(progress.workflowId()).isEqualTo(workflowId))
         .verifyComplete();
   }
@@ -1322,13 +1293,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key1");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key1");
+        });
 
     // Second update with additional metadata
     tracker.emitTaskStatusEvent(
@@ -1338,13 +1308,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key2");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key2");
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
@@ -1371,13 +1340,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
@@ -1406,15 +1374,14 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && progress.tasks().size() == 3
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status()
-                  && TaskStatus.RUNNING == progress.tasks().get(1).status()
-                  && TaskStatus.FAILURE == progress.tasks().get(2).status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && progress.tasks().size() == 3
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status()
+              && TaskStatus.RUNNING == progress.tasks().get(1).status()
+              && TaskStatus.FAILURE == progress.tasks().get(2).status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().size()).isEqualTo(3);
@@ -1440,13 +1407,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && "module-a".equals(progress.tasks().getFirst().module());
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && "module-a".equals(progress.tasks().getFirst().module());
+        });
 
     // Update with different module
     tracker.emitTaskStatusEvent(executionId, "node1", "module-b", TaskStatus.SUCCESS, Map.of());
@@ -1455,13 +1421,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && "module-b".equals(progress.tasks().getFirst().module());
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && "module-b".equals(progress.tasks().getFirst().module());
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().module()).isEqualTo("module-b");
@@ -1525,12 +1490,11 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Verify the task was still updated
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
-            });
+        .untilAsserted(() -> {
+          // Verify the task was still updated
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
+        });
   }
 
   @Test
@@ -1572,13 +1536,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().startTime()).isNotNull();
@@ -1599,13 +1562,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     final var prog1 = tracker.getProgress(sessionId, executionId);
     assertThat(prog1.tasks().getFirst().startTime()).isNotNull();
@@ -1615,13 +1577,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.FAILURE == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.FAILURE == progress.tasks().getFirst().status();
+        });
 
     final var prog2 = tracker.getProgress(sessionId, executionId);
     assertThat(prog2.tasks().getFirst().endTime()).isNotNull();
@@ -1645,13 +1606,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key1");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key1");
+        });
 
     // Second update with empty Map (tests mergeMetadata null branch)
     tracker.emitTaskStatusEvent(executionId, "node1", "module2", TaskStatus.SUCCESS, Map.of());
@@ -1660,13 +1620,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().metadata().containsKey("key1")).isTrue();
@@ -1689,12 +1648,11 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Verify workflow completed
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
-            });
+        .untilAsserted(() -> {
+          // Verify workflow completed
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
+        });
   }
 
   @Test
@@ -1714,13 +1672,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     final var prog1 = tracker.getProgress(sessionId, executionId);
     final var firstStartTime = prog1.tasks().getFirst().startTime();
@@ -1732,11 +1689,9 @@ class DefaultTaskTrackerServiceTest {
     await()
         .during(Duration.ofMillis(300))
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(
-                        tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
-                    .isEqualTo(firstStartTime));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
+                .isEqualTo(firstStartTime));
   }
 
   @Test
@@ -1756,13 +1711,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final var prog1 = tracker.getProgress(sessionId, executionId);
     final var firstEndTime = prog1.tasks().getFirst().endTime();
@@ -1774,10 +1728,9 @@ class DefaultTaskTrackerServiceTest {
     await()
         .during(Duration.ofMillis(300))
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
-                    .isEqualTo(firstEndTime));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
+                .isEqualTo(firstEndTime));
   }
 
   @Test
@@ -1797,13 +1750,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.RUNNING == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.RUNNING == progress.tasks().getFirst().status();
+        });
 
     // Verify event was processed
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -1828,13 +1780,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().startTime() != null;
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().startTime() != null;
+        });
 
     // Then emit non-terminal to test that path
     tracker.emitTaskStatusEvent(
@@ -1848,13 +1799,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().endTime() != null;
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().endTime() != null;
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().startTime()).isNotNull();
@@ -1882,13 +1832,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
@@ -1906,15 +1855,13 @@ class DefaultTaskTrackerServiceTest {
 
     // Subscribe to status stream and emit event
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
-        .then(
-            () ->
-                tracker.emitTaskStatusEvent(
-                    executionId, "node1", "module", TaskStatus.RUNNING, Map.of()))
-        .assertNext(
-            progress -> {
-              assertThat(progress.executionId()).isEqualTo(executionId);
-              assertThat(progress.workflowId()).isEqualTo(workflowId);
-            })
+        .then(() ->
+            tracker.emitTaskStatusEvent(
+                executionId, "node1", "module", TaskStatus.RUNNING, Map.of()))
+        .assertNext(progress -> {
+          assertThat(progress.executionId()).isEqualTo(executionId);
+          assertThat(progress.workflowId()).isEqualTo(workflowId);
+        })
         .verifyComplete();
   }
 
@@ -1955,11 +1902,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null && TaskStatus.RUNNING == progress.status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null && TaskStatus.RUNNING == progress.status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     assertThat(progress.status()).isEqualTo(TaskStatus.RUNNING);
@@ -1995,13 +1941,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key1");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key1");
+        });
 
     // Now emit with empty map to test mergeMetadata preserves existing metadata
     tracker.emitTaskStatusEvent(executionId, "node1", "mod2", TaskStatus.SUCCESS, Map.of());
@@ -2009,13 +1954,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     // Metadata should still have key1 from before (merged from empty additional map)
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -2038,12 +1982,11 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Workflow should have completed
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
-            });
+        .untilAsserted(() -> {
+          // Workflow should have completed
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS);
+        });
   }
 
   @Test
@@ -2066,16 +2009,15 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(20))
-        .untilAsserted(
-            () -> {
-              // After cleanup, sinks should be completed/removed
-              StepVerifier.create(tracker.getLogStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-              StepVerifier.create(tracker.getStatusStream(executionId))
-                  .expectComplete()
-                  .verify(Duration.ofMillis(200));
-            });
+        .untilAsserted(() -> {
+          // After cleanup, sinks should be completed/removed
+          StepVerifier.create(tracker.getLogStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+          StepVerifier.create(tracker.getStatusStream(executionId))
+              .expectComplete()
+              .verify(Duration.ofMillis(200));
+        });
   }
 
   @Test
@@ -2095,13 +2037,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key1");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key1");
+        });
 
     // Emit with no additional metadata to trigger the null branch in mergeMetadata
     // The null branch happens when additional == null, but API requires @NotNull
@@ -2112,13 +2053,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
     // Old metadata should still be there (merged with empty map)
@@ -2144,13 +2084,12 @@ class DefaultTaskTrackerServiceTest {
         .during(Duration.ofMillis(500))
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Workflow should still have only the initialized nodes
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress.tasks().size()).isEqualTo(1);
-              assertThat(progress.tasks().getFirst().nodeId()).isEqualTo("node1");
-            });
+        .untilAsserted(() -> {
+          // Workflow should still have only the initialized nodes
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress.tasks().size()).isEqualTo(1);
+          assertThat(progress.tasks().getFirst().nodeId()).isEqualTo("node1");
+        });
   }
 
   @Test
@@ -2168,13 +2107,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && !p.tasks().isEmpty()
-                  && TaskStatus.RUNNING == p.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && !p.tasks().isEmpty()
+              && TaskStatus.RUNNING == p.tasks().getFirst().status();
+        });
 
     // Case 2: Add some metadata
     tracker.emitTaskStatusEvent(
@@ -2182,26 +2120,24 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && !p.tasks().isEmpty()
-                  && p.tasks().getFirst().metadata().containsKey("a");
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && !p.tasks().isEmpty()
+              && p.tasks().getFirst().metadata().containsKey("a");
+        });
 
     // Case 3: Update with additional metadata (tests putAll in mergeMetadata)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod3", TaskStatus.SUCCESS, Map.of("c", 3));
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && !p.tasks().isEmpty()
-                  && p.tasks().getFirst().metadata().containsKey("c");
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && !p.tasks().isEmpty()
+              && p.tasks().getFirst().metadata().containsKey("c");
+        });
 
     // Verify all metadata is merged
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -2225,11 +2161,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId1);
-              return p != null && TaskStatus.PENDING == p.status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId1);
+          return p != null && TaskStatus.PENDING == p.status();
+        });
 
     // Test terminal workflow status (triggers cleanup)
     StepVerifier.create(tracker.startWorkflow(executionId2, sessionId, workflowId, List.of()))
@@ -2239,11 +2174,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId2);
-              return p != null && TaskStatus.SUCCESS == p.status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId2);
+          return p != null && TaskStatus.SUCCESS == p.status();
+        });
 
     // Both should exist
     final WorkflowProgress p1 = tracker.getProgress(sessionId, executionId1);
@@ -2274,10 +2208,8 @@ class DefaultTaskTrackerServiceTest {
     await()
         .pollDelay(500, TimeUnit.MILLISECONDS)
         .atMost(Duration.ofSeconds(5))
-        .until(
-            () ->
-                TaskStatus.SUCCESS
-                    == shortTtlTracker.getProgressByExecutionId(executionId).status());
+        .until(() ->
+            TaskStatus.SUCCESS == shortTtlTracker.getProgressByExecutionId(executionId).status());
     // the state is gone: take it out of the index explicitly
     final Map<String, WorkflowState> index = field(shortTtlTracker, "executionIndex");
     assertThat(index.remove(executionId)).isNotNull();
@@ -2310,13 +2242,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && progress.tasks().getFirst().metadata().containsKey("key1");
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && progress.tasks().getFirst().metadata().containsKey("key1");
+        });
 
     // Now emit with empty metadata to test the "additional != null" false branch
     tracker.emitTaskStatusEvent(executionId, "node1", "mod2", TaskStatus.SUCCESS, Map.of());
@@ -2324,13 +2255,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              return progress != null
-                  && !progress.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          return progress != null
+              && !progress.tasks().isEmpty()
+              && TaskStatus.SUCCESS == progress.tasks().getFirst().status();
+        });
 
     // Verify metadata handling worked
     final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
@@ -2367,13 +2297,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && !p.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == p.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && !p.tasks().isEmpty()
+              && TaskStatus.SUCCESS == p.tasks().getFirst().status();
+        });
 
     // updateTaskStatus 5-arg
     StepVerifier.create(
@@ -2383,13 +2312,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && p.tasks().size() > 1
-                  && TaskStatus.FAILURE == p.tasks().get(1).status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && p.tasks().size() > 1
+              && TaskStatus.FAILURE == p.tasks().get(1).status();
+        });
 
     // appendLog
     StepVerifier.create(tracker.appendLog(executionId, "log")).verifyComplete();
@@ -2400,11 +2328,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null && TaskStatus.SUCCESS == p.status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null && TaskStatus.SUCCESS == p.status();
+        });
 
     // getHistory
     StepVerifier.create(tracker.getHistory(sessionId))
@@ -2454,13 +2381,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && !p.tasks().isEmpty()
-                  && TaskStatus.SUCCESS == p.tasks().getFirst().status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && !p.tasks().isEmpty()
+              && TaskStatus.SUCCESS == p.tasks().getFirst().status();
+        });
 
     // updateTaskStatus (5-arg with metadata)
     StepVerifier.create(
@@ -2471,13 +2397,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null
-                  && p.tasks().size() > 1
-                  && TaskStatus.FAILURE == p.tasks().get(1).status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null
+              && p.tasks().size() > 1
+              && TaskStatus.FAILURE == p.tasks().get(1).status();
+        });
 
     // appendLog
     StepVerifier.create(tracker.appendLog(executionId, "test log")).verifyComplete();
@@ -2488,11 +2413,10 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
-              return p != null && TaskStatus.SUCCESS == p.status();
-            });
+        .until(() -> {
+          final WorkflowProgress p = tracker.getProgress(sessionId, executionId);
+          return p != null && TaskStatus.SUCCESS == p.status();
+        });
   }
 
   @Test
@@ -2509,20 +2433,17 @@ class DefaultTaskTrackerServiceTest {
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
     await()
         .atMost(Duration.ofSeconds(5))
-        .until(
-            () ->
-                tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime() != null);
+        .until(() ->
+            tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime() != null);
     final Instant firstStart =
         tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime();
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.RUNNING, Map.of());
     await()
         .during(Duration.ofMillis(200))
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(
-                        tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
-                    .isEqualTo(firstStart));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().startTime())
+                .isEqualTo(firstStart));
 
     // 2. Terminal status, current != null (already terminal)
     tracker.emitTaskStatusEvent(executionId, "node1", "mod", TaskStatus.SUCCESS, Map.of());
@@ -2536,10 +2457,9 @@ class DefaultTaskTrackerServiceTest {
     await()
         .during(Duration.ofMillis(200))
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
-                    .isEqualTo(firstEnd));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgress(sessionId, executionId).tasks().getFirst().endTime())
+                .isEqualTo(firstEnd));
   }
 
   @Test
@@ -2593,14 +2513,13 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // getProgressByExecutionId should return updated progress
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              assertThat(progress).isNotNull();
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
-              assertThat(progress.tasks().getFirst().module()).isEqualTo("module");
-            });
+        .untilAsserted(() -> {
+          // getProgressByExecutionId should return updated progress
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          assertThat(progress).isNotNull();
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
+          assertThat(progress.tasks().getFirst().module()).isEqualTo("module");
+        });
   }
 
   @Test
@@ -2637,16 +2556,14 @@ class DefaultTaskTrackerServiceTest {
 
     // Subscribe to status stream to ensure sink exists
     StepVerifier.create(tracker.getStatusStream(executionId).take(1))
-        .then(
-            () ->
-                tracker.emitTaskStatusEvent(
-                    executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
-        .assertNext(
-            progress -> {
-              assertThat(progress).isNotNull();
-              assertThat(progress.executionId()).isEqualTo(executionId);
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
-            })
+        .then(() ->
+            tracker.emitTaskStatusEvent(
+                executionId, "node1", "module", TaskStatus.SUCCESS, Map.of()))
+        .assertNext(progress -> {
+          assertThat(progress).isNotNull();
+          assertThat(progress.executionId()).isEqualTo(executionId);
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
+        })
         .verifyComplete();
   }
 
@@ -2668,13 +2585,12 @@ class DefaultTaskTrackerServiceTest {
     await()
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Verify task was still updated even though sink was null
-              final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
-              assertThat(progress).isNotNull();
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
-            });
+        .untilAsserted(() -> {
+          // Verify task was still updated even though sink was null
+          final WorkflowProgress progress = tracker.getProgress(sessionId, executionId);
+          assertThat(progress).isNotNull();
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.SUCCESS);
+        });
   }
 
   @Test
@@ -2689,13 +2605,12 @@ class DefaultTaskTrackerServiceTest {
         .during(Duration.ofMillis(500))
         .atMost(Duration.ofSeconds(5))
         .pollInterval(Duration.ofMillis(10))
-        .untilAsserted(
-            () -> {
-              // Should handle gracefully without crashing when state is null
-              // Verify no state exists for this execution
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              assertThat(progress).isNull();
-            });
+        .untilAsserted(() -> {
+          // Should handle gracefully without crashing when state is null
+          // Verify no state exists for this execution
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          assertThat(progress).isNull();
+        });
   }
 
   @Test
@@ -2738,16 +2653,15 @@ class DefaultTaskTrackerServiceTest {
 
     StepVerifier.create(tracker.getLogFlux())
         .then(() -> tracker.emitLogEvent(executionId, nodeId, "hello world"))
-        .assertNext(
-            entry -> {
-              assertThat(entry.executionId()).isEqualTo(executionId);
-              assertThat(entry.sessionId()).isEqualTo(sessionId);
-              assertThat(entry.pluginId()).isEqualTo(nodeId);
-              assertThat(entry.pluginName()).isEmpty();
-              assertThat(entry.stream()).isEqualTo(LogStream.STDOUT);
-              assertThat(entry.message()).isEqualTo("hello world");
-              assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO);
-            })
+        .assertNext(entry -> {
+          assertThat(entry.executionId()).isEqualTo(executionId);
+          assertThat(entry.sessionId()).isEqualTo(sessionId);
+          assertThat(entry.pluginId()).isEqualTo(nodeId);
+          assertThat(entry.pluginName()).isEmpty();
+          assertThat(entry.stream()).isEqualTo(LogStream.STDOUT);
+          assertThat(entry.message()).isEqualTo("hello world");
+          assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO);
+        })
         .thenCancel()
         .verify();
   }
@@ -2779,9 +2693,8 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testGetLogFluxKeepsTheProducersLevel() {
     StepVerifier.create(tracker.getLogFlux())
-        .then(
-            () ->
-                tracker.emitLogEvent("exec-given", "n", "all fine, no error", false, LogLevel.WARN))
+        .then(() ->
+            tracker.emitLogEvent("exec-given", "n", "all fine, no error", false, LogLevel.WARN))
         .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.WARN))
         .thenCancel()
         .verify();
@@ -2790,19 +2703,17 @@ class DefaultTaskTrackerServiceTest {
   @Test
   void testEmitLogEventSplitsSeveralLinesAndKeepsGradleContextAcrossThem() {
     StepVerifier.create(tracker.getLogFlux())
-        .then(
-            () ->
-                tracker.emitLogEvent(
-                    "exec-split",
-                    "n",
-                    "> Task :x\n* What went wrong:\nSelection broke\n\n* Try:\nmore"))
+        .then(() ->
+            tracker.emitLogEvent(
+                "exec-split",
+                "n",
+                "> Task :x\n* What went wrong:\nSelection broke\n\n* Try:\nmore"))
         .assertNext(entry -> assertThat(entry.message()).isEqualTo("> Task :x"))
         .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR))
-        .assertNext(
-            entry -> {
-              assertThat(entry.message()).isEqualTo("Selection broke");
-              assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR);
-            })
+        .assertNext(entry -> {
+          assertThat(entry.message()).isEqualTo("Selection broke");
+          assertThat(entry.logLevel()).isEqualTo(LogLevel.ERROR);
+        })
         .assertNext(entry -> assertThat(entry.logLevel()).isEqualTo(LogLevel.INFO))
         .assertNext(entry -> assertThat(entry.message()).isEqualTo("more"))
         .thenCancel()
@@ -2813,12 +2724,11 @@ class DefaultTaskTrackerServiceTest {
   void testGetLogFluxForUnknownExecutionDefaultsToUnknown() {
     StepVerifier.create(tracker.getLogFlux())
         .then(() -> tracker.emitLogEvent("unknown-exec-for-flux", "node-x", "orphan log"))
-        .assertNext(
-            entry -> {
-              assertThat(entry.sessionId()).isEqualTo("unknown");
-              assertThat(entry.pluginName()).isEqualTo("unknown");
-              assertThat(entry.pluginId()).isEqualTo("node-x");
-            })
+        .assertNext(entry -> {
+          assertThat(entry.sessionId()).isEqualTo("unknown");
+          assertThat(entry.pluginName()).isEqualTo("unknown");
+          assertThat(entry.pluginId()).isEqualTo("node-x");
+        })
         .thenCancel()
         .verify();
   }
@@ -2834,11 +2744,10 @@ class DefaultTaskTrackerServiceTest {
 
     StepVerifier.create(tracker.getLogFlux())
         .then(() -> tracker.emitLogEvent(executionId, "node-not-in-map", "line"))
-        .assertNext(
-            entry -> {
-              assertThat(entry.sessionId()).isEqualTo(sessionId);
-              assertThat(entry.pluginName()).isEqualTo("unknown");
-            })
+        .assertNext(entry -> {
+          assertThat(entry.sessionId()).isEqualTo(sessionId);
+          assertThat(entry.pluginName()).isEqualTo("unknown");
+        })
         .thenCancel()
         .verify();
   }
@@ -2859,21 +2768,19 @@ class DefaultTaskTrackerServiceTest {
     StepVerifier.create(longTtlTracker.getLogStream(executionId))
         .then(() -> longTtlTracker.emitLogEvent(executionId, "system", "line before terminal"))
         .expectNext("line before terminal")
-        .then(
-            () -> {
-              longTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
-              await()
-                  .atMost(2, TimeUnit.SECONDS)
-                  .until(
-                      () -> {
-                        final WorkflowProgress progress =
-                            longTtlTracker.getProgressByExecutionId(executionId);
-                        return progress != null
-                            && TaskStatus.SUCCESS == progress.status()
-                            && progress.endTime() != null;
-                      });
-              longTtlTracker.emitLogEvent(executionId, "system", "line after terminal");
-            })
+        .then(() -> {
+          longTtlTracker.emitWorkflowStatusEvent(executionId, TaskStatus.SUCCESS);
+          await()
+              .atMost(2, TimeUnit.SECONDS)
+              .until(() -> {
+                final WorkflowProgress progress =
+                    longTtlTracker.getProgressByExecutionId(executionId);
+                return progress != null
+                    && TaskStatus.SUCCESS == progress.status()
+                    && progress.endTime() != null;
+              });
+          longTtlTracker.emitLogEvent(executionId, "system", "line after terminal");
+        })
         .expectComplete()
         .verify(Duration.ofSeconds(5));
   }
@@ -2910,9 +2817,8 @@ class DefaultTaskTrackerServiceTest {
         .verifyComplete();
 
     StepVerifier.create(tracker.getStatusStream(executionId, false))
-        .then(
-            () ->
-                tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.RUNNING, Map.of()))
+        .then(() ->
+            tracker.emitTaskStatusEvent(executionId, "n1", "mod", TaskStatus.RUNNING, Map.of()))
         .expectNextCount(1)
         .thenCancel()
         .verify();
@@ -3080,19 +2986,14 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(2, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(meters.get("yukta.execution.queue.wait").timer().count()).isEqualTo(1);
-              assertThat(
-                      meters
-                          .get("yukta.execution.duration")
-                          .tag("status", "FAILURE")
-                          .timer()
-                          .count())
-                  .isEqualTo(1);
-              assertThat(meters.get("yukta.node.retries").tag("module", "echo").counter().count())
-                  .isEqualTo(2.0);
-            });
+        .untilAsserted(() -> {
+          assertThat(meters.get("yukta.execution.queue.wait").timer().count()).isEqualTo(1);
+          assertThat(
+                  meters.get("yukta.execution.duration").tag("status", "FAILURE").timer().count())
+              .isEqualTo(1);
+          assertThat(meters.get("yukta.node.retries").tag("module", "echo").counter().count())
+              .isEqualTo(2.0);
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -3122,23 +3023,19 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () -> {
-              final TaskProgress task =
-                  tracker.getProgressByExecutionId("bp-exec").tasks().getFirst();
-              assertThat(task.status()).isEqualTo(TaskStatus.RUNNING);
-              assertThat(task.breakpoint())
-                  .isEqualTo(new TaskProgress.Breakpoint("payload.kind", "error"));
-            });
+        .untilAsserted(() -> {
+          final TaskProgress task = tracker.getProgressByExecutionId("bp-exec").tasks().getFirst();
+          assertThat(task.status()).isEqualTo(TaskStatus.RUNNING);
+          assertThat(task.breakpoint())
+              .isEqualTo(new TaskProgress.Breakpoint("payload.kind", "error"));
+        });
 
     tracker.emitBreakpointEvent("bp-exec", "n1", null);
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(
-                        tracker.getProgressByExecutionId("bp-exec").tasks().getFirst().breakpoint())
-                    .isNull());
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("bp-exec").tasks().getFirst().breakpoint())
+                .isNull());
   }
 
   @Test
@@ -3156,10 +3053,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId("ok-exec").controlState())
-                    .isEqualTo("PAUSED"));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("ok-exec").controlState())
+                .isEqualTo("PAUSED"));
   }
 
   @Test
@@ -3173,12 +3069,11 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId("ord-exec");
-              assertThat(progress.controlState()).isEqualTo("RESUMED");
-              assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
-            });
+        .untilAsserted(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId("ord-exec");
+          assertThat(progress.controlState()).isEqualTo("RESUMED");
+          assertThat(progress.tasks().getFirst().status()).isEqualTo(TaskStatus.RUNNING);
+        });
   }
 
   @Test
@@ -3192,10 +3087,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId("known").controlState())
-                    .isEqualTo("PAUSED"));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("known").controlState())
+                .isEqualTo("PAUSED"));
     assertThat(tracker.getProgressByExecutionId("nobody")).isNull();
   }
 
@@ -3207,19 +3101,16 @@ class DefaultTaskTrackerServiceTest {
     final WorkflowState state = index.get("ls-exec");
 
     StepVerifier.create(tracker.getLogStream("ls-exec"))
-        .then(
-            () -> {
-              index.remove("ls-exec"); // state unknown: keep streaming
-              tracker.appendLog("ls-exec", "no state").block();
-            })
+        .then(() -> {
+          index.remove("ls-exec"); // state unknown: keep streaming
+          tracker.appendLog("ls-exec", "no state").block();
+        })
         .expectNext("no state")
-        .then(
-            () -> {
-              index.put("ls-exec", state);
-              state.setStatus(
-                  TaskStatus.SUCCESS); // ended status but no end time yet: keep streaming
-              tracker.appendLog("ls-exec", "no end time").block();
-            })
+        .then(() -> {
+          index.put("ls-exec", state);
+          state.setStatus(TaskStatus.SUCCESS); // ended status but no end time yet: keep streaming
+          tracker.appendLog("ls-exec", "no end time").block();
+        })
         .expectNext("no end time")
         .thenCancel()
         .verify(Duration.ofSeconds(5));
@@ -3233,11 +3124,10 @@ class DefaultTaskTrackerServiceTest {
     final WorkflowState state = index.get("ss-exec");
 
     StepVerifier.create(tracker.getStatusStream("ss-exec", false))
-        .then(
-            () -> {
-              state.setStatus(TaskStatus.SUCCESS); // terminal status, endTime still null
-              tracker.emitControlStateEvent("ss-exec", ControlState.PAUSED);
-            })
+        .then(() -> {
+          state.setStatus(TaskStatus.SUCCESS); // terminal status, endTime still null
+          tracker.emitControlStateEvent("ss-exec", ControlState.PAUSED);
+        })
         .assertNext(progress -> assertThat(progress.status()).isEqualTo(TaskStatus.SUCCESS))
         .thenCancel()
         .verify(Duration.ofSeconds(5));
@@ -3254,10 +3144,9 @@ class DefaultTaskTrackerServiceTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId("ns-exec").controlState())
-                    .isEqualTo("PAUSED"));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId("ns-exec").controlState())
+                .isEqualTo("PAUSED"));
   }
 
   @Test
@@ -3550,15 +3439,14 @@ class DefaultTaskTrackerServiceTest {
 
     assertThat(tracker.getHistory("old-sess").block())
         .singleElement()
-        .satisfies(
-            run -> {
-              assertThat(run.executionId()).isEqualTo("old-exec");
-              assertThat(run.workflowId()).isEqualTo("old-wf");
-              assertThat(run.status()).isEqualTo(TaskStatus.FAILURE);
-              assertThat(run.startTime()).isEqualTo(started);
-              assertThat(run.endTime()).isEqualTo(ended);
-              assertThat(run.initiator()).isEqualTo("yk check");
-              assertThat(run.nodes()).isEqualTo(new WorkflowExecutionSummary.Nodes(2, 2, "b"));
-            });
+        .satisfies(run -> {
+          assertThat(run.executionId()).isEqualTo("old-exec");
+          assertThat(run.workflowId()).isEqualTo("old-wf");
+          assertThat(run.status()).isEqualTo(TaskStatus.FAILURE);
+          assertThat(run.startTime()).isEqualTo(started);
+          assertThat(run.endTime()).isEqualTo(ended);
+          assertThat(run.initiator()).isEqualTo("yk check");
+          assertThat(run.nodes()).isEqualTo(new WorkflowExecutionSummary.Nodes(2, 2, "b"));
+        });
   }
 }

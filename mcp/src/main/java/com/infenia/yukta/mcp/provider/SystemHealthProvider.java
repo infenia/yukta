@@ -62,26 +62,25 @@ public class SystemHealthProvider {
    * @return Mono containing the identity
    */
   public Mono<WhoamiResult> whoami() {
-    return Mono.deferContextual(
-        ctx -> {
-          final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
-          final CallerIdentity.Permissions perms = who.permissions();
-          return Mono.just(
-              new WhoamiResult(
-                  who.authenticated(),
-                  who.keyName(),
-                  who.role().name(),
-                  who.sessions(),
-                  who.authEnabled(),
-                  Map.of(
-                      "startRuns", perms.startRuns(),
-                      "controlRuns", perms.controlRuns(),
-                      "editSessions", perms.editSessions(),
-                      "deleteSessions", perms.deleteSessions(),
-                      "changeLimits", perms.changeLimits(),
-                      "sendCommands", perms.sendCommands()),
-                  supervision(who.sessions())));
-        });
+    return Mono.deferContextual(ctx -> {
+      final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
+      final CallerIdentity.Permissions perms = who.permissions();
+      return Mono.just(
+          new WhoamiResult(
+              who.authenticated(),
+              who.keyName(),
+              who.role().name(),
+              who.sessions(),
+              who.authEnabled(),
+              Map.of(
+                  "startRuns", perms.startRuns(),
+                  "controlRuns", perms.controlRuns(),
+                  "editSessions", perms.editSessions(),
+                  "deleteSessions", perms.deleteSessions(),
+                  "changeLimits", perms.changeLimits(),
+                  "sendCommands", perms.sendCommands()),
+              supervision(who.sessions())));
+    });
   }
 
   private Map<String, Object> supervision(final @Nullable List<String> sessions) {
@@ -141,18 +140,16 @@ public class SystemHealthProvider {
         .flatMap(
             sessionId ->
                 workflowCount(sessionId, withConfig)
-                    .flatMap(
-                        count ->
-                            controlBus
-                                .getHistory(sessionId)
-                                .map(history -> new SessionSnapshot(sessionId, count, history)))
-                    .onErrorResume(
-                        e -> {
-                          log.atWarn()
-                              .setCause(e)
-                              .log("Skipping session {} in control bus status", sessionId);
-                          return Mono.empty();
-                        }),
+                    .flatMap(count ->
+                        controlBus
+                            .getHistory(sessionId)
+                            .map(history -> new SessionSnapshot(sessionId, count, history)))
+                    .onErrorResume(e -> {
+                      log.atWarn()
+                          .setCause(e)
+                          .log("Skipping session {} in control bus status", sessionId);
+                      return Mono.empty();
+                    }),
             SESSION_CONCURRENCY)
         .collectList();
   }
@@ -165,10 +162,8 @@ public class SystemHealthProvider {
 
   private List<SessionExecutionInfo> toSessionInfos(final List<SessionSnapshot> snapshots) {
     return snapshots.stream()
-        .map(
-            s ->
-                new SessionExecutionInfo(
-                    s.sessionId(), countActive(s.history()), s.workflowCount()))
+        .map(s ->
+            new SessionExecutionInfo(s.sessionId(), countActive(s.history()), s.workflowCount()))
         .toList();
   }
 

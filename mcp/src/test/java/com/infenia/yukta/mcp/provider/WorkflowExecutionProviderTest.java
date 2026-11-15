@@ -66,11 +66,10 @@ class WorkflowExecutionProviderTest {
     when(sessionService.getSessionWorkflow("s1", "w1")).thenReturn(Mono.just(def));
 
     StepVerifier.create(provider.getWorkflowDetails("s1", "w1"))
-        .assertNext(
-            details ->
-                org.assertj.core.api.Assertions.assertThat(details.nodes().getFirst().config())
-                    .containsEntry("url", "http://x")
-                    .containsEntry("apiKey", "******"))
+        .assertNext(details ->
+            org.assertj.core.api.Assertions.assertThat(details.nodes().getFirst().config())
+                .containsEntry("url", "http://x")
+                .containsEntry("apiKey", "******"))
         .verifyComplete();
   }
 
@@ -172,11 +171,10 @@ class WorkflowExecutionProviderTest {
         .assertNext(result -> assertThat(result.reusedExecution()).isTrue())
         .verifyComplete();
     StepVerifier.create(provider.startWorkflow("sess-1", "wf-1", "fresh"))
-        .assertNext(
-            result -> {
-              assertThat(result.executionId()).isEqualTo("exec-2");
-              assertThat(result.reusedExecution()).isFalse();
-            })
+        .assertNext(result -> {
+          assertThat(result.executionId()).isEqualTo("exec-2");
+          assertThat(result.reusedExecution()).isFalse();
+        })
         .verifyComplete();
   }
 
@@ -207,10 +205,9 @@ class WorkflowExecutionProviderTest {
     when(controlBus.getProgress("sess-1", "missing")).thenReturn(null);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "missing"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: missing"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: missing"))
         .verify();
   }
 
@@ -219,10 +216,9 @@ class WorkflowExecutionProviderTest {
     when(controlBus.getProgress("sess-1", "e1")).thenReturn(null);
 
     StepVerifier.create(provider.getWorkflowStatus("sess-1", "e1"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: e1"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: e1"))
         .verify();
   }
 
@@ -246,10 +242,9 @@ class WorkflowExecutionProviderTest {
     when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.getWorkflowHistory("nope"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Session not found: nope"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Session not found: nope"))
         .verify();
   }
 }

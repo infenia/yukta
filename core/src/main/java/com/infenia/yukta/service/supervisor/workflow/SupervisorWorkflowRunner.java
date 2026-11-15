@@ -110,32 +110,27 @@ public class SupervisorWorkflowRunner {
       final Map<String, Object> payload,
       final String eventExecutionId,
       final Duration timeout) {
-    return Mono.defer(
-        () -> {
-          final int depth = parentDepth(eventExecutionId) + 1;
-          if (depth > maxDepth) {
-            return counted(RunResult.none("SKIPPED"), "depth");
-          }
-          final Map<String, Object> start = new HashMap<>(payload);
-          start.put(DefaultAnswerAuthorizer.DEPTH_KEY, depth);
-          start.put(DefaultAnswerAuthorizer.STARTER_KEY, supervisorId);
-          return acquire(timeout)
-              .flatMap(
-                  got ->
-                      got
-                          ? runner
-                              .run(sessionId, workflowId, start, eventExecutionId, 1)
-                              .timeout(timeout)
-                              .map(SupervisorWorkflowRunner::result)
-                              .onErrorResume(
-                                  error -> Mono.just(failed(error, supervisorId, workflowId)))
-                              .doFinally(_ -> slots.release())
-                          : Mono.just(RunResult.none("SKIPPED")))
-              .flatMap(
-                  result ->
-                      counted(
-                          result, Objects.requireNonNullElse(result.outcome(), result.status())));
-        });
+    return Mono.defer(() -> {
+      final int depth = parentDepth(eventExecutionId) + 1;
+      if (depth > maxDepth) {
+        return counted(RunResult.none("SKIPPED"), "depth");
+      }
+      final Map<String, Object> start = new HashMap<>(payload);
+      start.put(DefaultAnswerAuthorizer.DEPTH_KEY, depth);
+      start.put(DefaultAnswerAuthorizer.STARTER_KEY, supervisorId);
+      return acquire(timeout)
+          .flatMap(got ->
+              got
+                  ? runner
+                      .run(sessionId, workflowId, start, eventExecutionId, 1)
+                      .timeout(timeout)
+                      .map(SupervisorWorkflowRunner::result)
+                      .onErrorResume(error -> Mono.just(failed(error, supervisorId, workflowId)))
+                      .doFinally(_ -> slots.release())
+                  : Mono.just(RunResult.none("SKIPPED")))
+          .flatMap(result ->
+              counted(result, Objects.requireNonNullElse(result.outcome(), result.status())));
+    });
   }
 
   private int parentDepth(final String eventExecutionId) {

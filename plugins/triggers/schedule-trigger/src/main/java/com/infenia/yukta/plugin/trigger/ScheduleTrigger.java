@@ -109,12 +109,9 @@ public class ScheduleTrigger implements TriggerPlugin {
       // overflow error that would end the schedule for good.
       result =
           Flux.interval(Duration.ofMillis(millis.longValue()))
-              .onBackpressureDrop(
-                  tick ->
-                      log.atWarn()
-                          .log(
-                              "Schedule tick {} skipped: the previous start is still running",
-                              tick));
+              .onBackpressureDrop(tick ->
+                  log.atWarn()
+                      .log("Schedule tick {} skipped: the previous start is still running", tick));
     } else {
       final CronExpression expr = CronExpression.parse(String.valueOf(cron));
       final ZoneId zone =

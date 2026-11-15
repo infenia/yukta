@@ -113,11 +113,10 @@ public class TokenAnswerController {
                 body.text(),
                 body.data(),
                 body.rationale()))
-        .doOnError(
-            _ -> {
-              perAddress.tryAcquire(address);
-              perRequest.tryAcquire(body.requestId());
-            })
+        .doOnError(_ -> {
+          perAddress.tryAcquire(address);
+          perRequest.tryAcquire(body.requestId());
+        })
         .thenReturn(ResponseEntity.ok(ApiResponse.<Object>success(200, "Answer accepted", null)));
   }
 

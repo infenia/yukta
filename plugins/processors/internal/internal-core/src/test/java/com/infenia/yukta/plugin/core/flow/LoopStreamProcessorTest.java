@@ -102,22 +102,20 @@ class LoopStreamProcessorTest {
     when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              final Flux<Message<?>> input = invocation.getArgument(0);
-              return input.flatMap(
-                  msg -> {
-                    final int page = (int) msg.payload();
-                    final String traceIdStr = msg.traceId();
-                    final UUID traceId =
-                        traceIdStr != null ? UUID.fromString(traceIdStr) : UUID.randomUUID();
-                    return Flux.just(
-                        DefaultMessage.create(traceId, "Item " + (page * 2 + 1)),
-                        DefaultMessage.create(traceId, "Item " + (page * 2 + 2)),
-                        DefaultMessage.create(traceId, page + 1) // next page state
-                        );
-                  });
-            });
+        .thenAnswer(invocation -> {
+          final Flux<Message<?>> input = invocation.getArgument(0);
+          return input.flatMap(msg -> {
+            final int page = (int) msg.payload();
+            final String traceIdStr = msg.traceId();
+            final UUID traceId =
+                traceIdStr != null ? UUID.fromString(traceIdStr) : UUID.randomUUID();
+            return Flux.just(
+                DefaultMessage.create(traceId, "Item " + (page * 2 + 1)),
+                DefaultMessage.create(traceId, "Item " + (page * 2 + 2)),
+                DefaultMessage.create(traceId, page + 1) // next page state
+                );
+          });
+        });
 
     final Map<String, Object> config =
         Map.of(TARGETPLUGINID, targetId, MAXITERATIONS, 2, EXITCONDITION, "#root.payload == 2");
@@ -248,11 +246,10 @@ class LoopStreamProcessorTest {
             processor.process(
                 Flux.just(DefaultMessage.create(UUID.randomUUID(), TEST)),
                 Map.of(TARGETPLUGINID, TARGET, FAILURESTRATEGY, "ESCALATE")))
-        .expectErrorMatches(
-            e ->
-                e instanceof RunAbortedException
-                    && e.getMessage().contains("Loop execution failed")
-                    && FAIL.equals(e.getCause().getMessage()))
+        .expectErrorMatches(e ->
+            e instanceof RunAbortedException
+                && e.getMessage().contains("Loop execution failed")
+                && FAIL.equals(e.getCause().getMessage()))
         .verify();
   }
 

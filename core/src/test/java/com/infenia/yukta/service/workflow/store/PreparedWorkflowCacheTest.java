@@ -123,11 +123,10 @@ class PreparedWorkflowCacheTest {
     // past the 200 ms TTL: evict until the entry is gone
     await()
         .atMost(Duration.ofSeconds(5))
-        .until(
-            () -> {
-              cache.evictExpired();
-              return cache.getStats().evictionCount() == 1; // get() would refresh the entry
-            });
+        .until(() -> {
+          cache.evictExpired();
+          return cache.getStats().evictionCount() == 1; // get() would refresh the entry
+        });
     assertThat(cache.get(SESSION_1, WORKFLOW_1)).isEmpty();
   }
 
@@ -203,12 +202,11 @@ class PreparedWorkflowCacheTest {
     for (int i = 0; i < 10; i++) {
       final int index = i;
       futures.add(
-          CompletableFuture.runAsync(
-              () -> {
-                cache.put(sessionId, "workflow-" + index, mockPrepared());
-                cache.get(sessionId, "workflow-" + index);
-                latch.countDown();
-              }));
+          CompletableFuture.runAsync(() -> {
+            cache.put(sessionId, "workflow-" + index, mockPrepared());
+            cache.get(sessionId, "workflow-" + index);
+            latch.countDown();
+          }));
     }
 
     latch.await();

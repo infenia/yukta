@@ -60,9 +60,7 @@ public class ControlBusController {
             .withWorkflowId(workflowId);
     return controlBus
         .sendCommand(sessionId, workflowId, executionId, nodeId, command)
-        .map(
-            resp ->
-                ApiResponse.success(
-                    200, "Command processed", new NodeCommandResponse(resp.payload())));
+        .map(resp ->
+            ApiResponse.success(200, "Command processed", new NodeCommandResponse(resp.payload())));
   }
 }

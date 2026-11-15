@@ -165,11 +165,10 @@ class ParkedCommandsTest {
     when(other.scope()).thenReturn(new SupervisorScope.Global());
     when(other.review(any()))
         .thenReturn(
-            Mono.deferContextual(
-                context -> {
-                  grantSeen.set(context.getOrDefault(ControlActor.APPROVED_REQUEST, null));
-                  return Mono.just(Decision.ALLOW);
-                }));
+            Mono.deferContextual(context -> {
+              grantSeen.set(context.getOrDefault(ControlActor.APPROVED_REQUEST, null));
+              return Mono.just(Decision.ALLOW);
+            }));
     dispatcher =
         new DirectiveDispatcher(
             handler,
@@ -197,11 +196,10 @@ class ParkedCommandsTest {
   private String park(final ExecutionControlCommand command) {
     final AtomicReference<String> id = new AtomicReference<>();
     StepVerifier.create(dispatcher.dispatchOrdered(command).contextWrite(AS_SUPERVISOR))
-        .expectErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(ControlAwaitingApprovalException.class);
-              id.set(((ControlAwaitingApprovalException) error).getRequestId());
-            })
+        .expectErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(ControlAwaitingApprovalException.class);
+          id.set(((ControlAwaitingApprovalException) error).getRequestId());
+        })
         .verify();
     return id.get();
   }
@@ -254,12 +252,11 @@ class ParkedCommandsTest {
         .containsEntry("proposer", "guard")
         .containsEntry("command", "StopWorkflowCommand");
     assertThat(parked.find(id))
-        .hasValueSatisfying(
-            proposal -> {
-              assertThat(proposal.command()).isEqualTo("StopWorkflowCommand");
-              assertThat(proposal.askedBy()).containsExactly("guard");
-              assertThat(proposal.proposer()).isNotNull();
-            });
+        .hasValueSatisfying(proposal -> {
+          assertThat(proposal.command()).isEqualTo("StopWorkflowCommand");
+          assertThat(proposal.askedBy()).containsExactly("guard");
+          assertThat(proposal.proposer()).isNotNull();
+        });
     assertThat(parked.find("nope")).isEmpty();
     assertThat(log.readAll())
         .noneMatch(entry -> entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED);
@@ -306,11 +303,10 @@ class ParkedCommandsTest {
     verify(guard, times(2)).review(any());
     assertThat(count("rejected")).isZero();
     assertThat(log.readAll())
-        .anySatisfy(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
-              assertThat(entry.status()).isNotNull();
-            });
+        .anySatisfy(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
+          assertThat(entry.status()).isNotNull();
+        });
     assertThat(grantSeen.get()).isNotNull();
     // a grant works once, and only for its own command
     assertThat(parked.satisfied(grantSeen.get(), PAUSE_NODE)).isEmpty();
@@ -342,11 +338,10 @@ class ParkedCommandsTest {
     await().until(() -> parked.size() == 0);
     verify(handler, never()).handle(any());
     assertThat(log.readAll())
-        .anySatisfy(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).contains("other: freeze");
-            });
+        .anySatisfy(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains("other: freeze");
+        });
   }
 
   @Test
@@ -371,11 +366,10 @@ class ParkedCommandsTest {
     await().until(() -> parked.size() == 0 && count("rejected") == 1.0);
     verify(handler, never()).handle(any());
     assertThat(log.readAll())
-        .anySatisfy(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).contains(id, "rejected by human alice");
-            });
+        .anySatisfy(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains(id, "rejected by human alice");
+        });
     await().until(() -> events.stream().anyMatch(ExecutionEvent.ControlOutcome.class::isInstance));
     assertThat(events)
         .filteredOn(ExecutionEvent.ControlOutcome.class::isInstance)
@@ -448,11 +442,10 @@ class ParkedCommandsTest {
             dispatcher
                 .dispatchOrdered(new ExecutionControlCommand.PauseNodeCommand("e1", "n9"))
                 .contextWrite(AS_SUPERVISOR))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ControlRejectedException.class)
-                    .hasMessageContaining("5 open input requests"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ControlRejectedException.class)
+                .hasMessageContaining("5 open input requests"))
         .verify();
   }
 
@@ -501,11 +494,10 @@ class ParkedCommandsTest {
             feed);
 
     StepVerifier.create(plain.dispatchOrdered(STOP).contextWrite(AS_SUPERVISOR))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ControlRejectedException.class)
-                    .hasMessageContaining("cannot ask for"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ControlRejectedException.class)
+                .hasMessageContaining("cannot ask for"))
         .verify();
   }
 

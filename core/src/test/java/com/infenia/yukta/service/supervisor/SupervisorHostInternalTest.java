@@ -115,11 +115,10 @@ class SupervisorHostInternalTest {
 
     Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              publishBoth();
-              assertThat(seen).contains("main");
-            });
+        .untilAsserted(() -> {
+          publishBoth();
+          assertThat(seen).contains("main");
+        });
     assertThat(seen).doesNotContain("sys");
   }
 
@@ -130,20 +129,12 @@ class SupervisorHostInternalTest {
 
     Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(
-                  new ExecutionEvent.ControlOutcome(
-                      "e-none",
-                      null,
-                      null,
-                      "PauseWorkflowCommand",
-                      null,
-                      true,
-                      null,
-                      Instant.now()));
-              assertThat(seen).isNotEmpty();
-            });
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.ControlOutcome(
+                  "e-none", null, null, "PauseWorkflowCommand", null, true, null, Instant.now()));
+          assertThat(seen).isNotEmpty();
+        });
     // The watcher records String.valueOf(sessionId), so a missing session shows as "null".
     assertThat(seen).contains("null");
   }
@@ -164,12 +155,11 @@ class SupervisorHostInternalTest {
 
     Awaitility.await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              publishBoth();
-              assertThat(named).contains("sys");
-              assertThat(global).contains("main");
-            });
+        .untilAsserted(() -> {
+          publishBoth();
+          assertThat(named).contains("sys");
+          assertThat(global).contains("main");
+        });
     assertThat(global).doesNotContain("sys");
   }
 }

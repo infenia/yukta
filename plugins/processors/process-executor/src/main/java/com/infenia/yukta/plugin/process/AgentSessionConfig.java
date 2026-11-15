@@ -119,15 +119,14 @@ final class AgentSessionConfig {
   /** The harness descriptions, one line each, for the plugin's usage text. */
   /* default */ String describeHarnesses() {
     return harnesses.all().stream()
-        .map(
-            h ->
-                "- "
-                    + h.id()
-                    + ": "
-                    + h.description()
-                    + " Capabilities: "
-                    + h.capabilities().stream().sorted().toList()
-                    + "\n")
+        .map(h ->
+            "- "
+                + h.id()
+                + ": "
+                + h.description()
+                + " Capabilities: "
+                + h.capabilities().stream().sorted().toList()
+                + "\n")
         .collect(java.util.stream.Collectors.joining());
   }
 

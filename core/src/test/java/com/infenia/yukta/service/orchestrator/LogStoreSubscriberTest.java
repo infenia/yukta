@@ -166,11 +166,10 @@ class LogStoreSubscriberTest {
 
       await()
           .atMost(Duration.ofSeconds(1))
-          .until(
-              () -> {
-                verify(store, times(0)).write(any(PluginLogEntry.class));
-                return true;
-              });
+          .until(() -> {
+            verify(store, times(0)).write(any(PluginLogEntry.class));
+            return true;
+          });
       assertThat(subscriber).isNotNull();
       subscriber.dispose();
     }
@@ -331,11 +330,10 @@ class LogStoreSubscriberTest {
 
       await()
           .atMost(Duration.ofSeconds(1))
-          .until(
-              () -> {
-                subscriber.dispose();
-                return true;
-              });
+          .until(() -> {
+            subscriber.dispose();
+            return true;
+          });
       assertThat(subscriber).isNotNull();
     }
 
@@ -508,11 +506,10 @@ class LogStoreSubscriberTest {
       // Give time for error signal processing
       await()
           .atMost(Duration.ofSeconds(2))
-          .until(
-              () -> {
-                Thread.yield();
-                return true;
-              });
+          .until(() -> {
+            Thread.yield();
+            return true;
+          });
 
       disposable.dispose();
       assertThat(disposable.isDisposed()).isTrue();

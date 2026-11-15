@@ -84,19 +84,16 @@ public class OwnershipMap {
    * @return the workflows whose run level and nodes all fall to the default supervisor
    */
   public Flux<WorkflowRef> unowned(final Flux<String> sessionIds) {
-    return sessionIds.concatMap(
-        sessionId ->
-            definitions
-                .findAll(sessionId)
-                .flatMapIterable(Map::entrySet)
-                .filter(
-                    entry -> {
-                      final Ownership owned = owners(sessionId, entry.getKey(), entry.getValue());
-                      return ControlReviewer.DEFAULT_VIA.equals(owned.run())
-                          && owned.nodes().values().stream()
-                              .allMatch(ControlReviewer.DEFAULT_VIA::equals);
-                    })
-                .map(entry -> new WorkflowRef(sessionId, entry.getKey())));
+    return sessionIds.concatMap(sessionId ->
+        definitions
+            .findAll(sessionId)
+            .flatMapIterable(Map::entrySet)
+            .filter(entry -> {
+              final Ownership owned = owners(sessionId, entry.getKey(), entry.getValue());
+              return ControlReviewer.DEFAULT_VIA.equals(owned.run())
+                  && owned.nodes().values().stream().allMatch(ControlReviewer.DEFAULT_VIA::equals);
+            })
+            .map(entry -> new WorkflowRef(sessionId, entry.getKey())));
   }
 
   private Ownership owners(
@@ -104,17 +101,16 @@ public class OwnershipMap {
     final Map<String, String> nodes = new LinkedHashMap<>(); // NOPMD - local, ordered
     definition
         .nodes()
-        .forEach(
-            node ->
-                nodes.put(
-                    node.nodeId(),
-                    reviewer
-                        .capability(
-                            sessionId,
-                            workflowId,
-                            node.nodeId(),
-                            new ExecutionControlCommand.PauseNodeCommand("e", "n"))
-                        .via()));
+        .forEach(node ->
+            nodes.put(
+                node.nodeId(),
+                reviewer
+                    .capability(
+                        sessionId,
+                        workflowId,
+                        node.nodeId(),
+                        new ExecutionControlCommand.PauseNodeCommand("e", "n"))
+                    .via()));
     return new Ownership(
         sessionId,
         workflowId,

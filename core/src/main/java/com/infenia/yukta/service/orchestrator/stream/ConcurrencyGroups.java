@@ -96,14 +96,13 @@ public final class ConcurrencyGroups {
      * @return a Mono that completes with the place granted
      */
     public Mono<Void> acquire(final Runnable onWait) {
-      return Mono.<Void>create(
-          sink -> {
-            if (group.take(this, sink)) {
-              sink.success();
-            } else {
-              onWait.run();
-            }
-          });
+      return Mono.<Void>create(sink -> {
+        if (group.take(this, sink)) {
+          sink.success();
+        } else {
+          onWait.run();
+        }
+      });
     }
 
     /** Gives the place back, or leaves the queue; later calls do nothing. */

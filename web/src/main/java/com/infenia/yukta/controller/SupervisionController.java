@@ -92,20 +92,19 @@ public class SupervisionController {
       @RequestParam(required = false) final @Nullable String workflow,
       @RequestParam(required = false) final @Nullable String execution,
       @RequestParam(required = false) final @Nullable String node) {
-    return Mono.fromSupplier(
-        () -> {
-          String sessionId = session;
-          String workflowId = workflow;
-          if (execution != null) {
-            final WorkflowProgress progress = controlBus.getCurrentProgress(execution);
-            if (progress != null) {
-              sessionId = progress.sessionId();
-              workflowId = progress.workflowId();
-            }
-          }
-          final Map<String, ControlReviewer.Capability> answer =
-              reviewer.capabilities(sessionId, workflowId, node);
-          return ApiResponse.success(200, "Supervision retrieved", answer);
-        });
+    return Mono.fromSupplier(() -> {
+      String sessionId = session;
+      String workflowId = workflow;
+      if (execution != null) {
+        final WorkflowProgress progress = controlBus.getCurrentProgress(execution);
+        if (progress != null) {
+          sessionId = progress.sessionId();
+          workflowId = progress.workflowId();
+        }
+      }
+      final Map<String, ControlReviewer.Capability> answer =
+          reviewer.capabilities(sessionId, workflowId, node);
+      return ApiResponse.success(200, "Supervision retrieved", answer);
+    });
   }
 }

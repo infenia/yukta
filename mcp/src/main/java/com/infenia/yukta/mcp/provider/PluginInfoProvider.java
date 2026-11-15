@@ -70,25 +70,18 @@ public class PluginInfoProvider {
   public List<PluginSummary> listPlugins() {
     return Stream.concat(
             registry.listPlugins().stream()
-                .map(
-                    p ->
-                        new PluginSummary(
-                            p.getType(),
-                            p.getCategory(),
-                            p.getTier(),
-                            p.isRestricted(),
-                            true,
-                            null)),
+                .map(p ->
+                    new PluginSummary(
+                        p.getType(), p.getCategory(), p.getTier(), p.isRestricted(), true, null)),
             registry.listDisabled().stream()
-                .map(
-                    p ->
-                        new PluginSummary(
-                            p.getType(),
-                            p.getCategory(),
-                            p.getTier(),
-                            p.isRestricted(),
-                            false,
-                            registry.enableHint(p.getType()))))
+                .map(p ->
+                    new PluginSummary(
+                        p.getType(),
+                        p.getCategory(),
+                        p.getTier(),
+                        p.isRestricted(),
+                        false,
+                        registry.enableHint(p.getType()))))
         .toList();
   }
 

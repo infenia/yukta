@@ -69,59 +69,57 @@ public class ExecutionResumer {
    * @throws ConflictException if it cannot be resumed
    */
   public Mono<String> resume(final String executionId) {
-    return Mono.defer(
-        () -> {
-          // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
-          if (!resuming.add(executionId)) {
-            return Mono.error(
-                new ConflictException(
-                    "Execution " + executionId + " is being resumed or was already resumed"));
-          }
-          // A claim is dropped when the resume fails or is cancelled (for example a client that
-          // gave up while the workflow was being prepared); the log keeps the real record.
-          // reads the whole log and the checkpoint files, so not on the caller's (event loop)
-          // thread
-          return doResume(executionId)
-              .subscribeOn(Schedulers.boundedElastic())
-              .doOnError(_ -> resuming.remove(executionId))
-              .doOnCancel(() -> resuming.remove(executionId));
-        });
+    return Mono.defer(() -> {
+      // One resume at a time per run: the log only shows RUN_RESUMED once it has started.
+      if (!resuming.add(executionId)) {
+        return Mono.error(
+            new ConflictException(
+                "Execution " + executionId + " is being resumed or was already resumed"));
+      }
+      // A claim is dropped when the resume fails or is cancelled (for example a client that
+      // gave up while the workflow was being prepared); the log keeps the real record.
+      // reads the whole log and the checkpoint files, so not on the caller's (event loop)
+      // thread
+      return doResume(executionId)
+          .subscribeOn(Schedulers.boundedElastic())
+          .doOnError(_ -> resuming.remove(executionId))
+          .doOnCancel(() -> resuming.remove(executionId));
+    });
   }
 
   private Mono<String> doResume(final String executionId) {
-    return Mono.defer(
-        () -> {
-          final List<ExecutionLogEvent> events = executionLog.forExecution(executionId);
-          final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
-          if (started == null) {
-            return Mono.error(new NotFoundException("Execution not found: " + executionId));
-          }
-          final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
-          if (resumed != null) {
-            return Mono.error(
-                new ConflictException(
-                    "Execution " + executionId + " was already resumed as " + resumed.status()));
-          }
-          if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
-            return Mono.error(
-                new ConflictException("Only an aborted run can be resumed: " + executionId));
-          }
-          if (started.payload() == null) {
-            return Mono.error(
-                new ConflictException("The payload of " + executionId + " was not recorded"));
-          }
-          return workflowDefinitionStore
-              .find(started.sessionId(), started.workflowId())
-              .switchIfEmpty(
-                  Mono.error(
-                      new NotFoundException(
-                          "Workflow no longer exists: "
-                              + started.sessionId()
-                              + "/"
-                              + started.workflowId())))
-              .flatMap(orchestrator::prepareWorkflow)
-              .flatMap(prepared -> start(started, prepared));
-        });
+    return Mono.defer(() -> {
+      final List<ExecutionLogEvent> events = executionLog.forExecution(executionId);
+      final ExecutionLogEvent started = first(events, ExecutionLogEvent.Type.RUN_STARTED);
+      if (started == null) {
+        return Mono.error(new NotFoundException("Execution not found: " + executionId));
+      }
+      final ExecutionLogEvent resumed = first(events, ExecutionLogEvent.Type.RUN_RESUMED);
+      if (resumed != null) {
+        return Mono.error(
+            new ConflictException(
+                "Execution " + executionId + " was already resumed as " + resumed.status()));
+      }
+      if (first(events, ExecutionLogEvent.Type.RUN_ABORTED) == null) {
+        return Mono.error(
+            new ConflictException("Only an aborted run can be resumed: " + executionId));
+      }
+      if (started.payload() == null) {
+        return Mono.error(
+            new ConflictException("The payload of " + executionId + " was not recorded"));
+      }
+      return workflowDefinitionStore
+          .find(started.sessionId(), started.workflowId())
+          .switchIfEmpty(
+              Mono.error(
+                  new NotFoundException(
+                      "Workflow no longer exists: "
+                          + started.sessionId()
+                          + "/"
+                          + started.workflowId())))
+          .flatMap(orchestrator::prepareWorkflow)
+          .flatMap(prepared -> start(started, prepared));
+    });
   }
 
   private Mono<String> start(final ExecutionLogEvent started, final PreparedWorkflow prepared) {
@@ -145,56 +143,53 @@ public class ExecutionResumer {
     final String newId = UUID.randomUUID().toString();
     final Map<String, Object> payload = Objects.requireNonNull(started.payload());
     return Flux.fromIterable(plan.boundary())
-        .concatMap(
-            node ->
-                checkpointStore
-                    .getAll(started.executionId(), node)
-                    .collectList()
-                    .map(messages -> Map.<String, List<Message<?>>>entry(node, messages)))
+        .concatMap(node ->
+            checkpointStore
+                .getAll(started.executionId(), node)
+                .collectList()
+                .map(messages -> Map.<String, List<Message<?>>>entry(node, messages)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .flatMap(
-            outputs -> {
-              // The slot is taken before the log says the run was resumed, so a refused resume
-              // can be tried again.
-              final ExecutionScheduler.Admission admission =
-                  scheduler.acquireRerun(
-                      started.sessionId(),
-                      started.workflowId(),
-                      ExecutionScheduler.priorityOf(payload),
-                      newId);
-              if (admission.refused()) {
-                return admission.permit().then();
-              }
-              try {
-                executionLog.append(ExecutionLogEvent.resumed(started, newId));
-              } catch (RuntimeException e) {
-                // the slot was taken above; give it back or each such failure shrinks capacity
-                admission.giveBack();
-                throw e;
-              }
-              orchestrator
-                  .rerun(
-                      started.sessionId(),
-                      started.workflowId(),
-                      started.executionId(),
-                      newId,
-                      prepared,
-                      plan,
-                      payload,
-                      outputs,
-                      "resume of " + started.executionId(),
-                      admission)
-                  .subscribeOn(Schedulers.boundedElastic())
-                  .doOnError(
-                      err ->
-                          log.atError()
-                              .setCause(err)
-                              .addKeyValue("executionId", newId)
-                              .log("Resumed execution failed"))
-                  .onErrorComplete()
-                  .subscribe();
-              return Mono.<Void>empty();
-            })
+        .flatMap(outputs -> {
+          // The slot is taken before the log says the run was resumed, so a refused resume
+          // can be tried again.
+          final ExecutionScheduler.Admission admission =
+              scheduler.acquireRerun(
+                  started.sessionId(),
+                  started.workflowId(),
+                  ExecutionScheduler.priorityOf(payload),
+                  newId);
+          if (admission.refused()) {
+            return admission.permit().then();
+          }
+          try {
+            executionLog.append(ExecutionLogEvent.resumed(started, newId));
+          } catch (RuntimeException e) {
+            // the slot was taken above; give it back or each such failure shrinks capacity
+            admission.giveBack();
+            throw e;
+          }
+          orchestrator
+              .rerun(
+                  started.sessionId(),
+                  started.workflowId(),
+                  started.executionId(),
+                  newId,
+                  prepared,
+                  plan,
+                  payload,
+                  outputs,
+                  "resume of " + started.executionId(),
+                  admission)
+              .subscribeOn(Schedulers.boundedElastic())
+              .doOnError(err ->
+                  log.atError()
+                      .setCause(err)
+                      .addKeyValue("executionId", newId)
+                      .log("Resumed execution failed"))
+              .onErrorComplete()
+              .subscribe();
+          return Mono.<Void>empty();
+        })
         .then(Mono.just(newId));
   }
 

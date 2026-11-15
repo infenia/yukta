@@ -98,11 +98,10 @@ class SplitterProcessorTest {
         Map.of(ITEMSPATH, PAYLOAD_ITEMS, HEADERMAPPING, Map.of("parentOrder", "payload.orderId"));
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(
-            m -> {
-              assertEquals("ORD-123", m.metadata().get("parentOrder"), "Test header mapping");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals("ORD-123", m.metadata().get("parentOrder"), "Test header mapping");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -119,17 +118,16 @@ class SplitterProcessorTest {
     final Map<String, Object> config = Map.of(ITEMSPATH, PAYLOAD_ITEMS);
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(
-            m -> {
-              assertEquals(parent.traceId(), m.traceId(), "Test technical header propagation");
-              assertEquals(9, m.priority(), "Test technical header propagation (2)");
-              assertEquals(
-                  parent.expiration(), m.expiration(), "Test technical header propagation (3)");
-              assertEquals("v2", m.formatIndicator(), "Test technical header propagation (4)");
-              assertEquals(
-                  "val", m.metadata().get("custom-tech"), "Test technical header propagation (5)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals(parent.traceId(), m.traceId(), "Test technical header propagation");
+          assertEquals(9, m.priority(), "Test technical header propagation (2)");
+          assertEquals(
+              parent.expiration(), m.expiration(), "Test technical header propagation (3)");
+          assertEquals("v2", m.formatIndicator(), "Test technical header propagation (4)");
+          assertEquals(
+              "val", m.metadata().get("custom-tech"), "Test technical header propagation (5)");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -141,20 +139,18 @@ class SplitterProcessorTest {
     final Map<String, Object> config = Map.of(ITEMSPATH, "payload.stream");
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(
-            m -> {
-              assertEquals(1, m.payload(), "Test stream split");
-              assertEquals(0, m.sequenceSize(), "Test stream split (2)");
-              assertEquals(1, m.sequenceNumber(), "Test stream split (3)");
-              return true;
-            })
-        .expectNextMatches(
-            m -> {
-              assertEquals(2, m.payload(), "Test stream split (4)");
-              assertEquals(2, m.sequenceSize(), "Test stream split (5)");
-              assertEquals(2, m.sequenceNumber(), "Test stream split (6)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals(1, m.payload(), "Test stream split");
+          assertEquals(0, m.sequenceSize(), "Test stream split (2)");
+          assertEquals(1, m.sequenceNumber(), "Test stream split (3)");
+          return true;
+        })
+        .expectNextMatches(m -> {
+          assertEquals(2, m.payload(), "Test stream split (4)");
+          assertEquals(2, m.sequenceSize(), "Test stream split (5)");
+          assertEquals(2, m.sequenceNumber(), "Test stream split (6)");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -167,13 +163,12 @@ class SplitterProcessorTest {
             processor
                 .process(Flux.just(parent), config)
                 .contextWrite(ctx -> ctx.put("nodeId", "split-node")))
-        .expectNextMatches(
-            m -> {
-              assertEquals("error-out", m.sourcePort(), "Test error port");
-              assertNotNull(m.failureReason(), "Test error port (2)");
-              assertTrue(m.messageHistory().isEmpty(), "Test error port (3)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals("error-out", m.sourcePort(), "Test error port");
+          assertNotNull(m.failureReason(), "Test error port (2)");
+          assertTrue(m.messageHistory().isEmpty(), "Test error port (3)");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -301,12 +296,11 @@ class SplitterProcessorTest {
     final Map<String, Object> config = Map.of(ITEMSPATH, "payload.item");
 
     StepVerifier.create(processor.process(Flux.just(parent), config))
-        .expectNextMatches(
-            m -> {
-              assertEquals("only-one", m.payload(), "Test single object split");
-              assertEquals(1, m.sequenceSize(), "Test single object split (2)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals("only-one", m.payload(), "Test single object split");
+          assertEquals(1, m.sequenceSize(), "Test single object split (2)");
+          return true;
+        })
         .verifyComplete();
   }
 

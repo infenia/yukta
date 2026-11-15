@@ -37,35 +37,32 @@ public class SetBreakpointCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final SetBreakpointCommand breakpoint) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(breakpoint.executionId())
-                  .orElseThrow(
-                      () ->
-                          new NotFoundException(
-                              "Execution not found: " + breakpoint.executionId()));
-          final ReactiveControlValve valve = control.nodePauseValves().get(breakpoint.nodeId());
-          if (valve == null) {
-            throw new NotFoundException("Node not found or not pausable: " + breakpoint.nodeId());
-          }
-          valve.setBreakpoint(
-              breakpoint.field() == null
-                  ? null
-                  : matcher(breakpoint.field(), breakpoint.equalsValue()));
-          taskTracker.emitBreakpointEvent(
-              breakpoint.executionId(),
-              breakpoint.nodeId(),
-              breakpoint.field() == null
-                  ? null
-                  : new TaskProgress.Breakpoint(breakpoint.field(), breakpoint.equalsValue()));
-          log.atDebug()
-              .addKeyValue("executionId", breakpoint.executionId())
-              .addKeyValue("nodeId", breakpoint.nodeId())
-              .addKeyValue("field", breakpoint.field())
-              .log("Set node breakpoint");
-        });
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(breakpoint.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + breakpoint.executionId()));
+      final ReactiveControlValve valve = control.nodePauseValves().get(breakpoint.nodeId());
+      if (valve == null) {
+        throw new NotFoundException("Node not found or not pausable: " + breakpoint.nodeId());
+      }
+      valve.setBreakpoint(
+          breakpoint.field() == null
+              ? null
+              : matcher(breakpoint.field(), breakpoint.equalsValue()));
+      taskTracker.emitBreakpointEvent(
+          breakpoint.executionId(),
+          breakpoint.nodeId(),
+          breakpoint.field() == null
+              ? null
+              : new TaskProgress.Breakpoint(breakpoint.field(), breakpoint.equalsValue()));
+      log.atDebug()
+          .addKeyValue("executionId", breakpoint.executionId())
+          .addKeyValue("nodeId", breakpoint.nodeId())
+          .addKeyValue("field", breakpoint.field())
+          .log("Set node breakpoint");
+    });
   }
 
   /** Builds the element test: the value at {@code field}, as text, equals {@code expected}. */

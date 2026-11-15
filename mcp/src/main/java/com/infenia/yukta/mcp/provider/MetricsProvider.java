@@ -36,11 +36,10 @@ public class MetricsProvider {
         RunAnalytics.GLOBAL.equals(wanted)
             ? sampler.snapshot().defaultIfEmpty(new MetricSample(0, Map.of()))
             : Mono.just(new MetricSample(0, Map.of()));
-    return sampled.map(
-        sample -> {
-          final Map<String, Double> values = new ConcurrentHashMap<>(sample.values());
-          values.putAll(analytics.snapshot(wanted));
-          return new MetricsSnapshot(wanted, sample.time(), values);
-        });
+    return sampled.map(sample -> {
+      final Map<String, Double> values = new ConcurrentHashMap<>(sample.values());
+      values.putAll(analytics.snapshot(wanted));
+      return new MetricsSnapshot(wanted, sample.time(), values);
+    });
   }
 }

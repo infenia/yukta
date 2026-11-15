@@ -50,11 +50,10 @@ class DefaultInputGatewayTest {
   @Test
   void askingOutsideNodeFailsClearly() {
     StepVerifier.create(gateway.ask(spec("k1")))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("Reactor context"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Reactor context"))
         .verify();
   }
 }

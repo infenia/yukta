@@ -93,11 +93,10 @@ public class WorkerAgent {
             .retryWhen(
                 Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1))
                     .maxBackoff(MAX_PAUSE)
-                    .doBeforeRetry(
-                        signal ->
-                            log.atWarn()
-                                .setCause(signal.failure())
-                                .log("Lost the control plane, reconnecting")))
+                    .doBeforeRetry(signal ->
+                        log.atWarn()
+                            .setCause(signal.failure())
+                            .log("Lost the control plane, reconnecting")))
             .subscribe();
   }
 
@@ -150,14 +149,12 @@ public class WorkerAgent {
                 urgent.asFlux()));
     return connect
         .doOnNext(this::connected)
-        .flatMapMany(
-            requester ->
-                requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))
-        .concatMap(
-            answer ->
-                answer.type() == WorkerFrame.Type.REJECT
-                    ? Mono.<WorkerFrame>error(refused(answer))
-                    : Mono.<WorkerFrame>empty())
+        .flatMapMany(requester ->
+            requester.route("worker.session").data(out).retrieveFlux(WorkerFrame.class))
+        .concatMap(answer ->
+            answer.type() == WorkerFrame.Type.REJECT
+                ? Mono.<WorkerFrame>error(refused(answer))
+                : Mono.<WorkerFrame>empty())
         .then(Mono.error(new IllegalStateException("The control plane closed the connection")));
   }
 

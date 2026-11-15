@@ -75,12 +75,11 @@ public class PreparedWorkflowCache {
             .expireAfterAccess(ttlMs, TimeUnit.MILLISECONDS)
             .maximumSize(maxEntries)
             .recordStats()
-            .removalListener(
-                (key, _, cause) ->
-                    log.atDebug()
-                        .addKeyValue("key", key)
-                        .addKeyValue("cause", cause)
-                        .log("Evicted compiled workflow"))
+            .removalListener((key, _, cause) ->
+                log.atDebug()
+                    .addKeyValue("key", key)
+                    .addKeyValue("cause", cause)
+                    .log("Evicted compiled workflow"))
             .build();
     Gauge.builder("yukta.workflow.cache.size", cache, Cache::estimatedSize)
         .description("Prepared workflows held in memory")

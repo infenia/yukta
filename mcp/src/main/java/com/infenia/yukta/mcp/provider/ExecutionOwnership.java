@@ -21,11 +21,10 @@ class ExecutionOwnership {
       final ControlBusGateway controlBus, final String sessionId, final String executionId) {
     return Mono.defer(() -> Mono.justOrEmpty(controlBus.getProgress(sessionId, executionId)))
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new IllegalArgumentException(
-                        "Execution not found: "
-                            + executionId
-                            + ". Use get_workflow_history to list executions.")));
+            Mono.error(() ->
+                new IllegalArgumentException(
+                    "Execution not found: "
+                        + executionId
+                        + ". Use get_workflow_history to list executions.")));
   }
 }

@@ -74,16 +74,14 @@ class ProcessExecutorPluginTest {
     plugin = new ProcessExecutorPlugin(gateway, resolver);
     // like the real resolver: a value is dynamic when it uses ${...}
     when(resolver.isStatic(any()))
-        .thenAnswer(
-            invocation ->
-                !(invocation.getArgument(0) instanceof final String text && text.contains("${")));
+        .thenAnswer(invocation ->
+            !(invocation.getArgument(0) instanceof final String text && text.contains("${")));
     // Generic resolver mock to handle all variable resolutions by returning the input
     when(resolver.resolve(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              final Object arg = invocation.getArgument(0);
-              return Mono.justOrEmpty(arg);
-            });
+        .thenAnswer(invocation -> {
+          final Object arg = invocation.getArgument(0);
+          return Mono.justOrEmpty(arg);
+        });
   }
 
   private static ProcessExecutionResult successResult(final String... stdoutLines) {
@@ -167,15 +165,13 @@ class ProcessExecutorPluginTest {
     final AtomicInteger inFlight = new AtomicInteger();
     final AtomicInteger peak = new AtomicInteger();
     when(gateway.executeForResult(any()))
-        .thenAnswer(
-            invocation ->
-                Mono.defer(
-                    () -> {
-                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
-                      return Mono.just(successResult("ok"))
-                          .delayElement(Duration.ofMillis(20))
-                          .doOnTerminate(inFlight::decrementAndGet);
-                    }));
+        .thenAnswer(invocation ->
+            Mono.defer(() -> {
+              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+              return Mono.just(successResult("ok"))
+                  .delayElement(Duration.ofMillis(20))
+                  .doOnTerminate(inFlight::decrementAndGet);
+            }));
     StepVerifier.create(
             plugin.process(Flux.range(0, count).map(ProcessExecutorPluginTest::message), config))
         .expectNextCount(count)
@@ -364,20 +360,19 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("hello"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload)
-                  .containsEntry("exitCode", 0)
-                  .containsEntry("success", true)
-                  .containsEntry("timedOut", false)
-                  .containsEntry("durationMillis", 5L)
-                  .containsEntry("outputTruncated", false)
-                  .containsEntry("stdout", "hello")
-                  .containsEntry("stderr", "")
-                  .doesNotContainKey("input");
-              assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload)
+              .containsEntry("exitCode", 0)
+              .containsEntry("success", true)
+              .containsEntry("timedOut", false)
+              .containsEntry("durationMillis", 5L)
+              .containsEntry("outputTruncated", false)
+              .containsEntry("stdout", "hello")
+              .containsEntry("stderr", "")
+              .doesNotContainKey("input");
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
+        })
         .verifyComplete();
   }
 
@@ -388,11 +383,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("hello"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload).doesNotContainKey("stdout").doesNotContainKey("stderr");
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload).doesNotContainKey("stdout").doesNotContainKey("stderr");
+        })
         .verifyComplete();
   }
 
@@ -402,11 +396,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("out"));
 
     StepVerifier.create(plugin.process(Flux.just(message("original-data")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload).containsEntry("input", "original-data");
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload).containsEntry("input", "original-data");
+        })
         .verifyComplete();
   }
 
@@ -428,12 +421,11 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("out"));
 
     StepVerifier.create(plugin.process(Flux.just(message("x")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload).containsEntry("totalFailures", 1);
-              assertThat((List<?>) payload.get("failures")).hasSize(1);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload).containsEntry("totalFailures", 1);
+          assertThat((List<?>) payload.get("failures")).hasSize(1);
+        })
         .verifyComplete();
   }
 
@@ -448,9 +440,8 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("out"));
 
     StepVerifier.create(plugin.process(Flux.just(message("x")), config))
-        .assertNext(
-            msg ->
-                assertThat((Map<String, Object>) msg.payload()).containsEntry("totalFailures", 0))
+        .assertNext(msg ->
+            assertThat((Map<String, Object>) msg.payload()).containsEntry("totalFailures", 0))
         .verifyComplete();
   }
 
@@ -491,12 +482,11 @@ class ProcessExecutorPluginTest {
 
     StepVerifier.create(
             plugin.process(Flux.just(input), Map.of("command", List.of("echo", "hello"))))
-        .assertNext(
-            msg -> {
-              assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
-              assertThat(msg.metadata().get("traceId")).isEqualTo("123");
-              assertThat(msg.metadata().get("sessionId")).isEqualTo("456");
-            })
+        .assertNext(msg -> {
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
+          assertThat(msg.metadata().get("traceId")).isEqualTo("123");
+          assertThat(msg.metadata().get("sessionId")).isEqualTo("456");
+        })
         .verifyComplete();
   }
 
@@ -508,11 +498,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(failedResult(3, "boom"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("exit code 3").contains("boom");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(WorkflowExecutionException.class);
+          assertThat(error.getMessage()).contains("exit code 3").contains("boom");
+        });
   }
 
   @Test
@@ -525,14 +514,13 @@ class ProcessExecutorPluginTest {
 
     StepVerifier.create(
             plugin.process(Flux.just(message("input")), Map.of("command", List.of("x"))))
-        .verifyErrorSatisfies(
-            error ->
-                assertThat(error.getMessage())
-                    .contains("line 4999")
-                    .contains("line 4950")
-                    .doesNotContain("line 4949\n")
-                    .contains("characters cut")
-                    .hasSizeLessThan(9_000));
+        .verifyErrorSatisfies(error ->
+            assertThat(error.getMessage())
+                .contains("line 4999")
+                .contains("line 4950")
+                .doesNotContain("line 4949\n")
+                .contains("characters cut")
+                .hasSizeLessThan(9_000));
   }
 
   @Test
@@ -556,12 +544,11 @@ class ProcessExecutorPluginTest {
                     2, List.of("out"), List.of("something went wrong"), 0L, false, false)));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .verifyErrorSatisfies(
-            error ->
-                assertThat(error.getMessage())
-                    .contains("exit code 2")
-                    .contains("--- Stderr ---")
-                    .contains("something went wrong"));
+        .verifyErrorSatisfies(error ->
+            assertThat(error.getMessage())
+                .contains("exit code 2")
+                .contains("--- Stderr ---")
+                .contains("something went wrong"));
   }
 
   @Test
@@ -570,11 +557,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(timedOutResult());
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("timed out after 1s");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(WorkflowExecutionException.class);
+          assertThat(error.getMessage()).contains("timed out after 1s");
+        });
   }
 
   @Test
@@ -584,15 +570,14 @@ class ProcessExecutorPluginTest {
     gatewayReturns(failedResult(3, "boom"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload)
-                  .containsEntry("exitCode", 3)
-                  .containsEntry("success", false)
-                  .containsEntry("stdout", "boom");
-              assertThat(msg.metadata().get("exitCode")).isEqualTo(3);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload)
+              .containsEntry("exitCode", 3)
+              .containsEntry("success", false)
+              .containsEntry("stdout", "boom");
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(3);
+        })
         .verifyComplete();
   }
 
@@ -603,13 +588,12 @@ class ProcessExecutorPluginTest {
     gatewayReturns(timedOutResult());
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload).containsEntry("timedOut", true).containsEntry("success", false);
-              assertThat(msg.metadata().get("exitCode"))
-                  .isEqualTo(ProcessExecutionResult.TIMEOUT_EXIT_CODE);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload).containsEntry("timedOut", true).containsEntry("success", false);
+          assertThat(msg.metadata().get("exitCode"))
+              .isEqualTo(ProcessExecutionResult.TIMEOUT_EXIT_CODE);
+        })
         .verifyComplete();
   }
 
@@ -632,11 +616,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("ignored"));
 
     StepVerifier.create(plugin.process(Flux.just(message("original")), config))
-        .assertNext(
-            msg -> {
-              assertThat(msg.payload()).isEqualTo("original");
-              assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
-            })
+        .assertNext(msg -> {
+          assertThat(msg.payload()).isEqualTo("original");
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(0);
+        })
         .verifyComplete();
   }
 
@@ -648,13 +631,12 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("{\"passed\": 10, \"failed\": 0}"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              final Map<String, Object> output = (Map<String, Object>) payload.get("output");
-              assertThat(output).containsEntry("passed", 10).containsEntry("failed", 0);
-              assertThat(payload).containsEntry("exitCode", 0);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          final Map<String, Object> output = (Map<String, Object>) payload.get("output");
+          assertThat(output).containsEntry("passed", 10).containsEntry("failed", 0);
+          assertThat(payload).containsEntry("exitCode", 0);
+        })
         .verifyComplete();
   }
 
@@ -664,11 +646,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("not json at all"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("parse process output as JSON");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(WorkflowExecutionException.class);
+          assertThat(error.getMessage()).contains("parse process output as JSON");
+        });
   }
 
   @Test
@@ -681,12 +662,11 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("not json at all"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload.get("output")).isNull();
-              assertThat(payload.get("parseError")).asString().isNotEmpty();
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload.get("output")).isNull();
+          assertThat(payload.get("parseError")).asString().isNotEmpty();
+        })
         .verifyComplete();
   }
 
@@ -700,13 +680,12 @@ class ProcessExecutorPluginTest {
     gatewayReturns(failedResult(1, "not json"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              final Map<String, Object> payload = (Map<String, Object>) msg.payload();
-              assertThat(payload).containsKey("output").doesNotContainKey("parseError");
-              assertThat(payload.get("output")).isNull();
-              assertThat(payload).containsEntry("exitCode", 1);
-            })
+        .assertNext(msg -> {
+          final Map<String, Object> payload = (Map<String, Object>) msg.payload();
+          assertThat(payload).containsKey("output").doesNotContainKey("parseError");
+          assertThat(payload.get("output")).isNull();
+          assertThat(payload).containsEntry("exitCode", 1);
+        })
         .verifyComplete();
   }
 
@@ -855,11 +834,10 @@ class ProcessExecutorPluginTest {
     final Map<String, Object> config = Map.of("command", List.of("echo"), "outputFormat", "XML");
 
     StepVerifier.create(plugin.process(Flux.just(message("test")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(IllegalArgumentException.class);
-              assertThat(error.getMessage()).contains("Unknown outputFormat");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(IllegalArgumentException.class);
+          assertThat(error.getMessage()).contains("Unknown outputFormat");
+        });
   }
 
   @Test
@@ -867,11 +845,10 @@ class ProcessExecutorPluginTest {
     final Map<String, Object> config = Map.of("command", List.of("echo"), "failureMode", "RETRY");
 
     StepVerifier.create(plugin.process(Flux.just(message("test")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(IllegalArgumentException.class);
-              assertThat(error.getMessage()).contains("Unknown failureMode");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(IllegalArgumentException.class);
+          assertThat(error.getMessage()).contains("Unknown failureMode");
+        });
   }
 
   // --- error propagation ---
@@ -893,11 +870,10 @@ class ProcessExecutorPluginTest {
         .thenReturn(Mono.error(new WorkflowExecutionException("Workflow failed: exit code 5")));
 
     StepVerifier.create(plugin.process(Flux.just(message("test")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("exit code");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(WorkflowExecutionException.class);
+          assertThat(error.getMessage()).contains("exit code");
+        });
   }
 
   // --- stream behavior ---
@@ -1156,11 +1132,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("ok"));
 
     StepVerifier.create(plugin.process(Flux.just(input), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(WorkflowExecutionException.class);
-              assertThat(error.getMessage()).contains("serialize input payload");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(WorkflowExecutionException.class);
+          assertThat(error.getMessage()).contains("serialize input payload");
+        });
   }
 
   @Test
@@ -1168,11 +1143,10 @@ class ProcessExecutorPluginTest {
     final Map<String, Object> config = Map.of("command", List.of("echo"), "inputMode", "PIPE");
 
     StepVerifier.create(plugin.process(Flux.just(message("test")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(IllegalArgumentException.class);
-              assertThat(error.getMessage()).contains("Unknown inputMode");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(IllegalArgumentException.class);
+          assertThat(error.getMessage()).contains("Unknown inputMode");
+        });
   }
 
   // --- routeByExitCode: success/failure output ports ---
@@ -1207,11 +1181,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(failedResult(3, "boom"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .assertNext(
-            msg -> {
-              assertThat(msg.sourcePort()).isEqualTo("failure");
-              assertThat(msg.metadata().get("exitCode")).isEqualTo(3);
-            })
+        .assertNext(msg -> {
+          assertThat(msg.sourcePort()).isEqualTo("failure");
+          assertThat(msg.metadata().get("exitCode")).isEqualTo(3);
+        })
         .verifyComplete();
   }
 
@@ -1233,11 +1206,10 @@ class ProcessExecutorPluginTest {
     gatewayReturns(successResult("ok"));
 
     StepVerifier.create(plugin.process(Flux.just(message("input")), config))
-        .verifyErrorSatisfies(
-            error -> {
-              assertThat(error).isInstanceOf(IllegalArgumentException.class);
-              assertThat(error.getMessage()).contains("requires failureMode: CONTINUE");
-            });
+        .verifyErrorSatisfies(error -> {
+          assertThat(error).isInstanceOf(IllegalArgumentException.class);
+          assertThat(error.getMessage()).contains("requires failureMode: CONTINUE");
+        });
   }
 
   @Test

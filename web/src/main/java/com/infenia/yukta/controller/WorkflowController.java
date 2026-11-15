@@ -102,10 +102,9 @@ public class WorkflowController {
               return workflowService.start(
                   request.sessionId(), request.workflowId(), payload, idempotencyKey);
             })
-        .map(
-            executionId ->
-                ApiResponse.success(
-                    202, "Workflow start accepted", new WorkflowStartResponse(executionId)));
+        .map(executionId ->
+            ApiResponse.success(
+                202, "Workflow start accepted", new WorkflowStartResponse(executionId)));
   }
 
   /** Whether the caller may set start options: an ADMIN key, or no key at all (auth is off). */
@@ -156,10 +155,9 @@ public class WorkflowController {
           final StopMode mode) {
     return control
         .stopWorkflow(sessionId, workflowId, "Stopped via REST API", mode)
-        .map(
-            ids ->
-                ApiResponse.success(
-                    200, "Workflow stop signals accepted", new WorkflowStopResponse(ids)));
+        .map(ids ->
+            ApiResponse.success(
+                200, "Workflow stop signals accepted", new WorkflowStopResponse(ids)));
   }
 
   /**
@@ -188,13 +186,12 @@ public class WorkflowController {
         .switchIfEmpty(Mono.error(() -> new NotFoundException("Session not found: " + sessionId)))
         .flatMap(config -> controlBus.getHistory(sessionId))
         .map(history -> history.stream().filter(filter::matches).toList())
-        .map(
-            history ->
-                Pagination.page(
-                    history,
-                    limit,
-                    cursor,
-                    WorkflowExecutionSummary::executionId,
-                    "Workflow history retrieved successfully"));
+        .map(history ->
+            Pagination.page(
+                history,
+                limit,
+                cursor,
+                WorkflowExecutionSummary::executionId,
+                "Workflow history retrieved successfully"));
   }
 }

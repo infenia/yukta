@@ -70,14 +70,13 @@ public class InMemorySupervisorStore implements SupervisorStore {
 
   @Override
   public Mono<Void> saveSessionRefs(final String sessionId, final List<SupervisorRef> refs) {
-    return Mono.fromRunnable(
-        () -> {
-          if (refs.isEmpty()) {
-            refsBySession.remove(sessionId);
-          } else {
-            refsBySession.put(sessionId, List.copyOf(refs));
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      if (refs.isEmpty()) {
+        refsBySession.remove(sessionId);
+      } else {
+        refsBySession.put(sessionId, List.copyOf(refs));
+      }
+    });
   }
 
   @Override

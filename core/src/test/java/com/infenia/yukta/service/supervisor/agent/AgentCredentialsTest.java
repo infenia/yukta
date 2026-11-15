@@ -161,20 +161,18 @@ class AgentCredentialsTest {
 
           @Override
           public reactor.core.publisher.Mono<Void> save(final Stored credential) {
-            return reactor.core.publisher.Mono.defer(
-                () -> {
-                  writes.incrementAndGet();
-                  return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
-                });
+            return reactor.core.publisher.Mono.defer(() -> {
+              writes.incrementAndGet();
+              return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+            });
           }
 
           @Override
           public reactor.core.publisher.Mono<Void> delete(final String supervisorId) {
-            return reactor.core.publisher.Mono.defer(
-                () -> {
-                  writes.incrementAndGet();
-                  return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
-                });
+            return reactor.core.publisher.Mono.defer(() -> {
+              writes.incrementAndGet();
+              return reactor.core.publisher.Mono.error(new IllegalStateException("down"));
+            });
           }
         };
     final AgentCredentials offline = new AgentCredentials();
@@ -243,12 +241,11 @@ class AgentCredentialsTest {
     credentials.setHub(hub);
 
     StepVerifier.create(hub.credentialChanges())
-        .then(
-            () -> {
-              credentials.issue("a1", null);
-              credentials.issue("a1", null);
-              credentials.revoke("a1");
-            })
+        .then(() -> {
+          credentials.issue("a1", null);
+          credentials.issue("a1", null);
+          credentials.revoke("a1");
+        })
         .expectNext("a1", "a1")
         .thenCancel()
         .verify(Duration.ofSeconds(5));

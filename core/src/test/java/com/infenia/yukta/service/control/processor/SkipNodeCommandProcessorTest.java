@@ -51,11 +51,10 @@ class SkipNodeCommandProcessorTest {
     run(mock(Plugin.class));
 
     StepVerifier.create(processor.process(new SkipNodeCommand("e1", "n1", true)))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("Only processor nodes can be skipped"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Only processor nodes can be skipped"))
         .verify();
     assertThat(flag).isFalse();
   }

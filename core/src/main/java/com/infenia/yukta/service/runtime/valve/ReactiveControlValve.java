@@ -69,14 +69,13 @@ public final class ReactiveControlValve {
    * @return a Mono that emits true when passage is granted
    */
   public Mono<Boolean> allowPassage(final Message<?> message) {
-    return Mono.defer(
-        () -> {
-          final Predicate<Message<?>> condition = breakpoint.get();
-          if (condition != null && condition.test(message)) {
-            pause();
-          }
-          return allowPassage();
-        });
+    return Mono.defer(() -> {
+      final Predicate<Message<?>> condition = breakpoint.get();
+      if (condition != null && condition.test(message)) {
+        pause();
+      }
+      return allowPassage();
+    });
   }
 
   /**
@@ -85,11 +84,10 @@ public final class ReactiveControlValve {
    * @return a Mono that emits true when passage is granted
    */
   public Mono<Boolean> allowPassage() {
-    return Mono.defer(
-        () ->
-            tryAcquire()
-                ? Mono.just(true)
-                : changes.asFlux().filter(_ -> tryAcquire()).next().thenReturn(true));
+    return Mono.defer(() ->
+        tryAcquire()
+            ? Mono.just(true)
+            : changes.asFlux().filter(_ -> tryAcquire()).next().thenReturn(true));
   }
 
   private boolean tryAcquire() {

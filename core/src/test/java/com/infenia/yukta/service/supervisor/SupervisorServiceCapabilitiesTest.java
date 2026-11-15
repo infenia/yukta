@@ -126,12 +126,11 @@ class SupervisorServiceCapabilitiesTest {
             service.saveSupervisor(
                 new Supervisor(
                     "p", TYPE, Map.of("allowedCommands", List.of("NoSuchCommand")), false)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(SettingsValidationException.class)
-                    .hasMessageContaining("settings.allowedCommands")
-                    .hasMessageContaining("NoSuchCommand"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(SettingsValidationException.class)
+                .hasMessageContaining("settings.allowedCommands")
+                .hasMessageContaining("NoSuchCommand"))
         .verify();
 
     StepVerifier.create(store.supervisors()).verifyComplete();
@@ -177,11 +176,10 @@ class SupervisorServiceCapabilitiesTest {
         new SupervisorService(store, List.of(declaring()), host, new InMemoryExecutionLogStore());
     StepVerifier.create(
             declared.saveSupervisor(new Supervisor("p", TYPE, Map.of("bogus", 1), false)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(((SettingsValidationException) error).getIssues())
-                    .extracting(SettingsValidationException.Issue::field)
-                    .containsExactly("settings.bogus"))
+        .expectErrorSatisfies(error ->
+            assertThat(((SettingsValidationException) error).getIssues())
+                .extracting(SettingsValidationException.Issue::field)
+                .containsExactly("settings.bogus"))
         .verify();
 
     StepVerifier.create(store.supervisors()).verifyComplete();

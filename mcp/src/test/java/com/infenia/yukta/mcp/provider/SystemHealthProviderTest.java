@@ -84,24 +84,23 @@ class SystemHealthProviderTest {
                 List.of(execution("e1", TaskStatus.RUNNING), execution("e2", TaskStatus.SUCCESS))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
-        .assertNext(
-            status -> {
-              verify(controlBus, times(1)).getHistory("s1");
-              assertThat(status.activeSessions()).hasSize(1);
-              assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s1");
-              assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);
-              assertThat(status.activeSessions().get(0).totalWorkflows()).isEqualTo(2);
+        .assertNext(status -> {
+          verify(controlBus, times(1)).getHistory("s1");
+          assertThat(status.activeSessions()).hasSize(1);
+          assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s1");
+          assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);
+          assertThat(status.activeSessions().get(0).totalWorkflows()).isEqualTo(2);
 
-              assertThat(status.pluginRegistry()).hasSize(1);
-              assertThat(status.pluginRegistry().get(0).type()).isEqualTo("gradle");
+          assertThat(status.pluginRegistry()).hasSize(1);
+          assertThat(status.pluginRegistry().get(0).type()).isEqualTo("gradle");
 
-              assertThat(status.systemHealth()).isNotNull();
-              assertThat(status.systemHealth().uptime()).isNotBlank();
+          assertThat(status.systemHealth()).isNotNull();
+          assertThat(status.systemHealth().uptime()).isNotBlank();
 
-              assertThat(status.recentExecutions()).hasSize(2);
-              assertThat(status.recentExecutions())
-                  .anyMatch(r -> r.executionId().equals("e1") && r.status().equals("RUNNING"));
-            })
+          assertThat(status.recentExecutions()).hasSize(2);
+          assertThat(status.recentExecutions())
+              .anyMatch(r -> r.executionId().equals("e1") && r.status().equals("RUNNING"));
+        })
         .verifyComplete();
   }
 
@@ -113,12 +112,11 @@ class SystemHealthProviderTest {
     when(registry.listPlugins()).thenReturn(List.of(plugin));
 
     StepVerifier.create(provider.getControlBusStatus("plugins"))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions()).isEmpty();
-              assertThat(status.pluginRegistry()).hasSize(1);
-              assertThat(status.recentExecutions()).isEmpty();
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions()).isEmpty();
+          assertThat(status.pluginRegistry()).hasSize(1);
+          assertThat(status.recentExecutions()).isEmpty();
+        })
         .verifyComplete();
   }
 
@@ -132,12 +130,11 @@ class SystemHealthProviderTest {
     when(controlBus.getHistory("s1")).thenReturn(Mono.just(List.of()));
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions()).hasSize(1);
-              assertThat(status.activeSessions().get(0).totalWorkflows()).isZero();
-              assertThat(status.pluginRegistry()).isEmpty();
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions()).hasSize(1);
+          assertThat(status.activeSessions().get(0).totalWorkflows()).isZero();
+          assertThat(status.pluginRegistry()).isEmpty();
+        })
         .verifyComplete();
   }
 
@@ -156,65 +153,60 @@ class SystemHealthProviderTest {
     final Instant base = LocalDateTime.of(2026, 1, 1, 12, 0).toInstant(ZoneOffset.UTC);
     final List<WorkflowExecutionSummary> s1History =
         IntStream.range(0, 12)
-            .mapToObj(
-                i ->
-                    Fixtures.summary(
-                        "s1-e" + i,
-                        "wf-1",
-                        TaskStatus.SUCCESS,
-                        base.plus(Duration.ofMinutes(2L * i)),
-                        base.plus(Duration.ofMinutes(2L * i + 1))))
+            .mapToObj(i ->
+                Fixtures.summary(
+                    "s1-e" + i,
+                    "wf-1",
+                    TaskStatus.SUCCESS,
+                    base.plus(Duration.ofMinutes(2L * i)),
+                    base.plus(Duration.ofMinutes(2L * i + 1))))
             .toList();
     final List<WorkflowExecutionSummary> s2History =
         IntStream.range(0, 12)
-            .mapToObj(
-                i ->
-                    Fixtures.summary(
-                        "s2-e" + i,
-                        "wf-2",
-                        TaskStatus.SUCCESS,
-                        base.plus(Duration.ofMinutes(2L * i + 1)),
-                        base.plus(Duration.ofMinutes(2L * i + 2))))
+            .mapToObj(i ->
+                Fixtures.summary(
+                    "s2-e" + i,
+                    "wf-2",
+                    TaskStatus.SUCCESS,
+                    base.plus(Duration.ofMinutes(2L * i + 1)),
+                    base.plus(Duration.ofMinutes(2L * i + 2))))
             .toList();
     when(sessionService.getSessionIds()).thenReturn(Flux.just("s1", "s2"));
     when(controlBus.getHistory("s1")).thenReturn(Mono.just(s1History));
     when(controlBus.getHistory("s2")).thenReturn(Mono.just(s2History));
 
     StepVerifier.create(provider.getControlBusStatus("executions"))
-        .assertNext(
-            status -> {
-              final List<ExecutionRecord> recent = status.recentExecutions();
-              assertThat(recent).hasSize(20);
-              assertThat(recent.get(0).executionId()).isEqualTo("s2-e11");
-              assertThat(recent.get(1).executionId()).isEqualTo("s1-e11");
-              assertThat(recent)
-                  .extracting(ExecutionRecord::executionId)
-                  .doesNotContain("s1-e0", "s2-e0", "s1-e1", "s2-e1");
-            })
+        .assertNext(status -> {
+          final List<ExecutionRecord> recent = status.recentExecutions();
+          assertThat(recent).hasSize(20);
+          assertThat(recent.get(0).executionId()).isEqualTo("s2-e11");
+          assertThat(recent.get(1).executionId()).isEqualTo("s1-e11");
+          assertThat(recent)
+              .extracting(ExecutionRecord::executionId)
+              .doesNotContain("s1-e0", "s2-e0", "s1-e1", "s2-e1");
+        })
         .verifyComplete();
   }
 
   @Test
   void testUnsupportedFilterYieldsError() {
     StepVerifier.create(provider.getControlBusStatus("bogus"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Unsupported filter: bogus")
-                    && error.getMessage().contains("sessions, executions, plugins, health"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Unsupported filter: bogus")
+                && error.getMessage().contains("sessions, executions, plugins, health"))
         .verify();
   }
 
   @Test
   void testHealthFilterOnlyPopulatesHealth() {
     StepVerifier.create(provider.getControlBusStatus("health"))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions()).isEmpty();
-              assertThat(status.pluginRegistry()).isEmpty();
-              assertThat(status.recentExecutions()).isEmpty();
-              assertThat(status.systemHealth().uptime()).isNotBlank();
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions()).isEmpty();
+          assertThat(status.pluginRegistry()).isEmpty();
+          assertThat(status.recentExecutions()).isEmpty();
+          assertThat(status.systemHealth().uptime()).isNotBlank();
+        })
         .verifyComplete();
   }
 
@@ -226,13 +218,12 @@ class SystemHealthProviderTest {
         .thenReturn(Mono.just(List.of(execution("e2", TaskStatus.SUCCESS))));
 
     StepVerifier.create(provider.getControlBusStatus("executions"))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions()).isEmpty();
-              assertThat(status.recentExecutions()).hasSize(1);
-              assertThat(status.recentExecutions().get(0).executionId()).isEqualTo("e2");
-              assertThat(status.recentExecutions().get(0).duration()).endsWith("ms");
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions()).isEmpty();
+          assertThat(status.recentExecutions()).hasSize(1);
+          assertThat(status.recentExecutions().get(0).executionId()).isEqualTo("e2");
+          assertThat(status.recentExecutions().get(0).duration()).endsWith("ms");
+        })
         .verifyComplete();
   }
 
@@ -248,11 +239,10 @@ class SystemHealthProviderTest {
     when(controlBus.getHistory("s2")).thenReturn(Mono.just(List.of()));
 
     StepVerifier.create(provider.getControlBusStatus("sessions"))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions()).hasSize(1);
-              assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s2");
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions()).hasSize(1);
+          assertThat(status.activeSessions().get(0).sessionId()).isEqualTo("s2");
+        })
         .verifyComplete();
   }
 
@@ -276,10 +266,9 @@ class SystemHealthProviderTest {
                     execution("e5", TaskStatus.PENDING))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
-        .assertNext(
-            status ->
-                // RUNNING and PENDING are active; SUCCESS, TIMED_OUT are not
-                assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(2))
+        .assertNext(status ->
+            // RUNNING and PENDING are active; SUCCESS, TIMED_OUT are not
+            assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(2))
         .verifyComplete();
   }
 
@@ -300,13 +289,12 @@ class SystemHealthProviderTest {
                     Fixtures.summary("e2", "wf-1", TaskStatus.SUCCESS, null, Instant.now()))));
 
     StepVerifier.create(provider.getControlBusStatus(null))
-        .assertNext(
-            status -> {
-              assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);
-              assertThat(status.recentExecutions())
-                  .extracting(ExecutionRecord::duration)
-                  .contains("unknown", "running");
-            })
+        .assertNext(status -> {
+          assertThat(status.activeSessions().get(0).activeExecutions()).isEqualTo(1);
+          assertThat(status.recentExecutions())
+              .extracting(ExecutionRecord::duration)
+              .contains("unknown", "running");
+        })
         .verifyComplete();
   }
 

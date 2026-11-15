@@ -63,17 +63,16 @@ public class InputCommandGuard {
    */
   public Mono<Cleared> clear(
       final String executionId, final String requestId, final boolean escalation) {
-    return Mono.defer(
-        () -> {
-          if (!leader.isLeader()) {
-            return Mono.error(new NotLeaderException());
-          }
-          return broker
-              .find(requestId)
-              .switchIfEmpty(
-                  Mono.error(() -> new NotFoundException("Input request not found: " + requestId)))
-              .flatMap(request -> clearFor(request, executionId, escalation));
-        });
+    return Mono.defer(() -> {
+      if (!leader.isLeader()) {
+        return Mono.error(new NotLeaderException());
+      }
+      return broker
+          .find(requestId)
+          .switchIfEmpty(
+              Mono.error(() -> new NotFoundException("Input request not found: " + requestId)))
+          .flatMap(request -> clearFor(request, executionId, escalation));
+    });
   }
 
   private Mono<Cleared> clearFor(
@@ -88,17 +87,16 @@ public class InputCommandGuard {
     }
     return actors
         .resolve()
-        .flatMap(
-            actor -> {
-              if (actor.type() == ActorInfo.Type.UNAUTHENTICATED) {
-                return Mono.error(
-                    new InputForbiddenException(
-                        request.id(), "authentication", "The sender is not identified"));
-              }
-              return authorizer
-                  .authorize(new AnswerContext(request, actor, escalation))
-                  .thenReturn(new Cleared(request, responder(actor)));
-            });
+        .flatMap(actor -> {
+          if (actor.type() == ActorInfo.Type.UNAUTHENTICATED) {
+            return Mono.error(
+                new InputForbiddenException(
+                    request.id(), "authentication", "The sender is not identified"));
+          }
+          return authorizer
+              .authorize(new AnswerContext(request, actor, escalation))
+              .thenReturn(new Cleared(request, responder(actor)));
+        });
   }
 
   private static Responder responder(final ActorInfo actor) {

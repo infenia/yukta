@@ -93,11 +93,10 @@ class WorkflowAcceptanceTest {
   private WorkflowProgress awaitTerminal(final String executionId, final Duration limit) {
     await()
         .atMost(limit)
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && isTerminal(progress.status());
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && isTerminal(progress.status());
+        });
     return tracker.getProgressByExecutionId(executionId);
   }
 
@@ -126,11 +125,10 @@ class WorkflowAcceptanceTest {
     final String executionId = start(key);
     await()
         .atMost(WAIT)
-        .until(
-            () ->
-                tracker.getProgressByExecutionId(executionId).tasks().stream()
-                    .anyMatch(
-                        task -> "p".equals(task.nodeId()) && TaskStatus.RUNNING == task.status()));
+        .until(() ->
+            tracker.getProgressByExecutionId(executionId).tasks().stream()
+                .anyMatch(
+                    task -> "p".equals(task.nodeId()) && TaskStatus.RUNNING == task.status()));
     final String[] parts = key.split("/");
 
     gateway.stopWorkflow(parts[0], parts[1], "test", StopMode.CANCEL).block();

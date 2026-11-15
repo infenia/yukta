@@ -170,25 +170,22 @@ public class DirectiveDispatcher {
           new IllegalArgumentException(
               "A start is applied by the gateway, which reviews it; it is not queued on a run"));
     }
-    return Mono.deferContextual(
-        context -> {
-          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          final String channel = ControlAudit.channel(context);
-          return sequencer
-              .sequence(
-                  command.executionId(),
-                  Mono.defer(
-                      () ->
-                          !isAddressable(command)
-                              ? gone(command, actor, channel, context)
-                              : audited(command, actor, channel)))
-              .doOnCancel(
-                  () -> {
-                    if (isAddressable(command)) {
-                      cancelled(command, actor, channel);
-                    }
-                  });
-        });
+    return Mono.deferContextual(context -> {
+      final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+      final String channel = ControlAudit.channel(context);
+      return sequencer
+          .sequence(
+              command.executionId(),
+              Mono.defer(() ->
+                  !isAddressable(command)
+                      ? gone(command, actor, channel, context)
+                      : audited(command, actor, channel)))
+          .doOnCancel(() -> {
+            if (isAddressable(command)) {
+              cancelled(command, actor, channel);
+            }
+          });
+    });
   }
 
   /**
@@ -227,40 +224,36 @@ public class DirectiveDispatcher {
       final ExecutionControlCommand command, final String actor, final String channel) {
     final String name = command.getClass().getSimpleName();
     return target(command)
-        .flatMap(
-            run ->
-                Mono.deferContextual(context -> reviewed(command, actor, run, context))
-                    .doOnSuccess(_ -> outcome(command, run, name, actor, null, channel))
-                    .doOnError(
-                        error -> {
-                          if (!(error instanceof ControlAwaitingApprovalException)) {
-                            outcome(command, run, name, actor, error.getMessage(), channel);
-                          }
-                        }))
-        .doOnSuccess(
-            _ ->
-                ControlAudit.record(
-                    executionLog,
-                    auditSink,
-                    new AuditRecord(
-                        true, command.executionId(), name, actor, null, Instant.now(), channel)))
-        .doOnError(
-            error -> {
-              // a parked command is neither applied nor refused yet; its request is logged
-              if (!(error instanceof ControlAwaitingApprovalException)) {
-                ControlAudit.record(
-                    executionLog,
-                    auditSink,
-                    new AuditRecord(
-                        false,
-                        command.executionId(),
-                        name,
-                        actor,
-                        error.getMessage(),
-                        Instant.now(),
-                        channel));
-              }
-            });
+        .flatMap(run ->
+            Mono.deferContextual(context -> reviewed(command, actor, run, context))
+                .doOnSuccess(_ -> outcome(command, run, name, actor, null, channel))
+                .doOnError(error -> {
+                  if (!(error instanceof ControlAwaitingApprovalException)) {
+                    outcome(command, run, name, actor, error.getMessage(), channel);
+                  }
+                }))
+        .doOnSuccess(_ ->
+            ControlAudit.record(
+                executionLog,
+                auditSink,
+                new AuditRecord(
+                    true, command.executionId(), name, actor, null, Instant.now(), channel)))
+        .doOnError(error -> {
+          // a parked command is neither applied nor refused yet; its request is logged
+          if (!(error instanceof ControlAwaitingApprovalException)) {
+            ControlAudit.record(
+                executionLog,
+                auditSink,
+                new AuditRecord(
+                    false,
+                    command.executionId(),
+                    name,
+                    actor,
+                    error.getMessage(),
+                    Instant.now(),
+                    channel));
+          }
+        });
   }
 
   /**
@@ -281,19 +274,17 @@ public class DirectiveDispatcher {
         .verdict(
             new ControlRequest(command, actor, run.sessionId(), run.workflowId(), run.nodeId()),
             satisfied)
-        .flatMap(
-            verdict ->
-                switch (verdict) {
-                  case ReviewVerdict.Allowed _ -> dispatch(command);
-                  case ReviewVerdict.Denied denied ->
-                      Mono.<Void>error(new ControlRejectedException(denied.reason()));
-                  case ReviewVerdict.Controlled controlled ->
-                      Mono.<Void>error(
-                          new ControlledBySupervisorException(
-                              controlled.supervisorId(), controlled.reason()));
-                  case ReviewVerdict.NeedsApproval needs ->
-                      parked(gate, command, run, context, needs);
-                });
+        .flatMap(verdict ->
+            switch (verdict) {
+              case ReviewVerdict.Allowed _ -> dispatch(command);
+              case ReviewVerdict.Denied denied ->
+                  Mono.<Void>error(new ControlRejectedException(denied.reason()));
+              case ReviewVerdict.Controlled controlled ->
+                  Mono.<Void>error(
+                      new ControlledBySupervisorException(
+                          controlled.supervisorId(), controlled.reason()));
+              case ReviewVerdict.NeedsApproval needs -> parked(gate, command, run, context, needs);
+            });
   }
 
   private static Mono<Void> parked(
@@ -308,9 +299,8 @@ public class DirectiveDispatcher {
               needs.reason() + " (needs approval, which this server cannot ask for)"));
     }
     return gate.park(command, run, context, needs)
-        .flatMap(
-            requestId ->
-                Mono.error(new ControlAwaitingApprovalException(requestId, needs.reason())));
+        .flatMap(requestId ->
+            Mono.error(new ControlAwaitingApprovalException(requestId, needs.reason())));
   }
 
   /** A command whose caller went away before it finished is neither applied nor lost. */
@@ -380,11 +370,10 @@ public class DirectiveDispatcher {
     return registry
         .findByExecutionId(command.executionId())
         .map(control -> new CommandTarget(control.sessionId(), control.workflowId(), node))
-        .or(
-            () ->
-                archive
-                    .find(command.executionId())
-                    .map(run -> new CommandTarget(run.sessionId(), run.workflowId(), node)))
+        .or(() ->
+            archive
+                .find(command.executionId())
+                .map(run -> new CommandTarget(run.sessionId(), run.workflowId(), node)))
         .orElseGet(() -> new CommandTarget(null, null, node));
   }
 

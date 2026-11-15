@@ -113,24 +113,20 @@ public class NodeRunner {
               .thenMany(Flux.defer(() -> plugin.process(input, config)))
               .map(message -> NodeFrame.message(mapper.convertValue(message, JSON_OBJECT)))
               .concatWith(Mono.just(NodeFrame.complete()))
-              .onErrorResume(
-                  error ->
-                      Flux.just(
-                          NodeFrame.error(
-                              error.getClass().getName(),
-                              String.valueOf(error.getMessage()),
-                              types(error))))
-              .contextWrite(
-                  ctx ->
-                      ctx.put("executionId", String.valueOf(start.executionId()))
-                          .put("nodeId", String.valueOf(start.nodeId()))
-                          .put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
+              .onErrorResume(error ->
+                  Flux.just(
+                      NodeFrame.error(
+                          error.getClass().getName(),
+                          String.valueOf(error.getMessage()),
+                          types(error))))
+              .contextWrite(ctx ->
+                  ctx.put("executionId", String.valueOf(start.executionId()))
+                      .put("nodeId", String.valueOf(start.nodeId()))
+                      .put(WorkflowContext.HEARTBEAT_KEY, heartbeat));
       result =
           work.mergeWith(beats.asFlux())
-              .takeUntil(
-                  frame ->
-                      frame.kind() == NodeFrame.Kind.COMPLETE
-                          || frame.kind() == NodeFrame.Kind.ERROR)
+              .takeUntil(frame ->
+                  frame.kind() == NodeFrame.Kind.COMPLETE || frame.kind() == NodeFrame.Kind.ERROR)
               .doFinally(_ -> active.decrementAndGet());
     }
     return result;

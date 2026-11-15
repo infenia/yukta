@@ -62,12 +62,11 @@ class StreamTopologyDecoratorConnectOrderTest {
 
     // The tail's doOnSubscribe runs the connectors in reverse order, as the compiler does.
     final Flux<Message<?>> tail =
-        terminalInput.doOnSubscribe(
-            _ -> {
-              for (int i = connectors.size() - 1; i >= 0; i--) {
-                connectors.get(i).run();
-              }
-            });
+        terminalInput.doOnSubscribe(_ -> {
+          for (int i = connectors.size() - 1; i >= 0; i--) {
+            connectors.get(i).run();
+          }
+        });
 
     // A deadline turns a stalled stream into a failure instead of a hung build.
     StepVerifier.create(tail).expectNextCount(1).expectComplete().verify(Duration.ofSeconds(10));

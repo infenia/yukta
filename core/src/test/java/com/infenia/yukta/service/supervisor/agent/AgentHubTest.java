@@ -85,29 +85,25 @@ class AgentHubTest {
     final int sent = AgentHub.LIVE_BUFFER * 3;
 
     StepVerifier.create(channel.signalsAfter(-1), 0)
-        .then(
-            () -> {
-              for (int i = 0; i < sent; i++) {
-                channel.signal(tick(i));
-              }
-            })
+        .then(() -> {
+          for (int i = 0; i < sent; i++) {
+            channel.signal(tick(i));
+          }
+        })
         .thenRequest(Long.MAX_VALUE)
-        .then(
-            () -> {
-              channel.signal(tick(sent));
-              channel.complete();
-            })
+        .then(() -> {
+          channel.signal(tick(sent));
+          channel.complete();
+        })
         .recordWith(java.util.ArrayList::new)
         .thenConsumeWhile(s -> true)
-        .consumeRecordedWith(
-            all -> {
-              final long gaps =
-                  all.stream().mapToLong(AgentHubTest::missed).filter(n -> n > 0).sum();
-              final long delivered = all.stream().filter(s -> missed(s) < 0).count();
-              // nothing vanishes without a word: each signal is delivered or counted as missed
-              assertThat(gaps).isPositive();
-              assertThat(delivered + gaps).isEqualTo(sent + 1);
-            })
+        .consumeRecordedWith(all -> {
+          final long gaps = all.stream().mapToLong(AgentHubTest::missed).filter(n -> n > 0).sum();
+          final long delivered = all.stream().filter(s -> missed(s) < 0).count();
+          // nothing vanishes without a word: each signal is delivered or counted as missed
+          assertThat(gaps).isPositive();
+          assertThat(delivered + gaps).isEqualTo(sent + 1);
+        })
         .verifyComplete();
   }
 

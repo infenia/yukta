@@ -84,14 +84,13 @@ class WorkflowPreparatorTest {
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .assertNext(
-            pw -> {
-              assertThat(pw.pluginCache()).containsKey("n1");
-              assertThat(pw.pluginCache().get("n1")).isSameAs(plugin);
-              assertThat(pw.topologicalOrder()).hasSize(1);
-              assertThat(pw.edges()).isEmpty();
-              assertThat(pw.template()).isSameAs(template);
-            })
+        .assertNext(pw -> {
+          assertThat(pw.pluginCache()).containsKey("n1");
+          assertThat(pw.pluginCache().get("n1")).isSameAs(plugin);
+          assertThat(pw.topologicalOrder()).hasSize(1);
+          assertThat(pw.edges()).isEmpty();
+          assertThat(pw.template()).isSameAs(template);
+        })
         .verifyComplete();
 
     verify(plugin).initialize(Map.of());
@@ -128,10 +127,9 @@ class WorkflowPreparatorTest {
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
 
     StepVerifier.create(remote.prepareWorkflow(def))
-        .assertNext(
-            pw ->
-                assertThat(pw.pluginCache().get("n1"))
-                    .isInstanceOf(com.infenia.yukta.service.worker.RemoteProcessor.class))
+        .assertNext(pw ->
+            assertThat(pw.pluginCache().get("n1"))
+                .isInstanceOf(com.infenia.yukta.service.worker.RemoteProcessor.class))
         .verifyComplete();
 
     verify(processor).initialize(placed);
@@ -180,17 +178,16 @@ class WorkflowPreparatorTest {
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .assertNext(
-            pw -> {
-              assertThat(pw.edges()).hasSize(1);
-              final WorkflowEdge we = pw.edges().get(0);
-              assertThat(we.source()).isEqualTo("n1");
-              assertThat(we.target()).isEqualTo("n2");
-              assertThat(we.sourcePort()).isEqualTo("default");
-              assertThat(pw.adjacencyList().get("n1")).anyMatch(n -> "n2".equals(n.nodeId()));
-              assertThat(pw.parentsList().get("n2")).anyMatch(n -> "n1".equals(n.nodeId()));
-              assertThat(pw.pluginCache()).hasSize(2);
-            })
+        .assertNext(pw -> {
+          assertThat(pw.edges()).hasSize(1);
+          final WorkflowEdge we = pw.edges().get(0);
+          assertThat(we.source()).isEqualTo("n1");
+          assertThat(we.target()).isEqualTo("n2");
+          assertThat(we.sourcePort()).isEqualTo("default");
+          assertThat(pw.adjacencyList().get("n1")).anyMatch(n -> "n2".equals(n.nodeId()));
+          assertThat(pw.parentsList().get("n2")).anyMatch(n -> "n1".equals(n.nodeId()));
+          assertThat(pw.pluginCache()).hasSize(2);
+        })
         .verifyComplete();
 
     verify(plugin, times(2)).initialize(any());
@@ -205,10 +202,9 @@ class WorkflowPreparatorTest {
     when(validator.validate(def)).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Plugin not found: missing-type"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Plugin not found: missing-type"))
         .verify();
 
     verify(plugin, never()).initialize(any());
@@ -224,9 +220,8 @@ class WorkflowPreparatorTest {
         .thenReturn(Mono.error(new IllegalArgumentException("validation failed")));
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException && "validation failed".equals(e.getMessage()))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException && "validation failed".equals(e.getMessage()))
         .verify();
 
     verify(plugin, never()).initialize(any());
@@ -262,10 +257,9 @@ class WorkflowPreparatorTest {
     when(plugin.prepare(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Plugin not found: missing-type"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Plugin not found: missing-type"))
         .verify();
   }
 
@@ -382,13 +376,12 @@ class WorkflowPreparatorTest {
     when(compiler.compileTemplate(anyList(), anyMap(), anyMap(), anyList())).thenReturn(template);
 
     StepVerifier.create(preparator.prepareWorkflow(def))
-        .assertNext(
-            pw -> {
-              assertThat(pw.edges()).hasSize(2);
-              assertThat(pw.adjacencyList().get("n1")).hasSize(2);
-              assertThat(pw.parentsList().get("n2")).hasSize(1);
-              assertThat(pw.parentsList().get("n3")).hasSize(1);
-            })
+        .assertNext(pw -> {
+          assertThat(pw.edges()).hasSize(2);
+          assertThat(pw.adjacencyList().get("n1")).hasSize(2);
+          assertThat(pw.parentsList().get("n2")).hasSize(1);
+          assertThat(pw.parentsList().get("n3")).hasSize(1);
+        })
         .verifyComplete();
   }
 }

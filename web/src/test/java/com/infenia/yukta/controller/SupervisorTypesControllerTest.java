@@ -78,32 +78,30 @@ class SupervisorTypesControllerTest {
   @Test
   void listShowsTheCatalogEntries() {
     StepVerifier.create(controller.list())
-        .assertNext(
-            r -> {
-              assertThat(r.data()).hasSize(1);
-              final var entry = r.data().get(0);
-              assertThat(entry.type()).isEqualTo("demo-control-plane");
-              assertThat(entry.displayName()).isEqualTo("Demo");
-              assertThat(entry.category()).isEqualTo("RULES");
-              assertThat(entry.icon()).isEqualTo("bolt");
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).hasSize(1);
+          final var entry = r.data().get(0);
+          assertThat(entry.type()).isEqualTo("demo-control-plane");
+          assertThat(entry.displayName()).isEqualTo("Demo");
+          assertThat(entry.category()).isEqualTo("RULES");
+          assertThat(entry.icon()).isEqualTo("bolt");
+        })
         .verifyComplete();
   }
 
   @Test
   void detailsCarrySchemasDefaultsAndExample() {
     StepVerifier.create(controller.get("demo-control-plane"))
-        .assertNext(
-            r -> {
-              final var d = r.data();
-              assertThat(d.configSchema()).extracting(ConfigField::name).containsExactly("url");
-              assertThat(d.commonSchema())
-                  .extracting(ConfigField::name)
-                  .contains("allowedCommands", "canAnswer", "maxRisk", "observeInternal");
-              assertThat(d.defaultAllowedCommands()).containsExactly("PauseWorkflowCommand");
-              assertThat(d.exampleSettings()).isEqualTo(Map.of("url", "http://x"));
-              assertThat(d.usagePattern()).isEqualTo("Use in tests.");
-            })
+        .assertNext(r -> {
+          final var d = r.data();
+          assertThat(d.configSchema()).extracting(ConfigField::name).containsExactly("url");
+          assertThat(d.commonSchema())
+              .extracting(ConfigField::name)
+              .contains("allowedCommands", "canAnswer", "maxRisk", "observeInternal");
+          assertThat(d.defaultAllowedCommands()).containsExactly("PauseWorkflowCommand");
+          assertThat(d.exampleSettings()).isEqualTo(Map.of("url", "http://x"));
+          assertThat(d.usagePattern()).isEqualTo("Use in tests.");
+        })
         .verifyComplete();
   }
 

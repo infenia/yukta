@@ -32,15 +32,14 @@ class PostgresPersistenceAutoConfigurationTest {
   void withStoreTypePostgres_theThreeStoresAreDatabaseBacked() {
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
-        .run(
-            context -> {
-              assertThat(context.getBean(WorkflowDefinitionStore.class))
-                  .isInstanceOf(R2dbcWorkflowDefinitionStore.class);
-              assertThat(context.getBean(SessionConfigStore.class))
-                  .isInstanceOf(R2dbcSessionConfigStore.class);
-              assertThat(context.getBean(ExecutionLogStore.class))
-                  .isInstanceOf(R2dbcExecutionLogStore.class);
-            });
+        .run(context -> {
+          assertThat(context.getBean(WorkflowDefinitionStore.class))
+              .isInstanceOf(R2dbcWorkflowDefinitionStore.class);
+          assertThat(context.getBean(SessionConfigStore.class))
+              .isInstanceOf(R2dbcSessionConfigStore.class);
+          assertThat(context.getBean(ExecutionLogStore.class))
+              .isInstanceOf(R2dbcExecutionLogStore.class);
+        });
   }
 
   @Test
@@ -48,10 +47,9 @@ class PostgresPersistenceAutoConfigurationTest {
     runner
         .withPropertyValues(
             "yukta.session.store-type=postgres", "yukta.restart.store-type=postgres")
-        .run(
-            context ->
-                assertThat(context.getBean(NodeCheckpointStore.class))
-                    .isInstanceOf(R2dbcNodeCheckpointStore.class));
+        .run(context ->
+            assertThat(context.getBean(NodeCheckpointStore.class))
+                .isInstanceOf(R2dbcNodeCheckpointStore.class));
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
         .run(context -> assertThat(context).doesNotHaveBean(NodeCheckpointStore.class));
@@ -61,82 +59,71 @@ class PostgresPersistenceAutoConfigurationTest {
   void withKvStoreTypePostgres_theKeyValueStoreIsDatabaseBacked() {
     runner
         .withPropertyValues("yukta.session.store-type=postgres", "yukta.kv.store-type=postgres")
-        .run(
-            context ->
-                assertThat(context.getBean(com.infenia.yukta.plugin.store.KeyValueStore.class))
-                    .isInstanceOf(R2dbcKeyValueStore.class));
+        .run(context ->
+            assertThat(context.getBean(com.infenia.yukta.plugin.store.KeyValueStore.class))
+                .isInstanceOf(R2dbcKeyValueStore.class));
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
-        .run(
-            context ->
-                assertThat(context)
-                    .doesNotHaveBean(com.infenia.yukta.plugin.store.KeyValueStore.class));
+        .run(context ->
+            assertThat(context)
+                .doesNotHaveBean(com.infenia.yukta.plugin.store.KeyValueStore.class));
   }
 
   @Test
   void withSessionMemoryStoreTypePostgres_theHistoryIsDatabaseBacked() {
     runner
-        .withInitializer(
-            context ->
-                context
-                    .getBeanFactory()
-                    .setConversionService(
-                        org.springframework.boot.convert.ApplicationConversionService
-                            .getSharedInstance()))
+        .withInitializer(context ->
+            context
+                .getBeanFactory()
+                .setConversionService(
+                    org.springframework.boot.convert.ApplicationConversionService
+                        .getSharedInstance()))
         .withPropertyValues(
             "yukta.session.store-type=postgres", "yukta.session-memory.store-type=postgres")
-        .run(
-            context ->
-                assertThat(
-                        context.getBean(com.infenia.yukta.plugin.store.SessionHistoryStore.class))
-                    .isInstanceOf(R2dbcSessionHistoryStore.class));
+        .run(context ->
+            assertThat(context.getBean(com.infenia.yukta.plugin.store.SessionHistoryStore.class))
+                .isInstanceOf(R2dbcSessionHistoryStore.class));
   }
 
   @Test
   void withInputStoreTypePostgres_theInputRequestsAreDatabaseBacked() {
     runner
         .withPropertyValues("yukta.session.store-type=postgres", "yukta.input.store-type=postgres")
-        .run(
-            context ->
-                assertThat(context.getBean(com.infenia.yukta.service.input.InputRequestStore.class))
-                    .isInstanceOf(R2dbcInputRequestStore.class));
+        .run(context ->
+            assertThat(context.getBean(com.infenia.yukta.service.input.InputRequestStore.class))
+                .isInstanceOf(R2dbcInputRequestStore.class));
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
-        .run(
-            context ->
-                assertThat(context)
-                    .doesNotHaveBean(com.infenia.yukta.service.input.InputRequestStore.class));
+        .run(context ->
+            assertThat(context)
+                .doesNotHaveBean(com.infenia.yukta.service.input.InputRequestStore.class));
   }
 
   @Test
   void supervisorProfilesAndBindingsAreDatabaseBacked() {
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
-        .run(
-            context ->
-                assertThat(
-                        context.getBean(com.infenia.yukta.service.supervisor.SupervisorStore.class))
-                    .isInstanceOf(R2dbcSupervisorStore.class));
+        .run(context ->
+            assertThat(context.getBean(com.infenia.yukta.service.supervisor.SupervisorStore.class))
+                .isInstanceOf(R2dbcSupervisorStore.class));
   }
 
   @Test
   void withHaModePostgres_theLeaderElectionIsDatabaseBacked() {
     runner
-        .withInitializer(
-            context ->
-                context
-                    .getBeanFactory()
-                    .setConversionService(
-                        org.springframework.boot.convert.ApplicationConversionService
-                            .getSharedInstance()))
+        .withInitializer(context ->
+            context
+                .getBeanFactory()
+                .setConversionService(
+                    org.springframework.boot.convert.ApplicationConversionService
+                        .getSharedInstance()))
         .withBean(
             io.micrometer.core.instrument.MeterRegistry.class,
             io.micrometer.core.instrument.simple.SimpleMeterRegistry::new)
         .withPropertyValues("yukta.session.store-type=postgres", "yukta.ha.mode=postgres")
-        .run(
-            context ->
-                assertThat(context.getBean(com.infenia.yukta.service.leader.LeaderElection.class))
-                    .isInstanceOf(R2dbcLeaderElection.class));
+        .run(context ->
+            assertThat(context.getBean(com.infenia.yukta.service.leader.LeaderElection.class))
+                .isInstanceOf(R2dbcLeaderElection.class));
     runner
         .withPropertyValues("yukta.session.store-type=postgres")
         .run(context -> assertThat(context).doesNotHaveBean(R2dbcLeaderElection.class));

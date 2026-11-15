@@ -37,16 +37,15 @@ public class SecurityHeadersFilter implements WebFilter {
                 .equalsIgnoreCase(exchange.getRequest().getHeaders().getFirst("X-Forwarded-Proto"));
     exchange
         .getResponse()
-        .beforeCommit(
-            () -> {
-              final HttpHeaders headers = exchange.getResponse().getHeaders();
-              headers.set("X-Content-Type-Options", "nosniff");
-              headers.set("Referrer-Policy", "no-referrer");
-              if (https) {
-                headers.set("Strict-Transport-Security", HSTS);
-              }
-              return Mono.empty();
-            });
+        .beforeCommit(() -> {
+          final HttpHeaders headers = exchange.getResponse().getHeaders();
+          headers.set("X-Content-Type-Options", "nosniff");
+          headers.set("Referrer-Policy", "no-referrer");
+          if (https) {
+            headers.set("Strict-Transport-Security", HSTS);
+          }
+          return Mono.empty();
+        });
     return chain.filter(exchange);
   }
 }

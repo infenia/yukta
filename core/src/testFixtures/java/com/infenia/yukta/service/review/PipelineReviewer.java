@@ -34,19 +34,17 @@ public final class PipelineReviewer extends ControlReviewer {
 
   @Override
   public Mono<ReviewVerdict> verdict(final ControlRequest request, final Set<String> satisfied) {
-    return Mono.deferContextual(
-        context -> {
-          final boolean byPerson =
-              context.getOrDefault(ControlActor.KIND_KEY, null) != ControlActor.Kind.SUPERVISOR;
-          final List<ExecutionSupervisor> asked =
-              Stream.concat(beans.stream(), attachedSupervisors())
-                  .filter(
-                      supervisor ->
-                          supervisor
-                              .scope()
-                              .matches(request.sessionId(), request.workflowId(), request.nodeId()))
-                  .toList();
-          return ask(asked, request, satisfied, byPerson);
-        });
+    return Mono.deferContextual(context -> {
+      final boolean byPerson =
+          context.getOrDefault(ControlActor.KIND_KEY, null) != ControlActor.Kind.SUPERVISOR;
+      final List<ExecutionSupervisor> asked =
+          Stream.concat(beans.stream(), attachedSupervisors())
+              .filter(supervisor ->
+                  supervisor
+                      .scope()
+                      .matches(request.sessionId(), request.workflowId(), request.nodeId()))
+              .toList();
+      return ask(asked, request, satisfied, byPerson);
+    });
   }
 }

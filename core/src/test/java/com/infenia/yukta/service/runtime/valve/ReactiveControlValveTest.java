@@ -46,10 +46,9 @@ class ReactiveControlValveTest {
     StepVerifier.create(
             valve
                 .allowPassage()
-                .doOnNext(
-                    v -> {
-                      assertThat(v).isTrue();
-                    })
+                .doOnNext(v -> {
+                  assertThat(v).isTrue();
+                })
                 .timeout(Duration.ofSeconds(1)))
         .then(() -> valve.resume())
         .expectNext(true)
@@ -85,16 +84,15 @@ class ReactiveControlValveTest {
 
     for (int t = 0; t < numThreads; t++) {
       threads[t] =
-          new Thread(
-              () -> {
-                for (int i = 0; i < 10; i++) {
-                  if (i % 2 == 0) {
-                    valve.pause();
-                  } else {
-                    valve.resume();
-                  }
-                }
-              });
+          new Thread(() -> {
+            for (int i = 0; i < 10; i++) {
+              if (i % 2 == 0) {
+                valve.pause();
+              } else {
+                valve.resume();
+              }
+            }
+          });
       threads[t].start();
     }
 
@@ -137,12 +135,11 @@ class ReactiveControlValveTest {
         .expectSubscription()
         .then(() -> assertThat(valve.step()).isTrue())
         .expectNext(1)
-        .then(
-            () -> {
-              final var result =
-                  valve.allowPassage().timeout(Duration.ofMillis(50)).onErrorReturn(false).block();
-              assertThat(result).isFalse();
-            })
+        .then(() -> {
+          final var result =
+              valve.allowPassage().timeout(Duration.ofMillis(50)).onErrorReturn(false).block();
+          assertThat(result).isFalse();
+        })
         .then(() -> assertThat(valve.step()).isTrue())
         .expectNext(2)
         .then(() -> assertThat(valve.step()).isTrue())
@@ -170,11 +167,10 @@ class ReactiveControlValveTest {
     StepVerifier.create(valve.allowPassage(stop))
         .expectSubscription()
         .expectNoEvent(Duration.ofMillis(100))
-        .then(
-            () -> {
-              assertThat(valve.isPaused()).isTrue();
-              valve.resume();
-            })
+        .then(() -> {
+          assertThat(valve.isPaused()).isTrue();
+          valve.resume();
+        })
         .expectNext(true)
         .verifyComplete();
 

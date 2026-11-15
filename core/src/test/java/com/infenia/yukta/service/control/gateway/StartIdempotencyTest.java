@@ -105,10 +105,9 @@ class StartIdempotencyTest {
                 "s/w",
                 "k1",
                 () ->
-                    Mono.defer(
-                        () ->
-                            Mono.<String>error(
-                                new IllegalStateException("x" + calls.incrementAndGet())))))
+                    Mono.defer(() ->
+                        Mono.<String>error(
+                            new IllegalStateException("x" + calls.incrementAndGet())))))
         .expectError(IllegalStateException.class)
         .verify();
     StepVerifier.create(idempotency.once("s/w", "k1", this::start))

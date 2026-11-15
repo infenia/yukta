@@ -127,15 +127,14 @@ public record DefaultMessage<T>(
   @SuppressWarnings("PMD.UseConcurrentHashMap") // local, never shared
   public Message<T> withHeaders(final Map<String, ?> headers) {
     final Map<String, Object> newMetadata = new HashMap<>(metadata);
-    headers.forEach(
-        (key, value) -> {
-          Objects.requireNonNull(key, "header key must not be null");
-          if (value == null) {
-            newMetadata.remove(key);
-          } else {
-            newMetadata.put(key, value);
-          }
-        });
+    headers.forEach((key, value) -> {
+      Objects.requireNonNull(key, "header key must not be null");
+      if (value == null) {
+        newMetadata.remove(key);
+      } else {
+        newMetadata.put(key, value);
+      }
+    });
     return withMetadata(newMetadata);
   }
 

@@ -46,14 +46,12 @@ final class ExecutionCleanups {
         Duration.ofMillis(Math.clamp(ttl.dividedBy(4).toMillis(), 50L, 10_000L));
     sweeper =
         Flux.interval(period, Schedulers.parallel())
-            .concatMap(
-                _ ->
-                    Mono.fromRunnable(sweep)
-                        .onErrorResume(
-                            e -> {
-                              log.atError().setCause(e).log("Execution cleanup failed; retrying");
-                              return Mono.empty();
-                            }))
+            .concatMap(_ ->
+                Mono.fromRunnable(sweep)
+                    .onErrorResume(e -> {
+                      log.atError().setCause(e).log("Execution cleanup failed; retrying");
+                      return Mono.empty();
+                    }))
             .subscribe();
   }
 

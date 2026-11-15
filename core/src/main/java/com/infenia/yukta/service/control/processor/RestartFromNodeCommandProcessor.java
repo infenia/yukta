@@ -61,26 +61,24 @@ public class RestartFromNodeCommandProcessor {
 
     return Mono.defer(() -> restart(restart))
         .then(Mono.<Void>empty())
-        .onErrorResume(
-            e -> {
-              log.atError()
-                  .addKeyValue("executionId", restart.executionId())
-                  .addKeyValue("fromNodeId", restart.fromNodeId())
-                  .setCause(e)
-                  .log("Restart from node failed");
-              completionSink.completeRestartFailure(restart.newExecutionId(), e);
-              return Mono.error(e);
-            });
+        .onErrorResume(e -> {
+          log.atError()
+              .addKeyValue("executionId", restart.executionId())
+              .addKeyValue("fromNodeId", restart.fromNodeId())
+              .setCause(e)
+              .log("Restart from node failed");
+          completionSink.completeRestartFailure(restart.newExecutionId(), e);
+          return Mono.error(e);
+        });
   }
 
   private Mono<Void> restart(final RestartFromNodeCommand restart) {
     final ArchivedExecution archived =
         archive
             .find(restart.executionId())
-            .orElseThrow(
-                () ->
-                    new NotFoundException(
-                        "Execution not found or no longer restartable: " + restart.executionId()));
+            .orElseThrow(() ->
+                new NotFoundException(
+                    "Execution not found or no longer restartable: " + restart.executionId()));
     final RestartPlan plan = RestartPlan.compute(archived.prepared(), restart.fromNodeId());
     final boolean live = registry.findByExecutionId(restart.executionId()).isPresent();
     for (final String nodeId : plan.boundary()) {
@@ -103,12 +101,11 @@ public class RestartFromNodeCommandProcessor {
     }
 
     return Flux.fromIterable(plan.boundary())
-        .concatMap(
-            nodeId ->
-                checkpointStore
-                    .getAll(restart.executionId(), nodeId)
-                    .collectList()
-                    .map(messages -> Map.entry(nodeId, messages)))
+        .concatMap(nodeId ->
+            checkpointStore
+                .getAll(restart.executionId(), nodeId)
+                .collectList()
+                .map(messages -> Map.entry(nodeId, messages)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
         .flatMap(outputs -> start(restart, archived, outputs))
         .then();
@@ -141,11 +138,10 @@ public class RestartFromNodeCommandProcessor {
       final Optional<ExecutionControl> running,
       final ExecutionScheduler.@Nullable Admission admission) {
     // If the old run is still going it is stopped first, so it cannot repeat side effects.
-    running.ifPresent(
-        control -> {
-          control.safeStopSink().tryEmitEmpty();
-          registry.remove(control.executionId());
-        });
+    running.ifPresent(control -> {
+      control.safeStopSink().tryEmitEmpty();
+      registry.remove(control.executionId());
+    });
 
     completionSink
         .reportingStart(
@@ -161,13 +157,12 @@ public class RestartFromNodeCommandProcessor {
                 admission),
             () -> registry.findByExecutionId(restart.newExecutionId()).isPresent())
         .subscribeOn(Schedulers.boundedElastic())
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("oldExecutionId", restart.executionId())
-                    .addKeyValue("newExecutionId", restart.newExecutionId())
-                    .log("Restarted execution from node failed"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("oldExecutionId", restart.executionId())
+                .addKeyValue("newExecutionId", restart.newExecutionId())
+                .log("Restarted execution from node failed"))
         .onErrorComplete()
         .subscribe();
 

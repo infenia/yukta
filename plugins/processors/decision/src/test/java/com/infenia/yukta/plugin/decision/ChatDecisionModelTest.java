@@ -145,12 +145,11 @@ class ChatDecisionModelTest {
 
   @Test
   void answer_unknownOption_fails() {
-    assertThatThrownBy(
-            () ->
-                answer(
-                    replying(
-                        "{\"pick\":{\"choice\":\"z\"},\"yes\":{\"probability\":1},"
-                            + "\"rate\":{\"score\":1}}")))
+    assertThatThrownBy(() ->
+            answer(
+                replying(
+                    "{\"pick\":{\"choice\":\"z\"},\"yes\":{\"probability\":1},"
+                        + "\"rate\":{\"score\":1}}")))
         .hasMessageContaining("'z' for 'pick', which is not an option");
   }
 

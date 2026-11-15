@@ -34,15 +34,13 @@ class DecisionConcurrencyTest {
     final AtomicInteger inFlight = new AtomicInteger();
     final AtomicInteger peak = new AtomicInteger();
     final FakeModel model =
-        new FakeModel(
-            _ ->
-                Mono.defer(
-                    () -> {
-                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
-                      return Mono.just(Map.<String, Answer>of("gate", new Answer.YesNo(1)))
-                          .delayElement(Duration.ofMillis(20))
-                          .doOnTerminate(inFlight::decrementAndGet);
-                    }));
+        new FakeModel(_ ->
+            Mono.defer(() -> {
+              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+              return Mono.just(Map.<String, Answer>of("gate", new Answer.YesNo(1)))
+                  .delayElement(Duration.ofMillis(20))
+                  .doOnTerminate(inFlight::decrementAndGet);
+            }));
     final GatePlugin plugin = new GatePlugin(model, FakeModel.plainResolver());
     StepVerifier.create(
             plugin.process(Flux.range(0, count).map(i -> FakeModel.message("p")), config))

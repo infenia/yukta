@@ -142,10 +142,9 @@ public class AgentCredentialFilter implements WebFilter {
         .set(SupervisorContract.VERSION_HEADER, String.valueOf(SupervisorContract.VERSION));
     return chain
         .filter(exchange)
-        .contextWrite(
-            ctx ->
-                ctx.put(ControlActor.CONTEXT_KEY, supervisor.get())
-                    .put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR));
+        .contextWrite(ctx ->
+            ctx.put(ControlActor.CONTEXT_KEY, supervisor.get())
+                .put(ControlActor.KIND_KEY, ControlActor.Kind.SUPERVISOR));
   }
 
   private static String remote(final ServerWebExchange exchange) {

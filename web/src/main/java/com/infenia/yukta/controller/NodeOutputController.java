@@ -80,33 +80,25 @@ public class NodeOutputController {
           @RequestParam(required = false)
           final Integer context) {
     return Mono.defer(() -> Mono.just(streamName(stream)))
-        .flatMap(
-            which ->
-                access
-                    .require(null, executionId)
-                    .filter(
-                        progress ->
-                            progress.tasks().stream()
-                                .anyMatch(task -> nodeId.equals(task.nodeId())))
-                    .switchIfEmpty(
-                        Mono.error(() -> new NotFoundException("Node not found: " + nodeId)))
-                    .flatMap(
-                        _ ->
-                            logStore
-                                .readExecution(executionId)
-                                .filter(
-                                    entry ->
-                                        nodeId.equals(entry.pluginId()) && inStream(entry, which))
-                                .map(PluginLogEntry::message)
-                                .collectList()
-                                .map(
-                                    lines ->
-                                        ApiResponse.success(
-                                            200,
-                                            "Output retrieved",
-                                            NodeOutputPager.slice(
-                                                nodeId, which, lines, tail, head, offset, limit,
-                                                grep, context)))));
+        .flatMap(which ->
+            access
+                .require(null, executionId)
+                .filter(progress ->
+                    progress.tasks().stream().anyMatch(task -> nodeId.equals(task.nodeId())))
+                .switchIfEmpty(Mono.error(() -> new NotFoundException("Node not found: " + nodeId)))
+                .flatMap(_ ->
+                    logStore
+                        .readExecution(executionId)
+                        .filter(entry -> nodeId.equals(entry.pluginId()) && inStream(entry, which))
+                        .map(PluginLogEntry::message)
+                        .collectList()
+                        .map(lines ->
+                            ApiResponse.success(
+                                200,
+                                "Output retrieved",
+                                NodeOutputPager.slice(
+                                    nodeId, which, lines, tail, head, offset, limit, grep,
+                                    context)))));
   }
 
   private static String streamName(final String stream) {

@@ -26,11 +26,10 @@ final class PluginChecks {
   /* default */ static Mono<Void> validateNodeContexts(
       final WorkflowDefinition def, final PluginRegistry registry) {
     return Flux.fromIterable(def.nodes())
-        .flatMap(
-            node ->
-                registry
-                    .get(node.type())
-                    .validateInContext(buildContext(node.nodeId(), def), node.config()))
+        .flatMap(node ->
+            registry
+                .get(node.type())
+                .validateInContext(buildContext(node.nodeId(), def), node.config()))
         .then();
   }
 
@@ -54,28 +53,25 @@ final class PluginChecks {
   /* default */ static Mono<Void> validatePluginConfigs(
       final WorkflowDefinition def, final PluginRegistry registry) {
     return Flux.fromIterable(def.nodes())
-        .flatMap(
-            node -> {
-              final Plugin plugin = registry.get(node.type());
-              log.atDebug()
-                  .addKeyValue("nodeId", node.nodeId())
-                  .addKeyValue("pluginType", node.type())
-                  .log("Validating plugin configuration");
-              return plugin
-                  .validateConfig(node.config())
-                  .doOnError(
-                      e ->
-                          log.atWarn()
-                              .setCause(e)
-                              .addKeyValue("nodeId", node.nodeId())
-                              .addKeyValue("pluginType", node.type())
-                              .log("Plugin configuration validation failed"));
-            })
+        .flatMap(node -> {
+          final Plugin plugin = registry.get(node.type());
+          log.atDebug()
+              .addKeyValue("nodeId", node.nodeId())
+              .addKeyValue("pluginType", node.type())
+              .log("Validating plugin configuration");
+          return plugin
+              .validateConfig(node.config())
+              .doOnError(e ->
+                  log.atWarn()
+                      .setCause(e)
+                      .addKeyValue("nodeId", node.nodeId())
+                      .addKeyValue("pluginType", node.type())
+                      .log("Plugin configuration validation failed"));
+        })
         .then()
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("workflowId", def.workflowId())
-                    .log("All plugin configurations validated successfully"));
+        .doOnSuccess(_ ->
+            log.atDebug()
+                .addKeyValue("workflowId", def.workflowId())
+                .log("All plugin configurations validated successfully"));
   }
 }

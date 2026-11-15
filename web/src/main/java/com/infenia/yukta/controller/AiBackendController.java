@@ -39,10 +39,9 @@ public class AiBackendController {
               + " options it reads (name, type, default, description).")
   public Mono<ResponseEntity<ApiResponse<List<AiBackend.Info>>>> list() {
     return Mono.fromCallable(() -> backends.orderedStream().map(AiBackend::info).toList())
-        .map(
-            list ->
-                ResponseEntity.ok(
-                    ApiResponse.success(
-                        HttpStatus.OK.value(), "AI backends retrieved successfully", list)));
+        .map(list ->
+            ResponseEntity.ok(
+                ApiResponse.success(
+                    HttpStatus.OK.value(), "AI backends retrieved successfully", list)));
   }
 }

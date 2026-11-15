@@ -92,16 +92,15 @@ class SupervisorHostScopeEnforcementTest {
     when(dispatcher.dispatchOrdered(any())).thenReturn(Mono.empty());
     org.mockito.Mockito.lenient().when(dispatcher.workflowOf(MINE)).thenReturn("w");
     when(dispatcher.target(any()))
-        .thenAnswer(
-            call -> {
-              final ExecutionControlCommand command = call.getArgument(0);
-              return switch (command.executionId()) {
-                case MINE -> Mono.just(new CommandTarget("s", "w", command.nodeId()));
-                case OTHER -> Mono.just(new CommandTarget(OTHER, "w", command.nodeId()));
-                case BROKEN -> Mono.error(new IllegalStateException("store down"));
-                default -> Mono.just(new CommandTarget(null, null, null));
-              };
-            });
+        .thenAnswer(call -> {
+          final ExecutionControlCommand command = call.getArgument(0);
+          return switch (command.executionId()) {
+            case MINE -> Mono.just(new CommandTarget("s", "w", command.nodeId()));
+            case OTHER -> Mono.just(new CommandTarget(OTHER, "w", command.nodeId()));
+            case BROKEN -> Mono.error(new IllegalStateException("store down"));
+            default -> Mono.just(new CommandTarget(null, null, null));
+          };
+        });
   }
 
   @AfterEach

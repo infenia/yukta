@@ -38,14 +38,13 @@ public class ControlViaFilter implements WebFilter {
     final AtomicReference<String> via = new AtomicReference<>();
     exchange
         .getResponse()
-        .beforeCommit(
-            () -> {
-              final String carrier = via.get();
-              if (carrier != null) {
-                exchange.getResponse().getHeaders().set(HEADER, carrier);
-              }
-              return Mono.empty();
-            });
+        .beforeCommit(() -> {
+          final String carrier = via.get();
+          if (carrier != null) {
+            exchange.getResponse().getHeaders().set(HEADER, carrier);
+          }
+          return Mono.empty();
+        });
     return chain.filter(exchange).contextWrite(ctx -> ctx.put(ControlReviewer.VIA_KEY, via));
   }
 }

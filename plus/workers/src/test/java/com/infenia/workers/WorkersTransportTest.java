@@ -135,26 +135,21 @@ class WorkersTransportTest {
 
   @Test
   void controlPlaneWithoutTls_refusesToStartOnEveryInterface() {
-    assertThatThrownBy(
-            () ->
-                start(
-                    ControlPlane.class,
-                    "spring.rsocket.server.port=0",
-                    "yukta.workers.token=secret"))
+    assertThatThrownBy(() ->
+            start(ControlPlane.class, "spring.rsocket.server.port=0", "yukta.workers.token=secret"))
         .hasRootCauseInstanceOf(IllegalStateException.class)
         .hasStackTraceContaining("plain TCP");
   }
 
   @Test
   void addressWithoutPort_stopsTheWorkerFromStarting() {
-    assertThatThrownBy(
-            () ->
-                start(
-                    Worker.class,
-                    "yukta.workers.control-plane=localhost",
-                    "yukta.workers.token=secret",
-                    "yukta.workers.allow-insecure=true",
-                    "yukta.workers.id=w"))
+    assertThatThrownBy(() ->
+            start(
+                Worker.class,
+                "yukta.workers.control-plane=localhost",
+                "yukta.workers.token=secret",
+                "yukta.workers.allow-insecure=true",
+                "yukta.workers.id=w"))
         .hasRootCauseInstanceOf(IllegalArgumentException.class);
   }
 }

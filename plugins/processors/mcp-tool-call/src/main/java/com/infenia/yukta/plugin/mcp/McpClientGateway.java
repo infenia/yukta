@@ -109,12 +109,11 @@ public class McpClientGateway {
       Caffeine.newBuilder()
           .maximumSize(SESSION_CACHE_MAX)
           .executor(Runnable::run)
-          .removalListener(
-              (String key, Session session, RemovalCause cause) -> {
-                if (cause.wasEvicted()) {
-                  terminate(List.of(session)).subscribe();
-                }
-              })
+          .removalListener((String key, Session session, RemovalCause cause) -> {
+            if (cause.wasEvicted()) {
+              terminate(List.of(session)).subscribe();
+            }
+          })
           .build();
 
   /** A cached session handshake. */
@@ -284,9 +283,8 @@ public class McpClientGateway {
   private Mono<List<Map<String, Object>>> listOnce(
       final McpCallSpec spec, final Runnable heartbeat) {
     return session(spec)
-        .flatMap(
-            sessionId ->
-                listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), new HashSet<>()));
+        .flatMap(sessionId ->
+            listPage(spec, sessionId, null, heartbeat, new ArrayList<>(), new HashSet<>()));
   }
 
   /**
@@ -304,20 +302,19 @@ public class McpClientGateway {
     final Map<String, Object> params = cursor == null ? Map.of() : Map.of("cursor", cursor);
     return post(spec, sessionId, request(requestId, "tools/list", params), heartbeat)
         .map(reply -> toTools(reply, requestId))
-        .flatMap(
-            tools -> {
-              collected.addAll(tools.tools());
-              final String next = tools.nextCursor();
-              if (next == null) {
-                return Mono.just(collected);
-              }
-              if (seen.size() + 1 >= MAX_LIST_PAGES || !seen.add(next)) {
-                return Mono.error(
-                    new McpHttpException(
-                        200, "tools/list did not end within " + MAX_LIST_PAGES + " pages"));
-              }
-              return listPage(spec, sessionId, next, heartbeat, collected, seen);
-            });
+        .flatMap(tools -> {
+          collected.addAll(tools.tools());
+          final String next = tools.nextCursor();
+          if (next == null) {
+            return Mono.just(collected);
+          }
+          if (seen.size() + 1 >= MAX_LIST_PAGES || !seen.add(next)) {
+            return Mono.error(
+                new McpHttpException(
+                    200, "tools/list did not end within " + MAX_LIST_PAGES + " pages"));
+          }
+          return listPage(spec, sessionId, next, heartbeat, collected, seen);
+        });
   }
 
   /**
@@ -329,16 +326,15 @@ public class McpClientGateway {
   private Mono<McpCallResult> callOnce(
       final McpCallSpec spec, final String requestId, final Runnable heartbeat) {
     return session(spec)
-        .flatMap(
-            sessionId -> {
-              final Map<String, Object> params = new LinkedHashMap<>();
-              params.put(NAME, spec.tool());
-              params.put("arguments", spec.arguments());
-              final Map<String, Object> meta = new LinkedHashMap<>(spec.meta());
-              meta.put("progressToken", requestId);
-              params.put("_meta", meta);
-              return post(spec, sessionId, request(requestId, "tools/call", params), heartbeat);
-            })
+        .flatMap(sessionId -> {
+          final Map<String, Object> params = new LinkedHashMap<>();
+          params.put(NAME, spec.tool());
+          params.put("arguments", spec.arguments());
+          final Map<String, Object> meta = new LinkedHashMap<>(spec.meta());
+          meta.put("progressToken", requestId);
+          params.put("_meta", meta);
+          return post(spec, sessionId, request(requestId, "tools/call", params), heartbeat);
+        })
         .map(reply -> toResult(reply, requestId));
   }
 
@@ -362,14 +358,13 @@ public class McpClientGateway {
             "clientInfo",
             Map.of(NAME, "yukta", "version", "1"));
     return post(spec, "", request(UUID.randomUUID().toString(), "initialize", params), NO_OP)
-        .flatMap(
-            reply -> {
-              if (reply.messages().stream().anyMatch(m -> m.containsKey("error"))) {
-                return Mono.error(new McpHttpException(200, String.valueOf(reply.messages())));
-              }
-              return post(spec, reply.sessionId(), notification("notifications/initialized"), NO_OP)
-                  .thenReturn(reply.sessionId());
-            });
+        .flatMap(reply -> {
+          if (reply.messages().stream().anyMatch(m -> m.containsKey("error"))) {
+            return Mono.error(new McpHttpException(200, String.valueOf(reply.messages())));
+          }
+          return post(spec, reply.sessionId(), notification("notifications/initialized"), NO_OP)
+              .thenReturn(reply.sessionId());
+        });
   }
 
   private void cancelRemote(final McpCallSpec spec, final String requestId) {
@@ -379,15 +374,14 @@ public class McpClientGateway {
     }
     cached
         .sessionId()
-        .flatMap(
-            sessionId ->
-                post(
-                    spec,
-                    sessionId,
-                    notification(
-                        "notifications/cancelled",
-                        Map.of("requestId", requestId, "reason", "workflow cancelled")),
-                    NO_OP))
+        .flatMap(sessionId ->
+            post(
+                spec,
+                sessionId,
+                notification(
+                    "notifications/cancelled",
+                    Map.of("requestId", requestId, "reason", "workflow cancelled")),
+                NO_OP))
         .onErrorComplete()
         .subscribe();
   }
@@ -418,21 +412,19 @@ public class McpClientGateway {
   /** Ends sessions on their servers; a server that cannot be reached is not an error. */
   private Flux<?> terminate(final List<Session> open) {
     return Flux.fromIterable(open)
-        .flatMap(
-            s ->
-                s.sessionId()
-                    .filter(sessionId -> !sessionId.isEmpty())
-                    .flatMap(
-                        sessionId ->
-                            webClientBuilder
-                                .build()
-                                .method(HttpMethod.DELETE)
-                                .uri(s.spec().url())
-                                .headers(h -> s.spec().headers().forEach(h::add))
-                                .header(SESSION_HEADER, sessionId)
-                                .retrieve()
-                                .toBodilessEntity())
-                    .onErrorComplete());
+        .flatMap(s ->
+            s.sessionId()
+                .filter(sessionId -> !sessionId.isEmpty())
+                .flatMap(sessionId ->
+                    webClientBuilder
+                        .build()
+                        .method(HttpMethod.DELETE)
+                        .uri(s.spec().url())
+                        .headers(h -> s.spec().headers().forEach(h::add))
+                        .header(SESSION_HEADER, sessionId)
+                        .retrieve()
+                        .toBodilessEntity())
+                .onErrorComplete());
   }
 
   private Mono<Reply> post(
@@ -445,27 +437,24 @@ public class McpClientGateway {
         .post()
         .uri(spec.url())
         .headers(h -> spec.headers().forEach(h::add))
-        .headers(
-            h -> {
-              if (!sessionId.isEmpty()) {
-                h.add(SESSION_HEADER, sessionId);
-                h.add(VERSION_HEADER, PROTOCOL_VERSION);
-              }
-            })
+        .headers(h -> {
+          if (!sessionId.isEmpty()) {
+            h.add(SESSION_HEADER, sessionId);
+            h.add(VERSION_HEADER, PROTOCOL_VERSION);
+          }
+        })
         .contentType(MediaType.APPLICATION_JSON)
         .accept(MediaType.APPLICATION_JSON, MediaType.TEXT_EVENT_STREAM)
         .bodyValue(body)
-        .exchangeToMono(
-            response ->
-                messages(response, !sessionId.isEmpty(), heartbeat)
-                    .collectList()
-                    .map(
-                        list ->
-                            new Reply(
-                                response.headers().header(SESSION_HEADER).stream()
-                                    .findFirst()
-                                    .orElse(sessionId),
-                                list)));
+        .exchangeToMono(response ->
+            messages(response, !sessionId.isEmpty(), heartbeat)
+                .collectList()
+                .map(list ->
+                    new Reply(
+                        response.headers().header(SESSION_HEADER).stream()
+                            .findFirst()
+                            .orElse(sessionId),
+                        list)));
   }
 
   private Flux<Map<String, Object>> messages(
@@ -492,12 +481,11 @@ public class McpClientGateway {
             : response.bodyToMono(String.class).flux();
     return raw.filter(text -> !text.isBlank())
         .map(this::parse)
-        .doOnNext(
-            message -> {
-              if (PROGRESS.equals(message.get(METHOD))) {
-                heartbeat.run();
-              }
-            });
+        .doOnNext(message -> {
+          if (PROGRESS.equals(message.get(METHOD))) {
+            heartbeat.run();
+          }
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -528,15 +516,14 @@ public class McpClientGateway {
             .stream()
                 .filter(Map.class::isInstance)
                 .map(item -> (Map<String, Object>) item)
-                .map(
-                    tool ->
-                        Map.<String, Object>of(
-                            NAME,
-                            String.valueOf(tool.get(NAME)),
-                            "description",
-                            String.valueOf(tool.getOrDefault("description", "")),
-                            "inputSchema",
-                            tool.getOrDefault("inputSchema", Map.of())))
+                .map(tool ->
+                    Map.<String, Object>of(
+                        NAME,
+                        String.valueOf(tool.get(NAME)),
+                        "description",
+                        String.valueOf(tool.getOrDefault("description", "")),
+                        "inputSchema",
+                        tool.getOrDefault("inputSchema", Map.of())))
                 .toList();
     final Object next = result.get("nextCursor");
     return new ToolPage(tools, next instanceof final String cursor ? cursor : null);

@@ -53,16 +53,14 @@ public class SaveAndPrepare {
         .find(sessionId, definition.workflowId())
         .map(Optional::of)
         .defaultIfEmpty(Optional.empty())
-        .flatMap(
-            previous ->
-                store
-                    .save(sessionId, definition)
-                    .then(Mono.defer(() -> prepare.apply(definition)))
-                    .onErrorResume(
-                        failure ->
-                            store
-                                .replaceIfCurrent(sessionId, definition, previous)
-                                .onErrorResume(_ -> Mono.empty())
-                                .then(Mono.error(failure))));
+        .flatMap(previous ->
+            store
+                .save(sessionId, definition)
+                .then(Mono.defer(() -> prepare.apply(definition)))
+                .onErrorResume(failure ->
+                    store
+                        .replaceIfCurrent(sessionId, definition, previous)
+                        .onErrorResume(_ -> Mono.empty())
+                        .then(Mono.error(failure))));
   }
 }

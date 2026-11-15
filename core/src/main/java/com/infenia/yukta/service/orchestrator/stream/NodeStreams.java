@@ -82,26 +82,24 @@ public class NodeStreams {
     activity.onFirstTouch(markRunning);
     final Flux<Message<?>> guarded =
         activity.guard(
-            source.doOnNext(
-                message -> {
-                  activity.touch();
-                  nodeMetadata(message).ifPresent(reported::set);
-                }),
+            source.doOnNext(message -> {
+              activity.touch();
+              nodeMetadata(message).ifPresent(reported::set);
+            }),
             timeout,
             deadline,
             Schedulers.parallel(),
             paused);
     return (stallAfter == null
             ? guarded
-            : Flux.defer(
-                () -> {
-                  // ponytail: warns once per node run; re-arm after fresh activity if needed.
-                  final Disposable watch =
-                      activity
-                          .silent(stallAfter, Schedulers.parallel(), paused)
-                          .subscribe(_ -> warnStalled(tracker, executionId, nodeId, stallAfter));
-                  return guarded.doFinally(_ -> watch.dispose());
-                }))
+            : Flux.defer(() -> {
+              // ponytail: warns once per node run; re-arm after fresh activity if needed.
+              final Disposable watch =
+                  activity
+                      .silent(stallAfter, Schedulers.parallel(), paused)
+                      .subscribe(_ -> warnStalled(tracker, executionId, nodeId, stallAfter));
+              return guarded.doFinally(_ -> watch.dispose());
+            }))
         .doOnError(
             TimeoutException.class,
             e ->
@@ -111,38 +109,35 @@ public class NodeStreams {
                     .addArgument(timeout)
                     .setCause(e)
                     .log())
-        .doOnComplete(
-            () -> {
-              // a node that never saw an input did not run: report SKIPPED, not SUCCESS
-              final TaskStatus done = running.get() ? TaskStatus.SUCCESS : TaskStatus.SKIPPED;
-              markRunning.run();
-              emit(tracker, executionId, node, done, reported.get());
-            })
-        .doOnCancel(
-            () -> {
-              markRunning.run();
-              emit(tracker, executionId, node, TaskStatus.CANCELLED);
-            })
-        .doOnError(
-            error -> {
-              // the node that failed logs the error; the ones behind it only note the consequence
-              log.atLevel(error instanceof UpstreamFailure ? Level.DEBUG : Level.ERROR)
-                  .setMessage("Task failed - execution: {}, node: {}")
-                  .addArgument(executionId)
-                  .addArgument(nodeId)
-                  .setCause(error)
-                  .log();
-              markRunning.run();
-              final TaskStatus status = failureStatus(error);
-              emit(
-                  tracker,
-                  executionId,
-                  node,
-                  status,
-                  status == TaskStatus.UPSTREAM_FAILED
-                      ? Collections.emptyMap()
-                      : failureMetadata(describe(error)));
-            });
+        .doOnComplete(() -> {
+          // a node that never saw an input did not run: report SKIPPED, not SUCCESS
+          final TaskStatus done = running.get() ? TaskStatus.SUCCESS : TaskStatus.SKIPPED;
+          markRunning.run();
+          emit(tracker, executionId, node, done, reported.get());
+        })
+        .doOnCancel(() -> {
+          markRunning.run();
+          emit(tracker, executionId, node, TaskStatus.CANCELLED);
+        })
+        .doOnError(error -> {
+          // the node that failed logs the error; the ones behind it only note the consequence
+          log.atLevel(error instanceof UpstreamFailure ? Level.DEBUG : Level.ERROR)
+              .setMessage("Task failed - execution: {}, node: {}")
+              .addArgument(executionId)
+              .addArgument(nodeId)
+              .setCause(error)
+              .log();
+          markRunning.run();
+          final TaskStatus status = failureStatus(error);
+          emit(
+              tracker,
+              executionId,
+              node,
+              status,
+              status == TaskStatus.UPSTREAM_FAILED
+                  ? Collections.emptyMap()
+                  : failureMetadata(describe(error)));
+        });
   }
 
   /** The values a message hands to its node's task record, if it carries any. */

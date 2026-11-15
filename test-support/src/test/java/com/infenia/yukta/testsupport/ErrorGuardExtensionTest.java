@@ -173,11 +173,10 @@ class ErrorGuardExtensionTest {
     final ExtensionContext context = context(GuardFixtures.Plain.class, "expecting");
     extension.beforeEach(context);
     final Thread later =
-        new Thread(
-            () -> {
-              LockSupport.parkNanos(Duration.ofMillis(150).toNanos());
-              LoggerFactory.getLogger("guard.later").error("went wrong later");
-            });
+        new Thread(() -> {
+          LockSupport.parkNanos(Duration.ofMillis(150).toNanos());
+          LoggerFactory.getLogger("guard.later").error("went wrong later");
+        });
     later.start();
     assertThatCode(() -> ErrorGuardExtension.awaitLogged("went wrong later", Duration.ofSeconds(5)))
         .doesNotThrowAnyException();
@@ -271,10 +270,9 @@ class ErrorGuardExtensionTest {
     final Map<Object, Object> data = new HashMap<>();
     final ExtensionContext.Store store = mock(ExtensionContext.Store.class);
     when(store.getOrComputeIfAbsent(any(), any(), any(Class.class)))
-        .thenAnswer(
-            call ->
-                data.computeIfAbsent(
-                    call.getArgument(0), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()));
+        .thenAnswer(call ->
+            data.computeIfAbsent(
+                call.getArgument(0), k -> java.util.concurrent.ConcurrentHashMap.newKeySet()));
     doAnswer(call -> data.put(call.getArgument(0), call.getArgument(1)))
         .when(store)
         .put(any(), any());

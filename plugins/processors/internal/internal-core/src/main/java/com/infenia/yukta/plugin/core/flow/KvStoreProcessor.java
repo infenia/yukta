@@ -67,15 +67,14 @@ public final class KvStoreProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Void> initialize(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          if (store instanceof InMemoryKeyValueStore && warned.compareAndSet(false, true)) {
-            log.atWarn()
-                .log(
-                    "KV_STORE keeps its values in memory: they are lost on restart and not shared"
-                        + " between servers. Set yukta.kv.store-type=postgres to keep them.");
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      if (store instanceof InMemoryKeyValueStore && warned.compareAndSet(false, true)) {
+        log.atWarn()
+            .log(
+                "KV_STORE keeps its values in memory: they are lost on restart and not shared"
+                    + " between servers. Set yukta.kv.store-type=postgres to keep them.");
+      }
+    });
   }
 
   @Override
@@ -127,37 +126,34 @@ public final class KvStoreProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          if (!OPS.contains(String.valueOf(config.get("op")))) {
-            throw new IllegalArgumentException("op must be one of " + OPS);
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      if (!OPS.contains(String.valueOf(config.get("op")))) {
+        throw new IllegalArgumentException("op must be one of " + OPS);
+      }
+    });
   }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final String operation = String.valueOf(config.get("op"));
     final int max = config.get("maxEntries") instanceof Number cap ? cap.intValue() : MAX_ENTRIES;
-    return input.concatMap(
-        message -> {
-          final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
-          final Object key = config.getOrDefault(KEY, payload.get(KEY));
-          if (key == null) {
-            throw new IllegalArgumentException("key is required (config or payload.key)");
-          }
-          final String full = namespace(config, message) + ":" + key;
-          return value(operation, full, payload, max)
-              .map(Optional::of)
-              .defaultIfEmpty(Optional.empty())
-              .map(
-                  value -> {
-                    final Map<String, Object> out = new java.util.HashMap<>();
-                    out.put(KEY, key);
-                    out.put("value", value.orElse(null));
-                    return message.withPayload(out).withSourcePort("default");
-                  });
-        });
+    return input.concatMap(message -> {
+      final Map<?, ?> payload = message.payload() instanceof Map<?, ?> map ? map : Map.of();
+      final Object key = config.getOrDefault(KEY, payload.get(KEY));
+      if (key == null) {
+        throw new IllegalArgumentException("key is required (config or payload.key)");
+      }
+      final String full = namespace(config, message) + ":" + key;
+      return value(operation, full, payload, max)
+          .map(Optional::of)
+          .defaultIfEmpty(Optional.empty())
+          .map(value -> {
+            final Map<String, Object> out = new java.util.HashMap<>();
+            out.put(KEY, key);
+            out.put("value", value.orElse(null));
+            return message.withPayload(out).withSourcePort("default");
+          });
+    });
   }
 
   /** The configured namespace, else the workflow id so that two workflows do not share a key. */

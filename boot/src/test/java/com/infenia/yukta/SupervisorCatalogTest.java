@@ -78,10 +78,9 @@ class SupervisorCatalogTest {
   @ParameterizedTest
   @MethodSource("allFactories")
   void exampleSettingsPassTheSchema(final SupervisorFactory factory) {
-    assertThatCode(
-            () ->
-                SupervisorSettingsValidator.check(
-                    factory.describe().exampleSettings(), factory.getConfigSchema()))
+    assertThatCode(() ->
+            SupervisorSettingsValidator.check(
+                factory.describe().exampleSettings(), factory.getConfigSchema()))
         .doesNotThrowAnyException();
   }
 
@@ -89,10 +88,8 @@ class SupervisorCatalogTest {
   void ruleSupervisorExampleFileValidatesAsSettings() throws Exception {
     final Map<String, Object> rules = read("plugins/supervisors/rules/rules.example.json");
 
-    assertThatCode(
-            () ->
-                SupervisorSettingsValidator.check(
-                    rules, new RuleSupervisorFactory().getConfigSchema()))
+    assertThatCode(() ->
+            SupervisorSettingsValidator.check(rules, new RuleSupervisorFactory().getConfigSchema()))
         .doesNotThrowAnyException();
   }
 

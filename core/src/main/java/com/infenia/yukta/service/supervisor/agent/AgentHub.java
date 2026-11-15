@@ -140,52 +140,47 @@ public final class AgentHub {
      * @return the signals with their cursors
      */
     public Flux<Sequenced> signalsAfter(final long after) {
-      return Flux.defer(
-          () -> {
-            // listen first, then read what is remembered: a signal sent in between is in one of
-            // the two, and the cursor drops the copy
-            final Sinks.Many<Sequenced> live =
-                Sinks.many()
-                    .unicast()
-                    .onBackpressureBuffer(Queues.<Sequenced>get(LIVE_BUFFER).get());
-            final reactor.core.Disposable listening =
-                signalSink
-                    .asFlux()
-                    .subscribe(
-                        // a reader too far behind drops the overflow; the jump in the cursor of the
-                        // next signal it gets says how many
-                        live::tryEmitNext, live::tryEmitError, live::tryEmitComplete);
-            final List<Sequenced> past;
-            final long oldest;
-            final long current;
-            final long start;
-            lock.lock();
-            try {
-              current = sequence.get();
-              // a negative cursor means "from now on"
-              start = after < 0 ? current : after;
-              past = recent.stream().filter(s -> s.cursor() > start).toList();
-              oldest = recent.isEmpty() ? current + 1 : recent.peekFirst().cursor();
-            } finally {
-              lock.unlock();
-            }
-            final long last = past.isEmpty() ? start : past.getLast().cursor();
-            // signals between the cursor and the oldest one remembered are gone
-            final long forgotten = Math.max(0, Math.min(oldest, current + 1) - after - 1);
-            final Flux<Sequenced> gap =
-                after >= 0 && forgotten > 0 ? Flux.just(missed(after, forgotten)) : Flux.empty();
-            final AtomicLong seen = new AtomicLong(last);
-            final Flux<Sequenced> fresh =
-                live.asFlux()
-                    .filter(s -> s.cursor() > seen.get())
-                    .concatMapIterable(
-                        s -> {
-                          final long lost = s.cursor() - seen.getAndSet(s.cursor()) - 1;
-                          return lost > 0 ? List.of(missed(s.cursor() - 1, lost), s) : List.of(s);
-                        });
-            return Flux.concat(gap, Flux.fromIterable(past), fresh)
-                .doFinally(_ -> listening.dispose());
-          });
+      return Flux.defer(() -> {
+        // listen first, then read what is remembered: a signal sent in between is in one of
+        // the two, and the cursor drops the copy
+        final Sinks.Many<Sequenced> live =
+            Sinks.many().unicast().onBackpressureBuffer(Queues.<Sequenced>get(LIVE_BUFFER).get());
+        final reactor.core.Disposable listening =
+            signalSink
+                .asFlux()
+                .subscribe(
+                    // a reader too far behind drops the overflow; the jump in the cursor of the
+                    // next signal it gets says how many
+                    live::tryEmitNext, live::tryEmitError, live::tryEmitComplete);
+        final List<Sequenced> past;
+        final long oldest;
+        final long current;
+        final long start;
+        lock.lock();
+        try {
+          current = sequence.get();
+          // a negative cursor means "from now on"
+          start = after < 0 ? current : after;
+          past = recent.stream().filter(s -> s.cursor() > start).toList();
+          oldest = recent.isEmpty() ? current + 1 : recent.peekFirst().cursor();
+        } finally {
+          lock.unlock();
+        }
+        final long last = past.isEmpty() ? start : past.getLast().cursor();
+        // signals between the cursor and the oldest one remembered are gone
+        final long forgotten = Math.max(0, Math.min(oldest, current + 1) - after - 1);
+        final Flux<Sequenced> gap =
+            after >= 0 && forgotten > 0 ? Flux.just(missed(after, forgotten)) : Flux.empty();
+        final AtomicLong seen = new AtomicLong(last);
+        final Flux<Sequenced> fresh =
+            live.asFlux()
+                .filter(s -> s.cursor() > seen.get())
+                .concatMapIterable(s -> {
+                  final long lost = s.cursor() - seen.getAndSet(s.cursor()) - 1;
+                  return lost > 0 ? List.of(missed(s.cursor() - 1, lost), s) : List.of(s);
+                });
+        return Flux.concat(gap, Flux.fromIterable(past), fresh).doFinally(_ -> listening.dispose());
+      });
     }
 
     /**
@@ -210,14 +205,13 @@ public final class AgentHub {
       try {
         return recent.stream()
             .map(Sequenced::signal)
-            .anyMatch(
-                signal ->
-                    switch (signal) {
-                      case Signal.Event event -> id.equals(event.id());
-                      case Signal.Review review -> id.equals(review.id());
-                      case Signal.Delegated delegated -> id.equals(delegated.id());
-                      default -> false;
-                    });
+            .anyMatch(signal ->
+                switch (signal) {
+                  case Signal.Event event -> id.equals(event.id());
+                  case Signal.Review review -> id.equals(review.id());
+                  case Signal.Delegated delegated -> id.equals(delegated.id());
+                  default -> false;
+                });
       } finally {
         lock.unlock();
       }
@@ -238,14 +232,13 @@ public final class AgentHub {
       try {
         final boolean open =
             recent.stream()
-                .anyMatch(
-                    s ->
-                        switch (s.signal()) {
-                          case Signal.Review review ->
-                              id.equals(review.id()) && !now.isAfter(s.at().plus(review.timeout()));
-                          case Signal.Delegated delegated -> id.equals(delegated.id());
-                          default -> false;
-                        });
+                .anyMatch(s ->
+                    switch (s.signal()) {
+                      case Signal.Review review ->
+                          id.equals(review.id()) && !now.isAfter(s.at().plus(review.timeout()));
+                      case Signal.Delegated delegated -> id.equals(delegated.id());
+                      default -> false;
+                    });
         if (!open || !answered.add(use + ":" + id)) {
           return false;
         }
@@ -400,12 +393,11 @@ public final class AgentHub {
       }
       final String executionId = command.command().executionId();
       return Flux.fromIterable(sources)
-          .filterWhen(
-              source ->
-                  source
-                      .get()
-                      .executions(null, OWNED_RUNS)
-                      .any(run -> run.executionId().equals(executionId)))
+          .filterWhen(source ->
+              source
+                  .get()
+                  .executions(null, OWNED_RUNS)
+                  .any(run -> run.executionId().equals(executionId)))
           .next()
           .defaultIfEmpty(sources.getFirst())
           .map(reads::equals);

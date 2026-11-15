@@ -99,17 +99,16 @@ public final class ScorePlugin extends DecisionPlugin {
             config,
             state(message, config),
             Map.of(SCORE, new Question.Score(string(config, QUESTION, ""), levels)))
-        .map(
-            answers -> {
-              final double score = answer(answers, SCORE, Answer.Score.class).score();
-              final int nearest = (int) Math.max(0, Math.min(levels.size() - 1, Math.round(score)));
-              final String port =
-                  config.get(THRESHOLD) == null
-                      ? PORT_DEFAULT
-                      : score >= number(config, THRESHOLD, 0) ? "high" : "low";
-              return emit(
-                  message, config, SCORE, Map.of(SCORE, score, "level", levels.get(nearest)), port);
-            });
+        .map(answers -> {
+          final double score = answer(answers, SCORE, Answer.Score.class).score();
+          final int nearest = (int) Math.max(0, Math.min(levels.size() - 1, Math.round(score)));
+          final String port =
+              config.get(THRESHOLD) == null
+                  ? PORT_DEFAULT
+                  : score >= number(config, THRESHOLD, 0) ? "high" : "low";
+          return emit(
+              message, config, SCORE, Map.of(SCORE, score, "level", levels.get(nearest)), port);
+        });
   }
 
   private static List<String> levels(final Map<String, Object> config) {

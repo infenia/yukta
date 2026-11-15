@@ -192,33 +192,31 @@ public final class BranchProcessor implements ProcessorPlugin {
     final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
     final String errorPort = (String) config.get(ERROR_PORT);
 
-    return input.flatMap(
-        message ->
-            Flux.defer(
-                () -> {
-                  final List<String> matchedPorts = new ArrayList<>();
+    return input.flatMap(message ->
+        Flux.defer(() -> {
+          final List<String> matchedPorts = new ArrayList<>();
 
-                  try {
-                    evaluateBranches(mode, selector, cases, allowMultiple, message, matchedPorts);
+          try {
+            evaluateBranches(mode, selector, cases, allowMultiple, message, matchedPorts);
 
-                    if (matchedPorts.isEmpty()) {
-                      if (defaultPort != null) {
-                        matchedPorts.add(defaultPort);
-                      } else if (strictMode) {
-                        throw new NoMatchingBranchException(
-                            ERR_PREFIX
-                                + "No matching branch found for message "
-                                + message.id()
-                                + " and no default port configured");
-                      }
-                    }
+            if (matchedPorts.isEmpty()) {
+              if (defaultPort != null) {
+                matchedPorts.add(defaultPort);
+              } else if (strictMode) {
+                throw new NoMatchingBranchException(
+                    ERR_PREFIX
+                        + "No matching branch found for message "
+                        + message.id()
+                        + " and no default port configured");
+              }
+            }
 
-                    return Flux.fromIterable(matchedPorts).map(message::withSourcePort);
+            return Flux.fromIterable(matchedPorts).map(message::withSourcePort);
 
-                  } catch (final Exception exception) {
-                    return handleException(message, errorPort, strictMode, exception);
-                  }
-                }));
+          } catch (final Exception exception) {
+            return handleException(message, errorPort, strictMode, exception);
+          }
+        }));
   }
 
   private Flux<Message<?>> handleException(
@@ -312,19 +310,18 @@ public final class BranchProcessor implements ProcessorPlugin {
             .collect(Collectors.toSet());
 
     return Flux.fromIterable(definedPorts)
-        .flatMap(
-            definedPort -> {
-              if (!actualPorts.contains(definedPort)) {
-                return Mono.error(
-                    new IllegalArgumentException(
-                        "Branch node "
-                            + context.nodeId()
-                            + " has a case routing to port '"
-                            + definedPort
-                            + "' but no outgoing edge exists for this port"));
-              }
-              return Mono.empty();
-            })
+        .flatMap(definedPort -> {
+          if (!actualPorts.contains(definedPort)) {
+            return Mono.error(
+                new IllegalArgumentException(
+                    "Branch node "
+                        + context.nodeId()
+                        + " has a case routing to port '"
+                        + definedPort
+                        + "' but no outgoing edge exists for this port"));
+          }
+          return Mono.empty();
+        })
         .then();
   }
 }

@@ -72,38 +72,34 @@ public class FileSessionConfigStore implements SessionConfigStore {
 
   @Override
   public Mono<Void> applySessionConfig(@Valid final SessionConfigData data) {
-    return Mono.fromCallable(
-            () ->
-                new SessionConfig(
-                    data.projectPath(),
-                    data.initiator(),
-                    Instant.now().toString(),
-                    data.tags(),
-                    data.description(),
-                    data.name()))
-        .flatMap(
-            config ->
-                saveSessionConfig(data.sessionId(), config)
-                    .doOnSuccess(
-                        _ ->
-                            log.atInfo()
-                                .addKeyValue("sessionId", data.sessionId())
-                                .addKeyValue("projectPath", config.projectPath())
-                                .addKeyValue("initiator", config.initiator())
-                                .addKeyValue("tagCount", config.tags().size())
-                                .log("Applied session configuration")))
+    return Mono.fromCallable(() ->
+            new SessionConfig(
+                data.projectPath(),
+                data.initiator(),
+                Instant.now().toString(),
+                data.tags(),
+                data.description(),
+                data.name()))
+        .flatMap(config ->
+            saveSessionConfig(data.sessionId(), config)
+                .doOnSuccess(_ ->
+                    log.atInfo()
+                        .addKeyValue("sessionId", data.sessionId())
+                        .addKeyValue("projectPath", config.projectPath())
+                        .addKeyValue("initiator", config.initiator())
+                        .addKeyValue("tagCount", config.tags().size())
+                        .log("Applied session configuration")))
         .then(
             data.workflows().isEmpty()
                 ? Mono.empty()
                 : Flux.fromIterable(data.workflows().values())
                     .flatMap(def -> workflowDefinitionStore.save(data.sessionId(), def))
                     .then(
-                        Mono.fromRunnable(
-                            () ->
-                                log.atDebug()
-                                    .addKeyValue("sessionId", data.sessionId())
-                                    .addKeyValue("workflowCount", data.workflows().size())
-                                    .log("Saved workflows for session"))));
+                        Mono.fromRunnable(() ->
+                            log.atDebug()
+                                .addKeyValue("sessionId", data.sessionId())
+                                .addKeyValue("workflowCount", data.workflows().size())
+                                .log("Saved workflows for session"))));
   }
 
   @Override
@@ -161,16 +157,15 @@ public class FileSessionConfigStore implements SessionConfigStore {
   @Override
   public Mono<SessionSnapshot> getAllConfigs(@SessionId final String sessionId) {
     return loadSessionConfig(sessionId)
-        .flatMap(
-            loadedConfig ->
-                Mono.zip(
-                    arr -> SessionSnapshot.fromValues(sessionId, loadedConfig.name(), arr),
-                    getProjectPath(sessionId),
-                    getInitiator(sessionId),
-                    getInitiatedTime(sessionId),
-                    getTags(sessionId),
-                    getDescription(sessionId),
-                    workflowDefinitionStore.findAll(sessionId)));
+        .flatMap(loadedConfig ->
+            Mono.zip(
+                arr -> SessionSnapshot.fromValues(sessionId, loadedConfig.name(), arr),
+                getProjectPath(sessionId),
+                getInitiator(sessionId),
+                getInitiatedTime(sessionId),
+                getTags(sessionId),
+                getDescription(sessionId),
+                workflowDefinitionStore.findAll(sessionId)));
   }
 
   /* default */ record SessionConfigFile(
@@ -387,11 +382,10 @@ public class FileSessionConfigStore implements SessionConfigStore {
   @Override
   public Flux<String> getSessionIds() {
     return Mono.fromCallable(this::getSessionFiles)
-        .doOnNext(
-            files ->
-                log.atDebug()
-                    .addKeyValue("sessionCount", files.size())
-                    .log("Retrieved all active session IDs"))
+        .doOnNext(files ->
+            log.atDebug()
+                .addKeyValue("sessionCount", files.size())
+                .log("Retrieved all active session IDs"))
         .flatMapMany(Flux::fromIterable)
         .map(this::extractSessionIdFromFile)
         .subscribeOn(Schedulers.boundedElastic());

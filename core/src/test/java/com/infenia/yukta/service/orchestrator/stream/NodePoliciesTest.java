@@ -33,23 +33,21 @@ class NodePoliciesTest {
 
   /** A plugin call that fails {@code failures} times and then returns {@code out}. */
   private Flux<Message<?>> flaky(final AtomicInteger calls, final int failures) {
-    return Flux.defer(
-        () ->
-            calls.incrementAndGet() <= failures
-                ? Flux.<Message<?>>error(new IllegalStateException("boom"))
-                : Flux.<Message<?>>just(input));
+    return Flux.defer(() ->
+        calls.incrementAndGet() <= failures
+            ? Flux.<Message<?>>error(new IllegalStateException("boom"))
+            : Flux.<Message<?>>just(input));
   }
 
   /** Emits {@code partial} messages and then fails on the first {@code failures} calls. */
   private Flux<Message<?>> failsAfterPartialOutput(
       final AtomicInteger calls, final int failures, final int partial) {
-    return Flux.defer(
-        () -> {
-          final Flux<Message<?>> some = Flux.range(0, partial).map(_ -> input);
-          return calls.incrementAndGet() <= failures
-              ? some.concatWith(Flux.error(new IllegalStateException("boom")))
-              : some;
-        });
+    return Flux.defer(() -> {
+      final Flux<Message<?>> some = Flux.range(0, partial).map(_ -> input);
+      return calls.incrementAndGet() <= failures
+          ? some.concatWith(Flux.error(new IllegalStateException("boom")))
+          : some;
+    });
   }
 
   @Test
@@ -58,10 +56,9 @@ class NodePoliciesTest {
     final NodePolicy policy =
         Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(
-            () ->
-                NodePolicies.apply(
-                    policy, "n1", input, _ -> failsAfterPartialOutput(calls, 1, 2), () -> {}))
+    StepVerifier.withVirtualTime(() ->
+            NodePolicies.apply(
+                policy, "n1", input, _ -> failsAfterPartialOutput(calls, 1, 2), () -> {}))
         .thenAwait(Duration.ofSeconds(30))
         .expectNext(input, input)
         .verifyComplete();
@@ -97,13 +94,11 @@ class NodePoliciesTest {
                   "n1",
                   input,
                   _ ->
-                      Flux.<Message<?>>defer(
-                          () -> {
-                            calls.incrementAndGet();
-                            return Flux.error(
-                                new com.infenia.yukta.plugin.exception.RunAbortedException(
-                                    "budget"));
-                          }),
+                      Flux.<Message<?>>defer(() -> {
+                        calls.incrementAndGet();
+                        return Flux.error(
+                            new com.infenia.yukta.plugin.exception.RunAbortedException("budget"));
+                      }),
                   () -> {}))
           .expectError(com.infenia.yukta.plugin.exception.RunAbortedException.class)
           .verify(Duration.ofSeconds(2));
@@ -136,10 +131,9 @@ class NodePoliciesTest {
     final NodePolicy policy =
         Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(
-            () ->
-                NodePolicies.apply(
-                    policy, "n1", input, _ -> flaky(calls, 2), attempts::incrementAndGet))
+    StepVerifier.withVirtualTime(() ->
+            NodePolicies.apply(
+                policy, "n1", input, _ -> flaky(calls, 2), attempts::incrementAndGet))
         .thenAwait(Duration.ofSeconds(30))
         .expectNext(input)
         .verifyComplete();
@@ -153,11 +147,10 @@ class NodePoliciesTest {
     final NodePolicy policy =
         Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
     final Flux<Message<?>> invalid =
-        Flux.defer(
-            () -> {
-              calls.incrementAndGet();
-              return Flux.<Message<?>>error(new IllegalArgumentException("bad input"));
-            });
+        Flux.defer(() -> {
+          calls.incrementAndGet();
+          return Flux.<Message<?>>error(new IllegalArgumentException("bad input"));
+        });
 
     StepVerifier.create(NodePolicies.apply(policy, "n1", input, _ -> invalid, () -> {}))
         .expectError(IllegalArgumentException.class)
@@ -216,12 +209,11 @@ class NodePoliciesTest {
 
     StepVerifier.create(
             NodePolicies.apply(policy, "n1", input, _ -> flaky(new AtomicInteger(), 99), () -> {}))
-        .assertNext(
-            routed -> {
-              assertThat(routed.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
-              assertThat(routed.failureReason()).isEqualTo("PROCESSING_FAILED");
-              assertThat(routed.payload()).isEqualTo(input.payload());
-            })
+        .assertNext(routed -> {
+          assertThat(routed.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
+          assertThat(routed.failureReason()).isEqualTo("PROCESSING_FAILED");
+          assertThat(routed.payload()).isEqualTo(input.payload());
+        })
         .verifyComplete();
   }
 
@@ -257,17 +249,16 @@ class NodePoliciesTest {
     final NodePolicy policy =
         Fixtures.nodePolicy(RETRY3, NodePolicy.OnError.FAIL, NodePolicy.JoinRule.ALL_SUCCESS);
 
-    StepVerifier.withVirtualTime(
-            () ->
-                NodePolicies.apply(
-                    policy,
-                    "n1",
-                    input,
-                    attempt -> {
-                      seen.add(attempt.metadata().get(NodePolicies.ATTEMPT_HEADER));
-                      return flaky(calls, 2);
-                    },
-                    () -> {}))
+    StepVerifier.withVirtualTime(() ->
+            NodePolicies.apply(
+                policy,
+                "n1",
+                input,
+                attempt -> {
+                  seen.add(attempt.metadata().get(NodePolicies.ATTEMPT_HEADER));
+                  return flaky(calls, 2);
+                },
+                () -> {}))
         .expectSubscription()
         .thenAwait(Duration.ofSeconds(60))
         .expectNextCount(1)
@@ -296,11 +287,10 @@ class NodePoliciesTest {
   }
 
   private Flux<Message<?>> failing(final AtomicInteger calls, final Throwable error) {
-    return Flux.defer(
-        () -> {
-          calls.incrementAndGet();
-          return Flux.<Message<?>>error(error);
-        });
+    return Flux.defer(() -> {
+      calls.incrementAndGet();
+      return Flux.<Message<?>>error(error);
+    });
   }
 
   @Test
@@ -405,21 +395,20 @@ class NodePoliciesTest {
     StepVerifier.create(
             NodePolicies.apply(
                 policy, "n1", input, _ -> failing(calls, new IllegalStateException("x")), () -> {}))
-        .assertNext(
-            routed -> {
-              assertThat(routed.sourcePort()).isEqualTo("error");
-              assertThat(routed.origDest()).isEqualTo("n1");
-              assertThat(routed.metadata())
-                  .containsEntry(NodePolicies.FAILURE_ATTEMPTS_HEADER, 3)
-                  .containsEntry(
-                      NodePolicies.FAILURE_EXCEPTION_HEADER, "java.lang.IllegalStateException")
-                  .containsEntry(
-                      NodePolicies.FAILURE_MESSAGE_HEADER, "java.lang.IllegalStateException: x");
-              assertThat(
-                      java.time.Instant.parse(
-                          (String) routed.metadata().get(NodePolicies.FAILURE_TIME_HEADER)))
-                  .isNotNull();
-            })
+        .assertNext(routed -> {
+          assertThat(routed.sourcePort()).isEqualTo("error");
+          assertThat(routed.origDest()).isEqualTo("n1");
+          assertThat(routed.metadata())
+              .containsEntry(NodePolicies.FAILURE_ATTEMPTS_HEADER, 3)
+              .containsEntry(
+                  NodePolicies.FAILURE_EXCEPTION_HEADER, "java.lang.IllegalStateException")
+              .containsEntry(
+                  NodePolicies.FAILURE_MESSAGE_HEADER, "java.lang.IllegalStateException: x");
+          assertThat(
+                  java.time.Instant.parse(
+                      (String) routed.metadata().get(NodePolicies.FAILURE_TIME_HEADER)))
+              .isNotNull();
+        })
         .verifyComplete();
   }
 
@@ -438,15 +427,14 @@ class NodePoliciesTest {
 
     final Flux<Message<?>> run =
         Flux.range(0, 5)
-            .concatMap(
-                _ ->
-                    NodePolicies.apply(
-                        policy,
-                        "n",
-                        input,
-                        _ -> failing(calls, new IllegalStateException("x")),
-                        () -> {},
-                        ledger));
+            .concatMap(_ ->
+                NodePolicies.apply(
+                    policy,
+                    "n",
+                    input,
+                    _ -> failing(calls, new IllegalStateException("x")),
+                    () -> {},
+                    ledger));
 
     StepVerifier.create(run)
         .expectErrorSatisfies(e -> assertThat(e).hasMessageContaining("failed more than 2 times"))
@@ -482,15 +470,14 @@ class NodePoliciesTest {
 
     final Flux<Message<?>> run =
         Flux.range(0, 3)
-            .concatMap(
-                _ ->
-                    NodePolicies.apply(
-                        policy,
-                        "n",
-                        input,
-                        _ -> failing(calls, new IllegalStateException("x")),
-                        () -> {},
-                        ledger));
+            .concatMap(_ ->
+                NodePolicies.apply(
+                    policy,
+                    "n",
+                    input,
+                    _ -> failing(calls, new IllegalStateException("x")),
+                    () -> {},
+                    ledger));
 
     StepVerifier.create(run)
         .expectNextCount(1)

@@ -85,15 +85,14 @@ class LogProviderTest {
     StepVerifier.create(
             provider.getNodeOutput(
                 SESSION, EXECUTION, "run", "stdout", null, null, null, null, "ERROR", null))
-        .assertNext(
-            result -> {
-              assertThat(result.executionId()).isEqualTo(EXECUTION);
-              assertThat(result.output().totalLines()).isEqualTo(2);
-              assertThat(result.output().lines()).hasSize(1);
-              assertThat(result.output().lines().getFirst().number()).isEqualTo(2);
-              assertThat(result.output().lines().getFirst().text()).isEqualTo("ERROR delta");
-              assertThat(result.notice()).isNotBlank();
-            })
+        .assertNext(result -> {
+          assertThat(result.executionId()).isEqualTo(EXECUTION);
+          assertThat(result.output().totalLines()).isEqualTo(2);
+          assertThat(result.output().lines()).hasSize(1);
+          assertThat(result.output().lines().getFirst().number()).isEqualTo(2);
+          assertThat(result.output().lines().getFirst().text()).isEqualTo("ERROR delta");
+          assertThat(result.notice()).isNotBlank();
+        })
         .verifyComplete();
   }
 
@@ -138,15 +137,14 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("first line"), entry("second line")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.executionId()).isEqualTo(EXECUTION);
-              assertThat(logs.totalLines()).isEqualTo(2);
-              assertThat(logs.returnedLines()).isEqualTo(2);
-              assertThat(logs.lines()).hasSize(2);
-              assertThat(logs.lines().get(0)).contains("first line");
-              assertThat(logs.lines().get(1)).contains("second line");
-            })
+        .assertNext(logs -> {
+          assertThat(logs.executionId()).isEqualTo(EXECUTION);
+          assertThat(logs.totalLines()).isEqualTo(2);
+          assertThat(logs.returnedLines()).isEqualTo(2);
+          assertThat(logs.lines()).hasSize(2);
+          assertThat(logs.lines().get(0)).contains("first line");
+          assertThat(logs.lines().get(1)).contains("second line");
+        })
         .verifyComplete();
   }
 
@@ -156,12 +154,11 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("build started"), entry("ERROR: boom"), entry("build done")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "ERROR"))
-        .assertNext(
-            logs -> {
-              assertThat(logs.totalLines()).isEqualTo(1);
-              assertThat(logs.returnedLines()).isEqualTo(1);
-              assertThat(logs.lines().get(0)).contains("ERROR: boom");
-            })
+        .assertNext(logs -> {
+          assertThat(logs.totalLines()).isEqualTo(1);
+          assertThat(logs.returnedLines()).isEqualTo(1);
+          assertThat(logs.lines().get(0)).contains("ERROR: boom");
+        })
         .verifyComplete();
   }
 
@@ -171,13 +168,12 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("one"), entry("two"), entry("three")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 2, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.totalLines()).isEqualTo(3);
-              assertThat(logs.returnedLines()).isEqualTo(2);
-              assertThat(logs.lines().get(0)).contains("two");
-              assertThat(logs.lines().get(1)).contains("three");
-            })
+        .assertNext(logs -> {
+          assertThat(logs.totalLines()).isEqualTo(3);
+          assertThat(logs.returnedLines()).isEqualTo(2);
+          assertThat(logs.lines().get(0)).contains("two");
+          assertThat(logs.lines().get(1)).contains("three");
+        })
         .verifyComplete();
   }
 
@@ -187,12 +183,11 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("one"), entry("two"), entry("three")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 1))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(2);
-              assertThat(logs.lines().get(0)).contains("two");
-              assertThat(logs.nextCursor()).isEqualTo(3);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(2);
+          assertThat(logs.lines().get(0)).contains("two");
+          assertThat(logs.nextCursor()).isEqualTo(3);
+        })
         .verifyComplete();
   }
 
@@ -208,12 +203,11 @@ class LogProviderTest {
         .readIndexed(EXECUTION);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 6))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(2);
-              assertThat(logs.lines().get(0)).contains("six");
-              assertThat(logs.nextCursor()).isEqualTo(8);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(2);
+          assertThat(logs.lines().get(0)).contains("six");
+          assertThat(logs.nextCursor()).isEqualTo(8);
+        })
         .verifyComplete();
   }
 
@@ -231,11 +225,10 @@ class LogProviderTest {
     when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("one"), entry("two")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 2))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).isEmpty();
-              assertThat(logs.nextCursor()).isEqualTo(2);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).isEmpty();
+          assertThat(logs.nextCursor()).isEqualTo(2);
+        })
         .verifyComplete();
   }
 
@@ -245,11 +238,10 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("keep 1"), entry("skip"), entry("keep 2")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "keep", 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.returnedLines()).isEqualTo(2);
-              assertThat(logs.nextCursor()).isEqualTo(3);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.returnedLines()).isEqualTo(2);
+          assertThat(logs.nextCursor()).isEqualTo(3);
+        })
         .verifyComplete();
   }
 
@@ -267,21 +259,19 @@ class LogProviderTest {
     when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("one"), entry("two")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 10, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.totalLines()).isEqualTo(2);
-              assertThat(logs.returnedLines()).isEqualTo(2);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.totalLines()).isEqualTo(2);
+          assertThat(logs.returnedLines()).isEqualTo(2);
+        })
         .verifyComplete();
   }
 
   @Test
   void testInvalidRegexRejected() {
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "[unclosed"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Invalid regex pattern"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Invalid regex pattern"))
         .verify();
   }
 
@@ -290,30 +280,26 @@ class LogProviderTest {
     when(controlBus.getProgress(SESSION, "missing")).thenReturn(null);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, "missing", null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: missing"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: missing"))
         .verify();
   }
 
   @Test
   void testForeignSessionRejected() {
     StepVerifier.create(provider.getExecutionLogs("other-session", EXECUTION, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: " + EXECUTION))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: " + EXECUTION))
         .verify();
   }
 
   @Test
   void testTooLongPatternRejected() {
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "a".repeat(201)))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("too long"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException && error.getMessage().contains("too long"))
         .verify();
   }
 
@@ -322,10 +308,9 @@ class LogProviderTest {
     when(logStore.readExecution(EXECUTION)).thenReturn(Flux.just(entry("a".repeat(40) + "!")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, "(.*a){12}$"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("too expensive"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("too expensive"))
         .verify(java.time.Duration.ofSeconds(5));
   }
 
@@ -340,14 +325,13 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus, List.of(), 120, 0);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines().get(0))
-                  .doesNotContain("abcdefghij123456", "hunter2")
-                  .contains("[REDACTED]");
-              assertThat(logs.lines().get(1)).doesNotContain("\n").contains("a [SYSTEM]");
-              assertThat(logs.lines().get(2)).hasSizeLessThanOrEqualTo(120 + 6);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines().get(0))
+              .doesNotContain("abcdefghij123456", "hunter2")
+              .contains("[REDACTED]");
+          assertThat(logs.lines().get(1)).doesNotContain("\n").contains("a [SYSTEM]");
+          assertThat(logs.lines().get(2)).hasSizeLessThanOrEqualTo(120 + 6);
+        })
         .verifyComplete();
   }
 
@@ -367,11 +351,10 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus, List.of(), 2_000, one);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(1);
-              assertThat(logs.lines().get(0)).contains("new");
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(1);
+          assertThat(logs.lines().get(0)).contains("new");
+        })
         .verifyComplete();
   }
 
@@ -393,13 +376,11 @@ class LogProviderTest {
         .thenReturn(Flux.range(0, total).map(i -> entry("line-" + i)));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
-        .assertNext(
-            logs -> {
-              assertThat(logs.totalLines()).isEqualTo(total);
-              assertThat(logs.returnedLines()).isEqualTo(LogProvider.MAX_LINES);
-              assertThat(logs.lines().get(LogProvider.MAX_LINES - 1))
-                  .contains("line-" + (total - 1));
-            })
+        .assertNext(logs -> {
+          assertThat(logs.totalLines()).isEqualTo(total);
+          assertThat(logs.returnedLines()).isEqualTo(LogProvider.MAX_LINES);
+          assertThat(logs.lines().get(LogProvider.MAX_LINES - 1)).contains("line-" + (total - 1));
+        })
         .verifyComplete();
   }
 
@@ -419,30 +400,27 @@ class LogProviderTest {
         .thenReturn(Flux.range(0, 8).map(i -> entry("line-" + i)));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(3);
-              assertThat(logs.lines().get(0)).contains("line-0");
-              assertThat(logs.lines().get(2)).contains("line-2");
-              assertThat(logs.omittedLines()).isEqualTo(5);
-              assertThat(logs.nextCursor()).isEqualTo(3);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(3);
+          assertThat(logs.lines().get(0)).contains("line-0");
+          assertThat(logs.lines().get(2)).contains("line-2");
+          assertThat(logs.omittedLines()).isEqualTo(5);
+          assertThat(logs.nextCursor()).isEqualTo(3);
+        })
         .verifyComplete();
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 3))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines().get(0)).contains("line-3");
-              assertThat(logs.omittedLines()).isEqualTo(2);
-              assertThat(logs.nextCursor()).isEqualTo(6);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines().get(0)).contains("line-3");
+          assertThat(logs.omittedLines()).isEqualTo(2);
+          assertThat(logs.nextCursor()).isEqualTo(6);
+        })
         .verifyComplete();
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 3, null, 6))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(2);
-              assertThat(logs.omittedLines()).isZero();
-              assertThat(logs.nextCursor()).isEqualTo(8);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(2);
+          assertThat(logs.omittedLines()).isZero();
+          assertThat(logs.nextCursor()).isEqualTo(8);
+        })
         .verifyComplete();
   }
 
@@ -452,12 +430,11 @@ class LogProviderTest {
         .thenReturn(Flux.just(entry("keep 1"), entry("skip"), entry("keep 2"), entry("keep 3")));
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, 2, "keep", 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.returnedLines()).isEqualTo(2);
-              assertThat(logs.omittedLines()).isEqualTo(1);
-              assertThat(logs.nextCursor()).isEqualTo(3);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.returnedLines()).isEqualTo(2);
+          assertThat(logs.omittedLines()).isEqualTo(1);
+          assertThat(logs.nextCursor()).isEqualTo(3);
+        })
         .verifyComplete();
   }
 
@@ -468,13 +445,12 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus, List.of(), 0, 100);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(1);
-              assertThat(logs.lines().get(0)).hasSize(100);
-              assertThat(logs.omittedLines()).isEqualTo(1);
-              assertThat(logs.nextCursor()).isEqualTo(1);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(1);
+          assertThat(logs.lines().get(0)).hasSize(100);
+          assertThat(logs.omittedLines()).isEqualTo(1);
+          assertThat(logs.nextCursor()).isEqualTo(1);
+        })
         .verifyComplete();
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null))
         .assertNext(logs -> assertThat(logs.lines().get(0)).contains("after"))
@@ -488,13 +464,12 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus, List.of(), 2_000, one);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(1);
-              assertThat(logs.lines().get(0)).contains("old");
-              assertThat(logs.omittedLines()).isEqualTo(1);
-              assertThat(logs.nextCursor()).isEqualTo(1);
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(1);
+          assertThat(logs.lines().get(0)).contains("old");
+          assertThat(logs.omittedLines()).isEqualTo(1);
+          assertThat(logs.nextCursor()).isEqualTo(1);
+        })
         .verifyComplete();
   }
 
@@ -504,11 +479,10 @@ class LogProviderTest {
     provider = new LogProvider(logStore, controlBus, List.of(), 2_000, 10_000);
 
     StepVerifier.create(provider.getExecutionLogs(SESSION, EXECUTION, null, null, 0))
-        .assertNext(
-            logs -> {
-              assertThat(logs.lines()).hasSize(2);
-              assertThat(logs.omittedLines()).isZero();
-            })
+        .assertNext(logs -> {
+          assertThat(logs.lines()).hasSize(2);
+          assertThat(logs.omittedLines()).isZero();
+        })
         .verifyComplete();
   }
 }

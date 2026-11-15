@@ -99,11 +99,10 @@ public final class DedupePlugin extends DecisionPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return Flux.deferContextual(
-        context -> {
-          final DecisionWindow<Seen> recent = DecisionWindow.open(TYPE, config, context);
-          return input.concatMap(message -> lookup(message, config, recent));
-        });
+    return Flux.deferContextual(context -> {
+      final DecisionWindow<Seen> recent = DecisionWindow.open(TYPE, config, context);
+      return input.concatMap(message -> lookup(message, config, recent));
+    });
   }
 
   @Override
@@ -138,32 +137,30 @@ public final class DedupePlugin extends DecisionPlugin {
                       new Question.Choice(
                           "Does the current item mean the same as one of the recent items?",
                           options)))
-              .map(
-                  answers -> {
-                    final Answer.Choice choice = answer(answers, SAME, Answer.Choice.class);
-                    final boolean repeat =
-                        !NONE.equals(choice.choice())
-                            && options.containsKey(choice.choice())
-                            && choice.probability() >= number(config, "minProbability", 0.6);
-                    return repeat
-                        ? duplicate(
-                            message,
-                            config,
-                            candidates.get(Integer.parseInt(choice.choice()) - 1).identifier(),
-                            choice.probability())
-                        : unique(message, config);
-                  });
+              .map(answers -> {
+                final Answer.Choice choice = answer(answers, SAME, Answer.Choice.class);
+                final boolean repeat =
+                    !NONE.equals(choice.choice())
+                        && options.containsKey(choice.choice())
+                        && choice.probability() >= number(config, "minProbability", 0.6);
+                return repeat
+                    ? duplicate(
+                        message,
+                        config,
+                        candidates.get(Integer.parseInt(choice.choice()) - 1).identifier(),
+                        choice.probability())
+                    : unique(message, config);
+              });
     }
-    return checked.doOnNext(
-        output -> {
-          if ("unique".equals(output.sourcePort())) {
-            recent.add(
-                new Seen(
-                    item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item,
-                    String.valueOf(message.id())),
-                (int) number(config, "window", 10));
-          }
-        });
+    return checked.doOnNext(output -> {
+      if ("unique".equals(output.sourcePort())) {
+        recent.add(
+            new Seen(
+                item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item,
+                String.valueOf(message.id())),
+            (int) number(config, "window", 10));
+      }
+    });
   }
 
   private static Message<?> unique(final Message<?> message, final Map<String, Object> config) {

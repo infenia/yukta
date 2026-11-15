@@ -169,11 +169,10 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          signalName(config);
-          timeout(config);
-        });
+    return Mono.fromRunnable(() -> {
+      signalName(config);
+      timeout(config);
+    });
   }
 
   @Override
@@ -182,38 +181,27 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
     final Duration timeout = timeout(config);
     final boolean continueOnTimeout = CONTINUE.equals(config.get(ON_TIMEOUT));
     final boolean dropOnReject = CONTINUE.equals(config.get(ON_REJECT));
-    return input.concatMap(
-        message ->
-            Mono.deferContextual(
-                ctx -> {
-                  final String executionId = ctx.getOrDefault("executionId", "unknown");
-                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-                  return remembered(executionId, nodeId, name, message)
-                      .switchIfEmpty(
-                          Mono.defer(
-                              () ->
-                                  InputAsk.ask(
-                                          gateways::getIfAvailable,
-                                          spec(ctx, message, name, timeout))
-                                      .map(WaitForSignalProcessor::decision)
-                                      .flatMap(
-                                          decision ->
-                                              remember(
-                                                  executionId, nodeId, name, message, decision))
-                                      .onErrorResume(
-                                          InputAsk::isTimeout,
-                                          e ->
-                                              continueOnTimeout
-                                                  ? Mono.just(new Decision("timeout", ""))
-                                                  : Mono.error(
-                                                      new IllegalStateException(
-                                                          "No '"
-                                                              + name
-                                                              + "' signal within "
-                                                              + timeout,
-                                                          e)))))
-                      .flatMap(decision -> release(message, name, decision, dropOnReject));
-                }));
+    return input.concatMap(message ->
+        Mono.deferContextual(ctx -> {
+          final String executionId = ctx.getOrDefault("executionId", "unknown");
+          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+          return remembered(executionId, nodeId, name, message)
+              .switchIfEmpty(
+                  Mono.defer(() ->
+                      InputAsk.ask(gateways::getIfAvailable, spec(ctx, message, name, timeout))
+                          .map(WaitForSignalProcessor::decision)
+                          .flatMap(
+                              decision -> remember(executionId, nodeId, name, message, decision))
+                          .onErrorResume(
+                              InputAsk::isTimeout,
+                              e ->
+                                  continueOnTimeout
+                                      ? Mono.just(new Decision("timeout", ""))
+                                      : Mono.error(
+                                          new IllegalStateException(
+                                              "No '" + name + "' signal within " + timeout, e)))))
+              .flatMap(decision -> release(message, name, decision, dropOnReject));
+        }));
   }
 
   /** The request: an approval nobody can answer with a wrong word, held by name for the message. */
@@ -263,18 +251,16 @@ public final class WaitForSignalProcessor implements ProcessorPlugin {
     }
     return answers
         .getAll(executionId, answerNode(nodeId))
-        .filter(
-            kept ->
-                kept.payload() instanceof final Map<?, ?> body
-                    && message.id().equals(body.get("messageId"))
-                    && name.equals(body.get("name")))
+        .filter(kept ->
+            kept.payload() instanceof final Map<?, ?> body
+                && message.id().equals(body.get("messageId"))
+                && name.equals(body.get("name")))
         .next()
-        .map(
-            kept -> {
-              final Map<?, ?> body = (Map<?, ?>) kept.payload();
-              return new Decision(
-                  String.valueOf(body.get("decision")), String.valueOf(body.get("data")));
-            })
+        .map(kept -> {
+          final Map<?, ?> body = (Map<?, ?>) kept.payload();
+          return new Decision(
+              String.valueOf(body.get("decision")), String.valueOf(body.get("data")));
+        })
         .onErrorResume(_ -> Mono.empty());
   }
 

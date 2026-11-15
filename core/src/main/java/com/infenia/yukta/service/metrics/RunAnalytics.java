@@ -598,30 +598,27 @@ public class RunAnalytics {
     synchronized (this) {
       within(scope, range).forEach((minute, b) -> copy.put(minute, b.copy()));
     }
-    copy.forEach(
-        (minute, b) -> {
-          final Map<String, Double> values = new TreeMap<>();
-          if (!b.byStatus.isEmpty()) {
-            values.put(
-                "runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
-            b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
-          }
-          if (b.durationCount > 0) {
-            values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
-            values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
-            values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
-          }
-          if (b.waitCount > 0) {
-            values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
-          }
-          values.forEach(
-              (name, v) -> {
-                if (names.stream().anyMatch(name::startsWith)) {
-                  out.computeIfAbsent(name, _ -> new ArrayList<>())
-                      .add(new MetricsSampler.Point(minute * MINUTE, v));
-                }
-              });
-        });
+    copy.forEach((minute, b) -> {
+      final Map<String, Double> values = new TreeMap<>();
+      if (!b.byStatus.isEmpty()) {
+        values.put("runs.finished", (double) b.byStatus.values().stream().mapToInt(i -> i).sum());
+        b.byStatus.forEach((status, n) -> values.put("runs." + status, (double) n));
+      }
+      if (b.durationCount > 0) {
+        values.put("duration.p50", percentile(b.sampledDurations(), 0.5));
+        values.put("duration.p95", percentile(b.sampledDurations(), 0.95));
+        values.put("duration.p99", percentile(b.sampledDurations(), 0.99));
+      }
+      if (b.waitCount > 0) {
+        values.put("queue.wait.p95", percentile(b.sampledWaits(), 0.95));
+      }
+      values.forEach((name, v) -> {
+        if (names.stream().anyMatch(name::startsWith)) {
+          out.computeIfAbsent(name, _ -> new ArrayList<>())
+              .add(new MetricsSampler.Point(minute * MINUTE, v));
+        }
+      });
+    });
     return out;
   }
 
@@ -672,18 +669,17 @@ public class RunAnalytics {
   public synchronized List<HeatCell> heatmap(final String scope, final Duration range) {
     final List<HeatCell> out = new ArrayList<>();
     within(scope, range)
-        .forEach(
-            (minute, b) -> {
-              final int runs = b.byStatus.values().stream().mapToInt(i -> i).sum();
-              final int failed =
-                  b.byStatus.entrySet().stream()
-                      .filter(e -> FAILED.contains(e.getKey()))
-                      .mapToInt(Map.Entry::getValue)
-                      .sum();
-              if (runs > 0) {
-                out.add(new HeatCell(minute * MINUTE, runs, failed, b.failedRuns));
-              }
-            });
+        .forEach((minute, b) -> {
+          final int runs = b.byStatus.values().stream().mapToInt(i -> i).sum();
+          final int failed =
+              b.byStatus.entrySet().stream()
+                  .filter(e -> FAILED.contains(e.getKey()))
+                  .mapToInt(Map.Entry::getValue)
+                  .sum();
+          if (runs > 0) {
+            out.add(new HeatCell(minute * MINUTE, runs, failed, b.failedRuns));
+          }
+        });
     return out;
   }
 
@@ -698,23 +694,20 @@ public class RunAnalytics {
     final Map<String, double[]> sum = new TreeMap<>();
     within(scope, range)
         .values()
-        .forEach(
-            b ->
-                b.modules.forEach(
-                    (module, stat) -> {
-                      final double[] total = sum.computeIfAbsent(module, _ -> new double[3]);
-                      for (int i = 0; i < total.length; i++) {
-                        total[i] += stat[i];
-                      }
-                    }));
+        .forEach(b ->
+            b.modules.forEach((module, stat) -> {
+              final double[] total = sum.computeIfAbsent(module, _ -> new double[3]);
+              for (int i = 0; i < total.length; i++) {
+                total[i] += stat[i];
+              }
+            }));
     return sum.entrySet().stream()
-        .map(
-            e ->
-                new ModuleRow(
-                    e.getKey(),
-                    (long) e.getValue()[0],
-                    (long) e.getValue()[1],
-                    e.getValue()[2] / e.getValue()[0]))
+        .map(e ->
+            new ModuleRow(
+                e.getKey(),
+                (long) e.getValue()[0],
+                (long) e.getValue()[1],
+                e.getValue()[2] / e.getValue()[0]))
         .sorted((a, b) -> Long.compare(b.executions(), a.executions()))
         .toList();
   }
@@ -728,20 +721,19 @@ public class RunAnalytics {
     final long now = clock.millis();
     return live.entrySet().stream()
         .filter(e -> e.getValue().startedAt != null)
-        .map(
-            e -> {
-              final RunState r = e.getValue();
-              return new LiveRun(
-                  e.getKey(),
-                  r.sessionId,
-                  r.workflowId,
-                  r.startedAt.toEpochMilli(),
-                  now - r.startedAt.toEpochMilli(),
-                  r.nodesDone.size(),
-                  r.nodesSeen.size(),
-                  baseline(r.workflowId),
-                  null);
-            })
+        .map(e -> {
+          final RunState r = e.getValue();
+          return new LiveRun(
+              e.getKey(),
+              r.sessionId,
+              r.workflowId,
+              r.startedAt.toEpochMilli(),
+              now - r.startedAt.toEpochMilli(),
+              r.nodesDone.size(),
+              r.nodesSeen.size(),
+              baseline(r.workflowId),
+              null);
+        })
         .sorted((a, b) -> Long.compare(b.elapsedMs(), a.elapsedMs()))
         .toList();
   }
@@ -770,11 +762,10 @@ public class RunAnalytics {
         .filter(a -> a.time() >= from)
         // seeded commands are added after live ones: keep the documented order
         .sorted(Comparator.comparingLong(Annotation::time))
-        .filter(
-            a ->
-                GLOBAL.equals(scope)
-                    || scope.equals("session:" + a.sessionId())
-                    || scope.equals("workflow:" + a.workflowId()))
+        .filter(a ->
+            GLOBAL.equals(scope)
+                || scope.equals("session:" + a.sessionId())
+                || scope.equals("workflow:" + a.workflowId()))
         .toList();
   }
 }

@@ -101,15 +101,14 @@ public class ExecutionSearchController {
     return sessions
         .getSessionIds(includeInternal)
         .filter(id -> sessionId == null || sessionId.equals(id))
-        .concatMap(
-            id ->
-                (filter.workflowId() == null
-                        ? controlBus.getHistory(id)
-                        // the tracker narrows by workflow before it builds and sorts summaries
-                        : controlBus.getHistory(id, filter.workflowId()))
-                    .flatMapIterable(history -> history)
-                    .filter(filter::matches)
-                    .map(run -> hit(id, run)))
+        .concatMap(id ->
+            (filter.workflowId() == null
+                    ? controlBus.getHistory(id)
+                    // the tracker narrows by workflow before it builds and sorts summaries
+                    : controlBus.getHistory(id, filter.workflowId()))
+                .flatMapIterable(history -> history)
+                .filter(filter::matches)
+                .map(run -> hit(id, run)))
         .sort(Comparator.comparing(Hit::startTime, Comparator.nullsLast(Comparator.reverseOrder())))
         .take(max)
         .collectList()
@@ -135,20 +134,19 @@ public class ExecutionSearchController {
         .getSessionIds(false)
         .concatMap(id -> controlBus.getHistory(id).flatMapIterable(history -> history))
         .collectList()
-        .map(
-            runs ->
-                ApiResponse.success(
-                    200,
-                    "Executions counted",
-                    new Counts(
-                        count(runs, run -> run.status() == TaskStatus.RUNNING),
-                        count(runs, run -> run.status() == TaskStatus.QUEUED),
-                        count(
-                            runs,
-                            run ->
-                                run.status() == TaskStatus.FAILURE
-                                    && run.startTime() != null
-                                    && !run.startTime().isBefore(since)))));
+        .map(runs ->
+            ApiResponse.success(
+                200,
+                "Executions counted",
+                new Counts(
+                    count(runs, run -> run.status() == TaskStatus.RUNNING),
+                    count(runs, run -> run.status() == TaskStatus.QUEUED),
+                    count(
+                        runs,
+                        run ->
+                            run.status() == TaskStatus.FAILURE
+                                && run.startTime() != null
+                                && !run.startTime().isBefore(since)))));
   }
 
   private static int count(

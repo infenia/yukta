@@ -46,13 +46,12 @@ class PluginGuardTest {
   @Test
   void continueModeRoutesToErrorPort() {
     StepVerifier.create(run(Mono.error(new IllegalStateException("boom")), FailureMode.CONTINUE))
-        .assertNext(
-            m -> {
-              assertThat(m.sourcePort()).isEqualTo("error");
-              assertThat(m.failureReason()).isEqualTo("IllegalStateException");
-              assertThat(m.exceptionDetail()).isEqualTo("boom");
-              assertThat(m.payload()).isEqualTo(Map.of("a", 1));
-            })
+        .assertNext(m -> {
+          assertThat(m.sourcePort()).isEqualTo("error");
+          assertThat(m.failureReason()).isEqualTo("IllegalStateException");
+          assertThat(m.exceptionDetail()).isEqualTo("boom");
+          assertThat(m.payload()).isEqualTo(Map.of("a", 1));
+        })
         .verifyComplete();
   }
 

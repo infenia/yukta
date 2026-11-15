@@ -31,31 +31,30 @@ public class SkipNodeCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final SkipNodeCommand skip) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(skip.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + skip.executionId()));
-          final AtomicBoolean flag = control.nodeSkipFlags().get(skip.nodeId());
-          if (flag == null) {
-            throw new NotFoundException("Node not found: " + skip.nodeId());
-          }
-          if (!(control.prepared().pluginCache().get(skip.nodeId()) instanceof ProcessorPlugin)) {
-            throw new IllegalArgumentException(
-                "Only processor nodes can be skipped (node "
-                    + skip.nodeId()
-                    + " of execution "
-                    + skip.executionId()
-                    + ")");
-          }
-          flag.set(skip.skip());
-          log.atDebug()
-              .addKeyValue("executionId", skip.executionId())
-              .addKeyValue("nodeId", skip.nodeId())
-              .addKeyValue("skip", skip.skip())
-              .log("Set node skip flag");
-        });
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(skip.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + skip.executionId()));
+      final AtomicBoolean flag = control.nodeSkipFlags().get(skip.nodeId());
+      if (flag == null) {
+        throw new NotFoundException("Node not found: " + skip.nodeId());
+      }
+      if (!(control.prepared().pluginCache().get(skip.nodeId()) instanceof ProcessorPlugin)) {
+        throw new IllegalArgumentException(
+            "Only processor nodes can be skipped (node "
+                + skip.nodeId()
+                + " of execution "
+                + skip.executionId()
+                + ")");
+      }
+      flag.set(skip.skip());
+      log.atDebug()
+          .addKeyValue("executionId", skip.executionId())
+          .addKeyValue("nodeId", skip.nodeId())
+          .addKeyValue("skip", skip.skip())
+          .log("Set node skip flag");
+    });
   }
 }

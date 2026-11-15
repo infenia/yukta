@@ -71,20 +71,17 @@ public class WebhookTriggerPlugin implements TriggerPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          ConfigValidation.requiredString(config, "path");
-          ConfigValidation.requiredString(config, "secret");
-        });
+    return Mono.fromRunnable(() -> {
+      ConfigValidation.requiredString(config, "path");
+      ConfigValidation.requiredString(config, "secret");
+    });
   }
 
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
-    return Flux.deferContextual(
-        ctx -> {
-          final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
-          return Flux.just(
-              DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
-        });
+    return Flux.deferContextual(ctx -> {
+      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
+      return Flux.just(DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
+    });
   }
 }

@@ -142,9 +142,8 @@ public class TemplateController {
     final var types = new TreeSet<String>();
     config
         .path("workflows")
-        .forEach(
-            workflow ->
-                workflow.path("nodes").forEach(node -> types.add(node.path("type").asString(""))));
+        .forEach(workflow ->
+            workflow.path("nodes").forEach(node -> types.add(node.path("type").asString(""))));
     types.remove("");
     return new TemplateDetail(
         id, heading.title(), heading.summary(), List.copyOf(types), readme, config);

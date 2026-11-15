@@ -51,13 +51,12 @@ public class TopologicalSortService {
     }
 
     final Queue<String> queue = new ArrayDeque<>();
-    inDegree.forEach(
-        (id, degree) -> {
-          if (degree == 0) {
-            queue.add(id);
-            log.atDebug().addKeyValue("nodeId", id).log("Added root node to processing queue");
-          }
-        });
+    inDegree.forEach((id, degree) -> {
+      if (degree == 0) {
+        queue.add(id);
+        log.atDebug().addKeyValue("nodeId", id).log("Added root node to processing queue");
+      }
+    });
 
     final List<WorkflowNode> result = new ArrayList<>();
     while (!queue.isEmpty()) {

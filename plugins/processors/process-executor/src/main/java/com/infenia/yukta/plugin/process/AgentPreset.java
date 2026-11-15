@@ -151,12 +151,9 @@ public record AgentPreset(
     final List<Live> live =
         out.path("live")
             .valueStream()
-            .map(
-                n ->
-                    new Live(
-                        strings(n.path("when")),
-                        required(n, "text"),
-                        n.path("prefix").asString("")))
+            .map(n ->
+                new Live(
+                    strings(n.path("when")), required(n, "text"), n.path("prefix").asString("")))
             .toList();
     return new AgentPreset(
         id,
@@ -186,10 +183,8 @@ public record AgentPreset(
 
   private static List<Capture> captures(final JsonNode node) {
     final List<Capture> found = new ArrayList<>();
-    node.forEach(
-        n ->
-            found.add(
-                new Capture(strings(n.path("when")), required(n, "path"), required(n, "into"))));
+    node.forEach(n ->
+        found.add(new Capture(strings(n.path("when")), required(n, "path"), required(n, "into"))));
     return found;
   }
 

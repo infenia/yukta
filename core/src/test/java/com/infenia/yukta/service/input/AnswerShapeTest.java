@@ -35,9 +35,8 @@ class AnswerShapeTest {
 
   @Test
   void anApprovalWithoutOptionsTakesAnyDecision() {
-    assertThatCode(
-            () ->
-                AnswerShape.check(request(InputKind.APPROVAL, List.of(), null), answer("whatever")))
+    assertThatCode(() ->
+            AnswerShape.check(request(InputKind.APPROVAL, List.of(), null), answer("whatever")))
         .doesNotThrowAnyException();
   }
 

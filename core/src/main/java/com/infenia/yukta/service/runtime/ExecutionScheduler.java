@@ -649,11 +649,8 @@ public class ExecutionScheduler implements SmartLifecycle {
       }
     }
     // A waiter's subscriber runs its teardown on this thread, so it is told outside the lock.
-    refused.forEach(
-        waiter ->
-            waiter
-                .grant()
-                .tryEmitError(new ExecutionRejectedException("The server is shutting down")));
+    refused.forEach(waiter ->
+        waiter.grant().tryEmitError(new ExecutionRejectedException("The server is shutting down")));
     // Spring's callback runs outside the lock
     if (idle) {
       callback.run();
@@ -662,11 +659,10 @@ public class ExecutionScheduler implements SmartLifecycle {
     signal
         .asMono()
         .timeout(shutdownTimeout)
-        .onErrorResume(
-            _ -> {
-              log.atWarn().addKeyValue("running", running()).log("Shutdown timeout, giving up");
-              return Mono.empty();
-            })
+        .onErrorResume(_ -> {
+          log.atWarn().addKeyValue("running", running()).log("Shutdown timeout, giving up");
+          return Mono.empty();
+        })
         .doFinally(_ -> callback.run())
         .subscribe();
   }

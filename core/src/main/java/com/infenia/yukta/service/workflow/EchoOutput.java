@@ -60,10 +60,9 @@ public class EchoOutput {
   private boolean hasSecretKey(final Object value) {
     if (value instanceof final Map<?, ?> map) {
       return map.entrySet().stream()
-          .anyMatch(
-              e ->
-                  ConfigRedactor.isSecretName(String.valueOf(e.getKey()))
-                      || hasSecretKey(e.getValue()));
+          .anyMatch(e ->
+              ConfigRedactor.isSecretName(String.valueOf(e.getKey()))
+                  || hasSecretKey(e.getValue()));
     }
     return value instanceof final List<?> list && list.stream().anyMatch(EchoOutput::hasSecretKey);
   }

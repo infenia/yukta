@@ -136,65 +136,60 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return Flux.defer(
-        () -> {
-          final Mode mode = Mode.from(config.get(MODE));
-          // one message at a time: each load must see the turns the messages before it stored
-          return input.concatMap(
-              message ->
-                  switch (mode) {
-                    case LOAD -> load(message, config);
-                    case APPEND -> append(message, config);
-                    default -> delete(message, config);
-                  });
-        });
+    return Flux.defer(() -> {
+      final Mode mode = Mode.from(config.get(MODE));
+      // one message at a time: each load must see the turns the messages before it stored
+      return input.concatMap(message ->
+          switch (mode) {
+            case LOAD -> load(message, config);
+            case APPEND -> append(message, config);
+            default -> delete(message, config);
+          });
+    });
   }
 
   private Mono<Message<?>> load(final Message<?> message, final Map<String, Object> config) {
     return Mono.zip(resolve(config.get(SESSION_ID), message), resolve(config.get(MESSAGE), message))
-        .map(
-            t -> {
-              final String sessionId = t.getT1();
-              final int maxTurns = maxTurns(config);
-              final Map<String, Object> payload = new LinkedHashMap<>();
-              if (message.payload() instanceof final Map<?, ?> map) {
-                map.forEach((key, value) -> payload.put(String.valueOf(key), value));
-              } else {
-                payload.put("input", message.payload());
-              }
-              payload.put(HISTORY, store.history(key(message, sessionId), maxTurns));
-              final Map<String, Object> metadata = new HashMap<>(message.metadata());
-              metadata.put(SESSION_ID, sessionId);
-              metadata.put(USER_TURN, t.getT2());
-              return DefaultMessage.from(message, payload)
-                  .withMetadata(metadata)
-                  .withSourcePort(PORT_DEFAULT);
-            });
+        .map(t -> {
+          final String sessionId = t.getT1();
+          final int maxTurns = maxTurns(config);
+          final Map<String, Object> payload = new LinkedHashMap<>();
+          if (message.payload() instanceof final Map<?, ?> map) {
+            map.forEach((key, value) -> payload.put(String.valueOf(key), value));
+          } else {
+            payload.put("input", message.payload());
+          }
+          payload.put(HISTORY, store.history(key(message, sessionId), maxTurns));
+          final Map<String, Object> metadata = new HashMap<>(message.metadata());
+          metadata.put(SESSION_ID, sessionId);
+          metadata.put(USER_TURN, t.getT2());
+          return DefaultMessage.from(message, payload)
+              .withMetadata(metadata)
+              .withSourcePort(PORT_DEFAULT);
+        });
   }
 
   private Mono<Message<?>> append(final Message<?> message, final Map<String, Object> config) {
     return Mono.zip(
             resolve(config.getOrDefault(SESSION_ID, "${metadata.sessionId}"), message),
             resolve(config.getOrDefault(ASSISTANT, "${payload.content}"), message))
-        .map(
-            t -> {
-              final List<Map<String, String>> turns = new ArrayList<>();
-              if (message.metadata().get(USER_TURN) instanceof final String user) {
-                turns.add(Map.of("role", "user", "content", user));
-              }
-              turns.add(Map.of("role", ASSISTANT, "content", t.getT2()));
-              store.append(key(message, t.getT1()), turns, maxTurns(config));
-              return message.withSourcePort(PORT_DEFAULT);
-            });
+        .map(t -> {
+          final List<Map<String, String>> turns = new ArrayList<>();
+          if (message.metadata().get(USER_TURN) instanceof final String user) {
+            turns.add(Map.of("role", "user", "content", user));
+          }
+          turns.add(Map.of("role", ASSISTANT, "content", t.getT2()));
+          store.append(key(message, t.getT1()), turns, maxTurns(config));
+          return message.withSourcePort(PORT_DEFAULT);
+        });
   }
 
   private Mono<Message<?>> delete(final Message<?> message, final Map<String, Object> config) {
     return resolve(config.get(SESSION_ID), message)
-        .map(
-            sessionId -> {
-              store.delete(key(message, sessionId));
-              return message.withSourcePort(PORT_DEFAULT);
-            });
+        .map(sessionId -> {
+          store.delete(key(message, sessionId));
+          return message.withSourcePort(PORT_DEFAULT);
+        });
   }
 
   /** History is kept per workflow, so a workflow cannot read another's conversation by its id. */
@@ -213,10 +208,8 @@ public class SessionMemoryPlugin implements ProcessorPlugin {
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.<Void>fromRunnable(() -> checkConfig(config))
-        .doOnError(
-            e ->
-                log.atWarn()
-                    .log("Session memory configuration validation failed: {}", e.getMessage()));
+        .doOnError(e ->
+            log.atWarn().log("Session memory configuration validation failed: {}", e.getMessage()));
   }
 
   private static void checkConfig(final Map<String, Object> config) {

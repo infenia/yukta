@@ -150,28 +150,26 @@ public final class NodeActivity {
       @Nullable final Duration deadline,
       final Scheduler scheduler,
       final BooleanSupplier paused) {
-    return Flux.defer(
-        () -> {
-          final AtomicReference<String> expired = new AtomicReference<>();
-          final Mono<Long> idle =
-              idle(timeout, scheduler, paused)
-                  .doOnNext(_ -> expired.set("Node idle for " + Duration.ofNanos(limit(timeout))));
-          final Mono<Long> stop =
-              deadline == null
-                  ? idle
-                  : Mono.firstWithSignal(
-                      idle,
-                      deadline(deadline, scheduler, paused)
-                          .doOnNext(_ -> expired.set("Node exceeded its deadline of " + deadline)));
-          return source
-              .takeUntilOther(stop)
-              .concatWith(
-                  Mono.defer(
-                      () ->
-                          expired.get() == null
-                              ? Mono.empty()
-                              : Mono.error(new TimeoutException(expired.get()))));
-        });
+    return Flux.defer(() -> {
+      final AtomicReference<String> expired = new AtomicReference<>();
+      final Mono<Long> idle =
+          idle(timeout, scheduler, paused)
+              .doOnNext(_ -> expired.set("Node idle for " + Duration.ofNanos(limit(timeout))));
+      final Mono<Long> stop =
+          deadline == null
+              ? idle
+              : Mono.firstWithSignal(
+                  idle,
+                  deadline(deadline, scheduler, paused)
+                      .doOnNext(_ -> expired.set("Node exceeded its deadline of " + deadline)));
+      return source
+          .takeUntilOther(stop)
+          .concatWith(
+              Mono.defer(() ->
+                  expired.get() == null
+                      ? Mono.empty()
+                      : Mono.error(new TimeoutException(expired.get()))));
+    });
   }
 
   private long limit(final Duration timeout) {
@@ -184,21 +182,19 @@ public final class NodeActivity {
    */
   /* default */ Mono<Long> deadline(
       final Duration deadline, final Scheduler scheduler, final BooleanSupplier paused) {
-    return Mono.defer(
-        () -> {
-          final long limit = deadline.toNanos();
-          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
-          final long[] running = {0};
-          return Flux.interval(Duration.ofNanos(tick), scheduler)
-              .filter(
-                  _ -> {
-                    if (firstTouch != NONE && !paused.getAsBoolean()) {
-                      running[0] += tick;
-                    }
-                    return running[0] >= limit;
-                  })
-              .next();
-        });
+    return Mono.defer(() -> {
+      final long limit = deadline.toNanos();
+      final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+      final long[] running = {0};
+      return Flux.interval(Duration.ofNanos(tick), scheduler)
+          .filter(_ -> {
+            if (firstTouch != NONE && !paused.getAsBoolean()) {
+              running[0] += tick;
+            }
+            return running[0] >= limit;
+          })
+          .next();
+    });
   }
 
   /**
@@ -207,15 +203,14 @@ public final class NodeActivity {
    */
   /* default */ Mono<Long> idle(
       final Duration timeout, final Scheduler scheduler, final BooleanSupplier paused) {
-    return Mono.defer(
-        () -> {
-          final long tick = Math.max(MIN_TICK_NANOS, timeout.toNanos() / TICKS);
-          // [0] the activity stamp already counted, [1] idle nanoseconds counted so far
-          final long[] counted = {NONE, 0};
-          return Flux.interval(Duration.ofNanos(tick), scheduler)
-              .filter(_ -> expired(counted, tick, limit(timeout), paused))
-              .next();
-        });
+    return Mono.defer(() -> {
+      final long tick = Math.max(MIN_TICK_NANOS, timeout.toNanos() / TICKS);
+      // [0] the activity stamp already counted, [1] idle nanoseconds counted so far
+      final long[] counted = {NONE, 0};
+      return Flux.interval(Duration.ofNanos(tick), scheduler)
+          .filter(_ -> expired(counted, tick, limit(timeout), paused))
+          .next();
+    });
   }
 
   /**
@@ -224,15 +219,14 @@ public final class NodeActivity {
    */
   /* default */ Mono<Long> silent(
       final Duration after, final Scheduler scheduler, final BooleanSupplier paused) {
-    return Mono.defer(
-        () -> {
-          final long limit = after.toNanos();
-          final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
-          final long[] counted = {NONE, 0};
-          return Flux.interval(Duration.ofNanos(tick), scheduler)
-              .filter(_ -> expired(counted, tick, limit, paused))
-              .next();
-        });
+    return Mono.defer(() -> {
+      final long limit = after.toNanos();
+      final long tick = Math.max(MIN_TICK_NANOS, limit / TICKS);
+      final long[] counted = {NONE, 0};
+      return Flux.interval(Duration.ofNanos(tick), scheduler)
+          .filter(_ -> expired(counted, tick, limit, paused))
+          .next();
+    });
   }
 
   private boolean expired(

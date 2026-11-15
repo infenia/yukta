@@ -335,11 +335,8 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     log.atDebug().log("Starting executeProcess for message");
     return resolveConfig(config, message)
         .flatMapMany(resolvedConfig -> executeWithConfig(message, resolvedConfig))
-        .doOnError(
-            error ->
-                log.atError()
-                    .setCause(error)
-                    .log("Process executor failed: {}", error.getMessage()));
+        .doOnError(error ->
+            log.atError().setCause(error).log("Process executor failed: {}", error.getMessage()));
   }
 
   private Flux<Message<?>> executeWithConfig(
@@ -383,10 +380,8 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
         result.exitCode(),
         result.timedOut(),
         result.durationMillis());
-    return Flux.defer(
-        () ->
-            Flux.just(
-                outputMessage(message, config, result, buildPayload(message, config, result))));
+    return Flux.defer(() ->
+        Flux.just(outputMessage(message, config, result, buildPayload(message, config, result))));
   }
 
   private Object buildPayload(
@@ -479,14 +474,13 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     final Map<String, String> env = new HashMap<>();
     message
         .metadata()
-        .forEach(
-            (key, value) -> {
-              if (value != null) {
-                final String envKey =
-                    METADATA_ENV_PREFIX + key.toUpperCase(Locale.ROOT).replace('.', '_');
-                env.put(envKey, value.toString());
-              }
-            });
+        .forEach((key, value) -> {
+          if (value != null) {
+            final String envKey =
+                METADATA_ENV_PREFIX + key.toUpperCase(Locale.ROOT).replace('.', '_');
+            env.put(envKey, value.toString());
+          }
+        });
     if (message.payload() != null) {
       env.put(PAYLOAD_ENV_KEY, payloadAsString(message.payload()));
     }
@@ -549,13 +543,12 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return Map.of();
     }
     final Map<String, Object> lifted = new LinkedHashMap<>();
-    paths.forEach(
-        (key, path) -> {
-          final JsonNode found = root.at("/" + path.replace('.', '/'));
-          if (!found.isMissingNode() && !found.isNull()) {
-            lifted.put(key, json.convertValue(found, Object.class));
-          }
-        });
+    paths.forEach((key, path) -> {
+      final JsonNode found = root.at("/" + path.replace('.', '/'));
+      if (!found.isMissingNode() && !found.isNull()) {
+        lifted.put(key, json.convertValue(found, Object.class));
+      }
+    });
     return lifted;
   }
 
@@ -732,15 +725,13 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
     }
     final String osName = System.getProperty("os.name");
     return Flux.fromIterable(command)
-        .flatMapSequential(
-            value ->
-                resolveValue(value, message)
-                    .map(Object::toString)
-                    .map(
-                        text ->
-                            useShell && !resolver.isStatic(value)
-                                ? ProcessExecutorGateway.quoteForShell(text, osName)
-                                : text))
+        .flatMapSequential(value ->
+            resolveValue(value, message)
+                .map(Object::toString)
+                .map(text ->
+                    useShell && !resolver.isStatic(value)
+                        ? ProcessExecutorGateway.quoteForShell(text, osName)
+                        : text))
         .collectList();
   }
 
@@ -750,16 +741,14 @@ public final class ProcessExecutorPlugin implements ProcessorPlugin {
       return Mono.just(Map.of());
     }
     return Flux.fromIterable(env.entrySet())
-        .flatMapSequential(
-            entry ->
-                resolveValue(entry.getValue(), message)
-                    .map(val -> Map.entry(entry.getKey(), val.toString())))
+        .flatMapSequential(entry ->
+            resolveValue(entry.getValue(), message)
+                .map(val -> Map.entry(entry.getKey(), val.toString())))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .doOnNext(
-            resolved ->
-                log.atDebug().log(
-                    "Process executor environment variables resolved: {} variable(s)",
-                    resolved.size()));
+        .doOnNext(resolved ->
+            log.atDebug().log(
+                "Process executor environment variables resolved: {} variable(s)",
+                resolved.size()));
   }
 
   private Mono<Object> resolveValue(final Object value, final Message<?> message) {

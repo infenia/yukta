@@ -83,16 +83,15 @@ public final class GatePlugin extends DecisionPlugin {
             config,
             state(message, config),
             Map.of(GATE, new Question.YesNo(string(config, QUESTION, ""))))
-        .map(
-            answers -> {
-              final double yes = answer(answers, GATE, Answer.YesNo.class).probability();
-              final boolean passed = yes >= number(config, "threshold", 0.5);
-              return emit(
-                  message,
-                  config,
-                  GATE,
-                  Map.of("probability", yes, "passed", passed),
-                  passed ? "pass" : "reject");
-            });
+        .map(answers -> {
+          final double yes = answer(answers, GATE, Answer.YesNo.class).probability();
+          final boolean passed = yes >= number(config, "threshold", 0.5);
+          return emit(
+              message,
+              config,
+              GATE,
+              Map.of("probability", yes, "passed", passed),
+              passed ? "pass" : "reject");
+        });
   }
 }

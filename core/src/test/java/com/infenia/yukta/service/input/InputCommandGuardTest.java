@@ -55,12 +55,10 @@ class InputCommandGuardTest {
                         "token:ops",
                         ControlActor.KIND_KEY,
                         ControlActor.Kind.TOKEN)))
-        .assertNext(
-            cleared -> {
-              assertThat(cleared.responder())
-                  .isEqualTo(new Responder(Responder.Type.EXTERNAL, "ops"));
-              assertThat(cleared.request().id()).isEqualTo(request.id());
-            })
+        .assertNext(cleared -> {
+          assertThat(cleared.responder()).isEqualTo(new Responder(Responder.Type.EXTERNAL, "ops"));
+          assertThat(cleared.request().id()).isEqualTo(request.id());
+        })
         .verifyComplete();
     assertThat(seen.get().escalation()).isFalse();
     assertThat(seen.get().actor().type()).isEqualTo(ActorInfo.Type.EXTERNAL);
@@ -75,19 +73,16 @@ class InputCommandGuardTest {
 
     StepVerifier.create(
             allowAll.clear(EXEC, request.id(), true).contextWrite(InputFlow.asSupervisor("guard")))
-        .assertNext(
-            cleared ->
-                assertThat(cleared.responder())
-                    .isEqualTo(new Responder(Responder.Type.SUPERVISOR, "guard")))
+        .assertNext(cleared ->
+            assertThat(cleared.responder())
+                .isEqualTo(new Responder(Responder.Type.SUPERVISOR, "guard")))
         .verifyComplete();
     StepVerifier.create(
             allowAll
                 .clear(EXEC, request.id(), false)
                 .contextWrite(InputFlow.asKey("alice", ApiRole.ADMIN)))
-        .assertNext(
-            cleared ->
-                assertThat(cleared.responder())
-                    .isEqualTo(new Responder(Responder.Type.HUMAN, "alice")))
+        .assertNext(cleared ->
+            assertThat(cleared.responder()).isEqualTo(new Responder(Responder.Type.HUMAN, "alice")))
         .verifyComplete();
   }
 
@@ -108,10 +103,9 @@ class InputCommandGuardTest {
                         ControlActor.Kind.KEY,
                         CallerIdentity.CONTEXT_KEY,
                         new ApiKeys.Match("claude", ApiRole.OPERATOR, Set.of(), true))))
-        .assertNext(
-            cleared ->
-                assertThat(cleared.responder())
-                    .isEqualTo(new Responder(Responder.Type.EXTERNAL, "claude")))
+        .assertNext(cleared ->
+            assertThat(cleared.responder())
+                .isEqualTo(new Responder(Responder.Type.EXTERNAL, "claude")))
         .verifyComplete();
   }
 }

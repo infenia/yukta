@@ -46,16 +46,14 @@ class ExecutionRecoveryTest {
         .extracting(ExecutionLogEvent::type)
         .containsExactly(ExecutionLogEvent.Type.RUN_STARTED, ExecutionLogEvent.Type.RUN_ABORTED);
     StepVerifier.create(tracker.getHistory("s1"))
-        .assertNext(
-            history ->
-                assertThat(history)
-                    .singleElement()
-                    .satisfies(
-                        run -> {
-                          assertThat(run.executionId()).isEqualTo("crashed");
-                          assertThat(run.status()).isEqualTo(TaskStatus.ABORTED);
-                          assertThat(run.endTime()).isNotNull();
-                        }))
+        .assertNext(history ->
+            assertThat(history)
+                .singleElement()
+                .satisfies(run -> {
+                  assertThat(run.executionId()).isEqualTo("crashed");
+                  assertThat(run.status()).isEqualTo(TaskStatus.ABORTED);
+                  assertThat(run.endTime()).isNotNull();
+                }))
         .verifyComplete();
   }
 
@@ -255,15 +253,13 @@ class ExecutionRecoveryTest {
 
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(log.readAll())
-                    .singleElement()
-                    .satisfies(
-                        event -> {
-                          assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.RUN_FINISHED);
-                          assertThat(event.nodeStatuses()).containsEntry("n1", "SKIPPED");
-                        }));
+        .untilAsserted(() ->
+            assertThat(log.readAll())
+                .singleElement()
+                .satisfies(event -> {
+                  assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.RUN_FINISHED);
+                  assertThat(event.nodeStatuses()).containsEntry("n1", "SKIPPED");
+                }));
   }
 
   @Test
@@ -282,12 +278,11 @@ class ExecutionRecoveryTest {
 
     org.awaitility.Awaitility.await()
         .atMost(5, java.util.concurrent.TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(log.readAll())
-                    .filteredOn(e -> e.type() == ExecutionLogEvent.Type.NODE_FINISHED)
-                    .singleElement()
-                    .satisfies(e -> assertThat(e.nodeId()).isEqualTo("n1")));
+        .untilAsserted(() ->
+            assertThat(log.readAll())
+                .filteredOn(e -> e.type() == ExecutionLogEvent.Type.NODE_FINISHED)
+                .singleElement()
+                .satisfies(e -> assertThat(e.nodeId()).isEqualTo("n1")));
 
     // the server dies here: recovery marks the run aborted and keeps what had finished
     store.append(ExecutionLogEvent.started("crashed", "s1", "w1", "v1", Map.of("k", "v")));

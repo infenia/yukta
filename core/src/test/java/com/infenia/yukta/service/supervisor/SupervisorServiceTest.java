@@ -126,11 +126,10 @@ class SupervisorServiceTest {
     StepVerifier.create(
             service.attach(
                 attachment("def-0123456789abcdef", "p", new SupervisorScope.Global(), true)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("reserved"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("reserved"))
         .verify();
   }
 
@@ -226,11 +225,8 @@ class SupervisorServiceTest {
   @Test
   void profilesNeedKnownTypeAndValidSettings() {
     StepVerifier.create(service.saveSupervisor(new Supervisor("p", "nope", Map.of(), false)))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining(TYPE))
+        .expectErrorSatisfies(e ->
+            assertThat(e).isInstanceOf(IllegalArgumentException.class).hasMessageContaining(TYPE))
         .verify();
     StepVerifier.create(service.saveSupervisor(new Supervisor("p", TYPE, Map.of("bad", 1), false)))
         .expectError(IllegalArgumentException.class)
@@ -312,14 +308,12 @@ class SupervisorServiceTest {
 
   private void expectConflict(final SupervisorAttachment attachment, final String... mentions) {
     StepVerifier.create(service.attach(attachment))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOfSatisfying(
-                        com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException
-                            .class,
-                        conflict -> assertThat(conflict.getConflicts()).isNotEmpty())
-                    .hasMessageContainingAll(mentions))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOfSatisfying(
+                    com.infenia.yukta.service.supervisor.ownership.OwnershipConflictException.class,
+                    conflict -> assertThat(conflict.getConflicts()).isNotEmpty())
+                .hasMessageContainingAll(mentions))
         .verify();
   }
 
@@ -399,11 +393,10 @@ class SupervisorServiceTest {
                     "a",
                     new SupervisorScope.Section("w", null, Set.of("group:build")),
                     true)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage(SupervisorService.GROUPS_NEED_SESSION))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage(SupervisorService.GROUPS_NEED_SESSION))
         .verify();
     StepVerifier.create(
             service.attach(
@@ -516,11 +509,10 @@ class SupervisorServiceTest {
         .verifyComplete();
 
     StepVerifier.create(service.deleteSupervisor("boss"))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessageContaining("parent of [worker]"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("parent of [worker]"))
         .verify();
     StepVerifier.create(service.deleteSupervisor("worker")).verifyComplete();
     StepVerifier.create(service.deleteSupervisor("boss")).verifyComplete();
@@ -576,11 +568,10 @@ class SupervisorServiceTest {
     }
 
     StepVerifier.create(limited.attach(attachment("b2", "p", new SupervisorScope.Global(), false)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessage("At most 2 attachments are allowed"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ConflictException.class)
+                .hasMessage("At most 2 attachments are allowed"))
         .verify();
   }
 
@@ -691,15 +682,10 @@ class SupervisorServiceTest {
     service.restore();
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(
-                        meters
-                            .get("yukta.supervisor.restored")
-                            .tag("result", "failed")
-                            .gauge()
-                            .value())
-                    .isEqualTo(1.0));
+        .untilAsserted(() ->
+            assertThat(
+                    meters.get("yukta.supervisor.restored").tag("result", "failed").gauge().value())
+                .isEqualTo(1.0));
     assertThat(meters.get("yukta.supervisor.restored").tag("result", "started").gauge().value())
         .isEqualTo(1.0);
   }
@@ -806,12 +792,11 @@ class SupervisorServiceTest {
   @Test
   void savingProfileWithBadIdIsRefusedAndStoresNothing() {
     StepVerifier.create(service.saveSupervisor(supervisor("key:admin")))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("supervisor id")
-                    .hasMessageContaining("key:admin"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("supervisor id")
+                .hasMessageContaining("key:admin"))
         .verify();
 
     StepVerifier.create(store.supervisors()).verifyComplete();
@@ -824,11 +809,10 @@ class SupervisorServiceTest {
         .verifyComplete();
 
     StepVerifier.create(service.attach(attachment("a b", "p", new SupervisorScope.Global(), true)))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("attachment id"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("attachment id"))
         .verify();
 
     StepVerifier.create(store.attachments()).verifyComplete();
@@ -914,23 +898,21 @@ class SupervisorServiceTest {
     StepVerifier.create(service.saveSupervisor(second)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(service.versions("v"))
-        .assertNext(
-            versions -> {
-              // the repeat of the same settings is not a version
-              assertThat(versions)
-                  .extracting(SupervisorVersions.Version::version)
-                  .containsExactly(2, 1);
-              assertThat(versions.get(0).supervisor()).isEqualTo(second);
-            })
+        .assertNext(versions -> {
+          // the repeat of the same settings is not a version
+          assertThat(versions)
+              .extracting(SupervisorVersions.Version::version)
+              .containsExactly(2, 1);
+          assertThat(versions.get(0).supervisor()).isEqualTo(second);
+        })
         .verifyComplete();
 
     StepVerifier.create(service.rollback("v", 1)).expectNext(first).verifyComplete();
     StepVerifier.create(service.versions("v"))
-        .assertNext(
-            versions ->
-                assertThat(versions)
-                    .extracting(SupervisorVersions.Version::version)
-                    .containsExactly(3, 2, 1))
+        .assertNext(versions ->
+            assertThat(versions)
+                .extracting(SupervisorVersions.Version::version)
+                .containsExactly(3, 2, 1))
         .verifyComplete();
   }
 
@@ -1036,18 +1018,16 @@ class SupervisorServiceTest {
               public Flux<com.infenia.yukta.plugin.control.engine.Directive.Command> directives(
                   final Flux<ExecutionEvent> events) {
                 return events
-                    .filter(
-                        e ->
-                            e instanceof ExecutionEvent.WorkflowStatusChanged changed
-                                && "FAILURE".equals(changed.status()))
-                    .map(
-                        e ->
-                            new com.infenia.yukta.plugin.control.engine.Directive.Command(
-                                "k",
-                                new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
-                                cause,
-                                "failed",
-                                null));
+                    .filter(e ->
+                        e instanceof ExecutionEvent.WorkflowStatusChanged changed
+                            && "FAILURE".equals(changed.status()))
+                    .map(e ->
+                        new com.infenia.yukta.plugin.control.engine.Directive.Command(
+                            "k",
+                            new ExecutionControlCommand.PauseWorkflowCommand(e.executionId()),
+                            cause,
+                            "failed",
+                            null));
               }
             };
           }
@@ -1067,30 +1047,27 @@ class SupervisorServiceTest {
   @Test
   void replayShowsWhatTheSupervisorWouldHaveDoneAndWhetherItMayDoIt() {
     StepVerifier.create(replaying(false).replay("r", null, "run1"))
-        .assertNext(
-            decisions ->
-                assertThat(decisions)
-                    .singleElement()
-                    .satisfies(
-                        d -> {
-                          assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
-                          assertThat(d.executionId()).isEqualTo("run1");
-                          assertThat(d.cause()).isEqualTo("tick");
-                          assertThat(d.reason()).isEqualTo("failed");
-                          // a tick is initiative, and the supervisor lists none
-                          assertThat(d.allowed()).isFalse();
-                        }))
+        .assertNext(decisions ->
+            assertThat(decisions)
+                .singleElement()
+                .satisfies(d -> {
+                  assertThat(d.command()).isEqualTo("PauseWorkflowCommand");
+                  assertThat(d.executionId()).isEqualTo("run1");
+                  assertThat(d.cause()).isEqualTo("tick");
+                  assertThat(d.reason()).isEqualTo("failed");
+                  // a tick is initiative, and the supervisor lists none
+                  assertThat(d.allowed()).isFalse();
+                }))
         .verifyComplete();
   }
 
   @Test
   void replayOfPlainSupervisorSeesEveryStatusEvent() {
     StepVerifier.create(replaying(true).replay("r", Map.of(), "run1"))
-        .assertNext(
-            decisions -> {
-              assertThat(decisions).hasSize(2);
-              assertThat(decisions).allSatisfy(d -> assertThat(d.allowed()).isTrue());
-            })
+        .assertNext(decisions -> {
+          assertThat(decisions).hasSize(2);
+          assertThat(decisions).allSatisfy(d -> assertThat(d.allowed()).isTrue());
+        })
         .verifyComplete();
   }
 

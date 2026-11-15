@@ -37,19 +37,18 @@ class SseStreamLimitsTest {
     StepVerifier.create(
             SseStreams.events(held.asFlux(), null, BEAT)
                 .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:alice")))
-        .then(
-            () -> {
-              StepVerifier.create(
-                      SseStreams.events(Flux.just("x"), null, BEAT)
-                          .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:alice")))
-                  .expectError(ResponseStatusException.class)
-                  .verify();
-              StepVerifier.create(
-                      SseStreams.events(Flux.just("x"), null, BEAT)
-                          .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:bob")))
-                  .expectNextCount(1)
-                  .verifyComplete();
-            })
+        .then(() -> {
+          StepVerifier.create(
+                  SseStreams.events(Flux.just("x"), null, BEAT)
+                      .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:alice")))
+              .expectError(ResponseStatusException.class)
+              .verify();
+          StepVerifier.create(
+                  SseStreams.events(Flux.just("x"), null, BEAT)
+                      .contextWrite(ctx -> ctx.put(ControlActor.CONTEXT_KEY, "key:bob")))
+              .expectNextCount(1)
+              .verifyComplete();
+        })
         .thenCancel()
         .verify();
   }
@@ -60,18 +59,16 @@ class SseStreamLimitsTest {
     final Sinks.Many<String> first = Sinks.many().unicast().onBackpressureBuffer();
 
     StepVerifier.create(SseStreams.events(first.asFlux(), null, BEAT))
-        .then(
-            () ->
-                StepVerifier.create(SseStreams.events(Flux.just("x"), null, BEAT))
-                    .expectErrorSatisfies(
-                        error ->
-                            assertThat(error)
-                                .isInstanceOfSatisfying(
-                                    ResponseStatusException.class,
-                                    e ->
-                                        assertThat(e.getStatusCode())
-                                            .isEqualTo(HttpStatus.TOO_MANY_REQUESTS)))
-                    .verify())
+        .then(() ->
+            StepVerifier.create(SseStreams.events(Flux.just("x"), null, BEAT))
+                .expectErrorSatisfies(error ->
+                    assertThat(error)
+                        .isInstanceOfSatisfying(
+                            ResponseStatusException.class,
+                            e ->
+                                assertThat(e.getStatusCode())
+                                    .isEqualTo(HttpStatus.TOO_MANY_REQUESTS)))
+                .verify())
         .then(first::tryEmitComplete)
         .verifyComplete();
 
@@ -87,11 +84,10 @@ class SseStreamLimitsTest {
     final Sinks.Many<String> held = Sinks.many().unicast().onBackpressureBuffer();
 
     StepVerifier.create(SseStreams.events(held.asFlux(), null, BEAT))
-        .then(
-            () ->
-                StepVerifier.create(SseStreams.events(Flux.just("x"), null, BEAT))
-                    .expectNextCount(1)
-                    .verifyComplete())
+        .then(() ->
+            StepVerifier.create(SseStreams.events(Flux.just("x"), null, BEAT))
+                .expectNextCount(1)
+                .verifyComplete())
         .thenCancel()
         .verify();
   }

@@ -53,13 +53,12 @@ class OwnershipMapTest {
         .thenReturn(new ControlReviewer.Capability(true, "run-owner", null));
 
     StepVerifier.create(map.ownersOf("s", "w"))
-        .assertNext(
-            owned -> {
-              assertThat(owned.run()).isEqualTo("run-owner");
-              assertThat(owned.nodes())
-                  .containsExactly(Map.entry("build.a", "guard"), Map.entry("deploy", "default"));
-              assertThat(owned.defaultSupervisor()).isTrue();
-            })
+        .assertNext(owned -> {
+          assertThat(owned.run()).isEqualTo("run-owner");
+          assertThat(owned.nodes())
+              .containsExactly(Map.entry("build.a", "guard"), Map.entry("deploy", "default"));
+          assertThat(owned.defaultSupervisor()).isTrue();
+        })
         .verifyComplete();
   }
 
@@ -82,15 +81,14 @@ class OwnershipMapTest {
         .thenReturn(Mono.just(Map.of("free", free, "partly", partly, "run", run)));
     when(definitions.findAll("t")).thenReturn(Mono.just(Map.of()));
     when(reviewer.capability(eq("s"), any(), any(), any()))
-        .thenAnswer(
-            call -> {
-              final String workflow = call.getArgument(1);
-              final String node = call.getArgument(2);
-              final boolean owned =
-                  "partly".equals(workflow) && "b".equals(node)
-                      || "run".equals(workflow) && node == null;
-              return new ControlReviewer.Capability(true, owned ? "guard" : "default", null);
-            });
+        .thenAnswer(call -> {
+          final String workflow = call.getArgument(1);
+          final String node = call.getArgument(2);
+          final boolean owned =
+              "partly".equals(workflow) && "b".equals(node)
+                  || "run".equals(workflow) && node == null;
+          return new ControlReviewer.Capability(true, owned ? "guard" : "default", null);
+        });
 
     StepVerifier.create(map.unowned(Flux.just("s", "t")))
         .expectNext(new OwnershipMap.WorkflowRef("s", "free"))

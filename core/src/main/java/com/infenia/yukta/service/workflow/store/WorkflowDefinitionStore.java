@@ -37,12 +37,11 @@ public interface WorkflowDefinitionStore {
       final Optional<WorkflowDefinition> replacement) {
     return find(sessionId, expected.workflowId())
         .filter(expected::equals)
-        .flatMap(
-            _ ->
-                replacement
-                    .map(previous -> save(sessionId, previous))
-                    .orElseGet(() -> remove(sessionId, expected.workflowId()))
-                    .thenReturn(true))
+        .flatMap(_ ->
+            replacement
+                .map(previous -> save(sessionId, previous))
+                .orElseGet(() -> remove(sessionId, expected.workflowId()))
+                .thenReturn(true))
         .defaultIfEmpty(false);
   }
 

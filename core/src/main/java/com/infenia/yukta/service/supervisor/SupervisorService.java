@@ -294,26 +294,24 @@ public class SupervisorService {
     Flux.defer(() -> refreshResolver().thenMany(Flux.defer(store::attachments)))
         .retryWhen(Retry.backoff(5, Duration.ofSeconds(2)))
         .filter(SupervisorAttachment::enabled)
-        .concatMap(
-            attachment ->
-                store
-                    .supervisors()
-                    .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
-                    .next()
-                    // a stored row that no longer fits the rules fails its own restore (counted)
-                    .doOnNext(_ -> SupervisorIds.validate(attachment.id(), "attachment id"))
-                    .doOnNext(this::checkSettings)
-                    .doOnNext(supervisor -> start(attachment, supervisor))
-                    .doOnNext(_ -> restored.incrementAndGet())
-                    .onErrorResume(
-                        error -> {
-                          restoreFailed.incrementAndGet();
-                          log.atWarn()
-                              .setCause(error)
-                              .addKeyValue("attachment", attachment.id())
-                              .log("Could not restore the supervisor attachment");
-                          return Mono.empty();
-                        }))
+        .concatMap(attachment ->
+            store
+                .supervisors()
+                .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
+                .next()
+                // a stored row that no longer fits the rules fails its own restore (counted)
+                .doOnNext(_ -> SupervisorIds.validate(attachment.id(), "attachment id"))
+                .doOnNext(this::checkSettings)
+                .doOnNext(supervisor -> start(attachment, supervisor))
+                .doOnNext(_ -> restored.incrementAndGet())
+                .onErrorResume(error -> {
+                  restoreFailed.incrementAndGet();
+                  log.atWarn()
+                      .setCause(error)
+                      .addKeyValue("attachment", attachment.id())
+                      .log("Could not restore the supervisor attachment");
+                  return Mono.empty();
+                }))
         .subscribe(
             _ -> {},
             error ->
@@ -400,43 +398,40 @@ public class SupervisorService {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + id)))
-        .flatMap(
-            stored -> {
-              final List<ExecutionEvent> events =
-                  ReplayEvents.from(executionLog.forExecution(executionId));
-              if (events.isEmpty()) {
-                return Mono.error(
-                    new NotFoundException("No recorded events for execution " + executionId));
-              }
-              final Supervisor trial =
-                  new Supervisor(
-                      id,
-                      stored.type(),
-                      draft == null ? stored.settings() : draft,
-                      true,
-                      stored.description(),
-                      stored.parents(),
-                      stored.delegation());
-              validateAsSaved(trial);
-              final SupervisorCapabilities caps = capabilities(trial);
-              final ExecutionSupervisor made = create(trial);
-              final Flux<ReplayDecision> out =
-                  made instanceof DirectiveSupervisor directives
-                      ? directives
-                          .directives(Flux.fromIterable(events))
-                          .map(
-                              d ->
-                                  decision(
-                                      d.command(),
-                                      d.cause().text(),
-                                      d.reason(),
-                                      caps.allows(d.command())
-                                          && (!d.cause().unprompted()
-                                              || caps.mayInitiate(d.command()))))
-                      : made.supervise(Flux.fromIterable(events))
-                          .map(c -> decision(c, "event", null, caps.allows(c)));
-              return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
-            });
+        .flatMap(stored -> {
+          final List<ExecutionEvent> events =
+              ReplayEvents.from(executionLog.forExecution(executionId));
+          if (events.isEmpty()) {
+            return Mono.error(
+                new NotFoundException("No recorded events for execution " + executionId));
+          }
+          final Supervisor trial =
+              new Supervisor(
+                  id,
+                  stored.type(),
+                  draft == null ? stored.settings() : draft,
+                  true,
+                  stored.description(),
+                  stored.parents(),
+                  stored.delegation());
+          validateAsSaved(trial);
+          final SupervisorCapabilities caps = capabilities(trial);
+          final ExecutionSupervisor made = create(trial);
+          final Flux<ReplayDecision> out =
+              made instanceof DirectiveSupervisor directives
+                  ? directives
+                      .directives(Flux.fromIterable(events))
+                      .map(d ->
+                          decision(
+                              d.command(),
+                              d.cause().text(),
+                              d.reason(),
+                              caps.allows(d.command())
+                                  && (!d.cause().unprompted() || caps.mayInitiate(d.command()))))
+                  : made.supervise(Flux.fromIterable(events))
+                      .map(c -> decision(c, "event", null, caps.allows(c)));
+          return out.takeUntilOther(Mono.delay(REPLAY_WAIT)).take(REPLAY_LIMIT).collectList();
+        });
   }
 
   private static ReplayDecision decision(
@@ -483,9 +478,8 @@ public class SupervisorService {
     return leaderOnly()
         .then(refreshResolver())
         .then(
-            Mono.defer(
-                () ->
-                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
+            Mono.defer(() ->
+                workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
         .then(Mono.fromRunnable(() -> validateAsSaved(supervisor)))
         .then(checkParents(supervisor))
         // the check left the unsaved supervisor in the resolver: put the stored ones back
@@ -493,40 +487,34 @@ public class SupervisorService {
         .then(Mono.defer(() -> store.saveSupervisor(supervisor)))
         .then(
             // the supervisor is saved: a lost version must not keep the old engine running
-            Mono.defer(
-                () ->
-                    store
-                        .saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)
-                        .onErrorResume(
-                            error -> {
-                              log.atWarn()
-                                  .setCause(error)
-                                  .addKeyValue(SUPERVISOR_KEY, supervisor.id())
-                                  .log("Could not keep a version of the saved supervisor");
-                              return Mono.empty();
-                            })))
+            Mono.defer(() ->
+                store
+                    .saveVersion(supervisor, Instant.now(), SupervisorVersions.KEPT)
+                    .onErrorResume(error -> {
+                      log.atWarn()
+                          .setCause(error)
+                          .addKeyValue(SUPERVISOR_KEY, supervisor.id())
+                          .log("Could not keep a version of the saved supervisor");
+                      return Mono.empty();
+                    })))
         .then(audited(true, "SaveSupervisor(" + supervisor.id() + ")"))
         .then(Mono.defer(this::refreshResolver))
         .then(
             store
                 .attachments()
-                .filter(
-                    attachment ->
-                        attachment.enabled() && attachment.supervisorId().equals(supervisor.id()))
+                .filter(attachment ->
+                    attachment.enabled() && attachment.supervisorId().equals(supervisor.id()))
                 // one attachment that no longer starts must not leave the later ones on old
                 // settings
-                .concatMap(
-                    attachment ->
-                        Mono.defer(() -> restart(attachment, supervisor))
-                            .onErrorResume(
-                                error -> {
-                                  log.atWarn()
-                                      .setCause(error)
-                                      .addKeyValue("attachmentId", attachment.id())
-                                      .log(
-                                          "Could not restart a supervisor with the saved settings");
-                                  return Mono.empty();
-                                }))
+                .concatMap(attachment ->
+                    Mono.defer(() -> restart(attachment, supervisor))
+                        .onErrorResume(error -> {
+                          log.atWarn()
+                              .setCause(error)
+                              .addKeyValue("attachmentId", attachment.id())
+                              .log("Could not restart a supervisor with the saved settings");
+                          return Mono.empty();
+                        }))
                 .then())
         .thenReturn(supervisor);
   }
@@ -567,14 +555,13 @@ public class SupervisorService {
         .then(Mono.defer(() -> declaredCheck(id)))
         .then(Mono.defer(() -> deleteUnused(id)))
         .then(Mono.defer(() -> store.deleteVersions(id)))
-        .doOnSuccess(
-            done -> {
-              // a supervisor created again under this id must not take the old credential
-              final AgentCredentials agents = agentCredentials;
-              if (agents != null) {
-                agents.revoke(id);
-              }
-            });
+        .doOnSuccess(done -> {
+          // a supervisor created again under this id must not take the old credential
+          final AgentCredentials agents = agentCredentials;
+          if (agents != null) {
+            agents.revoke(id);
+          }
+        });
   }
 
   /**
@@ -592,15 +579,13 @@ public class SupervisorService {
     return store
         .supervisors()
         .collectList()
-        .flatMap(
-            all -> {
-              final List<String> children = SupervisorHierarchy.childrenOf(id, all);
-              return children.isEmpty()
-                  ? Mono.<Void>empty()
-                  : Mono.error(
-                      new ConflictException(
-                          SUPERVISOR_PREFIX + id + " is the parent of " + children));
-            });
+        .flatMap(all -> {
+          final List<String> children = SupervisorHierarchy.childrenOf(id, all);
+          return children.isEmpty()
+              ? Mono.<Void>empty()
+              : Mono.error(
+                  new ConflictException(SUPERVISOR_PREFIX + id + " is the parent of " + children));
+        });
   }
 
   /** Refuses with 409, naming them, when sessions or workflows declare the supervisor. */
@@ -610,17 +595,16 @@ public class SupervisorService {
         ? Mono.empty()
         : usage
             .declaredBy(id)
-            .flatMap(
-                users ->
-                    users.isEmpty()
-                        ? Mono.<Void>empty()
-                        : Mono.error(
-                            new ConflictException(
-                                SUPERVISOR_PREFIX
-                                    + id
-                                    + " is declared by "
-                                    + String.join(", ", users)
-                                    + "; remove it from the definition first")));
+            .flatMap(users ->
+                users.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.error(
+                        new ConflictException(
+                            SUPERVISOR_PREFIX
+                                + id
+                                + " is declared by "
+                                + String.join(", ", users)
+                                + "; remove it from the definition first")));
   }
 
   private Mono<Void> deleteUnused(final String id) {
@@ -628,15 +612,12 @@ public class SupervisorService {
         .attachments()
         .filter(attachment -> attachment.supervisorId().equals(id))
         .hasElements()
-        .flatMap(
-            used ->
-                used
-                    ? Mono.error(
-                        new ConflictException(SUPERVISOR_PREFIX + id + " is still attached"))
-                    : store.deleteSupervisor(id))
-        .flatMap(
-            existed ->
-                existed ? Mono.<Void>empty() : Mono.error(new NotFoundException(NOT_FOUND + id)));
+        .flatMap(used ->
+            used
+                ? Mono.error(new ConflictException(SUPERVISOR_PREFIX + id + " is still attached"))
+                : store.deleteSupervisor(id))
+        .flatMap(existed ->
+            existed ? Mono.<Void>empty() : Mono.error(new NotFoundException(NOT_FOUND + id)));
   }
 
   /**
@@ -716,28 +697,25 @@ public class SupervisorService {
         .filter(supervisor -> supervisor.id().equals(attachment.supervisorId()))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException(NOT_FOUND + attachment.supervisorId())))
-        .flatMap(
-            supervisor ->
-                store
-                    .attachments()
-                    .filter(existing -> !existing.id().equals(attachment.id()))
-                    .count()
-                    .flatMap(
-                        others ->
-                            others + attaching.get() - 1 >= maxAttachments
-                                ? Mono.error(
-                                    new ConflictException(
-                                        "At most " + maxAttachments + " attachments are allowed"))
-                                : Mono.just(supervisor)))
+        .flatMap(supervisor ->
+            store
+                .attachments()
+                .filter(existing -> !existing.id().equals(attachment.id()))
+                .count()
+                .flatMap(others ->
+                    others + attaching.get() - 1 >= maxAttachments
+                        ? Mono.error(
+                            new ConflictException(
+                                "At most " + maxAttachments + " attachments are allowed"))
+                        : Mono.just(supervisor)))
         .flatMap(supervisor -> requireFree(attachment).thenReturn(supervisor))
-        .doOnNext(
-            supervisor -> {
-              if (attachment.enabled()) {
-                start(attachment, supervisor);
-              } else {
-                host.detach(attachment.id());
-              }
-            })
+        .doOnNext(supervisor -> {
+          if (attachment.enabled()) {
+            start(attachment, supervisor);
+          } else {
+            host.detach(attachment.id());
+          }
+        })
         .then(
             store
                 .saveAttachment(attachment)
@@ -762,28 +740,23 @@ public class SupervisorService {
         .attachments()
         .filter(other -> other.enabled() && !other.id().equals(attachment.id()))
         .collectList()
-        .flatMap(
-            others ->
-                shapesOf(attachment, others)
-                    .map(
-                        shapes ->
-                            new OwnershipValidator(
-                                    (session, workflow) ->
-                                        Optional.ofNullable(shapes.get(session + "/" + workflow)))
-                                .conflicts(
+        .flatMap(others ->
+            shapesOf(attachment, others)
+                .map(shapes ->
+                    new OwnershipValidator((session, workflow) ->
+                        Optional.ofNullable(shapes.get(session + "/" + workflow)))
+                        .conflicts(
+                            new OwnershipValidator.Claim(
+                                attachment.supervisorId(), attachment.scope()),
+                            others.stream()
+                                .map(other ->
                                     new OwnershipValidator.Claim(
-                                        attachment.supervisorId(), attachment.scope()),
-                                    others.stream()
-                                        .map(
-                                            other ->
-                                                new OwnershipValidator.Claim(
-                                                    other.supervisorId(), other.scope()))
-                                        .toList())))
-        .flatMap(
-            conflicts ->
-                conflicts.isEmpty()
-                    ? Mono.<Void>empty()
-                    : Mono.<Void>error(new OwnershipConflictException(conflicts)));
+                                        other.supervisorId(), other.scope()))
+                                .toList())))
+        .flatMap(conflicts ->
+            conflicts.isEmpty()
+                ? Mono.<Void>empty()
+                : Mono.<Void>error(new OwnershipConflictException(conflicts)));
   }
 
   /** The nodes and groups of every workflow the scopes name, so selectors match real nodes. */
@@ -798,13 +771,12 @@ public class SupervisorService {
         .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
         .map(scope -> scope.sessionId() + "/" + scope.workflowId())
         .distinct()
-        .concatMap(
-            key -> {
-              final int slash = key.indexOf('/');
-              return definitions
-                  .find(key.substring(0, slash), key.substring(slash + 1))
-                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
-            })
+        .concatMap(key -> {
+          final int slash = key.indexOf('/');
+          return definitions
+              .find(key.substring(0, slash), key.substring(slash + 1))
+              .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+        })
         .collectMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
@@ -824,19 +796,16 @@ public class SupervisorService {
         .filter(scope -> scope.sessionId() != null && scope.workflowId() != null)
         .map(scope -> scope.sessionId() + "/" + scope.workflowId())
         .distinct()
-        .concatMap(
-            key -> {
-              final int slash = key.indexOf('/');
-              return stored
-                  .find(key.substring(0, slash), key.substring(slash + 1))
-                  .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
-            })
+        .concatMap(key -> {
+          final int slash = key.indexOf('/');
+          return stored
+              .find(key.substring(0, slash), key.substring(slash + 1))
+              .map(definition -> Map.entry(key, WorkflowShape.from(definition)));
+        })
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-        .map(
-            shapes ->
-                new OwnershipValidator(
-                    (session, workflow) ->
-                        Optional.ofNullable(shapes.get(session + "/" + workflow))));
+        .map(shapes ->
+            new OwnershipValidator(
+                (session, workflow) -> Optional.ofNullable(shapes.get(session + "/" + workflow))));
   }
 
   /** Puts the host back to what the store holds for a attachment when saving it failed. */
@@ -847,20 +816,17 @@ public class SupervisorService {
         .next()
         .map(Optional::of)
         .defaultIfEmpty(Optional.empty())
-        .flatMap(
-            previous ->
-                previous
-                    .filter(SupervisorAttachment::enabled)
-                    .map(
-                        enabled ->
-                            store
-                                .supervisors()
-                                .filter(
-                                    supervisor -> supervisor.id().equals(enabled.supervisorId()))
-                                .next()
-                                .doOnNext(supervisor -> start(enabled, supervisor))
-                                .then())
-                    .orElseGet(() -> Mono.fromRunnable(() -> host.detach(attachmentId))))
+        .flatMap(previous ->
+            previous
+                .filter(SupervisorAttachment::enabled)
+                .map(enabled ->
+                    store
+                        .supervisors()
+                        .filter(supervisor -> supervisor.id().equals(enabled.supervisorId()))
+                        .next()
+                        .doOnNext(supervisor -> start(enabled, supervisor))
+                        .then())
+                .orElseGet(() -> Mono.fromRunnable(() -> host.detach(attachmentId))))
         .onErrorResume(error -> Mono.empty());
   }
 
@@ -873,21 +839,19 @@ public class SupervisorService {
   public Mono<Void> detach(final String attachmentId) {
     return leaderOnly()
         .then(
-            Mono.defer(
-                () ->
-                    store
-                        .attachments()
-                        .filter(a -> a.id().equals(attachmentId) && a.locked())
-                        .hasElements()))
-        .flatMap(
-            locked ->
-                locked
-                    ? Mono.error(
-                        new ConflictException(
-                            "Assignment "
-                                + attachmentId
-                                + " is locked; change it through the supervisor's assignments"))
-                    : detachBinding(attachmentId));
+            Mono.defer(() ->
+                store
+                    .attachments()
+                    .filter(a -> a.id().equals(attachmentId) && a.locked())
+                    .hasElements()))
+        .flatMap(locked ->
+            locked
+                ? Mono.error(
+                    new ConflictException(
+                        "Assignment "
+                            + attachmentId
+                            + " is locked; change it through the supervisor's assignments"))
+                : detachBinding(attachmentId));
   }
 
   /**
@@ -905,14 +869,13 @@ public class SupervisorService {
     // not listed with nothing running.
     return store
         .deleteAttachment(attachmentId)
-        .flatMap(
-            existed ->
-                Mono.fromRunnable(() -> host.detach(attachmentId))
-                    .then(
-                        existed
-                            ? audited(true, "DetachSupervisor(" + attachmentId + ")")
-                            : Mono.error(
-                                new NotFoundException("Attachment not found: " + attachmentId))));
+        .flatMap(existed ->
+            Mono.fromRunnable(() -> host.detach(attachmentId))
+                .then(
+                    existed
+                        ? audited(true, "DetachSupervisor(" + attachmentId + ")")
+                        : Mono.error(
+                            new NotFoundException("Attachment not found: " + attachmentId))));
   }
 
   /**
@@ -924,10 +887,9 @@ public class SupervisorService {
   public Mono<Void> removeForSession(final String sessionId) {
     return store
         .attachments()
-        .filter(
-            attachment ->
-                sessionId.equals(attachment.scope().sessionId())
-                    || sessionId.equals(attachment.originSessionId()))
+        .filter(attachment ->
+            sessionId.equals(attachment.scope().sessionId())
+                || sessionId.equals(attachment.originSessionId()))
         .concatMap(attachment -> detachBinding(attachment.id()))
         .then();
   }
@@ -1010,9 +972,8 @@ public class SupervisorService {
   public Mono<List<SettingsValidationException.Issue>> check(final Supervisor supervisor) {
     return refreshResolver()
         .then(
-            Mono.defer(
-                () ->
-                    workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
+            Mono.defer(() ->
+                workflowChecks == null ? Mono.<Void>empty() : workflowChecks.check(supervisor)))
         .then(Mono.fromRunnable(() -> validate(supervisor)))
         .thenReturn(List.<SettingsValidationException.Issue>of())
         .onErrorResume(SettingsValidationException.class, error -> Mono.just(error.getIssues()))
@@ -1134,48 +1095,43 @@ public class SupervisorService {
     }
     return store
         .attachments()
-        .filter(
-            a ->
-                a.enabled()
-                    && a.scope() instanceof SupervisorScope.Section section
-                    && section.hasGroups()
-                    && sessionId.equals(section.sessionId())
-                    && host.attached(a.id())
-                        .map(bound -> !bound.scope().equals(groups.resolve(a.scope())))
-                        .orElse(false))
-        .concatMap(
-            a ->
-                store
-                    .supervisors()
-                    .filter(supervisor -> supervisor.id().equals(a.supervisorId()))
-                    .next()
-                    .doOnNext(supervisor -> start(a, supervisor))
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .setCause(error)
-                              .addKeyValue("attachmentId", a.id())
-                              .log("Could not restart a supervisor whose groups changed");
-                          return Mono.empty();
-                        }))
+        .filter(a ->
+            a.enabled()
+                && a.scope() instanceof SupervisorScope.Section section
+                && section.hasGroups()
+                && sessionId.equals(section.sessionId())
+                && host.attached(a.id())
+                    .map(bound -> !bound.scope().equals(groups.resolve(a.scope())))
+                    .orElse(false))
+        .concatMap(a ->
+            store
+                .supervisors()
+                .filter(supervisor -> supervisor.id().equals(a.supervisorId()))
+                .next()
+                .doOnNext(supervisor -> start(a, supervisor))
+                .onErrorResume(error -> {
+                  log.atWarn()
+                      .setCause(error)
+                      .addKeyValue("attachmentId", a.id())
+                      .log("Could not restart a supervisor whose groups changed");
+                  return Mono.empty();
+                }))
         .then();
   }
 
   /** Records an attach or detach with the caller as actor. */
   private Mono<Void> audited(final boolean applied, final String command) {
-    return Mono.deferContextual(
-        context ->
-            Mono.fromRunnable(
-                () ->
-                    ControlAudit.record(
-                        executionLog,
-                        auditSink,
-                        new AuditRecord(
-                            applied,
-                            AUDIT_RUN,
-                            command,
-                            context.getOrDefault(ControlActor.CONTEXT_KEY, null),
-                            null,
-                            Instant.now()))));
+    return Mono.deferContextual(context ->
+        Mono.fromRunnable(() ->
+            ControlAudit.record(
+                executionLog,
+                auditSink,
+                new AuditRecord(
+                    applied,
+                    AUDIT_RUN,
+                    command,
+                    context.getOrDefault(ControlActor.CONTEXT_KEY, null),
+                    null,
+                    Instant.now()))));
   }
 }

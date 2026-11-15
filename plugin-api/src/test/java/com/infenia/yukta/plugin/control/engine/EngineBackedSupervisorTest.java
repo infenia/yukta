@@ -49,19 +49,15 @@ class EngineBackedSupervisorTest {
   void commandsComeOutAndOtherDirectivesAreIgnored() {
     final var sup =
         supervisor(
-            engine(
-                signals ->
-                    signals.flatMap(
-                        s ->
-                            s instanceof Signal.Event
-                                ? Flux.just(
-                                    new Directive.Command(
-                                        "k", STOP, Cause.initiative(), null, null),
-                                    new Directive.NoOpinion("nothing"),
-                                    new Directive.ReviewVerdict(
-                                        "nothing", Directive.Verdict.ALLOW, null),
-                                    new Directive.Notify("n", Cause.initiative(), null))
-                                : Flux.empty())),
+            engine(signals ->
+                signals.flatMap(s ->
+                    s instanceof Signal.Event
+                        ? Flux.just(
+                            new Directive.Command("k", STOP, Cause.initiative(), null, null),
+                            new Directive.NoOpinion("nothing"),
+                            new Directive.ReviewVerdict("nothing", Directive.Verdict.ALLOW, null),
+                            new Directive.Notify("n", Cause.initiative(), null))
+                        : Flux.empty())),
             true);
     assertThat(sup.id()).isEqualTo("s1");
     assertThat(sup.scope()).isInstanceOf(SupervisorScope.Global.class);
@@ -76,12 +72,10 @@ class EngineBackedSupervisorTest {
     for (final Directive.Verdict verdict : Directive.Verdict.values()) {
       final var sup =
           supervisor(
-              engine(
-                  signals ->
-                      signals
-                          .ofType(Signal.Review.class)
-                          .map(
-                              r -> (Directive) new Directive.ReviewVerdict(r.id(), verdict, null))),
+              engine(signals ->
+                  signals
+                      .ofType(Signal.Review.class)
+                      .map(r -> (Directive) new Directive.ReviewVerdict(r.id(), verdict, null))),
               true);
       sup.supervise(Flux.never()).subscribe();
       final Decision decision = sup.review(REQUEST).block(Duration.ofSeconds(5));
@@ -96,11 +90,10 @@ class EngineBackedSupervisorTest {
   void noOpinionAllowsAndSilenceTimesOutForTheReviewer() {
     final var asked =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Review.class)
-                        .map(r -> (Directive) new Directive.NoOpinion(r.id()))),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Review.class)
+                    .map(r -> (Directive) new Directive.NoOpinion(r.id()))),
             true);
     asked.supervise(Flux.never()).subscribe();
     assertThat(asked.review(REQUEST).block(Duration.ofSeconds(5))).isEqualTo(Decision.ALLOW);
@@ -215,12 +208,11 @@ class EngineBackedSupervisorTest {
   void anEngineThatDisconnectsMidReviewLeavesTheReviewToTimeOut() {
     final var sup =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Review.class)
-                        .take(1)
-                        .flatMap(r -> Flux.<Directive>error(new IllegalStateException("gone")))),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Review.class)
+                    .take(1)
+                    .flatMap(r -> Flux.<Directive>error(new IllegalStateException("gone")))),
             true);
     sup.supervise(Flux.never()).subscribe(d -> {}, e -> {});
     // the engine failed after it saw the review; nobody answers, and the review times out
@@ -234,17 +226,14 @@ class EngineBackedSupervisorTest {
     final var runs = new java.util.concurrent.atomic.AtomicInteger();
     final var sup =
         supervisor(
-            engine(
-                signals ->
-                    runs.getAndIncrement() == 0
-                        ? Flux.<Directive>error(new IllegalStateException("first run fails"))
-                        : signals
-                            .ofType(Signal.Review.class)
-                            .map(
-                                r ->
-                                    (Directive)
-                                        new Directive.ReviewVerdict(
-                                            r.id(), Directive.Verdict.DENY, "no"))),
+            engine(signals ->
+                runs.getAndIncrement() == 0
+                    ? Flux.<Directive>error(new IllegalStateException("first run fails"))
+                    : signals
+                        .ofType(Signal.Review.class)
+                        .map(r ->
+                            (Directive)
+                                new Directive.ReviewVerdict(r.id(), Directive.Verdict.DENY, "no"))),
             true);
     sup.directives(Flux.never()).subscribe(d -> {}, e -> {});
     // the host resubscribes after a failure; the review signals must still arrive
@@ -258,13 +247,12 @@ class EngineBackedSupervisorTest {
         new EngineBackedSupervisor(
             "s1",
             new SupervisorScope.Global(),
-            engine(
-                signals ->
-                    Flux.<Directive>just(
-                        new Directive.ReviewVerdict("gone", Directive.Verdict.DENY, null),
-                        new Directive.NoOpinion("gone"),
-                        new Directive.Notify("hello", Cause.tick(), "why"),
-                        new Directive.Command("k", STOP, Cause.tick(), "why", null))),
+            engine(signals ->
+                Flux.<Directive>just(
+                    new Directive.ReviewVerdict("gone", Directive.Verdict.DENY, null),
+                    new Directive.NoOpinion("gone"),
+                    new Directive.Notify("hello", Cause.tick(), "why"),
+                    new Directive.Command("k", STOP, Cause.tick(), "why", null))),
             false);
     StepVerifier.create(sup.directives(Flux.never()).take(1))
         .assertNext(command -> assertThat(command.command()).isEqualTo(STOP))
@@ -277,12 +265,11 @@ class EngineBackedSupervisorTest {
     final List<Signal.Started> starts = new java.util.concurrent.CopyOnWriteArrayList<>();
     final var sup =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Started.class)
-                        .doOnNext(starts::add)
-                        .thenMany(Flux.<Directive>never())),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Started.class)
+                    .doOnNext(starts::add)
+                    .thenMany(Flux.<Directive>never())),
             false);
     sup.readsFrom(
         new EngineReads() {
@@ -323,11 +310,10 @@ class EngineBackedSupervisorTest {
   void parentEngineIsAskedAndAnswersConsultation() {
     final var parent =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Delegated.class)
-                        .map(d -> new Directive.DelegationAnswer(d.id(), Map.of("ok", true)))),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Delegated.class)
+                    .map(d -> new Directive.DelegationAnswer(d.id(), Map.of("ok", true)))),
             true);
     final var directives = parent.directives(Flux.never()).subscribe();
     try {
@@ -345,11 +331,10 @@ class EngineBackedSupervisorTest {
   void parentThatDeclinesOrIsSlowGivesNoAnswer() {
     final var declines =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Delegated.class)
-                        .map(d -> (Directive) new Directive.NoOpinion(d.id()))),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Delegated.class)
+                    .map(d -> (Directive) new Directive.NoOpinion(d.id()))),
             true);
     final var slow = supervisor(engine(signals -> signals.thenMany(Flux.never())), true);
     final var first = declines.directives(Flux.never()).subscribe();
@@ -372,24 +357,21 @@ class EngineBackedSupervisorTest {
     final Sinks.Many<Signal> seen = Sinks.many().replay().all();
     final var child =
         supervisor(
-            engine(
-                signals ->
-                    Flux.merge(
-                        signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
-                        Flux.just(
-                            new Directive.Delegate(
-                                DelegationKind.CONSULT, Map.of("q", "x"), "q1")))),
+            engine(signals ->
+                Flux.merge(
+                    signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
+                    Flux.just(
+                        new Directive.Delegate(DelegationKind.CONSULT, Map.of("q", "x"), "q1")))),
             true);
     child.consultWith((kind, payload) -> Mono.just(Map.of("boss", Map.of("a", 1))));
     final var run = child.directives(Flux.never()).subscribe();
     try {
       StepVerifier.create(seen.asFlux().ofType(Signal.Consulted.class).take(1))
-          .assertNext(
-              c -> {
-                assertThat(c.id()).isEqualTo("q1");
-                assertThat(c.answers()).isEqualTo(Map.of("boss", Map.of("a", 1)));
-                assertThat(c.kind()).isEqualTo(Signal.Kind.CONSULTED);
-              })
+          .assertNext(c -> {
+            assertThat(c.id()).isEqualTo("q1");
+            assertThat(c.answers()).isEqualTo(Map.of("boss", Map.of("a", 1)));
+            assertThat(c.kind()).isEqualTo(Signal.Kind.CONSULTED);
+          })
           .verifyComplete();
     } finally {
       run.dispose();
@@ -400,10 +382,9 @@ class EngineBackedSupervisorTest {
   void questionWithNoWayToAskIsDropped() {
     final var child =
         supervisor(
-            engine(
-                signals ->
-                    Flux.<Directive>just(new Directive.Delegate(DelegationKind.CONSULT, Map.of()))
-                        .concatWith(Flux.never())),
+            engine(signals ->
+                Flux.<Directive>just(new Directive.Delegate(DelegationKind.CONSULT, Map.of()))
+                    .concatWith(Flux.never())),
             true);
     StepVerifier.create(child.directives(Flux.never()).take(Duration.ofMillis(200)))
         .verifyComplete();
@@ -413,12 +394,11 @@ class EngineBackedSupervisorTest {
   void anEngineThatDiesWhileReviewIsOpenLeavesTheReviewToTimeOutAndNeverAllowsIt() {
     final var sup =
         supervisor(
-            engine(
-                signals ->
-                    signals
-                        .ofType(Signal.Review.class)
-                        .<Directive>flatMap(
-                            r -> Flux.error(new IllegalStateException("connection lost")))),
+            engine(signals ->
+                signals
+                    .ofType(Signal.Review.class)
+                    .<Directive>flatMap(
+                        r -> Flux.error(new IllegalStateException("connection lost")))),
             true);
     final var run = sup.directives(Flux.never()).subscribe(d -> {}, e -> {});
     try {
@@ -433,14 +413,13 @@ class EngineBackedSupervisorTest {
     final Sinks.Many<Signal> seen = Sinks.many().replay().all();
     final var child =
         supervisor(
-            engine(
-                signals ->
-                    Flux.merge(
-                        signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
-                        Flux.<Directive>just(
-                            new Directive.DelegationAnswer("nobody", Map.of("x", 1)),
-                            new Directive.NoOpinion("nobody"),
-                            new Directive.Delegate(DelegationKind.CONSULT, Map.of())))),
+            engine(signals ->
+                Flux.merge(
+                    signals.doOnNext(seen::tryEmitNext).then(Mono.<Directive>empty()),
+                    Flux.<Directive>just(
+                        new Directive.DelegationAnswer("nobody", Map.of("x", 1)),
+                        new Directive.NoOpinion("nobody"),
+                        new Directive.Delegate(DelegationKind.CONSULT, Map.of())))),
             true);
     child.consultWith((kind, payload) -> Mono.just(Map.of()));
     final var run = child.directives(Flux.never()).subscribe();

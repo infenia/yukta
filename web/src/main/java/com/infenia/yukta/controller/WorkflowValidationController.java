@@ -77,20 +77,18 @@ public class WorkflowValidationController {
     return workflowValidator
         .validateAll(definition)
         .zipWith(declared.check(definition))
-        .map(
-            tuple ->
-                java.util.stream.Stream.concat(
-                        tuple.getT1().stream(),
-                        tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
-                    .toList())
-        .map(
-            problems ->
-                new WorkflowValidationResult(
-                    problems.isEmpty(),
-                    problems.isEmpty() ? null : problems.getFirst(),
-                    ports,
-                    problems,
-                    warnings))
+        .map(tuple ->
+            java.util.stream.Stream.concat(
+                    tuple.getT1().stream(),
+                    tuple.getT2().stream().map(i -> i.field() + ": " + i.message()))
+                .toList())
+        .map(problems ->
+            new WorkflowValidationResult(
+                problems.isEmpty(),
+                problems.isEmpty() ? null : problems.getFirst(),
+                ports,
+                problems,
+                warnings))
         .map(result -> ApiResponse.success(200, "Workflow validated", result));
   }
 
@@ -108,24 +106,22 @@ public class WorkflowValidationController {
         .distinct()
         .filter(ports::containsKey)
         .filter(nodeId -> ports.get(nodeId).size() > 1)
-        .forEach(
-            nodeId -> {
-              final List<String> declared = ports.get(nodeId);
-              final List<WorkflowDefinition.Edge> out =
-                  definition.edges().stream().filter(edge -> nodeId.equals(edge.source())).toList();
-              declared.stream()
-                  .filter(port -> out.stream().noneMatch(edge -> reads(edge, port)))
-                  .map(
-                      port ->
-                          new WorkflowValidationResult.Warning(
-                              nodeId,
-                              port,
-                              nodeId
-                                  + " has no edge from its '"
-                                  + port
-                                  + "' port, so what it sends there is dropped"))
-                  .forEach(warnings::add);
-            });
+        .forEach(nodeId -> {
+          final List<String> declared = ports.get(nodeId);
+          final List<WorkflowDefinition.Edge> out =
+              definition.edges().stream().filter(edge -> nodeId.equals(edge.source())).toList();
+          declared.stream()
+              .filter(port -> out.stream().noneMatch(edge -> reads(edge, port)))
+              .map(port ->
+                  new WorkflowValidationResult.Warning(
+                      nodeId,
+                      port,
+                      nodeId
+                          + " has no edge from its '"
+                          + port
+                          + "' port, so what it sends there is dropped"))
+              .forEach(warnings::add);
+        });
     return warnings;
   }
 

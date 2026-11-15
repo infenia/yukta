@@ -86,35 +86,30 @@ class RuleSupervisorApprovalTest {
 
   @Test
   void badRiskRouteOrMixOfActionsIsRefusedAtLoad() {
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
-                        + "\"risk\":\"SEVERE\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                    + "\"risk\":\"SEVERE\"}}]}"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Rule 'r': risk must be LOW, MEDIUM or HIGH");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
-                        + "\"route\":\"no spaces\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                    + "\"route\":\"no spaces\"}}]}"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Rule 'r': routeName");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\"},"
-                        + "\"deny\":{\"command\":\"StopWorkflow\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\"},"
+                    + "\"deny\":{\"command\":\"StopWorkflow\"}}]}"))
         .hasMessageContaining("Rule 'r' needs either");
-    assertThatThrownBy(
-            () ->
-                supervisor("{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\" \"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor("{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\" \"}}]}"))
         .hasMessageContaining("must name the command");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
-                        + "\"unknown\":1}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                    + "\"unknown\":1}}]}"))
         .isInstanceOf(IllegalArgumentException.class);
   }
 
@@ -134,11 +129,10 @@ class RuleSupervisorApprovalTest {
             "wf");
 
     assertThat(gated.approval().ttl()).isEqualTo(java.time.Duration.ofSeconds(90));
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
-                        + "\"ttl\":0}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"requireApproval\":{\"command\":\"StopWorkflow\","
+                    + "\"ttl\":0}}]}"))
         .hasMessageContaining("Rule 'r'");
   }
 }

@@ -66,30 +66,28 @@ class AskInputProcessorTest {
   @Test
   void answerTagsTheMessage() {
     final Gateway gateway =
-        new Gateway(
-            _ ->
-                Mono.just(
-                    new InputResponse(
-                        "req-9",
-                        "approve",
-                        "go ahead",
-                        Map.of("n", 1),
-                        new Responder(Responder.Type.SUPERVISOR, "guard"),
-                        null,
-                        0.8,
-                        Instant.EPOCH)));
+        new Gateway(_ ->
+            Mono.just(
+                new InputResponse(
+                    "req-9",
+                    "approve",
+                    "go ahead",
+                    Map.of("n", 1),
+                    new Responder(Responder.Type.SUPERVISOR, "guard"),
+                    null,
+                    0.8,
+                    Instant.EPOCH)));
     StepVerifier.create(run(processor(gateway), config()))
-        .assertNext(
-            out -> {
-              assertThat(out.payload()).isEqualTo("work");
-              assertThat(out.metadata())
-                  .containsEntry("input.requestId", "req-9")
-                  .containsEntry("input.decision", "approve")
-                  .containsEntry("input.text", "go ahead")
-                  .containsEntry("input.data", Map.of("n", 1))
-                  .containsEntry("input.responder", "SUPERVISOR:guard")
-                  .containsEntry("input.confidence", 0.8);
-            })
+        .assertNext(out -> {
+          assertThat(out.payload()).isEqualTo("work");
+          assertThat(out.metadata())
+              .containsEntry("input.requestId", "req-9")
+              .containsEntry("input.decision", "approve")
+              .containsEntry("input.text", "go ahead")
+              .containsEntry("input.data", Map.of("n", 1))
+              .containsEntry("input.responder", "SUPERVISOR:guard")
+              .containsEntry("input.confidence", 0.8);
+        })
         .verifyComplete();
   }
 
@@ -168,11 +166,10 @@ class AskInputProcessorTest {
     final Gateway gateway = new Gateway(_ -> Mono.error(new InputExpiredException("r7", "late")));
     StepVerifier.create(run(processor(gateway), config())).verifyError(IllegalStateException.class);
     StepVerifier.create(run(processor(gateway), config("onTimeout", "CONTINUE")))
-        .assertNext(
-            out ->
-                assertThat(out.metadata())
-                    .containsEntry("input.decision", "timeout")
-                    .containsEntry("input.requestId", "r7"))
+        .assertNext(out ->
+            assertThat(out.metadata())
+                .containsEntry("input.decision", "timeout")
+                .containsEntry("input.requestId", "r7"))
         .verifyComplete();
   }
 
@@ -395,13 +392,12 @@ class AskInputProcessorTest {
             run(
                 new AskInputProcessor(store, InputFakes.provider(gateway), InputFakes.noResolver()),
                 config()))
-        .assertNext(
-            out ->
-                assertThat(out.metadata())
-                    .containsEntry("input.decision", "approve")
-                    .containsEntry("input.text", "")
-                    .containsEntry("input.data", Map.of())
-                    .containsEntry("input.confidence", 0.5))
+        .assertNext(out ->
+            assertThat(out.metadata())
+                .containsEntry("input.decision", "approve")
+                .containsEntry("input.text", "")
+                .containsEntry("input.data", Map.of())
+                .containsEntry("input.confidence", 0.5))
         .verifyComplete();
     assertThat(gateway.asked).isEmpty();
   }
@@ -433,11 +429,10 @@ class AskInputProcessorTest {
                     InputFakes.provider(InputFakes.answering("x", null)),
                     InputFakes.noResolver()),
                 config()))
-        .assertNext(
-            out ->
-                assertThat(out.metadata())
-                    .containsEntry("input.text", "fine")
-                    .containsEntry("input.data", Map.of("version", 3)))
+        .assertNext(out ->
+            assertThat(out.metadata())
+                .containsEntry("input.text", "fine")
+                .containsEntry("input.data", Map.of("version", 3)))
         .verifyComplete();
   }
 }

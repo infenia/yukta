@@ -79,14 +79,13 @@ public class InMemoryPluginLogStore implements PluginLogStore {
     this.cache =
         Caffeine.newBuilder()
             .expireAfterWrite(effectiveRetention)
-            .<String, Lines>removalListener(
-                (key, lines, cause) -> {
-                  synchronized (lines) {
-                    held.addAndGet(-lines.chars);
-                    lines.chars = 0;
-                  }
-                  log.debug("Log entry expired for execution: {} ({})", key, cause);
-                })
+            .<String, Lines>removalListener((key, lines, cause) -> {
+              synchronized (lines) {
+                held.addAndGet(-lines.chars);
+                lines.chars = 0;
+              }
+              log.debug("Log entry expired for execution: {} ({})", key, cause);
+            })
             .build();
   }
 

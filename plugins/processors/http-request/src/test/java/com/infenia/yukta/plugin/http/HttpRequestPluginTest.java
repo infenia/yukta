@@ -41,11 +41,10 @@ class HttpRequestPluginTest {
   void setUp() {
     plugin = new HttpRequestPlugin(gateway, resolver);
     when(resolver.resolve(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Object arg = inv.getArgument(0);
-              return Mono.justOrEmpty(arg);
-            });
+        .thenAnswer(inv -> {
+          final Object arg = inv.getArgument(0);
+          return Mono.justOrEmpty(arg);
+        });
   }
 
   private static Message<?> input() {
@@ -64,15 +63,13 @@ class HttpRequestPluginTest {
     final AtomicInteger inFlight = new AtomicInteger();
     final AtomicInteger peak = new AtomicInteger();
     when(gateway.execute(any()))
-        .thenAnswer(
-            invocation ->
-                Mono.defer(
-                    () -> {
-                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
-                      return Mono.just(okResult("x", false))
-                          .delayElement(Duration.ofMillis(20))
-                          .doOnTerminate(inFlight::decrementAndGet);
-                    }));
+        .thenAnswer(invocation ->
+            Mono.defer(() -> {
+              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+              return Mono.just(okResult("x", false))
+                  .delayElement(Duration.ofMillis(20))
+                  .doOnTerminate(inFlight::decrementAndGet);
+            }));
     StepVerifier.create(plugin.process(Flux.range(0, count).map(i -> input()), config))
         .expectNextCount(count)
         .verifyComplete();
@@ -129,16 +126,15 @@ class HttpRequestPluginTest {
             5);
 
     StepVerifier.create(run(config))
-        .assertNext(
-            m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.payload();
-              assertThat(payload)
-                  .containsEntry("status", 200)
-                  .containsEntry("success", true)
-                  .containsEntry("body", Map.of("a", 1));
-              assertThat(m.metadata()).containsEntry("status", 200);
-              assertThat(m.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(m -> {
+          final Map<String, Object> payload = (Map<String, Object>) m.payload();
+          assertThat(payload)
+              .containsEntry("status", 200)
+              .containsEntry("success", true)
+              .containsEntry("body", Map.of("a", 1));
+          assertThat(m.metadata()).containsEntry("status", 200);
+          assertThat(m.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
 
     final ArgumentCaptor<HttpRequestSpec> spec = ArgumentCaptor.forClass(HttpRequestSpec.class);
@@ -181,11 +177,10 @@ class HttpRequestPluginTest {
         .thenReturn(Mono.just(new HttpRequestResult(500, Map.of(), false, "boom")));
 
     StepVerifier.create(run(Map.of("url", "http://x")))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(WorkflowExecutionException.class)
-                    .hasMessageContaining("500"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(WorkflowExecutionException.class)
+                .hasMessageContaining("500"))
         .verify();
   }
 
@@ -220,12 +215,11 @@ class HttpRequestPluginTest {
     when(gateway.execute(any())).thenReturn(Mono.error(new IllegalStateException("down")));
 
     StepVerifier.create(run(Map.of("url", "http://x", "failureMode", "CONTINUE")))
-        .assertNext(
-            m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.payload();
-              assertThat(payload).containsEntry("status", 0).containsEntry("success", false);
-              assertThat((String) payload.get("body")).contains("down");
-            })
+        .assertNext(m -> {
+          final Map<String, Object> payload = (Map<String, Object>) m.payload();
+          assertThat(payload).containsEntry("status", 0).containsEntry("success", false);
+          assertThat((String) payload.get("body")).contains("down");
+        })
         .verifyComplete();
   }
 

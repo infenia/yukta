@@ -90,27 +90,25 @@ class SupervisorProviderTest {
     when(service.types()).thenReturn(List.of("rule-supervisor"));
 
     StepVerifier.create(provider.list())
-        .assertNext(
-            listing -> {
-              assertThat(listing.running())
-                  .singleElement()
-                  .satisfies(
-                      r -> {
-                        assertThat(r.id()).isEqualTo("b1");
-                        assertThat(r.scope()).isEqualTo("SECTION");
-                        assertThat(r.scopeSessionId()).isEqualTo("A");
-                        assertThat(r.scopeNodes()).containsExactly("build.*");
-                        assertThat(r.applied()).isEqualTo(3);
-                        assertThat(r.dryRun()).isTrue();
-                      });
-              assertThat(listing.assignments())
-                  .singleElement()
-                  .satisfies(b -> assertThat(b.scope()).isEqualTo("session:A"));
-              assertThat(listing.supervisors())
-                  .singleElement()
-                  .satisfies(c -> assertThat(c.type()).isEqualTo("rule-supervisor"));
-              assertThat(listing.types()).containsExactly("rule-supervisor");
-            })
+        .assertNext(listing -> {
+          assertThat(listing.running())
+              .singleElement()
+              .satisfies(r -> {
+                assertThat(r.id()).isEqualTo("b1");
+                assertThat(r.scope()).isEqualTo("SECTION");
+                assertThat(r.scopeSessionId()).isEqualTo("A");
+                assertThat(r.scopeNodes()).containsExactly("build.*");
+                assertThat(r.applied()).isEqualTo(3);
+                assertThat(r.dryRun()).isTrue();
+              });
+          assertThat(listing.assignments())
+              .singleElement()
+              .satisfies(b -> assertThat(b.scope()).isEqualTo("session:A"));
+          assertThat(listing.supervisors())
+              .singleElement()
+              .satisfies(c -> assertThat(c.type()).isEqualTo("rule-supervisor"));
+          assertThat(listing.types()).containsExactly("rule-supervisor");
+        })
         .verifyComplete();
   }
 
@@ -135,12 +133,11 @@ class SupervisorProviderTest {
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(provider.save(" s1 ", "t", java.util.Map.of("k", 1), true, " "))
-        .assertNext(
-            saved -> {
-              assertThat(saved.id()).isEqualTo("s1");
-              assertThat(saved.dryRun()).isTrue();
-              assertThat(saved.description()).isNull();
-            })
+        .assertNext(saved -> {
+          assertThat(saved.id()).isEqualTo("s1");
+          assertThat(saved.dryRun()).isTrue();
+          assertThat(saved.description()).isNull();
+        })
         .verifyComplete();
     StepVerifier.create(provider.save(null, "t", null, false, "why"))
         .assertNext(saved -> assertThat(saved.id()).isNotBlank())
@@ -215,11 +212,10 @@ class SupervisorProviderTest {
     when(service.saveSupervisor(any())).thenAnswer(call -> Mono.just(call.getArgument(0)));
 
     StepVerifier.create(provider.save("  ", "t", java.util.Map.of(), false, null))
-        .assertNext(
-            saved -> {
-              assertThat(saved.id()).isNotBlank();
-              assertThat(saved.description()).isNull();
-            })
+        .assertNext(saved -> {
+          assertThat(saved.id()).isNotBlank();
+          assertThat(saved.description()).isNull();
+        })
         .verifyComplete();
   }
 
@@ -241,12 +237,10 @@ class SupervisorProviderTest {
                         "p", "does p", java.util.Map.of("k", 1)))));
 
     reactor.test.StepVerifier.create(provider.presets("t"))
-        .assertNext(
-            list -> {
-              org.assertj.core.api.Assertions.assertThat(list.presets()).hasSize(1);
-              org.assertj.core.api.Assertions.assertThat(list.presets().get(0).name())
-                  .isEqualTo("p");
-            })
+        .assertNext(list -> {
+          org.assertj.core.api.Assertions.assertThat(list.presets()).hasSize(1);
+          org.assertj.core.api.Assertions.assertThat(list.presets().get(0).name()).isEqualTo("p");
+        })
         .verifyComplete();
     reactor.test.StepVerifier.create(provider.presets("nope"))
         .expectError(IllegalArgumentException.class)
@@ -265,15 +259,13 @@ class SupervisorProviderTest {
                         2, java.time.Instant.EPOCH, saved))));
 
     reactor.test.StepVerifier.create(provider.versions("s1"))
-        .assertNext(
-            list -> {
-              final var version = list.versions().get(0);
-              org.assertj.core.api.Assertions.assertThat(version.version()).isEqualTo(2);
-              org.assertj.core.api.Assertions.assertThat(version.settingKeys())
-                  .containsExactly("bearer", "url");
-              org.assertj.core.api.Assertions.assertThat(list.toString())
-                  .doesNotContain("topsecret");
-            })
+        .assertNext(list -> {
+          final var version = list.versions().get(0);
+          org.assertj.core.api.Assertions.assertThat(version.version()).isEqualTo(2);
+          org.assertj.core.api.Assertions.assertThat(version.settingKeys())
+              .containsExactly("bearer", "url");
+          org.assertj.core.api.Assertions.assertThat(list.toString()).doesNotContain("topsecret");
+        })
         .verifyComplete();
   }
 
@@ -292,12 +284,10 @@ class SupervisorProviderTest {
         .assertNext(saved -> org.assertj.core.api.Assertions.assertThat(saved.dryRun()).isTrue())
         .verifyComplete();
     reactor.test.StepVerifier.create(provider.replay("s1", "run1", null))
-        .assertNext(
-            replay -> {
-              org.assertj.core.api.Assertions.assertThat(replay.decisions()).hasSize(1);
-              org.assertj.core.api.Assertions.assertThat(replay.decisions().get(0).allowed())
-                  .isFalse();
-            })
+        .assertNext(replay -> {
+          org.assertj.core.api.Assertions.assertThat(replay.decisions()).hasSize(1);
+          org.assertj.core.api.Assertions.assertThat(replay.decisions().get(0).allowed()).isFalse();
+        })
         .verifyComplete();
   }
 
@@ -311,11 +301,10 @@ class SupervisorProviderTest {
 
     final String[] token = new String[1];
     reactor.test.StepVerifier.create(provider.issueCredential("agent", 2))
-        .assertNext(
-            issued -> {
-              token[0] = issued.token();
-              org.assertj.core.api.Assertions.assertThat(issued.expiresAt()).isNotNull();
-            })
+        .assertNext(issued -> {
+          token[0] = issued.token();
+          org.assertj.core.api.Assertions.assertThat(issued.expiresAt()).isNotNull();
+        })
         .verifyComplete();
     org.assertj.core.api.Assertions.assertThat(credentials.authenticate(token[0]))
         .contains("agent");
@@ -349,12 +338,10 @@ class SupervisorProviderTest {
                 new OwnershipMap.Ownership(
                     "s", "w", true, "guard", java.util.Map.of("a", "default"))));
     reactor.test.StepVerifier.create(provider.ownership("s", "w"))
-        .assertNext(
-            found -> {
-              org.assertj.core.api.Assertions.assertThat(found.run()).isEqualTo("guard");
-              org.assertj.core.api.Assertions.assertThat(found.nodes())
-                  .containsEntry("a", "default");
-            })
+        .assertNext(found -> {
+          org.assertj.core.api.Assertions.assertThat(found.run()).isEqualTo("guard");
+          org.assertj.core.api.Assertions.assertThat(found.nodes()).containsEntry("a", "default");
+        })
         .verifyComplete();
   }
 
@@ -381,11 +368,10 @@ class SupervisorProviderTest {
         .assertNext(r -> assertThat(r.assignments()).hasSize(1))
         .verifyComplete();
     StepVerifier.create(provider.checkAssignments("p", wanted))
-        .assertNext(
-            r -> {
-              assertThat(r.valid()).isFalse();
-              assertThat(r.problems()).containsExactly("assignments[0]: taken");
-            })
+        .assertNext(r -> {
+          assertThat(r.valid()).isFalse();
+          assertThat(r.problems()).containsExactly("assignments[0]: taken");
+        })
         .verifyComplete();
     final ArgumentCaptor<
             List<com.infenia.yukta.service.supervisor.SupervisorAssignments.Assignment>>
@@ -421,11 +407,10 @@ class SupervisorProviderTest {
     when(service.deleteSupervisor("p")).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.details("p"))
-        .assertNext(
-            d -> {
-              assertThat(d.settings()).containsEntry("apiKey", "***").containsEntry("level", 2);
-              assertThat(d.assignments()).isEmpty();
-            })
+        .assertNext(d -> {
+          assertThat(d.settings()).containsEntry("apiKey", "***").containsEntry("level", 2);
+          assertThat(d.assignments()).isEmpty();
+        })
         .verifyComplete();
     StepVerifier.create(provider.details("nobody"))
         .expectError(IllegalArgumentException.class)
@@ -451,16 +436,14 @@ class SupervisorProviderTest {
     when(reviewer.capabilities(null, null, null)).thenReturn(Map.of());
 
     StepVerifier.create(provider.supervision(null, null, "e1", null))
-        .assertNext(
-            a ->
-                assertThat(a.commands())
-                    .singleElement()
-                    .satisfies(
-                        c -> {
-                          assertThat(c.command()).isEqualTo("pause");
-                          assertThat(c.via()).isEqualTo("guard");
-                          assertThat(c.allowed()).isFalse();
-                        }))
+        .assertNext(a ->
+            assertThat(a.commands())
+                .singleElement()
+                .satisfies(c -> {
+                  assertThat(c.command()).isEqualTo("pause");
+                  assertThat(c.via()).isEqualTo("guard");
+                  assertThat(c.allowed()).isFalse();
+                }))
         .verifyComplete();
     StepVerifier.create(provider.supervision(null, null, "unknown", null))
         .assertNext(a -> assertThat(a.commands()).isEmpty())
@@ -573,11 +556,10 @@ class SupervisorProviderTest {
         .thenReturn(Mono.just(java.util.List.of()));
 
     reactor.test.StepVerifier.create(provider.rules("r"))
-        .assertNext(
-            doc -> {
-              assertThat(doc.version()).isZero();
-              assertThat(doc.rules()).containsEntry("token", "***");
-            })
+        .assertNext(doc -> {
+          assertThat(doc.version()).isZero();
+          assertThat(doc.rules()).containsEntry("token", "***");
+        })
         .verifyComplete();
     reactor.test.StepVerifier.create(provider.saveRules("r", null))
         .assertNext(doc -> assertThat(doc.supervisorId()).isEqualTo("r"))
@@ -601,14 +583,12 @@ class SupervisorProviderTest {
                     1, List.of(new OwnershipMap.WorkflowRef("s", "w")))));
 
     StepVerifier.create(provider.summary())
-        .assertNext(
-            view -> {
-              assertThat(view.unowned()).isEqualTo(1);
-              assertThat(view.unownedWorkflows())
-                  .containsExactly(
-                      new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow(
-                          "s", "w"));
-            })
+        .assertNext(view -> {
+          assertThat(view.unowned()).isEqualTo(1);
+          assertThat(view.unownedWorkflows())
+              .containsExactly(
+                  new com.infenia.yukta.mcp.dto.SupervisionSummaryView.UnownedWorkflow("s", "w"));
+        })
         .verifyComplete();
   }
 }

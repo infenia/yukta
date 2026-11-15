@@ -33,15 +33,14 @@ class DefaultsAutoConfigurationTest {
 
   @Test
   void withNothingElse_theSingleServerDefaultsAreRegistered() {
-    runner.run(
-        context -> {
-          assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
-          assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
-          assertThat(context).hasSingleBean(InMemoryExecutionControlStore.class);
-          assertThat(context).hasSingleBean(SingleServerLeader.class);
-          assertThat(context).hasSingleBean(ApiKeyAuthenticator.class);
-          assertThat(context.getBean(EditionInfo.class)).isEqualTo(EditionInfo.community());
-        });
+    runner.run(context -> {
+      assertThat(context).hasSingleBean(InMemoryExecutionLogStore.class);
+      assertThat(context).hasSingleBean(InMemoryNodeCheckpointStore.class);
+      assertThat(context).hasSingleBean(InMemoryExecutionControlStore.class);
+      assertThat(context).hasSingleBean(SingleServerLeader.class);
+      assertThat(context).hasSingleBean(ApiKeyAuthenticator.class);
+      assertThat(context.getBean(EditionInfo.class)).isEqualTo(EditionInfo.community());
+    });
   }
 
   @Test
@@ -52,17 +51,16 @@ class DefaultsAutoConfigurationTest {
         .withBean("le", LeaderElection.class, () -> Mockito.mock(LeaderElection.class))
         .withBean("auth", ApiAuthenticator.class, () -> Mockito.mock(ApiAuthenticator.class))
         .withBean("ed", EditionInfo.class, EditionInfo::community)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(ExecutionLogStore.class);
-              assertThat(context).hasSingleBean(NodeCheckpointStore.class);
-              assertThat(context).hasSingleBean(LeaderElection.class);
-              assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
-              assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
-              assertThat(context).doesNotHaveBean(SingleServerLeader.class);
-              assertThat(context).hasSingleBean(ApiAuthenticator.class);
-              assertThat(context).doesNotHaveBean(ApiKeyAuthenticator.class);
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(ExecutionLogStore.class);
+          assertThat(context).hasSingleBean(NodeCheckpointStore.class);
+          assertThat(context).hasSingleBean(LeaderElection.class);
+          assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
+          assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
+          assertThat(context).doesNotHaveBean(SingleServerLeader.class);
+          assertThat(context).hasSingleBean(ApiAuthenticator.class);
+          assertThat(context).doesNotHaveBean(ApiKeyAuthenticator.class);
+        });
   }
 
   @Test
@@ -70,11 +68,10 @@ class DefaultsAutoConfigurationTest {
     runner
         .withPropertyValues(
             "yukta.execution-log.dir=/tmp/l", "yukta.restart.dir=/tmp/r", "yukta.ha.mode=postgres")
-        .run(
-            context -> {
-              assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
-              assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
-              assertThat(context).doesNotHaveBean(SingleServerLeader.class);
-            });
+        .run(context -> {
+          assertThat(context).doesNotHaveBean(InMemoryExecutionLogStore.class);
+          assertThat(context).doesNotHaveBean(InMemoryNodeCheckpointStore.class);
+          assertThat(context).doesNotHaveBean(SingleServerLeader.class);
+        });
   }
 }

@@ -31,11 +31,10 @@ class McpEndpointFilterActorKindTest {
         .filter(
             MockServerWebExchange.from(MockServerHttpRequest.post("/mcp").header("X-API-Key", "k")),
             (ServerWebExchange exchange) ->
-                Mono.deferContextual(
-                    ctx -> {
-                      kind.set(ctx.getOrDefault(ControlActor.KIND_KEY, null));
-                      return Mono.empty();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  kind.set(ctx.getOrDefault(ControlActor.KIND_KEY, null));
+                  return Mono.empty();
+                }))
         .block();
 
     assertThat(kind.get()).isEqualTo(ControlActor.Kind.KEY);

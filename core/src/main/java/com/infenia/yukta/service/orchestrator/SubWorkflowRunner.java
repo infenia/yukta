@@ -52,40 +52,31 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
       final Map<String, Object> payload,
       final String parentExecutionId,
       final int depth) {
-    return Mono.defer(
-        () -> {
-          if (depth > MAX_DEPTH) {
-            return Mono.error(
-                new IllegalStateException(
-                    "Sub-workflows are nested more than " + MAX_DEPTH + " deep"));
-          }
-          final String executionId = UUID.randomUUID().toString();
-          final ResultCollector collector = new ResultCollector();
-          final AtomicReference<TaskStatus> ended = new AtomicReference<>();
-          final Map<String, Object> start = new HashMap<>(payload);
-          start.put(DEPTH_KEY, depth);
-          start.put(PARENT_KEY, parentExecutionId);
-          return prepared(sessionId, workflowId)
-              .flatMap(
-                  prepared ->
-                      orchestrator
-                          .execute(
-                              sessionId,
-                              workflowId,
-                              executionId,
-                              prepared,
-                              start,
-                              scheduler.borrowed())
-                          .contextWrite(
-                              ctx ->
-                                  ctx.put("resultCollector", collector)
-                                      .put(WorkflowOrchestrator.END_STATUS_KEY, ended))
-                          // even a grandchild's failure is reported as this child's
-                          .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
-              // Registering and archiving the child do file work, so not on the caller's thread.
-              .subscribeOn(Schedulers.boundedElastic())
-              .then(Mono.fromSupplier(() -> result(executionId, collector, ended.get())));
-        });
+    return Mono.defer(() -> {
+      if (depth > MAX_DEPTH) {
+        return Mono.error(
+            new IllegalStateException("Sub-workflows are nested more than " + MAX_DEPTH + " deep"));
+      }
+      final String executionId = UUID.randomUUID().toString();
+      final ResultCollector collector = new ResultCollector();
+      final AtomicReference<TaskStatus> ended = new AtomicReference<>();
+      final Map<String, Object> start = new HashMap<>(payload);
+      start.put(DEPTH_KEY, depth);
+      start.put(PARENT_KEY, parentExecutionId);
+      return prepared(sessionId, workflowId)
+          .flatMap(prepared ->
+              orchestrator
+                  .execute(
+                      sessionId, workflowId, executionId, prepared, start, scheduler.borrowed())
+                  .contextWrite(ctx ->
+                      ctx.put("resultCollector", collector)
+                          .put(WorkflowOrchestrator.END_STATUS_KEY, ended))
+                  // even a grandchild's failure is reported as this child's
+                  .onErrorMap(e -> new ChildFailed(executionId, failureStatus(e), e)))
+          // Registering and archiving the child do file work, so not on the caller's thread.
+          .subscribeOn(Schedulers.boundedElastic())
+          .then(Mono.fromSupplier(() -> result(executionId, collector, ended.get())));
+    });
   }
 
   /** What the child produced, and the outcome terminal it reached, if any. */
@@ -119,36 +110,27 @@ public class SubWorkflowRunner implements SubWorkflowGateway {
   private Mono<PreparedWorkflow> prepared(final String sessionId, final String workflowId) {
     return Mono.justOrEmpty(cache.get(sessionId, workflowId))
         .switchIfEmpty(
-            Mono.defer(
-                () ->
-                    definitions
-                        .find(sessionId, workflowId)
-                        .switchIfEmpty(
-                            Mono.error(
-                                () ->
-                                    new NotFoundException(
-                                        "Workflow not found for session: "
-                                            + sessionId
-                                            + ", workflow: "
-                                            + workflowId)))
-                        .flatMap(
-                            definition ->
-                                orchestrator
-                                    .prepareWorkflow(definition)
-                                    .flatMap(
-                                        prepared ->
-                                            // cached only if the stored definition is still this
-                                            // one
-                                            definitions
-                                                .find(sessionId, workflowId)
-                                                .filter(definition::equals)
-                                                .doOnNext(
-                                                    _ ->
-                                                        cache.put(
-                                                            sessionId,
-                                                            workflowId,
-                                                            prepared,
-                                                            definition))
-                                                .thenReturn(prepared)))));
+            Mono.defer(() ->
+                definitions
+                    .find(sessionId, workflowId)
+                    .switchIfEmpty(
+                        Mono.error(() ->
+                            new NotFoundException(
+                                "Workflow not found for session: "
+                                    + sessionId
+                                    + ", workflow: "
+                                    + workflowId)))
+                    .flatMap(definition ->
+                        orchestrator
+                            .prepareWorkflow(definition)
+                            .flatMap(prepared ->
+                                // cached only if the stored definition is still this
+                                // one
+                                definitions
+                                    .find(sessionId, workflowId)
+                                    .filter(definition::equals)
+                                    .doOnNext(
+                                        _ -> cache.put(sessionId, workflowId, prepared, definition))
+                                    .thenReturn(prepared)))));
   }
 }

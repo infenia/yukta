@@ -41,12 +41,11 @@ public class SupervisorTypesController {
   @GetMapping
   @Operation(summary = "List supervisor types")
   public Mono<ApiResponse<List<SupervisorTypeSummary>>> list() {
-    return Mono.fromSupplier(
-        () ->
-            ApiResponse.success(
-                200,
-                "Supervisor types retrieved",
-                service.types().stream().map(this::summary).toList()));
+    return Mono.fromSupplier(() ->
+        ApiResponse.success(
+            200,
+            "Supervisor types retrieved",
+            service.types().stream().map(this::summary).toList()));
   }
 
   /**
@@ -59,27 +58,26 @@ public class SupervisorTypesController {
   @GetMapping("/{type}")
   @Operation(summary = "Get a supervisor type")
   public Mono<ApiResponse<SupervisorTypeDetails>> get(@PathVariable final String type) {
-    return Mono.fromSupplier(
-        () -> {
-          final SupervisorDescriptor d = descriptor(type);
-          final Set<String> defaults = service.defaultAllowedCommands(type);
-          return ApiResponse.success(
-              200,
-              "Supervisor type retrieved",
-              new SupervisorTypeDetails(
-                  type,
-                  d.displayName(),
-                  d.description(),
-                  d.usagePattern(),
-                  d.category().name(),
-                  d.uiDesign().orElse(null),
-                  service.configSchema(type),
-                  SupervisorCommonSettings.SCHEMA,
-                  defaults == null ? null : defaults.stream().sorted().toList(),
-                  d.exampleSettings(),
-                  service.signals(type),
-                  service.canInitiate(type)));
-        });
+    return Mono.fromSupplier(() -> {
+      final SupervisorDescriptor d = descriptor(type);
+      final Set<String> defaults = service.defaultAllowedCommands(type);
+      return ApiResponse.success(
+          200,
+          "Supervisor type retrieved",
+          new SupervisorTypeDetails(
+              type,
+              d.displayName(),
+              d.description(),
+              d.usagePattern(),
+              d.category().name(),
+              d.uiDesign().orElse(null),
+              service.configSchema(type),
+              SupervisorCommonSettings.SCHEMA,
+              defaults == null ? null : defaults.stream().sorted().toList(),
+              d.exampleSettings(),
+              service.signals(type),
+              service.canInitiate(type)));
+    });
   }
 
   /**
@@ -110,15 +108,13 @@ public class SupervisorTypesController {
   @GetMapping("/{type}/presets")
   @Operation(summary = "List the presets of a supervisor type")
   public Mono<ApiResponse<List<SupervisorPreset>>> presets(@PathVariable final String type) {
-    return Mono.fromSupplier(
-        () ->
-            ApiResponse.success(
-                200,
-                "Presets retrieved",
-                service
-                    .presets(type)
-                    .orElseThrow(
-                        () -> new NotFoundException("Supervisor type not found: " + type))));
+    return Mono.fromSupplier(() ->
+        ApiResponse.success(
+            200,
+            "Presets retrieved",
+            service
+                .presets(type)
+                .orElseThrow(() -> new NotFoundException("Supervisor type not found: " + type))));
   }
 
   private SupervisorDescriptor descriptor(final String type) {

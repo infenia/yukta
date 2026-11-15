@@ -194,12 +194,11 @@ class ExecutionLogStoreTest {
     // a busy writer, so neither call can finish before the interrupt is noticed
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
-        .thenAnswer(
-            _ -> {
-              // simulated slow writer
-              Thread.sleep(500); // nosem: yukta-test-thread-sleep
-              return "{}";
-            });
+        .thenAnswer(_ -> {
+          // simulated slow writer
+          Thread.sleep(500); // nosem: yukta-test-thread-sleep
+          return "{}";
+        });
     final JsonlExecutionLogStore store =
         new JsonlExecutionLogStore(dir.toString(), slow, 5, 100, 5_000);
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
@@ -219,12 +218,11 @@ class ExecutionLogStoreTest {
   void jsonl_closeGivesUpOnSlowWriter() {
     final ObjectMapper slow = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(slow.writeValueAsString(org.mockito.ArgumentMatchers.any()))
-        .thenAnswer(
-            _ -> {
-              // simulated slow writer
-              Thread.sleep(300); // nosem: yukta-test-thread-sleep
-              return "{}";
-            });
+        .thenAnswer(_ -> {
+          // simulated slow writer
+          Thread.sleep(300); // nosem: yukta-test-thread-sleep
+          return "{}";
+        });
     final JsonlExecutionLogStore store =
         new JsonlExecutionLogStore(dir.toString(), slow, 5, 100, 20);
     store.append(ExecutionLogEvent.started("e1", "s", "w", "v"));
@@ -259,11 +257,10 @@ class ExecutionLogStoreTest {
 
     assertThat(store.readAll())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.executionId()).isEqualTo("e1");
-              assertThat(e.payload()).isNull();
-            });
+        .satisfies(e -> {
+          assertThat(e.executionId()).isEqualTo("e1");
+          assertThat(e.payload()).isNull();
+        });
   }
 
   @Test

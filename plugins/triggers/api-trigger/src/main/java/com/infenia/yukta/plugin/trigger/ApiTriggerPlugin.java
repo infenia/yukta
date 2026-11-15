@@ -40,11 +40,9 @@ public class ApiTriggerPlugin implements TriggerPlugin {
 
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
-    return Flux.deferContextual(
-        ctx -> {
-          final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
-          return Flux.just(
-              DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
-        });
+    return Flux.deferContextual(ctx -> {
+      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
+      return Flux.just(DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
+    });
   }
 }

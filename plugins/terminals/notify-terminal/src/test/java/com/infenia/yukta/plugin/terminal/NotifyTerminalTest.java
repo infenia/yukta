@@ -175,12 +175,11 @@ class NotifyTerminalTest {
   @Test
   void describe_terminalProvidesNodeDesign() {
     assertThat(terminal.describe().uiDesign())
-        .hasValueSatisfying(
-            design -> {
-              assertThat(design.label()).isNotBlank();
-              assertThat(design.width()).isEqualTo(140);
-              assertThat(design.height()).isEqualTo(80);
-            });
+        .hasValueSatisfying(design -> {
+          assertThat(design.label()).isNotBlank();
+          assertThat(design.width()).isEqualTo(140);
+          assertThat(design.height()).isEqualTo(80);
+        });
   }
 
   private static ObjectProvider<PluginMetricsReporter> provider(final PluginMetricsReporter value) {

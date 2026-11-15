@@ -129,9 +129,8 @@ public final class SecretRedactor {
       case String text -> redactText(text);
       case Map<?, ?> map -> {
         final SequencedMap<Object, Object> copy = new LinkedHashMap<>();
-        map.forEach(
-            (key, item) ->
-                copy.put(key, redactEntry(key == null ? null : key.toString(), item, depth + 1)));
+        map.forEach((key, item) ->
+            copy.put(key, redactEntry(key == null ? null : key.toString(), item, depth + 1)));
         yield copy;
       }
       case Collection<?> items -> items.stream().map(item -> redact(item, depth + 1)).toList();

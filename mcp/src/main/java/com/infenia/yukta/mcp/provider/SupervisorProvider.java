@@ -100,31 +100,28 @@ public class SupervisorProvider {
     return Mono.zip(
             service.supervisors().collectList(),
             service.attachments().map(SupervisorProvider::info).collectList())
-        .map(
-            tuple ->
-                new SupervisorListing(
-                    host.status().stream()
-                        .map(
-                            s ->
-                                new SupervisorListing.RunningSupervisor(
-                                    s.id(),
-                                    s.kind(),
-                                    s.scope(),
-                                    s.scopeSessionId(),
-                                    s.scopeWorkflowId(),
-                                    s.scopeNodes(),
-                                    s.dryRun(),
-                                    s.applied(),
-                                    s.rejected()))
-                        .toList(),
-                    tuple.getT1().stream()
-                        .map(
-                            s ->
-                                new SupervisorListing.ConfiguredSupervisor(
-                                    s.id(), s.type(), s.description(), s.dryRun()))
-                        .toList(),
-                    tuple.getT2(),
-                    service.types()));
+        .map(tuple ->
+            new SupervisorListing(
+                host.status().stream()
+                    .map(s ->
+                        new SupervisorListing.RunningSupervisor(
+                            s.id(),
+                            s.kind(),
+                            s.scope(),
+                            s.scopeSessionId(),
+                            s.scopeWorkflowId(),
+                            s.scopeNodes(),
+                            s.dryRun(),
+                            s.applied(),
+                            s.rejected()))
+                    .toList(),
+                tuple.getT1().stream()
+                    .map(s ->
+                        new SupervisorListing.ConfiguredSupervisor(
+                            s.id(), s.type(), s.description(), s.dryRun()))
+                    .toList(),
+                tuple.getT2(),
+                service.types()));
   }
 
   /**
@@ -135,12 +132,11 @@ public class SupervisorProvider {
   public SupervisorTypeList types() {
     return new SupervisorTypeList(
         service.types().stream()
-            .map(
-                type -> {
-                  final SupervisorDescriptor d = descriptor(type);
-                  return new SupervisorTypeList.Entry(
-                      type, d.displayName(), d.category().name(), d.description());
-                })
+            .map(type -> {
+              final SupervisorDescriptor d = descriptor(type);
+              return new SupervisorTypeList.Entry(
+                  type, d.displayName(), d.category().name(), d.description());
+            })
             .toList());
   }
 
@@ -229,10 +225,9 @@ public class SupervisorProvider {
       final String supervisorId, final List<AssignmentInput> wanted, final Boolean unlock) {
     return Mono.fromSupplier(() -> wanted(wanted))
         .flatMap(list -> assignments.set(supervisorId, list, Boolean.TRUE.equals(unlock)))
-        .map(
-            saved ->
-                new SupervisorAssignmentList(
-                    supervisorId, saved.stream().map(SupervisorProvider::info).toList()));
+        .map(saved ->
+            new SupervisorAssignmentList(
+                supervisorId, saved.stream().map(SupervisorProvider::info).toList()));
   }
 
   /**
@@ -246,11 +241,10 @@ public class SupervisorProvider {
       final String supervisorId, final List<AssignmentInput> wanted) {
     return Mono.fromSupplier(() -> wanted(wanted))
         .flatMap(list -> assignments.check(supervisorId, list))
-        .map(
-            issues ->
-                new SupervisorCheck(
-                    issues.isEmpty(),
-                    issues.stream().map(i -> i.field() + ": " + i.message()).toList()));
+        .map(issues ->
+            new SupervisorCheck(
+                issues.isEmpty(),
+                issues.stream().map(i -> i.field() + ": " + i.message()).toList()));
   }
 
   /**
@@ -266,23 +260,22 @@ public class SupervisorProvider {
         .next()
         .switchIfEmpty(Mono.error(new IllegalArgumentException("Unknown supervisor: " + id)))
         .zipWith(Mono.defer(() -> assignments.of(id).map(SupervisorProvider::info).collectList()))
-        .map(
-            pair -> {
-              final Supervisor supervisor = pair.getT1();
-              final Set<String> secrets =
-                  service.configSchema(supervisor.type()).stream()
-                      .filter(f -> f.type() == ConfigField.Type.SECRET)
-                      .map(ConfigField::name)
-                      .collect(java.util.stream.Collectors.toSet());
-              return new SupervisorDetails(
-                  supervisor.id(),
-                  supervisor.type(),
-                  supervisor.description(),
-                  supervisor.dryRun(),
-                  SupervisorSettingsMask.hide(supervisor.settings(), secrets),
-                  supervisor.parents(),
-                  pair.getT2());
-            });
+        .map(pair -> {
+          final Supervisor supervisor = pair.getT1();
+          final Set<String> secrets =
+              service.configSchema(supervisor.type()).stream()
+                  .filter(f -> f.type() == ConfigField.Type.SECRET)
+                  .map(ConfigField::name)
+                  .collect(java.util.stream.Collectors.toSet());
+          return new SupervisorDetails(
+              supervisor.id(),
+              supervisor.type(),
+              supervisor.description(),
+              supervisor.dryRun(),
+              SupervisorSettingsMask.hide(supervisor.settings(), secrets),
+              supervisor.parents(),
+              pair.getT2());
+        });
   }
 
   /**
@@ -309,28 +302,26 @@ public class SupervisorProvider {
       final @Nullable String workflowId,
       final @Nullable String executionId,
       final @Nullable String nodeId) {
-    return Mono.fromSupplier(
-        () -> {
-          String session = sessionId;
-          String workflow = workflowId;
-          if (executionId != null) {
-            final WorkflowProgress progress = controlBus.getCurrentProgress(executionId);
-            if (progress != null) {
-              session = progress.sessionId();
-              workflow = progress.workflowId();
-            }
-          }
-          return new SupervisionAnswer(
-              reviewer.capabilities(session, workflow, nodeId).entrySet().stream()
-                  .map(
-                      e ->
-                          new SupervisionAnswer.Command(
-                              e.getKey(),
-                              e.getValue().allowed(),
-                              e.getValue().via(),
-                              e.getValue().reason()))
-                  .toList());
-        });
+    return Mono.fromSupplier(() -> {
+      String session = sessionId;
+      String workflow = workflowId;
+      if (executionId != null) {
+        final WorkflowProgress progress = controlBus.getCurrentProgress(executionId);
+        if (progress != null) {
+          session = progress.sessionId();
+          workflow = progress.workflowId();
+        }
+      }
+      return new SupervisionAnswer(
+          reviewer.capabilities(session, workflow, nodeId).entrySet().stream()
+              .map(e ->
+                  new SupervisionAnswer.Command(
+                      e.getKey(),
+                      e.getValue().allowed(),
+                      e.getValue().via(),
+                      e.getValue().reason()))
+              .toList());
+    });
   }
 
   private static List<SupervisorAssignments.Assignment> wanted(
@@ -339,18 +330,17 @@ public class SupervisorProvider {
       throw new IllegalArgumentException("assignments is required (an empty list owns nothing)");
     }
     return wanted.stream()
-        .map(
-            a -> {
-              final String target = a.target();
-              if (target == null || target.isBlank()) {
-                throw new IllegalArgumentException("each assignment needs a target");
-              }
-              final Boolean enabled = a.enabled();
-              return new SupervisorAssignments.Assignment(
-                  SupervisorScope.parse(target),
-                  enabled == null || enabled,
-                  Boolean.TRUE.equals(a.locked()));
-            })
+        .map(a -> {
+          final String target = a.target();
+          if (target == null || target.isBlank()) {
+            throw new IllegalArgumentException("each assignment needs a target");
+          }
+          final Boolean enabled = a.enabled();
+          return new SupervisorAssignments.Assignment(
+              SupervisorScope.parse(target),
+              enabled == null || enabled,
+              Boolean.TRUE.equals(a.locked()));
+        })
         .toList();
   }
 
@@ -377,20 +367,15 @@ public class SupervisorProvider {
    * @return its presets
    */
   public Mono<SupervisorPresetList> presets(final String type) {
-    return Mono.fromSupplier(
-        () ->
-            new SupervisorPresetList(
-                type,
-                service
-                    .presets(type)
-                    .orElseThrow(
-                        () -> new IllegalArgumentException("Unknown supervisor type: " + type))
-                    .stream()
-                    .map(
-                        p ->
-                            new SupervisorPresetList.Preset(
-                                p.name(), p.description(), p.settings()))
-                    .toList()));
+    return Mono.fromSupplier(() ->
+        new SupervisorPresetList(
+            type,
+            service
+                .presets(type)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown supervisor type: " + type))
+                .stream()
+                .map(p -> new SupervisorPresetList.Preset(p.name(), p.description(), p.settings()))
+                .toList()));
   }
 
   /**
@@ -402,20 +387,18 @@ public class SupervisorProvider {
   public Mono<SupervisorVersionList> versions(final String id) {
     return service
         .versions(id)
-        .map(
-            found ->
-                new SupervisorVersionList(
-                    id,
-                    found.stream()
-                        .map(
-                            v ->
-                                new SupervisorVersionList.Version(
-                                    v.version(),
-                                    v.savedAt().toString(),
-                                    v.supervisor().type(),
-                                    v.supervisor().dryRun(),
-                                    v.supervisor().settings().keySet().stream().sorted().toList()))
-                        .toList()));
+        .map(found ->
+            new SupervisorVersionList(
+                id,
+                found.stream()
+                    .map(v ->
+                        new SupervisorVersionList.Version(
+                            v.version(),
+                            v.savedAt().toString(),
+                            v.supervisor().type(),
+                            v.supervisor().dryRun(),
+                            v.supervisor().settings().keySet().stream().sorted().toList()))
+                    .toList()));
   }
 
   /**
@@ -452,15 +435,9 @@ public class SupervisorProvider {
         id,
         executionId,
         found.stream()
-            .map(
-                d ->
-                    new SupervisorReplay.Decision(
-                        d.command(),
-                        d.executionId(),
-                        d.nodeId(),
-                        d.cause(),
-                        d.reason(),
-                        d.allowed()))
+            .map(d ->
+                new SupervisorReplay.Decision(
+                    d.command(), d.executionId(), d.nodeId(), d.cause(), d.reason(), d.allowed()))
             .toList());
   }
 
@@ -523,17 +500,16 @@ public class SupervisorProvider {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new IllegalArgumentException("Unknown supervisor: " + id)))
-        .map(
-            found -> {
-              if (!"http".equals(found.type())) {
-                throw new ConflictException("Only a supervisor of type http has a credential");
-              }
-              final AgentCredentials.Issued issued =
-                  credentials.issue(id, ttlHours == null ? null : Duration.ofHours(ttlHours));
-              final java.time.Instant expiresAt = issued.expiresAt();
-              return new SupervisorCredential(
-                  id, issued.token(), expiresAt == null ? null : expiresAt.toString());
-            });
+        .map(found -> {
+          if (!"http".equals(found.type())) {
+            throw new ConflictException("Only a supervisor of type http has a credential");
+          }
+          final AgentCredentials.Issued issued =
+              credentials.issue(id, ttlHours == null ? null : Duration.ofHours(ttlHours));
+          final java.time.Instant expiresAt = issued.expiresAt();
+          return new SupervisorCredential(
+              id, issued.token(), expiresAt == null ? null : expiresAt.toString());
+        });
   }
 
   /**
@@ -572,14 +548,13 @@ public class SupervisorProvider {
   public Mono<SupervisorOwnership> ownership(final String sessionId, final String workflowId) {
     return ownershipMap
         .ownersOf(sessionId, workflowId)
-        .map(
-            found ->
-                new SupervisorOwnership(
-                    found.sessionId(),
-                    found.workflowId(),
-                    found.defaultSupervisor(),
-                    found.run(),
-                    found.nodes()));
+        .map(found ->
+            new SupervisorOwnership(
+                found.sessionId(),
+                found.workflowId(),
+                found.defaultSupervisor(),
+                found.run(),
+                found.nodes()));
   }
 
   /**
@@ -590,15 +565,12 @@ public class SupervisorProvider {
   public Mono<SupervisionSummaryView> summary() {
     return summary
         .summarize()
-        .map(
-            found ->
-                new SupervisionSummaryView(
-                    found.unowned(),
-                    found.unownedWorkflows().stream()
-                        .map(
-                            w ->
-                                new SupervisionSummaryView.UnownedWorkflow(
-                                    w.sessionId(), w.workflowId()))
-                        .toList()));
+        .map(found ->
+            new SupervisionSummaryView(
+                found.unowned(),
+                found.unownedWorkflows().stream()
+                    .map(w ->
+                        new SupervisionSummaryView.UnownedWorkflow(w.sessionId(), w.workflowId()))
+                    .toList()));
   }
 }

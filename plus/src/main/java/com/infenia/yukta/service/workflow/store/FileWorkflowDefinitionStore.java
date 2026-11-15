@@ -144,11 +144,8 @@ public class FileWorkflowDefinitionStore implements WorkflowDefinitionStore {
   @Override
   public Mono<WorkflowDefinition> findRevision(
       final String sessionId, final String workflowId, final String revisionId) {
-    return Mono.fromCallable(
-            () ->
-                read(
-                    inside(
-                        dir(sessionId, workflowId).resolve(HISTORY).resolve(fileOf(revisionId)))))
+    return Mono.fromCallable(() ->
+            read(inside(dir(sessionId, workflowId).resolve(HISTORY).resolve(fileOf(revisionId)))))
         .subscribeOn(Schedulers.boundedElastic());
   }
 

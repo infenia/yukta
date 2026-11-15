@@ -102,14 +102,13 @@ class PluginConformanceSweepTest {
     return registry.listPlugins().stream()
         .filter(p -> FIXTURES.containsKey(p.getType()))
         .sorted(Comparator.comparing(Plugin::getType))
-        .map(
-            plugin -> {
-              final ConformanceFixture fixture = fixture(plugin.getType());
-              return org.junit.jupiter.api.DynamicContainer.dynamicContainer(
-                  plugin.getType(),
-                  PluginConformance.checks(plugin, fixture).stream()
-                      .map(c -> DynamicTest.dynamicTest(c.name(), c.body()::run)));
-            });
+        .map(plugin -> {
+          final ConformanceFixture fixture = fixture(plugin.getType());
+          return org.junit.jupiter.api.DynamicContainer.dynamicContainer(
+              plugin.getType(),
+              PluginConformance.checks(plugin, fixture).stream()
+                  .map(c -> DynamicTest.dynamicTest(c.name(), c.body()::run)));
+        });
   }
 
   private static ConformanceFixture fixture(final String type) {

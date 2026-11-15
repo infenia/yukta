@@ -258,11 +258,10 @@ public class SupervisorHost implements DryRunRecorder {
   public void start() {
     subscriptions.add(releaseHoldsWhenRunsMove());
     supervisors.stream()
-        .forEach(
-            supervisor -> {
-              checkBeanId(supervisor);
-              subscriptions.add(launch(supervisor, dryRun));
-            });
+        .forEach(supervisor -> {
+          checkBeanId(supervisor);
+          subscriptions.add(launch(supervisor, dryRun));
+        });
   }
 
   /**
@@ -482,28 +481,27 @@ public class SupervisorHost implements DryRunRecorder {
     return Stream.concat(
             supervisors.orderedStream().sorted(Comparator.comparing(ExecutionSupervisor::id)),
             attachedSupervisors.stream().sorted(Comparator.comparing(BoundSupervisor::id)))
-        .map(
-            supervisor -> {
-              final ExecutionSupervisor real =
-                  supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
-              return new SupervisorInfo(
-                  supervisor.id(),
-                  kind(real),
-                  real.engineType(),
-                  dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
-                  maxCommandsPerSecond,
-                  commands(supervisor.id(), "applied"),
-                  commands(supervisor.id(), "rejected"),
-                  commands(supervisor.id(), DRY_RUN),
-                  commands(supervisor.id(), "rate-limited"),
-                  supervisor.scope().kind().name(),
-                  supervisor.scope().sessionId(),
-                  supervisor.scope().workflowId(),
-                  supervisor.scope() instanceof SupervisorScope.Section section
-                      ? List.copyOf(section.nodes())
-                      : null,
-                  commands(supervisor.id(), "flapping-blocked"));
-            })
+        .map(supervisor -> {
+          final ExecutionSupervisor real =
+              supervisor instanceof BoundSupervisor bound ? bound.delegate() : supervisor;
+          return new SupervisorInfo(
+              supervisor.id(),
+              kind(real),
+              real.engineType(),
+              dryRun || supervisor instanceof BoundSupervisor bound && bound.dryRun(),
+              maxCommandsPerSecond,
+              commands(supervisor.id(), "applied"),
+              commands(supervisor.id(), "rejected"),
+              commands(supervisor.id(), DRY_RUN),
+              commands(supervisor.id(), "rate-limited"),
+              supervisor.scope().kind().name(),
+              supervisor.scope().sessionId(),
+              supervisor.scope().workflowId(),
+              supervisor.scope() instanceof SupervisorScope.Section section
+                  ? List.copyOf(section.nodes())
+                  : null,
+              commands(supervisor.id(), "flapping-blocked"));
+        })
         .toList();
   }
 
@@ -527,35 +525,25 @@ public class SupervisorHost implements DryRunRecorder {
         .addKeyValue("dryRun", recordOnly)
         .log("Starting supervisor");
     return Flux.defer(() -> commandsOf(supervisor, recordOnly))
-        .doOnError(
-            error ->
-                log.atWarn()
-                    .setCause(error)
-                    .addKeyValue(SUPERVISOR_KEY, supervisorId)
-                    .log("Supervisor failed; restarting"))
+        .doOnError(error ->
+            log.atWarn()
+                .setCause(error)
+                .addKeyValue(SUPERVISOR_KEY, supervisorId)
+                .log("Supervisor failed; restarting"))
         .retryWhen(
             Retry.backoff(Long.MAX_VALUE, Duration.ofSeconds(1)).maxBackoff(Duration.ofMinutes(1)))
-        .concatMap(
-            command ->
-                Mono.defer(
-                        () ->
-                            apply(
-                                supervisorId,
-                                supervisor.scope(),
-                                command,
-                                limit,
-                                recordOnly,
-                                allowed))
-                    // One command that cannot be handled (a log or audit sink that throws) must
-                    // not end the supervisor: the retry above covers only its own errors.
-                    .onErrorResume(
-                        error -> {
-                          log.atError()
-                              .setCause(error)
-                              .addKeyValue(SUPERVISOR_KEY, supervisorId)
-                              .log("Could not handle a supervisor command; carrying on");
-                          return Mono.empty();
-                        }))
+        .concatMap(command ->
+            Mono.defer(() ->
+                    apply(supervisorId, supervisor.scope(), command, limit, recordOnly, allowed))
+                // One command that cannot be handled (a log or audit sink that throws) must
+                // not end the supervisor: the retry above covers only its own errors.
+                .onErrorResume(error -> {
+                  log.atError()
+                      .setCause(error)
+                      .addKeyValue(SUPERVISOR_KEY, supervisorId)
+                      .log("Could not handle a supervisor command; carrying on");
+                  return Mono.empty();
+                }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }
@@ -584,25 +572,24 @@ public class SupervisorHost implements DryRunRecorder {
     final Map<String, String> answered = new BoundedKeys<>(); // NOPMD - UseConcurrentHashMap
     return directives
         .directives(events)
-        .concatMap(
-            directive -> {
-              if (!seen.add(directive.key())) {
-                return Mono.empty();
-              }
-              final Cause cause = directive.cause();
-              origins.put(directive.command(), directive);
-              if (cause.kind() == Cause.Kind.ANSWERS
-                  && answeredBefore(answered, cause.text(), baseKey(directive.key()))) {
-                // an answer is accepted once; a second command answering the same request is not
-                return notApplied(
-                        supervisor.id(),
-                        "answer-repeated",
-                        directive.command(),
-                        "refused: " + cause.text() + " was answered before")
-                    .then(Mono.<ExecutionControlCommand>empty());
-              }
-              return gated(supervisor, directive, capabilities, recordOnly);
-            });
+        .concatMap(directive -> {
+          if (!seen.add(directive.key())) {
+            return Mono.empty();
+          }
+          final Cause cause = directive.cause();
+          origins.put(directive.command(), directive);
+          if (cause.kind() == Cause.Kind.ANSWERS
+              && answeredBefore(answered, cause.text(), baseKey(directive.key()))) {
+            // an answer is accepted once; a second command answering the same request is not
+            return notApplied(
+                    supervisor.id(),
+                    "answer-repeated",
+                    directive.command(),
+                    "refused: " + cause.text() + " was answered before")
+                .then(Mono.<ExecutionControlCommand>empty());
+          }
+          return gated(supervisor, directive, capabilities, recordOnly);
+        });
   }
 
   private Mono<ExecutionControlCommand> gated(
@@ -624,38 +611,36 @@ public class SupervisorHost implements DryRunRecorder {
         .target(directive.command())
         .map(t -> new DirectiveGate.Target(t.sessionId(), t.workflowId(), t.nodeId()))
         .onErrorReturn(new DirectiveGate.Target(null, null, null))
-        .flatMap(
-            target -> {
-              final DirectiveGate.Decision decision =
-                  directiveGate.check(
-                      supervisor.id(),
-                      directive,
-                      target,
-                      capabilities,
-                      supervisor.scope(),
-                      true,
-                      recordOnly);
-              final DirectiveGate.Rejection rejection = decision.rejection();
-              if (rejection == null) {
-                return preconditionHolds(directive, target)
-                    .flatMap(
-                        holds ->
-                            holds
-                                ? Mono.just(directive.command())
-                                : notApplied(
-                                        supervisor.id(),
-                                        "precondition-failed",
-                                        directive.command(),
-                                        "the run is not in status " + directive.ifStatus())
-                                    .then(Mono.<ExecutionControlCommand>empty()));
-              }
-              return notApplied(
-                      supervisor.id(),
-                      rejection.name().toLowerCase(Locale.ROOT).replace('_', '-'),
-                      directive.command(),
-                      "refused: " + rejection + " (" + directive.cause().text() + ")")
-                  .then(Mono.<ExecutionControlCommand>empty());
-            });
+        .flatMap(target -> {
+          final DirectiveGate.Decision decision =
+              directiveGate.check(
+                  supervisor.id(),
+                  directive,
+                  target,
+                  capabilities,
+                  supervisor.scope(),
+                  true,
+                  recordOnly);
+          final DirectiveGate.Rejection rejection = decision.rejection();
+          if (rejection == null) {
+            return preconditionHolds(directive, target)
+                .flatMap(holds ->
+                    holds
+                        ? Mono.just(directive.command())
+                        : notApplied(
+                                supervisor.id(),
+                                "precondition-failed",
+                                directive.command(),
+                                "the run is not in status " + directive.ifStatus())
+                            .then(Mono.<ExecutionControlCommand>empty()));
+          }
+          return notApplied(
+                  supervisor.id(),
+                  rejection.name().toLowerCase(Locale.ROOT).replace('_', '-'),
+                  directive.command(),
+                  "refused: " + rejection + " (" + directive.cause().text() + ")")
+              .then(Mono.<ExecutionControlCommand>empty());
+        });
   }
 
   /** Whether a command's {@code ifStatus} matches the run's status now; true when it names none. */
@@ -721,10 +706,9 @@ public class SupervisorHost implements DryRunRecorder {
     return feed.events()
         .filter(event -> scope.matches(event.sessionId(), event.workflowId(), event.nodeId()))
         .filterWhen(event -> visible(event, scope, observeInternal))
-        .filter(
-            event ->
-                !(event instanceof ExecutionEvent.ControlOutcome outcome
-                    && supervisorId.equals(outcome.actor())))
+        .filter(event ->
+            !(event instanceof ExecutionEvent.ControlOutcome outcome
+                && supervisorId.equals(outcome.actor())))
         // A large buffer absorbs a burst; only an overflow drops, and the supervisor is then told
         // (below) so it can read the durable log for the gap.
         .onBackpressureBuffer(
@@ -739,13 +723,12 @@ public class SupervisorHost implements DryRunRecorder {
         .publishOn(Schedulers.boundedElastic(), SUPERVISOR_PREFETCH)
         // ponytail: the gap is reported with the next event, so it is late if the feed then goes
         // quiet; add a timer if that matters.
-        .flatMapIterable(
-            event -> {
-              final long count = missed.getAndSet(0);
-              return count == 0
-                  ? List.of(event)
-                  : List.of(new ExecutionEvent.EventsMissed(count, Instant.now()), event);
-            });
+        .flatMapIterable(event -> {
+          final long count = missed.getAndSet(0);
+          return count == 0
+              ? List.of(event)
+              : List.of(new ExecutionEvent.EventsMissed(count, Instant.now()), event);
+        });
   }
 
   private Mono<Void> apply(
@@ -769,15 +752,14 @@ public class SupervisorHost implements DryRunRecorder {
       // same either way
       result =
           inScope(scope, command, allowed != null)
-              .flatMap(
-                  inside ->
-                      inside
-                          ? guarded(supervisorId, command, limit, recordOnly)
-                          : notApplied(
-                              supervisorId,
-                              OUT_OF_SCOPE,
-                              command,
-                              "target outside scope " + scope.key()));
+              .flatMap(inside ->
+                  inside
+                      ? guarded(supervisorId, command, limit, recordOnly)
+                      : notApplied(
+                          supervisorId,
+                          OUT_OF_SCOPE,
+                          command,
+                          "target outside scope " + scope.key()));
     }
     return result;
   }
@@ -837,12 +819,11 @@ public class SupervisorHost implements DryRunRecorder {
                 supervisorId,
                 ControlActor.KIND_KEY,
                 ControlActor.Kind.SUPERVISOR))
-        .doOnSuccess(
-            _ -> {
-              count(supervisorId, "applied");
-              decided(supervisorId, "applied", command, null);
-              holds.applied(supervisorId, command);
-            })
+        .doOnSuccess(_ -> {
+          count(supervisorId, "applied");
+          decided(supervisorId, "applied", command, null);
+          holds.applied(supervisorId, command);
+        })
         .onErrorResume(
             ControlAwaitingApprovalException.class,
             parked -> {
@@ -854,17 +835,16 @@ public class SupervisorHost implements DryRunRecorder {
                   "input request " + parked.getRequestId());
               return Mono.empty();
             })
-        .onErrorResume(
-            error -> {
-              count(supervisorId, "rejected");
-              decided(supervisorId, "rejected", command, error.getMessage());
-              log.atWarn()
-                  .addKeyValue(SUPERVISOR_KEY, supervisorId)
-                  .addKeyValue("command", command.getClass().getSimpleName())
-                  .addKeyValue("reason", error.getMessage())
-                  .log("Supervisor command rejected");
-              return Mono.empty();
-            });
+        .onErrorResume(error -> {
+          count(supervisorId, "rejected");
+          decided(supervisorId, "rejected", command, error.getMessage());
+          log.atWarn()
+              .addKeyValue(SUPERVISOR_KEY, supervisorId)
+              .addKeyValue("command", command.getClass().getSimpleName())
+              .addKeyValue("reason", error.getMessage())
+              .log("Supervisor command rejected");
+          return Mono.empty();
+        });
   }
 
   /** A command that is not applied is still recorded, so the audit shows what was intended. */

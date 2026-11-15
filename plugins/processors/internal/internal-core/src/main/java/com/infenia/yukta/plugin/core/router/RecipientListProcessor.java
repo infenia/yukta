@@ -219,30 +219,28 @@ public final class RecipientListProcessor implements ProcessorPlugin {
       final boolean strictMode,
       final String errorPort) {
 
-    return Flux.defer(
-        () -> {
-          try {
-            final List<String> recipients = computeRecipients(message, mode, config);
-            if (recipients == null || recipients.isEmpty()) {
-              return Flux.empty();
-            }
-            return Flux.fromIterable(recipients).map(message::withSourcePort);
-          } catch (final Exception e) {
-            log.error(
-                "Recipient computation failed for message {}: {}", message.id(), e.getMessage());
-            if (errorPort != null && !errorPort.isBlank()) {
-              return Flux.just(
-                  message
-                      .withSourcePort(errorPort)
-                      .withFailure(null, "Recipient computation failed", e.getMessage()));
-            }
-            if (!strictMode) {
-              return Flux.empty();
-            }
-            return Flux.error(
-                new WorkflowExecutionException(ERR_PREFIX + "Recipient computation failed", e));
-          }
-        });
+    return Flux.defer(() -> {
+      try {
+        final List<String> recipients = computeRecipients(message, mode, config);
+        if (recipients == null || recipients.isEmpty()) {
+          return Flux.empty();
+        }
+        return Flux.fromIterable(recipients).map(message::withSourcePort);
+      } catch (final Exception e) {
+        log.error("Recipient computation failed for message {}: {}", message.id(), e.getMessage());
+        if (errorPort != null && !errorPort.isBlank()) {
+          return Flux.just(
+              message
+                  .withSourcePort(errorPort)
+                  .withFailure(null, "Recipient computation failed", e.getMessage()));
+        }
+        if (!strictMode) {
+          return Flux.empty();
+        }
+        return Flux.error(
+            new WorkflowExecutionException(ERR_PREFIX + "Recipient computation failed", e));
+      }
+    });
   }
 
   @SuppressWarnings("unchecked")

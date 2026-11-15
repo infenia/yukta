@@ -194,12 +194,11 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     final ObjectMapper real = new ObjectMapper();
     final ObjectMapper blocking = org.mockito.Mockito.mock(ObjectMapper.class);
     org.mockito.Mockito.when(blocking.writeValueAsString(org.mockito.ArgumentMatchers.any()))
-        .thenAnswer(
-            invocation -> {
-              entered.countDown();
-              release.await();
-              return real.writeValueAsString(invocation.getArgument(0));
-            });
+        .thenAnswer(invocation -> {
+          entered.countDown();
+          release.await();
+          return real.writeValueAsString(invocation.getArgument(0));
+        });
     return new R2dbcExecutionLogStore(db, blocking, 2, 1_000, shutdownWaitMillis);
   }
 
@@ -214,14 +213,13 @@ class R2dbcExecutionLogStoreTest extends PostgresTestSupport {
     release.countDown();
     org.awaitility.Awaitility.await()
         .atMost(java.time.Duration.ofSeconds(20))
-        .until(
-            () ->
-                Long.valueOf(1)
-                    .equals(
-                        db.sql("SELECT count(*) AS n FROM execution_log")
-                            .map(row -> row.get("n", Long.class))
-                            .one()
-                            .block()));
+        .until(() ->
+            Long.valueOf(1)
+                .equals(
+                    db.sql("SELECT count(*) AS n FROM execution_log")
+                        .map(row -> row.get("n", Long.class))
+                        .one()
+                        .block()));
   }
 
   @Test

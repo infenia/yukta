@@ -34,31 +34,27 @@ class SupervisedControlTest {
       mock(
           ControlBusGateway.class,
           Mockito.withSettings()
-              .defaultAnswer(
-                  call ->
-                      Mono.deferContextual(
-                          context -> {
-                            seen.add(
-                                call.getMethod().getName()
-                                    + ":"
-                                    + context.getOrDefault(ControlActor.CHANNEL_KEY, "none"));
-                            return Mono.empty();
-                          })));
+              .defaultAnswer(call ->
+                  Mono.deferContextual(context -> {
+                    seen.add(
+                        call.getMethod().getName()
+                            + ":"
+                            + context.getOrDefault(ControlActor.CHANNEL_KEY, "none"));
+                    return Mono.empty();
+                  })));
 
   private final DirectiveDispatcher dispatcher =
       mock(
           DirectiveDispatcher.class,
           Mockito.withSettings()
-              .defaultAnswer(
-                  call ->
-                      Mono.deferContextual(
-                          context -> {
-                            seen.add(
-                                call.getMethod().getName()
-                                    + ":"
-                                    + context.getOrDefault(ControlActor.CHANNEL_KEY, "none"));
-                            return Mono.empty();
-                          })));
+              .defaultAnswer(call ->
+                  Mono.deferContextual(context -> {
+                    seen.add(
+                        call.getMethod().getName()
+                            + ":"
+                            + context.getOrDefault(ControlActor.CHANNEL_KEY, "none"));
+                    return Mono.empty();
+                  })));
 
   private final ExecutionScheduler scheduler = mock(ExecutionScheduler.class);
 

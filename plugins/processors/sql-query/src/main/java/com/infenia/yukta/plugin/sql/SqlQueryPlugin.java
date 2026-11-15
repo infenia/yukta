@@ -167,33 +167,29 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          ConfigValidation.requiredString(config, "url");
-          ConfigValidation.requiredString(config, SQL);
-          ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
-          ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
-          FailureMode.from(config.get(FAILURE_MODE));
-        });
+    return Mono.fromRunnable(() -> {
+      ConfigValidation.requiredString(config, "url");
+      ConfigValidation.requiredString(config, SQL);
+      ConfigValidation.positiveInt(config, "maxRows", DEFAULT_MAX_ROWS);
+      ConfigValidation.positiveInt(config, "timeoutSeconds", DEFAULT_TIMEOUT_SECONDS);
+      FailureMode.from(config.get(FAILURE_MODE));
+    });
   }
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     // ponytail: one connection per message, add a pool (HikariCP) when throughput matters.
     final FailureMode mode = FailureMode.from(config.get(FAILURE_MODE));
-    return input.concatMap(
-        message ->
-            PluginGuard.guard(
-                credentials(message, config)
-                    .flatMap(
-                        credentials ->
-                            Mono.<Message<?>>fromCallable(
-                                    () -> execute(message, config, credentials))
-                                .subscribeOn(Schedulers.boundedElastic())),
-                message,
-                mode,
-                reporter,
-                SQL));
+    return input.concatMap(message ->
+        PluginGuard.guard(
+            credentials(message, config)
+                .flatMap(credentials ->
+                    Mono.<Message<?>>fromCallable(() -> execute(message, config, credentials))
+                        .subscribeOn(Schedulers.boundedElastic())),
+            message,
+            mode,
+            reporter,
+            SQL));
   }
 
   /** The connection settings of one message, with secret references and variables resolved. */
@@ -203,12 +199,11 @@ public final class SqlQueryPlugin implements ProcessorPlugin {
             resolved(config.get("url"), message),
             resolved(config.get("username"), message),
             resolved(config.get("password"), message))
-        .map(
-            parts ->
-                new Credentials(
-                    parts.getT1().orElse("null"),
-                    parts.getT2().orElse(null),
-                    parts.getT3().orElse(null)));
+        .map(parts ->
+            new Credentials(
+                parts.getT1().orElse("null"),
+                parts.getT2().orElse(null),
+                parts.getT3().orElse(null)));
   }
 
   private Mono<Optional<String>> resolved(final Object value, final Message<?> message) {

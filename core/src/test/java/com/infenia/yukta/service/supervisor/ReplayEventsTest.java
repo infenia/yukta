@@ -58,11 +58,10 @@ class ReplayEventsTest {
                 withoutStatus(ExecutionLogEvent.finished("e", "s", "w", "SUCCESS", Map.of()))));
 
     assertThat(events)
-        .extracting(
-            event ->
-                event instanceof ExecutionEvent.NodeStatusChanged node
-                    ? node.nodeId() + "=" + node.status()
-                    : "run=" + ((ExecutionEvent.WorkflowStatusChanged) event).status())
+        .extracting(event ->
+            event instanceof ExecutionEvent.NodeStatusChanged node
+                ? node.nodeId() + "=" + node.status()
+                : "run=" + ((ExecutionEvent.WorkflowStatusChanged) event).status())
         .containsExactly("a=SUCCESS", "b=SUCCESS", "c=SUCCESS", "run=ABORTED", "run=FAILURE");
   }
 

@@ -69,50 +69,45 @@ public class SseStreams {
   public static <T> Flux<ServerSentEvent<T>> events(
       final Flux<T> data, final String lastEventId, final Duration heartbeat) {
     final long skip = parse(lastEventId) + 1;
-    return Flux.deferContextual(
-        context -> {
-          final int max = Integer.getInteger(MAX_CONCURRENT_PROPERTY, DEFAULT_MAX_CONCURRENT);
-          final int perKey = Integer.getInteger(MAX_PER_KEY_PROPERTY, DEFAULT_MAX_PER_KEY);
-          final AtomicInteger mine =
-              context
-                  .<String>getOrEmpty(ControlActor.CONTEXT_KEY)
-                  .map(caller -> OPEN_BY_CALLER.computeIfAbsent(caller, _ -> new AtomicInteger()))
-                  .orElseGet(AtomicInteger::new);
-          final boolean full = OPEN.incrementAndGet() > max && max > 0;
-          if ((mine.incrementAndGet() > perKey && perKey > 0) || full) {
-            release(mine);
-            return Flux.<ServerSentEvent<T>>error(
-                new ResponseStatusException(
-                    HttpStatus.TOO_MANY_REQUESTS, "Too many open streams, try again later"));
-          }
-          final Sinks.Empty<Void> finished = Sinks.empty();
-          final AtomicBoolean ended = new AtomicBoolean();
-          final Flux<ServerSentEvent<T>> events =
-              data.index()
-                  .filter(indexed -> indexed.getT1() >= skip)
-                  .map(
-                      indexed ->
-                          ServerSentEvent.<T>builder()
-                              .id(String.valueOf(indexed.getT1()))
-                              .data(indexed.getT2())
-                              .build())
-                  .doFinally(
-                      _ -> {
-                        ended.set(true);
-                        finished.tryEmitEmpty();
-                      });
-          final Flux<ServerSentEvent<T>> keepAlive =
-              Flux.interval(heartbeat)
-                  .filter(
-                      _ ->
-                          Boolean.FALSE.equals(
-                              ended.get())) // a tick racing the end is skipped, not dropped
-                  .map(_ -> ServerSentEvent.<T>builder().comment("ping").build())
-                  .takeUntilOther(finished.asMono());
-          final Flux<ServerSentEvent<T>> merged = Flux.merge(events, keepAlive);
-          return (lifetime().isZero() ? merged : merged.take(lifetime()))
-              .doFinally(_ -> release(mine));
-        });
+    return Flux.deferContextual(context -> {
+      final int max = Integer.getInteger(MAX_CONCURRENT_PROPERTY, DEFAULT_MAX_CONCURRENT);
+      final int perKey = Integer.getInteger(MAX_PER_KEY_PROPERTY, DEFAULT_MAX_PER_KEY);
+      final AtomicInteger mine =
+          context
+              .<String>getOrEmpty(ControlActor.CONTEXT_KEY)
+              .map(caller -> OPEN_BY_CALLER.computeIfAbsent(caller, _ -> new AtomicInteger()))
+              .orElseGet(AtomicInteger::new);
+      final boolean full = OPEN.incrementAndGet() > max && max > 0;
+      if ((mine.incrementAndGet() > perKey && perKey > 0) || full) {
+        release(mine);
+        return Flux.<ServerSentEvent<T>>error(
+            new ResponseStatusException(
+                HttpStatus.TOO_MANY_REQUESTS, "Too many open streams, try again later"));
+      }
+      final Sinks.Empty<Void> finished = Sinks.empty();
+      final AtomicBoolean ended = new AtomicBoolean();
+      final Flux<ServerSentEvent<T>> events =
+          data.index()
+              .filter(indexed -> indexed.getT1() >= skip)
+              .map(indexed ->
+                  ServerSentEvent.<T>builder()
+                      .id(String.valueOf(indexed.getT1()))
+                      .data(indexed.getT2())
+                      .build())
+              .doFinally(_ -> {
+                ended.set(true);
+                finished.tryEmitEmpty();
+              });
+      final Flux<ServerSentEvent<T>> keepAlive =
+          Flux.interval(heartbeat)
+              .filter(_ ->
+                  Boolean.FALSE.equals(
+                      ended.get())) // a tick racing the end is skipped, not dropped
+              .map(_ -> ServerSentEvent.<T>builder().comment("ping").build())
+              .takeUntilOther(finished.asMono());
+      final Flux<ServerSentEvent<T>> merged = Flux.merge(events, keepAlive);
+      return (lifetime().isZero() ? merged : merged.take(lifetime())).doFinally(_ -> release(mine));
+    });
   }
 
   /** Gives back a stream's slots. */

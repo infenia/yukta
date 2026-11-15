@@ -179,23 +179,21 @@ class FileIoPluginsTest {
   @Test
   void describe_readerProvidesNodeDesign() {
     assertThat(reader.describe().uiDesign())
-        .hasValueSatisfying(
-            design -> {
-              assertThat(design.label()).isNotBlank();
-              assertThat(design.width()).isEqualTo(140);
-              assertThat(design.height()).isEqualTo(80);
-            });
+        .hasValueSatisfying(design -> {
+          assertThat(design.label()).isNotBlank();
+          assertThat(design.width()).isEqualTo(140);
+          assertThat(design.height()).isEqualTo(80);
+        });
   }
 
   @Test
   void describe_writerProvidesNodeDesign() {
     assertThat(writer.describe().uiDesign())
-        .hasValueSatisfying(
-            design -> {
-              assertThat(design.label()).isNotBlank();
-              assertThat(design.width()).isEqualTo(140);
-              assertThat(design.height()).isEqualTo(80);
-            });
+        .hasValueSatisfying(design -> {
+          assertThat(design.label()).isNotBlank();
+          assertThat(design.width()).isEqualTo(140);
+          assertThat(design.height()).isEqualTo(80);
+        });
   }
 
   @Test

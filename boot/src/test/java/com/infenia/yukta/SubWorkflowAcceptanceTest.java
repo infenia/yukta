@@ -76,11 +76,10 @@ class SubWorkflowAcceptanceTest {
   private WorkflowProgress awaitTerminal(final String executionId) {
     await()
         .atMost(WAIT)
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && progress.status().isTerminal();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && progress.status().isTerminal();
+        });
     return tracker.getProgressByExecutionId(executionId);
   }
 
@@ -96,16 +95,14 @@ class SubWorkflowAcceptanceTest {
     assertThat(result.results()).isNotEmpty();
     assertThat(String.valueOf(result.results())).contains("from-child");
     assertThat(executionLog.readAll())
-        .filteredOn(
-            event ->
-                event.executionId().equals(result.executionId())
-                    && event.type() == ExecutionLogEvent.Type.RUN_STARTED)
+        .filteredOn(event ->
+            event.executionId().equals(result.executionId())
+                && event.type() == ExecutionLogEvent.Type.RUN_STARTED)
         .singleElement()
-        .satisfies(
-            started ->
-                assertThat(started.payload())
-                    .containsEntry(SubWorkflowGateway.PARENT_KEY, "parent-run")
-                    .containsEntry(SubWorkflowGateway.DEPTH_KEY, 1));
+        .satisfies(started ->
+            assertThat(started.payload())
+                .containsEntry(SubWorkflowGateway.PARENT_KEY, "parent-run")
+                .containsEntry(SubWorkflowGateway.DEPTH_KEY, 1));
     final WorkflowProgress child = tracker.getProgressByExecutionId(result.executionId());
     assertThat(child.parentExecutionId()).isEqualTo("parent-run");
     assertThat(child.rootExecutionId()).isEqualTo("parent-run");
@@ -260,13 +257,12 @@ class SubWorkflowAcceptanceTest {
             gateway.startWorkflow(session, "parent", Map.of("root", "/from/parent"), null).block());
     assertThat(parent.status()).isEqualTo(TaskStatus.SUCCESS);
     assertThat(executionLog.readAll())
-        .filteredOn(
-            event ->
-                event.type() == ExecutionLogEvent.Type.RUN_STARTED
-                    && "/from/parent"
-                        .equals(
-                            java.util.Objects.requireNonNullElse(event.payload(), Map.of())
-                                .get("project")))
+        .filteredOn(event ->
+            event.type() == ExecutionLogEvent.Type.RUN_STARTED
+                && "/from/parent"
+                    .equals(
+                        java.util.Objects.requireNonNullElse(event.payload(), Map.of())
+                            .get("project")))
         .isNotEmpty();
   }
 
@@ -304,11 +300,10 @@ class SubWorkflowAcceptanceTest {
 
     assertThatThrownBy(() -> subWorkflows.run(session, "nope", Map.of(), "p", 1).block(WAIT))
         .hasMessageContaining("Workflow not found");
-    assertThatThrownBy(
-            () ->
-                subWorkflows
-                    .run(session, "nope", Map.of(), "p", SubWorkflowGateway.MAX_DEPTH + 1)
-                    .block(WAIT))
+    assertThatThrownBy(() ->
+            subWorkflows
+                .run(session, "nope", Map.of(), "p", SubWorkflowGateway.MAX_DEPTH + 1)
+                .block(WAIT))
         .hasMessageContaining("nested more than");
   }
 }

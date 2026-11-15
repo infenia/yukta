@@ -43,11 +43,10 @@ public class SupervisorContractController {
   @GetMapping
   @Operation(summary = "Get the supervisor contract version and operations")
   public Mono<ApiResponse<ContractView>> get() {
-    return Mono.fromSupplier(
-        () ->
-            ApiResponse.success(
-                200,
-                "Supervisor contract retrieved",
-                new ContractView(SupervisorContract.VERSION, SupervisorContract.operations())));
+    return Mono.fromSupplier(() ->
+        ApiResponse.success(
+            200,
+            "Supervisor contract retrieved",
+            new ContractView(SupervisorContract.VERSION, SupervisorContract.operations())));
   }
 }

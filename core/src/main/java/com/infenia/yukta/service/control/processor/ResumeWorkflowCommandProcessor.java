@@ -32,26 +32,25 @@ public class ResumeWorkflowCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final ResumeWorkflowCommand resume) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(resume.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + resume.executionId()));
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(resume.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + resume.executionId()));
 
-          if (control.globalPauseValve() == null) {
-            throw new IllegalStateException("Global pause valve not initialized");
-          }
+      if (control.globalPauseValve() == null) {
+        throw new IllegalStateException("Global pause valve not initialized");
+      }
 
-          control.globalPauseValve().resume();
+      control.globalPauseValve().resume();
 
-          taskTracker.emitControlStateEvent(resume.executionId(), ControlState.RESUMED);
+      taskTracker.emitControlStateEvent(resume.executionId(), ControlState.RESUMED);
 
-          log.atDebug()
-              .addKeyValue("executionId", resume.executionId())
-              .addKeyValue("controlState", ControlState.RESUMED)
-              .log("Resumed workflow");
-        });
+      log.atDebug()
+          .addKeyValue("executionId", resume.executionId())
+          .addKeyValue("controlState", ControlState.RESUMED)
+          .log("Resumed workflow");
+    });
   }
 }

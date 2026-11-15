@@ -139,12 +139,11 @@ public class SessionConfigController {
     return sessionService
         .getSessionConfig(sessionId)
         .switchIfEmpty(sessionNotFound(sessionId))
-        .map(
-            config ->
-                ApiResponse.success(
-                    200,
-                    "Session details retrieved",
-                    sessionMapper.sessionConfigResponseToSessionDetails(config)));
+        .map(config ->
+            ApiResponse.success(
+                200,
+                "Session details retrieved",
+                sessionMapper.sessionConfigResponseToSessionDetails(config)));
   }
 
   /**
@@ -164,10 +163,9 @@ public class SessionConfigController {
     return sessionService
         .getSessionConfig(sessionId)
         .switchIfEmpty(sessionNotFound(sessionId))
-        .map(
-            config ->
-                ApiResponse.success(
-                    200, "Session configuration retrieved", configRedactor.redact(config)));
+        .map(config ->
+            ApiResponse.success(
+                200, "Session configuration retrieved", configRedactor.redact(config)));
   }
 
   /**
@@ -192,9 +190,8 @@ public class SessionConfigController {
         .getSessionIds(includeInternal)
         .sort()
         .collectList()
-        .map(
-            ids ->
-                Pagination.page(ids, limit, cursor, id -> id, "Sessions retrieved successfully"));
+        .map(ids ->
+            Pagination.page(ids, limit, cursor, id -> id, "Sessions retrieved successfully"));
   }
 
   /**
@@ -220,46 +217,39 @@ public class SessionConfigController {
         .getSessionIds(includeInternal)
         .sort()
         .collectList()
-        .flatMap(
-            ids -> {
-              final Pagination.Slice<String> page = Pagination.slice(ids, limit, cursor, id -> id);
-              return Flux.fromIterable(page.items())
-                  .concatMap(
-                      id ->
-                          sessionService
-                              .getSessionConfig(id)
-                              .onErrorResume(
-                                  e -> {
-                                    log.atWarn().setCause(e).log("Skipping session {}", id);
-                                    return Mono.empty();
-                                  }))
-                  .map(sessionMapper::sessionConfigResponseToSessionListItem)
-                  .concatMap(this::withLastRun)
-                  .collectList()
-                  .map(
-                      items ->
-                          Pagination.respond(items, page.next(), "Session summaries retrieved"));
-            });
+        .flatMap(ids -> {
+          final Pagination.Slice<String> page = Pagination.slice(ids, limit, cursor, id -> id);
+          return Flux.fromIterable(page.items())
+              .concatMap(id ->
+                  sessionService
+                      .getSessionConfig(id)
+                      .onErrorResume(e -> {
+                        log.atWarn().setCause(e).log("Skipping session {}", id);
+                        return Mono.empty();
+                      }))
+              .map(sessionMapper::sessionConfigResponseToSessionListItem)
+              .concatMap(this::withLastRun)
+              .collectList()
+              .map(items -> Pagination.respond(items, page.next(), "Session summaries retrieved"));
+        });
   }
 
   /** The item with its session's newest run; without one when the history cannot be read. */
   private Mono<SessionListItem> withLastRun(final SessionListItem item) {
     return controlBus
         .getHistory(item.sessionId())
-        .map(
-            history ->
-                item.withLastRun(
-                    history.stream()
-                        .max(
-                            Comparator.comparing(
-                                WorkflowExecutionSummary::startTime,
-                                Comparator.nullsFirst(Comparator.naturalOrder())))
-                        .orElse(null)))
-        .onErrorResume(
-            e -> {
-              log.atWarn().setCause(e).log("No run history for {}", item.sessionId());
-              return Mono.just(item);
-            })
+        .map(history ->
+            item.withLastRun(
+                history.stream()
+                    .max(
+                        Comparator.comparing(
+                            WorkflowExecutionSummary::startTime,
+                            Comparator.nullsFirst(Comparator.naturalOrder())))
+                    .orElse(null)))
+        .onErrorResume(e -> {
+          log.atWarn().setCause(e).log("No run history for {}", item.sessionId());
+          return Mono.just(item);
+        })
         .defaultIfEmpty(item);
   }
 
@@ -278,14 +268,9 @@ public class SessionConfigController {
     return sessionService
         .getSessionWorkflow(sessionId, workflowId)
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new NotFoundException(
-                        "Workflow not found: '"
-                            + workflowId
-                            + "' in session: '"
-                            + sessionId
-                            + "'")))
+            Mono.error(() ->
+                new NotFoundException(
+                    "Workflow not found: '" + workflowId + "' in session: '" + sessionId + "'")))
         .map(def -> ApiResponse.success(200, "Workflow retrieved", configRedactor.redact(def)));
   }
 
@@ -305,24 +290,21 @@ public class SessionConfigController {
     return sessionService
         .getSessionConfig(sessionId)
         .switchIfEmpty(sessionNotFound(sessionId))
-        .flatMap(
-            config ->
-                sessionService
-                    .getLatestExecutionStatusByWorkflow(sessionId)
-                    .map(
-                        statuses ->
-                            config.workflows().values().stream()
-                                .map(
-                                    def ->
-                                        new WorkflowSummary(
-                                            def.workflowId(),
-                                            def.description(),
-                                            def.nodes().size(),
-                                            def.edges().size(),
-                                            statuses.containsKey(def.workflowId())
-                                                ? statuses.get(def.workflowId()).status().name()
-                                                : null))
-                                .toList()))
+        .flatMap(config ->
+            sessionService
+                .getLatestExecutionStatusByWorkflow(sessionId)
+                .map(statuses ->
+                    config.workflows().values().stream()
+                        .map(def ->
+                            new WorkflowSummary(
+                                def.workflowId(),
+                                def.description(),
+                                def.nodes().size(),
+                                def.edges().size(),
+                                statuses.containsKey(def.workflowId())
+                                    ? statuses.get(def.workflowId()).status().name()
+                                    : null))
+                        .toList()))
         .map(summaries -> ApiResponse.success(200, "Workflow summaries retrieved", summaries));
   }
 

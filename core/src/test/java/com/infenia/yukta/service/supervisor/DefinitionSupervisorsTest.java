@@ -139,16 +139,13 @@ class DefinitionSupervisorsTest {
     manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a")))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .singleElement()
-                    .satisfies(
-                        issue -> {
-                          assertThat(issue.field())
-                              .isEqualTo("workflows.w1.assignments[0].supervisor");
-                          assertThat(issue.message()).contains("workflow w1", "owned by b");
-                        }))
+        .assertNext(issues ->
+            assertThat(issues)
+                .singleElement()
+                .satisfies(issue -> {
+                  assertThat(issue.field()).isEqualTo("workflows.w1.assignments[0].supervisor");
+                  assertThat(issue.message()).contains("workflow w1", "owned by b");
+                }))
         .verifyComplete();
   }
 
@@ -159,11 +156,8 @@ class DefinitionSupervisorsTest {
     manual("m1", "b", new SupervisorScope.Section("w1", SESSION, Set.of("build.*")));
 
     StepVerifier.create(declared.check(session(List.of(ref("a")), workflow("w1"))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .extracting(Issue::field)
-                    .containsOnly("assignments[0].supervisor"))
+        .assertNext(issues ->
+            assertThat(issues).extracting(Issue::field).containsOnly("assignments[0].supervisor"))
         .verifyComplete();
   }
 
@@ -224,11 +218,10 @@ class DefinitionSupervisorsTest {
     }
 
     StepVerifier.create(declared.check(session(List.of(), workflow("w1"))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .extracting(Issue::field)
-                    .contains("assignments", "workflows.w1.nodes"))
+        .assertNext(issues ->
+            assertThat(issues)
+                .extracting(Issue::field)
+                .contains("assignments", "workflows.w1.nodes"))
         .verifyComplete();
   }
 
@@ -270,16 +263,13 @@ class DefinitionSupervisorsTest {
     StepVerifier.create(
             declared.check(
                 session(List.of(), workflow("w1", ref("a", "build.*"), ref("b", "build.test")))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .singleElement()
-                    .satisfies(
-                        issue -> {
-                          assertThat(issue.field())
-                              .isEqualTo("workflows.w1.assignments[1].supervisor");
-                          assertThat(issue.message()).contains("owned by a");
-                        }))
+        .assertNext(issues ->
+            assertThat(issues)
+                .singleElement()
+                .satisfies(issue -> {
+                  assertThat(issue.field()).isEqualTo("workflows.w1.assignments[1].supervisor");
+                  assertThat(issue.message()).contains("owned by a");
+                }))
         .verifyComplete();
   }
 
@@ -289,15 +279,13 @@ class DefinitionSupervisorsTest {
 
     // build.compile and build.test make the group build; there is no group ci
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:ci")))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .singleElement()
-                    .satisfies(
-                        issue -> {
-                          assertThat(issue.field()).isEqualTo("workflows.w1.assignments[0].nodes");
-                          assertThat(issue.message()).contains("selects no node");
-                        }))
+        .assertNext(issues ->
+            assertThat(issues)
+                .singleElement()
+                .satisfies(issue -> {
+                  assertThat(issue.field()).isEqualTo("workflows.w1.assignments[0].nodes");
+                  assertThat(issue.message()).contains("selects no node");
+                }))
         .verifyComplete();
     StepVerifier.create(declared.check(session(List.of(), workflow("w1", ref("a", "group:build")))))
         .assertNext(issues -> assertThat(issues).isEmpty())
@@ -317,11 +305,10 @@ class DefinitionSupervisorsTest {
             org.assertj.core.groups.Tuple.tuple(
                 "workflow:s1/w1//build.*", SupervisorSource.DEFINITION));
     assertThat(attachments())
-        .allSatisfy(
-            a -> {
-              assertThat(a.id()).matches("def-[0-9a-f]{16}");
-              assertThat(a.originSessionId()).isEqualTo(SESSION);
-            });
+        .allSatisfy(a -> {
+          assertThat(a.id()).matches("def-[0-9a-f]{16}");
+          assertThat(a.originSessionId()).isEqualTo(SESSION);
+        });
     assertThat(attachments().stream().filter(a -> a.originWorkflowId() != null)).hasSize(2);
   }
 
@@ -380,11 +367,10 @@ class DefinitionSupervisorsTest {
 
     assertThat(attachments())
         .singleElement()
-        .satisfies(
-            a -> {
-              assertThat(a.id()).isEqualTo(id);
-              assertThat(a.enabled()).isFalse();
-            });
+        .satisfies(a -> {
+          assertThat(a.id()).isEqualTo(id);
+          assertThat(a.enabled()).isFalse();
+        });
   }
 
   @Test
@@ -568,12 +554,11 @@ class DefinitionSupervisorsTest {
     store.saveSessionRefs(SESSION, List.of(ref("guard"))).block();
 
     StepVerifier.create(service.deleteSupervisor("guard"))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessageContaining("session s1")
-                    .hasMessageContaining("workflow s1/w1"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("session s1")
+                .hasMessageContaining("workflow s1/w1"))
         .verify();
   }
 

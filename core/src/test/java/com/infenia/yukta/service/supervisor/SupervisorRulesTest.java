@@ -53,11 +53,10 @@ class SupervisorRulesTest {
   @Test
   void readLeavesTheCommonSettingsOut() {
     StepVerifier.create(SupervisorRules.read(service, "r"))
-        .assertNext(
-            doc -> {
-              assertThat(doc.version()).isEqualTo(3);
-              assertThat(doc.rules()).containsOnlyKeys("rules", "token");
-            })
+        .assertNext(doc -> {
+          assertThat(doc.version()).isEqualTo(3);
+          assertThat(doc.rules()).containsOnlyKeys("rules", "token");
+        })
         .verifyComplete();
   }
 
@@ -98,11 +97,10 @@ class SupervisorRulesTest {
   @Test
   void commonSettingInTheRulesIsRefused() {
     StepVerifier.create(SupervisorRules.save(service, "r", Map.of("initiative", List.of())))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("initiative"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("initiative"))
         .verify();
     StepVerifier.create(
             SupervisorRules.replay(service, "r", "e1", Map.of("allowedCommands", List.of())))

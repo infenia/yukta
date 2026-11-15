@@ -36,10 +36,9 @@ class FeatureGateEnvironmentPostProcessorTest {
   })
   void settingWithoutItsModuleStopsStartupAndSaysHowToBuildIt(
       final String key, final String value, final String named, final String hint) {
-    assertThatThrownBy(
-            () ->
-                FeatureGateEnvironmentPostProcessor.check(
-                    new MockEnvironment().withProperty(key, value), name -> false))
+    assertThatThrownBy(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment().withProperty(key, value), name -> false))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining(named)
         .hasMessageContaining("Plus")
@@ -48,11 +47,9 @@ class FeatureGateEnvironmentPostProcessorTest {
 
   @Test
   void valueIsMatchedLikeConditionalOnProperty_ignoringCaseAndBlanks() {
-    assertThatThrownBy(
-            () ->
-                FeatureGateEnvironmentPostProcessor.check(
-                    new MockEnvironment().withProperty("yukta.ha.mode", " Postgres "),
-                    name -> false))
+    assertThatThrownBy(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment().withProperty("yukta.ha.mode", " Postgres "), name -> false))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("yukta.ha.mode=postgres");
   }
@@ -62,19 +59,17 @@ class FeatureGateEnvironmentPostProcessorTest {
     assertThatCode(
             () -> FeatureGateEnvironmentPostProcessor.check(new MockEnvironment(), name -> false))
         .doesNotThrowAnyException();
-    assertThatCode(
-            () ->
-                FeatureGateEnvironmentPostProcessor.check(
-                    new MockEnvironment().withProperty("yukta.ha.mode", "postgres"), name -> true))
+    assertThatCode(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment().withProperty("yukta.ha.mode", "postgres"), name -> true))
         .doesNotThrowAnyException();
-    assertThatCode(
-            () ->
-                FeatureGateEnvironmentPostProcessor.check(
-                    new MockEnvironment()
-                        .withProperty("yukta.session-memory.dir", " ")
-                        .withProperty("yukta.session.store-type", "in-memory")
-                        .withProperty("yukta.ha.mode", ""),
-                    name -> false))
+    assertThatCode(() ->
+            FeatureGateEnvironmentPostProcessor.check(
+                new MockEnvironment()
+                    .withProperty("yukta.session-memory.dir", " ")
+                    .withProperty("yukta.session.store-type", "in-memory")
+                    .withProperty("yukta.ha.mode", ""),
+                name -> false))
         .doesNotThrowAnyException();
   }
 
@@ -98,10 +93,9 @@ class FeatureGateEnvironmentPostProcessorTest {
 
     assertThatCode(() -> hook.postProcessEnvironment(new MockEnvironment(), null))
         .doesNotThrowAnyException();
-    assertThatThrownBy(
-            () ->
-                hook.postProcessEnvironment(
-                    new MockEnvironment().withProperty("yukta.restart.dir", "/tmp/r"), null))
+    assertThatThrownBy(() ->
+            hook.postProcessEnvironment(
+                new MockEnvironment().withProperty("yukta.restart.dir", "/tmp/r"), null))
         .isInstanceOf(IllegalStateException.class);
   }
 }

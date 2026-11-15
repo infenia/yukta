@@ -138,11 +138,10 @@ public class EventsController {
     final Set<String> kinds = kinds(type);
     return SseStreams.events(
         feed.events()
-            .filter(
-                event ->
-                    executionId == null
-                        || executionId.equals(event.executionId())
-                        || tree && tracker.isWithin(event.executionId(), executionId))
+            .filter(event ->
+                executionId == null
+                    || executionId.equals(event.executionId())
+                    || tree && tracker.isWithin(event.executionId(), executionId))
             .map(this::envelope)
             .filter(envelope -> kinds.isEmpty() || kinds.contains(envelope.type()))
             .filter(envelope -> envelope.severity().compareTo(minimum) >= 0),
@@ -169,13 +168,12 @@ public class EventsController {
             TYPES.stream()
                 .filter(name::equalsIgnoreCase)
                 .findFirst()
-                .orElseThrow(
-                    () ->
-                        new IllegalArgumentException(
-                            "Unknown event type: "
-                                + name
-                                + ". Valid types: "
-                                + String.join(", ", TYPES))));
+                .orElseThrow(() ->
+                    new IllegalArgumentException(
+                        "Unknown event type: "
+                            + name
+                            + ". Valid types: "
+                            + String.join(", ", TYPES))));
       }
     }
     return kinds;

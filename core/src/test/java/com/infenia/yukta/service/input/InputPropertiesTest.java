@@ -29,18 +29,17 @@ class InputPropertiesTest {
 
   @Test
   void zeroRetentionIsRefused() {
-    assertThatThrownBy(
-            () ->
-                new YuktaProperties.Input(
-                    Duration.ofHours(1),
-                    Duration.ofHours(2),
-                    5,
-                    50,
-                    100,
-                    Duration.ofSeconds(1),
-                    Duration.ZERO,
-                    List.of(),
-                    java.util.Map.of()))
+    assertThatThrownBy(() ->
+            new YuktaProperties.Input(
+                Duration.ofHours(1),
+                Duration.ofHours(2),
+                5,
+                50,
+                100,
+                Duration.ofSeconds(1),
+                Duration.ZERO,
+                List.of(),
+                java.util.Map.of()))
         .hasMessageContaining("retention");
   }
 

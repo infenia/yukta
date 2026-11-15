@@ -108,11 +108,10 @@ class SupervisorAssignmentsTest {
                     new Assignment(
                         new SupervisorScope.Section("w", null, Set.of("group:ci")), true, false),
                     owns("server"))))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .extracting(SettingsValidationException.Issue::field)
-                    .containsExactly("assignments[0]", "assignments[1]", "assignments[2]"))
+        .assertNext(issues ->
+            assertThat(issues)
+                .extracting(SettingsValidationException.Issue::field)
+                .containsExactly("assignments[0]", "assignments[1]", "assignments[2]"))
         .verifyComplete();
     StepVerifier.create(assignments.of("a")).verifyComplete();
   }
@@ -201,11 +200,10 @@ class SupervisorAssignmentsTest {
                 "b",
                 List.of(new Assignment(SupervisorScope.parse("workflow:s/w"), false, false)),
                 false))
-        .assertNext(
-            all ->
-                assertThat(all)
-                    .extracting(SupervisorAttachment::source)
-                    .contains(SupervisorSource.DEFINITION, SupervisorSource.MANUAL))
+        .assertNext(all ->
+            assertThat(all)
+                .extracting(SupervisorAttachment::source)
+                .contains(SupervisorSource.DEFINITION, SupervisorSource.MANUAL))
         .verifyComplete();
   }
 

@@ -262,15 +262,13 @@ public class InputBroker {
    *     {@link InputCancelledException}
    */
   public Mono<InputResponse> ask(final InputIdentity who, final InputRequestSpec raw) {
-    return Mono.defer(
-        () -> {
-          final InputRequestSpec spec = redactor.redact(raw);
-          return store
-              .findAnsweredByKey(spec.key())
-              .flatMap(answered -> store.findResponse(answered.id()))
-              .switchIfEmpty(
-                  Mono.defer(() -> openRequest(who, spec, List.of()).flatMap(this::await)));
-        });
+    return Mono.defer(() -> {
+      final InputRequestSpec spec = redactor.redact(raw);
+      return store
+          .findAnsweredByKey(spec.key())
+          .flatMap(answered -> store.findResponse(answered.id()))
+          .switchIfEmpty(Mono.defer(() -> openRequest(who, spec, List.of()).flatMap(this::await)));
+    });
   }
 
   /**
@@ -325,11 +323,10 @@ public class InputBroker {
     return store
         .findById(requestId)
         .filter(current -> isLive(current.state()))
-        .flatMap(
-            current ->
-                routes
-                    .resolve(current.spec(), current.sessionId())
-                    .flatMap(route -> supervisorAnswer(current, route, expectedVersion, response)))
+        .flatMap(current ->
+            routes
+                .resolve(current.spec(), current.sessionId())
+                .flatMap(route -> supervisorAnswer(current, route, expectedVersion, response)))
         .switchIfEmpty(Mono.defer(() -> finalAnswer(requestId, expectedVersion, response)));
   }
 
@@ -341,18 +338,16 @@ public class InputBroker {
             expectedVersion,
             InputBroker::isLive,
             current -> advance(current, InputState.ANSWERED, current.advice()))
-        .flatMap(
-            change ->
-                change.applied()
-                    ? store
-                        .saveResponse(response)
-                        .map(saved -> answered(change.request(), saved))
-                        // the request is ANSWERED already: its waiters must hear that the answer
-                        // was lost instead of waiting for good
-                        .onErrorResume(
-                            error ->
-                                settle(change.request()).onErrorComplete().then(Mono.error(error)))
-                    : Mono.just(change.request()));
+        .flatMap(change ->
+            change.applied()
+                ? store
+                    .saveResponse(response)
+                    .map(saved -> answered(change.request(), saved))
+                    // the request is ANSWERED already: its waiters must hear that the answer
+                    // was lost instead of waiting for good
+                    .onErrorResume(
+                        error -> settle(change.request()).onErrorComplete().then(Mono.error(error)))
+                : Mono.just(change.request()));
   }
 
   /**
@@ -432,11 +427,10 @@ public class InputBroker {
                     c.advice(),
                     c.tierDeadline(),
                     withVote(c.votes(), vote)))
-        .flatMap(
-            change ->
-                change.applied()
-                    ? decide(change.request(), route, tier, response)
-                    : Mono.just(change.request()));
+        .flatMap(change ->
+            change.applied()
+                ? decide(change.request(), route, tier, response)
+                : Mono.just(change.request()));
   }
 
   private static List<Vote> withVote(final List<Vote> votes, final Vote vote) {
@@ -535,18 +529,15 @@ public class InputBroker {
     final @Nullable String cleanAdvice = advice == null ? null : redactor.text(advice);
     return store
         .findById(requestId)
-        .flatMap(
-            current ->
-                isLive(current.state())
-                    ? routes
-                        .resolve(current.spec(), current.sessionId())
-                        .flatMap(
-                            route ->
-                                moveUp(current, route, cleanReason, cleanAdvice, by)
-                                    .switchIfEmpty(
-                                        Mono.defer(
-                                            () -> flag(requestId, cleanReason, cleanAdvice, by))))
-                    : Mono.just(current));
+        .flatMap(current ->
+            isLive(current.state())
+                ? routes
+                    .resolve(current.spec(), current.sessionId())
+                    .flatMap(route ->
+                        moveUp(current, route, cleanReason, cleanAdvice, by)
+                            .switchIfEmpty(
+                                Mono.defer(() -> flag(requestId, cleanReason, cleanAdvice, by))))
+                : Mono.just(current));
   }
 
   /** Marks an open request as handed up when there is no higher tier to hand it to. */
@@ -562,12 +553,11 @@ public class InputBroker {
             current ->
                 advance(current, InputState.ESCALATED, advice)
                     .withAsked(handedUp(current, reason, by)))
-        .doOnNext(
-            change -> {
-              if (change.applied()) {
-                escalated(change.request(), reason, by);
-              }
-            })
+        .doOnNext(change -> {
+          if (change.applied()) {
+            escalated(change.request(), reason, by);
+          }
+        })
         .map(Change::request);
   }
 
@@ -608,34 +598,32 @@ public class InputBroker {
                   moved.withAsked(handedUp(c, reason, by)),
                   TierTargets.selectors(moved, next, directory(), askers));
             })
-        .flatMap(
-            change -> {
-              if (!change.applied()) {
-                // another call moved or ended it first: that is the answer, not "no higher tier"
-                return Mono.just(change.request());
-              }
-              escalated(change.request(), reason, by);
-              return queueDeliveries(change.request())
-                  .then(Mono.defer(() -> skipUnreachable(change.request(), route)));
-            });
+        .flatMap(change -> {
+          if (!change.applied()) {
+            // another call moved or ended it first: that is the answer, not "no higher tier"
+            return Mono.just(change.request());
+          }
+          escalated(change.request(), reason, by);
+          return queueDeliveries(change.request())
+              .then(Mono.defer(() -> skipUnreachable(change.request(), route)));
+        });
   }
 
   /** Queues a delivery for each external responder the tier of the request targets. */
   private Mono<Void> queueDeliveries(final InputRequest request) {
     return Flux.fromIterable(request.targets())
         .filter(target -> target.startsWith("external:"))
-        .concatMap(
-            target ->
-                store.enqueueDelivery(
-                    new InputDelivery(
-                        UUID.randomUUID().toString(),
-                        request.id(),
-                        request.tier(),
-                        target,
-                        InputDelivery.State.PENDING,
-                        0,
-                        clock.instant(),
-                        null)))
+        .concatMap(target ->
+            store.enqueueDelivery(
+                new InputDelivery(
+                    UUID.randomUUID().toString(),
+                    request.id(),
+                    request.tier(),
+                    target,
+                    InputDelivery.State.PENDING,
+                    0,
+                    clock.instant(),
+                    null)))
         .then();
   }
 
@@ -696,13 +684,12 @@ public class InputBroker {
             null,
             InputBroker::isLive,
             current -> advance(current, InputState.CANCELLED, current.advice()))
-        .flatMap(
-            change -> {
-              if (!change.applied()) {
-                return Mono.just(change.request());
-              }
-              return cancelled(change.request(), reason).thenReturn(change.request());
-            });
+        .flatMap(change -> {
+          if (!change.applied()) {
+            return Mono.just(change.request());
+          }
+          return cancelled(change.request(), reason).thenReturn(change.request());
+        });
   }
 
   /**
@@ -725,17 +712,15 @@ public class InputBroker {
    * @return completes when the due requests are handled
    */
   public Mono<Void> sweep() {
-    return Mono.defer(
-        () -> {
-          final long started = System.nanoTime();
-          return sweepDue()
-              .then(syncOpenGauge())
-              .doFinally(
-                  _ ->
-                      meters
-                          .timer("yukta.input.sweep")
-                          .record(System.nanoTime() - started, TimeUnit.NANOSECONDS));
-        });
+    return Mono.defer(() -> {
+      final long started = System.nanoTime();
+      return sweepDue()
+          .then(syncOpenGauge())
+          .doFinally(_ ->
+              meters
+                  .timer("yukta.input.sweep")
+                  .record(System.nanoTime() - started, TimeUnit.NANOSECONDS));
+    });
   }
 
   /** Takes the open gauge from the store, so requests of another node or run do not skew it. */
@@ -749,17 +734,15 @@ public class InputBroker {
 
   private Mono<Void> sweepDue() {
     return Flux.defer(() -> store.dueBefore(clock.instant()))
-        .concatMap(
-            due ->
-                expire(due)
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .setCause(error)
-                              .addKeyValue(LOG_REQUEST_ID, due.id())
-                              .log("Could not end an input request past its deadline");
-                          return Mono.empty();
-                        }))
+        .concatMap(due ->
+            expire(due)
+                .onErrorResume(error -> {
+                  log.atWarn()
+                      .setCause(error)
+                      .addKeyValue(LOG_REQUEST_ID, due.id())
+                      .log("Could not end an input request past its deadline");
+                  return Mono.empty();
+                }))
         .then();
   }
 
@@ -790,41 +773,37 @@ public class InputBroker {
     return store
         .listOpen(who.sessionId(), null)
         .collectList()
-        .flatMap(
-            inSession -> {
-              final InputRequest existing =
-                  inSession.stream()
-                      .filter(request -> request.key().equals(spec.key()))
-                      .findFirst()
-                      .orElse(null);
-              if (existing != null) {
-                return takenOver(existing, who);
-              }
-              final String denial = denial(who, spec, inSession);
-              if (denial != null) {
-                return deny(spec, denial);
-              }
-              return routes
-                  .resolve(spec, who.sessionId())
-                  .flatMap(
-                      route -> {
-                        final InputRequest created = create(who, spec, route, steps);
-                        return store
-                            .createIfAbsent(created)
-                            .doOnNext(
-                                stored -> {
-                                  if (stored.id().equals(created.id())) {
-                                    asked(stored);
-                                  }
-                                })
-                            .flatMap(
-                                stored ->
-                                    stored.id().equals(created.id())
-                                        ? queueDeliveries(stored)
-                                            .then(Mono.defer(() -> skipUnreachable(stored, route)))
-                                        : Mono.just(stored));
-                      });
-            });
+        .flatMap(inSession -> {
+          final InputRequest existing =
+              inSession.stream()
+                  .filter(request -> request.key().equals(spec.key()))
+                  .findFirst()
+                  .orElse(null);
+          if (existing != null) {
+            return takenOver(existing, who);
+          }
+          final String denial = denial(who, spec, inSession);
+          if (denial != null) {
+            return deny(spec, denial);
+          }
+          return routes
+              .resolve(spec, who.sessionId())
+              .flatMap(route -> {
+                final InputRequest created = create(who, spec, route, steps);
+                return store
+                    .createIfAbsent(created)
+                    .doOnNext(stored -> {
+                      if (stored.id().equals(created.id())) {
+                        asked(stored);
+                      }
+                    })
+                    .flatMap(stored ->
+                        stored.id().equals(created.id())
+                            ? queueDeliveries(stored)
+                                .then(Mono.defer(() -> skipUnreachable(stored, route)))
+                            : Mono.just(stored));
+              });
+        });
   }
 
   /**
@@ -861,20 +840,19 @@ public class InputBroker {
             existing.asked());
     return store
         .compareAndSet(existing.id(), existing.version(), rebound)
-        .flatMap(
-            changed -> {
-              if (!changed) {
-                // someone changed it first (an answer, or another take-over): use what is there now
-                return store.findById(existing.id()).defaultIfEmpty(existing);
-              }
-              meters.counter("yukta.input.taken-over").increment();
-              log.atInfo()
-                  .addKeyValue(LOG_REQUEST_ID, existing.id())
-                  .addKeyValue(LOG_EXECUTION_ID, who.executionId())
-                  .addKeyValue("previousExecutionId", existing.executionId())
-                  .log("Input request taken over by a resumed run");
-              return Mono.just(rebound);
-            });
+        .flatMap(changed -> {
+          if (!changed) {
+            // someone changed it first (an answer, or another take-over): use what is there now
+            return store.findById(existing.id()).defaultIfEmpty(existing);
+          }
+          meters.counter("yukta.input.taken-over").increment();
+          log.atInfo()
+              .addKeyValue(LOG_REQUEST_ID, existing.id())
+              .addKeyValue(LOG_EXECUTION_ID, who.executionId())
+              .addKeyValue("previousExecutionId", existing.executionId())
+              .log("Input request taken over by a resumed run");
+          return Mono.just(rebound);
+        });
   }
 
   /** The rule an ask breaks, or {@code null}. */
@@ -987,24 +965,22 @@ public class InputBroker {
     return waiter
         .sink
         .asMono()
-        .doOnSubscribe(
-            _ -> {
-              waiter.callers.incrementAndGet();
-              // the request may have ended before this caller got here
-              background(
-                  store
-                      .findById(request.id())
-                      .filter(found -> found.state().isTerminal())
-                      .flatMap(this::settle),
-                  request.id(),
-                  "settle");
-            })
-        .doFinally(
-            signal -> {
-              if (waiter.callers.decrementAndGet() == 0 && signal == SignalType.CANCEL) {
-                background(cancel(request.id(), "node-cancelled"), request.id(), "cancel");
-              }
-            });
+        .doOnSubscribe(_ -> {
+          waiter.callers.incrementAndGet();
+          // the request may have ended before this caller got here
+          background(
+              store
+                  .findById(request.id())
+                  .filter(found -> found.state().isTerminal())
+                  .flatMap(this::settle),
+              request.id(),
+              "settle");
+        })
+        .doFinally(signal -> {
+          if (waiter.callers.decrementAndGet() == 0 && signal == SignalType.CANCEL) {
+            background(cancel(request.id(), "node-cancelled"), request.id(), "cancel");
+          }
+        });
   }
 
   private record Change(InputRequest request, boolean applied) {}
@@ -1043,23 +1019,21 @@ public class InputBroker {
       final UnaryOperator<InputRequest> change) {
     return store
         .findById(requestId)
-        .flatMap(
-            current -> {
-              if (!from.test(current.state())
-                  || tier != null && !tier.equals(current.tier())
-                  || expectedVersion != null && current.version() != expectedVersion) {
-                return Mono.just(new Change(current, false));
-              }
-              final InputRequest next = change.apply(current);
-              return store
-                  .compareAndSet(requestId, current.version(), next)
-                  .flatMap(
-                      swapped ->
-                          swapped
-                              ? Mono.just(new Change(next, true))
-                              // the version moved: read again and decide on what is there now
-                              : transition(requestId, expectedVersion, from, tier, change));
-            });
+        .flatMap(current -> {
+          if (!from.test(current.state())
+              || tier != null && !tier.equals(current.tier())
+              || expectedVersion != null && current.version() != expectedVersion) {
+            return Mono.just(new Change(current, false));
+          }
+          final InputRequest next = change.apply(current);
+          return store
+              .compareAndSet(requestId, current.version(), next)
+              .flatMap(swapped ->
+                  swapped
+                      ? Mono.just(new Change(next, true))
+                      // the version moved: read again and decide on what is there now
+                      : transition(requestId, expectedVersion, from, tier, change));
+        });
   }
 
   private static boolean isLive(final InputState state) {
@@ -1114,20 +1088,19 @@ public class InputBroker {
     final boolean overall = limit != null && !limit.isAfter(now);
     return routes
         .resolve(due.spec(), due.sessionId())
-        .flatMap(
-            route -> {
-              if (!overall) {
-                // only the tier ran out of time: hand the request up, or end it at the last tier
-                return moveUp(due, route, "tier-timeout", null, null)
-                    .switchIfEmpty(Mono.defer(() -> finalTimeout(due, route).then(Mono.empty())))
-                    .then();
-              }
-              return due.spec().onTimeout() == TimeoutAction.ESCALATE
-                  ? moveUp(due, route, "deadline", null, null)
-                      .switchIfEmpty(Mono.defer(() -> end(due).then(Mono.empty())))
-                      .then()
-                  : end(due);
-            });
+        .flatMap(route -> {
+          if (!overall) {
+            // only the tier ran out of time: hand the request up, or end it at the last tier
+            return moveUp(due, route, "tier-timeout", null, null)
+                .switchIfEmpty(Mono.defer(() -> finalTimeout(due, route).then(Mono.empty())))
+                .then();
+          }
+          return due.spec().onTimeout() == TimeoutAction.ESCALATE
+              ? moveUp(due, route, "deadline", null, null)
+                  .switchIfEmpty(Mono.defer(() -> end(due).then(Mono.empty())))
+                  .then()
+              : end(due);
+        });
   }
 
   /** The last tier gave up: the route's final action, then the request's own. */
@@ -1281,36 +1254,33 @@ public class InputBroker {
               .findResponse(request.id())
               .doOnNext(response -> emit(request.id(), sink -> sink.tryEmitValue(response)))
               .switchIfEmpty(
-                  Mono.fromRunnable(
-                      () ->
-                          emit(
-                              request.id(),
-                              sink ->
-                                  sink.tryEmitError(
-                                      new InputCancelledException(
-                                          request.id(),
-                                          "The answer was lost: it could not be stored")))))
+                  Mono.fromRunnable(() ->
+                      emit(
+                          request.id(),
+                          sink ->
+                              sink.tryEmitError(
+                                  new InputCancelledException(
+                                      request.id(),
+                                      "The answer was lost: it could not be stored")))))
               .then();
       case EXPIRED ->
-          Mono.fromRunnable(
-              () ->
-                  emit(
-                      request.id(),
-                      sink ->
-                          sink.tryEmitError(
-                              new InputExpiredException(
-                                  request.id(), "Nobody answered before the deadline"))));
+          Mono.fromRunnable(() ->
+              emit(
+                  request.id(),
+                  sink ->
+                      sink.tryEmitError(
+                          new InputExpiredException(
+                              request.id(), "Nobody answered before the deadline"))));
       default ->
-          Mono.fromRunnable(
-              () ->
-                  emit(
-                      request.id(),
-                      sink ->
-                          sink.tryEmitError(
-                              new InputCancelledException(
-                                  request.id(),
-                                  "The request was cancelled: "
-                                      + cancelReasons.getOrDefault(request.id(), "cancelled")))));
+          Mono.fromRunnable(() ->
+              emit(
+                  request.id(),
+                  sink ->
+                      sink.tryEmitError(
+                          new InputCancelledException(
+                              request.id(),
+                              "The request was cancelled: "
+                                  + cancelReasons.getOrDefault(request.id(), "cancelled")))));
     };
   }
 

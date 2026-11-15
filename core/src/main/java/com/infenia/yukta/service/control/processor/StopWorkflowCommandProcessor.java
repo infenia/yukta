@@ -72,39 +72,38 @@ public class StopWorkflowCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final StopWorkflowCommand stop) {
-    return Mono.defer(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(stop.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + stop.executionId()));
+    return Mono.defer(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(stop.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + stop.executionId()));
 
-          control.stopRequested().set(true);
-          log.atDebug()
-              .addKeyValue("executionId", stop.executionId())
-              .addKeyValue("reason", stop.reason())
-              .addKeyValue("mode", stop.mode())
-              .log("Stopping workflow");
+      control.stopRequested().set(true);
+      log.atDebug()
+          .addKeyValue("executionId", stop.executionId())
+          .addKeyValue("reason", stop.reason())
+          .addKeyValue("mode", stop.mode())
+          .log("Stopping workflow");
 
-          if (stop.mode() == StopMode.KILL) {
-            registry.remove(control.executionId());
-            control.safeStopSink().tryEmitEmpty();
-            log.atInfo().log(
-                "Stopped execution {} for workflow {}: {}",
-                control.executionId(),
-                control.workflowId(),
-                stop.reason());
-            return Mono.empty();
-          }
-          if (stop.mode() == StopMode.DRAIN && drain(control)) {
-            taskTracker.emitControlStateEvent(stop.executionId(), ControlState.STOPPING);
-            return Mono.empty();
-          }
-          // Already-stopped sinks are terminated; stopping twice is a no-op.
-          control.safeStopSink().tryEmitEmpty();
-          return Mono.empty();
-        });
+      if (stop.mode() == StopMode.KILL) {
+        registry.remove(control.executionId());
+        control.safeStopSink().tryEmitEmpty();
+        log.atInfo().log(
+            "Stopped execution {} for workflow {}: {}",
+            control.executionId(),
+            control.workflowId(),
+            stop.reason());
+        return Mono.empty();
+      }
+      if (stop.mode() == StopMode.DRAIN && drain(control)) {
+        taskTracker.emitControlStateEvent(stop.executionId(), ControlState.STOPPING);
+        return Mono.empty();
+      }
+      // Already-stopped sinks are terminated; stopping twice is a no-op.
+      control.safeStopSink().tryEmitEmpty();
+      return Mono.empty();
+    });
   }
 
   /**
@@ -126,13 +125,12 @@ public class StopWorkflowCommandProcessor {
     // The orchestrator completes the safe-stop sink when the run ends, which cancels this timer.
     Mono.delay(drainTimeout)
         .takeUntilOther(control.safeStopSink().asMono())
-        .subscribe(
-            _ -> {
-              log.atWarn()
-                  .addKeyValue("executionId", control.executionId())
-                  .log("Drain deadline reached, cancelling the execution");
-              control.safeStopSink().tryEmitEmpty();
-            });
+        .subscribe(_ -> {
+          log.atWarn()
+              .addKeyValue("executionId", control.executionId())
+              .log("Drain deadline reached, cancelling the execution");
+          control.safeStopSink().tryEmitEmpty();
+        });
     return true;
   }
 

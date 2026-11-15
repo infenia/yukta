@@ -338,14 +338,13 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
               .then(client.sql("DELETE FROM execution_log").fetch().rowsUpdated())
               .thenMany(
                   Flux.range(0, (events.size() + BATCH_SIZE - 1) / BATCH_SIZE)
-                      .concatMap(
-                          chunk -> {
-                            final int start = chunk * BATCH_SIZE;
-                            final int end = Math.min(events.size(), start + BATCH_SIZE);
-                            return batchInsert(events.subList(start, end), json.subList(start, end))
-                                .fetch()
-                                .rowsUpdated();
-                          }))
+                      .concatMap(chunk -> {
+                        final int start = chunk * BATCH_SIZE;
+                        final int end = Math.min(events.size(), start + BATCH_SIZE);
+                        return batchInsert(events.subList(start, end), json.subList(start, end))
+                            .fetch()
+                            .rowsUpdated();
+                      }))
               .then()
               .as(transaction::transactional)
               .block(REWRITE_TIMEOUT);
@@ -371,11 +370,10 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
   private <T> T onWriter(final Callable<T> work, final T fallback) {
     try {
       return writer
-          .submit(
-              () -> {
-                drainAll();
-                return work.call();
-              })
+          .submit(() -> {
+            drainAll();
+            return work.call();
+          })
           .get();
     } catch (final InterruptedException e) {
       Thread.currentThread().interrupt();
@@ -451,11 +449,10 @@ public class R2dbcExecutionLogStore implements ExecutionLogStore {
         .bind(Fencing.PARAM, fencing.bound())
         .fetch()
         .first()
-        .flatMap(
-            _ -> {
-              fencing.refused(1);
-              return Mono.<Long>error(new IllegalStateException("The leader lease was taken over"));
-            })
+        .flatMap(_ -> {
+          fencing.refused(1);
+          return Mono.<Long>error(new IllegalStateException("The leader lease was taken over"));
+        })
         .defaultIfEmpty(0L);
   }
 

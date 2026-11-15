@@ -97,48 +97,44 @@ class WorkflowStarter {
             ? definitions.find(sessionId, workflowId)
             : definitions.findRevision(sessionId, workflowId, pinned))
         .switchIfEmpty(
-            Mono.defer(
-                () -> {
-                  log.atWarn()
-                      .addKeyValue("sessionId", sessionId)
-                      .addKeyValue("workflowId", workflowId)
-                      .log("Workflow definition not found");
-                  return Mono.error(
-                      new NotFoundException(
-                          "Workflow not found for session: "
-                              + sessionId
-                              + ", workflow: "
-                              + workflowId));
-                }))
-        .flatMap(
-            def -> {
-              log.atDebug()
+            Mono.defer(() -> {
+              log.atWarn()
                   .addKeyValue("sessionId", sessionId)
                   .addKeyValue("workflowId", workflowId)
-                  .addKeyValue("nodeCount", def.nodes().size())
-                  .addKeyValue("edgeCount", def.edges().size())
-                  .log("Workflow definition found and loaded");
+                  .log("Workflow definition not found");
+              return Mono.error(
+                  new NotFoundException(
+                      "Workflow not found for session: "
+                          + sessionId
+                          + ", workflow: "
+                          + workflowId));
+            }))
+        .flatMap(def -> {
+          log.atDebug()
+              .addKeyValue("sessionId", sessionId)
+              .addKeyValue("workflowId", workflowId)
+              .addKeyValue("nodeCount", def.nodes().size())
+              .addKeyValue("edgeCount", def.edges().size())
+              .log("Workflow definition found and loaded");
 
-              // Refuse at once, with a reason, a start that could neither run nor be queued.
-              scheduler.assertCanAccept(sessionId, workflowId);
-              final String executionId = UUID.randomUUID().toString();
-              return prepareAndExecute(
-                  sessionId, workflowId, def, executionId, payload, pinned == null);
-            })
-        .doOnSuccess(
-            executionId ->
-                log.atInfo()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Workflow execution started successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .log("Failed to start workflow execution"));
+          // Refuse at once, with a reason, a start that could neither run nor be queued.
+          scheduler.assertCanAccept(sessionId, workflowId);
+          final String executionId = UUID.randomUUID().toString();
+          return prepareAndExecute(
+              sessionId, workflowId, def, executionId, payload, pinned == null);
+        })
+        .doOnSuccess(executionId ->
+            log.atInfo()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("executionId", executionId)
+                .log("Workflow execution started successfully"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .log("Failed to start workflow execution"));
   }
 
   /** Prepares a workflow once even when several starts ask for it at the same time. */
@@ -155,21 +151,19 @@ class WorkflowStarter {
         _ ->
             orchestrator
                 .prepareWorkflow(def)
-                .flatMap(
-                    prepared ->
-                        // Cache only if the definition is still the current one: a replace that
-                        // happened while preparing has already invalidated the cache.
-                        definitions
-                            .find(sessionId, workflowId)
-                            .filter(def::equals)
-                            .doOnNext(
-                                _ -> {
-                                  log.atDebug()
-                                      .addKeyValue("executionId", executionId)
-                                      .log("Workflow prepared and caching");
-                                  cache.put(sessionId, workflowId, prepared, def);
-                                })
-                            .thenReturn(prepared))
+                .flatMap(prepared ->
+                    // Cache only if the definition is still the current one: a replace that
+                    // happened while preparing has already invalidated the cache.
+                    definitions
+                        .find(sessionId, workflowId)
+                        .filter(def::equals)
+                        .doOnNext(_ -> {
+                          log.atDebug()
+                              .addKeyValue("executionId", executionId)
+                              .log("Workflow prepared and caching");
+                          cache.put(sessionId, workflowId, prepared, def);
+                        })
+                        .thenReturn(prepared))
                 .doFinally(_ -> preparing.remove(key))
                 .cache());
   }
@@ -203,44 +197,42 @@ class WorkflowStarter {
                 return prepareShared(sessionId, workflowId, def, executionId);
               }
             })
-        .flatMap(
-            prepared -> {
-              // The slot is asked for here, not inside the run, so a refusal reaches the caller
-              // as an error and no execution id is handed out for a run that cannot start.
-              final ExecutionScheduler.Admission admission =
-                  scheduler.acquireStart(
-                      sessionId, workflowId, ExecutionScheduler.priorityOf(payload), executionId);
-              if (admission.refused()) {
-                return admission.permit().thenReturn(executionId);
-              }
-              final Mono<Void> execution;
-              try {
-                execution =
-                    orchestrator.execute(
-                        sessionId, workflowId, executionId, prepared, payload, admission);
-              } catch (RuntimeException e) {
-                // the slot was taken when it was asked for: a throw before the run is built (the
-                // orchestrator validates its arguments) must not keep it for good
-                admission.giveBack();
-                throw e;
-              }
-              final Disposable run =
-                  execution
-                      .doOnError(
-                          err ->
-                              log.atError()
-                                  .setCause(err)
-                                  .addKeyValue("executionId", executionId)
-                                  .log("Async workflow execution failed"))
-                      .onErrorComplete()
-                      .doFinally(_ -> live.remove(executionId))
-                      .subscribe();
-              live.put(executionId, run);
-              if (run.isDisposed()) {
-                live.remove(executionId); // ended before it was registered
-              }
-              return Mono.just(executionId);
-            });
+        .flatMap(prepared -> {
+          // The slot is asked for here, not inside the run, so a refusal reaches the caller
+          // as an error and no execution id is handed out for a run that cannot start.
+          final ExecutionScheduler.Admission admission =
+              scheduler.acquireStart(
+                  sessionId, workflowId, ExecutionScheduler.priorityOf(payload), executionId);
+          if (admission.refused()) {
+            return admission.permit().thenReturn(executionId);
+          }
+          final Mono<Void> execution;
+          try {
+            execution =
+                orchestrator.execute(
+                    sessionId, workflowId, executionId, prepared, payload, admission);
+          } catch (RuntimeException e) {
+            // the slot was taken when it was asked for: a throw before the run is built (the
+            // orchestrator validates its arguments) must not keep it for good
+            admission.giveBack();
+            throw e;
+          }
+          final Disposable run =
+              execution
+                  .doOnError(err ->
+                      log.atError()
+                          .setCause(err)
+                          .addKeyValue("executionId", executionId)
+                          .log("Async workflow execution failed"))
+                  .onErrorComplete()
+                  .doFinally(_ -> live.remove(executionId))
+                  .subscribe();
+          live.put(executionId, run);
+          if (run.isDisposed()) {
+            live.remove(executionId); // ended before it was registered
+          }
+          return Mono.just(executionId);
+        });
   }
 
   /** Cancels every run started here that is still going (shutdown timeout, loss of leadership). */
@@ -269,12 +261,11 @@ class WorkflowStarter {
         .find(sessionId, applied.workflowId())
         .filter(applied::equals)
         .hasElement()
-        .doOnNext(
-            current -> {
-              if (!current) {
-                cache.invalidate(sessionId, applied.workflowId());
-              }
-            })
+        .doOnNext(current -> {
+          if (!current) {
+            cache.invalidate(sessionId, applied.workflowId());
+          }
+        })
         .then();
   }
 

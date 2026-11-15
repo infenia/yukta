@@ -76,11 +76,10 @@ class InMemoryNodeCheckpointStoreSpillTest {
     Mono.when(writes).block();
 
     StepVerifier.create(store.getAll("e1", "n1").map(m -> (String) m.payload()).collectList())
-        .assertNext(
-            payloads ->
-                assertThat(payloads)
-                    .containsExactlyElementsOf(
-                        java.util.stream.IntStream.range(0, 200).mapToObj(i -> "m" + i).toList()))
+        .assertNext(payloads ->
+            assertThat(payloads)
+                .containsExactlyElementsOf(
+                    java.util.stream.IntStream.range(0, 200).mapToObj(i -> "m" + i).toList()))
         .verifyComplete();
   }
 
@@ -237,12 +236,11 @@ class InMemoryNodeCheckpointStoreSpillTest {
     final FileNodeCheckpointStore spill = mock(FileNodeCheckpointStore.class);
     final AtomicInteger saves = new AtomicInteger();
     when(spill.save(ArgumentMatchers.any(), ArgumentMatchers.any(), ArgumentMatchers.any()))
-        .thenAnswer(
-            _ ->
-                saves.getAndIncrement() == 0
-                    ? Mono.<Void>error(new IllegalStateException("disk full"))
-                        .delaySubscription(Duration.ofMillis(200))
-                    : Mono.<Void>empty());
+        .thenAnswer(_ ->
+            saves.getAndIncrement() == 0
+                ? Mono.<Void>error(new IllegalStateException("disk full"))
+                    .delaySubscription(Duration.ofMillis(200))
+                : Mono.<Void>empty());
     final InMemoryNodeCheckpointStore store = store(1, dir.toString());
     ReflectionTestUtils.setField(store, "spill", spill);
     store.save("e1", "n1", message("m0")).block();

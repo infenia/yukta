@@ -29,22 +29,20 @@ class ControlAuditTest {
 
     assertThat(log.readAll())
         .singleElement()
-        .satisfies(
-            event -> {
-              assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(event.status()).isEqualTo("StopWorkflowCommand [by key:bob]: busy");
-            });
+        .satisfies(event -> {
+          assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(event.status()).isEqualTo("StopWorkflowCommand [by key:bob]: busy");
+        });
     assertThat(seen)
         .singleElement()
-        .satisfies(
-            record -> {
-              assertThat(record.applied()).isFalse();
-              assertThat(record.executionId()).isEqualTo("e1");
-              assertThat(record.command()).isEqualTo("StopWorkflowCommand");
-              assertThat(record.actor()).isEqualTo("key:bob");
-              assertThat(record.reason()).isEqualTo("busy");
-              assertThat(record.timestamp()).isNotNull();
-            });
+        .satisfies(record -> {
+          assertThat(record.applied()).isFalse();
+          assertThat(record.executionId()).isEqualTo("e1");
+          assertThat(record.command()).isEqualTo("StopWorkflowCommand");
+          assertThat(record.actor()).isEqualTo("key:bob");
+          assertThat(record.reason()).isEqualTo("busy");
+          assertThat(record.timestamp()).isNotNull();
+        });
   }
 
   @Test

@@ -23,28 +23,23 @@ class ExposureGuardTest {
 
   @Test
   void testLoopbackNeedsNoKey() {
-    assertThatCode(
-            () ->
-                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "127.0.0.1")).check())
+    assertThatCode(() ->
+            new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "127.0.0.1")).check())
         .doesNotThrowAnyException();
   }
 
   @Test
   void testUnknownHostWithoutKeyIsRefused() {
-    assertThatThrownBy(
-            () ->
-                new ExposureGuard(
-                        new MockEnvironment().withProperty(ADDRESS, "no-such-host.invalid"))
-                    .check())
+    assertThatThrownBy(() ->
+            new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, "no-such-host.invalid"))
+                .check())
         .isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void testOpenBindWithoutKeyIsRefused() {
-    assertThatThrownBy(
-            () ->
-                new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES))
-                    .check())
+    assertThatThrownBy(() ->
+            new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES)).check())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("the REST API and MCP have none");
     assertThat(new MockEnvironment().getProperty(ADDRESS)).isNull();
@@ -54,14 +49,13 @@ class ExposureGuardTest {
 
   @Test
   void testOpenBindWithKeyStarts() {
-    assertThatCode(
-            () ->
-                new ExposureGuard(
-                        new MockEnvironment()
-                            .withProperty(ADDRESS, ALL_INTERFACES)
-                            .withProperty("yukta.api-keys[0].key", "k")
-                            .withProperty("yukta.api-keys[0].role", "ADMIN"))
-                    .check())
+    assertThatCode(() ->
+            new ExposureGuard(
+                    new MockEnvironment()
+                        .withProperty(ADDRESS, ALL_INTERFACES)
+                        .withProperty("yukta.api-keys[0].key", "k")
+                        .withProperty("yukta.api-keys[0].role", "ADMIN"))
+                .check())
         .doesNotThrowAnyException();
   }
 
@@ -81,11 +75,9 @@ class ExposureGuardTest {
           }
         };
 
-    assertThatThrownBy(
-            () ->
-                new ExposureGuard(
-                        new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), mcpOpen)
-                    .check())
+    assertThatThrownBy(() ->
+            new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), mcpOpen)
+                .check())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("MCP has none");
   }
@@ -106,11 +98,9 @@ class ExposureGuardTest {
           }
         };
 
-    assertThatThrownBy(
-            () ->
-                new ExposureGuard(
-                        new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), restOpen)
-                    .check())
+    assertThatThrownBy(() ->
+            new ExposureGuard(new MockEnvironment().withProperty(ADDRESS, ALL_INTERFACES), restOpen)
+                .check())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("the REST API has none");
   }

@@ -70,12 +70,11 @@ import java.util.regex.Pattern;
     return env.keySet().stream()
         .filter(name -> RISKY_ENV.matcher(name).matches() && !allowedEnv.contains(name))
         .findFirst()
-        .map(
-            name ->
-                "Environment variable '"
-                    + name
-                    + "' is not allowed while yukta.process.allowed-commands is set"
-                    + " (list it in yukta.process.allowed-env to allow it)")
+        .map(name ->
+            "Environment variable '"
+                + name
+                + "' is not allowed while yukta.process.allowed-commands is set"
+                + " (list it in yukta.process.allowed-env to allow it)")
         .orElse(null);
   }
 

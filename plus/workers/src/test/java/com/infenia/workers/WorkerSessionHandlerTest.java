@@ -182,11 +182,10 @@ class WorkerSessionHandlerTest {
                 WorkerFrame.class);
 
     StepVerifier.create(handler.session(requester, Flux.just(old)))
-        .assertNext(
-            frame ->
-                assertThat(frame.message())
-                    .contains("protocol version (none)")
-                    .contains("upgrade the worker"))
+        .assertNext(frame ->
+            assertThat(frame.message())
+                .contains("protocol version (none)")
+                .contains("upgrade the worker"))
         .verifyComplete();
     StepVerifier.create(
             handler.session(

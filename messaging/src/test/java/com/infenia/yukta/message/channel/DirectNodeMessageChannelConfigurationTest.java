@@ -33,12 +33,11 @@ class DirectNodeMessageChannelConfigurationTest {
   @Test
   @SuppressWarnings(NO_ASSERT)
   void nodeMessageChannelProvider_whenNoBeanPresent_registersDirectNodeMessageChannelProvider() {
-    contextRunner.run(
-        context -> {
-          assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
-          assertThat(context.getBean(NodeMessageChannelProvider.class))
-              .isInstanceOf(DirectNodeMessageChannelProvider.class);
-        });
+    contextRunner.run(context -> {
+      assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
+      assertThat(context.getBean(NodeMessageChannelProvider.class))
+          .isInstanceOf(DirectNodeMessageChannelProvider.class);
+    });
   }
 
   @Test
@@ -46,13 +45,12 @@ class DirectNodeMessageChannelConfigurationTest {
   void maxPayloadBytes_negativeValueIsRefusedAtStartup() {
     contextRunner
         .withPropertyValues("yukta.messaging.max-payload-bytes=-1")
-        .run(
-            context ->
-                assertThat(context)
-                    .hasFailed()
-                    .getFailure()
-                    .rootCause()
-                    .hasMessageContaining("must be 0 (off) or positive"));
+        .run(context ->
+            assertThat(context)
+                .hasFailed()
+                .getFailure()
+                .rootCause()
+                .hasMessageContaining("must be 0 (off) or positive"));
   }
 
   @Test
@@ -68,17 +66,16 @@ class DirectNodeMessageChannelConfigurationTest {
   void maxPayloadBytes_property_limitsTheChannel() {
     contextRunner
         .withPropertyValues("yukta.messaging.max-payload-bytes=3")
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
-              final var channel =
-                  context.getBean(NodeMessageChannelProvider.class).channelFor("n", Map.of());
-              StepVerifier.create(
-                      channel.inbound(
-                          "n", "e", Flux.just(DefaultMessage.create(UUID.randomUUID(), "abcd"))))
-                  .expectError(PayloadTooLargeException.class)
-                  .verify();
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
+          final var channel =
+              context.getBean(NodeMessageChannelProvider.class).channelFor("n", Map.of());
+          StepVerifier.create(
+                  channel.inbound(
+                      "n", "e", Flux.just(DefaultMessage.create(UUID.randomUUID(), "abcd"))))
+              .expectError(PayloadTooLargeException.class)
+              .verify();
+        });
   }
 
   @Test
@@ -88,12 +85,10 @@ class DirectNodeMessageChannelConfigurationTest {
 
     contextRunner
         .withBean(NodeMessageChannelProvider.class, () -> customProvider)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
-              assertThat(context.getBean(NodeMessageChannelProvider.class))
-                  .isSameAs(customProvider);
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
+          assertThat(context.getBean(NodeMessageChannelProvider.class)).isSameAs(customProvider);
+        });
   }
 
   /** A user configuration that Spring reads in any position still beats the default. */
@@ -111,12 +106,11 @@ class DirectNodeMessageChannelConfigurationTest {
     new ApplicationContextRunner()
         .withConfiguration(AutoConfigurations.of(DirectNodeMessageChannelConfiguration.class))
         .withUserConfiguration(CustomProviderConfiguration.class)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
-              assertThat(context.getBean(NodeMessageChannelProvider.class))
-                  .isInstanceOf(StubNodeMessageChannelProvider.class);
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(NodeMessageChannelProvider.class);
+          assertThat(context.getBean(NodeMessageChannelProvider.class))
+              .isInstanceOf(StubNodeMessageChannelProvider.class);
+        });
   }
 
   @Test

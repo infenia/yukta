@@ -32,14 +32,13 @@ class McpErrorFilterTest {
   /** A downstream handler that records the body it was given and answers 200. */
   private Mono<Void> reads(final ServerWebExchange exchange) {
     return DataBufferUtils.join(exchange.getRequest().getBody())
-        .map(
-            buffer -> {
-              final byte[] bytes = new byte[buffer.readableByteCount()];
-              buffer.read(bytes);
-              DataBufferUtils.release(buffer);
-              seenBody.set(new String(bytes, StandardCharsets.UTF_8));
-              return bytes;
-            })
+        .map(buffer -> {
+          final byte[] bytes = new byte[buffer.readableByteCount()];
+          buffer.read(bytes);
+          DataBufferUtils.release(buffer);
+          seenBody.set(new String(bytes, StandardCharsets.UTF_8));
+          return bytes;
+        })
         .defaultIfEmpty(new byte[0])
         .then();
   }

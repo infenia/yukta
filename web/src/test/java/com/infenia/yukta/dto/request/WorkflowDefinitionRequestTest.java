@@ -157,9 +157,8 @@ class WorkflowDefinitionRequestTest {
 
     // Then - verify nodes are immutable
     assertThat(request.nodes()).hasSize(2);
-    assertThatThrownBy(
-            () ->
-                request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n3", GRADLE, null)))
+    assertThatThrownBy(() ->
+            request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n3", GRADLE, null)))
         .isInstanceOf(UnsupportedOperationException.class);
 
     // Modify original list - request should be unaffected
@@ -195,9 +194,8 @@ class WorkflowDefinitionRequestTest {
         new WorkflowDefinitionRequest(WORKFLOW_ID_WF1, DESCRIPTION, validNodes, validEdges);
 
     // When-Then
-    assertThatThrownBy(
-            () ->
-                request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n2", GRADLE, null)))
+    assertThatThrownBy(() ->
+            request.nodes().add(new WorkflowDefinitionRequest.NodeRequest("n2", GRADLE, null)))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 

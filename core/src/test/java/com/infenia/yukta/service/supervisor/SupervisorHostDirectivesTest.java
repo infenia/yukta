@@ -141,13 +141,12 @@ class SupervisorHostDirectivesTest {
     await().atMost(3, TimeUnit.SECONDS).until(() -> count("applied") == 1);
     assertThat(host.decisions(null, 10))
         .singleElement()
-        .satisfies(
-            d -> {
-              assertThat(d.cause()).isEqualTo("event");
-              assertThat(d.key()).isEqualTo("k");
-              assertThat(d.because()).isEqualTo("3 failures");
-              assertThat(d.nodeId()).isNull();
-            });
+        .satisfies(d -> {
+          assertThat(d.cause()).isEqualTo("event");
+          assertThat(d.key()).isEqualTo("k");
+          assertThat(d.because()).isEqualTo("3 failures");
+          assertThat(d.nodeId()).isNull();
+        });
   }
 
   @Test

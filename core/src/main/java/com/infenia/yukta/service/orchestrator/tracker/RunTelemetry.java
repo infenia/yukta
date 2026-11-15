@@ -133,11 +133,10 @@ final class RunTelemetry {
     if (nodes != null) {
       nodes
           .values()
-          .forEach(
-              span -> {
-                span.lowCardinalityKeyValue(STATUS, TaskStatus.CANCELLED.name());
-                span.stop();
-              });
+          .forEach(span -> {
+            span.lowCardinalityKeyValue(STATUS, TaskStatus.CANCELLED.name());
+            span.stop();
+          });
     }
   }
 

@@ -54,20 +54,19 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
 
   @Override
   public Mono<Void> save(final String sessionId, final WorkflowDefinition definition) {
-    return Mono.fromRunnable(
-        () -> {
-          final WorkflowDefinition previous =
-              store
-                  .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
-                  .put(definition.workflowId(), definition);
-          if (!definition.equals(previous)) {
-            remember(sessionId, definition);
-          }
-          log.atDebug()
-              .addKeyValue("sessionId", sessionId)
-              .addKeyValue("workflowId", definition.workflowId())
-              .log("Saved workflow definition");
-        });
+    return Mono.fromRunnable(() -> {
+      final WorkflowDefinition previous =
+          store
+              .computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
+              .put(definition.workflowId(), definition);
+      if (!definition.equals(previous)) {
+        remember(sessionId, definition);
+      }
+      log.atDebug()
+          .addKeyValue("sessionId", sessionId)
+          .addKeyValue("workflowId", definition.workflowId())
+          .log("Saved workflow definition");
+    });
   }
 
   private void remember(final String sessionId, final WorkflowDefinition definition) {
@@ -89,18 +88,17 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
 
   @Override
   public Flux<DefinitionRevision> revisions(final String sessionId, final String workflowId) {
-    return Flux.defer(
-        () -> {
-          final List<DefinitionRevision> newestFirst =
-              history
-                  .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
-                  .stream()
-                  .map(Revision::info)
-                  .map(info -> info.withNote(notes.get(noteKey(sessionId, workflowId, info.id()))))
-                  .sorted(Comparator.comparing(DefinitionRevision::id).reversed())
-                  .toList();
-          return Flux.fromIterable(newestFirst);
-        });
+    return Flux.defer(() -> {
+      final List<DefinitionRevision> newestFirst =
+          history
+              .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+              .stream()
+              .map(Revision::info)
+              .map(info -> info.withNote(notes.get(noteKey(sessionId, workflowId, info.id()))))
+              .sorted(Comparator.comparing(DefinitionRevision::id).reversed())
+              .toList();
+      return Flux.fromIterable(newestFirst);
+    });
   }
 
   private static String noteKey(
@@ -114,75 +112,69 @@ public class InMemoryWorkflowDefinitionStore implements WorkflowDefinitionStore 
       final String sessionId, final String workflowId, final String revisionId, final String note) {
     return findRevision(sessionId, workflowId, revisionId)
         .switchIfEmpty(Mono.error(() -> new NotFoundException("Version not found: " + revisionId)))
-        .doOnNext(
-            _ -> {
-              final String key = noteKey(sessionId, workflowId, revisionId);
-              if (note == null || note.isBlank()) {
-                notes.remove(key);
-              } else {
-                notes.put(key, note);
-              }
-            })
+        .doOnNext(_ -> {
+          final String key = noteKey(sessionId, workflowId, revisionId);
+          if (note == null || note.isBlank()) {
+            notes.remove(key);
+          } else {
+            notes.put(key, note);
+          }
+        })
         .then();
   }
 
   @Override
   public Mono<WorkflowDefinition> findRevision(
       final String sessionId, final String workflowId, final String revisionId) {
-    return Mono.defer(
-        () ->
-            Mono.justOrEmpty(
-                history
-                    .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
-                    .stream()
-                    .filter(revision -> revision.info().id().equals(revisionId))
-                    .map(Revision::definition)
-                    .findFirst()));
+    return Mono.defer(() ->
+        Mono.justOrEmpty(
+            history
+                .getOrDefault(sessionId + "\0" + workflowId, new ConcurrentLinkedDeque<>())
+                .stream()
+                .filter(revision -> revision.info().id().equals(revisionId))
+                .map(Revision::definition)
+                .findFirst()));
   }
 
   @Override
   public Mono<WorkflowDefinition> find(final String sessionId, final String workflowId) {
-    return Mono.defer(
-        () -> {
-          final Map<String, WorkflowDefinition> session = store.get(sessionId);
-          if (session == null) {
-            return Mono.empty();
-          }
-          final WorkflowDefinition def = session.get(workflowId);
-          return def != null ? Mono.just(def) : Mono.empty();
-        });
+    return Mono.defer(() -> {
+      final Map<String, WorkflowDefinition> session = store.get(sessionId);
+      if (session == null) {
+        return Mono.empty();
+      }
+      final WorkflowDefinition def = session.get(workflowId);
+      return def != null ? Mono.just(def) : Mono.empty();
+    });
   }
 
   @Override
   public Mono<Map<String, WorkflowDefinition>> findAll(final String sessionId) {
-    return Mono.defer(
-        () -> {
-          final Map<String, WorkflowDefinition> session = store.get(sessionId);
-          return Mono.just(session != null ? Map.copyOf(session) : Map.of());
-        });
+    return Mono.defer(() -> {
+      final Map<String, WorkflowDefinition> session = store.get(sessionId);
+      return Mono.just(session != null ? Map.copyOf(session) : Map.of());
+    });
   }
 
   @Override
   public Mono<Void> remove(final String sessionId, final String workflowId) {
-    return Mono.fromRunnable(
-        () -> {
-          final Map<String, WorkflowDefinition> session = store.get(sessionId);
-          if (session != null) {
-            session.remove(workflowId);
-          }
-          history.remove(sessionId + "\0" + workflowId);
-          // the notes of its versions go with them
-          notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0" + workflowId + "\0"));
-        });
+    return Mono.fromRunnable(() -> {
+      final Map<String, WorkflowDefinition> session = store.get(sessionId);
+      if (session != null) {
+        session.remove(workflowId);
+      }
+      history.remove(sessionId + "\0" + workflowId);
+      // the notes of its versions go with them
+      notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0" + workflowId + "\0"));
+    });
   }
 
   @Override
   public Mono<Void> removeAll(final String sessionId) {
-    return Mono.fromRunnable(
-        () -> {
-          store.remove(sessionId);
-          history.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
-          notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
-        });
+    return Mono.fromRunnable(() -> {
+      store.remove(sessionId);
+      history.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+      notes.keySet().removeIf(key -> key.startsWith(sessionId + "\0"));
+    });
   }
 }

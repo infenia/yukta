@@ -55,12 +55,11 @@ class SupervisorWorkflowRunnerTest {
                     "c1", List.of(Map.of("commands", List.of())), "SUCCESS", "ESCALATE", "hard")));
 
     StepVerifier.create(run(runner(4), LONG))
-        .assertNext(
-            result -> {
-              assertThat(result.status()).isEqualTo("SUCCESS");
-              assertThat(result.outcome()).isEqualTo("ESCALATE");
-              assertThat(result.reason()).isEqualTo("hard");
-            })
+        .assertNext(result -> {
+          assertThat(result.status()).isEqualTo("SUCCESS");
+          assertThat(result.outcome()).isEqualTo("ESCALATE");
+          assertThat(result.reason()).isEqualTo("hard");
+        })
         .verifyComplete();
 
     @SuppressWarnings("unchecked")

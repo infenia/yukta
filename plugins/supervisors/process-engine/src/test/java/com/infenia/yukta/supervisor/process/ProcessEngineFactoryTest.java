@@ -98,10 +98,9 @@ class ProcessEngineFactoryTest {
               engine
                   .run(Flux.<Signal>just(new Signal.Tick(Instant.EPOCH)).concatWith(Flux.never()))
                   .take(1))
-          .assertNext(
-              d ->
-                  assertThat(((Directive.Command) d).command())
-                      .isEqualTo(new PauseWorkflowCommand("run1")))
+          .assertNext(d ->
+              assertThat(((Directive.Command) d).command())
+                  .isEqualTo(new PauseWorkflowCommand("run1")))
           .verifyComplete();
     } finally {
       engine.close();
@@ -188,10 +187,9 @@ class ProcessEngineFactoryTest {
             CONTEXT);
     try {
       StepVerifier.create(engine.run(Flux.never()).take(1))
-          .assertNext(
-              d ->
-                  assertThat(((Directive.Command) d).command())
-                      .isEqualTo(new PauseWorkflowCommand("run1")))
+          .assertNext(d ->
+              assertThat(((Directive.Command) d).command())
+                  .isEqualTo(new PauseWorkflowCommand("run1")))
           .verifyComplete();
     } finally {
       engine.close();

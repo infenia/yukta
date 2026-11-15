@@ -132,11 +132,10 @@ class SupervisorHostTest {
 
     assertThat(host.decisions("try-it", 10))
         .singleElement()
-        .satisfies(
-            d -> {
-              assertThat(d.supervisorId()).isEqualTo("try-it");
-              assertThat(d.outcome()).isEqualTo("dry-run");
-            });
+        .satisfies(d -> {
+          assertThat(d.supervisorId()).isEqualTo("try-it");
+          assertThat(d.outcome()).isEqualTo("dry-run");
+        });
   }
 
   private static ExecutionEvent failed(final String execution) {
@@ -175,19 +174,18 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      "other-session", "x", "wf", "RUNNING", Instant.now()));
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      "other-wf", "s", "y", "RUNNING", Instant.now()));
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      "mine", "s", "wf", "RUNNING", Instant.now()));
-              assertThat(seen).contains("mine");
-            });
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged(
+                  "other-session", "x", "wf", "RUNNING", Instant.now()));
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged(
+                  "other-wf", "s", "y", "RUNNING", Instant.now()));
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged(
+                  "mine", "s", "wf", "RUNNING", Instant.now()));
+          assertThat(seen).contains("mine");
+        });
     assertThat(seen).doesNotContain("other-session", "other-wf");
     assertThat(host.status().getFirst().scope()).isEqualTo("WORKFLOW");
     assertThat(host.status().getFirst().scopeSessionId()).isEqualTo("s");
@@ -198,21 +196,19 @@ class SupervisorHostTest {
     final AtomicReference<String> actor = new AtomicReference<>();
     when(dispatcher.dispatchOrdered(any()))
         .thenReturn(
-            Mono.deferContextual(
-                context -> {
-                  actor.set(context.get(ControlActor.CONTEXT_KEY));
-                  return Mono.empty();
-                }));
+            Mono.deferContextual(context -> {
+              actor.set(context.get(ControlActor.CONTEXT_KEY));
+              return Mono.empty();
+            }));
     start(supervisor("rules", SupervisorHostTest::pauseOnFailure), false, 10);
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(failed("e1"));
-              verify(dispatcher, org.mockito.Mockito.atLeastOnce())
-                  .dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("e1"));
-            });
+        .untilAsserted(() -> {
+          feed.publish(failed("e1"));
+          verify(dispatcher, org.mockito.Mockito.atLeastOnce())
+              .dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("e1"));
+        });
     await()
         .atMost(2, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(actor.get()).isEqualTo("rules"));
@@ -231,23 +227,20 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(failed("e1"));
-              assertThat(log.readAll())
-                  .anySatisfy(
-                      entry -> {
-                        assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-                        assertThat(entry.status()).contains("[by rules]").contains("dry-run");
-                      });
-            });
+        .untilAsserted(() -> {
+          feed.publish(failed("e1"));
+          assertThat(log.readAll())
+              .anySatisfy(entry -> {
+                assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+                assertThat(entry.status()).contains("[by rules]").contains("dry-run");
+              });
+        });
     verify(dispatcher, never()).dispatchOrdered(any());
     assertThat(sunk)
-        .anySatisfy(
-            r -> {
-              assertThat(r.actor()).isEqualTo("rules");
-              assertThat(r.applied()).isFalse();
-            });
+        .anySatisfy(r -> {
+          assertThat(r.actor()).isEqualTo("rules");
+          assertThat(r.applied()).isFalse();
+        });
   }
 
   @Test
@@ -259,11 +252,10 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(failed("e1"));
-              verify(dispatcher, org.mockito.Mockito.atLeast(2)).dispatchOrdered(any());
-            });
+        .untilAsserted(() -> {
+          feed.publish(failed("e1"));
+          verify(dispatcher, org.mockito.Mockito.atLeast(2)).dispatchOrdered(any());
+        });
     assertThat(
             meters
                 .counter("yukta.supervisor.commands", "id", "rules", "outcome", "rejected")
@@ -282,11 +274,10 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(failed("e1"));
-              verify(dispatcher, org.mockito.Mockito.atLeast(2)).dispatchOrdered(any());
-            });
+        .untilAsserted(() -> {
+          feed.publish(failed("e1"));
+          verify(dispatcher, org.mockito.Mockito.atLeast(2)).dispatchOrdered(any());
+        });
   }
 
   @Test
@@ -297,20 +288,19 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(failed("e1"));
-              assertThat(
-                      meters
-                          .counter(
-                              "yukta.supervisor.commands",
-                              "id",
-                              "rules",
-                              "outcome",
-                              "awaiting-approval")
-                          .count())
-                  .isPositive();
-            });
+        .untilAsserted(() -> {
+          feed.publish(failed("e1"));
+          assertThat(
+                  meters
+                      .counter(
+                          "yukta.supervisor.commands",
+                          "id",
+                          "rules",
+                          "outcome",
+                          "awaiting-approval")
+                      .count())
+              .isPositive();
+        });
   }
 
   @Test
@@ -322,18 +312,13 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(
-                        meters
-                            .counter(
-                                "yukta.supervisor.commands",
-                                "id",
-                                "noisy",
-                                "outcome",
-                                "rate-limited")
-                            .count())
-                    .isPositive());
+        .untilAsserted(() ->
+            assertThat(
+                    meters
+                        .counter(
+                            "yukta.supervisor.commands", "id", "noisy", "outcome", "rate-limited")
+                        .count())
+                .isPositive());
     verify(dispatcher, org.mockito.Mockito.atMost(5)).dispatchOrdered(any());
     assertThat(log.readAll())
         .anySatisfy(e -> assertThat(e.status()).contains("rate limit exceeded"));
@@ -355,12 +340,11 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(own);
-              feed.publish(other);
-              assertThat(seen).contains(other).doesNotContain(own);
-            });
+        .untilAsserted(() -> {
+          feed.publish(own);
+          feed.publish(other);
+          assertThat(seen).contains(other).doesNotContain(own);
+        });
   }
 
   @Test
@@ -370,11 +354,10 @@ class SupervisorHostTest {
         supervisor(
             "flaky",
             _ ->
-                Flux.defer(
-                    () -> {
-                      subscriptions.incrementAndGet();
-                      return Flux.error(new IllegalStateException("boom"));
-                    })),
+                Flux.defer(() -> {
+                  subscriptions.incrementAndGet();
+                  return Flux.error(new IllegalStateException("boom"));
+                })),
         false,
         10);
 
@@ -423,14 +406,13 @@ class SupervisorHostTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              final Thread publisher =
-                  new Thread(() -> feed.publish(failed("e1")), "tracker-like-thread");
-              publisher.start();
-              publisher.join();
-              assertThat(seenOn.get()).isNotNull().isNotEqualTo("tracker-like-thread");
-            });
+        .untilAsserted(() -> {
+          final Thread publisher =
+              new Thread(() -> feed.publish(failed("e1")), "tracker-like-thread");
+          publisher.start();
+          publisher.join();
+          assertThat(seenOn.get()).isNotNull().isNotEqualTo("tracker-like-thread");
+        });
   }
 
   @Test
@@ -449,14 +431,13 @@ class SupervisorHostTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              for (int i = 0; i < 2000; i++) {
-                feed.publish(failed("e" + i));
-              }
-              assertThat(meters.counter("yukta.tracker.dropped", "kind", "supervisor").count())
-                  .isPositive();
-            });
+        .untilAsserted(() -> {
+          for (int i = 0; i < 2000; i++) {
+            feed.publish(failed("e" + i));
+          }
+          assertThat(meters.counter("yukta.tracker.dropped", "kind", "supervisor").count())
+              .isPositive();
+        });
   }
 
   @Test
@@ -479,14 +460,13 @@ class SupervisorHostTest {
 
     await()
         .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              for (int i = 0; i < 2000; i++) {
-                feed.publish(failed("e" + i));
-              }
-              assertThat(gaps).isNotEmpty();
-              assertThat(gaps.getFirst().count()).isPositive();
-            });
+        .untilAsserted(() -> {
+          for (int i = 0; i < 2000; i++) {
+            feed.publish(failed("e" + i));
+          }
+          assertThat(gaps).isNotEmpty();
+          assertThat(gaps.getFirst().count()).isPositive();
+        });
   }
 
   @Test

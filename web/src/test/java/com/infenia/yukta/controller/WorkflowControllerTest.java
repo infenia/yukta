@@ -159,15 +159,13 @@ class WorkflowControllerTest {
                 new SupervisedControl(controlBus, null, null, null),
                 sessionService))
         .controllerAdvice(new GlobalExceptionHandler())
-        .webFilter(
-            (exchange, chain) ->
-                chain
-                    .filter(exchange)
-                    .contextWrite(
-                        ctx ->
-                            ctx.put(
-                                CallerIdentity.CONTEXT_KEY,
-                                new ApiKeys.Match(keyName, role, java.util.Set.of()))))
+        .webFilter((exchange, chain) ->
+            chain
+                .filter(exchange)
+                .contextWrite(ctx ->
+                    ctx.put(
+                        CallerIdentity.CONTEXT_KEY,
+                        new ApiKeys.Match(keyName, role, java.util.Set.of()))))
         .build();
   }
 

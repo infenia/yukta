@@ -67,11 +67,10 @@ public final class EgressPolicy {
    * @return empty if the call is allowed
    */
   public Mono<Void> check(final String url) {
-    return Mono.deferContextual(
-        ctx -> {
-          final String refusal = refusalFor(url, ctx);
-          return refusal == null ? Mono.empty() : Mono.error(new IllegalArgumentException(refusal));
-        });
+    return Mono.deferContextual(ctx -> {
+      final String refusal = refusalFor(url, ctx);
+      return refusal == null ? Mono.empty() : Mono.error(new IllegalArgumentException(refusal));
+    });
   }
 
   /**

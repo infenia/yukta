@@ -26,11 +26,10 @@ class ApiKeyFilterActorKindTest {
             MockServerWebExchange.from(
                 MockServerHttpRequest.get("/api/sessions").header("X-API-Key", key)),
             _ ->
-                Mono.deferContextual(
-                    ctx -> {
-                      kind.set(ctx.getOrDefault(ControlActor.KIND_KEY, null));
-                      return Mono.empty();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  kind.set(ctx.getOrDefault(ControlActor.KIND_KEY, null));
+                  return Mono.empty();
+                }))
         .block();
   }
 

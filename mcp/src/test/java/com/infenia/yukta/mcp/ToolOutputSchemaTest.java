@@ -69,11 +69,10 @@ class ToolOutputSchemaTest {
 
   private static List<Class<?>> resultTypes() {
     return Arrays.stream(AppMcpTools.class.getMethods())
-        .filter(
-            m -> {
-              final McpTool t = m.getAnnotation(McpTool.class);
-              return t != null && t.generateOutputSchema();
-            })
+        .filter(m -> {
+          final McpTool t = m.getAnnotation(McpTool.class);
+          return t != null && t.generateOutputSchema();
+        })
         .map(ToolOutputSchemaTest::monoType)
         .distinct()
         .toList();

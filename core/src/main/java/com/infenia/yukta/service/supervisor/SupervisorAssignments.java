@@ -164,11 +164,10 @@ public class SupervisorAssignments {
     return service
         .supervisors()
         .any(s -> s.id().equals(supervisorId))
-        .flatMap(
-            known ->
-                known
-                    ? service.attachments().collectList()
-                    : Mono.error(new NotFoundException("Supervisor not found: " + supervisorId)))
+        .flatMap(known ->
+            known
+                ? service.attachments().collectList()
+                : Mono.error(new NotFoundException("Supervisor not found: " + supervisorId)))
         .flatMap(all -> problems(supervisorId, wanted, all));
   }
 
@@ -235,22 +234,20 @@ public class SupervisorAssignments {
   public Mono<List<SupervisorAttachment>> set(
       final String supervisorId, final List<Assignment> wanted, final boolean unlock) {
     return problems(supervisorId, wanted)
-        .flatMap(
-            found -> {
-              if (!found.conflicts().isEmpty()) {
-                return Mono.error(new OwnershipConflictException(found.conflicts()));
-              }
-              if (!found.issues().isEmpty()) {
-                return Mono.error(new SettingsValidationException(found.issues()));
-              }
-              return Mono.deferContextual(
-                  context ->
-                      apply(
-                          supervisorId,
-                          wanted,
-                          unlock,
-                          context.<String>getOrEmpty(ControlActor.CONTEXT_KEY).orElse(null)));
-            })
+        .flatMap(found -> {
+          if (!found.conflicts().isEmpty()) {
+            return Mono.error(new OwnershipConflictException(found.conflicts()));
+          }
+          if (!found.issues().isEmpty()) {
+            return Mono.error(new SettingsValidationException(found.issues()));
+          }
+          return Mono.deferContextual(context ->
+              apply(
+                  supervisorId,
+                  wanted,
+                  unlock,
+                  context.<String>getOrEmpty(ControlActor.CONTEXT_KEY).orElse(null)));
+        })
         .thenMany(Flux.defer(() -> of(supervisorId)))
         .collectList();
   }
@@ -271,27 +268,26 @@ public class SupervisorAssignments {
     return of(supervisorId)
         .filter(a -> a.source() == SupervisorSource.MANUAL)
         .collectList()
-        .flatMap(
-            existing -> {
-              final List<SupervisorAttachment> touchedLocks =
-                  existing.stream()
-                      .filter(SupervisorAttachment::locked)
-                      .filter(a -> !a.equals(desired.get(a.id())))
-                      .toList();
-              if (!touchedLocks.isEmpty() && !mayUnlock(unlock, actor)) {
-                return Mono.error(new ConflictException(lockedMessage(touchedLocks)));
-              }
-              final Set<String> keep = desired.keySet();
-              final Flux<Void> removals =
-                  Flux.fromIterable(existing)
-                      .filter(a -> !keep.contains(a.id()))
-                      .concatMap(a -> service.detachUnlocked(a.id()));
-              final Flux<SupervisorAttachment> additions =
-                  Flux.fromIterable(desired.values())
-                      .filter(a -> !existing.contains(a))
-                      .concatMap(service::attach);
-              return removals.thenMany(additions).then();
-            });
+        .flatMap(existing -> {
+          final List<SupervisorAttachment> touchedLocks =
+              existing.stream()
+                  .filter(SupervisorAttachment::locked)
+                  .filter(a -> !a.equals(desired.get(a.id())))
+                  .toList();
+          if (!touchedLocks.isEmpty() && !mayUnlock(unlock, actor)) {
+            return Mono.error(new ConflictException(lockedMessage(touchedLocks)));
+          }
+          final Set<String> keep = desired.keySet();
+          final Flux<Void> removals =
+              Flux.fromIterable(existing)
+                  .filter(a -> !keep.contains(a.id()))
+                  .concatMap(a -> service.detachUnlocked(a.id()));
+          final Flux<SupervisorAttachment> additions =
+              Flux.fromIterable(desired.values())
+                  .filter(a -> !existing.contains(a))
+                  .concatMap(service::attach);
+          return removals.thenMany(additions).then();
+        });
   }
 
   private boolean mayUnlock(final boolean unlock, final @Nullable String actor) {

@@ -118,19 +118,16 @@ final class AgentApprovals {
   /* default */ void handle(final AgentOutput.Request request) {
     pending.add(
         Mono.defer(() -> InputAsk.ask(gateway, spec(request)))
-            .map(
-                answer ->
-                    "approve".equalsIgnoreCase(answer.decision())
-                        ? allow(request)
-                        : deny(
-                            request,
-                            "Rejected"
-                                + (answer.rationale() == null ? "" : ": " + answer.rationale())))
-            .onErrorResume(
-                e -> {
-                  log.atWarn().setCause(e).log("Approval of {} not given", request.tool());
-                  return Mono.just(deny(request, "Not approved: " + e.getMessage()));
-                })
+            .map(answer ->
+                "approve".equalsIgnoreCase(answer.decision())
+                    ? allow(request)
+                    : deny(
+                        request,
+                        "Rejected" + (answer.rationale() == null ? "" : ": " + answer.rationale())))
+            .onErrorResume(e -> {
+              log.atWarn().setCause(e).log("Approval of {} not given", request.tool());
+              return Mono.just(deny(request, "Not approved: " + e.getMessage()));
+            })
             .subscribe(stdin::write));
   }
 

@@ -86,10 +86,9 @@ class EnterpriseModuleRegistryTest {
 
   @Test
   void moduleBuiltForAnotherApiVersion_isRefused() {
-    assertThatThrownBy(
-            () ->
-                new EnterpriseModuleRegistry(
-                    List.of(module(PlusApi.VERSION + 1)), LicenseVerifier.none()))
+    assertThatThrownBy(() ->
+            new EnterpriseModuleRegistry(
+                List.of(module(PlusApi.VERSION + 1)), LicenseVerifier.none()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("m2")
         .hasMessageContaining("Plus API");

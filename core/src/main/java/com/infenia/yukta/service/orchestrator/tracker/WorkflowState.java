@@ -69,12 +69,10 @@ final class WorkflowState {
     this.workflowId = workflowId;
     this.status = status;
     this.taskMap = Collections.synchronizedMap(new LinkedHashMap<>(nodeIds.size()));
-    nodeIds.forEach(
-        nodeId ->
-            taskMap.put(
-                nodeId,
-                new TaskProgress(
-                    nodeId, "", TaskStatus.PENDING, null, null, Collections.emptyMap())));
+    nodeIds.forEach(nodeId ->
+        taskMap.put(
+            nodeId,
+            new TaskProgress(nodeId, "", TaskStatus.PENDING, null, null, Collections.emptyMap())));
     this.startTime = startTime;
   }
 
@@ -112,24 +110,23 @@ final class WorkflowState {
   /* default */ List<TaskProgress> finalizeTasks(final TaskStatus runStatus) {
     final Instant now = Instant.now();
     final List<TaskProgress> finalized = new ArrayList<>();
-    taskMap.replaceAll(
-        (_, task) -> {
-          if (task.status().isTerminal()) {
-            return task;
-          }
-          final TaskStatus finalStatus = finalStatusFor(task.status(), runStatus);
-          final TaskProgress done =
-              new TaskProgress(
-                  task.nodeId(),
-                  task.module(),
-                  finalStatus,
-                  task.startTime(),
-                  now,
-                  task.metadata(),
-                  task.breakpoint());
-          finalized.add(done);
-          return done;
-        });
+    taskMap.replaceAll((_, task) -> {
+      if (task.status().isTerminal()) {
+        return task;
+      }
+      final TaskStatus finalStatus = finalStatusFor(task.status(), runStatus);
+      final TaskProgress done =
+          new TaskProgress(
+              task.nodeId(),
+              task.module(),
+              finalStatus,
+              task.startTime(),
+              now,
+              task.metadata(),
+              task.breakpoint());
+      finalized.add(done);
+      return done;
+    });
     return finalized;
   }
 

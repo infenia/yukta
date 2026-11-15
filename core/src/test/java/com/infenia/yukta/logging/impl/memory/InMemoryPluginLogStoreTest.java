@@ -64,29 +64,27 @@ class InMemoryPluginLogStoreTest {
   void testChattyExecutionKeepsOnlyTheNewestLines() {
     final String executionId = "exec-chatty";
     Flux.range(0, 10_050)
-        .concatMap(
-            i ->
-                store.write(
-                    new PluginLogEntry(
-                        executionId,
-                        SESSION_ID,
-                        PROCESSOR_ID,
-                        PROCESSOR_NAME,
-                        LogStream.STDOUT,
-                        "line " + i,
-                        LogLevel.INFO,
-                        Instant.now(),
-                        null,
-                        null)))
+        .concatMap(i ->
+            store.write(
+                new PluginLogEntry(
+                    executionId,
+                    SESSION_ID,
+                    PROCESSOR_ID,
+                    PROCESSOR_NAME,
+                    LogStream.STDOUT,
+                    "line " + i,
+                    LogLevel.INFO,
+                    Instant.now(),
+                    null,
+                    null)))
         .blockLast();
 
     StepVerifier.create(store.readExecution(executionId).map(PluginLogEntry::message).collectList())
-        .assertNext(
-            lines -> {
-              assertThat(lines).hasSize(10_000);
-              assertThat(lines.getFirst()).isEqualTo("line 50");
-              assertThat(lines.getLast()).isEqualTo("line 10049");
-            })
+        .assertNext(lines -> {
+          assertThat(lines).hasSize(10_000);
+          assertThat(lines.getFirst()).isEqualTo("line 50");
+          assertThat(lines.getLast()).isEqualTo("line 10049");
+        })
         .verifyComplete();
   }
 
@@ -94,30 +92,28 @@ class InMemoryPluginLogStoreTest {
   void testIndexedReadKeepsCountingPastTheLinesTheStoreDropped() {
     final String executionId = "exec-indexed";
     Flux.range(0, 10_050)
-        .concatMap(
-            i ->
-                store.write(
-                    new PluginLogEntry(
-                        executionId,
-                        SESSION_ID,
-                        PROCESSOR_ID,
-                        PROCESSOR_NAME,
-                        LogStream.STDOUT,
-                        "line " + i,
-                        LogLevel.INFO,
-                        Instant.now(),
-                        null,
-                        null)))
+        .concatMap(i ->
+            store.write(
+                new PluginLogEntry(
+                    executionId,
+                    SESSION_ID,
+                    PROCESSOR_ID,
+                    PROCESSOR_NAME,
+                    LogStream.STDOUT,
+                    "line " + i,
+                    LogLevel.INFO,
+                    Instant.now(),
+                    null,
+                    null)))
         .blockLast();
 
     StepVerifier.create(store.readIndexed(executionId).collectList())
-        .assertNext(
-            lines -> {
-              assertThat(lines).hasSize(10_000);
-              assertThat(lines.getFirst().sequence()).isEqualTo(50);
-              assertThat(lines.getFirst().entry().message()).isEqualTo("line 50");
-              assertThat(lines.getLast().sequence()).isEqualTo(10_049);
-            })
+        .assertNext(lines -> {
+          assertThat(lines).hasSize(10_000);
+          assertThat(lines.getFirst().sequence()).isEqualTo(50);
+          assertThat(lines.getFirst().entry().message()).isEqualTo("line 50");
+          assertThat(lines.getLast().sequence()).isEqualTo(10_049);
+        })
         .verifyComplete();
     StepVerifier.create(store.readIndexed("unknown")).verifyComplete();
   }
@@ -127,20 +123,19 @@ class InMemoryPluginLogStoreTest {
     final InMemoryPluginLogStore small =
         new InMemoryPluginLogStore(new PluginLogStoreConfig(), 100);
     Flux.range(0, 10)
-        .concatMap(
-            i ->
-                small.write(
-                    new PluginLogEntry(
-                        EXEC_CAP,
-                        SESSION_ID,
-                        PROCESSOR_ID,
-                        PROCESSOR_NAME,
-                        LogStream.STDOUT,
-                        "0123456789" + i + "x".repeat(19),
-                        LogLevel.INFO,
-                        Instant.now(),
-                        null,
-                        null)))
+        .concatMap(i ->
+            small.write(
+                new PluginLogEntry(
+                    EXEC_CAP,
+                    SESSION_ID,
+                    PROCESSOR_ID,
+                    PROCESSOR_NAME,
+                    LogStream.STDOUT,
+                    "0123456789" + i + "x".repeat(19),
+                    LogLevel.INFO,
+                    Instant.now(),
+                    null,
+                    null)))
         .blockLast();
 
     StepVerifier.create(small.readExecution(EXEC_CAP).count())
@@ -187,22 +182,21 @@ class InMemoryPluginLogStoreTest {
     final String executionId = "exec-concurrent";
     final int count = 2000;
     Flux.range(0, count)
-        .flatMap(
-            i ->
-                store
-                    .write(
-                        new PluginLogEntry(
-                            executionId,
-                            SESSION_ID,
-                            PROCESSOR_ID,
-                            PROCESSOR_NAME,
-                            LogStream.STDOUT,
-                            "line " + i,
-                            LogLevel.INFO,
-                            Instant.now(),
-                            null,
-                            null))
-                    .subscribeOn(Schedulers.parallel()))
+        .flatMap(i ->
+            store
+                .write(
+                    new PluginLogEntry(
+                        executionId,
+                        SESSION_ID,
+                        PROCESSOR_ID,
+                        PROCESSOR_NAME,
+                        LogStream.STDOUT,
+                        "line " + i,
+                        LogLevel.INFO,
+                        Instant.now(),
+                        null,
+                        null))
+                .subscribeOn(Schedulers.parallel()))
         .blockLast();
 
     StepVerifier.create(store.readExecution(executionId).map(PluginLogEntry::message).distinct())
@@ -229,12 +223,11 @@ class InMemoryPluginLogStoreTest {
     store.write(entry).block();
 
     StepVerifier.create(store.readExecution(executionId))
-        .assertNext(
-            read -> {
-              assertThat(read.executionId()).isEqualTo(executionId);
-              assertThat(read.message()).isEqualTo("Processing started");
-              assertThat(read.logLevel()).isEqualTo(LogLevel.INFO);
-            })
+        .assertNext(read -> {
+          assertThat(read.executionId()).isEqualTo(executionId);
+          assertThat(read.message()).isEqualTo("Processing started");
+          assertThat(read.logLevel()).isEqualTo(LogLevel.INFO);
+        })
         .verifyComplete();
   }
 
@@ -269,12 +262,11 @@ class InMemoryPluginLogStoreTest {
     store.write(entry1).then(store.write(entry2)).block();
 
     StepVerifier.create(store.readExecution(executionId).collectList())
-        .assertNext(
-            entries -> {
-              assertThat(entries).hasSize(2);
-              assertThat(entries.get(0).message()).isEqualTo("Line 1");
-              assertThat(entries.get(1).message()).isEqualTo("Line 2");
-            })
+        .assertNext(entries -> {
+          assertThat(entries).hasSize(2);
+          assertThat(entries.get(0).message()).isEqualTo("Line 1");
+          assertThat(entries.get(1).message()).isEqualTo("Line 2");
+        })
         .verifyComplete();
   }
 
@@ -357,19 +349,17 @@ class InMemoryPluginLogStoreTest {
     store.write(entry1).then(store.write(entry2)).block();
 
     StepVerifier.create(store.readExecution(exec1).collectList())
-        .assertNext(
-            entries -> {
-              assertThat(entries).hasSize(1);
-              assertThat(entries.getFirst().message()).isEqualTo("Exec1 message");
-            })
+        .assertNext(entries -> {
+          assertThat(entries).hasSize(1);
+          assertThat(entries.getFirst().message()).isEqualTo("Exec1 message");
+        })
         .verifyComplete();
 
     StepVerifier.create(store.readExecution(exec2).collectList())
-        .assertNext(
-            entries -> {
-              assertThat(entries).hasSize(1);
-              assertThat(entries.getFirst().message()).isEqualTo("Exec2 message");
-            })
+        .assertNext(entries -> {
+          assertThat(entries).hasSize(1);
+          assertThat(entries.getFirst().message()).isEqualTo("Exec2 message");
+        })
         .verifyComplete();
   }
 
@@ -480,13 +470,12 @@ class InMemoryPluginLogStoreTest {
     store.write(entry1).then(store.write(entry2)).then(store.write(entry3)).block();
 
     StepVerifier.create(store.readExecution(executionId).collectList())
-        .assertNext(
-            entries -> {
-              assertThat(entries).hasSize(3);
-              assertThat(entries.get(0).message()).isEqualTo("First");
-              assertThat(entries.get(1).message()).isEqualTo("Second");
-              assertThat(entries.get(2).message()).isEqualTo("Third");
-            })
+        .assertNext(entries -> {
+          assertThat(entries).hasSize(3);
+          assertThat(entries.get(0).message()).isEqualTo("First");
+          assertThat(entries.get(1).message()).isEqualTo("Second");
+          assertThat(entries.get(2).message()).isEqualTo("Third");
+        })
         .verifyComplete();
   }
 }

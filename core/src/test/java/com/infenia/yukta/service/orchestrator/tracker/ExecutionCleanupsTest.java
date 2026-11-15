@@ -86,12 +86,11 @@ class ExecutionCleanupsTest {
   void startSweeperLogsTheFailingSweepAndKeepsGoing() {
     final ExecutionCleanups cleanups = new ExecutionCleanups(Duration.ofMillis(200));
     final AtomicInteger sweeps = new AtomicInteger();
-    cleanups.startSweeper(
-        () -> {
-          if (sweeps.getAndIncrement() == 0) {
-            throw new IllegalStateException("sweep broke once");
-          }
-        });
+    cleanups.startSweeper(() -> {
+      if (sweeps.getAndIncrement() == 0) {
+        throw new IllegalStateException("sweep broke once");
+      }
+    });
     try {
       await().atMost(10, TimeUnit.SECONDS).until(() -> sweeps.get() >= 3);
     } finally {

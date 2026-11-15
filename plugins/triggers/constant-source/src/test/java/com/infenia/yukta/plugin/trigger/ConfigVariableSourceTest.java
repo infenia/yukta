@@ -69,13 +69,12 @@ class ConfigVariableSourceTest {
     source.initialize(config).block();
 
     StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
-        .assertNext(
-            message -> {
-              assertTrue(message.payload() instanceof Map, "Test start with payload target");
-              final Map<String, Object> payload = (Map<String, Object>) message.payload();
-              assertEquals(RESOLVED_VAL, payload.get(KEY), "Test start with payload target (2)");
-              assertTrue(message.metadata().isEmpty(), "Test start with payload target (3)");
-            })
+        .assertNext(message -> {
+          assertTrue(message.payload() instanceof Map, "Test start with payload target");
+          final Map<String, Object> payload = (Map<String, Object>) message.payload();
+          assertEquals(RESOLVED_VAL, payload.get(KEY), "Test start with payload target (2)");
+          assertTrue(message.metadata().isEmpty(), "Test start with payload target (3)");
+        })
         .verifyComplete();
   }
 
@@ -90,13 +89,11 @@ class ConfigVariableSourceTest {
     source.initialize(config).block();
 
     StepVerifier.create(source.start(config).contextWrite(ctx -> ctx.put("payload", Map.of())))
-        .assertNext(
-            message -> {
-              assertEquals(
-                  RESOLVED_VAL, message.metadata().get(KEY), "Test start with metadata target");
-              assertTrue(
-                  ((Map) message.payload()).isEmpty(), "Test start with metadata target (2)");
-            })
+        .assertNext(message -> {
+          assertEquals(
+              RESOLVED_VAL, message.metadata().get(KEY), "Test start with metadata target");
+          assertTrue(((Map) message.payload()).isEmpty(), "Test start with metadata target (2)");
+        })
         .verifyComplete();
   }
 
@@ -116,13 +113,12 @@ class ConfigVariableSourceTest {
 
     StepVerifier.create(source.prepare(config)).verifyComplete();
     StepVerifier.create(source.start(config))
-        .assertNext(
-            message -> {
-              final Map<?, ?> payload = (Map<?, ?>) message.payload();
-              assertEquals(Map.of("b", "S"), payload.get("a"));
-              assertEquals("D", payload.get("c"));
-              assertEquals("default", message.sourcePort());
-            })
+        .assertNext(message -> {
+          final Map<?, ?> payload = (Map<?, ?>) message.payload();
+          assertEquals(Map.of("b", "S"), payload.get("a"));
+          assertEquals("D", payload.get("c"));
+          assertEquals("default", message.sourcePort());
+        })
         .verifyComplete();
     verify(resolver, times(1)).resolve("static");
   }

@@ -63,22 +63,20 @@ public class ExecutionResultController {
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     return access
         .require(sessionId, executionId)
-        .flatMapMany(
-            progress -> {
-              // A finished run that was evicted (or never had a terminal) has nothing to replay.
-              final boolean nothingToReplay =
-                  progress.status().isTerminal() && !results.has(executionId);
-              final Flux<ResultEvent> events =
-                  nothingToReplay
-                      ? Flux.empty()
-                      : results.stream(executionId)
-                          .filter(
-                              event ->
-                                  nodeId == null
-                                      || event.nodeId() == null
-                                      || nodeId.equals(event.nodeId()));
-              return SseStreams.events(events, lastEventId, SseStreams.HEARTBEAT);
-            });
+        .flatMapMany(progress -> {
+          // A finished run that was evicted (or never had a terminal) has nothing to replay.
+          final boolean nothingToReplay =
+              progress.status().isTerminal() && !results.has(executionId);
+          final Flux<ResultEvent> events =
+              nothingToReplay
+                  ? Flux.empty()
+                  : results.stream(executionId)
+                      .filter(event ->
+                          nodeId == null
+                              || event.nodeId() == null
+                              || nodeId.equals(event.nodeId()));
+          return SseStreams.events(events, lastEventId, SseStreams.HEARTBEAT);
+        });
   }
 
   /**

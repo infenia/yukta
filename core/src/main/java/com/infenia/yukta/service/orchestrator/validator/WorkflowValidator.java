@@ -55,17 +55,15 @@ public class WorkflowValidator {
                 .then()
             : Mono.error(new IllegalArgumentException(graph.getFirst()));
     return checks
-        .doOnSuccess(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("workflowId", def.workflowId())
-                    .log("Workflow validation completed successfully"))
-        .doOnError(
-            e ->
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue("workflowId", def.workflowId())
-                    .log("Workflow validation failed"));
+        .doOnSuccess(_ ->
+            log.atInfo()
+                .addKeyValue("workflowId", def.workflowId())
+                .log("Workflow validation completed successfully"))
+        .doOnError(e ->
+            log.atError()
+                .setCause(e)
+                .addKeyValue("workflowId", def.workflowId())
+                .log("Workflow validation failed"));
   }
 
   /** A secret mask, a literal secret, a bad policy or a broken structure: all of them. */
@@ -96,14 +94,13 @@ public class WorkflowValidator {
     return Flux.just(
             PluginChecks.validateNodeContexts(def, registry),
             PluginChecks.validatePluginConfigs(def, registry))
-        .concatMap(
-            check ->
-                check.onErrorResume(
-                    IllegalArgumentException.class,
-                    e -> {
-                      problems.add(e.getMessage() != null ? e.getMessage() : e.toString());
-                      return Mono.empty();
-                    }))
+        .concatMap(check ->
+            check.onErrorResume(
+                IllegalArgumentException.class,
+                e -> {
+                  problems.add(e.getMessage() != null ? e.getMessage() : e.toString());
+                  return Mono.empty();
+                }))
         .then(Mono.fromSupplier(() -> List.copyOf(problems)));
   }
 }

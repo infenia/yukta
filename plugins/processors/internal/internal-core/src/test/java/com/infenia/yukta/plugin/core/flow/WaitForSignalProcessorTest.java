@@ -42,14 +42,13 @@ class WaitForSignalProcessorTest {
   void approve_releasesTheMessageTaggedWithTheDecision() {
     final Gateway gateway = InputFakes.answering("approve", "fine");
     StepVerifier.create(run(gateway, Map.of("signal", "approval")))
-        .assertNext(
-            out -> {
-              assertThat(out.metadata())
-                  .containsEntry("signal.name", "approval")
-                  .containsEntry("signal.decision", "approve")
-                  .containsEntry("signal.data", "fine");
-              assertThat(out.payload()).isEqualTo("work");
-            })
+        .assertNext(out -> {
+          assertThat(out.metadata())
+              .containsEntry("signal.name", "approval")
+              .containsEntry("signal.decision", "approve")
+              .containsEntry("signal.data", "fine");
+          assertThat(out.payload()).isEqualTo("work");
+        })
         .verifyComplete();
   }
 
@@ -85,9 +84,8 @@ class WaitForSignalProcessorTest {
   void reject_failsByDefault_andDropsWhenAsked() {
     final Gateway gateway = InputFakes.answering("reject", "no");
     StepVerifier.create(run(gateway, Map.of("signal", "approval")))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e).isInstanceOf(IllegalStateException.class).hasMessageContaining("no"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e).isInstanceOf(IllegalStateException.class).hasMessageContaining("no"));
     StepVerifier.create(run(gateway, Map.of("signal", "approval", "onReject", "CONTINUE")))
         .verifyComplete();
   }
@@ -96,11 +94,10 @@ class WaitForSignalProcessorTest {
   void timeout_failsByDefault_andContinuesWhenAsked() {
     final Gateway gateway = new Gateway(_ -> Mono.error(new InputExpiredException("r", "expired")));
     StepVerifier.create(run(gateway, Map.of("signal", "approval", "timeoutSeconds", 5)))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("No 'approval' signal"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("No 'approval' signal"));
     StepVerifier.create(
             run(
                 gateway,

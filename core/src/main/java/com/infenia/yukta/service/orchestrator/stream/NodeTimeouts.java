@@ -58,21 +58,19 @@ public class NodeTimeouts {
     if (config.values().stream().allMatch(resolver::isStatic)) {
       return input;
     }
-    return input.switchOnFirst(
-        (first, rest) ->
-            first.hasValue()
-                ? resolve(config, first.get(), resolver)
-                    .doOnNext(resolved -> activity.retime(timeout(resolved, plugin)))
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .addKeyValue("nodeId", node.nodeId())
-                              .setCause(error)
-                              .log("Could not resolve the node timeout, keeping the default");
-                          return Mono.empty();
-                        })
-                    .thenMany(rest)
-                : rest);
+    return input.switchOnFirst((first, rest) ->
+        first.hasValue()
+            ? resolve(config, first.get(), resolver)
+                .doOnNext(resolved -> activity.retime(timeout(resolved, plugin)))
+                .onErrorResume(error -> {
+                  log.atWarn()
+                      .addKeyValue("nodeId", node.nodeId())
+                      .setCause(error)
+                      .log("Could not resolve the node timeout, keeping the default");
+                  return Mono.empty();
+                })
+                .thenMany(rest)
+            : rest);
   }
 
   private Map<String, Object> withoutSecrets(final Map<String, Object> config) {
@@ -84,11 +82,10 @@ public class NodeTimeouts {
   private Mono<Map<String, Object>> resolve(
       final Map<String, Object> config, final Message<?> message, final VariableResolver resolver) {
     return Flux.fromIterable(config.entrySet())
-        .concatMap(
-            entry ->
-                resolver
-                    .resolve(entry.getValue(), message)
-                    .map(value -> Map.entry(entry.getKey(), value)))
+        .concatMap(entry ->
+            resolver
+                .resolve(entry.getValue(), message)
+                .map(value -> Map.entry(entry.getKey(), value)))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue, HashMap::new);
   }
 

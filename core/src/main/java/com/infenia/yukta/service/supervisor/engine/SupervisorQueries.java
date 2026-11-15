@@ -91,14 +91,13 @@ public class SupervisorQueries {
       public Flux<RunView> executions(final @Nullable String status, final int limit) {
         return SupervisorQueries.this
             .executions(scope, status == null ? null : statusNamed(status), limit)
-            .map(
-                run ->
-                    new RunView(
-                        run.sessionId(),
-                        run.executionId(),
-                        run.workflowId(),
-                        run.status(),
-                        run.startTime()));
+            .map(run ->
+                new RunView(
+                    run.sessionId(),
+                    run.executionId(),
+                    run.workflowId(),
+                    run.status(),
+                    run.startTime()));
       }
 
       @Override
@@ -126,13 +125,12 @@ public class SupervisorQueries {
         return scope instanceof SupervisorScope.Server
             ? controlBus
                 .limits()
-                .map(
-                    limits ->
-                        new SchedulerView(
-                            limits.maxConcurrent(),
-                            limits.maxPerWorkflow(),
-                            limits.running(),
-                            limits.queued()))
+                .map(limits ->
+                    new SchedulerView(
+                        limits.maxConcurrent(),
+                        limits.maxPerWorkflow(),
+                        limits.running(),
+                        limits.queued()))
             : Mono.empty();
       }
     };
@@ -213,21 +211,19 @@ public class SupervisorQueries {
     final Flux<String> sessionIds =
         scope.sessionId() != null ? Flux.just(scope.sessionId()) : sessions.getSessionIds(false);
     return sessionIds
-        .concatMap(
-            id ->
-                controlBus
-                    .getHistory(id)
-                    .flatMapIterable(history -> history)
-                    .filter(run -> sees(scope, id, run.workflowId()))
-                    .filter(run -> status == null || run.status() == status)
-                    .map(
-                        run ->
-                            new Run(
-                                id,
-                                run.executionId(),
-                                run.workflowId(),
-                                run.status().name(),
-                                run.startTime())))
+        .concatMap(id ->
+            controlBus
+                .getHistory(id)
+                .flatMapIterable(history -> history)
+                .filter(run -> sees(scope, id, run.workflowId()))
+                .filter(run -> status == null || run.status() == status)
+                .map(run ->
+                    new Run(
+                        id,
+                        run.executionId(),
+                        run.workflowId(),
+                        run.status().name(),
+                        run.startTime())))
         .sort(Comparator.comparing(Run::startTime, Comparator.nullsLast(Comparator.reverseOrder())))
         .take(Math.clamp(limit, 1, MAX_ROWS));
   }
@@ -242,10 +238,9 @@ public class SupervisorQueries {
   public Flux<InputRequest> openInputs(final SupervisorScope scope, final int limit) {
     return inputs
         .list(null, null, null, InputRequestQueries.WAITING)
-        .filter(
-            request ->
-                !(scope instanceof SupervisorScope.Global)
-                    && scope.matches(request.sessionId(), request.workflowId(), request.nodeId()))
+        .filter(request ->
+            !(scope instanceof SupervisorScope.Global)
+                && scope.matches(request.sessionId(), request.workflowId(), request.nodeId()))
         .take(Math.clamp(limit, 1, MAX_ROWS));
   }
 
@@ -263,19 +258,17 @@ public class SupervisorQueries {
   private Mono<EngineReads.RunDetail> detail(
       final SupervisorScope scope, final String executionId) {
     return owned(scope, executionId)
-        .flatMap(
-            run ->
-                Mono.fromSupplier(() -> controlBus.getProgress(run.sessionId(), executionId))
-                    .map(
-                        progress ->
-                            new EngineReads.RunDetail(
-                                new EngineReads.RunView(
-                                    run.sessionId(),
-                                    run.executionId(),
-                                    run.workflowId(),
-                                    run.status(),
-                                    run.startTime()),
-                                nodeStatuses(scope, progress))));
+        .flatMap(run ->
+            Mono.fromSupplier(() -> controlBus.getProgress(run.sessionId(), executionId))
+                .map(progress ->
+                    new EngineReads.RunDetail(
+                        new EngineReads.RunView(
+                            run.sessionId(),
+                            run.executionId(),
+                            run.workflowId(),
+                            run.status(),
+                            run.startTime()),
+                        nodeStatuses(scope, progress))));
   }
 
   private static Map<String, String> nodeStatuses(
@@ -302,26 +295,23 @@ public class SupervisorQueries {
     }
     return sessions
         .getSessionWorkflow(sessionId, workflowId)
-        .map(
-            definition -> {
-              final List<EngineReads.NodeView> nodes =
-                  definition.nodes().stream()
-                      .filter(node -> scope.matches(sessionId, workflowId, node.nodeId()))
-                      .map(
-                          node ->
-                              new EngineReads.NodeView(node.nodeId(), node.type(), node.group()))
-                      .toList();
-              final java.util.Set<String> kept =
-                  nodes.stream()
-                      .map(EngineReads.NodeView::nodeId)
-                      .collect(java.util.stream.Collectors.toSet());
-              final List<EngineReads.EdgeView> edges =
-                  definition.edges().stream()
-                      .filter(edge -> kept.contains(edge.source()) && kept.contains(edge.target()))
-                      .map(edge -> new EngineReads.EdgeView(edge.source(), edge.target()))
-                      .toList();
-              return new EngineReads.WorkflowView(workflowId, nodes, edges);
-            })
+        .map(definition -> {
+          final List<EngineReads.NodeView> nodes =
+              definition.nodes().stream()
+                  .filter(node -> scope.matches(sessionId, workflowId, node.nodeId()))
+                  .map(node -> new EngineReads.NodeView(node.nodeId(), node.type(), node.group()))
+                  .toList();
+          final java.util.Set<String> kept =
+              nodes.stream()
+                  .map(EngineReads.NodeView::nodeId)
+                  .collect(java.util.stream.Collectors.toSet());
+          final List<EngineReads.EdgeView> edges =
+              definition.edges().stream()
+                  .filter(edge -> kept.contains(edge.source()) && kept.contains(edge.target()))
+                  .map(edge -> new EngineReads.EdgeView(edge.source(), edge.target()))
+                  .toList();
+          return new EngineReads.WorkflowView(workflowId, nodes, edges);
+        })
         .onErrorResume(_ -> Mono.empty());
   }
 
@@ -334,14 +324,12 @@ public class SupervisorQueries {
     }
     final int count = Math.clamp(tail, 1, MAX_ROWS);
     return owned(scope, executionId)
-        .flatMapMany(
-            run ->
-                store
-                    .readExecution(executionId)
-                    .filter(
-                        entry -> scope.matches(run.sessionId(), run.workflowId(), entry.pluginId()))
-                    .takeLast(count)
-                    .map(this::line));
+        .flatMapMany(run ->
+            store
+                .readExecution(executionId)
+                .filter(entry -> scope.matches(run.sessionId(), run.workflowId(), entry.pluginId()))
+                .takeLast(count)
+                .map(this::line));
   }
 
   private String line(final PluginLogEntry entry) {

@@ -71,16 +71,13 @@ public class SupervisorRules {
    */
   public static Mono<Document> save(
       final SupervisorService service, final String id, final Map<String, Object> rules) {
-    return Mono.defer(
-        () -> {
-          refuseCommon(id, rules);
-          return find(service, id)
-              .flatMap(
-                  existing ->
-                      service.saveSupervisor(
-                          existing.withEngine(existing.type(), merged(existing, rules))))
-              .flatMap(saved -> document(service, saved));
-        });
+    return Mono.defer(() -> {
+      refuseCommon(id, rules);
+      return find(service, id)
+          .flatMap(existing ->
+              service.saveSupervisor(existing.withEngine(existing.type(), merged(existing, rules))))
+          .flatMap(saved -> document(service, saved));
+    });
   }
 
   /**
@@ -98,17 +95,14 @@ public class SupervisorRules {
       final String id,
       final String executionId,
       final @Nullable Map<String, Object> draft) {
-    return Mono.defer(
-        () -> {
-          if (draft != null) {
-            refuseCommon(id, draft);
-          }
-          return find(service, id)
-              .flatMap(
-                  existing ->
-                      service.replay(
-                          id, draft == null ? null : merged(existing, draft), executionId));
-        });
+    return Mono.defer(() -> {
+      if (draft != null) {
+        refuseCommon(id, draft);
+      }
+      return find(service, id)
+          .flatMap(existing ->
+              service.replay(id, draft == null ? null : merged(existing, draft), executionId));
+    });
   }
 
   private static Mono<Supervisor> find(final SupervisorService service, final String id) {
@@ -128,11 +122,10 @@ public class SupervisorRules {
       final SupervisorService service, final Supervisor supervisor) {
     return service
         .versions(supervisor.id())
-        .map(
-            versions ->
-                new Document(
-                    versions.isEmpty() ? 0 : versions.getFirst().version(),
-                    copyWhere(supervisor.settings(), key -> !COMMON.contains(key))));
+        .map(versions ->
+            new Document(
+                versions.isEmpty() ? 0 : versions.getFirst().version(),
+                copyWhere(supervisor.settings(), key -> !COMMON.contains(key))));
   }
 
   private static void refuseCommon(final String id, final Map<String, Object> rules) {

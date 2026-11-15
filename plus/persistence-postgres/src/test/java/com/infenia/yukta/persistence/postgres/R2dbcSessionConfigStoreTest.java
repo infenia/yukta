@@ -41,13 +41,11 @@ class R2dbcSessionConfigStoreTest extends PostgresTestSupport {
     workflows.put("w1", workflow());
     workflows.put("bad", Fixtures.workflow("bad\u0000id", "d", List.of(), List.of()));
 
-    assertThatThrownBy(
-            () ->
-                store
-                    .applySessionConfig(
-                        new SessionConfigData(
-                            "s2", "name", "desc", "alice", Map.of(), "/p", workflows))
-                    .block())
+    assertThatThrownBy(() ->
+            store
+                .applySessionConfig(
+                    new SessionConfigData("s2", "name", "desc", "alice", Map.of(), "/p", workflows))
+                .block())
         .isNotNull();
 
     assertThat(store.getSessionIds().collectList().block()).isEmpty();

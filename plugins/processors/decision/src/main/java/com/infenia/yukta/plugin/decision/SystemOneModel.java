@@ -84,13 +84,12 @@ public final class SystemOneModel implements DecisionBackend {
                 response
                     .bodyToMono(String.class)
                     .defaultIfEmpty("")
-                    .map(
-                        body ->
-                            new IllegalStateException(
-                                "System One answered "
-                                    + response.statusCode()
-                                    + ": "
-                                    + body.substring(0, Math.min(body.length(), ERROR_BODY_MAX)))))
+                    .map(body ->
+                        new IllegalStateException(
+                            "System One answered "
+                                + response.statusCode()
+                                + ": "
+                                + body.substring(0, Math.min(body.length(), ERROR_BODY_MAX)))))
         .bodyToMono(String.class)
         .timeout(spec.timeout())
         .map(body -> parse(JSON.readTree(body), questions));
@@ -132,14 +131,13 @@ public final class SystemOneModel implements DecisionBackend {
   private static Map<String, Answer> parse(
       final JsonNode reply, final Map<String, Question> questions) {
     final Map<String, Answer> answers = new LinkedHashMap<>();
-    questions.forEach(
-        (name, question) -> {
-          final JsonNode node = reply.path("answers").path(name);
-          if (node.isMissingNode()) {
-            throw new IllegalStateException("System One gave no answer to '" + name + "'");
-          }
-          answers.put(name, read(question, node));
-        });
+    questions.forEach((name, question) -> {
+      final JsonNode node = reply.path("answers").path(name);
+      if (node.isMissingNode()) {
+        throw new IllegalStateException("System One gave no answer to '" + name + "'");
+      }
+      answers.put(name, read(question, node));
+    });
     return answers;
   }
 

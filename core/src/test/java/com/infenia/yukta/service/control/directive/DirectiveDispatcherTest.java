@@ -141,10 +141,9 @@ class DirectiveDispatcherTest {
         new ExecutionControlCommand.PauseWorkflowCommand("nope");
 
     StepVerifier.create(dispatcher.dispatchOrdered(command))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: nope"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Execution not found: nope"))
         .verify();
   }
 
@@ -214,20 +213,18 @@ class DirectiveDispatcherTest {
     StepVerifier.create(
             dispatcher
                 .dispatchOrdered(new ExecutionControlCommand.PauseWorkflowCommand("ended"))
-                .contextWrite(
-                    ctx ->
-                        ctx.put(ControlActor.CONTEXT_KEY, "ann")
-                            .put(ControlActor.APPROVED_REQUEST, new Object())))
+                .contextWrite(ctx ->
+                    ctx.put(ControlActor.CONTEXT_KEY, "ann")
+                        .put(ControlActor.APPROVED_REQUEST, new Object())))
         .expectError()
         .verify();
 
     assertThat(log.readAll())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).contains("PauseWorkflowCommand", "Execution not found");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains("PauseWorkflowCommand", "Execution not found");
+        });
   }
 
   @Test

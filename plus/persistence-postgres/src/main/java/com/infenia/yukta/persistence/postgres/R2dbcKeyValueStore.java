@@ -58,24 +58,23 @@ public class R2dbcKeyValueStore implements KeyValueStore {
   @Override
   public Mono<Object> put(final String key, final Object value, final int maxEntries) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(value))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO kv_entry (k, v) SELECT :k, CAST(:v AS jsonb)
-                        WHERE EXISTS (SELECT 1 FROM kv_entry WHERE k = :k)
-                           OR (SELECT count(*) FROM kv_entry) < :max
-                        ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v
-                        RETURNING CAST(v AS text) AS v
-                        """)
-                    .bind(KEY, key)
-                    .bind(VALUE, json)
-                    .bind(MAX, (long) maxEntries)
-                    .map(row -> row.get(VALUE, String.class))
-                    .one()
-                    .map(this::read)
-                    .switchIfEmpty(Mono.error(() -> full(maxEntries))));
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO kv_entry (k, v) SELECT :k, CAST(:v AS jsonb)
+                    WHERE EXISTS (SELECT 1 FROM kv_entry WHERE k = :k)
+                       OR (SELECT count(*) FROM kv_entry) < :max
+                    ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v
+                    RETURNING CAST(v AS text) AS v
+                    """)
+                .bind(KEY, key)
+                .bind(VALUE, json)
+                .bind(MAX, (long) maxEntries)
+                .map(row -> row.get(VALUE, String.class))
+                .one()
+                .map(this::read)
+                .switchIfEmpty(Mono.error(() -> full(maxEntries))));
   }
 
   @Override

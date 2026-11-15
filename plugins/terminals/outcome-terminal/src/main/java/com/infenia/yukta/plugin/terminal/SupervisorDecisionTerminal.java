@@ -51,19 +51,18 @@ public final class SupervisorDecisionTerminal implements TerminalPlugin {
   @Override
   public List<ConfigField> getConfigSchema() {
     return outcome.getConfigSchema().stream()
-        .map(
-            field ->
-                OUTCOME_KEY.equals(field.name())
-                    ? ConfigField.choice(
-                        OUTCOME_KEY,
-                        false,
-                        "SUCCESS",
-                        "How the run ended",
-                        "SUCCESS",
-                        "RETRY",
-                        "ESCALATE",
-                        "FAILED")
-                    : field)
+        .map(field ->
+            OUTCOME_KEY.equals(field.name())
+                ? ConfigField.choice(
+                    OUTCOME_KEY,
+                    false,
+                    "SUCCESS",
+                    "How the run ended",
+                    "SUCCESS",
+                    "RETRY",
+                    "ESCALATE",
+                    "FAILED")
+                : field)
         .toList();
   }
 

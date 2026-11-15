@@ -63,17 +63,16 @@ class SignalApiRemovedTest {
           files
               .filter(Files::isRegularFile)
               .filter(SignalApiRemovedTest::isProductFile)
-              .flatMap(
-                  file -> {
-                    try {
-                      final String text = Files.readString(file);
-                      return GONE.stream()
-                          .filter(text::contains)
-                          .map(word -> root.relativize(file) + " names " + word);
-                    } catch (final IOException unreadable) {
-                      return Stream.empty();
-                    }
-                  })
+              .flatMap(file -> {
+                try {
+                  final String text = Files.readString(file);
+                  return GONE.stream()
+                      .filter(text::contains)
+                      .map(word -> root.relativize(file) + " names " + word);
+                } catch (final IOException unreadable) {
+                  return Stream.empty();
+                }
+              })
               .toList();
     }
 

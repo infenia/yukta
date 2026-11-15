@@ -124,16 +124,15 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          require(config, "model");
-          ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
-          validateStateLimits(config);
-          if (backend(config) == ModelSpec.Backend.LLM) {
-            require(config, "provider");
-          }
-          check(config);
-        });
+    return Mono.fromRunnable(() -> {
+      require(config, "model");
+      ConfigValidation.concurrency(config, DEFAULT_CONCURRENCY);
+      validateStateLimits(config);
+      if (backend(config) == ModelSpec.Backend.LLM) {
+        require(config, "provider");
+      }
+      check(config);
+    });
   }
 
   private static void validateStateLimits(final Map<String, Object> config) {
@@ -237,26 +236,24 @@ public abstract class DecisionPlugin implements ProcessorPlugin {
             resolve(config.get("baseUrl"), message),
             resolve(config.get("apiKey"), message),
             resolve(config.get("keepAlive"), message))
-        .flatMap(
-            t ->
-                model.answer(
-                    new ModelSpec(
-                        backend(config),
-                        text(config.get("provider")),
-                        t.getT1(),
-                        baseUrl(config, t.getT2()),
-                        blankToNull(t.getT3()),
-                        seconds(config),
-                        blankToNull(t.getT4()),
-                        numCtx(config)),
-                    state,
-                    questions))
-        .onErrorMap(
-            error ->
-                error instanceof WorkflowExecutionException
-                    ? error
-                    : new WorkflowExecutionException(
-                        "Decision model failed: " + error.getMessage(), error));
+        .flatMap(t ->
+            model.answer(
+                new ModelSpec(
+                    backend(config),
+                    text(config.get("provider")),
+                    t.getT1(),
+                    baseUrl(config, t.getT2()),
+                    blankToNull(t.getT3()),
+                    seconds(config),
+                    blankToNull(t.getT4()),
+                    numCtx(config)),
+                state,
+                questions))
+        .onErrorMap(error ->
+            error instanceof WorkflowExecutionException
+                ? error
+                : new WorkflowExecutionException(
+                    "Decision model failed: " + error.getMessage(), error));
   }
 
   /**

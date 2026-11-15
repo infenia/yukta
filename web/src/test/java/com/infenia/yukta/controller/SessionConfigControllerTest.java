@@ -393,8 +393,7 @@ class SessionConfigControllerTest {
         .isEqualTo(409)
         .expectBody()
         .jsonPath("$.message")
-        .value(
-            message ->
-                org.assertj.core.api.Assertions.assertThat((String) message).contains("e1, e2"));
+        .value(message ->
+            org.assertj.core.api.Assertions.assertThat((String) message).contains("e1, e2"));
   }
 }

@@ -56,12 +56,11 @@ class StreamTopologyDecoratorBackpressureTest {
     }
     final Flux<Message<?>> tail = stream;
     // Connectors run when the workflow starts, in reverse order.
-    return tail.doOnSubscribe(
-        _ -> {
-          for (int i = connectors.size() - 1; i >= 0; i--) {
-            connectors.get(i).run();
-          }
-        });
+    return tail.doOnSubscribe(_ -> {
+      for (int i = connectors.size() - 1; i >= 0; i--) {
+        connectors.get(i).run();
+      }
+    });
   }
 
   @Test
@@ -72,11 +71,10 @@ class StreamTopologyDecoratorBackpressureTest {
     final Flux<Message<?>> slow =
         linearChain(1, 16, disposables)
             .publishOn(Schedulers.newSingle("slow-consumer"), 1)
-            .doOnNext(
-                _ -> {
-                  seen.incrementAndGet();
-                  java.util.concurrent.locks.LockSupport.parkNanos(20_000);
-                });
+            .doOnNext(_ -> {
+              seen.incrementAndGet();
+              java.util.concurrent.locks.LockSupport.parkNanos(20_000);
+            });
 
     StepVerifier.create(slow)
         .expectNextCount(MESSAGES)

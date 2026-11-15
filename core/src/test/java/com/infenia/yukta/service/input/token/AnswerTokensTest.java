@@ -40,12 +40,9 @@ class AnswerTokensTest {
 
   @Test
   void anAlgorithmThatIsNotThereIsReportedNotHidden() {
-    org.assertj.core.api.Assertions.assertThatThrownBy(
-            () ->
-                AnswerTokens.hmac(
-                    "NoSuchMac",
-                    new javax.crypto.spec.SecretKeySpec(new byte[] {1}, "x"),
-                    new byte[0]))
+    org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+            AnswerTokens.hmac(
+                "NoSuchMac", new javax.crypto.spec.SecretKeySpec(new byte[] {1}, "x"), new byte[0]))
         .isInstanceOf(IllegalStateException.class);
   }
 

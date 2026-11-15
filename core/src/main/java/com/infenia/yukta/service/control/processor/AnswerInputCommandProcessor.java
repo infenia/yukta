@@ -67,21 +67,20 @@ public class AnswerInputCommandProcessor {
   public Mono<Void> process(final AnswerInputCommand answer) {
     return guard
         .clear(answer.executionId(), answer.requestId(), false)
-        .flatMap(
-            cleared -> {
-              AnswerShape.check(cleared.request(), answer);
-              final InputResponse response =
-                  new InputResponse(
-                      answer.requestId(),
-                      answer.decision(),
-                      answer.text(),
-                      answer.data(),
-                      cleared.responder(),
-                      answer.rationale(),
-                      answer.confidence(),
-                      clock.instant());
-              return broker.answer(answer.requestId(), answer.expectedVersion(), response);
-            })
+        .flatMap(cleared -> {
+          AnswerShape.check(cleared.request(), answer);
+          final InputResponse response =
+              new InputResponse(
+                  answer.requestId(),
+                  answer.decision(),
+                  answer.text(),
+                  answer.data(),
+                  cleared.responder(),
+                  answer.rationale(),
+                  answer.confidence(),
+                  clock.instant());
+          return broker.answer(answer.requestId(), answer.expectedVersion(), response);
+        })
         .switchIfEmpty(
             Mono.error(
                 () -> new NotFoundException("Input request not found: " + answer.requestId())))

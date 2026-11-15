@@ -72,19 +72,18 @@ public final class ChatDecisionModel implements DecisionBackend {
   @Override
   public Mono<Map<String, Answer>> answer(
       final ModelSpec spec, final String state, final Map<String, Question> questions) {
-    return Mono.fromCallable(
-            () ->
-                gateway.call(
-                    new LlmRequest(
-                        Provider.from(spec.provider()),
-                        spec.baseUrl(),
-                        spec.apiKey(),
-                        spec.model(),
-                        0.0,
-                        null,
-                        spec.timeout(),
-                        SYSTEM,
-                        List.of(new ChatTurn("user", prompt(state, questions))))))
+    return Mono.fromCallable(() ->
+            gateway.call(
+                new LlmRequest(
+                    Provider.from(spec.provider()),
+                    spec.baseUrl(),
+                    spec.apiKey(),
+                    spec.model(),
+                    0.0,
+                    null,
+                    spec.timeout(),
+                    SYSTEM,
+                    List.of(new ChatTurn("user", prompt(state, questions))))))
         .subscribeOn(Schedulers.boundedElastic())
         .timeout(spec.timeout().plusSeconds(1))
         .map(response -> parse(response.text(), questions));
@@ -145,14 +144,13 @@ public final class ChatDecisionModel implements DecisionBackend {
     }
     final JsonNode reply = JSON.readTree(text.substring(start, end + 1));
     final Map<String, Answer> answers = new LinkedHashMap<>();
-    questions.forEach(
-        (name, question) -> {
-          final JsonNode node = reply.path(name);
-          if (node.isMissingNode()) {
-            throw new IllegalStateException("The model gave no answer to '" + name + "'");
-          }
-          answers.put(name, read(name, question, node));
-        });
+    questions.forEach((name, question) -> {
+      final JsonNode node = reply.path(name);
+      if (node.isMissingNode()) {
+        throw new IllegalStateException("The model gave no answer to '" + name + "'");
+      }
+      answers.put(name, read(name, question, node));
+    });
     return answers;
   }
 

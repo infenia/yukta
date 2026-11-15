@@ -261,9 +261,8 @@ class InputRequestThreatsTest {
       final InMemoryExecutionLogStore log, final String event) {
     return log.readAll().stream()
         .map(ExecutionLogEvent::payload)
-        .filter(
-            payload ->
-                payload != null && event.equals(payload.get(ExecutionLogEvent.INPUT_EVENT_KEY)))
+        .filter(payload ->
+            payload != null && event.equals(payload.get(ExecutionLogEvent.INPUT_EVENT_KEY)))
         .findFirst()
         .orElseThrow(() -> new AssertionError("no log entry " + event));
   }

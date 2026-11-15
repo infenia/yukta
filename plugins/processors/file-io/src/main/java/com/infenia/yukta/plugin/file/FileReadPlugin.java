@@ -93,12 +93,11 @@ public final class FileReadPlugin extends AbstractFilePlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          FileSandbox.baseDir(config);
-          ConfigValidation.positiveLong(config, "maxBytes", DEFAULT_MAX_BYTES);
-          FailureMode.from(config.get(FAILURE_MODE));
-        });
+    return Mono.fromRunnable(() -> {
+      FileSandbox.baseDir(config);
+      ConfigValidation.positiveLong(config, "maxBytes", DEFAULT_MAX_BYTES);
+      FailureMode.from(config.get(FAILURE_MODE));
+    });
   }
 
   @Override

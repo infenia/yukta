@@ -35,11 +35,10 @@ class WorkersControllerTest {
     when(registry.list()).thenReturn(List.of(info));
 
     StepVerifier.create(new WorkersController(registry).list())
-        .assertNext(
-            response -> {
-              assertThat(response.status()).isEqualTo(200);
-              assertThat(response.data()).containsExactly(info);
-            })
+        .assertNext(response -> {
+          assertThat(response.status()).isEqualTo(200);
+          assertThat(response.data()).containsExactly(info);
+        })
         .verifyComplete();
   }
 }

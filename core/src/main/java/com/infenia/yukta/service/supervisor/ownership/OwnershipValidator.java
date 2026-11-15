@@ -73,9 +73,8 @@ public final class OwnershipValidator {
 
   private Optional<OwnershipConflict> conflict(final Claim candidate, final Claim other) {
     return overlap(candidate.scope(), other.scope())
-        .map(
-            disputed ->
-                new OwnershipConflict(candidate.supervisorId(), other.supervisorId(), disputed));
+        .map(disputed ->
+            new OwnershipConflict(candidate.supervisorId(), other.supervisorId(), disputed));
   }
 
   private Optional<String> overlap(final SupervisorScope a, final SupervisorScope b) {

@@ -119,11 +119,10 @@ class HttpEngineTest {
         new Directive.Command("k", new PauseWorkflowCommand("e1"), Cause.initiative(), "r", null);
 
     StepVerifier.create(engine.run(in.asFlux()))
-        .then(
-            () -> {
-              in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
-              assertThat(channel.offer(command)).isTrue();
-            })
+        .then(() -> {
+          in.tryEmitNext(new Signal.Tick(Instant.EPOCH));
+          assertThat(channel.offer(command)).isTrue();
+        })
         .expectNext(command)
         .thenCancel()
         .verify(Duration.ofSeconds(5));
@@ -167,11 +166,10 @@ class HttpEngineTest {
       StepVerifier.create(engine.run(in.asFlux()))
           .then(() -> in.tryEmitNext(new Signal.Tick(Instant.EPOCH)))
           .thenAwait(Duration.ofMillis(50))
-          .then(
-              () ->
-                  org.awaitility.Awaitility.await()
-                      .atMost(Duration.ofSeconds(10))
-                      .until(() -> !bodies.isEmpty()))
+          .then(() ->
+              org.awaitility.Awaitility.await()
+                  .atMost(Duration.ofSeconds(10))
+                  .until(() -> !bodies.isEmpty()))
           .thenCancel()
           .verify(Duration.ofSeconds(15));
       assertThat(bodies.getFirst()).contains("\"cursor\":1").contains("\"kind\":\"TICK\"");
@@ -223,11 +221,10 @@ class HttpEngineTest {
 
     org.awaitility.Awaitility.await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () -> {
-              assertThat(secondGot).containsExactly(forSecond);
-              assertThat(firstGot).containsExactly(forNobody);
-            });
+        .untilAsserted(() -> {
+          assertThat(secondGot).containsExactly(forSecond);
+          assertThat(firstGot).containsExactly(forNobody);
+        });
     a.dispose();
     b.dispose();
     first.close();

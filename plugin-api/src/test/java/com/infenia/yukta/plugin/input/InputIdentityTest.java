@@ -37,26 +37,20 @@ class InputIdentityTest {
     assertThatThrownBy(() -> InputIdentity.from(Context.empty()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("No 'sessionId' in the Reactor context");
-    assertThatThrownBy(
-            () ->
-                InputIdentity.from(
-                    Context.of("sessionId", "s", "workflowId", "w", "executionId", "e")))
+    assertThatThrownBy(() ->
+            InputIdentity.from(Context.of("sessionId", "s", "workflowId", "w", "executionId", "e")))
         .hasMessageContaining("'nodeId'");
   }
 
   @Test
   void blankOrForeignValueIsMissing() {
-    assertThatThrownBy(
-            () ->
-                InputIdentity.from(
-                    Context.of(
-                        "sessionId", " ", "workflowId", "w", "executionId", "e", "nodeId", "n")))
+    assertThatThrownBy(() ->
+            InputIdentity.from(
+                Context.of("sessionId", " ", "workflowId", "w", "executionId", "e", "nodeId", "n")))
         .hasMessageContaining("'sessionId'");
-    assertThatThrownBy(
-            () ->
-                InputIdentity.from(
-                    Context.of(
-                        "sessionId", 7, "workflowId", "w", "executionId", "e", "nodeId", "n")))
+    assertThatThrownBy(() ->
+            InputIdentity.from(
+                Context.of("sessionId", 7, "workflowId", "w", "executionId", "e", "nodeId", "n")))
         .hasMessageContaining("'sessionId'");
   }
 

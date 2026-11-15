@@ -200,11 +200,10 @@ class McpClientGatewayTest {
   @Test
   void call_handshakesThenCallsTool() {
     StepVerifier.create(gateway.call(spec("ping"), beats::incrementAndGet))
-        .assertNext(
-            r -> {
-              assertThat(r.isError()).isFalse();
-              assertThat(r.text()).isEqualTo("pong");
-            })
+        .assertNext(r -> {
+          assertThat(r.isError()).isFalse();
+          assertThat(r.text()).isEqualTo("pong");
+        })
         .verifyComplete();
     assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/call");
   }
@@ -212,18 +211,17 @@ class McpClientGatewayTest {
   @Test
   void listTools_handshakesThenListsWithDefaults() {
     StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
-        .assertNext(
-            tools ->
-                assertThat(tools)
-                    .containsExactly(
-                        Map.of(
-                            "name",
-                            "weather",
-                            "description",
-                            "Weather",
-                            "inputSchema",
-                            Map.of("type", "object")),
-                        Map.of("name", "bare", "description", "", "inputSchema", Map.of())))
+        .assertNext(tools ->
+            assertThat(tools)
+                .containsExactly(
+                    Map.of(
+                        "name",
+                        "weather",
+                        "description",
+                        "Weather",
+                        "inputSchema",
+                        Map.of("type", "object")),
+                    Map.of("name", "bare", "description", "", "inputSchema", Map.of())))
         .verifyComplete();
     assertThat(methods).containsExactly("initialize", "notifications/initialized", "tools/list");
   }
@@ -233,11 +231,10 @@ class McpClientGatewayTest {
     paged = 1;
 
     StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
-        .assertNext(
-            tools ->
-                assertThat(tools)
-                    .extracting(tool -> tool.get("name"))
-                    .containsExactly("first", "second"))
+        .assertNext(tools ->
+            assertThat(tools)
+                .extracting(tool -> tool.get("name"))
+                .containsExactly("first", "second"))
         .verifyComplete();
     assertThat(methods)
         .containsExactly("initialize", "notifications/initialized", "tools/list", "tools/list");
@@ -258,11 +255,8 @@ class McpClientGatewayTest {
   void listTools_followsAnEmptyCursorLikeAnyOther() {
     paged = 3;
     StepVerifier.create(gateway.listTools(spec("tools/list"), () -> {}))
-        .assertNext(
-            tools ->
-                assertThat(tools)
-                    .extracting(tool -> tool.get("name"))
-                    .containsExactly("only", "last"))
+        .assertNext(tools ->
+            assertThat(tools).extracting(tool -> tool.get("name")).containsExactly("only", "last"))
         .verifyComplete();
   }
 
@@ -394,11 +388,10 @@ class McpClientGatewayTest {
   @Test
   void call_jsonRpcErrorBecomesFailureResult() {
     StepVerifier.create(gateway.call(spec("rpcerror"), () -> {}))
-        .assertNext(
-            r -> {
-              assertThat(r.isError()).isTrue();
-              assertThat(r.error()).isEqualTo("nope");
-            })
+        .assertNext(r -> {
+          assertThat(r.isError()).isTrue();
+          assertThat(r.error()).isEqualTo("nope");
+        })
         .verifyComplete();
   }
 
@@ -495,10 +488,9 @@ class McpClientGatewayTest {
     // an evicted session is ended on the server (a DELETE request, which the fake records as "")
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(methods.stream().filter(String::isEmpty).count())
-                    .isGreaterThanOrEqualTo(30L));
+        .untilAsserted(() ->
+            assertThat(methods.stream().filter(String::isEmpty).count())
+                .isGreaterThanOrEqualTo(30L));
   }
 
   @Test

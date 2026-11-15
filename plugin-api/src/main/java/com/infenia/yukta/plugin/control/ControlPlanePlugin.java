@@ -38,11 +38,8 @@ public interface ControlPlanePlugin extends ExecutionSupervisor {
   @Override
   default Flux<ExecutionControlCommand> supervise(final Flux<ExecutionEvent> events) {
     return events
-        .concatMap(
-            event ->
-                decide(event)
-                    .timeout(decisionTimeout(), Mono.empty())
-                    .onErrorResume(_ -> Mono.empty()))
+        .concatMap(event ->
+            decide(event).timeout(decisionTimeout(), Mono.empty()).onErrorResume(_ -> Mono.empty()))
         .concatMapIterable(ControlDecision::commands);
   }
 }

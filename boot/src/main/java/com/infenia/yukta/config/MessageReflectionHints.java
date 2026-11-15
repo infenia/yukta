@@ -107,11 +107,10 @@ public class MessageReflectionHints {
       // native binary reads no keys and the exposure guard refuses to start in a container.
       new BindingReflectionHintsRegistrar()
           .registerReflectionHints(hints.reflection(), ApiKeys.KeyEntry.class);
-      EXPRESSION_TYPES.forEach(
-          name ->
-              hints
-                  .reflection()
-                  .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
+      EXPRESSION_TYPES.forEach(name ->
+          hints
+              .reflection()
+              .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
     }
 
     /**

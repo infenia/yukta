@@ -45,8 +45,7 @@ public class SupervisionSummary {
     return ownershipMap
         .unowned(sessions.getSessionIds(false))
         .collectList()
-        .map(
-            found ->
-                new Summary(found.size(), found.subList(0, Math.min(MAX_NAMED, found.size()))));
+        .map(found ->
+            new Summary(found.size(), found.subList(0, Math.min(MAX_NAMED, found.size()))));
   }
 }

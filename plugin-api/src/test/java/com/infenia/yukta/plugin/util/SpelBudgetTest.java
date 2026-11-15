@@ -83,12 +83,11 @@ class SpelBudgetTest {
     System.setProperty("yukta.spel.timeout-ms", "0");
 
     final String result =
-        SpelBudget.run(
-            () -> {
-              sleep(60);
-              SpelBudget.check();
-              return "ok";
-            });
+        SpelBudget.run(() -> {
+          sleep(60);
+          SpelBudget.check();
+          return "ok";
+        });
 
     assertThat(result).isEqualTo("ok");
   }
@@ -97,13 +96,12 @@ class SpelBudgetTest {
   void anInnerEvaluationRestoresTheDeadlineOfTheOuterOne() {
     System.setProperty("yukta.spel.timeout-ms", "50");
 
-    SpelBudget.run(
-        () -> {
-          SpelBudget.run(() -> "inner");
-          sleep(120);
-          assertThatThrownBy(SpelBudget::check).isInstanceOf(SpelBudget.Exceeded.class);
-          return null;
-        });
+    SpelBudget.run(() -> {
+      SpelBudget.run(() -> "inner");
+      sleep(120);
+      assertThatThrownBy(SpelBudget::check).isInstanceOf(SpelBudget.Exceeded.class);
+      return null;
+    });
 
     assertThatCode(SpelBudget::check)
         .as("no deadline outside an evaluation")

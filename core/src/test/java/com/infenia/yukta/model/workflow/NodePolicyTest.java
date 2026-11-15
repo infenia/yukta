@@ -72,10 +72,8 @@ class NodePolicyTest {
         .hasMessageContaining("between 1 and 10");
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("retry", Map.of("maxAttempts", 11)))))
         .hasMessageContaining("between 1 and 10");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    engine(Map.of("retry", Map.of("backoffMs", 500, "maxBackoffMs", 100)))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(engine(Map.of("retry", Map.of("backoffMs", 500, "maxBackoffMs", 100)))))
         .hasMessageContaining("backoffMs");
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("retry", Map.of("maxAttempts", "x")))))
         .hasMessage("'engine.retry.maxAttempts' must be a number");
@@ -145,24 +143,22 @@ class NodePolicyTest {
 
   @Test
   void invalidRetryClassLists_areRejected() {
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    engine(
+    assertThatThrownBy(() ->
+            NodePolicy.from(
+                engine(
+                    Map.of(
+                        "retry",
                         Map.of(
-                            "retry",
-                            Map.of(
-                                "retryOn",
-                                java.util.List.of("A"),
-                                "noRetryOn",
-                                java.util.List.of("A"))))))
+                            "retryOn",
+                            java.util.List.of("A"),
+                            "noRetryOn",
+                            java.util.List.of("A"))))))
         .hasMessageContaining("must not share");
     assertThatThrownBy(
             () -> NodePolicy.from(engine(Map.of("retry", Map.of("retryOn", "IOException")))))
         .hasMessageContaining("list of class names");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(engine(Map.of("retry", Map.of("noRetryOn", java.util.List.of(1))))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(engine(Map.of("retry", Map.of("noRetryOn", java.util.List.of(1))))))
         .hasMessageContaining("list of class names");
   }
 
@@ -171,38 +167,34 @@ class NodePolicyTest {
     final Map<String, Object> budget = Map.of("maxFailures", 1, "windowMs", 1000);
     assertThatThrownBy(() -> NodePolicy.from(engine(Map.of("failureBudget", budget))))
         .hasMessageContaining("CONTINUE or ROUTE");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    engine(Map.of("onError", "CONTINUE", "failureBudget", Map.of("windowMs", 5)))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(
+                engine(Map.of("onError", "CONTINUE", "failureBudget", Map.of("windowMs", 5)))))
         .hasMessageContaining("maxFailures is required");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    engine(
-                        Map.of(
-                            "onError",
-                            "CONTINUE",
-                            "failureBudget",
-                            Map.of("maxFailures", 1, "windowMs", 0)))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(
+                engine(
+                    Map.of(
+                        "onError",
+                        "CONTINUE",
+                        "failureBudget",
+                        Map.of("maxFailures", 1, "windowMs", 0)))))
         .hasMessageContaining("windowMs must be positive");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(
-                    engine(
-                        Map.of(
-                            "onError",
-                            "CONTINUE",
-                            "failureBudget",
-                            Map.of("maxFailures", 1, "windowMs", 5, "x", 1)))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(
+                engine(
+                    Map.of(
+                        "onError",
+                        "CONTINUE",
+                        "failureBudget",
+                        Map.of("maxFailures", 1, "windowMs", 5, "x", 1)))))
         .hasMessageContaining("Unknown option 'x'");
   }
 
   @Test
   void blankClassNames_areRejected() {
-    assertThatThrownBy(
-            () ->
-                NodePolicy.from(engine(Map.of("retry", Map.of("retryOn", java.util.List.of(" "))))))
+    assertThatThrownBy(() ->
+            NodePolicy.from(engine(Map.of("retry", Map.of("retryOn", java.util.List.of(" "))))))
         .hasMessageContaining("list of class names");
   }
 
@@ -270,15 +262,13 @@ class NodePolicyTest {
   void edgeBuffer_branches() {
     assertThat(NodePolicy.edgeBuffer(null)).isNull();
     assertThat(NodePolicy.edgeBuffer(Map.of("engine", Map.of("onError", "CONTINUE")))).isNull();
-    assertThatThrownBy(
-            () ->
-                NodePolicy.edgeBuffer(
-                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1, "colour", "red")))))
+    assertThatThrownBy(() ->
+            NodePolicy.edgeBuffer(
+                Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1, "colour", "red")))))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () ->
-                NodePolicy.edgeBuffer(
-                    Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1_000_000)))))
+    assertThatThrownBy(() ->
+            NodePolicy.edgeBuffer(
+                Map.of("engine", Map.of("edgeBuffer", Map.of("size", 1_000_000)))))
         .hasMessageContaining("between 1 and");
     assertThatThrownBy(
             () -> NodePolicy.edgeBuffer(Map.of("engine", Map.of("edgeBuffer", Map.of()))))
@@ -299,9 +289,8 @@ class NodePolicyTest {
     assertThatThrownBy(
             () -> NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("pool", " ")))))
         .hasMessageContaining("engine.placement.pool");
-    assertThatThrownBy(
-            () ->
-                NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("region", "eu")))))
+    assertThatThrownBy(() ->
+            NodePolicy.placement(Map.of("engine", Map.of("placement", Map.of("region", "eu")))))
         .isInstanceOf(IllegalArgumentException.class);
   }
 

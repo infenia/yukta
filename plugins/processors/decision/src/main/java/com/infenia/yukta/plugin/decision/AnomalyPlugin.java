@@ -100,11 +100,10 @@ public final class AnomalyPlugin extends DecisionPlugin {
 
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
-    return Flux.deferContextual(
-        context -> {
-          final DecisionWindow<String> recent = DecisionWindow.open(TYPE, config, context);
-          return input.concatMap(message -> judge(message, config, recent));
-        });
+    return Flux.deferContextual(context -> {
+      final DecisionWindow<String> recent = DecisionWindow.open(TYPE, config, context);
+      return input.concatMap(message -> judge(message, config, recent));
+    });
   }
 
   @Override
@@ -139,23 +138,21 @@ public final class AnomalyPlugin extends DecisionPlugin {
                               config,
                               "question",
                               "Is the current item unusual compared with the recent items?"))))
-              .map(
-                  answers -> {
-                    final double yes = answer(answers, ANOMALY, Answer.YesNo.class).probability();
-                    final boolean anomalous = yes >= number(config, "threshold", 0.5);
-                    return emit(
-                        message,
-                        config,
-                        ANOMALY,
-                        Map.of("probability", yes, "warmup", false),
-                        anomalous ? "anomalous" : "normal");
-                  });
+              .map(answers -> {
+                final double yes = answer(answers, ANOMALY, Answer.YesNo.class).probability();
+                final boolean anomalous = yes >= number(config, "threshold", 0.5);
+                return emit(
+                    message,
+                    config,
+                    ANOMALY,
+                    Map.of("probability", yes, "warmup", false),
+                    anomalous ? "anomalous" : "normal");
+              });
     }
-    return judged.doOnNext(
-        _ -> {
-          recent.add(
-              item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item,
-              (int) number(config, "window", 20));
-        });
+    return judged.doOnNext(_ -> {
+      recent.add(
+          item.length() > REMEMBERED ? item.substring(0, REMEMBERED) : item,
+          (int) number(config, "window", 20));
+    });
   }
 }

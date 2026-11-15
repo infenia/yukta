@@ -94,15 +94,13 @@ class McpToolCallPluginTest {
     final AtomicInteger inFlight = new AtomicInteger();
     final AtomicInteger peak = new AtomicInteger();
     when(gateway.call(any(), any()))
-        .thenAnswer(
-            invocation ->
-                Mono.defer(
-                    () -> {
-                      peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
-                      return Mono.just(success())
-                          .delayElement(Duration.ofMillis(20))
-                          .doOnTerminate(inFlight::decrementAndGet);
-                    }));
+        .thenAnswer(invocation ->
+            Mono.defer(() -> {
+              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+              return Mono.just(success())
+                  .delayElement(Duration.ofMillis(20))
+                  .doOnTerminate(inFlight::decrementAndGet);
+            }));
     StepVerifier.create(plugin.process(Flux.range(0, count).map(i -> input()), config))
         .expectNextCount(count)
         .verifyComplete();
@@ -137,11 +135,10 @@ class McpToolCallPluginTest {
 
     StepVerifier.create(
             plugin.process(Flux.just(input()), config("allowedTools", List.of("search", "read"))))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("'weather' is not in allowedTools"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("'weather' is not in allowedTools"));
     verify(gateway, org.mockito.Mockito.times(1)).call(any(), any());
 
     // an empty list restricts nothing
@@ -365,12 +362,11 @@ class McpToolCallPluginTest {
     when(gateway.call(any(), any())).thenReturn(Mono.just(success()));
     final Message<?> msg = input();
     StepVerifier.create(plugin.process(Flux.just(msg), config()))
-        .assertNext(
-            out -> {
-              assertThat((Map<String, Object>) out.payload()).containsEntry("text", "sunny");
-              assertThat(out.metadata()).containsEntry("mcpSuccess", true);
-              assertThat(out.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(out -> {
+          assertThat((Map<String, Object>) out.payload()).containsEntry("text", "sunny");
+          assertThat(out.metadata()).containsEntry("mcpSuccess", true);
+          assertThat(out.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
     final ArgumentCaptor<McpCallSpec> spec = ArgumentCaptor.forClass(McpCallSpec.class);
     verify(gateway).call(spec.capture(), any());
@@ -434,11 +430,10 @@ class McpToolCallPluginTest {
   void process_passesHeartbeatFromReactorContext() {
     final AtomicInteger beats = new AtomicInteger();
     when(gateway.call(any(), any()))
-        .thenAnswer(
-            inv -> {
-              ((Runnable) inv.getArgument(1)).run();
-              return Mono.just(success());
-            });
+        .thenAnswer(inv -> {
+          ((Runnable) inv.getArgument(1)).run();
+          return Mono.just(success());
+        });
     StepVerifier.create(
             plugin
                 .process(Flux.just(input()), config())
@@ -663,19 +658,16 @@ class McpToolCallPluginTest {
             plugin
                 .process(Flux.just(input()), soft)
                 .contextWrite(Context.of("executionId", "run-budget")))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("call budget"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("call budget"));
     StepVerifier.create(
             plugin
                 .process(Flux.just(input()), hard)
                 .contextWrite(Context.of("executionId", "run-budget")))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(com.infenia.yukta.plugin.exception.RunAbortedException.isAbort(e))
-                    .isTrue());
+        .verifyErrorSatisfies(e ->
+            assertThat(com.infenia.yukta.plugin.exception.RunAbortedException.isAbort(e)).isTrue());
     verify(gateway, org.mockito.Mockito.times(2)).call(any(), any());
   }
 

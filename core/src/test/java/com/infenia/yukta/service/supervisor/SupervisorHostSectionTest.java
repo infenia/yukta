@@ -95,30 +95,27 @@ class SupervisorHostSectionTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              feed.publish(
-                  new ExecutionEvent.WorkflowStatusChanged(
-                      "e", "s", "w", "RUNNING", Instant.now()));
-              feed.publish(node("e", "build.compile"));
-              feed.publish(
-                  new ExecutionEvent.LogLine(
-                      "e", "s", "w", "deploy.prod", "x", LogLevel.INFO, Instant.now()));
-              feed.publish(node("last", "build.test"));
-              assertThat(build.seen).contains("last/build.test");
-              assertThat(deploy.seen).contains("e/deploy.prod");
-              assertThat(workflow.seen).contains("e/null", "last/build.test");
-            });
+        .untilAsserted(() -> {
+          feed.publish(
+              new ExecutionEvent.WorkflowStatusChanged("e", "s", "w", "RUNNING", Instant.now()));
+          feed.publish(node("e", "build.compile"));
+          feed.publish(
+              new ExecutionEvent.LogLine(
+                  "e", "s", "w", "deploy.prod", "x", LogLevel.INFO, Instant.now()));
+          feed.publish(node("last", "build.test"));
+          assertThat(build.seen).contains("last/build.test");
+          assertThat(deploy.seen).contains("e/deploy.prod");
+          assertThat(workflow.seen).contains("e/null", "last/build.test");
+        });
     assertThat(build.seen).allMatch(seen -> seen.contains("/build."));
     assertThat(deploy.seen).allMatch(seen -> seen.endsWith("/deploy.prod"));
     assertThat(host.status())
         .filteredOn(info -> "build".equals(info.id()))
         .singleElement()
-        .satisfies(
-            info -> {
-              assertThat(info.scope()).isEqualTo("SECTION");
-              assertThat(info.scopeWorkflowId()).isEqualTo("w");
-              assertThat(info.scopeNodes()).containsExactly("build.*");
-            });
+        .satisfies(info -> {
+          assertThat(info.scope()).isEqualTo("SECTION");
+          assertThat(info.scopeWorkflowId()).isEqualTo("w");
+          assertThat(info.scopeNodes()).containsExactly("build.*");
+        });
   }
 }

@@ -87,32 +87,30 @@ public class WorkflowGraphService {
     final Map<String, List<WorkflowNode>> parents = new HashMap<>();
     definition
         .nodes()
-        .forEach(
-            node -> {
-              nodeMap.put(node.nodeId(), node);
-              adjacency.put(node.nodeId(), new ArrayList<>());
-              parents.put(node.nodeId(), new ArrayList<>());
-            });
+        .forEach(node -> {
+          nodeMap.put(node.nodeId(), node);
+          adjacency.put(node.nodeId(), new ArrayList<>());
+          parents.put(node.nodeId(), new ArrayList<>());
+        });
     definition
         .edges()
-        .forEach(
-            edge -> {
-              final WorkflowDefinition.Node source = nodeMap.get(edge.source());
-              final WorkflowDefinition.Node target = nodeMap.get(edge.target());
-              if (source == null || target == null) {
-                log.atWarn()
-                    .addKeyValue("source", edge.source())
-                    .addKeyValue("target", edge.target())
-                    .log("Edge references unknown node, skipping for topological order");
-                return;
-              }
-              adjacency
-                  .get(edge.source())
-                  .add(new WorkflowNode(target.nodeId(), target.type(), target.config()));
-              parents
-                  .get(edge.target())
-                  .add(new WorkflowNode(source.nodeId(), source.type(), source.config()));
-            });
+        .forEach(edge -> {
+          final WorkflowDefinition.Node source = nodeMap.get(edge.source());
+          final WorkflowDefinition.Node target = nodeMap.get(edge.target());
+          if (source == null || target == null) {
+            log.atWarn()
+                .addKeyValue("source", edge.source())
+                .addKeyValue("target", edge.target())
+                .log("Edge references unknown node, skipping for topological order");
+            return;
+          }
+          adjacency
+              .get(edge.source())
+              .add(new WorkflowNode(target.nodeId(), target.type(), target.config()));
+          parents
+              .get(edge.target())
+              .add(new WorkflowNode(source.nodeId(), source.type(), source.config()));
+        });
     final List<WorkflowNode> workflowNodes =
         definition.nodes().stream()
             .map(node -> new WorkflowNode(node.nodeId(), node.type(), node.config()))

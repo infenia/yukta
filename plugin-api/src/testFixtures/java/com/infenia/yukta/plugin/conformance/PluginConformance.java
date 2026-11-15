@@ -107,13 +107,12 @@ public final class PluginConformance {
     // no null case: a Node turns a missing config into an empty map before any plugin sees it
     cases.put("empty config", Map.of());
     cases.put("unknown field", unknown);
-    cases.forEach(
-        (label, config) -> {
-          final Throwable error = validationError(plugin, config);
-          require(
-              error == null || isClearError(error),
-              "validateConfig(" + label + ") failed with " + error);
-        });
+    cases.forEach((label, config) -> {
+      final Throwable error = validationError(plugin, config);
+      require(
+          error == null || isClearError(error),
+          "validateConfig(" + label + ") failed with " + error);
+    });
   }
 
   private static boolean isClearError(final Throwable error) {

@@ -61,27 +61,24 @@ public final class SupervisorSignalTrigger implements TriggerPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          final Object listed = config.get(SIGNALS_KEY);
-          if (listed == null || listed.toString().isBlank()) {
-            return;
-          }
-          for (final String kind : listed.toString().split(",")) {
-            if (!KINDS.contains(kind.strip().toUpperCase(java.util.Locale.ROOT))) {
-              throw new IllegalArgumentException(KINDS_MESSAGE);
-            }
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      final Object listed = config.get(SIGNALS_KEY);
+      if (listed == null || listed.toString().isBlank()) {
+        return;
+      }
+      for (final String kind : listed.toString().split(",")) {
+        if (!KINDS.contains(kind.strip().toUpperCase(java.util.Locale.ROOT))) {
+          throw new IllegalArgumentException(KINDS_MESSAGE);
+        }
+      }
+    });
   }
 
   @Override
   public Flux<Message<?>> start(final Map<String, Object> config) {
-    return Flux.deferContextual(
-        ctx -> {
-          final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
-          return Flux.just(
-              DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
-        });
+    return Flux.deferContextual(ctx -> {
+      final Map<String, Object> payload = ctx.getOrDefault("payload", Map.of());
+      return Flux.just(DefaultMessage.create(UUID.randomUUID(), payload).withSourcePort("default"));
+    });
   }
 }

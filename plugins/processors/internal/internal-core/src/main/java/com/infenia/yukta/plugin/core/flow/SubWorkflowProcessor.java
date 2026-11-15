@@ -132,15 +132,14 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          workflowId(config);
-          timeout(config);
-          concurrency(config);
-          if (config.get(PAYLOAD) != null && !(config.get(PAYLOAD) instanceof Map<?, ?>)) {
-            throw new IllegalArgumentException("payload must be a map");
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      workflowId(config);
+      timeout(config);
+      concurrency(config);
+      if (config.get(PAYLOAD) != null && !(config.get(PAYLOAD) instanceof Map<?, ?>)) {
+        throw new IllegalArgumentException("payload must be a map");
+      }
+    });
   }
 
   @Override
@@ -151,34 +150,29 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
     final int concurrency = concurrency(config);
     final Function<Message<?>, Mono<Message<?>>> child =
         message ->
-            Mono.deferContextual(
-                ctx -> {
-                  final SubWorkflowGateway runner = gateway.getIfAvailable();
-                  if (runner == null) {
-                    return Mono.error(new IllegalStateException("Sub-workflows are not available"));
-                  }
-                  final int depth = depthOf(ctx);
-                  return startPayload(message, config)
-                      .flatMap(
-                          start ->
-                              runner.run(
-                                  ctx.getOrDefault("sessionId", "unknown"),
-                                  workflowId,
-                                  start,
-                                  ctx.getOrDefault("executionId", "unknown"),
-                                  depth + 1))
-                      .timeout(timeout)
-                      .onErrorResume(
-                          e -> route && e instanceof SubWorkflowGateway.ChildFailed,
-                          e ->
-                              Mono.just(
-                                  SubWorkflowResults.failed((SubWorkflowGateway.ChildFailed) e)))
-                      .map(
-                          result ->
-                              route
-                                  ? SubWorkflowResults.routed(message, result)
-                                  : SubWorkflowResults.message(message, result));
-                });
+            Mono.deferContextual(ctx -> {
+              final SubWorkflowGateway runner = gateway.getIfAvailable();
+              if (runner == null) {
+                return Mono.error(new IllegalStateException("Sub-workflows are not available"));
+              }
+              final int depth = depthOf(ctx);
+              return startPayload(message, config)
+                  .flatMap(start ->
+                      runner.run(
+                          ctx.getOrDefault("sessionId", "unknown"),
+                          workflowId,
+                          start,
+                          ctx.getOrDefault("executionId", "unknown"),
+                          depth + 1))
+                  .timeout(timeout)
+                  .onErrorResume(
+                      e -> route && e instanceof SubWorkflowGateway.ChildFailed,
+                      e -> Mono.just(SubWorkflowResults.failed((SubWorkflowGateway.ChildFailed) e)))
+                  .map(result ->
+                      route
+                          ? SubWorkflowResults.routed(message, result)
+                          : SubWorkflowResults.message(message, result));
+            });
     return concurrency == 1 ? input.concatMap(child) : input.flatMapSequential(child, concurrency);
   }
 
@@ -201,12 +195,11 @@ public final class SubWorkflowProcessor implements ProcessorPlugin {
       final VariableResolver variables = resolver.getIfAvailable();
       start =
           Flux.fromIterable(configured.entrySet())
-              .concatMap(
-                  entry ->
-                      (variables == null
-                              ? Mono.justOrEmpty(entry.getValue())
-                              : variables.resolve(entry.getValue(), message))
-                          .map(value -> Map.entry(String.valueOf(entry.getKey()), value)))
+              .concatMap(entry ->
+                  (variables == null
+                          ? Mono.justOrEmpty(entry.getValue())
+                          : variables.resolve(entry.getValue(), message))
+                      .map(value -> Map.entry(String.valueOf(entry.getKey()), value)))
               .collect(
                   LinkedHashMap::new,
                   (Map<String, Object> map, Map.Entry<String, Object> entry) ->

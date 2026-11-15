@@ -133,11 +133,10 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
         .checkInternal(settings.sessionId())
         .filter(Boolean::booleanValue)
         .switchIfEmpty(
-            Mono.fromRunnable(
-                () ->
-                    log.atWarn()
-                        .addKeyValue("supervisor", attachmentId)
-                        .log("Session of the supervisor workflow is not internal; no opinion")))
+            Mono.fromRunnable(() ->
+                log.atWarn()
+                    .addKeyValue("supervisor", attachmentId)
+                    .log("Session of the supervisor workflow is not internal; no opinion")))
         .filter(Boolean::booleanValue)
         .filter(_ -> concurrent.tryAcquire())
         .flatMap(_ -> attempt(event, 0).doFinally(_ -> concurrent.release()));
@@ -152,11 +151,10 @@ public final class WorkflowSupervisor implements ControlPlanePlugin {
             payload(event),
             event.executionId(),
             settings.timeout())
-        .flatMap(
-            result ->
-                "RETRY".equals(result.outcome()) && attempt == 0
-                    ? attempt(event, 1)
-                    : Mono.justOrEmpty(decision(event, result)));
+        .flatMap(result ->
+            "RETRY".equals(result.outcome()) && attempt == 0
+                ? attempt(event, 1)
+                : Mono.justOrEmpty(decision(event, result)));
   }
 
   private @Nullable ControlDecision decision(final ExecutionEvent event, final RunResult result) {

@@ -97,11 +97,10 @@ class DirectiveDispatcherSupervisorTest {
     verify(processor, never()).handle(any());
     assertThat(log.readAll())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).contains("guard: maintenance window");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains("guard: maintenance window");
+        });
     org.awaitility.Awaitility.await().until(() -> !events.isEmpty());
     assertThat(events)
         .singleElement()
@@ -130,13 +129,12 @@ class DirectiveDispatcherSupervisorTest {
             feed);
 
     StepVerifier.create(controlled.dispatchOrdered(PAUSE))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOfSatisfying(
-                        com.infenia.yukta.service.review.ControlledBySupervisorException.class,
-                        e -> assertThat(e.getSupervisorId()).isEqualTo("owner"))
-                    .hasMessage("owner controls this"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOfSatisfying(
+                    com.infenia.yukta.service.review.ControlledBySupervisorException.class,
+                    e -> assertThat(e.getSupervisorId()).isEqualTo("owner"))
+                .hasMessage("owner controls this"))
         .verify();
     verify(processor, never()).handle(any());
   }
@@ -155,11 +153,10 @@ class DirectiveDispatcherSupervisorTest {
                 request -> "rules".equals(request.actor()) && request.command() == PAUSE));
     assertThat(log.readAll())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
-              assertThat(entry.status()).isEqualTo("PauseWorkflowCommand [by rules]");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
+          assertThat(entry.status()).isEqualTo("PauseWorkflowCommand [by rules]");
+        });
     org.awaitility.Awaitility.await().until(() -> !events.isEmpty());
     assertThat(events)
         .singleElement()

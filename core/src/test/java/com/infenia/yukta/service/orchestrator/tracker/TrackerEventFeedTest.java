@@ -49,23 +49,21 @@ class TrackerEventFeedTest {
 
     await().atMost(3, TimeUnit.SECONDS).untilAsserted(() -> assertThat(seen).hasSize(3));
     assertThat(seen)
-        .anySatisfy(
-            event ->
-                assertThat(event)
-                    .isInstanceOfSatisfying(
-                        ExecutionEvent.NodeStatusChanged.class,
-                        node -> {
-                          assertThat(node.workflowId()).isEqualTo("wf1");
-                          assertThat(node.status()).isEqualTo("RUNNING");
-                          assertThat(node.metadata()).containsEntry("k", "v");
-                        }))
+        .anySatisfy(event ->
+            assertThat(event)
+                .isInstanceOfSatisfying(
+                    ExecutionEvent.NodeStatusChanged.class,
+                    node -> {
+                      assertThat(node.workflowId()).isEqualTo("wf1");
+                      assertThat(node.status()).isEqualTo("RUNNING");
+                      assertThat(node.metadata()).containsEntry("k", "v");
+                    }))
         .anySatisfy(event -> assertThat(event).isInstanceOf(ExecutionEvent.LogLine.class))
-        .anySatisfy(
-            event ->
-                assertThat(event)
-                    .isInstanceOfSatisfying(
-                        ExecutionEvent.WorkflowStatusChanged.class,
-                        workflow -> assertThat(workflow.status()).isEqualTo("SUCCESS")));
+        .anySatisfy(event ->
+            assertThat(event)
+                .isInstanceOfSatisfying(
+                    ExecutionEvent.WorkflowStatusChanged.class,
+                    workflow -> assertThat(workflow.status()).isEqualTo("SUCCESS")));
   }
 
   @Test
@@ -87,12 +85,11 @@ class TrackerEventFeedTest {
 
     await()
         .atMost(3, TimeUnit.SECONDS)
-        .untilAsserted(
-            () ->
-                assertThat(log.readAll())
-                    .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_FINISHED)
-                    .extracting(ExecutionLogEvent::status)
-                    .containsExactly("STOPPED"));
+        .untilAsserted(() ->
+            assertThat(log.readAll())
+                .filteredOn(e -> e.type() == ExecutionLogEvent.Type.RUN_FINISHED)
+                .extracting(ExecutionLogEvent::status)
+                .containsExactly("STOPPED"));
   }
 
   @Test

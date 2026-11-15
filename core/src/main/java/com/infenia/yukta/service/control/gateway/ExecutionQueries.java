@@ -32,24 +32,18 @@ final class ExecutionQueries {
         .log("Starting to watch workflow execution");
     return taskTracker
         .getStatusStream(executionId, includeHistory)
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .log("Subscribed to execution status stream"))
-        .doOnNext(
-            progress ->
-                log.atTrace()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", progress.status())
-                    .addKeyValue("taskCount", progress.tasks().size())
-                    .log("Received execution progress update"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Stream error"))
+        .doOnSubscribe(_ ->
+            log.atDebug()
+                .addKeyValue("executionId", executionId)
+                .log("Subscribed to execution status stream"))
+        .doOnNext(progress ->
+            log.atTrace()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("status", progress.status())
+                .addKeyValue("taskCount", progress.tasks().size())
+                .log("Received execution progress update"))
+        .doOnError(err ->
+            log.atError().setCause(err).addKeyValue("executionId", executionId).log("Stream error"))
         .doOnComplete(
             () -> log.atInfo().addKeyValue("executionId", executionId).log("Stream completed"));
   }
@@ -61,25 +55,22 @@ final class ExecutionQueries {
         .log("Starting to watch execution logs");
     return taskTracker
         .getLogStream(executionId)
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Subscribed to log stream"))
-        .doOnNext(
-            logLine ->
-                log.atTrace()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log(logLine))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionId", executionId)
-                    .log("Log stream error"));
+        .doOnSubscribe(_ ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("executionId", executionId)
+                .log("Subscribed to log stream"))
+        .doOnNext(logLine ->
+            log.atTrace()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("executionId", executionId)
+                .log(logLine))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("executionId", executionId)
+                .log("Log stream error"));
   }
 
   /* default */ WorkflowProgress getProgress(final String sessionId, final String executionId) {
@@ -107,12 +98,11 @@ final class ExecutionQueries {
     log.atDebug().addKeyValue("sessionId", sessionId).log("Fetching execution history");
     return taskTracker
         .getHistory(sessionId)
-        .doOnNext(
-            history ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("executionCount", history.size())
-                    .log("Execution history retrieved"));
+        .doOnNext(history ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("executionCount", history.size())
+                .log("Execution history retrieved"));
   }
 
   /* default */ Mono<List<WorkflowExecutionSummary>> getHistory(
@@ -123,13 +113,12 @@ final class ExecutionQueries {
         .log("Fetching workflow execution history");
     return taskTracker
         .getHistory(sessionId, workflowId)
-        .doOnNext(
-            history ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("executionCount", history.size())
-                    .log("Workflow execution history retrieved"));
+        .doOnNext(history ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("executionCount", history.size())
+                .log("Workflow execution history retrieved"));
   }
 
   /**

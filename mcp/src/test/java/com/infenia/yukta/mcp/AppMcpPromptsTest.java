@@ -14,23 +14,21 @@ class AppMcpPromptsTest {
   @Test
   void testDebugWorkflow() {
     StepVerifier.create(mcpPrompts.debugWorkflow("s1", "e1"))
-        .assertNext(
-            prompt -> {
-              assertTrue(prompt.contains("s1"));
-              assertTrue(prompt.contains("e1"));
-              assertTrue(prompt.contains("debugging"));
-            })
+        .assertNext(prompt -> {
+          assertTrue(prompt.contains("s1"));
+          assertTrue(prompt.contains("e1"));
+          assertTrue(prompt.contains("debugging"));
+        })
         .verifyComplete();
   }
 
   @Test
   void testCreateSessionConfig() {
     StepVerifier.create(mcpPrompts.createSessionConfig())
-        .assertNext(
-            prompt -> {
-              assertTrue(prompt.contains("JSON"));
-              assertTrue(prompt.contains("Yukta session"));
-            })
+        .assertNext(prompt -> {
+          assertTrue(prompt.contains("JSON"));
+          assertTrue(prompt.contains("Yukta session"));
+        })
         .verifyComplete();
   }
 }

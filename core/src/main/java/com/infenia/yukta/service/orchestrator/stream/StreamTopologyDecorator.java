@@ -91,26 +91,24 @@ public class StreamTopologyDecorator {
       }
     }
     // The failure counts belong to one subscription, so a resubscription starts from zero.
-    return Flux.defer(
-        () -> {
-          final AtomicInteger failed = new AtomicInteger();
-          final AtomicReference<Throwable> firstError = new AtomicReference<>();
-          final List<Flux<Message<?>>> parentFluxes =
-              List.of(parentEdges).stream()
-                  .map(
-                      edge ->
-                          routeEdge(
-                              streams,
-                              edge,
-                              error -> {
-                                if (oneSuccess) {
-                                  failed.incrementAndGet();
-                                  firstError.compareAndSet(null, error);
-                                }
-                              }))
-                  .toList();
-          return mergeRouted(parentFluxes, oneSuccess, failed, firstError);
-        });
+    return Flux.defer(() -> {
+      final AtomicInteger failed = new AtomicInteger();
+      final AtomicReference<Throwable> firstError = new AtomicReference<>();
+      final List<Flux<Message<?>>> parentFluxes =
+          List.of(parentEdges).stream()
+              .map(edge ->
+                  routeEdge(
+                      streams,
+                      edge,
+                      error -> {
+                        if (oneSuccess) {
+                          failed.incrementAndGet();
+                          firstError.compareAndSet(null, error);
+                        }
+                      }))
+              .toList();
+      return mergeRouted(parentFluxes, oneSuccess, failed, firstError);
+    });
   }
 
   private Flux<Message<?>> mergeRouted(
@@ -126,11 +124,8 @@ public class StreamTopologyDecorator {
         parentFluxes.size() == SINGLE_PARENT ? parentFluxes.getFirst() : Flux.merge(parentFluxes);
     return oneSuccess
         ? merged.concatWith(
-            Mono.defer(
-                () ->
-                    failed.get() == parentFluxes.size()
-                        ? Mono.error(firstError.get())
-                        : Mono.empty()))
+            Mono.defer(() ->
+                failed.get() == parentFluxes.size() ? Mono.error(firstError.get()) : Mono.empty()))
         : merged;
   }
 
@@ -166,17 +161,15 @@ public class StreamTopologyDecorator {
     final Flux<Message<?>> parent = streams[edge.parentIndex()];
     // Siblings share the parent's message, frozen once by the broadcast (payloads are immutable).
     Flux<Message<?>> stream =
-        parent.transformDeferredContextual(
-            (flux, ctx) ->
-                flux.map(
-                    msg -> {
-                      final Message<?> own =
-                          EngineOwned.reassert(msg).withSourceNodeId(edge.sourceNodeId());
-                      // The run's workflow id, so a plugin cannot claim another workflow's.
-                      return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
-                          ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
-                          : own;
-                    }));
+        parent.transformDeferredContextual((flux, ctx) ->
+            flux.map(msg -> {
+              final Message<?> own =
+                  EngineOwned.reassert(msg).withSourceNodeId(edge.sourceNodeId());
+              // The run's workflow id, so a plugin cannot claim another workflow's.
+              return ctx.hasKey(ExecutionContextBuilder.CTX_WORKFLOW_ID)
+                  ? own.withWorkflowId(ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID))
+                  : own;
+            }));
 
     final String sourcePort = edge.sourcePort();
     if (NodePolicy.ALL_PORTS.equals(sourcePort)) {
@@ -200,15 +193,14 @@ public class StreamTopologyDecorator {
     }
     if (edge.tolerateFailure()) {
       stream =
-          stream.onErrorResume(
-              error -> {
-                onTolerated.accept(error);
-                log.atWarn()
-                    .addKeyValue("sourceNodeId", edge.sourceNodeId())
-                    .setCause(error)
-                    .log("Parent failed; continuing without it (trigger != ALL_SUCCESS)");
-                return Flux.empty();
-              });
+          stream.onErrorResume(error -> {
+            onTolerated.accept(error);
+            log.atWarn()
+                .addKeyValue("sourceNodeId", edge.sourceNodeId())
+                .setCause(error)
+                .log("Parent failed; continuing without it (trigger != ALL_SUCCESS)");
+            return Flux.empty();
+          });
     }
     return stream;
   }
@@ -320,13 +312,12 @@ public class StreamTopologyDecorator {
         new NodeBroadcast(
             processedStream
                 .map(msg -> shared.get().getAsBoolean() ? PayloadFreeze.freezeOf(msg) : msg)
-                .doOnError(
-                    err ->
-                        log.atError()
-                            .setMessage("Error in broadcast stream for node: {}")
-                            .addArgument(nodeId)
-                            .setCause(err)
-                            .log())
+                .doOnError(err ->
+                    log.atError()
+                        .setMessage("Error in broadcast stream for node: {}")
+                        .addArgument(nodeId)
+                        .setCause(err)
+                        .log())
                 .publish(bufferSize),
             disposables);
     connectors.add(broadcast::connectIfUnobserved);
@@ -374,20 +365,19 @@ public class StreamTopologyDecorator {
         .log();
     logStream = CheckpointStream.apply(checkpointStore, executionId, nodeId, logStream, checkpoint);
 
-    return logStream.doOnNext(
-        msg -> {
-          // nothing to echo (the plugin logged live) and nobody tracing: do not render the payload
-          final boolean echo = !loggedLive.getAsBoolean();
-          if (!echo && !log.isTraceEnabled()) {
-            return;
-          }
-          final String payload = LivePayloadPreview.preview(msg.payload());
-          log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
-          // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
-          // the tracker rejects blank lines, which would otherwise fail the node.
-          if (echo && !payload.isBlank()) {
-            tracker.emitLogEvent(executionId, nodeId, payload);
-          }
-        });
+    return logStream.doOnNext(msg -> {
+      // nothing to echo (the plugin logged live) and nobody tracing: do not render the payload
+      final boolean echo = !loggedLive.getAsBoolean();
+      if (!echo && !log.isTraceEnabled()) {
+        return;
+      }
+      final String payload = LivePayloadPreview.preview(msg.payload());
+      log.atTrace().setMessage("Processing message payload: {}").addArgument(payload).log();
+      // A blank payload (the output of a quiet command, an empty body) has nothing to echo, and
+      // the tracker rejects blank lines, which would otherwise fail the node.
+      if (echo && !payload.isBlank()) {
+        tracker.emitLogEvent(executionId, nodeId, payload);
+      }
+    });
   }
 }

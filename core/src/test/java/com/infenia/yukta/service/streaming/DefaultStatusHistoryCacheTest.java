@@ -265,22 +265,21 @@ class DefaultStatusHistoryCacheTest {
     final Thread[] threads = new Thread[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
       threads[i] =
-          new Thread(
-              () -> {
-                try {
-                  startLatch.await();
-                  for (int j = 0; j < UPDATES_PER_THREAD; j++) {
-                    final WorkflowProgress progress =
-                        createWorkflowProgress(executionId, STATUS_RUNNING);
-                    cache.put(executionId, progress);
-                  }
-                } catch (final InterruptedException e) {
-                  errorCount.incrementAndGet();
-                  Thread.currentThread().interrupt();
-                } finally {
-                  endLatch.countDown();
-                }
-              });
+          new Thread(() -> {
+            try {
+              startLatch.await();
+              for (int j = 0; j < UPDATES_PER_THREAD; j++) {
+                final WorkflowProgress progress =
+                    createWorkflowProgress(executionId, STATUS_RUNNING);
+                cache.put(executionId, progress);
+              }
+            } catch (final InterruptedException e) {
+              errorCount.incrementAndGet();
+              Thread.currentThread().interrupt();
+            } finally {
+              endLatch.countDown();
+            }
+          });
     }
 
     for (final Thread thread : threads) {

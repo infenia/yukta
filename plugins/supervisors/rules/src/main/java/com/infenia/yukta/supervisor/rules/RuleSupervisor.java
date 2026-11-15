@@ -333,22 +333,21 @@ public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
   public Flux<Directive.Command> directives(final Flux<ExecutionEvent> events) {
     final AtomicLong seq = new AtomicLong();
     final Flux<Directive.Command> reactions =
-        events.concatMapIterable(
-            event -> {
-              seen(event);
-              final long n = seq.incrementAndGet();
-              final List<Directive.Command> out = new ArrayList<>();
-              for (final Fired fired : react(event)) {
-                out.add(
-                    new Directive.Command(
-                        fired.rule().ruleId() + ":" + n + ":" + out.size(),
-                        fired.command(),
-                        Cause.event("e" + n),
-                        fired.rule().reason(),
-                        null));
-              }
-              return out;
-            });
+        events.concatMapIterable(event -> {
+          seen(event);
+          final long n = seq.incrementAndGet();
+          final List<Directive.Command> out = new ArrayList<>();
+          for (final Fired fired : react(event)) {
+            out.add(
+                new Directive.Command(
+                    fired.rule().ruleId() + ":" + n + ":" + out.size(),
+                    fired.command(),
+                    Cause.event("e" + n),
+                    fired.rule().reason(),
+                    null));
+          }
+          return out;
+        });
     return Flux.merge(reactions, Flux.merge(timedRules.stream().map(this::ticking).toList()));
   }
 
@@ -395,13 +394,12 @@ public final class RuleSupervisor implements DirectiveSupervisor, ReadsAware {
   /** The commands of a timed rule, one tick at a time, over the runs the supervisor owns. */
   private Flux<Directive.Command> ticking(final EventRule rule) {
     return Flux.interval(period(rule.ruleId(), rule.every()))
-        .concatMap(
-            tick ->
-                reads
-                    .get()
-                    .executions(null, ReadCounts.MAX_RUNS)
-                    .collectList()
-                    .flatMapIterable(runs -> fireOnTick(rule, tick, runs)));
+        .concatMap(tick ->
+            reads
+                .get()
+                .executions(null, ReadCounts.MAX_RUNS)
+                .collectList()
+                .flatMapIterable(runs -> fireOnTick(rule, tick, runs)));
   }
 
   /** Records when a run last did something, for {@code idleSeconds} in timed rules. */

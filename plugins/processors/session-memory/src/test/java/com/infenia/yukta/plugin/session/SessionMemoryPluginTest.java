@@ -41,11 +41,10 @@ class SessionMemoryPluginTest {
   void setUp() {
     plugin = new SessionMemoryPlugin(store, resolver);
     when(resolver.resolve(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Object arg = inv.getArgument(0);
-              return Mono.justOrEmpty(arg);
-            });
+        .thenAnswer(inv -> {
+          final Object arg = inv.getArgument(0);
+          return Mono.justOrEmpty(arg);
+        });
   }
 
   private static Map<String, Object> load(final Object... extra) {
@@ -72,13 +71,12 @@ class SessionMemoryPluginTest {
     // a slow first message and a fast second one: handled concurrently, the second would be
     // stored before the first
     when(resolver.resolve(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Message<?> message = inv.getArgument(1);
-              final long delayMillis = "slow".equals(message.payload()) ? 80 : 5;
-              return Mono.justOrEmpty(inv.<Object>getArgument(0))
-                  .delayElement(Duration.ofMillis(delayMillis));
-            });
+        .thenAnswer(inv -> {
+          final Message<?> message = inv.getArgument(1);
+          final long delayMillis = "slow".equals(message.payload()) ? 80 : 5;
+          return Mono.justOrEmpty(inv.<Object>getArgument(0))
+              .delayElement(Duration.ofMillis(delayMillis));
+        });
 
     StepVerifier.create(
             plugin.process(
@@ -103,20 +101,19 @@ class SessionMemoryPluginTest {
     store.append("wf:s1", "assistant", "old a", 20);
 
     StepVerifier.create(run(Map.of("message", "hi", "sessionId", "s1"), load()))
-        .assertNext(
-            m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.payload();
-              assertThat(payload).containsEntry("message", "hi");
-              assertThat(payload.get("history"))
-                  .isEqualTo(
-                      List.of(
-                          Map.of("role", "user", "content", "old q"),
-                          Map.of("role", "assistant", "content", "old a")));
-              assertThat(m.metadata())
-                  .containsEntry("sessionId", "s1")
-                  .containsEntry("sessionUserTurn", "hi");
-              assertThat(m.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(m -> {
+          final Map<String, Object> payload = (Map<String, Object>) m.payload();
+          assertThat(payload).containsEntry("message", "hi");
+          assertThat(payload.get("history"))
+              .isEqualTo(
+                  List.of(
+                      Map.of("role", "user", "content", "old q"),
+                      Map.of("role", "assistant", "content", "old a")));
+          assertThat(m.metadata())
+              .containsEntry("sessionId", "s1")
+              .containsEntry("sessionUserTurn", "hi");
+          assertThat(m.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
 
     // the user turn is stored by append, together with the answer
@@ -126,11 +123,10 @@ class SessionMemoryPluginTest {
   @Test
   void loadWrapsNonMapPayload() {
     StepVerifier.create(run("raw", load()))
-        .assertNext(
-            m -> {
-              final Map<String, Object> payload = (Map<String, Object>) m.payload();
-              assertThat(payload).containsEntry("input", "raw").containsKey("history");
-            })
+        .assertNext(m -> {
+          final Map<String, Object> payload = (Map<String, Object>) m.payload();
+          assertThat(payload).containsEntry("input", "raw").containsKey("history");
+        })
         .verifyComplete();
   }
 
@@ -141,13 +137,12 @@ class SessionMemoryPluginTest {
     }
 
     StepVerifier.create(run(Map.of(), load("maxTurns", 2)))
-        .assertNext(
-            m ->
-                assertThat(((Map<String, Object>) m.payload()).get("history"))
-                    .isEqualTo(
-                        List.of(
-                            Map.of("role", "user", "content", "q3"),
-                            Map.of("role", "user", "content", "q4"))))
+        .assertNext(m ->
+            assertThat(((Map<String, Object>) m.payload()).get("history"))
+                .isEqualTo(
+                    List.of(
+                        Map.of("role", "user", "content", "q3"),
+                        Map.of("role", "user", "content", "q4"))))
         .verifyComplete();
     assertThat(store.history("wf:s1", 10)).hasSize(5);
   }
@@ -160,11 +155,10 @@ class SessionMemoryPluginTest {
             plugin.process(
                 Flux.just(original),
                 Map.of("mode", "APPEND", "sessionId", "s9", "assistant", "the answer")))
-        .assertNext(
-            m -> {
-              assertThat(m.payload()).isEqualTo(original.payload());
-              assertThat(m.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(m -> {
+          assertThat(m.payload()).isEqualTo(original.payload());
+          assertThat(m.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
 
     assertThat(store.history("null:s9", 5))

@@ -307,11 +307,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -327,11 +326,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -394,11 +392,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -415,11 +412,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -436,11 +432,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -457,11 +452,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -509,11 +503,10 @@ class DefaultControlBusGatewayTest {
 
     // When / Then - a node absent from the real topological order is rejected
     StepVerifier.create(realGateway.pauseNode(executionId, "unknown-node"))
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains("unknown-node"))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains("unknown-node"))
         .verify();
   }
 
@@ -589,10 +582,9 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .assertNext(
-            stoppedIds -> {
-              assertThat(stoppedIds).hasSize(1).contains(executionId);
-            })
+        .assertNext(stoppedIds -> {
+          assertThat(stoppedIds).hasSize(1).contains(executionId);
+        })
         .verifyComplete();
 
     verify(executionControlStore).findAllActiveByWorkflow(sessionId, workflowId);
@@ -614,12 +606,11 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("No active execution found")
-                    && err.getMessage().contains(sessionId)
-                    && err.getMessage().contains(workflowId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("No active execution found")
+                && err.getMessage().contains(sessionId)
+                && err.getMessage().contains(workflowId))
         .verify();
   }
 
@@ -658,11 +649,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
   }
 
@@ -686,12 +676,11 @@ class DefaultControlBusGatewayTest {
     // it changed how the run ended, so the audit says so
     assertThat(sunk)
         .singleElement()
-        .satisfies(
-            r -> {
-              assertThat(r.executionId()).isEqualTo(executionId);
-              assertThat(r.applied()).isTrue();
-              assertThat(r.reason()).contains("stop");
-            });
+        .satisfies(r -> {
+          assertThat(r.executionId()).isEqualTo(executionId);
+          assertThat(r.applied()).isTrue();
+          assertThat(r.reason()).contains("stop");
+        });
   }
 
   @Test
@@ -786,10 +775,9 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .assertNext(
-            ids -> {
-              assertThat(ids).hasSize(2).contains(executionId1, executionId2);
-            })
+        .assertNext(ids -> {
+          assertThat(ids).hasSize(2).contains(executionId1, executionId2);
+        })
         .verifyComplete();
 
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
@@ -977,18 +965,16 @@ class DefaultControlBusGatewayTest {
     // Then — the Mono does not complete until the processor reports success
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     StepVerifier.create(result)
-        .then(
-            () -> {
-              verify(controlBusService).emit(captor.capture());
-              final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
-              assertThat(cmd.executionId()).isEqualTo(executionId);
-              gateway.completeRestartSuccess(cmd.newExecutionId());
-            })
-        .assertNext(
-            newExecId -> {
-              assertThat(newExecId).isNotNull().isNotEqualTo(executionId);
-              UUID.fromString(newExecId);
-            })
+        .then(() -> {
+          verify(controlBusService).emit(captor.capture());
+          final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
+          assertThat(cmd.executionId()).isEqualTo(executionId);
+          gateway.completeRestartSuccess(cmd.newExecutionId());
+        })
+        .assertNext(newExecId -> {
+          assertThat(newExecId).isNotNull().isNotEqualTo(executionId);
+          UUID.fromString(newExecId);
+        })
         .verifyComplete();
   }
 
@@ -1003,12 +989,11 @@ class DefaultControlBusGatewayTest {
     final java.util.concurrent.atomic.AtomicReference<String> first =
         new java.util.concurrent.atomic.AtomicReference<>();
     StepVerifier.create(gateway.restartWorkflow(executionId))
-        .then(
-            () -> {
-              verify(controlBusService).emit(captor.capture());
-              first.set(((RestartCommand) captor.getValue().payload()).newExecutionId());
-              gateway.completeRestartSuccess(first.get());
-            })
+        .then(() -> {
+          verify(controlBusService).emit(captor.capture());
+          first.set(((RestartCommand) captor.getValue().payload()).newExecutionId());
+          gateway.completeRestartSuccess(first.get());
+        })
         .assertNext(id -> assertThat(id).isEqualTo(first.get()))
         .verifyComplete();
 
@@ -1031,21 +1016,19 @@ class DefaultControlBusGatewayTest {
 
     // The first restart's run is no longer registered (it finished), so a second restart is new.
     StepVerifier.create(gateway.restartWorkflow(executionId))
-        .then(
-            () -> {
-              verify(controlBusService).emit(captor.capture());
-              gateway.completeRestartSuccess(
-                  ((RestartCommand) captor.getValue().payload()).newExecutionId());
-            })
+        .then(() -> {
+          verify(controlBusService).emit(captor.capture());
+          gateway.completeRestartSuccess(
+              ((RestartCommand) captor.getValue().payload()).newExecutionId());
+        })
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(gateway.restartWorkflow(executionId))
-        .then(
-            () -> {
-              verify(controlBusService, times(2)).emit(captor.capture());
-              gateway.completeRestartSuccess(
-                  ((RestartCommand) captor.getValue().payload()).newExecutionId());
-            })
+        .then(() -> {
+          verify(controlBusService, times(2)).emit(captor.capture());
+          gateway.completeRestartSuccess(
+              ((RestartCommand) captor.getValue().payload()).newExecutionId());
+        })
         .expectNextCount(1)
         .verifyComplete();
   }
@@ -1067,16 +1050,14 @@ class DefaultControlBusGatewayTest {
     final java.util.concurrent.atomic.AtomicReference<String> expectedNewExecutionId =
         new java.util.concurrent.atomic.AtomicReference<>();
     StepVerifier.create(result)
-        .then(
-            () -> {
-              verify(controlBusService).emit(captor.capture());
-              final RestartFromNodeCommand cmd =
-                  (RestartFromNodeCommand) captor.getValue().payload();
-              assertThat(cmd.executionId()).isEqualTo(executionId);
-              assertThat(cmd.fromNodeId()).isEqualTo(fromNodeId);
-              expectedNewExecutionId.set(cmd.newExecutionId());
-              gateway.completeRestartSuccess(cmd.newExecutionId());
-            })
+        .then(() -> {
+          verify(controlBusService).emit(captor.capture());
+          final RestartFromNodeCommand cmd = (RestartFromNodeCommand) captor.getValue().payload();
+          assertThat(cmd.executionId()).isEqualTo(executionId);
+          assertThat(cmd.fromNodeId()).isEqualTo(fromNodeId);
+          expectedNewExecutionId.set(cmd.newExecutionId());
+          gateway.completeRestartSuccess(cmd.newExecutionId());
+        })
         .assertNext(newExecId -> assertThat(newExecId).isEqualTo(expectedNewExecutionId.get()))
         .verifyComplete();
   }
@@ -1100,12 +1081,11 @@ class DefaultControlBusGatewayTest {
     // Then
     final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
     StepVerifier.create(result)
-        .then(
-            () -> {
-              verify(controlBusService).emit(captor.capture());
-              final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
-              gateway.completeRestartFailure(cmd.newExecutionId(), notFound);
-            })
+        .then(() -> {
+          verify(controlBusService).emit(captor.capture());
+          final RestartCommand cmd = (RestartCommand) captor.getValue().payload();
+          gateway.completeRestartFailure(cmd.newExecutionId(), notFound);
+        })
         .expectErrorMatches(err -> err.equals(notFound))
         .verify();
   }
@@ -1143,10 +1123,9 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().equals("Execution not found: " + executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().equals("Execution not found: " + executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1163,10 +1142,9 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().equals("Execution not found: " + executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().equals("Execution not found: " + executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1410,11 +1388,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1431,11 +1408,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1468,11 +1444,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1489,11 +1464,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1558,11 +1532,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1579,11 +1552,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1600,11 +1572,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1621,11 +1592,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1642,11 +1612,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Execution not found")
-                    && err.getMessage().contains(executionId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Execution not found")
+                && err.getMessage().contains(executionId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1663,11 +1632,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Node not found")
-                    && err.getMessage().contains(nodeId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Node not found")
+                && err.getMessage().contains(nodeId))
         .verify();
     verify(controlBusService, never()).emit(any());
   }
@@ -1794,11 +1762,10 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .assertNext(
-            actual -> {
-              assertThat(actual).isEqualTo(history);
-              assertThat(actual).hasSize(2);
-            })
+        .assertNext(actual -> {
+          assertThat(actual).isEqualTo(history);
+          assertThat(actual).hasSize(2);
+        })
         .verifyComplete();
   }
 
@@ -2055,16 +2022,15 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .assertNext(
-            executionId -> {
-              assertThat(executionId).isNotNull();
-              // Verify it's a valid UUID format
-              try {
-                UUID.fromString(executionId);
-              } catch (final IllegalArgumentException e) {
-                throw new AssertionError("Not a valid UUID: " + executionId, e);
-              }
-            })
+        .assertNext(executionId -> {
+          assertThat(executionId).isNotNull();
+          // Verify it's a valid UUID format
+          try {
+            UUID.fromString(executionId);
+          } catch (final IllegalArgumentException e) {
+            throw new AssertionError("Not a valid UUID: " + executionId, e);
+          }
+        })
         .verifyComplete();
 
     // once to load the definition, once to check it is still current before caching
@@ -2167,12 +2133,11 @@ class DefaultControlBusGatewayTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            err ->
-                err instanceof IllegalArgumentException
-                    && err.getMessage().contains("Workflow not found for session")
-                    && err.getMessage().contains(sessionId)
-                    && err.getMessage().contains(workflowId))
+        .expectErrorMatches(err ->
+            err instanceof IllegalArgumentException
+                && err.getMessage().contains("Workflow not found for session")
+                && err.getMessage().contains(sessionId)
+                && err.getMessage().contains(workflowId))
         .verify();
 
     verify(workflowDefinitionStore).find(sessionId, workflowId);
@@ -2438,15 +2403,14 @@ class DefaultControlBusGatewayTest {
         new com.infenia.yukta.service.archive.ArchivedExecution(
             "finished", "s", "w", mock(PreparedWorkflow.class), "v", Map.of()));
     when(controlBusService.emit(any()))
-        .thenAnswer(
-            inv -> {
-              final Message<?> message = inv.getArgument(0);
-              final var command =
-                  (com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand)
-                      message.payload();
-              gateway.completeRestartSuccess(command.newExecutionId());
-              return Mono.empty();
-            });
+        .thenAnswer(inv -> {
+          final Message<?> message = inv.getArgument(0);
+          final var command =
+              (com.infenia.yukta.plugin.control.ExecutionControlCommand.RestartCommand)
+                  message.payload();
+          gateway.completeRestartSuccess(command.newExecutionId());
+          return Mono.empty();
+        });
 
     StepVerifier.create(gateway.restartWorkflow("finished")).expectNextCount(1).verifyComplete();
   }
@@ -2562,11 +2526,10 @@ class DefaultControlBusGatewayTest {
         .thenReturn(Optional.empty());
     when(orchestrator.prepareWorkflow(definition))
         .thenReturn(
-            Mono.defer(
-                () -> {
-                  prepares.incrementAndGet();
-                  return Mono.just(preparedWorkflow).delayElement(java.time.Duration.ofMillis(200));
-                }));
+            Mono.defer(() -> {
+              prepares.incrementAndGet();
+              return Mono.just(preparedWorkflow).delayElement(java.time.Duration.ofMillis(200));
+            }));
     when(orchestrator.execute(any(), any(), anyString(), any(), anyMap(), any()))
         .thenReturn(Mono.empty());
 
@@ -2630,15 +2593,13 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(gateway.retryNode("e1", "n1"))
-        .then(
-            () -> {
-              final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
-              verify(controlBusService).emit(captor.capture());
-              final RestartFromNodeCommand cmd =
-                  (RestartFromNodeCommand) captor.getValue().payload();
-              assertThat(cmd.fromNodeId()).isEqualTo("n1");
-              gateway.completeRestartSuccess(cmd.newExecutionId());
-            })
+        .then(() -> {
+          final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+          verify(controlBusService).emit(captor.capture());
+          final RestartFromNodeCommand cmd = (RestartFromNodeCommand) captor.getValue().payload();
+          assertThat(cmd.fromNodeId()).isEqualTo("n1");
+          gateway.completeRestartSuccess(cmd.newExecutionId());
+        })
         .expectNextCount(1)
         .verifyComplete();
   }
@@ -2652,15 +2613,13 @@ class DefaultControlBusGatewayTest {
     when(controlBusService.emit(any())).thenReturn(Mono.empty());
 
     StepVerifier.create(gateway.retryNode("e1", "n1"))
-        .then(
-            () -> {
-              final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
-              verify(controlBusService).emit(captor.capture());
-              final RestartFromNodeCommand cmd =
-                  (RestartFromNodeCommand) captor.getValue().payload();
-              assertThat(cmd.fromNodeId()).isEqualTo("n1");
-              gateway.completeRestartSuccess(cmd.newExecutionId());
-            })
+        .then(() -> {
+          final ArgumentCaptor<Message<?>> captor = ArgumentCaptor.forClass(Message.class);
+          verify(controlBusService).emit(captor.capture());
+          final RestartFromNodeCommand cmd = (RestartFromNodeCommand) captor.getValue().payload();
+          assertThat(cmd.fromNodeId()).isEqualTo("n1");
+          gateway.completeRestartSuccess(cmd.newExecutionId());
+        })
         .expectNextCount(1)
         .verifyComplete();
   }
@@ -2702,13 +2661,12 @@ class DefaultControlBusGatewayTest {
             new com.infenia.yukta.service.log.InMemoryExecutionLogStore());
 
     StepVerifier.create(limited.limits())
-        .assertNext(
-            limits -> {
-              assertThat(limits.maxConcurrent()).isEqualTo(3);
-              assertThat(limits.maxPerWorkflow()).isEqualTo(1);
-              assertThat(limits.queueCapacity()).isEqualTo(7);
-              assertThat(limits.running()).isZero();
-            })
+        .assertNext(limits -> {
+          assertThat(limits.maxConcurrent()).isEqualTo(3);
+          assertThat(limits.maxPerWorkflow()).isEqualTo(1);
+          assertThat(limits.queueCapacity()).isEqualTo(7);
+          assertThat(limits.running()).isZero();
+        })
         .verifyComplete();
   }
 
@@ -2794,10 +2752,9 @@ class DefaultControlBusGatewayTest {
     assertThat(waiting).isCompleted();
     assertThat(auditLog.readAll())
         .hasSize(2)
-        .allSatisfy(
-            e ->
-                assertThat(e.executionId())
-                    .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER));
+        .allSatisfy(e ->
+            assertThat(e.executionId())
+                .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.SCHEDULER));
     assertThat(auditLog.readAll().get(0).nodeStatuses())
         .containsEntry("maxConcurrent", "2")
         .containsEntry("maxPerWorkflow", "0");
@@ -2867,21 +2824,18 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(
             limited
                 .changeLimits(5, 0)
-                .contextWrite(
-                    ctx ->
-                        ctx.put(
-                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+                .contextWrite(ctx ->
+                    ctx.put(com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
         .expectError(com.infenia.yukta.service.review.ControlRejectedException.class)
         .verify();
 
     assertThat(auditLog.readAll())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.type())
-                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(e.status()).isEqualTo("SetLimits(5, 0) [by key:bob]: no");
-            });
+        .satisfies(e -> {
+          assertThat(e.type())
+              .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(e.status()).isEqualTo("SetLimits(5, 0) [by key:bob]: no");
+        });
   }
 
   @Test
@@ -2959,28 +2913,24 @@ class DefaultControlBusGatewayTest {
                         "e1"),
                     "Recover",
                     () -> Mono.just("done"))
-                .contextWrite(
-                    ctx ->
-                        ctx.put(
-                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+                .contextWrite(ctx ->
+                    ctx.put(com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
         .expectNext("done")
         .verifyComplete();
 
     verify(reviewer)
         .review(
-            org.mockito.ArgumentMatchers.argThat(
-                request ->
-                    "s".equals(request.sessionId())
-                        && "w".equals(request.workflowId())
-                        && "key:bob".equals(request.actor())));
+            org.mockito.ArgumentMatchers.argThat(request ->
+                "s".equals(request.sessionId())
+                    && "w".equals(request.workflowId())
+                    && "key:bob".equals(request.actor())));
     assertThat(auditLog.readAll())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.type())
-                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_APPLIED);
-              assertThat(e.status()).isEqualTo("Recover [by key:bob]");
-            });
+        .satisfies(e -> {
+          assertThat(e.type())
+              .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_APPLIED);
+          assertThat(e.status()).isEqualTo("Recover [by key:bob]");
+        });
   }
 
   @Test
@@ -2999,12 +2949,11 @@ class DefaultControlBusGatewayTest {
 
     assertThat(auditLog.readAll())
         .singleElement()
-        .satisfies(
-            e -> {
-              assertThat(e.type())
-                  .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(e.status()).isEqualTo("Drain: busy");
-            });
+        .satisfies(e -> {
+          assertThat(e.type())
+              .isEqualTo(com.infenia.yukta.service.log.ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(e.status()).isEqualTo("Drain: busy");
+        });
   }
 
   @Test
@@ -3028,10 +2977,8 @@ class DefaultControlBusGatewayTest {
     StepVerifier.create(
             audited
                 .recordAdminAction("DeleteSession(s, force=false)", "s", true, null)
-                .contextWrite(
-                    ctx ->
-                        ctx.put(
-                            com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
+                .contextWrite(ctx ->
+                    ctx.put(com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, "key:bob")))
         .verifyComplete();
 
     assertThat(auditLog.readAll())

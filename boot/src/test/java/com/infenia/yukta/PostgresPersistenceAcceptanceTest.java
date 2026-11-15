@@ -91,22 +91,20 @@ class PostgresPersistenceAcceptanceTest {
     final String executionId = gateway.startWorkflow(session, "wf", Map.of(), null).block();
     await()
         .atMost(Duration.ofSeconds(30))
-        .until(
-            () -> {
-              final var progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && TaskStatus.SUCCESS == progress.status();
-            });
+        .until(() -> {
+          final var progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && TaskStatus.SUCCESS == progress.status();
+        });
 
     assertThat(definitions.find(session, "wf").block()).isNotNull();
     assertThat(definitions.revisions(session, "wf").collectList().block()).hasSize(1);
     await()
         .atMost(Duration.ofSeconds(10))
-        .untilAsserted(
-            () ->
-                assertThat(executionLog.readAll())
-                    .filteredOn(event -> event.executionId().equals(executionId))
-                    .extracting(event -> event.type().name())
-                    .contains("RUN_STARTED", "RUN_FINISHED"));
+        .untilAsserted(() ->
+            assertThat(executionLog.readAll())
+                .filteredOn(event -> event.executionId().equals(executionId))
+                .extracting(event -> event.type().name())
+                .contains("RUN_STARTED", "RUN_FINISHED"));
     try (Connection connection =
             DriverManager.getConnection(
                 POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());

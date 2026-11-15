@@ -307,12 +307,11 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> prepare(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          if (config.get(ARGUMENTS) instanceof final String expression) {
-            SpelUtils.preParse(expression);
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      if (config.get(ARGUMENTS) instanceof final String expression) {
+        SpelUtils.preParse(expression);
+      }
+    });
   }
 
   @Override
@@ -326,12 +325,10 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
         .map(WorkflowContext.WorkflowEdge::sourcePort)
         .filter(port -> port != null && !port.isBlank() && !allowed.contains(port))
         .findFirst()
-        .<Mono<Void>>map(
-            port ->
-                Mono.error(
-                    new IllegalArgumentException(
-                        "MCP_TOOL_CALL with routeByStatus only emits on success/failure, not "
-                            + port)))
+        .<Mono<Void>>map(port ->
+            Mono.error(
+                new IllegalArgumentException(
+                    "MCP_TOOL_CALL with routeByStatus only emits on success/failure, not " + port)))
         .orElseGet(Mono::empty);
   }
 
@@ -362,27 +359,22 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                       ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
                       : NO_OP;
               return resolveSpec(message, config)
-                  .flatMap(
-                      spec ->
-                          allowed(config, spec.tool())
-                              .then(approved(ctx, config, message, spec))
-                              .then(
-                                  Mono.defer(
-                                      () ->
-                                          ToolBudget.charge(
-                                              ctx.getOrDefault("executionId", UNKNOWN),
-                                              nodeId,
-                                              config,
-                                              reporter)))
-                              .then(Mono.defer(() -> invoke(spec, config, ctx, message, heartbeat)))
-                              .onErrorResume(
-                                  error ->
-                                      failureMode == FailureMode.CONTINUE
-                                              && !ToolBudget.isAbort(error)
-                                          ? Mono.just(
-                                              McpCallResult.transportFailure(error.toString()))
-                                          : Mono.error(error))
-                              .map(result -> new Outcome(nodeId, spec.tool(), result)));
+                  .flatMap(spec ->
+                      allowed(config, spec.tool())
+                          .then(approved(ctx, config, message, spec))
+                          .then(
+                              Mono.defer(() ->
+                                  ToolBudget.charge(
+                                      ctx.getOrDefault("executionId", UNKNOWN),
+                                      nodeId,
+                                      config,
+                                      reporter)))
+                          .then(Mono.defer(() -> invoke(spec, config, ctx, message, heartbeat)))
+                          .onErrorResume(error ->
+                              failureMode == FailureMode.CONTINUE && !ToolBudget.isAbort(error)
+                                  ? Mono.just(McpCallResult.transportFailure(error.toString()))
+                                  : Mono.error(error))
+                          .map(result -> new Outcome(nodeId, spec.tool(), result)));
             })
         .flatMapMany(outcome -> toMessage(message, config, failureMode, outcome, started));
   }
@@ -492,30 +484,26 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
                 .defaultIfEmpty(Optional.empty()),
             resolveArguments(config.get(ARGUMENTS), message),
             resolve(config.getOrDefault(TIMEOUT, DEFAULT_TIMEOUT_SECONDS), message))
-        .map(
-            tuple -> {
-              final long timeout = MapUtils.convert(tuple.getT6(), Long.class);
-              if (timeout <= 0) {
-                throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
-              }
-              final Map<String, String> headers = new HashMap<>();
-              tuple.getT3().forEach((k, v) -> headers.put(k, String.valueOf(v)));
-              tuple.getT4().ifPresent(token -> headers.put("Authorization", "Bearer " + token));
-              final Object attempt = message.metadata().get(ATTEMPT);
-              final Map<String, Object> meta =
-                  Map.of(
-                      "yukta/messageId",
-                      message.id(),
-                      "yukta/attempt",
-                      attempt == null ? 1 : attempt);
-              return new McpCallSpec(
-                  tuple.getT1(),
-                  tuple.getT2(),
-                  tuple.getT5(),
-                  headers,
-                  meta,
-                  Duration.ofSeconds(timeout));
-            });
+        .map(tuple -> {
+          final long timeout = MapUtils.convert(tuple.getT6(), Long.class);
+          if (timeout <= 0) {
+            throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
+          }
+          final Map<String, String> headers = new HashMap<>();
+          tuple.getT3().forEach((k, v) -> headers.put(k, String.valueOf(v)));
+          tuple.getT4().ifPresent(token -> headers.put("Authorization", "Bearer " + token));
+          final Object attempt = message.metadata().get(ATTEMPT);
+          final Map<String, Object> meta =
+              Map.of(
+                  "yukta/messageId", message.id(), "yukta/attempt", attempt == null ? 1 : attempt);
+          return new McpCallSpec(
+              tuple.getT1(),
+              tuple.getT2(),
+              tuple.getT5(),
+              headers,
+              meta,
+              Duration.ofSeconds(timeout));
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -530,13 +518,12 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
     }
     if (arguments instanceof final String expression) {
       return SpelUtils.<Object>evaluate(expression, message, null)
-          .map(
-              value -> {
-                if (value instanceof final Map<?, ?> map) {
-                  return (Map<String, Object>) map;
-                }
-                throw new IllegalArgumentException("arguments must evaluate to a map");
-              });
+          .map(value -> {
+            if (value instanceof final Map<?, ?> map) {
+              return (Map<String, Object>) map;
+            }
+            throw new IllegalArgumentException("arguments must evaluate to a map");
+          });
     }
     return resolveMap(arguments, message);
   }
@@ -566,10 +553,8 @@ public final class McpToolCallPlugin implements ProcessorPlugin {
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.<Void>fromRunnable(() -> checkConfig(config))
-        .doOnError(
-            e ->
-                log.atWarn()
-                    .log("MCP tool call configuration validation failed: {}", e.getMessage()));
+        .doOnError(e ->
+            log.atWarn().log("MCP tool call configuration validation failed: {}", e.getMessage()));
   }
 
   private static void checkConfig(final Map<String, Object> config) {

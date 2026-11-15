@@ -126,12 +126,11 @@ class WorkflowValidatorTest {
             List.of());
 
     StepVerifier.create(validator.validate(masked))
-        .expectErrorSatisfies(
-            e ->
-                org.assertj.core.api.Assertions.assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("n1.headers.Authorization")
-                    .hasMessageContaining("decrypted:"))
+        .expectErrorSatisfies(e ->
+            org.assertj.core.api.Assertions.assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("n1.headers.Authorization")
+                .hasMessageContaining("decrypted:"))
         .verify();
   }
 
@@ -198,12 +197,11 @@ class WorkflowValidatorTest {
     stubTriggerAndProcessor(Mono.empty());
 
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
-        .assertNext(
-            problems ->
-                org.assertj.core.api.Assertions.assertThat(problems)
-                    .contains(
-                        "Workflow must contain at least one TERMINAL node",
-                        "Node p is an endpoint but not a TERMINAL"))
+        .assertNext(problems ->
+            org.assertj.core.api.Assertions.assertThat(problems)
+                .contains(
+                    "Workflow must contain at least one TERMINAL node",
+                    "Node p is an endpoint but not a TERMINAL"))
         .verifyComplete();
   }
 
@@ -212,9 +210,8 @@ class WorkflowValidatorTest {
     stubTriggerAndProcessor(Mono.error(new IllegalArgumentException("bad context")));
 
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
-        .assertNext(
-            problems ->
-                org.assertj.core.api.Assertions.assertThat(problems).contains("bad context"))
+        .assertNext(problems ->
+            org.assertj.core.api.Assertions.assertThat(problems).contains("bad context"))
         .verifyComplete();
   }
 
@@ -223,10 +220,9 @@ class WorkflowValidatorTest {
     stubTriggerAndProcessor(Mono.error(new IllegalArgumentException()));
 
     StepVerifier.create(validator.validateAll(triggerIntoProcessorWithoutTerminal()))
-        .assertNext(
-            problems ->
-                org.assertj.core.api.Assertions.assertThat(problems)
-                    .contains("java.lang.IllegalArgumentException"))
+        .assertNext(problems ->
+            org.assertj.core.api.Assertions.assertThat(problems)
+                .contains("java.lang.IllegalArgumentException"))
         .verifyComplete();
   }
 
@@ -1453,11 +1449,10 @@ class WorkflowValidatorTest {
                 new WorkflowDefinition.Edge("p1", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("entry point")
-                    && error.getMessage().contains("not a TRIGGER"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("entry point")
+                && error.getMessage().contains("not a TRIGGER"))
         .verify();
   }
 
@@ -1489,11 +1484,10 @@ class WorkflowValidatorTest {
                 new WorkflowDefinition.Edge("t_hidden", "term_unreachable", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Trigger node")
-                    && error.getMessage().contains("cannot have incoming edges"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Trigger node")
+                && error.getMessage().contains("cannot have incoming edges"))
         .verify();
   }
 
@@ -1544,10 +1538,9 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("p1", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("must contain at least one TRIGGER node"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("must contain at least one TRIGGER node"))
         .verify();
   }
 
@@ -1567,10 +1560,9 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("t", "p1", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("must contain at least one TERMINAL node"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("must contain at least one TERMINAL node"))
         .verify();
   }
 
@@ -1588,10 +1580,9 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("p1", "p2", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("must contain at least one TRIGGER node"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("must contain at least one TRIGGER node"))
         .verify();
   }
 
@@ -1616,11 +1607,10 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("t2", "term", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("t1")
-                    && error.getMessage().contains("is an endpoint but not a TERMINAL"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("t1")
+                && error.getMessage().contains("is an endpoint but not a TERMINAL"))
         .verify();
   }
 
@@ -1648,11 +1638,10 @@ class WorkflowValidatorTest {
             List.of(new WorkflowDefinition.Edge("n1", "ghost", DEFAULT_EDGE_LABEL)));
 
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("n1 -> ghost")
-                    && e.getMessage().contains("unknown node"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("n1 -> ghost")
+                && e.getMessage().contains("unknown node"))
         .verify();
   }
 
@@ -1667,11 +1656,10 @@ class WorkflowValidatorTest {
   @Test
   void testMalformedEnginePolicyIsRejectedNamingTheNode() {
     StepVerifier.create(validator.validate(singleNodeWithEngine(Map.of("onError", "EXPLODE"))))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().startsWith("Node 'n1': ")
-                    && e.getMessage().contains("engine.onError"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().startsWith("Node 'n1': ")
+                && e.getMessage().contains("engine.onError"))
         .verify();
   }
 
@@ -1757,10 +1745,8 @@ class WorkflowValidatorTest {
 
   private void assertNoLimitViolation(final WorkflowDefinition def) {
     StepVerifier.create(validator.validate(def))
-        .expectErrorMatches(
-            e ->
-                !e.getMessage().contains("node timeout")
-                    && !e.getMessage().contains("must be below"))
+        .expectErrorMatches(e ->
+            !e.getMessage().contains("node timeout") && !e.getMessage().contains("must be below"))
         .verify();
   }
 

@@ -45,37 +45,36 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
 
   private Mono<Void> write(final String sessionId, final WorkflowDefinition definition) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(definition))
-        .flatMap(
-            json -> {
-              final Instant now = Instant.now();
-              return client
-                  .sql(
-                      """
-                      WITH same AS (
-                        SELECT 1 FROM workflow_definition
-                        WHERE session_id = :s AND workflow_id = :w
-                          AND definition = CAST(:d AS jsonb)
-                      ), revision AS (
-                        INSERT INTO workflow_definition_revision
-                          (session_id, workflow_id, revision_id, definition, saved_at)
-                        SELECT CAST(:s AS text), CAST(:w AS text), CAST(:r AS text),
-                               CAST(:d AS jsonb), CAST(:t AS timestamptz)
-                        WHERE NOT EXISTS (SELECT 1 FROM same)
-                      )
-                      INSERT INTO workflow_definition (session_id, workflow_id, definition)
-                      VALUES (:s, :w, CAST(:d AS jsonb))
-                      ON CONFLICT (session_id, workflow_id)
-                      DO UPDATE SET definition = EXCLUDED.definition, updated_at = now()
-                      """)
-                  .bind("s", sessionId)
-                  .bind("w", definition.workflowId())
-                  .bind("d", json)
-                  .bind("r", DefinitionRevisions.idOf(now, definition))
-                  .bind("t", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
-                  .fetch()
-                  .rowsUpdated()
-                  .then(prune(sessionId, definition.workflowId()));
-            });
+        .flatMap(json -> {
+          final Instant now = Instant.now();
+          return client
+              .sql(
+                  """
+                  WITH same AS (
+                    SELECT 1 FROM workflow_definition
+                    WHERE session_id = :s AND workflow_id = :w
+                      AND definition = CAST(:d AS jsonb)
+                  ), revision AS (
+                    INSERT INTO workflow_definition_revision
+                      (session_id, workflow_id, revision_id, definition, saved_at)
+                    SELECT CAST(:s AS text), CAST(:w AS text), CAST(:r AS text),
+                           CAST(:d AS jsonb), CAST(:t AS timestamptz)
+                    WHERE NOT EXISTS (SELECT 1 FROM same)
+                  )
+                  INSERT INTO workflow_definition (session_id, workflow_id, definition)
+                  VALUES (:s, :w, CAST(:d AS jsonb))
+                  ON CONFLICT (session_id, workflow_id)
+                  DO UPDATE SET definition = EXCLUDED.definition, updated_at = now()
+                  """)
+              .bind("s", sessionId)
+              .bind("w", definition.workflowId())
+              .bind("d", json)
+              .bind("r", DefinitionRevisions.idOf(now, definition))
+              .bind("t", OffsetDateTime.ofInstant(now, ZoneOffset.UTC))
+              .fetch()
+              .rowsUpdated()
+              .then(prune(sessionId, definition.workflowId()));
+        });
   }
 
   private Mono<Void> prune(final String sessionId, final String workflowId) {
@@ -104,27 +103,25 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
       final Optional<WorkflowDefinition> replacement) {
     final Mono<Boolean> swap =
         Mono.fromCallable(() -> mapper.writeValueAsString(expected))
-            .flatMap(
-                json ->
-                    client
-                        .sql(
-                            """
-                            SELECT 1 AS one FROM workflow_definition
-                            WHERE session_id = :s AND workflow_id = :w
-                              AND definition = CAST(:d AS jsonb)
-                            FOR UPDATE
-                            """)
-                        .bind("s", sessionId)
-                        .bind("w", expected.workflowId())
-                        .bind("d", json)
-                        .map(row -> 1)
-                        .first())
-            .flatMap(
-                _ ->
-                    replacement
-                        .map(previous -> write(sessionId, previous))
-                        .orElseGet(() -> delete(sessionId, expected.workflowId()))
-                        .thenReturn(true))
+            .flatMap(json ->
+                client
+                    .sql(
+                        """
+                        SELECT 1 AS one FROM workflow_definition
+                        WHERE session_id = :s AND workflow_id = :w
+                          AND definition = CAST(:d AS jsonb)
+                        FOR UPDATE
+                        """)
+                    .bind("s", sessionId)
+                    .bind("w", expected.workflowId())
+                    .bind("d", json)
+                    .map(row -> 1)
+                    .first())
+            .flatMap(_ ->
+                replacement
+                    .map(previous -> write(sessionId, previous))
+                    .orElseGet(() -> delete(sessionId, expected.workflowId()))
+                    .thenReturn(true))
             .defaultIfEmpty(false);
     return Transactions.inTransaction(client, swap);
   }
@@ -210,12 +207,11 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
             """)
         .bind("s", sessionId)
         .bind("w", workflowId)
-        .map(
-            row ->
-                new DefinitionRevision(
-                    row.get("revision_id", String.class),
-                    Objects.requireNonNull(row.get("saved_at", OffsetDateTime.class)).toInstant(),
-                    row.get("note", String.class)))
+        .map(row ->
+            new DefinitionRevision(
+                row.get("revision_id", String.class),
+                Objects.requireNonNull(row.get("saved_at", OffsetDateTime.class)).toInstant(),
+                row.get("note", String.class)))
         .all();
   }
 
@@ -235,11 +231,10 @@ public class R2dbcWorkflowDefinitionStore implements WorkflowDefinitionStore {
         .bind("r", revisionId)
         .fetch()
         .rowsUpdated()
-        .flatMap(
-            rows ->
-                rows == 0
-                    ? Mono.<Void>error(new NotFoundException("Version not found: " + revisionId))
-                    : Mono.<Void>empty());
+        .flatMap(rows ->
+            rows == 0
+                ? Mono.<Void>error(new NotFoundException("Version not found: " + revisionId))
+                : Mono.<Void>empty());
   }
 
   @Override

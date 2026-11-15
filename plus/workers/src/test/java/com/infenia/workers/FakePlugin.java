@@ -35,33 +35,25 @@ final class FakePlugin implements ProcessorPlugin {
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     return switch (type) {
       case "UPPER" ->
-          input.map(
-              message ->
-                  DefaultMessage.create(
-                      UUID.randomUUID(),
-                      String.valueOf(message.payload()).toUpperCase(Locale.ROOT)));
+          input.map(message ->
+              DefaultMessage.create(
+                  UUID.randomUUID(), String.valueOf(message.payload()).toUpperCase(Locale.ROOT)));
       case "SLOW" -> input.delayElements(java.time.Duration.ofMillis(1500));
       case "BOOM" -> Flux.error(new IllegalStateException("boom"));
       case "ABORT" ->
           Flux.error(new com.infenia.yukta.plugin.exception.RunAbortedException("budget"));
       case "BAD" -> Flux.error(new IllegalArgumentException("bad input"));
       case "HEART" ->
-          Flux.deferContextual(
-              ctx -> {
-                ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();
-                return input;
-              });
+          Flux.deferContextual(ctx -> {
+            ((Runnable) ctx.get(WorkflowContext.HEARTBEAT_KEY)).run();
+            return input;
+          });
       case "CTX" ->
-          Flux.deferContextual(
-              ctx ->
-                  Flux.just(
-                      DefaultMessage.create(
-                          UUID.randomUUID(),
-                          ctx.get("executionId")
-                              + "/"
-                              + ctx.get("nodeId")
-                              + "/"
-                              + config.get("k"))));
+          Flux.deferContextual(ctx ->
+              Flux.just(
+                  DefaultMessage.create(
+                      UUID.randomUUID(),
+                      ctx.get("executionId") + "/" + ctx.get("nodeId") + "/" + config.get("k"))));
       default -> input.concatWith(Flux.never()).doOnCancel(cancelled::incrementAndGet);
     };
   }

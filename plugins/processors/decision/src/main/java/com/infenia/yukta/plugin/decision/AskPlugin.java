@@ -81,24 +81,22 @@ public final class AskPlugin extends DecisionPlugin {
   @Override
   protected Mono<Message<?>> decide(final Message<?> message, final Map<String, Object> config) {
     return ask(message, config, state(message, config), questions(config))
-        .map(
-            answers -> {
-              final Map<String, Object> result = new LinkedHashMap<>();
-              answers.forEach((name, answer) -> result.put(name, answer.toMap()));
-              return emit(message, config, "answers", result, PORT_DEFAULT);
-            });
+        .map(answers -> {
+          final Map<String, Object> result = new LinkedHashMap<>();
+          answers.forEach((name, answer) -> result.put(name, answer.toMap()));
+          return emit(message, config, "answers", result, PORT_DEFAULT);
+        });
   }
 
   private static Map<String, Question> questions(final Map<String, Object> config) {
     final Map<String, Question> questions = new LinkedHashMap<>();
     map(config, QUESTIONS)
-        .forEach(
-            (name, definition) -> {
-              if (!(definition instanceof final Map<?, ?> fields)) {
-                throw new IllegalArgumentException("Question '" + name + "' must be a map");
-              }
-              questions.put(name, question(name, fields));
-            });
+        .forEach((name, definition) -> {
+          if (!(definition instanceof final Map<?, ?> fields)) {
+            throw new IllegalArgumentException("Question '" + name + "' must be a map");
+          }
+          questions.put(name, question(name, fields));
+        });
     return questions;
   }
 

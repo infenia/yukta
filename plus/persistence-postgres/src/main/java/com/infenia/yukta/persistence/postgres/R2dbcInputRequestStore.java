@@ -81,56 +81,54 @@ public class R2dbcInputRequestStore implements InputRequestStore {
   /** Inserts, or finds the live request with the same key; empty when that one ended meanwhile. */
   private Mono<InputRequest> insert(final InputRequest request) {
     return Mono.fromCallable(() -> json(request))
-        .flatMap(
-            json ->
-                client
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO input_request (id, req_key, session_id, workflow_id,
+                      execution_id, node_id, kind, risk, state, version, tier, targets,
+                      tier_deadline, deadline, spec, advice, votes, created_at, updated_at,
+                      asked)
+                    VALUES (:id, :key, :session, :workflow, :execution, :node, :kind, :risk,
+                      :state, :version, :tier, CAST(:targets AS jsonb), :tierDeadline,
+                      :deadline, CAST(:spec AS jsonb), :advice, CAST(:votes AS jsonb),
+                      :created, :updated, CAST(:asked AS jsonb))
+                    ON CONFLICT DO NOTHING
+                    """)
+                .bind("id", request.id())
+                .bind("key", request.key())
+                .bind("session", request.sessionId())
+                .bind("workflow", request.workflowId())
+                .bind("execution", request.executionId())
+                .bind("node", request.nodeId())
+                .bind("kind", request.spec().kind().name())
+                .bind("risk", request.spec().risk().name())
+                .bind("state", request.state().name())
+                .bind("version", request.version())
+                .bind("tier", request.tier())
+                .bind("targets", json.targets())
+                .bind("spec", json.spec())
+                .bind("votes", json.votes())
+                .bind("asked", json.asked())
+                .bind("created", request.createdAt())
+                .bind("updated", request.updatedAt())
+                .bind("advice", nullable(request.advice(), String.class))
+                .bind("tierDeadline", nullable(request.tierDeadline(), Instant.class))
+                .bind("deadline", nullable(request.deadline(), Instant.class))
+                .fetch()
+                .rowsUpdated())
+        .flatMap(rows ->
+            rows > 0
+                ? Mono.just(request)
+                : client
                     .sql(
-                        """
-                        INSERT INTO input_request (id, req_key, session_id, workflow_id,
-                          execution_id, node_id, kind, risk, state, version, tier, targets,
-                          tier_deadline, deadline, spec, advice, votes, created_at, updated_at,
-                          asked)
-                        VALUES (:id, :key, :session, :workflow, :execution, :node, :kind, :risk,
-                          :state, :version, :tier, CAST(:targets AS jsonb), :tierDeadline,
-                          :deadline, CAST(:spec AS jsonb), :advice, CAST(:votes AS jsonb),
-                          :created, :updated, CAST(:asked AS jsonb))
-                        ON CONFLICT DO NOTHING
-                        """)
-                    .bind("id", request.id())
+                        "SELECT "
+                            + REQUEST_COLUMNS
+                            + " FROM input_request WHERE req_key = :key AND "
+                            + LIVE)
                     .bind("key", request.key())
-                    .bind("session", request.sessionId())
-                    .bind("workflow", request.workflowId())
-                    .bind("execution", request.executionId())
-                    .bind("node", request.nodeId())
-                    .bind("kind", request.spec().kind().name())
-                    .bind("risk", request.spec().risk().name())
-                    .bind("state", request.state().name())
-                    .bind("version", request.version())
-                    .bind("tier", request.tier())
-                    .bind("targets", json.targets())
-                    .bind("spec", json.spec())
-                    .bind("votes", json.votes())
-                    .bind("asked", json.asked())
-                    .bind("created", request.createdAt())
-                    .bind("updated", request.updatedAt())
-                    .bind("advice", nullable(request.advice(), String.class))
-                    .bind("tierDeadline", nullable(request.tierDeadline(), Instant.class))
-                    .bind("deadline", nullable(request.deadline(), Instant.class))
-                    .fetch()
-                    .rowsUpdated())
-        .flatMap(
-            rows ->
-                rows > 0
-                    ? Mono.just(request)
-                    : client
-                        .sql(
-                            "SELECT "
-                                + REQUEST_COLUMNS
-                                + " FROM input_request WHERE req_key = :key AND "
-                                + LIVE)
-                        .bind("key", request.key())
-                        .map(this::request)
-                        .one());
+                    .map(this::request)
+                    .one());
   }
 
   @Override
@@ -162,54 +160,52 @@ public class R2dbcInputRequestStore implements InputRequestStore {
       return Mono.just(false);
     }
     return Mono.fromCallable(() -> json(next))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        UPDATE input_request SET state = :state, version = :version,
-                          tier = :tier, targets = CAST(:targets AS jsonb),
-                          tier_deadline = :tierDeadline, deadline = :deadline,
-                          spec = CAST(:spec AS jsonb), advice = :advice,
-                          votes = CAST(:votes AS jsonb), asked = CAST(:asked AS jsonb),
-                          updated_at = :updated
-                        WHERE id = :id AND version = :expected AND state IN ('OPEN', 'ESCALATED')
-                        """)
-                    .bind("id", id)
-                    .bind("expected", expectedVersion)
-                    .bind("state", next.state().name())
-                    .bind("version", next.version())
-                    .bind("tier", next.tier())
-                    .bind("targets", json.targets())
-                    .bind("spec", json.spec())
-                    .bind("votes", json.votes())
-                    .bind("asked", json.asked())
-                    .bind("updated", next.updatedAt())
-                    .bind("advice", nullable(next.advice(), String.class))
-                    .bind("tierDeadline", nullable(next.tierDeadline(), Instant.class))
-                    .bind("deadline", nullable(next.deadline(), Instant.class))
-                    .fetch()
-                    .rowsUpdated())
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    UPDATE input_request SET state = :state, version = :version,
+                      tier = :tier, targets = CAST(:targets AS jsonb),
+                      tier_deadline = :tierDeadline, deadline = :deadline,
+                      spec = CAST(:spec AS jsonb), advice = :advice,
+                      votes = CAST(:votes AS jsonb), asked = CAST(:asked AS jsonb),
+                      updated_at = :updated
+                    WHERE id = :id AND version = :expected AND state IN ('OPEN', 'ESCALATED')
+                    """)
+                .bind("id", id)
+                .bind("expected", expectedVersion)
+                .bind("state", next.state().name())
+                .bind("version", next.version())
+                .bind("tier", next.tier())
+                .bind("targets", json.targets())
+                .bind("spec", json.spec())
+                .bind("votes", json.votes())
+                .bind("asked", json.asked())
+                .bind("updated", next.updatedAt())
+                .bind("advice", nullable(next.advice(), String.class))
+                .bind("tierDeadline", nullable(next.tierDeadline(), Instant.class))
+                .bind("deadline", nullable(next.deadline(), Instant.class))
+                .fetch()
+                .rowsUpdated())
         .map(rows -> rows > 0);
   }
 
   @Override
   public Mono<InputResponse> saveResponse(final InputResponse response) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(response))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO input_response (request_id, response, answered_at)
-                        VALUES (:id, CAST(:response AS jsonb), :at)
-                        ON CONFLICT (request_id) DO NOTHING
-                        """)
-                    .bind("id", response.requestId())
-                    .bind("response", json)
-                    .bind("at", response.answeredAt())
-                    .fetch()
-                    .rowsUpdated())
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO input_response (request_id, response, answered_at)
+                    VALUES (:id, CAST(:response AS jsonb), :at)
+                    ON CONFLICT (request_id) DO NOTHING
+                    """)
+                .bind("id", response.requestId())
+                .bind("response", json)
+                .bind("at", response.answeredAt())
+                .fetch()
+                .rowsUpdated())
         .then(findResponse(response.requestId()));
   }
 
@@ -282,17 +278,16 @@ public class R2dbcInputRequestStore implements InputRequestStore {
                 + " FROM input_delivery WHERE state = 'PENDING' AND next_attempt <= :now"
                 + " ORDER BY next_attempt, id")
         .bind("now", now)
-        .map(
-            row ->
-                new InputDelivery(
-                    row.get("id", String.class),
-                    row.get("request_id", String.class),
-                    row.get("tier", String.class),
-                    row.get("responder", String.class),
-                    InputDelivery.State.valueOf(row.get("state", String.class)),
-                    Objects.requireNonNull(row.get("attempts", Integer.class)),
-                    row.get("next_attempt", Instant.class),
-                    row.get("last_error", String.class)))
+        .map(row ->
+            new InputDelivery(
+                row.get("id", String.class),
+                row.get("request_id", String.class),
+                row.get("tier", String.class),
+                row.get("responder", String.class),
+                InputDelivery.State.valueOf(row.get("state", String.class)),
+                Objects.requireNonNull(row.get("attempts", Integer.class)),
+                row.get("next_attempt", Instant.class),
+                row.get("last_error", String.class)))
         .all();
   }
 

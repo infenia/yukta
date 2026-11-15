@@ -64,11 +64,10 @@ public class InputDeadlineSweeper implements SmartLifecycle {
     // one look at a time: a slow look is not overtaken by the next tick
     return broker
         .sweep()
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Input deadline sweep failed");
-              return Mono.empty();
-            })
+        .onErrorResume(error -> {
+          log.atWarn().setCause(error).log("Input deadline sweep failed");
+          return Mono.empty();
+        })
         .then();
   }
 

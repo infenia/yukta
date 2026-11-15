@@ -152,20 +152,17 @@ public final class DelegationChain {
     return Flux.fromIterable(parents)
         .flatMap(parent -> askOne(delegation, parent, ask))
         .collectList()
-        .map(
-            replies -> {
-              final List<String> asked = replies.stream().map(DelegationChain::line).toList();
-              return replies.stream()
-                  .filter(r -> r.answer() == Answer.DENY)
-                  .findFirst()
-                  .map(r -> decided(r, asked))
-                  .orElseGet(
-                      () ->
-                          !replies.isEmpty()
-                                  && replies.stream().allMatch(r -> r.answer() == Answer.ALLOW)
-                              ? new Outcome(Outcome.Kind.ALLOWED, null, null, asked)
-                              : person(asked));
-            });
+        .map(replies -> {
+          final List<String> asked = replies.stream().map(DelegationChain::line).toList();
+          return replies.stream()
+              .filter(r -> r.answer() == Answer.DENY)
+              .findFirst()
+              .map(r -> decided(r, asked))
+              .orElseGet(() ->
+                  !replies.isEmpty() && replies.stream().allMatch(r -> r.answer() == Answer.ALLOW)
+                      ? new Outcome(Outcome.Kind.ALLOWED, null, null, asked)
+                      : person(asked));
+        });
   }
 
   private static Mono<Outcome> any(

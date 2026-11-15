@@ -144,11 +144,10 @@ public class MapUtils {
       final String prefix, final Object value, final Map<String, Object> result) {
     if (value instanceof Map) {
       final Map<String, Object> map = (Map<String, Object>) value;
-      map.forEach(
-          (key, val) -> {
-            final String newKey = prefix.isEmpty() ? key : prefix + "." + key;
-            flatten(newKey, val, result);
-          });
+      map.forEach((key, val) -> {
+        final String newKey = prefix.isEmpty() ? key : prefix + "." + key;
+        flatten(newKey, val, result);
+      });
     } else {
       if (!prefix.isEmpty()) {
         result.put(prefix, value);

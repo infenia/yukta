@@ -60,14 +60,13 @@ class SupervisionControllerTest {
         .thenReturn(allowed());
 
     StepVerifier.create(controller.supervision("s", "w", null, "build.a"))
-        .assertNext(
-            r -> {
-              assertThat(r.data()).containsKeys("pauseNode", "resumeNode", "stopNode", "skipNode");
-              assertThat(r.data().get("pauseNode").via()).isEqualTo("guard");
-              assertThat(r.data().get("pauseNode").allowed()).isFalse();
-              assertThat(r.data().get("resumeNode").allowed()).isTrue();
-              assertThat(r.data()).doesNotContainKey("pause");
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).containsKeys("pauseNode", "resumeNode", "stopNode", "skipNode");
+          assertThat(r.data().get("pauseNode").via()).isEqualTo("guard");
+          assertThat(r.data().get("pauseNode").allowed()).isFalse();
+          assertThat(r.data().get("resumeNode").allowed()).isTrue();
+          assertThat(r.data()).doesNotContainKey("pause");
+        })
         .verifyComplete();
   }
 
@@ -92,11 +91,9 @@ class SupervisionControllerTest {
         .thenReturn(allowed());
 
     StepVerifier.create(controller.supervision(null, null, "e1", null))
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .containsKeys(
-                        "start", "pause", "resume", "stop", "restart", "priority", "recover"))
+        .assertNext(r ->
+            assertThat(r.data())
+                .containsKeys("start", "pause", "resume", "stop", "restart", "priority", "recover"))
         .verifyComplete();
   }
 
@@ -110,11 +107,10 @@ class SupervisionControllerTest {
         .thenReturn(new ControlReviewer.Capability(false, "default", "off"));
 
     StepVerifier.create(controller.supervision(null, null, null, null))
-        .assertNext(
-            r -> {
-              assertThat(r.data()).containsOnlyKeys("drain", "setLimits");
-              assertThat(r.data().get("drain").reason()).isEqualTo("off");
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).containsOnlyKeys("drain", "setLimits");
+          assertThat(r.data().get("drain").reason()).isEqualTo("off");
+        })
         .verifyComplete();
   }
 

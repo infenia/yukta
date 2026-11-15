@@ -132,45 +132,41 @@ public class TokenAnswerService {
   private Mono<Void> send(final Answer answer, final InputRequest request) {
     return routes
         .resolve(request.spec(), request.sessionId())
-        .flatMap(
-            route -> {
-              final Tier tier =
-                  route.tiers().stream()
-                      .filter(t -> t.name().equals(request.tier()))
-                      .findFirst()
-                      .orElse(null);
-              final boolean external =
-                  request.targets().stream().anyMatch(t -> t.startsWith("external:"));
-              final boolean mayHandle =
-                  tier != null
-                      && external
-                      && (request.spec().risk() != InputRisk.HIGH
-                          || tier.type() == ResponderType.HUMAN);
-              if (!mayHandle
-                  || !tokens.claim(answer.requestId(), answer.tier(), answer.expires())) {
-                return refused(mayHandle ? "replay" : "refused");
-              }
-              return control
-                  .answerInput(
-                      request.executionId(),
-                      request.id(),
-                      null,
-                      answer.decision(),
-                      answer.text(),
-                      answer.data(),
-                      answer.rationale(),
-                      null)
-                  .contextWrite(
-                      ctx ->
-                          ctx.put(ControlActor.CONTEXT_KEY, ACTOR_PREFIX + answer.tier())
-                              .put(ControlActor.KIND_KEY, ControlActor.Kind.TOKEN))
-                  .doOnSuccess(_ -> meters.counter(METRIC, "outcome", "accepted").increment())
-                  .doOnError(
-                      _ -> {
-                        tokens.release(answer.requestId(), answer.tier());
-                        meters.counter(METRIC, "outcome", "failed").increment();
-                      });
-            });
+        .flatMap(route -> {
+          final Tier tier =
+              route.tiers().stream()
+                  .filter(t -> t.name().equals(request.tier()))
+                  .findFirst()
+                  .orElse(null);
+          final boolean external =
+              request.targets().stream().anyMatch(t -> t.startsWith("external:"));
+          final boolean mayHandle =
+              tier != null
+                  && external
+                  && (request.spec().risk() != InputRisk.HIGH
+                      || tier.type() == ResponderType.HUMAN);
+          if (!mayHandle || !tokens.claim(answer.requestId(), answer.tier(), answer.expires())) {
+            return refused(mayHandle ? "replay" : "refused");
+          }
+          return control
+              .answerInput(
+                  request.executionId(),
+                  request.id(),
+                  null,
+                  answer.decision(),
+                  answer.text(),
+                  answer.data(),
+                  answer.rationale(),
+                  null)
+              .contextWrite(ctx ->
+                  ctx.put(ControlActor.CONTEXT_KEY, ACTOR_PREFIX + answer.tier())
+                      .put(ControlActor.KIND_KEY, ControlActor.Kind.TOKEN))
+              .doOnSuccess(_ -> meters.counter(METRIC, "outcome", "accepted").increment())
+              .doOnError(_ -> {
+                tokens.release(answer.requestId(), answer.tier());
+                meters.counter(METRIC, "outcome", "failed").increment();
+              });
+        });
   }
 
   private Mono<Void> refused(final String outcome) {

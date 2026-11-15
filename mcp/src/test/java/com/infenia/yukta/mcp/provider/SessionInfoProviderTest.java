@@ -57,9 +57,8 @@ class SessionInfoProviderTest {
     when(sessionService.getSessionConfig("session-1")).thenReturn(Mono.just(config));
 
     StepVerifier.create(provider.getSessionDetails("session-1"))
-        .expectNextMatches(
-            details ->
-                details.sessionId().equals("session-1") && details.workflowIds().contains("wf-1"))
+        .expectNextMatches(details ->
+            details.sessionId().equals("session-1") && details.workflowIds().contains("wf-1"))
         .verifyComplete();
   }
 
@@ -68,10 +67,9 @@ class SessionInfoProviderTest {
     when(sessionService.getSessionConfig("nope")).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.getSessionDetails("nope"))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Session not found: nope"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Session not found: nope"))
         .verify();
   }
 
@@ -87,11 +85,10 @@ class SessionInfoProviderTest {
         .thenReturn(Mono.error(new RuntimeException("fail")));
 
     StepVerifier.create(provider.listSessions(false))
-        .expectNextMatches(
-            sessions ->
-                sessions.size() == 1
-                    && sessions.get(0).sessionId().equals("s1")
-                    && sessions.get(0).workflowCount() == 1)
+        .expectNextMatches(sessions ->
+            sessions.size() == 1
+                && sessions.get(0).sessionId().equals("s1")
+                && sessions.get(0).workflowCount() == 1)
         .verifyComplete();
   }
 
@@ -156,18 +153,16 @@ class SessionInfoProviderTest {
     List<PluginReference> plugins = guide.availablePlugins();
     assertTrue(
         plugins.stream()
-            .anyMatch(
-                p ->
-                    p.type().equals("test-plugin")
-                        && p.category().equals("PROCESSOR")
-                        && p.description().equals("Test plugin description")));
+            .anyMatch(p ->
+                p.type().equals("test-plugin")
+                    && p.category().equals("PROCESSOR")
+                    && p.description().equals("Test plugin description")));
     assertTrue(
         plugins.stream()
-            .anyMatch(
-                p ->
-                    p.type().equals("another-plugin")
-                        && p.category().equals("TRIGGER")
-                        && p.description().equals("Another plugin")));
+            .anyMatch(p ->
+                p.type().equals("another-plugin")
+                    && p.category().equals("TRIGGER")
+                    && p.description().equals("Another plugin")));
   }
 
   private static SessionConfigData config() {
@@ -179,9 +174,8 @@ class SessionInfoProviderTest {
     when(sessionService.applyConfig(org.mockito.ArgumentMatchers.any())).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.createSession(config()))
-        .expectNextMatches(
-            res ->
-                res.success() && res.sessionId().equals("s1") && res.createdWorkflows().isEmpty())
+        .expectNextMatches(res ->
+            res.success() && res.sessionId().equals("s1") && res.createdWorkflows().isEmpty())
         .verifyComplete();
   }
 
@@ -221,16 +215,14 @@ class SessionInfoProviderTest {
     when(sessionService.deleteWorkflow("s", "w", false)).thenReturn(Mono.empty());
 
     StepVerifier.create(provider.deleteSession("s", true))
-        .assertNext(
-            r -> {
-              org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_SESSION");
-              org.assertj.core.api.Assertions.assertThat(r.message()).contains("s");
-            })
+        .assertNext(r -> {
+          org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_SESSION");
+          org.assertj.core.api.Assertions.assertThat(r.message()).contains("s");
+        })
         .verifyComplete();
     StepVerifier.create(provider.deleteWorkflow("s", "w", false))
-        .assertNext(
-            r ->
-                org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_WORKFLOW"))
+        .assertNext(r ->
+            org.assertj.core.api.Assertions.assertThat(r.action()).isEqualTo("DELETE_WORKFLOW"))
         .verifyComplete();
   }
 }

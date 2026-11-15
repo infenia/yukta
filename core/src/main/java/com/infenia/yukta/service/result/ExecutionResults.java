@@ -55,16 +55,15 @@ public record ExecutionResults(
                 .collect(Collectors.toUnmodifiableSet());
     final List<ResultEvent> kept =
         events.stream()
-            .map(
-                event ->
-                    new ResultEvent(
-                        event.kind(),
-                        event.nodeId(),
-                        event.sequence(),
-                        strip(event.payload(), keep, 0),
-                        event.status(),
-                        event.truncated(),
-                        event.timestamp()))
+            .map(event ->
+                new ResultEvent(
+                    event.kind(),
+                    event.nodeId(),
+                    event.sequence(),
+                    strip(event.payload(), keep, 0),
+                    event.status(),
+                    event.truncated(),
+                    event.timestamp()))
             .toList();
     return new ExecutionResults(executionId, complete, status, truncated, nextCursor, kept);
   }
@@ -76,12 +75,11 @@ public record ExecutionResults(
     }
     if (value instanceof Map<?, ?> map) {
       final Map<Object, Object> out = new LinkedHashMap<>();
-      map.forEach(
-          (key, item) -> {
-            if (!OUTPUT_FIELDS.contains(key) || keep.contains(key)) {
-              out.put(key, strip(item, keep, depth + 1));
-            }
-          });
+      map.forEach((key, item) -> {
+        if (!OUTPUT_FIELDS.contains(key) || keep.contains(key)) {
+          out.put(key, strip(item, keep, depth + 1));
+        }
+      });
       return out;
     }
     if (value instanceof List<?> list) {

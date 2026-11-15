@@ -238,11 +238,10 @@ class ProcessorNodeAssemblerStrategyTest {
 
     StepVerifier.create(context.streams()[0])
         .expectSubscription()
-        .then(
-            () ->
-                verify(tracker)
-                    .emitTaskStatusEvent(
-                        EXECUTION_ID, NODE_ID, "processor", TaskStatus.QUEUED, Map.of()))
+        .then(() ->
+            verify(tracker)
+                .emitTaskStatusEvent(
+                    EXECUTION_ID, NODE_ID, "processor", TaskStatus.QUEUED, Map.of()))
         .expectNoEvent(Duration.ofMillis(100))
         .then(busy::release)
         .expectNextCount(1)
@@ -406,14 +405,12 @@ class ProcessorNodeAssemblerStrategyTest {
     final java.util.List<String> threads = new java.util.concurrent.CopyOnWriteArrayList<>();
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.process(any(), any()))
-        .thenAnswer(
-            call ->
-                ((Flux<Message<?>>) call.getArgument(0))
-                    .map(
-                        m -> {
-                          threads.add(Thread.currentThread().getName());
-                          return m;
-                        }));
+        .thenAnswer(call ->
+            ((Flux<Message<?>>) call.getArgument(0))
+                .map(m -> {
+                  threads.add(Thread.currentThread().getName());
+                  return m;
+                }));
     when(processor.isBlocking()).thenReturn(true);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "processor", Map.of());
@@ -642,15 +639,13 @@ class ProcessorNodeAssemblerStrategyTest {
     final Message<?> bad = DefaultMessage.create(UUID.randomUUID(), "bad");
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.process(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> messages = inv.getArgument(0);
-              return messages.flatMap(
-                  m ->
-                      "bad".equals(m.payload())
-                          ? Flux.<Message<?>>error(new IllegalStateException("boom"))
-                          : Flux.<Message<?>>just(m));
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> messages = inv.getArgument(0);
+          return messages.flatMap(m ->
+              "bad".equals(m.payload())
+                  ? Flux.<Message<?>>error(new IllegalStateException("boom"))
+                  : Flux.<Message<?>>just(m));
+        });
     when(processor.isBlocking()).thenReturn(false);
 
     final WorkflowNode node =
@@ -679,17 +674,15 @@ class ProcessorNodeAssemblerStrategyTest {
     final NodeMessageChannel channel = mock(NodeMessageChannel.class);
     when(channelProvider.channelFor(eq(NODE_ID), any())).thenReturn(channel);
     when(channel.inbound(eq(NODE_ID), eq(EXECUTION_ID), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> upstream = inv.getArgument(2);
-              return upstream.map(
-                  m -> {
-                    if (bad.payload().equals(m.payload())) {
-                      throw new IllegalStateException("channel boom");
-                    }
-                    return m;
-                  });
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> upstream = inv.getArgument(2);
+          return upstream.map(m -> {
+            if (bad.payload().equals(m.payload())) {
+              throw new IllegalStateException("channel boom");
+            }
+            return m;
+          });
+        });
     when(channel.outbound(eq(NODE_ID), eq(EXECUTION_ID), any())).thenAnswer(i -> i.getArgument(2));
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.process(any(), any())).thenAnswer(inv -> inv.getArgument(0));
@@ -710,11 +703,10 @@ class ProcessorNodeAssemblerStrategyTest {
         .assemble(context);
 
     StepVerifier.create(context.streams()[0])
-        .assertNext(
-            m -> {
-              assertThat(m.payload()).isEqualTo("bad");
-              assertThat(m.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
-            })
+        .assertNext(m -> {
+          assertThat(m.payload()).isEqualTo("bad");
+          assertThat(m.sourcePort()).isEqualTo(NodePolicy.ERROR_PORT);
+        })
         .assertNext(m -> assertThat(m.payload()).isEqualTo("good"))
         .verifyComplete();
   }
@@ -748,10 +740,9 @@ class ProcessorNodeAssemblerStrategyTest {
     final Sinks.Many<Message<?>> parent = Sinks.many().unicast().onBackpressureBuffer();
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.process(any(), any()))
-        .thenAnswer(
-            call ->
-                ((Flux<Message<?>>) call.getArgument(0))
-                    .map(m -> DefaultMessage.create(UUID.randomUUID(), "done:" + m.payload())));
+        .thenAnswer(call ->
+            ((Flux<Message<?>>) call.getArgument(0))
+                .map(m -> DefaultMessage.create(UUID.randomUUID(), "done:" + m.payload())));
     final AtomicBoolean skipFlag = new AtomicBoolean(false);
     final AssemblyContext context = buildContext(NODE_ID, parent.asFlux(), skipFlag);
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
@@ -760,11 +751,10 @@ class ProcessorNodeAssemblerStrategyTest {
         new java.util.concurrent.atomic.AtomicReference<>();
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
-        .thenAnswer(
-            call -> {
-              built.set(call.getArgument(2));
-              return call.getArgument(2);
-            });
+        .thenAnswer(call -> {
+          built.set(call.getArgument(2));
+          return call.getArgument(2);
+        });
 
     strategy
         .createAssembler(
@@ -796,11 +786,10 @@ class ProcessorNodeAssemblerStrategyTest {
         new java.util.concurrent.atomic.AtomicInteger();
     final ProcessorPlugin processor = mock(ProcessorPlugin.class);
     when(processor.process(any(), any()))
-        .thenAnswer(
-            call ->
-                calls.incrementAndGet() == 1
-                    ? Flux.<Message<?>>error(new IllegalStateException("first attempt fails"))
-                    : Flux.<Message<?>>just(DefaultMessage.create(UUID.randomUUID(), "ok")));
+        .thenAnswer(call ->
+            calls.incrementAndGet() == 1
+                ? Flux.<Message<?>>error(new IllegalStateException("first attempt fails"))
+                : Flux.<Message<?>>just(DefaultMessage.create(UUID.randomUUID(), "ok")));
     final AssemblyContext context = buildContext(NODE_ID, parent.asFlux(), null);
     when(streamTopologyDecorator.mergeParentStreams(any(), any(), any(ParentEdgeInfo[].class)))
         .thenReturn(parent.asFlux());
@@ -808,11 +797,10 @@ class ProcessorNodeAssemblerStrategyTest {
         new java.util.concurrent.atomic.AtomicReference<>();
     when(streamTopologyDecorator.applyLoggingAndBroadcasting(
             anyString(), anyString(), any(), any(int.class), any(), any(), any(), any()))
-        .thenAnswer(
-            call -> {
-              built.set(call.getArgument(2));
-              return call.getArgument(2);
-            });
+        .thenAnswer(call -> {
+          built.set(call.getArgument(2));
+          return call.getArgument(2);
+        });
     final WorkflowNode node =
         new WorkflowNode(
             NODE_ID,
