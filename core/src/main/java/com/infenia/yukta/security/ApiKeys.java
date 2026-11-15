@@ -138,6 +138,10 @@ public final class ApiKeys {
             .orElseGet(List::of);
     final List<Key> all = new ArrayList<>();
     for (final KeyEntry entry : entries) {
+      if ("local".equals(entry.name())) {
+        throw new IllegalStateException(
+            "An API key cannot be named 'local': it is the name of the shared inbox");
+      }
       add(
           all,
           Objects.requireNonNullElse(entry.name(), "unnamed"),
