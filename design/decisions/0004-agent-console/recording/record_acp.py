@@ -8,7 +8,7 @@ permission), a session/cancel during a second prompt. Every line in both directi
 OUT.jsonl as {"t": seconds, "dir": "in"|"out", "frame": {...}}. A failed step is recorded as it
 happened and the script stops; nothing is invented.
 
-Usage: record_acp.py OUT.jsonl WORKDIR -- gemini --acp
+Usage: record_acp.py OUT.jsonl WORKDIR -- agy acp
 """
 import json, os, queue, subprocess, sys, threading, time
 

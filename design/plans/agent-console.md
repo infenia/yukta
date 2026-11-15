@@ -1,8 +1,8 @@
 # Agent console: one window for every AI agent of a run
 
-Plan for running any terminal-based AI agent (Claude Code, Codex, Gemini CLI, Antigravity, pi, or a program nobody has written a preset for) as a workflow node, and for watching and talking to all agents of a run in **one place**: a tab on the workflow page, one CLI command, and the same operations over REST, MCP and for supervisors.
+Plan for running any terminal-based AI agent (Claude Code, Codex, Antigravity, pi, or a program nobody has written a preset for) as a workflow node, and for watching and talking to all agents of a run in **one place**: a tab on the workflow page, one CLI command, and the same operations over REST, MCP and for supervisors.
 
-Status (2026-11-15): **accepted, phase AC0 done except two open items**, nothing else built. The "today" statements were read from `origin/main` at a9c6a2864 and re-checked at c10778fe0 in AC0; each names the class it comes from. D1 to D8 were decided by Arun in two rounds of questions on 2026-11-15; D9 to D20 and Q1 to Q4 were settled with Arun on the same day in [ADR 0004](../decisions/0004-agent-console.md), which also holds the findings of the code check (F1 to F5), the recorded sessions (F6 to F8) and the library choice. **Open from AC0:** the recorded `gemini --acp` session beyond `initialize` (this machine's Gemini login is refused, ADR F8; blocks AC5) and the maintainer's review of the artboards (ADR, "Artboards"; blocks AC7a to AC7c). The work is filed as epic #2363; see [Issues](#issues).
+Status (2026-11-15): **accepted, phase AC0 done except the artboard review**, nothing else built. The "today" statements were read from `origin/main` at a9c6a2864 and re-checked at c10778fe0 in AC0; each names the class it comes from. D1 to D8 were decided by Arun in two rounds of questions on 2026-11-15; D9 to D20 and Q1 to Q4 were settled with Arun on the same day in [ADR 0004](../decisions/0004-agent-console.md), which also holds the findings of the code check (F1 to F5), the recorded sessions (F6 to F8) and the library choice. **Open from AC0:** the maintainer's review of the artboards (ADR, "Artboards"; blocks AC7a to AC7c). The work is filed as epic #2363; see [Issues](#issues).
 
 ## The problem
 
@@ -68,16 +68,15 @@ A workflow can chain agent nodes: node 1 Claude Code with one model, node 2 Clau
 | MCP | `get_execution_logs`, `get_node_output`, `list_pending_inputs`, `answer_input`, `control_node`, `list_ai_backends`, `get_plugin_details` |
 | WebSocket | none in the server, the UI or the CLI |
 
-Checked on this machine on 2026-11-15: `claude` 2.1.325 has `--input-format stream-json`, `--output-format stream-json`, `--permission-prompt-tool`, `--resume`, `--session-id`, `--include-partial-messages`; `gemini` 0.46.0 has `--acp`, `-o stream-json`, `--approval-mode`, `--resume`. `codex`, `agy` and `pi` are not installed here.
+Checked on this machine on 2026-11-15: `claude` 2.1.325 has `--input-format stream-json`, `--output-format stream-json`, `--permission-prompt-tool`, `--resume`, `--session-id`, `--include-partial-messages`; `agy` 1.5.8 (installed at `~/.gemini/bin/agy`, not on `PATH`) has the subcommand `acp`, `-p --input-format stream-json --output-format stream-json`, `--mode`, `--continue`. `codex` and `pi` are not installed here. Google's Gemini CLI is not supported (D21).
 
-Claude Code was run and recorded in AC0 (ADR F6); `gemini --acp` was run as far as `initialize` (ADR F8). The rest is from documentation and was not run; each is recorded in the phase that ships its preset (Gemini in AC5; Codex, Antigravity and pi in AC11):
+Claude Code was run and recorded in AC0 (ADR F6); `agy acp` was run with a prompt, a permission request and a cancel (ADR F8). The rest is from documentation and was not run; each is recorded in the phase that ships its preset (Codex and pi in AC11):
 
 | Agent | Structured mode | ACP |
 |---|---|---|
 | Claude Code | `claude -p --input-format stream-json --output-format stream-json` (preset exists) | through the adapter `claude-agent-acp` |
 | Codex | `codex exec --json` (preset exists, never run against the real CLI) | through the adapter `codex-acp` |
-| Gemini CLI | `gemini -p ... -o stream-json` | native: `gemini --acp` |
-| Antigravity | `agy -p ... --output-format stream-json`, `--input-format stream-json`. An open report says stdout stays empty without a TTY | not found |
+| Antigravity | `agy -p ... --output-format stream-json`, `--input-format stream-json` (not run; an open report says stdout stays empty without a TTY). Not shipped: the ACP mode below covers it | **native: `agy acp`, recorded in AC0** |
 | pi | `pi --mode rpc`: JSON lines on stdin and stdout, commands carry an `id` | through the adapter `pi-acp` |
 
 What is missing: a transcript that is more than log lines; any way to send a message, interrupt or end an agent; a node that stays open for a chat; ACP; a terminal for agents with no structured mode; one view across the agent nodes of a run in the UI and the CLI; MCP tools and supervisor commands for the same.
@@ -101,7 +100,7 @@ What is missing: a transcript that is more than log lines; any way to send a mes
                                     |
  plugin process-executor: ProcessExecutorGateway.executeInteractive
                                     |
-            claude / codex / gemini --acp / pi --mode rpc / yukta-cli pty-host -- <any program>
+            claude / codex / agy acp / pi --mode rpc / yukta-cli pty-host -- <any program>
 ```
 
 - The plugin opens a conversation for each message it works on, writes what the agent does as events, and listens for commands. It knows nothing about clients.
@@ -273,11 +272,10 @@ Preset file, version 2. `protocol` is new; a file without it is `jsonl`, so toda
 
 ```json
 {
-  "id": "gemini",
+  "id": "antigravity",
   "protocol": "acp",
-  "description": "Gemini CLI over the Agent Client Protocol.",
-  "command": ["gemini", "--acp"],
-  "modelArgs": ["--model", "{model}"],
+  "description": "Antigravity CLI over the Agent Client Protocol.",
+  "command": ["agy", "acp"],
   "capabilities": { "ask": true, "interrupt": true, "resume": true },
   "acp": { "authMethod": null }
 }
@@ -321,7 +319,7 @@ interface AgentAdapter {
 
 #### `AcpAdapter`
 
-JSON-RPC 2.0, one message per line on stdin and stdout, through `executeInteractive`. `AcpWire` frames, numbers requests and matches responses. Every method and field name below was checked in AC0 against the published schema `schema-v1.32.0` (ADR F7); `initialize` was recorded against the real `gemini` 0.46.0, the rest of its session could not be (ADR F8, open, blocks AC5). The flow:
+JSON-RPC 2.0, one message per line on stdin and stdout, through `executeInteractive`. `AcpWire` frames, numbers requests and matches responses. Every method and field name below was checked in AC0 against the published schema `schema-v1.32.0` (ADR F7); a session was recorded against the real `agy acp` 1.5.8 (ADR F8). The flow:
 
 1. `initialize` with `protocolVersion: 1`, `clientCapabilities: {fs: {readTextFile: false, writeTextFile: false}, terminal: false}`. An unsupported version in the answer fails the node.
 2. `authenticate` when the preset names an `authMethod`.
@@ -457,7 +455,7 @@ One PR per phase unless it says otherwise. Each phase names its tests; the gate 
 | AC2 | Move `AGENT_SESSION` to `plugins/processors/agent-session`; the adapter seam; `JsonlAdapter` writes the conversation; payload `conversationId`; log lines as before | L |
 | AC3 | REST read endpoints and the stream; OpenAPI snapshots | M |
 | AC4 | Steering: the three control commands, `AgentSteering`, the POST endpoints, `Mailbox`, `steer` and `interrupt` in `JsonlAdapter`, `mode`, `idleTimeout`, `conversationTimeout`, `steerAudience` | L |
-| AC5 | `AcpAdapter`, `AcpWire`, the `gemini` preset; documented operator presets for the Claude Code, Codex and pi ACP adapters | L |
+| AC5 | `AcpAdapter`, `AcpWire`, the `antigravity` preset; documented operator presets for the Claude Code, Codex and pi ACP adapters | L |
 | AC6a | `yukta-cli pty-host` (Go) | M |
 | AC6b | `PtyAdapter`, `launcher` in `ProcessExecutionSpec`, the terminal endpoints, the `terminal` preset, `yukta.agents.pty.*` | L |
 | AC7a | UI: dock tabs, Agents tab, list and timeline (read only) | L |
@@ -466,7 +464,7 @@ One PR per phase unless it says otherwise. Each phase names its tests; the gate 
 | AC8 | CLI: `conversations` and `attach` (raw mode needs AC6b) | L |
 | AC9 | MCP tools | M |
 | AC10 | Supervisors: the feed event, the commands from supervisors, rule actions, the contract | M |
-| AC11 | Presets `antigravity` and `pi`, each recorded against the real CLI; no Java change expected, and one that is needed is a finding | M |
+| AC11 | Preset `pi` recorded against the real CLI, and `codex` verified against the real CLI; no Java change expected, and one that is needed is a finding. No Antigravity `jsonl` preset: `agy acp` (AC5) covers it | M |
 | AC12 | Plus: PostgreSQL store, migration, reconcile at start | M |
 | AC13 | Docs (`docs/guides/ai/run-an-agent.mdx`, `docs/reference/plugins/ai.mdx`, API pages), example `20-agent-console`, a load test (10 conversations, 50 events per second, 20 stream clients), release notes with the breaking changes | M |
 
@@ -490,7 +488,7 @@ Breaking changes, all in AC2 and AC4: the Java package of the plugin; `ProcessEx
 | Risk | Answer |
 |---|---|
 | A vendor changes its output or its ACP version | presets are data; recorded fixtures show the difference; the ACP version is checked at `initialize` |
-| ACP names in this plan are from memory | **Checked in AC0** against `schema-v1.32.0`: none was wrong (ADR F7). The recorded `gemini` session is still open (ADR F8) and must exist before AC5 starts |
+| ACP names in this plan are from memory | **Checked in AC0** against `schema-v1.32.0`: none was wrong (ADR F7). The recorded `agy acp` sessions (ADR F8) pin them for the one agent that is shipped |
 | Antigravity prints nothing without a TTY | AC11 records it; if it fails, its preset is `pty` |
 | Claude Code does not queue a message written during a turn | then `steer` is false for it and `Mailbox` queues; the behaviour for the user is the same |
 | The transcript grows without bound | caps per event and per conversation, retention, terminal ring |

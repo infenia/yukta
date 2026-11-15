@@ -9,7 +9,7 @@ directory outside the repository (the agent writes files there):
 ```bash
 python3 -I record_claude_approval_interrupt.py out.jsonl /scratch/work   # claude 2.1.325
 python3 -I record_claude_steer_interrupt.py    out.jsonl /scratch/work
-python3 -I record_acp.py out.jsonl /scratch/work -- gemini --acp         # gemini 0.46.0
+python3 -I record_acp.py out.jsonl /scratch/work -- agy acp              # agy 1.5.8 (~/.gemini/bin/agy)
 ```
 
 The raw recording is then cleaned before it is committed: the session id is replaced by a fixed one,
