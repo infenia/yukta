@@ -29,7 +29,7 @@ class NotificationsPropertiesTest {
   }
 
   @Test
-  void aValidRuleIsAccepted() {
+  void validRuleIsAccepted() {
     final var channels = Map.of("webhook", Map.of("ops", Map.<String, Object>of("url", "x")));
 
     assertThat(
@@ -42,7 +42,7 @@ class NotificationsPropertiesTest {
   }
 
   @Test
-  void aBadRuleStopsStartUpNamingTheRule() {
+  void badRuleStopsStartUpNamingTheRule() {
     assertThatThrownBy(() -> with(rule("nope", List.of(), List.of()), Map.of()))
         .hasMessageContaining("rules.my-rule.category");
     assertThatThrownBy(() -> with(rule("run.failed", List.of("supervisor:*"), List.of()), Map.of()))

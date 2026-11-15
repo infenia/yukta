@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.infenia.yukta.plugin.notify.Notification;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.redact.InputRedactor;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -17,7 +18,13 @@ import org.junit.jupiter.api.Test;
 import reactor.test.StepVerifier;
 
 @NoArgsConstructor
+@SuppressFBWarnings(
+    value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+    justification = "block() of a store call that always emits")
 class NotificationServiceTest {
+
+  private static final String KEY = "input:r1";
+  private static final String ARUN = "arun";
 
   private final MutableClock clock = new MutableClock();
   private final InMemoryNotificationStore store = new InMemoryNotificationStore(100);
@@ -26,8 +33,8 @@ class NotificationServiceTest {
 
   @Test
   void raisingTheSameKeyTwiceKeepsOneItemAndSequenceGrows() {
-    final Notification first = service.raise(action("input:r1").build()).block();
-    final Notification second = service.raise(action("input:r1").build()).block();
+    final Notification first = service.raise(action(KEY).build()).block();
+    final Notification second = service.raise(action(KEY).build()).block();
 
     assertThat(second.id()).isEqualTo(first.id());
     assertThat(second.seq()).isGreaterThan(first.seq());
@@ -35,7 +42,7 @@ class NotificationServiceTest {
   }
 
   @Test
-  void aRepeatInsideTheCooldownRaisesTheCountOnly() {
+  void repeatInsideTheCooldownRaisesTheCountOnly() {
     final var draft = info("run.failed:e1").cooldown(Duration.ofMinutes(5)).build();
     service.raise(draft).block();
     clock.advance(Duration.ofMinutes(1));
@@ -47,16 +54,16 @@ class NotificationServiceTest {
   }
 
   @Test
-  void aResolvedItemNeverBecomesActiveAgain() {
-    service.raise(action("input:r1").build()).block();
-    final Notification resolved = service.resolve("input:r1", "expired").block();
+  void resolvedItemNeverBecomesActiveAgain() {
+    service.raise(action(KEY).build()).block();
+    final Notification resolved = service.resolve(KEY, "expired").block();
     final long seq = resolved.seq();
 
-    final Notification again = service.raise(action("input:r1").build()).block();
+    final Notification again = service.raise(action(KEY).build()).block();
 
     assertThat(again.state()).isEqualTo(Notification.State.RESOLVED);
     assertThat(again.seq()).isEqualTo(seq);
-    assertThat(service.resolve("input:r1", "again").block()).isNull();
+    assertThat(service.resolve(KEY, "again").block()).isNull();
   }
 
   @Test
@@ -72,25 +79,25 @@ class NotificationServiceTest {
   void receiptsAreKeptPerRecipientAndNoReceiptMeansUnread() {
     final Notification n = service.raise(info("k").build()).block();
 
-    service.markRead("arun", List.of(n.id())).block();
+    service.markRead(ARUN, List.of(n.id())).block();
 
-    assertThat(service.receipts("arun", List.of(n.id())).collectList().block())
+    assertThat(service.receipts(ARUN, List.of(n.id())).collectList().block())
         .singleElement()
         .satisfies(r -> assertThat(r.readAt()).isNotNull());
     assertThat(service.receipts("local", List.of(n.id())).collectList().block()).isEmpty();
   }
 
   @Test
-  void anOpenActionCannotBeDismissedButAResolvedOneCan() {
-    final Notification n = service.raise(action("input:r1").build()).block();
+  void openActionCannotBeDismissedButResolvedOneCan() {
+    final Notification n = service.raise(action(KEY).build()).block();
 
-    StepVerifier.create(service.dismiss("arun", n.id()))
+    StepVerifier.create(service.dismiss(ARUN, n.id()))
         .expectError(IllegalStateException.class)
         .verify();
-    service.resolve("input:r1", "cancelled").block();
-    StepVerifier.create(service.dismiss("arun", n.id())).verifyComplete();
-    assertThat(service.receipts("arun", List.of(n.id())).blockFirst().dismissedAt()).isNotNull();
-    StepVerifier.create(service.dismiss("arun", "nope"))
+    service.resolve(KEY, "cancelled").block();
+    StepVerifier.create(service.dismiss(ARUN, n.id())).verifyComplete();
+    assertThat(service.receipts(ARUN, List.of(n.id())).blockFirst().dismissedAt()).isNotNull();
+    StepVerifier.create(service.dismiss(ARUN, "nope"))
         .expectError(NoSuchElementException.class)
         .verify();
   }
@@ -99,9 +106,9 @@ class NotificationServiceTest {
   void everyChangeGoesToTheStream() {
     StepVerifier.create(service.changes().take(3))
         .then(() -> {
-          service.raise(action("input:r1").build()).block();
-          service.raise(action("input:r1").build()).block();
-          service.resolve("input:r1", "answered").block();
+          service.raise(action(KEY).build()).block();
+          service.raise(action(KEY).build()).block();
+          service.resolve(KEY, "answered").block();
         })
         .expectNextMatches(c -> c.kind() == NotificationChange.Kind.CREATED)
         .expectNextMatches(c -> c.kind() == NotificationChange.Kind.UPDATED)

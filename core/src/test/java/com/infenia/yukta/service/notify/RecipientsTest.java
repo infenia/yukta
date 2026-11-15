@@ -21,7 +21,9 @@ import org.junit.jupiter.api.Test;
 @NoArgsConstructor
 class RecipientsTest {
 
-  private static Notification of(
+  private static final String OPERATOR = "role:OPERATOR";
+
+  private static Notification build(
       final NotificationKind kind, final @Nullable String session, final String... audience) {
     return new Notification(
         "id",
@@ -52,7 +54,7 @@ class RecipientsTest {
 
   @Test
   void roleSelectorMatchesTheRoleAndAbove() {
-    final Notification n = of(NotificationKind.INFO, null, "role:OPERATOR");
+    final Notification n = build(NotificationKind.INFO, null, OPERATOR);
 
     assertThat(Recipients.sees(n, key("v", ApiRole.VIEWER, false))).isFalse();
     assertThat(Recipients.sees(n, key("o", ApiRole.OPERATOR, false))).isTrue();
@@ -63,40 +65,39 @@ class RecipientsTest {
   void viewerSelectorLetsEveryoneSeeAnInfo() {
     assertThat(
             Recipients.sees(
-                of(NotificationKind.INFO, null, "role:VIEWER"), key("v", ApiRole.VIEWER, false)))
+                build(NotificationKind.INFO, null, "role:VIEWER"), key("v", ApiRole.VIEWER, false)))
         .isTrue();
   }
 
   @Test
   void keySelectorMatchesOnlyThatKey() {
-    final Notification n = of(NotificationKind.INFO, null, "key:arun");
+    final Notification n = build(NotificationKind.INFO, null, "key:arun");
 
     assertThat(Recipients.sees(n, key("arun", ApiRole.VIEWER, false))).isTrue();
     assertThat(Recipients.sees(n, key("sam", ApiRole.ADMIN, false))).isFalse();
   }
 
   @Test
-  void aSessionLimitedKeySeesOnlyItsSessionsAndThoseWithoutOne() {
+  void sessionLimitedKeySeesOnlyItsSessionsAndThoseWithoutOne() {
     final ApiKeys.Match scoped = key("team", ApiRole.OPERATOR, false, "a");
 
-    assertThat(Recipients.sees(of(NotificationKind.INFO, "a", "role:OPERATOR"), scoped)).isTrue();
-    assertThat(Recipients.sees(of(NotificationKind.INFO, "b", "role:OPERATOR"), scoped)).isFalse();
-    assertThat(Recipients.sees(of(NotificationKind.INFO, null, "role:OPERATOR"), scoped)).isTrue();
+    assertThat(Recipients.sees(build(NotificationKind.INFO, "a", OPERATOR), scoped)).isTrue();
+    assertThat(Recipients.sees(build(NotificationKind.INFO, "b", OPERATOR), scoped)).isFalse();
+    assertThat(Recipients.sees(build(NotificationKind.INFO, null, OPERATOR), scoped)).isTrue();
   }
 
   @Test
   void anAgentKeySeesNoActionByRoleButSeesOneThatNamesIt() {
     final ApiKeys.Match agent = key("bot", ApiRole.ADMIN, true);
 
-    assertThat(Recipients.sees(of(NotificationKind.ACTION, null, "role:OPERATOR"), agent))
-        .isFalse();
-    assertThat(Recipients.sees(of(NotificationKind.ACTION, null, "key:bot"), agent)).isTrue();
-    assertThat(Recipients.sees(of(NotificationKind.INFO, null, "role:OPERATOR"), agent)).isTrue();
+    assertThat(Recipients.sees(build(NotificationKind.ACTION, null, OPERATOR), agent)).isFalse();
+    assertThat(Recipients.sees(build(NotificationKind.ACTION, null, "key:bot"), agent)).isTrue();
+    assertThat(Recipients.sees(build(NotificationKind.INFO, null, OPERATOR), agent)).isTrue();
   }
 
   @Test
   void openServerAndUnnamedKeyShareTheLocalInbox() {
-    final Notification n = of(NotificationKind.ACTION, null, "key:local");
+    final Notification n = build(NotificationKind.ACTION, null, "key:local");
 
     assertThat(Recipients.recipient(null)).isEqualTo(Recipients.LOCAL);
     assertThat(Recipients.recipient(key("unnamed", ApiRole.ADMIN, false)))
@@ -113,7 +114,7 @@ class RecipientsTest {
     assertThat(Recipients.isSelector("supervisor:*")).isFalse();
     assertThat(Recipients.isSelector("role:ROOT")).isFalse();
     assertThat(Recipients.isSelector(null)).isFalse();
-    assertThat(action("x").build().audience()).containsExactly("role:OPERATOR");
-    assertThat(info("y").build().audience()).containsExactly("role:OPERATOR");
+    assertThat(action("x").build().audience()).containsExactly(OPERATOR);
+    assertThat(info("y").build().audience()).containsExactly(OPERATOR);
   }
 }

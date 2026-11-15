@@ -26,7 +26,11 @@ import reactor.core.publisher.Mono;
  * At most {@code maxItems} are kept: the oldest resolved action or info notification goes first,
  * and an active action is never evicted, so the bound can be exceeded by active actions.
  */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects", "PMD.UseConcurrentHashMap"})
 public final class InMemoryNotificationStore implements NotificationStore {
+
+  /** The smallest bound accepted. */
+  private static final int MIN_ITEMS = 1;
 
   /** Guards every map and the sequence. */
   private final ReentrantLock lock = new ReentrantLock();
@@ -35,16 +39,16 @@ public final class InMemoryNotificationStore implements NotificationStore {
   private final Map<String, Notification> byKey = new LinkedHashMap<>();
 
   /** The receipts by recipient, then notification id. */
-  private final Map<String, Map<String, Receipt>> receipts = new HashMap<>();
+  private final Map<String, Map<String, Receipt>> receiptsByRecipient = new HashMap<>();
 
   /** The preferences by recipient. */
-  private final Map<String, NotificationPreferences> preferences = new HashMap<>();
+  private final Map<String, NotificationPreferences> preferencesByRecipient = new HashMap<>();
 
   /** Most notifications kept. */
   private final int maxItems;
 
   /** Names this life of the sequence. */
-  private final String epoch = UUID.randomUUID().toString();
+  private final String epochId = UUID.randomUUID().toString();
 
   /** The last sequence handed out. */
   private long seq;
@@ -55,13 +59,14 @@ public final class InMemoryNotificationStore implements NotificationStore {
    * @param maxItems most notifications kept; at least 1
    */
   public InMemoryNotificationStore(final int maxItems) {
-    if (maxItems < 1) {
+    if (maxItems < MIN_ITEMS) {
       throw new IllegalArgumentException("maxItems must be at least 1");
     }
     this.maxItems = maxItems;
   }
 
   @Override
+  @SuppressWarnings("PMD.CompareObjectsWithEquals")
   public Mono<Notification> upsert(
       final String key, final Function<Optional<Notification>, Notification> merge) {
     return Mono.fromSupplier(() ->
@@ -72,7 +77,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
             return current;
           }
           final String id = current == null ? UUID.randomUUID().toString() : current.id();
-          final Notification stored = merged.stored(id, ++seq);
+          final Notification stored = merged.stored(id, nextSeq());
           byKey.put(key, stored);
           evict();
           return stored;
@@ -87,7 +92,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
           if (current == null || current.state() == Notification.State.RESOLVED) {
             return null;
           }
-          final Notification stored = current.resolved(resolution, ++seq, at);
+          final Notification stored = current.resolved(resolution, nextSeq(), at);
           byKey.put(key, stored);
           return stored;
         }));
@@ -107,14 +112,14 @@ public final class InMemoryNotificationStore implements NotificationStore {
 
   @Override
   public Flux<Notification> find(final NotificationQuery query) {
+    final String session = query.sessionId();
     return Flux.defer(() ->
         Flux.fromIterable(
             locked(() ->
                 byKey.values().stream()
                     .filter(n -> query.state() == null || n.state() == query.state())
                     .filter(n -> query.kind() == null || n.kind() == query.kind())
-                    .filter(
-                        n -> query.sessionId() == null || query.sessionId().equals(n.sessionId()))
+                    .filter(n -> session == null || session.equals(n.sessionId()))
                     .filter(n -> n.seq() > query.sinceSeq())
                     .sorted(Comparator.comparingLong(Notification::seq).reversed())
                     .toList())));
@@ -124,7 +129,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
   public Mono<Void> saveReceipt(final Receipt receipt) {
     return Mono.fromRunnable(() ->
         locked(() ->
-            receipts
+            receiptsByRecipient
                 .computeIfAbsent(receipt.recipient(), r -> new HashMap<>())
                 .put(receipt.notificationId(), receipt)));
   }
@@ -134,7 +139,8 @@ public final class InMemoryNotificationStore implements NotificationStore {
     return Flux.defer(() ->
         Flux.fromIterable(
             locked(() -> {
-              final Map<String, Receipt> mine = receipts.getOrDefault(recipient, Map.of());
+              final Map<String, Receipt> mine =
+                  receiptsByRecipient.getOrDefault(recipient, Map.of());
               final List<Receipt> found = new ArrayList<>();
               for (final String id : ids) {
                 final Receipt receipt = mine.get(id);
@@ -150,12 +156,14 @@ public final class InMemoryNotificationStore implements NotificationStore {
   public Mono<NotificationPreferences> preferences(final String recipient) {
     return Mono.fromSupplier(() ->
         locked(() ->
-            preferences.getOrDefault(recipient, NotificationPreferences.defaults(recipient))));
+            preferencesByRecipient.getOrDefault(
+                recipient, NotificationPreferences.defaults(recipient))));
   }
 
   @Override
   public Mono<Void> savePreferences(final NotificationPreferences value) {
-    return Mono.fromRunnable(() -> locked(() -> preferences.put(value.recipient(), value)));
+    return Mono.fromRunnable(
+        () -> locked(() -> preferencesByRecipient.put(value.recipient(), value)));
   }
 
   @Override
@@ -178,7 +186,7 @@ public final class InMemoryNotificationStore implements NotificationStore {
 
   @Override
   public String epoch() {
-    return epoch;
+    return epochId;
   }
 
   /** Whether the notification may be evicted or purged: not an active action. */
@@ -198,8 +206,13 @@ public final class InMemoryNotificationStore implements NotificationStore {
     }
   }
 
+  private long nextSeq() {
+    seq++;
+    return seq;
+  }
+
   private void forget(final Notification n) {
-    receipts.values().forEach(mine -> mine.remove(n.id()));
+    receiptsByRecipient.values().forEach(mine -> mine.remove(n.id()));
   }
 
   private <T> T locked(final Supplier<T> body) {

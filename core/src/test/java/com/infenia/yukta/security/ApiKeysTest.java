@@ -19,7 +19,7 @@ class ApiKeysTest {
       "sha256:2bb80d537b1da3e38bd30361aa855686bde0eacd7162fef6a25fe97bf527a25b";
 
   @Test
-  void read_refusesAKeyNamedLocal() {
+  void read_refusesKeyNamedLocal() {
     final var env =
         new MockEnvironment()
             .withProperty("yukta.api-keys[0].name", "local")

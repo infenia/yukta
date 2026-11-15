@@ -10,12 +10,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.infenia.yukta.plugin.notify.Notification;
 import com.infenia.yukta.service.input.InputTestSupport.MutableClock;
 import com.infenia.yukta.service.redact.InputRedactor;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.util.List;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.Test;
 
 @NoArgsConstructor
+@SuppressFBWarnings(
+    value = "NP_NULL_ON_SOME_PATH_FROM_RETURN_VALUE",
+    justification = "block() of a store call that always emits")
 class InMemoryNotificationStoreTest {
 
   private final MutableClock clock = new MutableClock();
@@ -25,7 +29,7 @@ class InMemoryNotificationStoreTest {
   }
 
   @Test
-  void aBoundOfZeroIsRefused() {
+  void boundOfZeroIsRefused() {
     assertThatThrownBy(() -> new InMemoryNotificationStore(0))
         .isInstanceOf(IllegalArgumentException.class);
   }

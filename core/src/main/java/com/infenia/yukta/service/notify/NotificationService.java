@@ -28,6 +28,7 @@ import reactor.core.publisher.Sinks;
  * whether a question is still open: that stays the input request's state.
  */
 @Component
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.CouplingBetweenObjects"})
 public class NotificationService {
 
   /** The store. */
@@ -40,7 +41,7 @@ public class NotificationService {
   private final Clock clock;
 
   /** Every change, for the subscribers of the stream. */
-  private final Sinks.Many<NotificationChange> changes =
+  private final Sinks.Many<NotificationChange> changeSink =
       Sinks.many().multicast().directBestEffort();
 
   /**
@@ -106,15 +107,35 @@ public class NotificationService {
     if (current != null && current.state() == Notification.State.RESOLVED) {
       return current;
     }
-    final boolean repeat =
-        current != null
-            && !draft.cooldown().isZero()
-            && now.isBefore(current.updatedAt().plus(draft.cooldown()));
-    final int count = current == null ? 1 : current.count() + (repeat ? 1 : 0);
     happened.set(
         current == null ? NotificationChange.Kind.CREATED : NotificationChange.Kind.UPDATED);
-    return new Notification(
+    return draftOf(
+        draft,
         current == null ? "" : current.id(),
+        count(draft, current, now),
+        current == null ? now : current.createdAt(),
+        now);
+  }
+
+  /** A repeat inside the cooldown raises the count; anything else keeps it. */
+  private static int count(
+      final NotificationDraft draft, final @Nullable Notification current, final Instant now) {
+    if (current == null) {
+      return 1;
+    }
+    final boolean repeat =
+        !draft.cooldown().isZero() && now.isBefore(current.updatedAt().plus(draft.cooldown()));
+    return current.count() + (repeat ? 1 : 0);
+  }
+
+  private Notification draftOf(
+      final NotificationDraft draft,
+      final String id,
+      final int count,
+      final Instant createdAt,
+      final Instant now) {
+    return new Notification(
+        id,
         draft.key(),
         draft.kind(),
         draft.severity(),
@@ -131,7 +152,7 @@ public class NotificationService {
         null,
         count,
         0,
-        current == null ? now : current.createdAt(),
+        createdAt,
         now);
   }
 
@@ -270,7 +291,7 @@ public class NotificationService {
    * @return the changes
    */
   public Flux<NotificationChange> changes() {
-    return changes.asFlux();
+    return changeSink.asFlux();
   }
 
   /**
@@ -283,6 +304,6 @@ public class NotificationService {
   }
 
   private void publish(final NotificationChange change) {
-    SinkEmit.offer(changes, change);
+    SinkEmit.offer(changeSink, change);
   }
 }

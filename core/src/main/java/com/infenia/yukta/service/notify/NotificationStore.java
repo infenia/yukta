@@ -14,6 +14,7 @@ import reactor.core.publisher.Mono;
  * Where notifications, receipts and preferences are kept. In memory in Community, PostgreSQL in
  * Plus. Every change of a notification advances one sequence; the store assigns it.
  */
+@SuppressWarnings("PMD.TooManyMethods")
 public interface NotificationStore {
 
   /**

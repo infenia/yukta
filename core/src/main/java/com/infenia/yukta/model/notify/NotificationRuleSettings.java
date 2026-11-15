@@ -75,6 +75,23 @@ public record NotificationRuleSettings(
       throw new IllegalArgumentException(
           where + ".category must be one of " + CATEGORIES.stream().sorted().toList());
     }
+    if (cooldown.isNegative()) {
+      throw new IllegalArgumentException(where + ".cooldown must not be negative");
+    }
+    checkAudience(where);
+    for (final String channel : channels) {
+      if (!isConfigured(channel, configured)) {
+        throw new IllegalArgumentException(
+            where
+                + ".channels: '"
+                + channel
+                + "' is not configured under"
+                + " yukta.notifications.channels.<type>.<name>");
+      }
+    }
+  }
+
+  private void checkAudience(final String where) {
     for (final String selector : audience) {
       if (!isSelector(selector)) {
         throw new IllegalArgumentException(
@@ -84,20 +101,12 @@ public record NotificationRuleSettings(
                 + "' is not role:VIEWER|OPERATOR|ADMIN or key:<name>");
       }
     }
-    if (cooldown.isNegative()) {
-      throw new IllegalArgumentException(where + ".cooldown must not be negative");
-    }
-    for (final String channel : channels) {
-      final int colon = channel.indexOf(':');
-      final Map<String, ?> ofType = colon < 0 ? null : configured.get(channel.substring(0, colon));
-      if (ofType == null || !ofType.containsKey(channel.substring(colon + 1))) {
-        throw new IllegalArgumentException(
-            where
-                + ".channels: '"
-                + channel
-                + "' is not configured under"
-                + " yukta.notifications.channels.<type>.<name>");
-      }
-    }
+  }
+
+  private static boolean isConfigured(
+      final String channel, final Map<String, ? extends Map<String, ?>> configured) {
+    final int colon = channel.indexOf(':');
+    final Map<String, ?> ofType = colon < 0 ? null : configured.get(channel.substring(0, colon));
+    return ofType != null && ofType.containsKey(channel.substring(colon + 1));
   }
 }

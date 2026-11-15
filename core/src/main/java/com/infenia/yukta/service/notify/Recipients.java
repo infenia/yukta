@@ -66,16 +66,21 @@ public class Recipients {
     final boolean person = caller == null || !caller.agent();
     final boolean action = notification.kind() == NotificationKind.ACTION;
     for (final String selector : notification.audience()) {
-      if (selector.startsWith(KEY)) {
-        if (selector.substring(KEY.length()).equals(me)) {
-          return true;
-        }
-      } else if (selector.startsWith(ROLE)
-          && role.compareTo(ApiRole.valueOf(selector.substring(ROLE.length()))) >= 0
-          && (person || !action)) {
+      if (selects(selector, me, role, person || !action)) {
         return true;
       }
     }
     return false;
+  }
+
+  /** Whether one selector lets this caller in: its key, or a role at or below the caller's. */
+  private static boolean selects(
+      final String selector, final String me, final ApiRole role, final boolean mayAct) {
+    if (selector.startsWith(KEY)) {
+      return selector.substring(KEY.length()).equals(me);
+    }
+    return mayAct
+        && selector.startsWith(ROLE)
+        && role.compareTo(ApiRole.valueOf(selector.substring(ROLE.length()))) >= 0;
   }
 }
