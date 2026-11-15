@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -10,6 +10,7 @@ import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
 import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -37,7 +38,12 @@ import tools.jackson.databind.ObjectMapper;
  */
 @NoArgsConstructor
 @DisabledOnOs(OS.WINDOWS)
-@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+@SuppressWarnings({
+  "PMD.AvoidDuplicateLiterals",
+  "PMD.TooManyMethods",
+  "PMD.CouplingBetweenObjects",
+  "PMD.GodClass"
+})
 class AgentSessionPluginTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
@@ -49,12 +55,20 @@ class AgentSessionPluginTest {
 
   @TempDir private Path dir;
 
+  /** Records what the plugin writes to its conversations. */
+  private final RecordingGateway recording = new RecordingGateway();
+
   private AgentSessionPlugin plugin;
 
   /** The input request system the plugin sees; tests set it. */
   private final java.util.concurrent.atomic.AtomicReference<
           com.infenia.yukta.plugin.input.InputGateway>
       inputGateway = new java.util.concurrent.atomic.AtomicReference<>();
+
+  /** The conversation gateway the plugin sees; none unless a test sets one. */
+  private final java.util.concurrent.atomic.AtomicReference<
+          com.infenia.yukta.plugin.agent.AgentConversationGateway>
+      conversationGateway = new java.util.concurrent.atomic.AtomicReference<>();
 
   private final List<com.infenia.yukta.plugin.input.InputRequestSpec> asked =
       new CopyOnWriteArrayList<>();
@@ -89,6 +103,15 @@ class AgentSessionPluginTest {
       inputs() {
     final var provider = mock(org.springframework.beans.factory.ObjectProvider.class);
     when(provider.getIfAvailable()).thenAnswer(i -> inputGateway.get());
+    return provider;
+  }
+
+  @SuppressWarnings("unchecked")
+  private org.springframework.beans.factory.ObjectProvider<
+          com.infenia.yukta.plugin.agent.AgentConversationGateway>
+      conversations() {
+    final var provider = mock(org.springframework.beans.factory.ObjectProvider.class);
+    when(provider.getIfAvailable()).thenAnswer(i -> conversationGateway.get());
     return provider;
   }
 
@@ -152,11 +175,57 @@ class AgentSessionPluginTest {
     Files.writeString(
         dir.resolve("rmissing.json"),
         resumable(preset("rmissing", "x").replace("\"sh\"", "\"/no/such/program\"")));
+    Files.writeString(
+        dir.resolve("noisy.json"),
+        preset(
+            "noisy",
+            "echo oops >&2; "
+                + lines(
+                    "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,"
+                        + "\"result\":\"ok\",\"session_id\":\"s4\"}")));
+    Files.writeString(
+        dir.resolve("modeled.json"),
+        preset(
+                "modeled",
+                lines(
+                    "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,"
+                        + "\"result\":\"ok\",\"session_id\":\"s5\"}"))
+            .replace("\"modelArgs\":[]", "\"modelArgs\":[\"--model\",\"{model}\"]"));
+    Files.writeString(
+        dir.resolve("capable.json"),
+        preset(
+                "capable",
+                lines(
+                    "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,"
+                        + "\"result\":\"ok\",\"session_id\":\"s7\"}"))
+            .replace("\"stream\":true", "\"stream\":true,\"resume\":true"));
+    Files.writeString(
+        dir.resolve("mute.json"),
+        preset(
+                "mute",
+                lines(
+                    "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,"
+                        + "\"result\":\"ok\",\"session_id\":\"s8\"}"))
+            .replace("\"stream\":true", "\"stream\":true,\"ask\":true"));
+    Files.writeString(
+        dir.resolve("acp.json"),
+        preset("acp", "x").replace("\"id\":\"acp\"", "\"id\":\"acp\",\"protocol\":\"acp\""));
+    Files.writeString(
+        dir.resolve("thinker.json"),
+        preset(
+                "thinker",
+                lines(
+                    "{\"type\":\"result\",\"subtype\":\"success\","
+                        + "\"is_error\":false,\"result\":\"ok\",\"session_id\":\"s6\"}"))
+            .replace(
+                "\"live\":[",
+                "\"live\":[{\"when\":{\"type\":\"assistant\"},\"text\":\"message.content[*].text\","
+                    + "\"kind\":\"thought\"},"));
     final VariableResolver resolver = mock(VariableResolver.class);
     when(resolver.resolve(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any()))
         .thenAnswer(i -> Mono.just(i.getArgument(0)));
     final ProcessExecutorGateway gateway = new ProcessExecutorGateway();
-    gateway.setAllowAny(true);
+    org.springframework.test.util.ReflectionTestUtils.setField(gateway, "allowAny", true);
     try {
       plugin =
           new AgentSessionPlugin(
@@ -165,6 +234,7 @@ class AgentSessionPluginTest {
               new AgentHarnesses(JSON, dir.toString()),
               new InMemoryAgentSessionStore(),
               inputs(),
+              conversations(),
               JSON);
     } catch (IOException e) {
       throw new IllegalStateException(e);
@@ -207,7 +277,7 @@ class AgentSessionPluginTest {
   }
 
   @Test
-  void anErrorResult_goesToFailureWithTheReason() {
+  void errorResult_goesToFailureWithTheReason() {
     final Message<?> out = run("failed", new CopyOnWriteArrayList<>());
 
     assertThat(out.sourcePort()).isEqualTo("failure");
@@ -239,8 +309,9 @@ class AgentSessionPluginTest {
   void validateConfig_namesTheKnownHarnessesAndRefusesWhatItCannotDo() {
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "nope", "prompt", "p")))
         .expectErrorMessage(
-            "unknown harness 'nope'; one of [asker, claude-code, codex, crash, failed, max, ok,"
-                + " rcrash, resumable, rmissing, slow]")
+            "unknown harness 'nope'; one of [acp, asker, capable, claude-code, codex, crash,"
+                + " failed, max, modeled, mute, noisy, ok, rcrash, resumable, rmissing, slow,"
+                + " thinker]")
         .verify();
     StepVerifier.create(plugin.validateConfig(Map.of("harness", "ok", "prompt", "p", "model", "m")))
         .expectErrorMessage("harness 'ok' does not take a model; remove model")
@@ -253,17 +324,23 @@ class AgentSessionPluginTest {
   void theConfigSchemaListsTheHarnessesAsOptions() {
     assertThat(plugin.getConfigSchema().getFirst().options())
         .containsExactly(
+            "acp",
             "asker",
+            "capable",
             "claude-code",
             "codex",
             "crash",
             "failed",
             "max",
+            "modeled",
+            "mute",
+            "noisy",
             "ok",
             "rcrash",
             "resumable",
             "rmissing",
-            "slow");
+            "slow",
+            "thinker");
     assertThat(plugin.describe().usagePattern()).contains("ok: fixture");
   }
 
@@ -275,31 +352,6 @@ class AgentSessionPluginTest {
     assertThat(claude.capabilities()).contains("stream", "resume");
     assertThat(claude.maxTurnsArgs()).containsExactly("--max-turns", "{maxTurns}");
     assertThat(claude.output().incompleteSubtypes()).containsExactly("error_max_turns");
-  }
-
-  @Test
-  void linesRecordedFromTheRealClaudeCode_areRead() throws IOException {
-    final AgentPreset claude = new AgentHarnesses(JSON, "").get("claude-code");
-    final List<String> log = new CopyOnWriteArrayList<>();
-    final AgentOutput output =
-        new AgentOutput(claude.output(), (stream, line, level) -> log.add(line), JSON);
-
-    // recorded from `claude -p ... --output-format stream-json --verbose` (2.1.322)
-    output.line("stdout", "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"108aa031\"}");
-    output.line(
-        "stdout",
-        "{\"type\":\"assistant\",\"message\":{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}]},"
-            + "\"session_id\":\"108aa031\"}");
-    output.line(
-        "stdout",
-        "{\"type\":\"result\",\"subtype\":\"success\",\"is_error\":false,\"result\":\"hi\","
-            + "\"session_id\":\"108aa031\"}");
-
-    assertThat(log).containsExactly("hi");
-    assertThat(output.outcome(0, false, 600))
-        .containsEntry("status", "success")
-        .containsEntry("text", "hi")
-        .containsEntry("sessionId", "108aa031");
   }
 
   private Message<?> runIn(final String harness, final String session, final String onBusy) {
@@ -446,49 +498,6 @@ class AgentSessionPluginTest {
   }
 
   @Test
-  void theCodexPreset_readsTheThreadAndTheLastAgentMessage() throws IOException {
-    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
-    final List<String> log = new CopyOnWriteArrayList<>();
-    final AgentOutput output =
-        new AgentOutput(codex.output(), (stream, line, level) -> log.add(line), JSON);
-
-    // the shape documented for `codex exec --json`; not recorded from a real run
-    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-1\"}");
-    output.line("stdout", "{\"type\":\"turn.started\"}");
-    output.line(
-        "stdout",
-        "{\"type\":\"item.started\",\"item\":{\"id\":\"i1\",\"type\":\"command_execution\","
-            + "\"command\":\"ls\"}}");
-    output.line(
-        "stdout",
-        "{\"type\":\"item.completed\",\"item\":{\"id\":\"i2\",\"type\":\"agent_message\","
-            + "\"text\":\"all done\"}}");
-    output.line(
-        "stdout",
-        "{\"type\":\"turn.completed\",\"usage\":{\"input_tokens\":1,\"output_tokens\":2}}");
-
-    assertThat(log).containsExactly("run: ls", "all done");
-    assertThat(output.outcome(0, false, 600))
-        .containsEntry("status", "success")
-        .containsEntry("text", "all done")
-        .containsEntry("sessionId", "th-1");
-  }
-
-  @Test
-  void theCodexPreset_failedTurnIsFailureWithItsReason() throws IOException {
-    final AgentPreset codex = new AgentHarnesses(JSON, "").get("codex");
-    final AgentOutput output = new AgentOutput(codex.output(), PluginLogSink.NOOP, JSON);
-
-    output.line("stdout", "{\"type\":\"thread.started\",\"thread_id\":\"th-2\"}");
-    output.line("stdout", "{\"type\":\"turn.failed\",\"error\":{\"message\":\"quota exceeded\"}}");
-
-    assertThat(output.outcome(1, false, 600))
-        .containsEntry("status", "failure")
-        .containsEntry("reason", "quota exceeded")
-        .containsEntry("sessionId", "th-2");
-  }
-
-  @Test
   void theCodexPreset_cannotTakeMaxTurnsSessionsOrApprovals() {
     // the shipped preset declares only what it was written to do
     StepVerifier.create(
@@ -577,5 +586,306 @@ class AgentSessionPluginTest {
 
     assertThat(next.sourcePort()).isEqualTo("success");
     assertThat(payload(next)).containsEntry("turn", 1);
+  }
+
+  // --- conversations ---
+
+  private Message<?> runInNode(
+      final String harness, final Map<String, Object> extra, final List<String> log) {
+    final Map<String, Object> config = new java.util.concurrent.ConcurrentHashMap<>(extra);
+    config.putAll(Map.of("harness", harness, "prompt", "fix it"));
+    final PluginLogSink sink = (stream, line, level) -> log.add(stream + ":" + line);
+    return plugin
+        .process(Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")), config)
+        .contextWrite(
+            Context.of(
+                "sessionId",
+                "s-1",
+                "workflowId",
+                "w-1",
+                "executionId",
+                "e-1",
+                "nodeId",
+                "n-1",
+                WorkflowContext.LOG_SINK_KEY,
+                sink))
+        .collectList()
+        .blockOptional(Duration.ofSeconds(30))
+        .orElseThrow()
+        .getFirst();
+  }
+
+  private Message<?> runRecorded(
+      final String harness, final Map<String, Object> extra, final List<String> log) {
+    conversationGateway.set(recording);
+    return runInNode(harness, extra, log);
+  }
+
+  @Test
+  void runWritesItsConversationInOrderAndTheRunLogIsTheSameAsBefore() {
+    final List<String> log = new CopyOnWriteArrayList<>();
+
+    final Message<?> out = runRecorded("ok", Map.of(), log);
+
+    assertThat(recording.calls)
+        .containsExactly(
+            "emit MESSAGE prompt {role=user, text=fix it, author=prompt, more=false}",
+            "state RUNNING null",
+            "emit MESSAGE m1 {role=agent, text=working, more=false}",
+            "emit TOOL t2 {title=Read, status=running}",
+            "emit TOOL t2 {status=completed}",
+            "emit RESULT null {status=success, text=done: fix it, turn=1}",
+            "end success null");
+    assertThat(log).containsExactly("agent:working", "agent:tool: Read");
+    assertThat(payload(out))
+        .containsEntry("conversationId", "c-1")
+        .containsEntry("status", "success");
+    final var spec = recording.specs.getFirst();
+    assertThat(spec.harness()).isEqualTo("ok");
+    assertThat(spec.protocol()).isEqualTo(com.infenia.yukta.plugin.agent.AgentProtocol.JSONL);
+    assertThat(spec.who().executionId()).isEqualTo("e-1");
+    assertThat(spec.who().nodeId()).isEqualTo("n-1");
+    assertThat(spec.model()).isNull();
+    assertThat(spec.capabilities()).isEmpty();
+    assertThat(spec.steerAudience().selectors()).containsExactly("role:OPERATOR");
+  }
+
+  @Test
+  void failedTurnEndsTheConversationAsFailureAndFailsItsTools() {
+    runRecorded("failed", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.calls)
+        .contains(
+            "emit TOOL t2 {status=failed}",
+            "emit RESULT null {status=failure, reason=Not logged in, text=Not logged in, turn=1}",
+            "end failure Not logged in");
+  }
+
+  @Test
+  void turnThatStoppedEarlyEndsTheConversationAsIncomplete() {
+    runRecorded("max", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.calls.getLast()).isEqualTo("end incomplete error_max_turns");
+  }
+
+  @Test
+  void standardErrorBecomesTheNoticeAndTheRunLogIsUnchanged() {
+    final List<String> log = new CopyOnWriteArrayList<>();
+
+    runRecorded("noisy", Map.of(), log);
+
+    assertThat(recording.calls).contains("emit NOTICE null {level=WARN, text=oops}");
+    // the run log is unchanged: standard error was merged into standard output before
+    assertThat(log).contains("stdout:oops");
+  }
+
+  @Test
+  void ruleOfKindThoughtWritesTheThoughtAndTheModelIsRecorded() {
+    runRecorded("thinker", Map.of(), new CopyOnWriteArrayList<>());
+    recording.calls.clear();
+    recording.specs.clear();
+    runRecorded("modeled", Map.of("model", "opus"), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.specs.getFirst().model()).isEqualTo("opus");
+  }
+
+  @Test
+  void thoughtRuleBecomesTheMessageWithTheRoleThought() {
+    runRecorded("thinker", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.calls)
+        .contains("emit MESSAGE m1 {role=thought, text=working, more=false}");
+  }
+
+  @Test
+  void harnessThatCanResumeAndAskSaysSo() {
+    runRecorded("capable", Map.of(), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.specs.getFirst().capabilities()).containsExactly("resume");
+  }
+
+  @Test
+  void processThatCannotStartEndsTheConversationAsFailureAndTheNodeFails() {
+    conversationGateway.set(recording);
+
+    StepVerifier.create(
+            plugin
+                .process(
+                    Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")),
+                    Map.of("harness", "rmissing", "prompt", "p"))
+                .contextWrite(
+                    Context.of(
+                        "sessionId",
+                        "s-1",
+                        "workflowId",
+                        "w-1",
+                        "executionId",
+                        "e-1",
+                        "nodeId",
+                        "n-1")))
+        .expectError()
+        .verify(Duration.ofSeconds(30));
+
+    assertThat(recording.calls.getLast()).startsWith("end failure ");
+  }
+
+  @Test
+  void cancelledRunEndsTheConversationAsIncomplete() {
+    conversationGateway.set(recording);
+    final reactor.core.Disposable running =
+        plugin
+            .process(
+                Flux.just(DefaultMessage.create(UUID.randomUUID(), "in")),
+                Map.of("harness", "slow", "prompt", "p"))
+            .contextWrite(
+                Context.of(
+                    "sessionId", "s-1", "workflowId", "w-1", "executionId", "e-1", "nodeId", "n-1"))
+            .subscribe();
+    org.awaitility.Awaitility.await().until(() -> !recording.calls.isEmpty());
+    running.dispose();
+
+    org.awaitility.Awaitility.await()
+        .until(() -> recording.calls.contains("end incomplete cancelled"));
+    assertThat(recording.calls).contains("state RUNNING null", "end incomplete cancelled");
+  }
+
+  @Test
+  void approvalIsTheRequestEventAndTheConversationWaitsWhileItIsOpen() {
+    conversationGateway.set(recording);
+
+    runAsking(answering("approve", null), Map.of());
+
+    assertThat(recording.calls)
+        .contains("state WAITING approval", "state RUNNING null", "end success null");
+    assertThat(recording.calls.stream().filter(c -> c.startsWith("emit REQUEST r1 ")))
+        .hasSize(2)
+        .satisfiesExactly(
+            opened ->
+                assertThat(opened)
+                    .contains("inputKind=APPROVAL", "state=open", "tool=Bash")
+                    .contains("list files"),
+            answered ->
+                assertThat(answered)
+                    .contains(
+                        "inputRequestId=req-1",
+                        "state=answered",
+                        "decision=approve",
+                        "by=system:system"));
+    assertThat(recording.specs.getFirst().capabilities()).contains("ask");
+  }
+
+  @Test
+  void expiredOrCancelledOrFailedApprovalIsEndedInTheRequestEvent() {
+    conversationGateway.set(recording);
+    runAsking(
+        spec ->
+            Mono.error(new com.infenia.yukta.plugin.input.InputExpiredException("req-9", "late")),
+        Map.of());
+    runAsking(
+        spec ->
+            Mono.error(new com.infenia.yukta.plugin.input.InputCancelledException("req-9", "gone")),
+        Map.of());
+    runAsking(spec -> Mono.error(new IllegalStateException("no input system")), Map.of());
+
+    assertThat(recording.calls)
+        .contains(
+            "emit REQUEST r1 {state=expired, reason=InputExpiredException}",
+            "emit REQUEST r1 {state=cancelled, reason=InputCancelledException}",
+            "emit REQUEST r1 {state=cancelled, reason=no input system}");
+  }
+
+  @Test
+  void withoutTheGatewayOrAnIdentityOrWhenOpeningFailsThereIsNoConversationAndTheRunGoesOn() {
+    final Message<?> noGateway = run("ok", new CopyOnWriteArrayList<>());
+    conversationGateway.set(recording);
+    final Message<?> noIdentity = run("ok", new CopyOnWriteArrayList<>());
+    conversationGateway.set(spec -> Mono.error(new IllegalStateException("store down")));
+    final Message<?> failing = runInNode("ok", Map.of(), new CopyOnWriteArrayList<>());
+    conversationGateway.set(null);
+
+    assertThat(payload(noGateway))
+        .doesNotContainKey("conversationId")
+        .containsEntry("status", "success");
+    assertThat(payload(noIdentity)).doesNotContainKey("conversationId");
+    assertThat(payload(failing))
+        .doesNotContainKey("conversationId")
+        .containsEntry("status", "success");
+    assertThat(recording.specs).isEmpty();
+  }
+
+  @Test
+  void harnessOfTheProtocolThisServerDoesNotSpeakIsRefusedWhenTheNodeIsChecked() {
+    StepVerifier.create(plugin.validateConfig(Map.of("harness", "acp", "prompt", "p")))
+        .expectErrorMessage(
+            "harness 'acp' speaks the protocol ACP, which this server does not support yet")
+        .verify();
+  }
+
+  @Test
+  void askingForApprovalsOfTheHarnessWithoutTheConversationBlockClaimsNoAskCapability() {
+    runRecorded("mute", Map.of("approvals", "ASK"), new CopyOnWriteArrayList<>());
+
+    assertThat(recording.specs.getFirst().capabilities()).isEmpty();
+  }
+
+  /** Records what the plugin writes to a conversation, as readable lines. */
+  private static final class RecordingGateway
+      implements com.infenia.yukta.plugin.agent.AgentConversationGateway {
+
+    private final List<String> calls = new CopyOnWriteArrayList<>();
+    private final List<com.infenia.yukta.plugin.agent.AgentConversationSpec> specs =
+        new CopyOnWriteArrayList<>();
+
+    @Override
+    public Mono<com.infenia.yukta.plugin.agent.AgentConversationHandle> open(
+        final com.infenia.yukta.plugin.agent.AgentConversationSpec spec) {
+      specs.add(spec);
+      return Mono.just(new RecordingHandle(calls));
+    }
+  }
+
+  /** The handle of {@link RecordingGateway}. */
+  private static final class RecordingHandle
+      implements com.infenia.yukta.plugin.agent.AgentConversationHandle {
+
+    private final List<String> calls;
+
+    private RecordingHandle(final List<String> calls) {
+      this.calls = calls;
+    }
+
+    @Override
+    @SuppressWarnings("PMD.ShortMethodName")
+    public String id() {
+      return "c-1";
+    }
+
+    @Override
+    public void emit(
+        final com.infenia.yukta.plugin.agent.AgentEventKind kind,
+        final String itemId,
+        final Map<String, Object> data) {
+      calls.add("emit " + kind + " " + itemId + " " + data);
+    }
+
+    @Override
+    public void state(final com.infenia.yukta.plugin.agent.AgentState state, final String reason) {
+      calls.add("state " + state + " " + reason);
+    }
+
+    @Override
+    public void queued(final int count) {
+      calls.add("queued " + count);
+    }
+
+    @Override
+    public Flux<com.infenia.yukta.plugin.agent.AgentCommand> commands() {
+      return Flux.never();
+    }
+
+    @Override
+    public void end(final String outcome, final String reason) {
+      calls.add("end " + outcome + " " + reason);
+    }
   }
 }

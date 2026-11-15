@@ -1,24 +1,45 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession;
 
 import com.infenia.yukta.message.DefaultMessage;
 import com.infenia.yukta.message.Message;
+import com.infenia.yukta.plugin.agent.AgentCapability;
+import com.infenia.yukta.plugin.agent.AgentConversationGateway;
+import com.infenia.yukta.plugin.agent.AgentConversationHandle;
+import com.infenia.yukta.plugin.agent.AgentConversationSpec;
+import com.infenia.yukta.plugin.agent.AgentProtocol;
+import com.infenia.yukta.plugin.agentsession.adapter.AgentAdapter;
+import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
+import com.infenia.yukta.plugin.agentsession.adapter.AgentRun;
+import com.infenia.yukta.plugin.agentsession.adapter.JsonlAdapter;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.core.PluginDescriptor;
+import com.infenia.yukta.plugin.core.PluginLogSink;
 import com.infenia.yukta.plugin.core.PluginTier;
+import com.infenia.yukta.plugin.core.WorkflowContext;
+import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputGateway;
+import com.infenia.yukta.plugin.input.InputIdentity;
+import com.infenia.yukta.plugin.process.ProcessExecutionSpec;
+import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.type.ProcessorPlugin;
 import com.infenia.yukta.plugin.util.ConfigValidation;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.time.Duration;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.context.ContextView;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -28,10 +49,20 @@ import tools.jackson.databind.ObjectMapper;
  * ProcessExecutorGateway}, so the operator's command allow-list applies, and cancelling the run
  * kills it.
  */
-@SuppressWarnings("PMD.CouplingBetweenObjects")
+@Slf4j
+@SuppressWarnings({
+  "PMD.CouplingBetweenObjects",
+  "PMD.TooManyMethods",
+  "PMD.ExcessiveImports",
+  "PMD.UseConcurrentHashMap"
+})
 public final class AgentSessionPlugin implements ProcessorPlugin {
 
   private static final String TYPE = "AGENT_SESSION";
+
+  /** Who may steer a conversation until the node can say (Q1 of ADR 0004: operators only). */
+  private static final Audience STEER_AUDIENCE = new Audience(List.of("role:OPERATOR"));
+
   private static final String FAILURE = "failure";
   private static final String STATUS = "status";
   private static final Duration BUSY_POLL = Duration.ofMillis(250);
@@ -41,7 +72,10 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
   private final VariableResolver resolver;
   private final AgentSessionConfig settings;
   private final AgentSessionStore sessions;
-  private final AgentTurn agent;
+  private final ObjectProvider<AgentConversationGateway> conversations;
+
+  /** The adapters by protocol; a preset of another protocol is refused when the node is checked. */
+  private final Map<AgentProtocol, AgentAdapter> adapters = new EnumMap<>(AgentProtocol.class);
 
   /** What a message resolved to for one turn. */
   /* default */ record Turn(
@@ -55,6 +89,7 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
    * @param harnesses the presets
    * @param sessions remembers sessions between turns
    * @param inputs the input request system, for approvals
+   * @param conversations records the conversations; none when {@code yukta.agents.enabled} is false
    * @param json the JSON mapper
    */
   public AgentSessionPlugin(
@@ -63,11 +98,14 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
       final AgentHarnesses harnesses,
       final AgentSessionStore sessions,
       final ObjectProvider<InputGateway> inputs,
+      final ObjectProvider<AgentConversationGateway> conversations,
       final ObjectMapper json) {
     this.resolver = resolver;
     this.settings = new AgentSessionConfig(harnesses);
     this.sessions = sessions;
-    this.agent = new AgentTurn(gateway, inputs, json);
+    this.conversations = conversations;
+    final AgentAdapter jsonl = new JsonlAdapter(gateway, inputs, json);
+    adapters.put(jsonl.protocol(), jsonl);
   }
 
   @Override
@@ -102,9 +140,9 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             + " (approvalRisk, approvalTimeout seconds, approvalAudience); needs a harness with the"
             + " ask capability.\n"
             + "- workingDir, env, timeout (seconds, default 600).\n"
-            + "Emits {status, reason, text, sessionId, turn, exitCode} on port success, failure"
-            + " (the agent or harness failed, or timed out) or incomplete (stopped early, e.g. out"
-            + " of turns). Enable with yukta.plugins.enabled=AGENT_SESSION.\n"
+            + "Emits {status, reason, text, sessionId, turn, exitCode, conversationId} on port"
+            + " success, failure (the agent or harness failed, or timed out) or incomplete (stopped"
+            + " early, e.g. out of turns). Enable with yukta.plugins.enabled=AGENT_SESSION.\n"
             + "Harnesses:\n"
             + settings.describeHarnesses(),
         Optional.empty());
@@ -132,7 +170,16 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
     } catch (IllegalArgumentException e) {
       return Mono.error(e);
     }
-    return Mono.empty();
+    final AgentPreset preset = settings.preset(config);
+    return adapters.containsKey(preset.protocol())
+        ? Mono.empty()
+        : Mono.error(
+            new IllegalArgumentException(
+                "harness '"
+                    + preset.id()
+                    + "' speaks the protocol "
+                    + preset.protocol()
+                    + ", which this server does not support yet"));
   }
 
   @Override
@@ -212,23 +259,95 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             .env(turn.env())
             .maxOutputLines(KEPT_LINES)
             .maxOutputBytes(KEPT_BYTES)
+            // standard error is kept apart so the conversation can show it as notices; the run log
+            // still gets its lines as it always did (LogMirror)
+            .captureStderr(true)
             .build();
-    final AgentTurn.Plan plan =
-        new AgentTurn.Plan(
-            spec,
-            preset,
-            talk,
-            ask ? AgentSessionConfig.settings(config) : null,
-            turn.prompt(),
-            timeout);
-    return agent.run(message, plan).map(outcome -> reply(message, outcome, lease, attempt));
+    final AgentRequests.Settings approvals = ask ? AgentSessionConfig.settings(config) : null;
+    return Mono.deferContextual(ctx -> {
+      final InputIdentity who = talk == null ? identity(ctx) : InputIdentity.from(ctx);
+      return open(who, message, preset, turn, ask)
+          .flatMap(conversation ->
+              adapters
+                  .get(preset.protocol())
+                  .run(
+                      new AgentRun(
+                          message,
+                          preset,
+                          spec,
+                          turn.prompt(),
+                          talk,
+                          approvals,
+                          timeout,
+                          conversation,
+                          ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                              .orElse(PluginLogSink.NOOP),
+                          who))
+                  .map(outcome -> reply(message, outcome, lease, attempt, conversation)));
+    });
   }
 
+  /**
+   * Opens the conversation of this message. Without the gateway, without a node identity, or when
+   * the conversation cannot be stored, the run goes on with a handle that drops everything: a
+   * conversation is a view of the run and must never fail it.
+   */
+  private Mono<AgentConversationHandle> open(
+      final @Nullable InputIdentity who,
+      final Message<?> message,
+      final AgentPreset preset,
+      final Turn turn,
+      final boolean ask) {
+    final AgentConversationGateway gateway = conversations.getIfAvailable();
+    if (gateway == null || who == null) {
+      return Mono.just(AgentConversationHandle.none());
+    }
+    return gateway
+        .open(
+            new AgentConversationSpec(
+                who,
+                message.id(),
+                preset.id(),
+                preset.protocol(),
+                turn.model().isEmpty() ? null : turn.model(),
+                capabilities(preset, ask),
+                STEER_AUDIENCE))
+        .onErrorResume(e -> {
+          log.atWarn().setCause(e).log("Could not open an agent conversation; running without");
+          return Mono.just(AgentConversationHandle.none());
+        });
+  }
+
+  /** What this conversation can do: the preset's capabilities that exist before steering does. */
+  private static Set<String> capabilities(final AgentPreset preset, final boolean ask) {
+    final Set<String> found = new LinkedHashSet<>();
+    if (ask && preset.interactive() != null) {
+      found.add(AgentCapability.ASK);
+    }
+    if (preset.capabilities().contains("resume")) {
+      found.add(AgentCapability.RESUME);
+    }
+    return found;
+  }
+
+  private static @Nullable InputIdentity identity(final ContextView ctx) {
+    try {
+      return InputIdentity.from(ctx);
+    } catch (IllegalStateException e) {
+      return null;
+    }
+  }
+
+  @SuppressWarnings("PMD.CompareObjectsWithEquals") // none() is one shared instance
   private static Message<?> reply(
       final Message<?> message,
       final Map<String, Object> outcome,
       final AgentSessionStore.Lease lease,
-      final int attempt) {
+      final int attempt,
+      final AgentConversationHandle conversation) {
+    if (conversation != AgentConversationHandle.none()) {
+      outcome.put("conversationId", conversation.id());
+    }
     if (lease != null) {
       if (!FAILURE.equals(outcome.get(STATUS))) {
         lease.complete(String.valueOf(outcome.get("sessionId")));

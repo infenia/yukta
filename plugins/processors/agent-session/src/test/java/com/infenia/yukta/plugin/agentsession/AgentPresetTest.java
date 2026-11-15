@@ -1,0 +1,136 @@
+// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: 2026 Infenia Private Limited
+package com.infenia.yukta.plugin.agentsession;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.infenia.yukta.plugin.agent.AgentProtocol;
+import java.io.IOException;
+import java.util.List;
+import lombok.NoArgsConstructor;
+import org.junit.jupiter.api.Test;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+
+/** Reading a harness preset from its JSON. */
+@NoArgsConstructor
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.AvoidDuplicateLiterals"})
+class AgentPresetTest {
+
+  private static final ObjectMapper JSON = new ObjectMapper();
+
+  private static ObjectNode claudeJson() throws IOException {
+    try (var in = AgentPresetTest.class.getResourceAsStream("/agent-harnesses/claude-code.json")) {
+      return (ObjectNode) JSON.readTree(in);
+    }
+  }
+
+  @Test
+  void presetWithoutId_isRefused() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.remove("id");
+
+    assertThatThrownBy(() -> AgentPreset.parse(root))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("agent harness preset: 'id' is required");
+  }
+
+  @Test
+  void nullInteractiveBlock_meansTheHarnessCannotConverse() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.set("interactive", JSON.nullNode());
+
+    assertThat(AgentPreset.parse(root).interactive()).isNull();
+  }
+
+  @Test
+  void theRecordsCopyWhatTheyAreGiven() throws IOException {
+    final var output = AgentPreset.parse(claudeJson()).output();
+
+    assertThat(output.live()).isNotEmpty().isUnmodifiable();
+    assertThat(output.resultWhen()).containsEntry("type", "result").isUnmodifiable();
+  }
+
+  @Test
+  void harnessesLoadWithoutOperatorDirectory() throws IOException {
+    assertThat(new AgentHarnesses(JSON, null).all().stream().map(AgentPreset::id).toList())
+        .contains("claude-code", "codex")
+        .isInstanceOf(List.class);
+  }
+
+  @Test
+  void onlyCapabilitiesSetToTrueAreDeclared() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.set("capabilities", JSON.readTree("{\"stream\":true,\"resume\":false}"));
+
+    assertThat(AgentPreset.parse(root).capabilities()).containsExactly("stream");
+  }
+
+  @Test
+  void presetWithoutTheProtocolIsJsonlAndTheFieldCanNameAnother() throws IOException {
+    final ObjectNode root = claudeJson();
+    assertThat(AgentPreset.parse(root).protocol()).isEqualTo(AgentProtocol.JSONL);
+
+    root.put("protocol", "acp");
+    assertThat(AgentPreset.parse(root).protocol()).isEqualTo(AgentProtocol.ACP);
+    root.put("protocol", "PTY");
+    assertThat(AgentPreset.parse(root).protocol()).isEqualTo(AgentProtocol.PTY);
+    root.set("protocol", JSON.nullNode());
+    assertThat(AgentPreset.parse(root).protocol()).isEqualTo(AgentProtocol.JSONL);
+  }
+
+  @Test
+  void unknownProtocolIsRefusedNamingThePresetAndTheChoices() throws IOException {
+    final ObjectNode root = claudeJson();
+    root.put("protocol", "ftp");
+
+    assertThatThrownBy(() -> AgentPreset.parse(root))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(
+            "agent harness preset 'claude-code': 'protocol' must be jsonl, acp or pty, not 'ftp'");
+  }
+
+  @Test
+  void liveRuleIsTheToolWhenItHasThePrefixAndTheMessageWhenItHasNone() throws IOException {
+    final var live = AgentPreset.parse(claudeJson()).output().live();
+
+    assertThat(live.get(0).kind()).isEqualTo(AgentPreset.Live.Kind.MESSAGE);
+    assertThat(live.get(1).kind()).isEqualTo(AgentPreset.Live.Kind.TOOL);
+  }
+
+  @Test
+  void liveRuleCanSayWhatItIsInsteadOfGuessingFromThePrefix() throws IOException {
+    final ObjectNode root = claudeJson();
+    final var rules = (tools.jackson.databind.node.ArrayNode) root.path("output").path("live");
+    ((ObjectNode) rules.get(0)).put("kind", "thought");
+    ((ObjectNode) rules.get(1)).put("kind", "message");
+    ((ObjectNode) rules.get(1)).put("prefix", "");
+    rules
+        .addObject()
+        .put("text", "x")
+        .put("kind", "TOOL")
+        .set("when", JSON.createObjectNode().put("type", "t"));
+
+    final var live = AgentPreset.parse(root).output().live();
+
+    assertThat(live.get(0).kind()).isEqualTo(AgentPreset.Live.Kind.THOUGHT);
+    assertThat(live.get(1).kind()).isEqualTo(AgentPreset.Live.Kind.MESSAGE);
+    assertThat(live.get(2).kind()).isEqualTo(AgentPreset.Live.Kind.TOOL);
+  }
+
+  @Test
+  void nullKindFallsBackToTheDefaultAndAnUnknownKindIsRefused() throws IOException {
+    final ObjectNode root = claudeJson();
+    final var rules = (tools.jackson.databind.node.ArrayNode) root.path("output").path("live");
+    ((ObjectNode) rules.get(1)).set("kind", JSON.nullNode());
+    assertThat(AgentPreset.parse(root).output().live().get(1).kind())
+        .isEqualTo(AgentPreset.Live.Kind.TOOL);
+
+    ((ObjectNode) rules.get(1)).put("kind", "banner");
+    assertThatThrownBy(() -> AgentPreset.parse(root))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(
+            "agent harness preset: 'live.kind' must be message, thought or tool, not 'banner'");
+  }
+}

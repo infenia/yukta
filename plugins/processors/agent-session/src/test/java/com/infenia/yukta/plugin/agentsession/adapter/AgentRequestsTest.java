@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession.adapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.infenia.yukta.message.DefaultMessage;
+import com.infenia.yukta.plugin.agentsession.AgentHarnesses;
+import com.infenia.yukta.plugin.agentsession.AgentPreset;
 import com.infenia.yukta.plugin.input.Audience;
 import com.infenia.yukta.plugin.input.InputGateway;
 import com.infenia.yukta.plugin.input.InputIdentity;
@@ -12,6 +14,7 @@ import com.infenia.yukta.plugin.input.InputRequestSpec;
 import com.infenia.yukta.plugin.input.InputResponse;
 import com.infenia.yukta.plugin.input.InputRisk;
 import com.infenia.yukta.plugin.input.Responder;
+import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -26,8 +29,8 @@ import tools.jackson.databind.ObjectMapper;
 
 /** What is asked for a harness' tool use, and what is written back. */
 @NoArgsConstructor
-@SuppressWarnings("PMD.AvoidDuplicateLiterals")
-class AgentApprovalsTest {
+@SuppressWarnings({"PMD.AvoidDuplicateLiterals", "PMD.TooManyMethods"})
+class AgentRequestsTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -54,10 +57,10 @@ class AgentApprovalsTest {
     }
   }
 
-  private AgentApprovals approvals(final AgentPreset.Interactive talk, final InputGateway gateway) {
-    return new AgentApprovals(
+  private AgentRequests approvals(final AgentPreset.Interactive talk, final InputGateway gateway) {
+    return new AgentRequests(
         talk,
-        new AgentApprovals.Settings(InputRisk.LOW, Duration.ofSeconds(5), Audience.CURRENT_TIER),
+        new AgentRequests.Settings(InputRisk.LOW, Duration.ofSeconds(5), Audience.CURRENT_TIER),
         JSON,
         () -> gateway,
         new InputIdentity("s", "w", "e", "n"),
@@ -125,13 +128,13 @@ class AgentApprovalsTest {
     approvals(talk, answering("reject", null)).handle(request("list"));
 
     assertThat(written).containsExactly("{\"n\":1,\"k\":\"r1\"}", "{\"n\":2}");
-    assertThat(AgentApprovals.userMessage(talk.userMessage(), "p", JSON))
+    assertThat(AgentRequests.userMessage(talk.userMessage(), "p", JSON))
         .isEqualTo("[1,\"{prompt}\"]");
   }
 
   @Test
   void disposeStopsWaitingForAnswers() {
-    final AgentApprovals open = approvals(claude(), spec -> Mono.never());
+    final AgentRequests open = approvals(claude(), spec -> Mono.never());
 
     open.handle(request("list"));
     open.dispose();
@@ -143,7 +146,46 @@ class AgentApprovalsTest {
   void theUserMessageFillsThePromptInNestedObjects() throws IOException {
     final var template = JSON.readTree("{\"m\":{\"text\":\"{prompt}\"},\"k\":\"keep\"}");
 
-    assertThat(AgentApprovals.userMessage(template, "hi", JSON))
+    assertThat(AgentRequests.userMessage(template, "hi", JSON))
         .isEqualTo("{\"m\":{\"text\":\"hi\"},\"k\":\"keep\"}");
+  }
+
+  @Test
+  void theConversationWaitsOnceWhileSeveralRequestsAreOpenAndRunsAgainAfterTheLast() {
+    final RecordingConversation conversation = new RecordingConversation();
+    final List<reactor.core.publisher.Sinks.One<InputResponse>> answers =
+        new CopyOnWriteArrayList<>();
+    final InputGateway waiting =
+        spec -> {
+          final reactor.core.publisher.Sinks.One<InputResponse> sink =
+              reactor.core.publisher.Sinks.one();
+          answers.add(sink);
+          return sink.asMono();
+        };
+    final AgentRequests requests =
+        new AgentRequests(
+            claude(),
+            new AgentRequests.Settings(InputRisk.LOW, Duration.ofSeconds(5), Audience.CURRENT_TIER),
+            JSON,
+            () -> waiting,
+            new InputIdentity("s", "w", "e", "n"),
+            DefaultMessage.create(UUID.randomUUID(), "in"),
+            "claude-code",
+            stdin,
+            conversation);
+
+    requests.handle(request("first"));
+    requests.handle(new AgentOutput.Request("r2", "Edit", JSON.createObjectNode(), "second"));
+    answers.get(0).tryEmitValue(answer("approve"));
+    answers.get(1).tryEmitValue(answer("reject"));
+
+    assertThat(conversation.calls().stream().filter(c -> c.startsWith("state ")))
+        .containsExactly("state WAITING approval", "state RUNNING null");
+    assertThat(conversation.calls()).filteredOn(c -> c.contains("state=answered")).hasSize(2);
+  }
+
+  private static InputResponse answer(final String decision) {
+    return new InputResponse(
+        "req", decision, null, Map.of(), Responder.SYSTEM, null, null, Instant.now());
   }
 }

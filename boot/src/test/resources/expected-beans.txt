@@ -79,6 +79,10 @@ com.infenia.yukta.mcp.provider.WorkflowExecutionProvider
 com.infenia.yukta.mcp.provider.WorkflowVersionProvider
 com.infenia.yukta.message.channel.DirectNodeMessageChannelConfiguration
 com.infenia.yukta.message.channel.DirectNodeMessageChannelProvider
+com.infenia.yukta.plugin.agentsession.AgentHarnesses
+com.infenia.yukta.plugin.agentsession.AgentSessionAutoConfiguration
+com.infenia.yukta.plugin.agentsession.AgentSessionPlugin
+com.infenia.yukta.plugin.agentsession.InMemoryAgentSessionStore
 com.infenia.yukta.plugin.control.engine.EngineSupervisorFactory
 com.infenia.yukta.plugin.core.filter.FilterProcessor
 com.infenia.yukta.plugin.core.filter.ValidateProcessor
@@ -114,9 +118,6 @@ com.infenia.yukta.plugin.llm.LlmGateway
 com.infenia.yukta.plugin.mcp.McpClientGateway
 com.infenia.yukta.plugin.mcp.McpListToolsPlugin
 com.infenia.yukta.plugin.mcp.McpToolCallPlugin
-com.infenia.yukta.plugin.process.AgentHarnesses
-com.infenia.yukta.plugin.process.AgentSessionPlugin
-com.infenia.yukta.plugin.process.InMemoryAgentSessionStore
 com.infenia.yukta.plugin.process.ProcessExecutorAutoConfiguration
 com.infenia.yukta.plugin.process.ProcessExecutorGateway
 com.infenia.yukta.plugin.process.ProcessExecutorPlugin

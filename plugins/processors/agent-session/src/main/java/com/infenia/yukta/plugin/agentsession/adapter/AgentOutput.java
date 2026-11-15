@@ -1,10 +1,17 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession.adapter;
 
+import com.infenia.yukta.plugin.agent.AgentConversationHandle;
+import com.infenia.yukta.plugin.agent.AgentEventKind;
+import com.infenia.yukta.plugin.agentsession.AgentPreset;
 import com.infenia.yukta.plugin.core.LogLevel;
 import com.infenia.yukta.plugin.core.PluginLogSink;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.jspecify.annotations.Nullable;
@@ -14,8 +21,10 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * Reads a harness' output line by line as it arrives: shows the worthwhile lines in the run log and
- * keeps the final result line. One instance per run.
+ * in the conversation (text of the agent, tool calls, notices) and keeps the final result line. One
+ * instance per run.
  */
+@SuppressWarnings({"PMD.TooManyMethods", "PMD.UseConcurrentHashMap"}) // local maps, never shared
 final class AgentOutput implements PluginLogSink {
 
   private static final String SESSION_ID = "sessionId";
@@ -23,10 +32,22 @@ final class AgentOutput implements PluginLogSink {
   private static final String STATUS = "status";
   private static final String FAILURE = "failure";
 
+  /** The stream the process executor gives the lines of standard error. */
+  private static final String STDERR = "stderr";
+
   private final AgentPreset.Output rules;
-  private final PluginLogSink downstream;
+  private final LogMirror mirror;
+  private final AgentConversationHandle conversation;
   private final ObjectMapper json;
   private final AgentPreset.@Nullable Interactive talk;
+
+  /**
+   * Numbers the items of the conversation: messages {@code m1, m2, ...} and tools {@code t3, ...}.
+   */
+  private final AtomicInteger items = new AtomicInteger();
+
+  /** The tool calls that have not been closed yet. */
+  private final Queue<String> runningTools = new ConcurrentLinkedQueue<>();
 
   /** What the captures kept, by target. */
   private final Map<String, String> captured = new java.util.concurrent.ConcurrentHashMap<>();
@@ -71,9 +92,28 @@ final class AgentOutput implements PluginLogSink {
       final AgentPreset.@Nullable Interactive talk,
       final PluginLogSink downstream,
       final ObjectMapper json) {
+    this(rules, talk, new LogMirror(downstream), AgentConversationHandle.none(), json);
+  }
+
+  /**
+   * Creates the reader for a run that records a conversation.
+   *
+   * @param rules how to read this harness' output
+   * @param talk how to read its requests, or null
+   * @param mirror the run log
+   * @param conversation where the events of the run go
+   * @param json the JSON mapper
+   */
+  /* default */ AgentOutput(
+      final AgentPreset.Output rules,
+      final AgentPreset.@Nullable Interactive talk,
+      final LogMirror mirror,
+      final AgentConversationHandle conversation,
+      final ObjectMapper json) {
     this.rules = rules;
     this.talk = talk;
-    this.downstream = downstream;
+    this.mirror = mirror;
+    this.conversation = conversation;
     this.json = json;
   }
 
@@ -81,7 +121,13 @@ final class AgentOutput implements PluginLogSink {
   public void line(final String stream, final String line, final @Nullable LogLevel level) {
     final JsonNode node = parse(line);
     if (node == null) {
-      downstream.line(stream, line, level);
+      mirror.passThrough(stream, line, level);
+      if (STDERR.equals(stream)) {
+        final Map<String, Object> notice = new LinkedHashMap<>();
+        notice.put("level", noticeLevel(level));
+        notice.put("text", line);
+        conversation.emit(AgentEventKind.NOTICE, null, notice);
+      }
       return;
     }
     capture(node);
@@ -132,10 +178,54 @@ final class AgentOutput implements PluginLogSink {
   private void show(final JsonNode node, final @Nullable LogLevel level) {
     for (final AgentPreset.Live live : rules.live()) {
       if (JsonPaths.matches(node, live.when())) {
-        JsonPaths.values(node, live.text())
-            .forEach(v -> downstream.line("agent", live.prefix() + v, level));
+        JsonPaths.values(node, live.text()).forEach(v -> shown(live, v, level));
       }
     }
+  }
+
+  /** Writes one match to the run log, as always, and to the conversation. */
+  private void shown(
+      final AgentPreset.Live live, final String value, final @Nullable LogLevel level) {
+    mirror.agent(live.prefix() + value, level);
+    if (live.kind() == AgentPreset.Live.Kind.TOOL) {
+      final String id = "t" + items.incrementAndGet();
+      runningTools.add(id);
+      conversation.emit(AgentEventKind.TOOL, id, toolData(value, "running"));
+    } else {
+      final Map<String, Object> data = new LinkedHashMap<>();
+      data.put("role", live.kind() == AgentPreset.Live.Kind.THOUGHT ? "thought" : "agent");
+      data.put("text", value);
+      data.put("more", false);
+      conversation.emit(AgentEventKind.MESSAGE, "m" + items.incrementAndGet(), data);
+    }
+  }
+
+  /**
+   * Closes the tool calls that are still open: the turn is over, so none of them is running.
+   *
+   * @param failed whether the turn failed, which fails the calls that never reported an end
+   */
+  /* default */ void closeTools(final boolean failed) {
+    String id = runningTools.poll();
+    while (id != null) {
+      conversation.emit(AgentEventKind.TOOL, id, Map.of("status", failed ? "failed" : "completed"));
+      id = runningTools.poll();
+    }
+  }
+
+  private static Map<String, Object> toolData(final String title, final String status) {
+    final Map<String, Object> data = new LinkedHashMap<>();
+    data.put("title", title);
+    data.put("status", status);
+    return data;
+  }
+
+  private static String noticeLevel(final @Nullable LogLevel level) {
+    if (level == LogLevel.ERROR) {
+      return "ERROR";
+    }
+    // a line on standard error is a warning unless the process says it is not
+    return level == null || level == LogLevel.WARN ? "WARN" : "INFO";
   }
 
   /**
@@ -160,7 +250,7 @@ final class AgentOutput implements PluginLogSink {
   @SuppressWarnings("PMD.UseConcurrentHashMap")
   /* default */ Map<String, Object> outcome(
       final int exitCode, final boolean timedOut, final long timeoutSeconds) {
-    final Map<String, Object> out = new java.util.LinkedHashMap<>();
+    final Map<String, Object> out = new LinkedHashMap<>();
     out.put("turn", 1);
     out.put("exitCode", exitCode);
     if (timedOut) {

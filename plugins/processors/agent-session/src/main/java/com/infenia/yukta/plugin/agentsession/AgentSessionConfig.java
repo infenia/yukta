@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession;
 
+import com.infenia.yukta.plugin.agentsession.adapter.AgentRequests;
 import com.infenia.yukta.plugin.core.ConfigField;
 import com.infenia.yukta.plugin.input.InputAsk;
 import com.infenia.yukta.plugin.input.InputRisk;
@@ -219,12 +220,12 @@ final class AgentSessionConfig {
     return value;
   }
 
-  /* default */ static AgentApprovals.Settings settings(final Map<String, Object> config) {
+  /* default */ static AgentRequests.Settings settings(final Map<String, Object> config) {
     final Object timeout = config.get(APPROVAL_TIMEOUT);
     if (timeout != null && !(timeout instanceof final Number n && n.longValue() > 0)) {
       throw new IllegalArgumentException("approvalTimeout must be positive, got: " + timeout);
     }
-    return new AgentApprovals.Settings(
+    return new AgentRequests.Settings(
         InputAsk.risk(config.get(APPROVAL_RISK), InputRisk.MEDIUM),
         Duration.ofSeconds(
             timeout == null ? DEFAULT_APPROVAL_SECONDS : ((Number) timeout).longValue()),

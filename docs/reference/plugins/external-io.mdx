@@ -148,7 +148,7 @@ Module `file-io`. Writes or appends text to a file in a sandbox directory and pa
 
 ## `AGENT_SESSION`
 
-Module `process-executor`. Runs an AI agent harness, such as Claude Code, on a prompt and reports how it ended. Restricted: enable it with `yukta.plugins.enabled=AGENT_SESSION` and allow the harness executable (`yukta.process.allowed-commands=claude`). The process starts through the process executor, so its limits apply, and cancelling the run kills it.
+Module `agent-session` (it starts the process through `process-executor`, which a build with `-Pyukta.plugins=agent-session` pulls in). Runs an AI agent harness, such as Claude Code, on a prompt and reports how it ended. Restricted: enable it with `yukta.plugins.enabled=AGENT_SESSION` and allow the harness executable (`yukta.process.allowed-commands=claude`). The process starts through the process executor, so its limits apply, and cancelling the run kills it.
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
@@ -167,7 +167,7 @@ Module `process-executor`. Runs an AI agent harness, such as Claude Code, on a p
 | `timeout` | number | `600` | no | Seconds. |
 
 - **Output ports:** `success`, `failure` (the agent or harness failed, or timed out), `incomplete` (stopped early, for example out of turns).
-- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`.
+- **Payload:** `{status, reason, text, sessionId, turn, exitCode}`, plus `conversationId` when the run was recorded as a conversation (`yukta.agents.enabled`, the default; see the core reference, CTL-10). A run with no conversation has the payload it always had.
 - **Run log:** the agent's text and the tools it uses appear as `agent` lines while it works.
 
 ```json

@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
-package com.infenia.yukta.plugin.process;
+package com.infenia.yukta.plugin.agentsession;
 
+import com.infenia.yukta.plugin.agent.AgentProtocol;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import tools.jackson.databind.JsonNode;
@@ -14,6 +17,7 @@ import tools.jackson.databind.JsonNode;
  * to read its output. Adding a harness means adding a JSON file, not Java.
  *
  * @param id the name a node's {@code harness} option takes
+ * @param protocol how Yukta talks to the harness; a file without {@code protocol} is {@code jsonl}
  * @param description what it is, and what a node must add to make it useful
  * @param command the command; {@code {prompt}} is replaced by the prompt
  * @param modelArgs arguments added for a {@code model} ({@code {model}}); empty if unsupported
@@ -26,6 +30,7 @@ import tools.jackson.databind.JsonNode;
  */
 public record AgentPreset(
     String id,
+    AgentProtocol protocol,
     String description,
     List<String> command,
     List<String> modelArgs,
@@ -37,6 +42,7 @@ public record AgentPreset(
 
   /** Compact constructor to ensure immutability. */
   public AgentPreset {
+    Objects.requireNonNull(protocol, "protocol");
     command = List.copyOf(command);
     modelArgs = List.copyOf(modelArgs);
     maxTurnsArgs = List.copyOf(maxTurnsArgs);
@@ -129,12 +135,26 @@ public record AgentPreset(
    *
    * @param when field values the line must have
    * @param text dotted path of the text; {@code a[*].b} reads field b of every element of a
-   * @param prefix text put before each value
+   * @param prefix text put before each value in the run log
+   * @param kind what a match is in the conversation; by default a rule with a prefix is a tool call
+   *     and any other rule is a message
    */
-  public record Live(Map<String, String> when, String text, String prefix) {
+  public record Live(Map<String, String> when, String text, String prefix, Kind kind) {
+
+    /** What a matching line is in the conversation. */
+    public enum Kind {
+      /** Text of the agent. */
+      MESSAGE,
+      /** The agent's reasoning. */
+      THOUGHT,
+      /** A tool call; the matched text is its title. */
+      TOOL
+    }
+
     /** Copies the collections so the record stays immutable. */
     public Live {
       when = Map.copyOf(when);
+      Objects.requireNonNull(kind, "kind");
     }
   }
 
@@ -148,15 +168,10 @@ public record AgentPreset(
   public static AgentPreset parse(final JsonNode root) {
     final String id = required(root, "id");
     final JsonNode out = root.path("output");
-    final List<Live> live =
-        out.path("live")
-            .valueStream()
-            .map(n ->
-                new Live(
-                    strings(n.path("when")), required(n, "text"), n.path("prefix").asString("")))
-            .toList();
+    final List<Live> live = out.path("live").valueStream().map(AgentPreset::live).toList();
     return new AgentPreset(
         id,
+        protocol(root.path("protocol"), id),
         root.path("description").asString(""),
         list(root.path("command")),
         list(root.path("modelArgs")),
@@ -179,6 +194,49 @@ public record AgentPreset(
             strings(out.path("failureWhen")),
             out.path("failureText").asString("")),
         interactive(root.path("interactive")));
+  }
+
+  private static Live live(final JsonNode node) {
+    final String prefix = node.path("prefix").asString("");
+    final JsonNode kind = node.path("kind");
+    return new Live(
+        strings(node.path("when")),
+        required(node, "text"),
+        prefix,
+        kind.isMissingNode() || kind.isNull()
+            ? (prefix.isEmpty() ? Live.Kind.MESSAGE : Live.Kind.TOOL)
+            : parseKind(kind.asString(""), "live.kind"));
+  }
+
+  private static Live.Kind parseKind(final String text, final String field) {
+    try {
+      return Live.Kind.valueOf(text.toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "agent harness preset: '"
+              + field
+              + "' must be message, thought or tool, not '"
+              + text
+              + "'",
+          e);
+    }
+  }
+
+  private static AgentProtocol protocol(final JsonNode node, final String id) {
+    if (node.isMissingNode() || node.isNull()) {
+      return AgentProtocol.JSONL;
+    }
+    try {
+      return AgentProtocol.valueOf(node.asString("").toUpperCase(Locale.ROOT));
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "agent harness preset '"
+              + id
+              + "': 'protocol' must be jsonl, acp or pty, not '"
+              + node.asString("")
+              + "'",
+          e);
+    }
   }
 
   private static List<Capture> captures(final JsonNode node) {
