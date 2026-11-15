@@ -52,13 +52,12 @@ public class ExecutionControlFactory {
     final Map<String, ReactiveControlValve> nodePauseValves = new ConcurrentHashMap<>();
     final Map<String, AtomicBoolean> nodeSkipFlags = new ConcurrentHashMap<>();
 
-    nodeIds.forEach(
-        nodeId -> {
-          nodeImmediateStopSinks.put(nodeId, Sinks.one());
-          nodeSafeStopSinks.put(nodeId, Sinks.one());
-          nodePauseValves.put(nodeId, new ReactiveControlValve());
-          nodeSkipFlags.put(nodeId, new AtomicBoolean(false));
-        });
+    nodeIds.forEach(nodeId -> {
+      nodeImmediateStopSinks.put(nodeId, Sinks.one());
+      nodeSafeStopSinks.put(nodeId, Sinks.one());
+      nodePauseValves.put(nodeId, new ReactiveControlValve());
+      nodeSkipFlags.put(nodeId, new AtomicBoolean(false));
+    });
 
     return new ExecutionControl(
         sessionId,

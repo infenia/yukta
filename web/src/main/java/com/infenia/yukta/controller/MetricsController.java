@@ -149,13 +149,12 @@ public class MetricsController {
         RunAnalytics.GLOBAL.equals(scope)
             ? sampler.snapshot().defaultIfEmpty(new MetricSample(0, Map.of()))
             : Mono.fromSupplier(() -> new MetricSample(System.currentTimeMillis(), Map.of()));
-    return sampled.map(
-        sample -> {
-          final Map<String, Double> values = new ConcurrentHashMap<>(sample.values());
-          values.putAll(analytics.snapshot(scope));
-          return ApiResponse.success(
-              200, "Metric snapshot retrieved", new MetricSample(sample.time(), values));
-        });
+    return sampled.map(sample -> {
+      final Map<String, Double> values = new ConcurrentHashMap<>(sample.values());
+      values.putAll(analytics.snapshot(scope));
+      return ApiResponse.success(
+          200, "Metric snapshot retrieved", new MetricSample(sample.time(), values));
+    });
   }
 
   /**
@@ -214,12 +213,11 @@ public class MetricsController {
   @GetMapping("/runs/live")
   @Operation(summary = "Live runs", description = "Running runs with progress and p95 baseline")
   public Mono<ApiResponse<List<RunAnalytics.LiveRun>>> liveRuns() {
-    return Mono.fromSupplier(
-        () ->
-            ApiResponse.success(
-                200,
-                "Live runs retrieved",
-                analytics.liveRuns().stream().map(this::withNodesTotal).toList()));
+    return Mono.fromSupplier(() ->
+        ApiResponse.success(
+            200,
+            "Live runs retrieved",
+            analytics.liveRuns().stream().map(this::withNodesTotal).toList()));
   }
 
   private RunAnalytics.LiveRun withNodesTotal(final RunAnalytics.LiveRun run) {

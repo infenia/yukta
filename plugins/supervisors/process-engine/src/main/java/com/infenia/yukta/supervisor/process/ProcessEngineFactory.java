@@ -134,12 +134,11 @@ public final class ProcessEngineFactory implements SupervisorEngineFactory {
                   final Writer stdin =
                       new OutputStreamWriter(process.getOutputStream(), StandardCharsets.UTF_8);
                   final Disposable feeding = feed(stdin, signals, sink);
-                  sink.onDispose(
-                      () -> {
-                        feeding.dispose();
-                        closeQuietly(stdin);
-                        process.destroyForcibly();
-                      });
+                  sink.onDispose(() -> {
+                    feeding.dispose();
+                    closeQuietly(stdin);
+                    process.destroyForcibly();
+                  });
                   Schedulers.boundedElastic().schedule(() -> read(process, sink));
                 })
             .subscribeOn(Schedulers.boundedElastic());

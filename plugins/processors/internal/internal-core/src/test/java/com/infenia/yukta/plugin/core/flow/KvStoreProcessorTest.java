@@ -157,12 +157,11 @@ class KvStoreProcessorTest {
   @Test
   void describe_processorProvidesNodeDesign() {
     assertThat(processor.describe().uiDesign())
-        .hasValueSatisfying(
-            design -> {
-              assertThat(design.label()).isNotBlank();
-              assertThat(design.width()).isEqualTo(140);
-              assertThat(design.height()).isEqualTo(80);
-            });
+        .hasValueSatisfying(design -> {
+          assertThat(design.label()).isNotBlank();
+          assertThat(design.width()).isEqualTo(140);
+          assertThat(design.height()).isEqualTo(80);
+        });
   }
 
   @Test

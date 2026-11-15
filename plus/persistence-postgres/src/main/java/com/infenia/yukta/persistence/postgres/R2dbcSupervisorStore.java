@@ -76,52 +76,49 @@ public class R2dbcSupervisorStore implements SupervisorStore {
             "SELECT id, type, CAST(settings AS text) AS settings, dry_run, description,"
                 + " CAST(parents AS text) AS parents, CAST(delegation AS text) AS delegation"
                 + " FROM supervisor ORDER BY id")
-        .map(
-            row ->
-                new Supervisor(
-                    row.get("id", String.class),
-                    row.get(TYPE, String.class),
-                    mapper.readValue(row.get(SETTINGS_FIELD, String.class), SETTINGS),
-                    Boolean.TRUE.equals(row.get("dry_run", Boolean.class)),
-                    row.get(DESCRIPTION, String.class),
-                    mapper.readValue(row.get(PARENTS_FIELD, String.class), PARENTS),
-                    delegationOf(
-                        mapper.readValue(row.get(DELEGATION_FIELD, String.class), DELEGATION))))
+        .map(row ->
+            new Supervisor(
+                row.get("id", String.class),
+                row.get(TYPE, String.class),
+                mapper.readValue(row.get(SETTINGS_FIELD, String.class), SETTINGS),
+                Boolean.TRUE.equals(row.get("dry_run", Boolean.class)),
+                row.get(DESCRIPTION, String.class),
+                mapper.readValue(row.get(PARENTS_FIELD, String.class), PARENTS),
+                delegationOf(
+                    mapper.readValue(row.get(DELEGATION_FIELD, String.class), DELEGATION))))
         .all();
   }
 
   @Override
   public Mono<Void> saveSupervisor(final Supervisor profile) {
-    return Mono.fromCallable(
-            () ->
-                new String[] {
-                  mapper.writeValueAsString(profile.settings()),
-                  mapper.writeValueAsString(profile.parents()),
-                  mapper.writeValueAsString(delegationJson(profile.delegation()))
-                })
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO supervisor (id, type, settings, dry_run, description, parents,
-                          delegation, updated_at)
-                        VALUES (:id, :type, CAST(:settings AS jsonb), :dry, :description,
-                          CAST(:parents AS jsonb), CAST(:delegation AS jsonb), now())
-                        ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type,
-                          settings = EXCLUDED.settings, dry_run = EXCLUDED.dry_run,
-                          description = EXCLUDED.description, parents = EXCLUDED.parents,
-                          delegation = EXCLUDED.delegation, updated_at = now()
-                        """)
-                    .bind("id", profile.id())
-                    .bind("type", profile.type())
-                    .bind("settings", json[0])
-                    .bind("parents", json[1])
-                    .bind("delegation", json[2])
-                    .bind("dry", profile.dryRun())
-                    .bind("description", nullable(profile.description()))
-                    .fetch()
-                    .rowsUpdated())
+    return Mono.fromCallable(() ->
+            new String[] {
+              mapper.writeValueAsString(profile.settings()),
+              mapper.writeValueAsString(profile.parents()),
+              mapper.writeValueAsString(delegationJson(profile.delegation()))
+            })
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO supervisor (id, type, settings, dry_run, description, parents,
+                      delegation, updated_at)
+                    VALUES (:id, :type, CAST(:settings AS jsonb), :dry, :description,
+                      CAST(:parents AS jsonb), CAST(:delegation AS jsonb), now())
+                    ON CONFLICT (id) DO UPDATE SET type = EXCLUDED.type,
+                      settings = EXCLUDED.settings, dry_run = EXCLUDED.dry_run,
+                      description = EXCLUDED.description, parents = EXCLUDED.parents,
+                      delegation = EXCLUDED.delegation, updated_at = now()
+                    """)
+                .bind("id", profile.id())
+                .bind("type", profile.type())
+                .bind("settings", json[0])
+                .bind("parents", json[1])
+                .bind("delegation", json[2])
+                .bind("dry", profile.dryRun())
+                .bind("description", nullable(profile.description()))
+                .fetch()
+                .rowsUpdated())
         .then();
   }
 
@@ -167,17 +164,16 @@ public class R2dbcSupervisorStore implements SupervisorStore {
         .sql(
             "SELECT id, supervisor_id, scope, enabled, source, origin_session_id,"
                 + " origin_workflow_id, locked FROM supervisor_attachment ORDER BY id")
-        .map(
-            row ->
-                new SupervisorAttachment(
-                    row.get("id", String.class),
-                    row.get("supervisor_id", String.class),
-                    SupervisorScope.parse(row.get("scope", String.class)),
-                    Boolean.TRUE.equals(row.get("enabled", Boolean.class)),
-                    SupervisorSource.valueOf(row.get("source", String.class)),
-                    row.get("origin_session_id", String.class),
-                    row.get("origin_workflow_id", String.class),
-                    Boolean.TRUE.equals(row.get("locked", Boolean.class))))
+        .map(row ->
+            new SupervisorAttachment(
+                row.get("id", String.class),
+                row.get("supervisor_id", String.class),
+                SupervisorScope.parse(row.get("scope", String.class)),
+                Boolean.TRUE.equals(row.get("enabled", Boolean.class)),
+                SupervisorSource.valueOf(row.get("source", String.class)),
+                row.get("origin_session_id", String.class),
+                row.get("origin_workflow_id", String.class),
+                Boolean.TRUE.equals(row.get("locked", Boolean.class))))
         .all();
   }
 
@@ -240,20 +236,19 @@ public class R2dbcSupervisorStore implements SupervisorStore {
           .then();
     }
     return Mono.fromCallable(() -> mapper.writeValueAsString(refs))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO session_supervisor (session_id, refs, updated_at)
-                        VALUES (:id, CAST(:refs AS jsonb), now())
-                        ON CONFLICT (session_id) DO UPDATE SET refs = EXCLUDED.refs,
-                          updated_at = now()
-                        """)
-                    .bind("id", sessionId)
-                    .bind("refs", json)
-                    .fetch()
-                    .rowsUpdated())
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO session_supervisor (session_id, refs, updated_at)
+                    VALUES (:id, CAST(:refs AS jsonb), now())
+                    ON CONFLICT (session_id) DO UPDATE SET refs = EXCLUDED.refs,
+                      updated_at = now()
+                    """)
+                .bind("id", sessionId)
+                .bind("refs", json)
+                .fetch()
+                .rowsUpdated())
         .then();
   }
 
@@ -264,23 +259,22 @@ public class R2dbcSupervisorStore implements SupervisorStore {
     // (jsonb equality, so 1 and 1.0 or a reordered map are the same); two saves of one supervisor
     // at once can take the same number, so the loser tries again
     return Mono.fromCallable(() -> mapper.writeValueAsString(body(supervisor)))
-        .flatMap(
-            json ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO supervisor_version (supervisor_id, version, saved_at, body)
-                        SELECT :id, COALESCE(MAX(v.version), 0) + 1, :at, CAST(:body AS jsonb)
-                        FROM supervisor_version v WHERE v.supervisor_id = :id
-                        HAVING COALESCE((SELECT n.body <> CAST(:body AS jsonb)
-                          FROM supervisor_version n WHERE n.supervisor_id = :id
-                          ORDER BY n.version DESC LIMIT 1), true)
-                        """)
-                    .bind("id", supervisor.id())
-                    .bind("at", savedAt)
-                    .bind("body", json)
-                    .fetch()
-                    .rowsUpdated())
+        .flatMap(json ->
+            client
+                .sql(
+                    """
+                    INSERT INTO supervisor_version (supervisor_id, version, saved_at, body)
+                    SELECT :id, COALESCE(MAX(v.version), 0) + 1, :at, CAST(:body AS jsonb)
+                    FROM supervisor_version v WHERE v.supervisor_id = :id
+                    HAVING COALESCE((SELECT n.body <> CAST(:body AS jsonb)
+                      FROM supervisor_version n WHERE n.supervisor_id = :id
+                      ORDER BY n.version DESC LIMIT 1), true)
+                    """)
+                .bind("id", supervisor.id())
+                .bind("at", savedAt)
+                .bind("body", json)
+                .fetch()
+                .rowsUpdated())
         .retryWhen(Retry.max(3).filter(DataIntegrityViolationException.class::isInstance))
         .then(
             client
@@ -327,12 +321,11 @@ public class R2dbcSupervisorStore implements SupervisorStore {
             "SELECT version, saved_at, CAST(body AS text) AS body FROM supervisor_version"
                 + " WHERE supervisor_id = :id ORDER BY version DESC")
         .bind("id", id)
-        .map(
-            row ->
-                new SupervisorVersions.Version(
-                    Objects.requireNonNull(row.get("version", Integer.class)),
-                    row.get("saved_at", Instant.class),
-                    fromBody(id, mapper.readValue(row.get("body", String.class), SETTINGS))))
+        .map(row ->
+            new SupervisorVersions.Version(
+                Objects.requireNonNull(row.get("version", Integer.class)),
+                row.get("saved_at", Instant.class),
+                fromBody(id, mapper.readValue(row.get("body", String.class), SETTINGS))))
         .all();
   }
 

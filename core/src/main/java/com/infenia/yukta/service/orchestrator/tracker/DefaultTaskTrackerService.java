@@ -210,16 +210,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         .asFlux()
         .publishOn(Schedulers.parallel())
         .bufferTimeout(BATCH_SIZE, BATCH_TIMEOUT)
-        .concatMap(
-            batch ->
-                Mono.fromRunnable(() -> handleEvents(batch))
-                    .onErrorResume(
-                        e -> {
-                          log.atError()
-                              .addKeyValue("batchSize", batch.size())
-                              .log("Error processing tracker event batch", e);
-                          return Mono.empty();
-                        }))
+        .concatMap(batch ->
+            Mono.fromRunnable(() -> handleEvents(batch))
+                .onErrorResume(e -> {
+                  log.atError()
+                      .addKeyValue("batchSize", batch.size())
+                      .log("Error processing tracker event batch", e);
+                  return Mono.empty();
+                }))
         .then()
         .subscribe(
             null,
@@ -238,16 +236,14 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
         Duration.ofMillis(Math.clamp(ttl.dividedBy(4).toMillis(), 1_000L, 60_000L));
     sessionSweeper =
         Flux.interval(period, Schedulers.parallel())
-            .concatMap(
-                _ ->
-                    Mono.fromRunnable(this::evictExpiredSessions)
-                        .onErrorResume(
-                            e -> {
-                              log.atError()
-                                  .setCause(e)
-                                  .log("Dropping idle tracker sessions failed; will try again");
-                              return Mono.empty();
-                            }))
+            .concatMap(_ ->
+                Mono.fromRunnable(this::evictExpiredSessions)
+                    .onErrorResume(e -> {
+                      log.atError()
+                          .setCause(e)
+                          .log("Dropping idle tracker sessions failed; will try again");
+                      return Mono.empty();
+                    }))
             .subscribe();
     log.atInfo()
         .addKeyValue("sessionTtl", ttl)
@@ -277,39 +273,38 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       @SessionId final String sessionId,
       @WorkflowId final String workflowId,
       @NotEmpty final List<String> nodeIds) {
-    return Mono.fromRunnable(
-        () -> {
-          final WorkflowState state =
-              new WorkflowState(
-                  executionId, sessionId, workflowId, TaskStatus.RUNNING, nodeIds, Instant.now());
+    return Mono.fromRunnable(() -> {
+      final WorkflowState state =
+          new WorkflowState(
+              executionId, sessionId, workflowId, TaskStatus.RUNNING, nodeIds, Instant.now());
 
-          // one atomic step, so that evicting the session cannot remove the map between lookup and
-          // put
-          sessionStates.compute(
-              sessionId,
-              (_, runs) -> {
-                final Map<String, WorkflowState> map =
-                    Objects.requireNonNullElseGet(runs, ConcurrentHashMap::new);
-                map.put(executionId, state);
-                return map;
-              });
+      // one atomic step, so that evicting the session cannot remove the map between lookup and
+      // put
+      sessionStates.compute(
+          sessionId,
+          (_, runs) -> {
+            final Map<String, WorkflowState> map =
+                Objects.requireNonNullElseGet(runs, ConcurrentHashMap::new);
+            map.put(executionId, state);
+            return map;
+          });
 
-          executionIndex.put(executionId, state);
-          sessionUsed.put(sessionId, clock.getAsLong());
-          evictOldSessions(sessionId);
-          state.traceId = telemetry.runStarted(executionId, sessionId, workflowId);
+      executionIndex.put(executionId, state);
+      sessionUsed.put(sessionId, clock.getAsLong());
+      evictOldSessions(sessionId);
+      state.traceId = telemetry.runStarted(executionId, sessionId, workflowId);
 
-          latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
+      latestExecs.put(getLatestKey(sessionId, workflowId), executionId);
 
-          streams.open(executionId);
+      streams.open(executionId);
 
-          log.atInfo()
-              .addKeyValue("executionId", executionId)
-              .addKeyValue("sessionId", sessionId)
-              .addKeyValue("workflowId", workflowId)
-              .addKeyValue("nodeCount", nodeIds.size())
-              .log("Started tracking workflow execution");
-        });
+      log.atInfo()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("sessionId", sessionId)
+          .addKeyValue("workflowId", workflowId)
+          .addKeyValue("nodeCount", nodeIds.size())
+          .log("Started tracking workflow execution");
+    });
   }
 
   /**
@@ -443,11 +438,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   public List<WorkflowExecutionSummary> getTree(@NotBlank final String rootExecutionId) {
     return executionIndex.values().stream()
         // every run records its root, so only a root that is not the recorded one needs the walk
-        .filter(
-            state ->
-                rootExecutionId.equals(state.rootExecutionId)
-                    || rootExecutionId.equals(state.executionId)
-                    || isWithin(state.executionId, rootExecutionId))
+        .filter(state ->
+            rootExecutionId.equals(state.rootExecutionId)
+                || rootExecutionId.equals(state.executionId)
+                || isWithin(state.executionId, rootExecutionId))
         .map(ExecutionHistory::summary)
         .sorted(Comparator.comparing(WorkflowExecutionSummary::startTime))
         .toList();
@@ -597,14 +591,13 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
   @Override
   public Mono<Void> finishWorkflow(
       @NotBlank final String executionId, @NotNull final TaskStatus status) {
-    return Mono.fromRunnable(
-        () -> {
-          log.atInfo()
-              .addKeyValue("executionId", executionId)
-              .addKeyValue("status", status)
-              .log("Finishing workflow execution");
-          emitWorkflowStatusEvent(executionId, status);
-        });
+    return Mono.fromRunnable(() -> {
+      log.atInfo()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("status", status)
+          .log("Finishing workflow execution");
+      emitWorkflowStatusEvent(executionId, status);
+    });
   }
 
   /**
@@ -802,11 +795,10 @@ public class DefaultTaskTrackerService implements TaskTrackerService {
       final int executionCount = states.size();
       states
           .keySet()
-          .forEach(
-              execId -> {
-                executionIndex.remove(execId);
-                streams.drop(execId);
-              });
+          .forEach(execId -> {
+            executionIndex.remove(execId);
+            streams.drop(execId);
+          });
       // by run, not by session: a run started again under this id since keeps its entry
       latestExecs.values().removeIf(states::containsKey);
       log.atInfo()

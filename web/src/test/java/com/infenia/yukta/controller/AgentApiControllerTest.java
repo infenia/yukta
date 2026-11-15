@@ -135,12 +135,11 @@ class AgentApiControllerTest {
         .verifyComplete();
     running(EngineReads.NONE);
     StepVerifier.create(controller.self(as("a1")))
-        .assertNext(
-            r -> {
-              assertThat(r.data().supervisor()).isEqualTo("a1");
-              assertThat(r.data().contract()).isEqualTo(1);
-              assertThat(r.data().connected()).isTrue();
-            })
+        .assertNext(r -> {
+          assertThat(r.data().supervisor()).isEqualTo("a1");
+          assertThat(r.data().contract()).isEqualTo(1);
+          assertThat(r.data().connected()).isTrue();
+        })
         .verifyComplete();
   }
 
@@ -169,35 +168,29 @@ class AgentApiControllerTest {
   void badDirectiveIsRefusedBeforeItReachesTheSupervisor() {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"), new AgentApiController.DirectiveBody("", null, null, null, pause)))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"), new AgentApiController.DirectiveBody("", null, null, null, pause)))
         .isInstanceOf(IllegalArgumentException.class);
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody(
-                        "k", null, null, null, Map.of("type", "PauseWorkflow"))))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody(
+                    "k", null, null, null, Map.of("type", "PauseWorkflow"))))
         .hasMessageContaining("executionId");
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody(
-                        "k", null, null, null, Map.of("type", "Nope", "executionId", "r"))))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody(
+                    "k", null, null, null, Map.of("type", "Nope", "executionId", "r"))))
         .hasMessageContaining("Not a command");
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody("k", "whenever", null, null, pause)))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"), new AgentApiController.DirectiveBody("k", "whenever", null, null, pause)))
         .hasMessageContaining("cause must be");
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"), new AgentApiController.DirectiveBody("k", null, null, null, null)))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"), new AgentApiController.DirectiveBody("k", null, null, null, null)))
         .hasMessageContaining("needs a key and a command");
     assertThat(received).isEmpty();
   }
@@ -235,10 +228,8 @@ class AgentApiControllerTest {
             new Directive.NoOpinion("r2"),
             new Directive.DelegationAnswer("d1", Map.of("ok", true)),
             new Directive.DelegationAnswer("d2", Map.of()));
-    assertThatThrownBy(
-            () ->
-                controller.review(
-                    as("a1"), "r3", new AgentApiController.VerdictBody("maybe", null)))
+    assertThatThrownBy(() ->
+            controller.review(as("a1"), "r3", new AgentApiController.VerdictBody("maybe", null)))
         .hasMessageContaining("verdict must be");
     assertThatThrownBy(
             () -> controller.review(as("a1"), "r3", new AgentApiController.VerdictBody(null, null)))
@@ -261,11 +252,8 @@ class AgentApiControllerTest {
         };
     running(reads);
     StepVerifier.create(controller.executions(as("a1"), "RUNNING", 5))
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(EngineReads.RunView::status)
-                    .containsExactly("RUNNING"))
+        .assertNext(r ->
+            assertThat(r.data()).extracting(EngineReads.RunView::status).containsExactly("RUNNING"))
         .verifyComplete();
     StepVerifier.create(controller.inputs(as("a1"), 5))
         .assertNext(r -> assertThat(r.data()).isEmpty())
@@ -278,10 +266,9 @@ class AgentApiControllerTest {
         .isInstanceOf(NotFoundException.class);
     assertThatThrownBy(() -> controller.events(as("ghost"), -1))
         .isInstanceOf(NotFoundException.class);
-    assertThatThrownBy(
-            () ->
-                controller.self(
-                    MockServerWebExchange.from(MockServerHttpRequest.get("/api/agent/v1/self"))))
+    assertThatThrownBy(() ->
+            controller.self(
+                MockServerWebExchange.from(MockServerHttpRequest.get("/api/agent/v1/self"))))
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -311,13 +298,12 @@ class AgentApiControllerTest {
     org.mockito.Mockito.when(host.held("a1")).thenReturn(List.of("run9"));
 
     StepVerifier.create(controller.snapshot(as("a1")))
-        .assertNext(
-            r -> {
-              assertThat(r.data().cursor()).isEqualTo(2);
-              assertThat(r.data().executions()).isEmpty();
-              assertThat(r.data().inputs()).isEmpty();
-              assertThat(r.data().held()).containsExactly("run9");
-            })
+        .assertNext(r -> {
+          assertThat(r.data().cursor()).isEqualTo(2);
+          assertThat(r.data().executions()).isEmpty();
+          assertThat(r.data().inputs()).isEmpty();
+          assertThat(r.data().held()).containsExactly("run9");
+        })
         .verifyComplete();
     // after cursor 1 only the second signal is replayed, then the live ones
     StepVerifier.create(
@@ -404,16 +390,15 @@ class AgentApiControllerTest {
 
     assertThat(response.message()).contains("2 executions");
     assertThat(received).hasSize(2);
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody(
-                        "x",
-                        "tick",
-                        "r",
-                        null,
-                        Map.of("type", "PauseWorkflow", "target", "everything"))))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody(
+                    "x",
+                    "tick",
+                    "r",
+                    null,
+                    Map.of("type", "PauseWorkflow", "target", "everything"))))
         .hasMessageContaining("target must be");
   }
 
@@ -434,12 +419,11 @@ class AgentApiControllerTest {
 
     assertThat(response.message()).contains("200 executions (the most allowed)");
     for (final String bare : new String[] {"execution:", "workflow:"}) {
-      assertThatThrownBy(
-              () ->
-                  controller.directive(
-                      as("a1"),
-                      new AgentApiController.DirectiveBody(
-                          "x", "tick", "r", null, Map.of("type", "PauseWorkflow", "target", bare))))
+      assertThatThrownBy(() ->
+              controller.directive(
+                  as("a1"),
+                  new AgentApiController.DirectiveBody(
+                      "x", "tick", "r", null, Map.of("type", "PauseWorkflow", "target", bare))))
           .hasMessageContaining("target must be");
     }
   }
@@ -517,19 +501,17 @@ class AgentApiControllerTest {
     in.tryEmitNext(new Signal.Tick(Instant.EPOCH.plusSeconds(1)));
 
     StepVerifier.create(controller.next(as("a1"), 0, 5))
-        .assertNext(
-            r -> {
-              assertThat(r.data().signals()).hasSize(2);
-              assertThat(r.data().cursor()).isEqualTo(2);
-            })
+        .assertNext(r -> {
+          assertThat(r.data().signals()).hasSize(2);
+          assertThat(r.data().cursor()).isEqualTo(2);
+        })
         .verifyComplete();
     // nothing after cursor 2: it gives up after the wait and keeps the cursor
     StepVerifier.create(controller.next(as("a1"), 2, 1))
-        .assertNext(
-            r -> {
-              assertThat(r.data().signals()).isEmpty();
-              assertThat(r.data().cursor()).isEqualTo(2);
-            })
+        .assertNext(r -> {
+          assertThat(r.data().signals()).isEmpty();
+          assertThat(r.data().cursor()).isEqualTo(2);
+        })
         .verifyComplete();
     engine.close();
   }
@@ -553,19 +535,16 @@ class AgentApiControllerTest {
     running(EngineReads.NONE);
     final Map<String, Object> pause = Map.of("type", "PauseWorkflow", "executionId", "r");
     for (final String forged : new String[] {"event:e999"}) {
-      assertThatThrownBy(
-              () ->
-                  controller.directive(
-                      as("a1"),
-                      new AgentApiController.DirectiveBody("k", forged, null, null, pause)))
+      assertThatThrownBy(() ->
+              controller.directive(
+                  as("a1"), new AgentApiController.DirectiveBody("k", forged, null, null, pause)))
           .isInstanceOf(IllegalArgumentException.class)
           .hasMessageContaining("names no signal sent");
     }
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody("k", "answers:nobody", null, null, pause)))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody("k", "answers:nobody", null, null, pause)))
         .isInstanceOf(com.infenia.yukta.service.ConflictException.class);
     assertThat(received).isEmpty();
   }
@@ -584,11 +563,10 @@ class AgentApiControllerTest {
         .directive(
             as("a1"), new AgentApiController.DirectiveBody("k1", "answers:d1", null, null, pause))
         .block();
-    assertThatThrownBy(
-            () ->
-                controller.directive(
-                    as("a1"),
-                    new AgentApiController.DirectiveBody("k2", "answers:d1", null, null, pause)))
+    assertThatThrownBy(() ->
+            controller.directive(
+                as("a1"),
+                new AgentApiController.DirectiveBody("k2", "answers:d1", null, null, pause)))
         .hasMessageContaining("answered before");
   }
 

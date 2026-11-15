@@ -41,18 +41,16 @@ public class TreeControl {
     return tree
         ? top.then(
             Flux.defer(() -> Flux.fromIterable(below(executionId)))
-                .concatMap(
-                    child ->
-                        Mono.defer(() -> command.apply(child))
-                            .then()
-                            .onErrorResume(
-                                e -> {
-                                  log.atDebug()
-                                      .addKeyValue("executionId", child)
-                                      .addKeyValue("error", e.getMessage())
-                                      .log("A run of the tree did not take the command");
-                                  return Mono.empty();
-                                }))
+                .concatMap(child ->
+                    Mono.defer(() -> command.apply(child))
+                        .then()
+                        .onErrorResume(e -> {
+                          log.atDebug()
+                              .addKeyValue("executionId", child)
+                              .addKeyValue("error", e.getMessage())
+                              .log("A run of the tree did not take the command");
+                          return Mono.empty();
+                        }))
                 .then())
         : top;
   }

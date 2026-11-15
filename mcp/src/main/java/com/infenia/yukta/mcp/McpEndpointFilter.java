@@ -173,10 +173,9 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
       final ServerWebExchange exchange, final WebFilterChain chain, final ApiKeys.Match match) {
     return checked(exchange, chain, match)
         .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match))
-        .contextWrite(
-            ctx ->
-                ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
-                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
+        .contextWrite(ctx ->
+            ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
+                .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
   }
 
   /**
@@ -190,26 +189,23 @@ public class McpEndpointFilter implements WebFilter, MeterBinder {
       return chain.filter(exchange);
     }
     return DataBufferUtils.join(exchange.getRequest().getBody(), MAX_BODY_BYTES)
-        .map(
-            buffer -> {
-              final byte[] bytes = new byte[buffer.readableByteCount()];
-              buffer.read(bytes);
-              DataBufferUtils.release(buffer);
-              return bytes;
-            })
+        .map(buffer -> {
+          final byte[] bytes = new byte[buffer.readableByteCount()];
+          buffer.read(bytes);
+          DataBufferUtils.release(buffer);
+          return bytes;
+        })
         .defaultIfEmpty(new byte[0])
-        .flatMap(
-            bytes -> {
-              final boolean unrestricted =
-                  match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
-              if (bytes.length > 0 && !unrestricted && !McpToolAccess.permitted(match, bytes)) {
-                return reject(exchange, HttpStatus.FORBIDDEN);
-              }
-              if (heavyOverLimit(match.name(), bytes)) {
-                return tooMany(exchange);
-              }
-              return chain.filter(withBody(exchange, bytes));
-            })
+        .flatMap(bytes -> {
+          final boolean unrestricted = match.role() == ApiRole.ADMIN && match.sessions().isEmpty();
+          if (bytes.length > 0 && !unrestricted && !McpToolAccess.permitted(match, bytes)) {
+            return reject(exchange, HttpStatus.FORBIDDEN);
+          }
+          if (heavyOverLimit(match.name(), bytes)) {
+            return tooMany(exchange);
+          }
+          return chain.filter(withBody(exchange, bytes));
+        })
         .onErrorResume(
             DataBufferLimitException.class, _ -> reject(exchange, HttpStatus.CONTENT_TOO_LARGE));
   }

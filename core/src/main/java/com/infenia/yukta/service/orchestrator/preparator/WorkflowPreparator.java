@@ -95,117 +95,105 @@ public class WorkflowPreparator {
     final Map<String, Node> nodeMap = new ConcurrentHashMap<>(numNodes);
 
     def.nodes()
-        .forEach(
-            node -> {
-              nodeMap.put(node.nodeId(), node);
-              adjacencyList.put(node.nodeId(), new ArrayList<>());
-              parentsList.put(node.nodeId(), new ArrayList<>());
-              final Plugin plugin = registry.get(node.type());
-              if (plugin != null) {
-                pluginCache.put(node.nodeId(), plugin);
-                log.atTrace()
-                    .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                    .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
-                    .log("Cached plugin for node");
-              } else {
-                log.atWarn()
-                    .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                    .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
-                    .log("Plugin not found for node type");
-              }
-            });
+        .forEach(node -> {
+          nodeMap.put(node.nodeId(), node);
+          adjacencyList.put(node.nodeId(), new ArrayList<>());
+          parentsList.put(node.nodeId(), new ArrayList<>());
+          final Plugin plugin = registry.get(node.type());
+          if (plugin != null) {
+            pluginCache.put(node.nodeId(), plugin);
+            log.atTrace()
+                .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
+                .log("Cached plugin for node");
+          } else {
+            log.atWarn()
+                .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
+                .log("Plugin not found for node type");
+          }
+        });
 
     return validator
         .validate(def)
         .doOnError(e -> log.atError().setCause(e).log("Workflow validation failed"))
         .then(
             Flux.fromIterable(def.nodes())
-                .flatMap(
-                    node -> {
-                      final Plugin plugin = pluginCache.get(node.nodeId());
-                      if (plugin == null) {
-                        log.atError()
-                            .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                            .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
-                            .log("Plugin not found during initialization");
-                        return Mono.error(
-                            new IllegalArgumentException("Plugin not found: " + node.type()));
-                      }
-                      return plugin
-                          .initialize(node.config())
-                          .then(Mono.defer(() -> plugin.prepare(node.config())))
-                          .doOnSuccess(
-                              _ ->
-                                  log.atDebug()
-                                      .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                                      .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
-                                      .log("Plugin initialized successfully"))
-                          .then(Mono.empty());
-                    })
+                .flatMap(node -> {
+                  final Plugin plugin = pluginCache.get(node.nodeId());
+                  if (plugin == null) {
+                    log.atError()
+                        .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                        .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
+                        .log("Plugin not found during initialization");
+                    return Mono.error(
+                        new IllegalArgumentException("Plugin not found: " + node.type()));
+                  }
+                  return plugin
+                      .initialize(node.config())
+                      .then(Mono.defer(() -> plugin.prepare(node.config())))
+                      .doOnSuccess(_ ->
+                          log.atDebug()
+                              .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                              .addKeyValue(LOG_KEY_PLUGIN_TYPE, node.type())
+                              .log("Plugin initialized successfully"))
+                      .then(Mono.empty());
+                })
                 .then())
         .then(
-            Mono.fromCallable(
-                () -> {
-                  // Edges are only resolved once validation has proven their endpoints exist.
-                  def.edges()
-                      .forEach(
-                          edge -> {
-                            final Node targetApiNode = nodeMap.get(edge.target());
-                            final Node sourceApiNode = nodeMap.get(edge.source());
-                            final WorkflowNode targetNode =
-                                new WorkflowNode(
-                                    targetApiNode.nodeId(),
-                                    targetApiNode.type(),
-                                    targetApiNode.config());
-                            final WorkflowNode sourceNode =
-                                new WorkflowNode(
-                                    sourceApiNode.nodeId(),
-                                    sourceApiNode.type(),
-                                    sourceApiNode.config());
-                            adjacencyList.get(edge.source()).add(targetNode);
-                            parentsList.get(edge.target()).add(sourceNode);
-                            log.atTrace()
-                                .addKeyValue(LOG_KEY_SOURCE, edge.source())
-                                .addKeyValue(LOG_KEY_TARGET, edge.target())
-                                .addKeyValue(LOG_KEY_PORT, edge.sourcePort())
-                                .log("Added workflow edge");
-                          });
+            Mono.fromCallable(() -> {
+              // Edges are only resolved once validation has proven their endpoints exist.
+              def.edges()
+                  .forEach(edge -> {
+                    final Node targetApiNode = nodeMap.get(edge.target());
+                    final Node sourceApiNode = nodeMap.get(edge.source());
+                    final WorkflowNode targetNode =
+                        new WorkflowNode(
+                            targetApiNode.nodeId(), targetApiNode.type(), targetApiNode.config());
+                    final WorkflowNode sourceNode =
+                        new WorkflowNode(
+                            sourceApiNode.nodeId(), sourceApiNode.type(), sourceApiNode.config());
+                    adjacencyList.get(edge.source()).add(targetNode);
+                    parentsList.get(edge.target()).add(sourceNode);
+                    log.atTrace()
+                        .addKeyValue(LOG_KEY_SOURCE, edge.source())
+                        .addKeyValue(LOG_KEY_TARGET, edge.target())
+                        .addKeyValue(LOG_KEY_PORT, edge.sourcePort())
+                        .log("Added workflow edge");
+                  });
 
-                  // Plugins were initialised as they are on this server; a node with placement
-                  // then runs its calls on a worker.
-                  def.nodes()
-                      .forEach(
-                          node ->
-                              pluginCache.computeIfPresent(
-                                  node.nodeId(),
-                                  (_, plugin) ->
-                                      remoteNodes.place(node.type(), node.config(), plugin)));
+              // Plugins were initialised as they are on this server; a node with placement
+              // then runs its calls on a worker.
+              def.nodes()
+                  .forEach(node ->
+                      pluginCache.computeIfPresent(
+                          node.nodeId(),
+                          (_, plugin) -> remoteNodes.place(node.type(), node.config(), plugin)));
 
-                  final List<WorkflowNode> workflowNodes =
-                      def.nodes().stream()
-                          .map(n -> new WorkflowNode(n.nodeId(), n.type(), n.config()))
-                          .toList();
-                  final List<WorkflowNode> topologicalOrder =
-                      topologicalSortService.computeTopologicalOrder(
-                          workflowNodes, adjacencyList, parentsList);
-                  final List<WorkflowEdge> edges =
-                      def.edges().stream()
-                          .map(e -> new WorkflowEdge(e.source(), e.target(), e.sourcePort()))
-                          .toList();
-                  return new PreparedWorkflow(
-                      edges,
-                      adjacencyList,
-                      parentsList,
-                      pluginCache,
-                      topologicalOrder,
-                      compiler.compileTemplate(edges, parentsList, pluginCache, topologicalOrder));
-                }))
+              final List<WorkflowNode> workflowNodes =
+                  def.nodes().stream()
+                      .map(n -> new WorkflowNode(n.nodeId(), n.type(), n.config()))
+                      .toList();
+              final List<WorkflowNode> topologicalOrder =
+                  topologicalSortService.computeTopologicalOrder(
+                      workflowNodes, adjacencyList, parentsList);
+              final List<WorkflowEdge> edges =
+                  def.edges().stream()
+                      .map(e -> new WorkflowEdge(e.source(), e.target(), e.sourcePort()))
+                      .toList();
+              return new PreparedWorkflow(
+                  edges,
+                  adjacencyList,
+                  parentsList,
+                  pluginCache,
+                  topologicalOrder,
+                  compiler.compileTemplate(edges, parentsList, pluginCache, topologicalOrder));
+            }))
         // Plugin instances are shared singletons, so a failed preparation must not shut them down.
-        .doOnError(
-            e ->
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue(LOG_KEY_PLUGIN_COUNT, pluginCache.size())
-                    .log("Workflow preparation failed"));
+        .doOnError(e ->
+            log.atError()
+                .setCause(e)
+                .addKeyValue(LOG_KEY_PLUGIN_COUNT, pluginCache.size())
+                .log("Workflow preparation failed"));
   }
 }

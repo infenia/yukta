@@ -91,36 +91,32 @@ public class WebhookInputResponder implements InputResponder {
     final Target target =
         Binder.get(environment)
             .bind(PREFIX + name, Target.class)
-            .orElseThrow(
-                () ->
-                    new IllegalStateException("No webhook target '" + name + "' under " + PREFIX));
+            .orElseThrow(() ->
+                new IllegalStateException("No webhook target '" + name + "' under " + PREFIX));
     final byte[] body = json.writeValueAsBytes(payload(request, tierSettings, target));
     return egress
         .check(target.url())
         .then(
-            Mono.defer(
-                () ->
-                    client
-                        .post()
-                        .uri(target.url())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .headers(
-                            headers -> {
-                              target
-                                  .headers()
-                                  .forEach(
-                                      (key, value) ->
-                                          headers.set(key, environment.resolvePlaceholders(value)));
-                              final String secret = target.signingSecret();
-                              if (secret != null) {
-                                headers.set(SIGNATURE_HEADER, signature(secret, body));
-                              }
-                            })
-                        .bodyValue(body)
-                        .retrieve()
-                        .toBodilessEntity()
-                        .timeout(target.timeout() == null ? DEFAULT_TIMEOUT : target.timeout())
-                        .then()));
+            Mono.defer(() ->
+                client
+                    .post()
+                    .uri(target.url())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .headers(headers -> {
+                      target
+                          .headers()
+                          .forEach((key, value) ->
+                              headers.set(key, environment.resolvePlaceholders(value)));
+                      final String secret = target.signingSecret();
+                      if (secret != null) {
+                        headers.set(SIGNATURE_HEADER, signature(secret, body));
+                      }
+                    })
+                    .bodyValue(body)
+                    .retrieve()
+                    .toBodilessEntity()
+                    .timeout(target.timeout() == null ? DEFAULT_TIMEOUT : target.timeout())
+                    .then()));
   }
 
   @SuppressWarnings("PMD.UseConcurrentHashMap")

@@ -63,11 +63,10 @@ class McpListToolsPluginTest {
   void listsTheServersTools_withHeadersAndToken() {
     StepVerifier.create(
             run(config("headers", Map.of("X-A", "1"), "authToken", "tok", "timeout", 7)))
-        .assertNext(
-            out -> {
-              final Map<String, Object> payload = (Map<String, Object>) out.payload();
-              assertThat(payload).containsEntry("count", 2).containsEntry("tools", TOOLS);
-            })
+        .assertNext(out -> {
+          final Map<String, Object> payload = (Map<String, Object>) out.payload();
+          assertThat(payload).containsEntry("count", 2).containsEntry("tools", TOOLS);
+        })
         .verifyComplete();
 
     final ArgumentCaptor<McpCallSpec> spec = ArgumentCaptor.forClass(McpCallSpec.class);

@@ -69,12 +69,11 @@ class TimedRulesTest {
         .extracting(Directive.Command::command)
         .containsExactly(new PauseWorkflowCommand("run1"), new PauseWorkflowCommand("run2"));
     assertThat(commands)
-        .allSatisfy(
-            command -> {
-              assertThat(command.cause()).isEqualTo(Cause.tick());
-              assertThat(command.reason()).isEqualTo("more than one run");
-              assertThat(command.ifStatus()).isEqualTo("RUNNING");
-            });
+        .allSatisfy(command -> {
+          assertThat(command.cause()).isEqualTo(Cause.tick());
+          assertThat(command.reason()).isEqualTo("more than one run");
+          assertThat(command.ifStatus()).isEqualTo("RUNNING");
+        });
     assertThat(commands.get(0).key()).isNotEqualTo(commands.get(1).key());
   }
 
@@ -114,37 +113,33 @@ class TimedRulesTest {
 
   @Test
   void timedRuleNeedsCommandReasonAndPeriod() {
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "1s"},
-                      "then": {"command": "PauseWorkflow"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "1s"},
+                  "then": {"command": "PauseWorkflow"}}]}
+                """))
         .hasMessageContaining("needs a reason");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "1s", "event": "NodeStatusChanged"},
-                      "then": {"command": "PauseWorkflow", "reason": "r"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "1s", "event": "NodeStatusChanged"},
+                  "then": {"command": "PauseWorkflow", "reason": "r"}}]}
+                """))
         .hasMessageContaining("no event");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "soon"},
-                      "then": {"command": "PauseWorkflow", "reason": "r"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "soon"},
+                  "then": {"command": "PauseWorkflow", "reason": "r"}}]}
+                """))
         .hasMessageContaining("use 30s, 5m or 2h");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "0s"},
-                      "then": {"command": "PauseWorkflow", "reason": "r"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "0s"},
+                  "then": {"command": "PauseWorkflow", "reason": "r"}}]}
+                """))
         .hasMessageContaining("under one second");
   }
 
@@ -190,20 +185,18 @@ class TimedRulesTest {
 
   @Test
   void timedRuleWithNoCommandOrBlankReasonIsRefused() {
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "1s"}, "then": {"reason": "r"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "1s"}, "then": {"reason": "r"}}]}
+                """))
         .hasMessageContaining("needs a command");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules": [{"id": "a", "when": {"every": "1s"},
-                      "then": {"command": "PauseWorkflow", "reason": "  "}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules": [{"id": "a", "when": {"every": "1s"},
+                  "then": {"command": "PauseWorkflow", "reason": "  "}}]}
+                """))
         .hasMessageContaining("needs a reason");
   }
 
@@ -243,10 +236,9 @@ class TimedRulesTest {
     final RuleSupervisor supervisor = supervisor(TIMED);
     final Flux<ExecutionEvent> events =
         Flux.range(0, 10_005)
-            .<ExecutionEvent>map(
-                n ->
-                    new ExecutionEvent.WorkflowStatusChanged(
-                        "run" + n, "s", "w", "RUNNING", Instant.EPOCH))
+            .<ExecutionEvent>map(n ->
+                new ExecutionEvent.WorkflowStatusChanged(
+                    "run" + n, "s", "w", "RUNNING", Instant.EPOCH))
             .concatWith(Flux.just(new ExecutionEvent.EventsMissed(3, Instant.EPOCH)));
 
     supervisor

@@ -219,10 +219,9 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
       final ConstraintViolationException exception, final ServerHttpRequest request) {
     final List<ApiResponse.FieldError> errors =
         exception.getConstraintViolations().stream()
-            .map(
-                violation ->
-                    new ApiResponse.FieldError(
-                        violation.getPropertyPath().toString(), violation.getMessage()))
+            .map(violation ->
+                new ApiResponse.FieldError(
+                    violation.getPropertyPath().toString(), violation.getMessage()))
             .collect(Collectors.toList());
 
     final String path = getRequestPath(request);

@@ -53,19 +53,17 @@ public class WorkflowService {
         .log("Starting workflow");
     return control
         .startWorkflow(sessionId, workflowId, payload, idempotencyKey)
-        .doOnSuccess(
-            executionId ->
-                log.atDebug()
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("Workflow execution initiated via control bus"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .log("Failed to start workflow"));
+        .doOnSuccess(executionId ->
+            log.atDebug()
+                .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                .log("Workflow execution initiated via control bus"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                .log("Failed to start workflow"));
   }
 }

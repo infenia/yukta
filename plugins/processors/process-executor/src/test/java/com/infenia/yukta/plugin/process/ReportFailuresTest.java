@@ -79,11 +79,10 @@ class ReportFailuresTest {
     assertThat(result).containsEntry("totalFailures", 1);
     assertThat((List<Map<String, Object>>) result.get("failures"))
         .singleElement()
-        .satisfies(
-            f -> {
-              assertThat(f).containsEntry("file", "src/A.java").containsEntry("line", 12);
-              assertThat(f).containsEntry("message", "Missing Javadoc");
-            });
+        .satisfies(f -> {
+          assertThat(f).containsEntry("file", "src/A.java").containsEntry("line", 12);
+          assertThat(f).containsEntry("message", "Missing Javadoc");
+        });
   }
 
   @Test
@@ -145,11 +144,8 @@ class ReportFailuresTest {
   void manyFailures_areCappedButCounted() throws IOException {
     final String cases =
         IntStream.range(0, 70)
-            .mapToObj(
-                i ->
-                    "<testcase classname=\"p\" name=\"t"
-                        + i
-                        + "\"><failure message=\"m\"/></testcase>")
+            .mapToObj(i ->
+                "<testcase classname=\"p\" name=\"t" + i + "\"><failure message=\"m\"/></testcase>")
             .collect(Collectors.joining());
     write("build/TEST-a.xml", "<testsuite>" + cases + "</testsuite>");
 

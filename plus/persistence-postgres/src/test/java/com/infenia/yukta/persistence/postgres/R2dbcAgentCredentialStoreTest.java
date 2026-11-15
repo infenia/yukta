@@ -34,11 +34,10 @@ class R2dbcAgentCredentialStoreTest extends PostgresTestSupport {
     StepVerifier.create(store.save(new Stored("a", "h1", null))).verifyComplete();
     StepVerifier.create(store.save(new Stored("b", "h2", expires))).verifyComplete();
     StepVerifier.create(mine("a", "b").collectList())
-        .assertNext(
-            all ->
-                org.assertj.core.api.Assertions.assertThat(all)
-                    .containsExactlyInAnyOrder(
-                        new Stored("a", "h1", null), new Stored("b", "h2", expires)))
+        .assertNext(all ->
+            org.assertj.core.api.Assertions.assertThat(all)
+                .containsExactlyInAnyOrder(
+                    new Stored("a", "h1", null), new Stored("b", "h2", expires)))
         .verifyComplete();
 
     StepVerifier.create(store.save(new Stored("a", "h3", expires))).verifyComplete();

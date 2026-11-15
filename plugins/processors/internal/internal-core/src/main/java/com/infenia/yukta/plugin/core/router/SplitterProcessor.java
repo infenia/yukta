@@ -164,43 +164,39 @@ public final class SplitterProcessor implements ProcessorPlugin {
 
   private Flux<Message<?>> split(
       final Message<?> parent, final String path, final Map<String, Object> config) {
-    return Flux.defer(
-        () -> {
-          final boolean strict = (Boolean) config.getOrDefault(CFG_STRICT, true);
-          final String errorPort = (String) config.get(CFG_ERROR_PORT);
-          try {
-            final Map<String, Object> variables =
-                Map.of("payload", parent.payload(), "metadata", parent.metadata());
-            final Object items = SpelUtils.evaluateSync(path, parent, variables);
-            if (items == null) {
-              return handleNull(parent, errorPort, strict);
-            }
+    return Flux.defer(() -> {
+      final boolean strict = (Boolean) config.getOrDefault(CFG_STRICT, true);
+      final String errorPort = (String) config.get(CFG_ERROR_PORT);
+      try {
+        final Map<String, Object> variables =
+            Map.of("payload", parent.payload(), "metadata", parent.metadata());
+        final Object items = SpelUtils.evaluateSync(path, parent, variables);
+        if (items == null) {
+          return handleNull(parent, errorPort, strict);
+        }
 
-            final Iterator<?> iterator = coerceToIterator(items);
-            final int totalSize =
-                (items instanceof Collection) ? ((Collection<?>) items).size() : 0;
+        final Iterator<?> iterator = coerceToIterator(items);
+        final int totalSize = (items instanceof Collection) ? ((Collection<?>) items).size() : 0;
 
-            return Flux.fromIterable(() -> iterator)
-                .buffer(2, 1)
-                .index()
-                .concatMap(
-                    tuple -> {
-                      final long idx = tuple.getT1() + 1;
-                      final List<?> window = tuple.getT2();
-                      final Object item = window.get(0);
-                      final boolean isLast = window.size() < 2;
-                      final int total = isLast ? (int) idx : totalSize;
-                      try {
-                        return Flux.just(
-                            createChild(parent, item, (int) idx, total, config, variables));
-                      } catch (final WorkflowExecutionException e) {
-                        return handleError(parent, errorPort, strict, e);
-                      }
-                    });
-          } catch (final Exception e) {
-            return handleError(parent, errorPort, strict, e);
-          }
-        });
+        return Flux.fromIterable(() -> iterator)
+            .buffer(2, 1)
+            .index()
+            .concatMap(tuple -> {
+              final long idx = tuple.getT1() + 1;
+              final List<?> window = tuple.getT2();
+              final Object item = window.get(0);
+              final boolean isLast = window.size() < 2;
+              final int total = isLast ? (int) idx : totalSize;
+              try {
+                return Flux.just(createChild(parent, item, (int) idx, total, config, variables));
+              } catch (final WorkflowExecutionException e) {
+                return handleError(parent, errorPort, strict, e);
+              }
+            });
+      } catch (final Exception e) {
+        return handleError(parent, errorPort, strict, e);
+      }
+    });
   }
 
   private Flux<Message<?>> handleNull(

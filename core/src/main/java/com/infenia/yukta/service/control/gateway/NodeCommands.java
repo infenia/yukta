@@ -62,11 +62,9 @@ final class NodeCommands extends ControlDispatch {
   private Mono<Void> breakpoint(
       final String executionId, final String nodeId, final String field, final String equalsValue) {
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
-        .flatMap(
-            control ->
-                executeCommand(
-                    buildCommand(
-                        new SetBreakpointCommand(executionId, nodeId, field, equalsValue))));
+        .flatMap(control ->
+            executeCommand(
+                buildCommand(new SetBreakpointCommand(executionId, nodeId, field, equalsValue))));
   }
 
   /* default */ Mono<Void> skipNode(
@@ -92,21 +90,19 @@ final class NodeCommands extends ControlDispatch {
     final String nodeId = command.nodeId();
     return Mono.fromSupplier(() -> requireNodeControl(executionId, nodeId))
         .flatMap(control -> executeCommand(buildCommand(command)))
-        .doOnSubscribe(
-            _ ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .addKeyValue("command", command)
-                    .log("Going to {} node", verb))
+        .doOnSubscribe(_ ->
+            log.atInfo()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("nodeId", nodeId)
+                .addKeyValue("command", command)
+                .log("Going to {} node", verb))
         .doOnSuccess(
             _ -> log.atDebug().addKeyValue("nodeId", nodeId).log("Node {} command executed", verb))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to {} node", verb));
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("nodeId", nodeId)
+                .log("Failed to {} node", verb));
   }
 }

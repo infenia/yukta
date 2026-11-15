@@ -171,9 +171,8 @@ public class ExecutionController {
       @Parameter(description = EXECUTION_ID) @PathVariable final String executionId) {
     return access
         .require(sessionId == null ? session : sessionId, executionId)
-        .map(
-            progress ->
-                ApiResponse.success(200, "Workflow status retrieved successfully", progress));
+        .map(progress ->
+            ApiResponse.success(200, "Workflow status retrieved successfully", progress));
   }
 
   /**
@@ -207,12 +206,11 @@ public class ExecutionController {
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     return access
         .require(sessionId, executionId)
-        .flatMapMany(
-            _ ->
-                SseStreams.events(
-                    controlBus.watchExecution(executionId, includeHistory),
-                    null,
-                    SseStreams.HEARTBEAT));
+        .flatMapMany(_ ->
+            SseStreams.events(
+                controlBus.watchExecution(executionId, includeHistory),
+                null,
+                SseStreams.HEARTBEAT));
   }
 
   private static ApiResponse<WorkflowStartResponse> started(

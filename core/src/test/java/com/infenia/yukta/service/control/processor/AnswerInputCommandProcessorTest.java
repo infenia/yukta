@@ -102,11 +102,10 @@ class AnswerInputCommandProcessorTest {
     final InputRequest request = ask(InputKind.APPROVAL, InputRisk.HIGH, List.of(), null);
 
     run(answer(request.id(), "approve"), InputFlow.asSupervisor("guard"))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(InputForbiddenException.class)
-                    .hasMessageContaining("Rule 'risk'"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(InputForbiddenException.class)
+                .hasMessageContaining("Rule 'risk'"))
         .verify();
 
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
@@ -123,11 +122,10 @@ class AnswerInputCommandProcessorTest {
             null);
 
     run(answer(request.id(), "c"), OPERATOR)
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(InputRejectedException.class)
-                    .hasMessageContaining("[a, b]"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(InputRejectedException.class)
+                .hasMessageContaining("[a, b]"))
         .verify();
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
 
@@ -192,11 +190,8 @@ class AnswerInputCommandProcessorTest {
         new AnswerInputCommand("exec", request.id(), 7L, "go", null, Map.of(), null, null);
 
     run(stale, OPERATOR)
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessageContaining("OPEN"))
+        .expectErrorSatisfies(error ->
+            assertThat(error).isInstanceOf(ConflictException.class).hasMessageContaining("OPEN"))
         .verify();
 
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
@@ -208,11 +203,10 @@ class AnswerInputCommandProcessorTest {
     flow.broker.cancel(request.id(), "run-ended").block();
 
     run(answer(request.id(), "go"), OPERATOR)
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessageContaining("CANCELLED"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("CANCELLED"))
         .verify();
   }
 
@@ -241,11 +235,10 @@ class AnswerInputCommandProcessorTest {
     final InputRequest request = ask(InputKind.APPROVAL, InputRisk.LOW, List.of(), null);
 
     run(answer(request.id(), "go"), Context.empty())
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(InputForbiddenException.class)
-                    .hasMessageContaining("not identified"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(InputForbiddenException.class)
+                .hasMessageContaining("not identified"))
         .verify();
   }
 

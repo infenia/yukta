@@ -42,14 +42,13 @@ public record McpCallSpec(
     final StringBuilder key = new StringBuilder(url).append('#');
     headers.entrySet().stream()
         .sorted(Map.Entry.comparingByKey())
-        .forEach(
-            header ->
-                key.append(header.getKey().length())
-                    .append(':')
-                    .append(header.getKey())
-                    .append(header.getValue().length())
-                    .append(':')
-                    .append(header.getValue()));
+        .forEach(header ->
+            key.append(header.getKey().length())
+                .append(':')
+                .append(header.getKey())
+                .append(header.getValue().length())
+                .append(':')
+                .append(header.getValue()));
     return key.toString();
   }
 }

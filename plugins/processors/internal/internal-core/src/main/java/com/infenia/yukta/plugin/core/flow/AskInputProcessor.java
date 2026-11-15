@@ -238,16 +238,14 @@ public final class AskInputProcessor implements ProcessorPlugin {
   @Override
   public Flux<Message<?>> process(final Flux<Message<?>> input, final Map<String, Object> config) {
     final Question question = new Question(config);
-    return input.concatMap(
-        message ->
-            Mono.deferContextual(
-                ctx -> {
-                  final InputIdentity who = InputIdentity.from(ctx);
-                  final String name = question.name(who);
-                  return remembered(who, name, message)
-                      .switchIfEmpty(Mono.defer(() -> asked(question, who, name, message)))
-                      .map(answer -> tag(message, answer));
-                }));
+    return input.concatMap(message ->
+        Mono.deferContextual(ctx -> {
+          final InputIdentity who = InputIdentity.from(ctx);
+          final String name = question.name(who);
+          return remembered(who, name, message)
+              .switchIfEmpty(Mono.defer(() -> asked(question, who, name, message)))
+              .map(answer -> tag(message, answer));
+        }));
   }
 
   private Mono<Answer> asked(
@@ -256,22 +254,20 @@ public final class AskInputProcessor implements ProcessorPlugin {
       final String name,
       final Message<?> message) {
     return Mono.zip(prompt(question, message), context(question, message))
-        .flatMap(
-            asked ->
-                InputAsk.ask(
-                        gateways::getIfAvailable,
-                        question.spec(who, name, message, asked.getT1(), asked.getT2()))
-                    .map(Answer::from)
-                    .flatMap(answer -> remember(who, name, message, answer))
-                    .onErrorResume(
-                        InputAsk::isTimeout,
-                        e ->
-                            CONTINUE.equals(question.onTimeout)
-                                ? Mono.just(Answer.timeout(((InputException) e).requestId()))
-                                : Mono.error(
-                                    new IllegalStateException(
-                                        "Nobody answered '" + name + "' within " + question.ttl,
-                                        e))));
+        .flatMap(asked ->
+            InputAsk.ask(
+                    gateways::getIfAvailable,
+                    question.spec(who, name, message, asked.getT1(), asked.getT2()))
+                .map(Answer::from)
+                .flatMap(answer -> remember(who, name, message, answer))
+                .onErrorResume(
+                    InputAsk::isTimeout,
+                    e ->
+                        CONTINUE.equals(question.onTimeout)
+                            ? Mono.just(Answer.timeout(((InputException) e).requestId()))
+                            : Mono.error(
+                                new IllegalStateException(
+                                    "Nobody answered '" + name + "' within " + question.ttl, e))));
   }
 
   /** The prompt, with its expressions resolved when the application has a resolver. */
@@ -294,16 +290,14 @@ public final class AskInputProcessor implements ProcessorPlugin {
     }
     final VariableResolver variables = resolver.getIfAvailable();
     return Flux.fromIterable(question.context.entrySet())
-        .concatMap(
-            entry ->
-                (variables == null
-                        ? Mono.just((Object) entry.getValue())
-                        : variables.resolve(entry.getValue(), message))
-                    .map(
-                        value ->
-                            Map.entry(
-                                entry.getKey(),
-                                InputAsk.clean(String.valueOf(value), MAX_CONTEXT_VALUE_BYTES))))
+        .concatMap(entry ->
+            (variables == null
+                    ? Mono.just((Object) entry.getValue())
+                    : variables.resolve(entry.getValue(), message))
+                .map(value ->
+                    Map.entry(
+                        entry.getKey(),
+                        InputAsk.clean(String.valueOf(value), MAX_CONTEXT_VALUE_BYTES))))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue)
         .map(facts -> new LinkedHashMap<String, Object>(facts));
   }
@@ -335,11 +329,10 @@ public final class AskInputProcessor implements ProcessorPlugin {
     }
     return answers
         .getAll(who.executionId(), answerNode(who.nodeId()))
-        .filter(
-            kept ->
-                kept.payload() instanceof final Map<?, ?> body
-                    && message.id().equals(body.get("messageId"))
-                    && name.equals(body.get("name")))
+        .filter(kept ->
+            kept.payload() instanceof final Map<?, ?> body
+                && message.id().equals(body.get("messageId"))
+                && name.equals(body.get("name")))
         .next()
         .map(kept -> Answer.fromRecord((Map<?, ?>) kept.payload()))
         .onErrorResume(_ -> Mono.empty());

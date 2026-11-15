@@ -137,16 +137,14 @@ public class LoopStreamProcessor implements ProcessorPlugin {
 
     final LoopContext context = LoopContext.from(config, processor);
 
-    return input.concatMap(
-        initialMessage ->
-            Flux.deferContextual(
-                ctx -> {
-                  final String eId = ctx.getOrDefault("executionId", "unknown");
-                  final String nId = ctx.getOrDefault("nodeId", "unknown");
-                  final long start = System.currentTimeMillis();
+    return input.concatMap(initialMessage ->
+        Flux.deferContextual(ctx -> {
+          final String eId = ctx.getOrDefault("executionId", "unknown");
+          final String nId = ctx.getOrDefault("nodeId", "unknown");
+          final long start = System.currentTimeMillis();
 
-                  return executeLoop(initialMessage, context, eId, nId, start);
-                }));
+          return executeLoop(initialMessage, context, eId, nId, start);
+        }));
   }
 
   private Flux<Message<?>> executeLoop(
@@ -157,63 +155,53 @@ public class LoopStreamProcessor implements ProcessorPlugin {
       final long startTime) {
 
     return Flux.just(new LoopState(List.of(), initialMessage, 0, false))
-        .expand(
-            state -> {
-              if (state.terminated()) {
-                return Mono.empty();
-              }
+        .expand(state -> {
+          if (state.terminated()) {
+            return Mono.empty();
+          }
 
-              if (state.iteration() >= context.maxIterations()) {
-                return logAndTerminate(
-                    executionId,
-                    nodeId,
-                    "Max iterations (" + context.maxIterations() + ")",
-                    new LoopState(List.of(), state.lastMessage(), state.iteration(), false));
-              }
-              if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
-                return logAndTerminate(
-                    executionId,
-                    nodeId,
-                    "Max duration (" + context.maxDuration() + ")",
-                    new LoopState(List.of(), state.lastMessage(), state.iteration(), false));
-              }
+          if (state.iteration() >= context.maxIterations()) {
+            return logAndTerminate(
+                executionId,
+                nodeId,
+                "Max iterations (" + context.maxIterations() + ")",
+                new LoopState(List.of(), state.lastMessage(), state.iteration(), false));
+          }
+          if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
+            return logAndTerminate(
+                executionId,
+                nodeId,
+                "Max duration (" + context.maxDuration() + ")",
+                new LoopState(List.of(), state.lastMessage(), state.iteration(), false));
+          }
 
-              return logIteration(executionId, nodeId, state.iteration() + 1)
-                  .thenMany(
-                      context
-                          .processor()
-                          .process(Flux.just(state.lastMessage()), context.targetConfig()))
-                  .collectList()
-                  .flatMap(
-                      messages -> {
-                        final Message<?> lastMsg =
-                            messages.isEmpty()
-                                ? state.lastMessage()
-                                : messages.get(messages.size() - 1);
-                        final long elapsed = System.currentTimeMillis() - startTime;
-                        return checkExit(
-                                lastMsg, context.exitCondition(), state.iteration() + 1, elapsed)
-                            .flatMap(
-                                exit -> {
-                                  if (Boolean.TRUE.equals(exit)) {
-                                    return logAndTerminate(
-                                        executionId,
-                                        nodeId,
-                                        "Exit condition met",
-                                        new LoopState(
-                                            messages, lastMsg, state.iteration() + 1, false));
-                                  }
-                                  return Mono.just(
-                                          new LoopState(
-                                              messages, lastMsg, state.iteration() + 1, false))
-                                      .delayElement(context.delayInterval());
-                                });
-                      })
-                  .onErrorResume(
-                      e ->
-                          handleFailure(
-                              e, context.failureStrategy(), state, context.delayInterval()));
-            })
+          return logIteration(executionId, nodeId, state.iteration() + 1)
+              .thenMany(
+                  context
+                      .processor()
+                      .process(Flux.just(state.lastMessage()), context.targetConfig()))
+              .collectList()
+              .flatMap(messages -> {
+                final Message<?> lastMsg =
+                    messages.isEmpty() ? state.lastMessage() : messages.get(messages.size() - 1);
+                final long elapsed = System.currentTimeMillis() - startTime;
+                return checkExit(lastMsg, context.exitCondition(), state.iteration() + 1, elapsed)
+                    .flatMap(exit -> {
+                      if (Boolean.TRUE.equals(exit)) {
+                        return logAndTerminate(
+                            executionId,
+                            nodeId,
+                            "Exit condition met",
+                            new LoopState(messages, lastMsg, state.iteration() + 1, false));
+                      }
+                      return Mono.just(
+                              new LoopState(messages, lastMsg, state.iteration() + 1, false))
+                          .delayElement(context.delayInterval());
+                    });
+              })
+              .onErrorResume(
+                  e -> handleFailure(e, context.failureStrategy(), state, context.delayInterval()));
+        })
         .concatMapIterable(LoopState::messages);
   }
 

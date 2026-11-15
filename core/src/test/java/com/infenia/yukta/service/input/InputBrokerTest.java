@@ -84,12 +84,11 @@ class InputBrokerTest {
   @Test
   void testPluginAsksAndIsCompletedByAnAnswer() {
     StepVerifier.create(inputBroker.ask(who("e1", "n1"), spec("k1")))
-        .then(
-            () -> {
-              final InputRequest request = onlyOpen();
-              assertThat(request.state()).isEqualTo(InputState.OPEN);
-              inputBroker.answer(request.id(), null, answer(request, "ann")).block();
-            })
+        .then(() -> {
+          final InputRequest request = onlyOpen();
+          assertThat(request.state()).isEqualTo(InputState.OPEN);
+          inputBroker.answer(request.id(), null, answer(request, "ann")).block();
+        })
         .assertNext(response -> assertThat(response.decision()).isEqualTo("go"))
         .verifyComplete();
 
@@ -99,11 +98,10 @@ class InputBrokerTest {
   @Test
   void anEarlierAnswerForTheSameKeyIsReturnedAtOnceWithoutNewRequest() {
     StepVerifier.create(inputBroker.ask(who("e1", "n1"), spec("k1")))
-        .then(
-            () -> {
-              final InputRequest request = onlyOpen();
-              inputBroker.answer(request.id(), null, answer(request, "ann")).block();
-            })
+        .then(() -> {
+          final InputRequest request = onlyOpen();
+          inputBroker.answer(request.id(), null, answer(request, "ann")).block();
+        })
         .expectNextCount(1)
         .verifyComplete();
 
@@ -128,10 +126,9 @@ class InputBrokerTest {
     assertThat(second).containsExactlyElementsOf(first);
     // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputRequested.class::isInstance))
+                .hasSize(1));
   }
 
   @Test
@@ -173,10 +170,9 @@ class InputBrokerTest {
     assertThat(results.stream().map(InputRequest::version).distinct()).hasSize(1);
     // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputAnswered.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputAnswered.class::isInstance))
+                .hasSize(1));
     assertThat(
             meters
                 .counter(
@@ -280,14 +276,12 @@ class InputBrokerTest {
     assertThat(store.findById(request.id()).blockOptional().orElseThrow().state())
         .isEqualTo(InputState.CANCELLED);
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
-                    .singleElement()
-                    .satisfies(
-                        e ->
-                            assertThat(((ExecutionEvent.InputCancelled) e).reason())
-                                .isEqualTo("node-cancelled")));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                .singleElement()
+                .satisfies(e ->
+                    assertThat(((ExecutionEvent.InputCancelled) e).reason())
+                        .isEqualTo("node-cancelled")));
   }
 
   @Test
@@ -373,10 +367,9 @@ class InputBrokerTest {
         .singleElement()
         .satisfies(r -> assertThat(r.executionId()).isEqualTo("e2"));
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputCancelled.class::isInstance))
+                .hasSize(1));
   }
 
   @Test
@@ -395,10 +388,9 @@ class InputBrokerTest {
     assertThat(failures).singleElement().isInstanceOf(InputExpiredException.class);
     // the feed delivers on its own thread, so wait for the event
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputExpired.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputExpired.class::isInstance))
+                .hasSize(1));
   }
 
   @Test
@@ -415,11 +407,10 @@ class InputBrokerTest {
 
     assertThat(answers)
         .singleElement()
-        .satisfies(
-            r -> {
-              assertThat(r.decision()).isEqualTo("reject");
-              assertThat(r.responder()).isEqualTo(Responder.SYSTEM);
-            });
+        .satisfies(r -> {
+          assertThat(r.decision()).isEqualTo("reject");
+          assertThat(r.responder()).isEqualTo(Responder.SYSTEM);
+        });
     assertThat(
             meters
                 .counter(
@@ -460,10 +451,9 @@ class InputBrokerTest {
     assertThat(escalated.advice()).doesNotContain("abcd1234secret");
     // the feed delivers on its own thread, so wait for the event instead of racing it
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
+                .hasSize(1));
     // a second escalation changes nothing
     assertThat(
             inputBroker

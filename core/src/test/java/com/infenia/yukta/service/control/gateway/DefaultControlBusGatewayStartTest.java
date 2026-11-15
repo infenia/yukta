@@ -80,14 +80,13 @@ class DefaultControlBusGatewayStartTest {
     verify(definitions, never()).find(any(), any());
     assertThat(audit)
         .singleElement()
-        .satisfies(
-            r -> {
-              assertThat(r.applied()).isFalse();
-              assertThat(r.command()).isEqualTo("StartWorkflowCommand");
-              assertThat(r.actor()).isEqualTo("key:ci");
-              assertThat(r.channel()).isEqualTo("OPERATOR");
-              assertThat(r.reason()).isEqualTo("no starts");
-            });
+        .satisfies(r -> {
+          assertThat(r.applied()).isFalse();
+          assertThat(r.command()).isEqualTo("StartWorkflowCommand");
+          assertThat(r.actor()).isEqualTo("key:ci");
+          assertThat(r.channel()).isEqualTo("OPERATOR");
+          assertThat(r.reason()).isEqualTo("no starts");
+        });
   }
 
   @Test

@@ -69,11 +69,10 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.PAUSE, EXECUTION, null, null, null))
-        .assertNext(
-            result -> {
-              org.assertj.core.api.Assertions.assertThat(result.executionId()).isEqualTo(EXECUTION);
-              org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("PAUSE");
-            })
+        .assertNext(result -> {
+          org.assertj.core.api.Assertions.assertThat(result.executionId()).isEqualTo(EXECUTION);
+          org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("PAUSE");
+        })
         .verifyComplete();
 
     verify(controlBus).pauseWorkflow(EXECUTION);
@@ -111,10 +110,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.STOP_ALL, null, null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("workflowId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("workflowId is required"))
         .verify();
   }
 
@@ -166,10 +164,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.STOP_ALL, null, "wf-1", null, null))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
-                    .containsExactly("e1", "e2"))
+        .assertNext(result ->
+            org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                .containsExactly("e1", "e2"))
         .verifyComplete();
   }
 
@@ -180,10 +177,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.RECOVER, EXECUTION, null, null, null))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
-                    .containsExactly("exec-9"))
+        .assertNext(result ->
+            org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                .containsExactly("exec-9"))
         .verifyComplete();
   }
 
@@ -194,10 +190,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.RESTART, EXECUTION, null, null, null))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
-                    .containsExactly("exec-2"))
+        .assertNext(result ->
+            org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                .containsExactly("exec-2"))
         .verifyComplete();
   }
 
@@ -206,10 +201,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.RESTART_FROM_NODE, EXECUTION, null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("fromNodeId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("fromNodeId is required"))
         .verify();
   }
 
@@ -220,10 +214,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.RESTART_FROM_NODE, EXECUTION, null, NODE, null))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
-                    .containsExactly("exec-3"))
+        .assertNext(result ->
+            org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+                .containsExactly("exec-3"))
         .verifyComplete();
   }
 
@@ -231,10 +224,9 @@ class WorkflowControlProviderTest {
   void testControlWorkflowRequiresExecutionId() {
     StepVerifier.create(
             provider.controlWorkflow(SESSION, WorkflowControlAction.PAUSE, null, null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("executionId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("executionId is required"))
         .verify();
   }
 
@@ -242,10 +234,9 @@ class WorkflowControlProviderTest {
   void testControlWorkflowRejectsBlankExecutionId() {
     StepVerifier.create(
             provider.controlWorkflow(SESSION, WorkflowControlAction.PAUSE, " ", null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("executionId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("executionId is required"))
         .verify();
   }
 
@@ -254,10 +245,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.RESTART_FROM_NODE, EXECUTION, null, " ", null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("fromNodeId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("fromNodeId is required"))
         .verify();
   }
 
@@ -266,10 +256,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.STOP_ALL, null, " ", null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("workflowId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("workflowId is required"))
         .verify();
   }
 
@@ -308,10 +297,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.PAUSE, EXECUTION, null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: " + EXECUTION))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: " + EXECUTION))
         .verify();
 
     verify(controlBus, never()).pauseWorkflow(EXECUTION);
@@ -324,10 +312,9 @@ class WorkflowControlProviderTest {
     StepVerifier.create(
             provider.controlWorkflow(
                 SESSION, WorkflowControlAction.PAUSE, EXECUTION, null, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: " + EXECUTION))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: " + EXECUTION))
         .verify();
   }
 
@@ -335,10 +322,9 @@ class WorkflowControlProviderTest {
   void testControlNodeRejectsNullExecutionId() {
     StepVerifier.create(
             provider.controlNode(SESSION, null, NODE, NodeControlAction.PAUSE, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("executionId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("executionId is required"))
         .verify();
   }
 
@@ -346,10 +332,9 @@ class WorkflowControlProviderTest {
   void testControlNodeRejectsNullNodeId() {
     StepVerifier.create(
             provider.controlNode(SESSION, EXECUTION, null, NodeControlAction.PAUSE, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("nodeId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("nodeId is required"))
         .verify();
   }
 
@@ -357,10 +342,9 @@ class WorkflowControlProviderTest {
   void testControlNodeRejectsBlankExecutionId() {
     StepVerifier.create(
             provider.controlNode(SESSION, " ", NODE, NodeControlAction.PAUSE, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("executionId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("executionId is required"))
         .verify();
   }
 
@@ -368,10 +352,9 @@ class WorkflowControlProviderTest {
   void testControlNodeRejectsBlankNodeId() {
     StepVerifier.create(
             provider.controlNode(SESSION, EXECUTION, " ", NodeControlAction.PAUSE, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("nodeId is required"))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("nodeId is required"))
         .verify();
   }
 
@@ -455,10 +438,9 @@ class WorkflowControlProviderTest {
 
     StepVerifier.create(
             provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.PAUSE, null, null))
-        .expectErrorMatches(
-            error ->
-                error instanceof IllegalArgumentException
-                    && error.getMessage().contains("Execution not found: " + EXECUTION))
+        .expectErrorMatches(error ->
+            error instanceof IllegalArgumentException
+                && error.getMessage().contains("Execution not found: " + EXECUTION))
         .verify();
 
     verify(controlBus, never()).pauseNode(EXECUTION, NODE);
@@ -489,12 +471,11 @@ class WorkflowControlProviderTest {
 
     StepVerifier.create(
             provider.controlNode(SESSION, EXECUTION, NODE, NodeControlAction.RETRY, null, null))
-        .assertNext(
-            result -> {
-              org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("RETRY");
-              org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
-                  .containsExactly("exec-2");
-            })
+        .assertNext(result -> {
+          org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("RETRY");
+          org.assertj.core.api.Assertions.assertThat(result.resultExecutionIds())
+              .containsExactly("exec-2");
+        })
         .verifyComplete();
   }
 
@@ -504,10 +485,8 @@ class WorkflowControlProviderTest {
         .thenReturn(Mono.empty());
 
     StepVerifier.create(provider.addBreakpoint(SESSION, EXECUTION, NODE, "payload.status", "error"))
-        .assertNext(
-            result ->
-                org.assertj.core.api.Assertions.assertThat(result.action())
-                    .isEqualTo("BREAKPOINT_SET"))
+        .assertNext(result ->
+            org.assertj.core.api.Assertions.assertThat(result.action()).isEqualTo("BREAKPOINT_SET"))
         .verifyComplete();
   }
 
@@ -594,11 +573,10 @@ class WorkflowControlProviderTest {
     when(tracker.getTree(EXECUTION)).thenReturn(List.of(run(EXECUTION, TaskStatus.RUNNING)));
 
     StepVerifier.create(provider.getExecutionTree(SESSION, EXECUTION))
-        .assertNext(
-            tree ->
-                assertThat(tree)
-                    .extracting(WorkflowExecutionSummary::executionId)
-                    .containsExactly(EXECUTION))
+        .assertNext(tree ->
+            assertThat(tree)
+                .extracting(WorkflowExecutionSummary::executionId)
+                .containsExactly(EXECUTION))
         .verifyComplete();
   }
 

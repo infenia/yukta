@@ -136,11 +136,10 @@ public final class AgentCredentials {
             .filter(c -> live(c.expiresAt()))
             .doOnNext(c -> remember(c.supervisorId(), c.hash(), c.expiresAt(), c.addresses(), null))
             .then()
-            .onErrorResume(
-                error -> {
-                  log.atWarn().setCause(error).log("Could not load the agent credentials");
-                  return Mono.empty();
-                });
+            .onErrorResume(error -> {
+              log.atWarn().setCause(error).log("Could not load the agent credentials");
+              return Mono.empty();
+            });
   }
 
   private void remember(
@@ -163,14 +162,13 @@ public final class AgentCredentials {
     // write is tried three times and a failure is an error, not a warning
     write
         .retryWhen(Retry.fixedDelay(2, Duration.ofMillis(200)))
-        .doOnError(
-            error ->
-                log.atError()
-                    .setCause(error)
-                    .addKeyValue("supervisor", supervisorId)
-                    .log(
-                        "Could not store an agent credential change; after a restart the stored"
-                            + " state returns, so check that a revoked credential is gone"))
+        .doOnError(error ->
+            log.atError()
+                .setCause(error)
+                .addKeyValue("supervisor", supervisorId)
+                .log(
+                    "Could not store an agent credential change; after a restart the stored"
+                        + " state returns, so check that a revoked credential is gone"))
         .onErrorResume(error -> Mono.empty())
         .subscribe();
   }
@@ -235,14 +233,12 @@ public final class AgentCredentials {
     }
     return Optional.ofNullable(byHash.get(hash(token)))
         .filter(entry -> live(entry.expiresAt()))
-        .filter(
-            entry ->
-                entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
-        .map(
-            entry -> {
-              lastUse.put(entry.supervisorId(), new Use(clock.instant(), remote));
-              return entry.supervisorId();
-            });
+        .filter(entry ->
+            entry.addresses().isEmpty() || remote != null && entry.addresses().contains(remote))
+        .map(entry -> {
+          lastUse.put(entry.supervisorId(), new Use(clock.instant(), remote));
+          return entry.supervisorId();
+        });
   }
 
   /**

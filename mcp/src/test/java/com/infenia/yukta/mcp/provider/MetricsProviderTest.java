@@ -56,13 +56,10 @@ class MetricsProviderTest {
 
     for (final String scope : new String[] {null, " ", "global"}) {
       StepVerifier.create(provider.getMetricsSnapshot(scope))
-          .assertNext(
-              s -> {
-                assertThat(s.scope()).isEqualTo("global");
-                assertThat(s.values())
-                    .containsEntry(GAUGE, 3.0)
-                    .containsEntry("runs.finished", 1.0);
-              })
+          .assertNext(s -> {
+            assertThat(s.scope()).isEqualTo("global");
+            assertThat(s.values()).containsEntry(GAUGE, 3.0).containsEntry("runs.finished", 1.0);
+          })
           .verifyComplete();
     }
   }

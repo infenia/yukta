@@ -167,11 +167,10 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Emitting message to control bus");
               return controlBusService.emit(signal);
             })
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sourceNodeId", signal.sourceNodeId())
-                    .log("Message emitted successfully"))
+        .doOnSuccess(_ ->
+            log.atDebug()
+                .addKeyValue("sourceNodeId", signal.sourceNodeId())
+                .log("Message emitted successfully"))
         .doOnError(err -> logEmitFailure(signal.sourceNodeId(), err));
   }
 
@@ -202,10 +201,8 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     return bypassesInputReview(command)
         ? Mono.error(
             new ControlRejectedException("Input requests are answered with the input commands"))
-        : Mono.defer(
-            () ->
-                deliver(
-                    workflowId, resolveRun(sessionId, workflowId, executionId), nodeId, command));
+        : Mono.defer(() ->
+            deliver(workflowId, resolveRun(sessionId, workflowId, executionId), nodeId, command));
   }
 
   /**
@@ -261,19 +258,17 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Sending command to node");
               return controlBusService.sendCommand(workflowId, executionId, nodeId, command);
             })
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Command sent and response received"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("nodeId", nodeId)
-                    .log("Failed to send command"));
+        .doOnSuccess(_ ->
+            log.atDebug()
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("nodeId", nodeId)
+                .log("Command sent and response received"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("nodeId", nodeId)
+                .log("Failed to send command"));
   }
 
   // --- Configuration & Preparation ---
@@ -291,19 +286,17 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
                   .log("Compiling and caching workflow");
               return starter.compileAndCache(sessionId, workflowDefinition);
             })
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowDefinition.workflowId())
-                    .log("Workflow compiled and cached successfully"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowDefinition.workflowId())
-                    .log("Failed to compile and cache workflow"));
+        .doOnSuccess(_ ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowDefinition.workflowId())
+                .log("Workflow compiled and cached successfully"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowDefinition.workflowId())
+                .log("Failed to compile and cache workflow"));
   }
 
   // --- Execution Control ---
@@ -327,42 +320,39 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    */
   private Mono<String> reviewedStart(
       final ExecutionControlCommand.StartWorkflowCommand command, final Mono<String> start) {
-    return Mono.deferContextual(
-        context -> {
-          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          final String channel = ControlAudit.channel(context);
-          final ControlRequest request =
-              new ControlRequest(command, actor, command.sessionId(), command.workflowId());
-          final Mono<Void> review = reviewer == null ? Mono.empty() : reviewer.review(request);
-          return review
-              .then(start)
-              .doOnNext(
-                  executionId ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              true,
-                              executionId,
-                              "StartWorkflowCommand",
-                              actor,
-                              null,
-                              Instant.now(),
-                              channel)))
-              .doOnError(
-                  error ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              false,
-                              command.executionId(),
-                              "StartWorkflowCommand",
-                              actor,
-                              error.getMessage(),
-                              Instant.now(),
-                              channel)));
-        });
+    return Mono.deferContextual(context -> {
+      final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+      final String channel = ControlAudit.channel(context);
+      final ControlRequest request =
+          new ControlRequest(command, actor, command.sessionId(), command.workflowId());
+      final Mono<Void> review = reviewer == null ? Mono.empty() : reviewer.review(request);
+      return review
+          .then(start)
+          .doOnNext(executionId ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(
+                      true,
+                      executionId,
+                      "StartWorkflowCommand",
+                      actor,
+                      null,
+                      Instant.now(),
+                      channel)))
+          .doOnError(error ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(
+                      false,
+                      command.executionId(),
+                      "StartWorkflowCommand",
+                      actor,
+                      error.getMessage(),
+                      Instant.now(),
+                      channel)));
+    });
   }
 
   @Override
@@ -386,22 +376,17 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
     final String executionId = command.executionId();
     return Mono.fromSupplier(() -> dispatch.findExecutionOrThrow(executionId))
         .flatMap(control -> executeCommand(ControlDispatch.buildCommand(command)))
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .log("Going to {} workflow", verb))
-        .doOnSuccess(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .log("Workflow {} command executed", verb))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Failed to {} workflow", verb));
+        .doOnSubscribe(_ ->
+            log.atDebug().addKeyValue("executionId", executionId).log("Going to {} workflow", verb))
+        .doOnSuccess(_ ->
+            log.atDebug()
+                .addKeyValue("executionId", executionId)
+                .log("Workflow {} command executed", verb))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("executionId", executionId)
+                .log("Failed to {} workflow", verb));
   }
 
   @Override
@@ -420,115 +405,94 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
               }
               return allExecutions;
             })
-        .flatMapMany(
-            executions ->
-                Flux.fromIterable(executions)
-                    .flatMap(
-                        control ->
-                            executeCommand(
-                                    ControlDispatch.buildCommand(
-                                        new StopWorkflowCommand(
-                                            control.executionId(), reason, mode)))
-                                .thenReturn(control.executionId())))
+        .flatMapMany(executions ->
+            Flux.fromIterable(executions)
+                .flatMap(control ->
+                    executeCommand(
+                            ControlDispatch.buildCommand(
+                                new StopWorkflowCommand(control.executionId(), reason, mode)))
+                        .thenReturn(control.executionId())))
         .collectList()
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("reason", reason)
-                    .addKeyValue("mode", mode)
-                    .log("Stopping all workflow executions"))
-        .doOnSuccess(
-            stoppedIds ->
-                log.atDebug()
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .addKeyValue("count", stoppedIds.size())
-                    .log("All workflow stop commands executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("sessionId", sessionId)
-                    .addKeyValue("workflowId", workflowId)
-                    .log("Failed to stop workflow executions"));
+        .doOnSubscribe(_ ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("reason", reason)
+                .addKeyValue("mode", mode)
+                .log("Stopping all workflow executions"))
+        .doOnSuccess(stoppedIds ->
+            log.atDebug()
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .addKeyValue("count", stoppedIds.size())
+                .log("All workflow stop commands executed"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("sessionId", sessionId)
+                .addKeyValue("workflowId", workflowId)
+                .log("Failed to stop workflow executions"));
   }
 
   @Override
   public Mono<String> stopExecution(
       final String executionId, final String reason, final StopMode mode) {
-    return Mono.defer(
-            () ->
-                executionControlStore
-                    .findByExecutionId(executionId)
-                    .map(
-                        control ->
-                            executeCommand(
-                                    ControlDispatch.buildCommand(
-                                        new StopWorkflowCommand(
-                                            control.executionId(), reason, mode)))
-                                .thenReturn(control.executionId()))
-                    .orElseGet(
-                        () ->
-                            queries
-                                .finishOrphan(executionId)
-                                // it changes how the run ended: the audit must say who and why
-                                .flatMap(
-                                    id ->
-                                        recordAdminAction(
-                                                "StopWorkflowCommand",
-                                                id,
-                                                true,
-                                                "ended a run nothing executes: " + reason)
-                                            .thenReturn(id))))
-        .doOnSubscribe(
-            _ ->
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("reason", reason)
-                    .addKeyValue("mode", mode)
-                    .log("Stopping specific execution"))
-        .doOnSuccess(
-            stoppedId ->
-                log.atDebug()
-                    .addKeyValue("executionId", stoppedId)
-                    .log("Execution stop command executed"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("executionId", executionId)
-                    .log("Failed to stop execution"));
+    return Mono.defer(() ->
+            executionControlStore
+                .findByExecutionId(executionId)
+                .map(control ->
+                    executeCommand(
+                            ControlDispatch.buildCommand(
+                                new StopWorkflowCommand(control.executionId(), reason, mode)))
+                        .thenReturn(control.executionId()))
+                .orElseGet(() ->
+                    queries
+                        .finishOrphan(executionId)
+                        // it changes how the run ended: the audit must say who and why
+                        .flatMap(id ->
+                            recordAdminAction(
+                                    "StopWorkflowCommand",
+                                    id,
+                                    true,
+                                    "ended a run nothing executes: " + reason)
+                                .thenReturn(id))))
+        .doOnSubscribe(_ ->
+            log.atDebug()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("reason", reason)
+                .addKeyValue("mode", mode)
+                .log("Stopping specific execution"))
+        .doOnSuccess(stoppedId ->
+            log.atDebug()
+                .addKeyValue("executionId", stoppedId)
+                .log("Execution stop command executed"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("executionId", executionId)
+                .log("Failed to stop execution"));
   }
 
   @Override
   public Mono<String> retryNode(final String executionId, final String nodeId) {
-    return Mono.defer(
-        () -> {
-          final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
-          if (progress == null) {
-            return Mono.error(new NotFoundException("Execution not found: " + executionId));
-          }
-          final TaskStatus status =
-              progress.tasks().stream()
-                  .filter(task -> task.nodeId().equals(nodeId))
-                  .map(TaskProgress::status)
-                  .findFirst()
-                  .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
-          if (status != TaskStatus.FAILURE && status != TaskStatus.TIMED_OUT) {
-            return Mono.error(
-                new IllegalArgumentException(
-                    "Node "
-                        + nodeId
-                        + " did not fail in "
-                        + executionId
-                        + " (status "
-                        + status
-                        + ")"));
-          }
-          return restartFromNode(executionId, nodeId);
-        });
+    return Mono.defer(() -> {
+      final WorkflowProgress progress = taskTracker.getProgressByExecutionId(executionId);
+      if (progress == null) {
+        return Mono.error(new NotFoundException("Execution not found: " + executionId));
+      }
+      final TaskStatus status =
+          progress.tasks().stream()
+              .filter(task -> task.nodeId().equals(nodeId))
+              .map(TaskProgress::status)
+              .findFirst()
+              .orElseThrow(() -> new NotFoundException("Node not found: " + nodeId));
+      if (status != TaskStatus.FAILURE && status != TaskStatus.TIMED_OUT) {
+        return Mono.error(
+            new IllegalArgumentException(
+                "Node " + nodeId + " did not fail in " + executionId + " (status " + status + ")"));
+      }
+      return restartFromNode(executionId, nodeId);
+    });
   }
 
   @Override
@@ -537,15 +501,14 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final String target,
       final boolean applied,
       @Nullable final String reason) {
-    return Mono.deferContextual(
-        context -> {
-          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          ControlAudit.record(
-              executionLog,
-              auditSink,
-              new AuditRecord(applied, target, command, actor, reason, Instant.now()));
-          return Mono.empty();
-        });
+    return Mono.deferContextual(context -> {
+      final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+      ControlAudit.record(
+          executionLog,
+          auditSink,
+          new AuditRecord(applied, target, command, actor, reason, Instant.now()));
+      return Mono.empty();
+    });
   }
 
   /**
@@ -631,41 +594,32 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
       final ExecutionControlCommand command,
       final String name,
       final java.util.function.Supplier<Mono<T>> action) {
-    return Mono.deferContextual(
-        context -> {
-          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          final String channel = ControlAudit.channel(context);
-          final Mono<Void> review =
-              reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
-          return review
-              .then(Mono.defer(action))
-              .doOnSuccess(
-                  _ ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              true,
-                              command.executionId(),
-                              name,
-                              actor,
-                              null,
-                              Instant.now(),
-                              channel)))
-              .doOnError(
-                  error ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              false,
-                              command.executionId(),
-                              name,
-                              actor,
-                              error.getMessage(),
-                              Instant.now(),
-                              channel)));
-        });
+    return Mono.deferContextual(context -> {
+      final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+      final String channel = ControlAudit.channel(context);
+      final Mono<Void> review =
+          reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
+      return review
+          .then(Mono.defer(action))
+          .doOnSuccess(_ ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(
+                      true, command.executionId(), name, actor, null, Instant.now(), channel)))
+          .doOnError(error ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(
+                      false,
+                      command.executionId(),
+                      name,
+                      actor,
+                      error.getMessage(),
+                      Instant.now(),
+                      channel)));
+    });
   }
 
   /** The review request for a command, with the session and workflow of its live run if any. */
@@ -682,33 +636,29 @@ public class DefaultControlBusGateway implements ControlBusGateway, RestartCompl
    */
   private Mono<Void> reviewedAndLogged(
       final ExecutionControlCommand command, final String name, final Runnable apply) {
-    return Mono.deferContextual(
-        context -> {
-          final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
-          final Mono<Void> review =
-              reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
-          return review
-              .then(Mono.<Void>fromRunnable(apply))
-              .doOnSuccess(
-                  _ ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              true, command.executionId(), name, actor, null, Instant.now())))
-              .doOnError(
-                  error ->
-                      ControlAudit.record(
-                          executionLog,
-                          auditSink,
-                          new AuditRecord(
-                              false,
-                              command.executionId(),
-                              name,
-                              actor,
-                              error.getMessage(),
-                              Instant.now())));
-        });
+    return Mono.deferContextual(context -> {
+      final String actor = context.getOrDefault(ControlActor.CONTEXT_KEY, null);
+      final Mono<Void> review =
+          reviewer == null ? Mono.empty() : reviewer.review(request(command, actor));
+      return review
+          .then(Mono.<Void>fromRunnable(apply))
+          .doOnSuccess(_ ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(true, command.executionId(), name, actor, null, Instant.now())))
+          .doOnError(error ->
+              ControlAudit.record(
+                  executionLog,
+                  auditSink,
+                  new AuditRecord(
+                      false,
+                      command.executionId(),
+                      name,
+                      actor,
+                      error.getMessage(),
+                      Instant.now())));
+    });
   }
 
   /**

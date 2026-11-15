@@ -43,14 +43,12 @@ class ControlPlanePluginTest {
   @Test
   void supervise_emitsTheCommandsOfEveryDecisionInOrder() {
     final ControlPlanePlugin plane =
-        plane(
-            event ->
-                Mono.just(
-                    new ControlDecision(
-                        List.of(
-                            new ExecutionControlCommand.PauseWorkflowCommand(event.executionId())),
-                        1,
-                        ControlDecision.Source.RULE)));
+        plane(event ->
+            Mono.just(
+                new ControlDecision(
+                    List.of(new ExecutionControlCommand.PauseWorkflowCommand(event.executionId())),
+                    1,
+                    ControlDecision.Source.RULE)));
 
     StepVerifier.create(plane.supervise(Flux.just(event("e1"), event("e2"))))
         .expectNext(PAUSE, new ExecutionControlCommand.PauseWorkflowCommand("e2"))
@@ -60,12 +58,10 @@ class ControlPlanePluginTest {
   @Test
   void supervise_failingDecisionIsNoOpinionAndLaterEventsStillCount() {
     final ControlPlanePlugin plane =
-        plane(
-            event ->
-                "e1".equals(event.executionId())
-                    ? Mono.error(new IllegalStateException("down"))
-                    : Mono.just(
-                        new ControlDecision(List.of(PAUSE), 1, ControlDecision.Source.MODEL)));
+        plane(event ->
+            "e1".equals(event.executionId())
+                ? Mono.error(new IllegalStateException("down"))
+                : Mono.just(new ControlDecision(List.of(PAUSE), 1, ControlDecision.Source.MODEL)));
 
     StepVerifier.create(plane.supervise(Flux.just(event("e1"), event("e2"))))
         .expectNext(PAUSE)

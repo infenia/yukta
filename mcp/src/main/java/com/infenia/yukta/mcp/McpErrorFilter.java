@@ -76,16 +76,15 @@ public class McpErrorFilter implements WebFilter {
               return super.writeWith(body);
             }
             return DataBufferUtils.join(body)
-                .flatMap(
-                    joined -> {
-                      final byte[] bytes = new byte[joined.readableByteCount()];
-                      joined.read(bytes);
-                      DataBufferUtils.release(joined);
-                      final String text = new String(bytes, StandardCharsets.UTF_8);
-                      return text.contains(STACK_TRACE)
-                          ? replace(this, HttpStatus.BAD_REQUEST, INVALID_REQUEST)
-                          : super.writeWith(Mono.just(bufferFactory().wrap(bytes)));
-                    });
+                .flatMap(joined -> {
+                  final byte[] bytes = new byte[joined.readableByteCount()];
+                  joined.read(bytes);
+                  DataBufferUtils.release(joined);
+                  final String text = new String(bytes, StandardCharsets.UTF_8);
+                  return text.contains(STACK_TRACE)
+                      ? replace(this, HttpStatus.BAD_REQUEST, INVALID_REQUEST)
+                      : super.writeWith(Mono.just(bufferFactory().wrap(bytes)));
+                });
           }
         };
     final ServerWebExchange next = exchange.mutate().response(guarded).build();
@@ -93,19 +92,17 @@ public class McpErrorFilter implements WebFilter {
       return chain.filter(next);
     }
     return DataBufferUtils.join(exchange.getRequest().getBody(), MAX_BODY_BYTES)
-        .map(
-            buffer -> {
-              final byte[] bytes = new byte[buffer.readableByteCount()];
-              buffer.read(bytes);
-              DataBufferUtils.release(buffer);
-              return bytes;
-            })
+        .map(buffer -> {
+          final byte[] bytes = new byte[buffer.readableByteCount()];
+          buffer.read(bytes);
+          DataBufferUtils.release(buffer);
+          return bytes;
+        })
         .defaultIfEmpty(new byte[0])
-        .flatMap(
-            bytes ->
-                isMessage(bytes)
-                    ? chain.filter(withBody(next, bytes))
-                    : replace(guarded, HttpStatus.BAD_REQUEST, INVALID_REQUEST))
+        .flatMap(bytes ->
+            isMessage(bytes)
+                ? chain.filter(withBody(next, bytes))
+                : replace(guarded, HttpStatus.BAD_REQUEST, INVALID_REQUEST))
         .onErrorResume(
             DataBufferLimitException.class,
             _ -> replace(guarded, HttpStatus.CONTENT_TOO_LARGE, TOO_LARGE));

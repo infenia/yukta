@@ -168,11 +168,10 @@ class ControlReviewerTest {
                 new Reviewer("never", 9, _ -> Mono.just(Decision.ALLOW), asked)));
 
     StepVerifier.create(reviewer.review(REQUEST))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ControlRejectedException.class)
-                    .hasMessage("strict: nope"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ControlRejectedException.class)
+                .hasMessage("strict: nope"))
         .verify();
     assertThat(asked).containsExactly("strict");
   }

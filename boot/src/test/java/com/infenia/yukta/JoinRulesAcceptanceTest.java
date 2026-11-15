@@ -88,11 +88,10 @@ class JoinRulesAcceptanceTest {
     final String executionId = gateway.startWorkflow(session, "fan-out", Map.of(), null).block();
     await()
         .atMost(WAIT)
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && progress.status().isTerminal();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && progress.status().isTerminal();
+        });
     final WorkflowProgress run = tracker.getProgressByExecutionId(executionId);
 
     assertThat(statusOf(run, "bad")).isEqualTo(TaskStatus.FAILURE);

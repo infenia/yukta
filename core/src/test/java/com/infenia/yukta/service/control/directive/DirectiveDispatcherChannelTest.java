@@ -100,24 +100,22 @@ class DirectiveDispatcherChannelTest {
         .extracting(e -> Objects.requireNonNull(e.payload()).get(ExecutionLogEvent.CHANNEL_KEY))
         .containsExactly(OPERATOR, ENGINE, SYSTEM);
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () ->
-                assertThat(events)
-                    .filteredOn(ExecutionEvent.ControlOutcome.class::isInstance)
-                    .extracting(e -> ((ExecutionEvent.ControlOutcome) e).channel())
-                    .containsExactly(OPERATOR, ENGINE, SYSTEM));
+        .untilAsserted(() ->
+            assertThat(events)
+                .filteredOn(ExecutionEvent.ControlOutcome.class::isInstance)
+                .extracting(e -> ((ExecutionEvent.ControlOutcome) e).channel())
+                .containsExactly(OPERATOR, ENGINE, SYSTEM));
   }
 
   @Test
   void startHasTheWorkflowAsItsTarget() {
     final var start = new ExecutionControlCommand.StartWorkflowCommand("s", "w", Map.of(), "key");
     StepVerifier.create(dispatcher(new ArrayList<>()).target(start))
-        .assertNext(
-            t -> {
-              assertThat(t.sessionId()).isEqualTo("s");
-              assertThat(t.workflowId()).isEqualTo("w");
-              assertThat(t.nodeId()).isNull();
-            })
+        .assertNext(t -> {
+          assertThat(t.sessionId()).isEqualTo("s");
+          assertThat(t.workflowId()).isEqualTo("w");
+          assertThat(t.nodeId()).isNull();
+        })
         .verifyComplete();
     assertThat(start.executionId()).isEqualTo(ExecutionControlCommand.START);
   }

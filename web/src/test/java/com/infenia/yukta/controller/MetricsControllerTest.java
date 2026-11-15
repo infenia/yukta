@@ -106,12 +106,11 @@ class MetricsControllerTest {
     finishedRun("s2", "w2", "FAILURE");
 
     StepVerifier.create(controller.snapshot("session:s2"))
-        .assertNext(
-            s ->
-                assertThat(s.data().values())
-                    .containsEntry("runs.FAILURE", 1.0)
-                    .doesNotContainKey("runs.SUCCESS")
-                    .doesNotContainKey(GAUGE))
+        .assertNext(s ->
+            assertThat(s.data().values())
+                .containsEntry("runs.FAILURE", 1.0)
+                .doesNotContainKey("runs.SUCCESS")
+                .doesNotContainKey(GAUGE))
         .verifyComplete();
     StepVerifier.create(controller.series(List.of(GAUGE, "runs."), ONE_HOUR, "workflow:w1"))
         .assertNext(
@@ -140,45 +139,38 @@ class MetricsControllerTest {
             r -> assertThat(r.data()).extracting(RunAnalytics.HeatCell::failed).containsExactly(1))
         .verifyComplete();
     StepVerifier.create(controller.modules(ONE_HOUR, RunAnalytics.GLOBAL))
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(RunAnalytics.ModuleRow::module)
-                    .containsExactly("echo"))
+        .assertNext(r ->
+            assertThat(r.data()).extracting(RunAnalytics.ModuleRow::module).containsExactly("echo"))
         .verifyComplete();
     StepVerifier.create(controller.annotations(ONE_HOUR, RunAnalytics.GLOBAL))
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(RunAnalytics.Annotation::command)
-                    .containsExactly("PauseWorkflowCommand"))
+        .assertNext(r ->
+            assertThat(r.data())
+                .extracting(RunAnalytics.Annotation::command)
+                .containsExactly("PauseWorkflowCommand"))
         .verifyComplete();
     StepVerifier.create(controller.liveRuns())
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(RunAnalytics.LiveRun::nodesTotal)
-                    .containsExactly((Integer) null))
+        .assertNext(r ->
+            assertThat(r.data())
+                .extracting(RunAnalytics.LiveRun::nodesTotal)
+                .containsExactly((Integer) null))
         .verifyComplete();
     final var progress = mock(WorkflowProgress.class);
     when(progress.tasks()).thenReturn(List.of(mock(TaskProgress.class), mock(TaskProgress.class)));
     when(tracker.getProgressByExecutionId("live")).thenReturn(progress);
     StepVerifier.create(controller.liveRuns())
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(RunAnalytics.LiveRun::executionId, RunAnalytics.LiveRun::nodesTotal)
-                    .containsExactly(tuple("live", 2)))
+        .assertNext(r ->
+            assertThat(r.data())
+                .extracting(RunAnalytics.LiveRun::executionId, RunAnalytics.LiveRun::nodesTotal)
+                .containsExactly(tuple("live", 2)))
         .verifyComplete();
   }
 
   @Test
   void unknownRangeIsRejected() {
     StepVerifier.create(controller.series(List.of(GAUGE), "2d", RunAnalytics.GLOBAL))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(((ResponseStatusException) e).getStatusCode())
-                    .isEqualTo(HttpStatus.BAD_REQUEST))
+        .expectErrorSatisfies(e ->
+            assertThat(((ResponseStatusException) e).getStatusCode())
+                .isEqualTo(HttpStatus.BAD_REQUEST))
         .verify();
     StepVerifier.create(controller.heatmap("2d", RunAnalytics.GLOBAL))
         .expectError(ResponseStatusException.class)

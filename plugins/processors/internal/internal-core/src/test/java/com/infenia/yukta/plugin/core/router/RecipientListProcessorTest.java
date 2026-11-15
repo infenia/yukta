@@ -169,10 +169,9 @@ class RecipientListProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), DATA);
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectNextMatches(
-            m ->
-                "error_port".equals(m.sourcePort())
-                    && m.failureReason().contains("Recipient computation failed"))
+        .expectNextMatches(m ->
+            "error_port".equals(m.sourcePort())
+                && m.failureReason().contains("Recipient computation failed"))
         .verifyComplete();
   }
 

@@ -104,16 +104,15 @@ public final class EngineBackedSupervisor
         Flux.concat(started(), Flux.merge(events.map(this::event), asked.asFlux()));
     return engine
         .run(signals)
-        .flatMap(
-            directive ->
-                switch (directive) {
-                  case Directive.Command command -> Mono.just(command);
-                  case Directive.ReviewVerdict verdict -> answer(verdict);
-                  case Directive.NoOpinion none -> answer(none);
-                  case Directive.DelegationAnswer reply -> answer(reply);
-                  case Directive.Delegate question -> pass(question);
-                  default -> Mono.empty();
-                });
+        .flatMap(directive ->
+            switch (directive) {
+              case Directive.Command command -> Mono.just(command);
+              case Directive.ReviewVerdict verdict -> answer(verdict);
+              case Directive.NoOpinion none -> answer(none);
+              case Directive.DelegationAnswer reply -> answer(reply);
+              case Directive.Delegate question -> pass(question);
+              default -> Mono.empty();
+            });
   }
 
   /**
@@ -121,27 +120,23 @@ public final class EngineBackedSupervisor
    * cursor of the newest event, so a level-triggered engine never depends on one missed event.
    */
   private Mono<Signal> started() {
-    return Mono.defer(
-        () -> {
-          final String reason = startedOnce.getAndSet(true) ? "resubscribe" : "first";
-          final String cursor = "e" + seq.get();
-          final EngineReads now = reads.get();
-          return Mono.zip(
-                  now.executions(null, SNAPSHOT_ROWS)
-                      .map(EngineReads.RunView::executionId)
-                      .collectList()
-                      .onErrorReturn(List.of()),
-                  now.openInputs(SNAPSHOT_ROWS)
-                      .map(com.infenia.yukta.plugin.input.InputRequest::id)
-                      .collectList()
-                      .onErrorReturn(List.of()),
-                  now.held().collectList().onErrorReturn(List.of()))
-              .map(
-                  all ->
-                      (Signal)
-                          new Signal.Started(
-                              reason, cursor, all.getT1(), all.getT2(), all.getT3()));
-        });
+    return Mono.defer(() -> {
+      final String reason = startedOnce.getAndSet(true) ? "resubscribe" : "first";
+      final String cursor = "e" + seq.get();
+      final EngineReads now = reads.get();
+      return Mono.zip(
+              now.executions(null, SNAPSHOT_ROWS)
+                  .map(EngineReads.RunView::executionId)
+                  .collectList()
+                  .onErrorReturn(List.of()),
+              now.openInputs(SNAPSHOT_ROWS)
+                  .map(com.infenia.yukta.plugin.input.InputRequest::id)
+                  .collectList()
+                  .onErrorReturn(List.of()),
+              now.held().collectList().onErrorReturn(List.of()))
+          .map(all ->
+              (Signal) new Signal.Started(reason, cursor, all.getT1(), all.getT2(), all.getT3()));
+    });
   }
 
   private Signal event(final ExecutionEvent event) {

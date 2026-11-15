@@ -123,17 +123,16 @@ public class FeatureGateEnvironmentPostProcessor implements EnvironmentPostProce
     GATES.stream()
         .filter(gate -> gate.isUsed(environment) && !present.test(gate.provider()))
         .findFirst()
-        .ifPresent(
-            gate -> {
-              throw new IllegalStateException(
-                  gate.describe()
-                      + " needs the Yukta "
-                      + gate.edition().getDisplayName()
-                      + " build ("
-                      + gate.edition().getLicense()
-                      + "). Build with "
-                      + gate.hint()
-                      + ", or remove the setting. See LICENSING.md.");
-            });
+        .ifPresent(gate -> {
+          throw new IllegalStateException(
+              gate.describe()
+                  + " needs the Yukta "
+                  + gate.edition().getDisplayName()
+                  + " build ("
+                  + gate.edition().getLicense()
+                  + "). Build with "
+                  + gate.hint()
+                  + ", or remove the setting. See LICENSING.md.");
+        });
   }
 }

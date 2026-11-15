@@ -88,19 +88,18 @@ public final class ValidateProcessor implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          if (config.get(REQUIRED) == null && config.get(TYPES) == null) {
-            throw new IllegalArgumentException("'required' or 'types' must be configured");
-          }
-          if (config.get(REQUIRED) != null && !(config.get(REQUIRED) instanceof Collection)) {
-            throw new IllegalArgumentException("'required' must be a list of field names");
-          }
-          if (config.get(TYPES) != null && !(config.get(TYPES) instanceof Map)) {
-            throw new IllegalArgumentException("'types' must be a map of field name to type");
-          }
-          types(config).values().forEach(ValidateProcessor::checkType);
-        });
+    return Mono.fromRunnable(() -> {
+      if (config.get(REQUIRED) == null && config.get(TYPES) == null) {
+        throw new IllegalArgumentException("'required' or 'types' must be configured");
+      }
+      if (config.get(REQUIRED) != null && !(config.get(REQUIRED) instanceof Collection)) {
+        throw new IllegalArgumentException("'required' must be a list of field names");
+      }
+      if (config.get(TYPES) != null && !(config.get(TYPES) instanceof Map)) {
+        throw new IllegalArgumentException("'types' must be a map of field name to type");
+      }
+      types(config).values().forEach(ValidateProcessor::checkType);
+    });
   }
 
   @Override
@@ -122,13 +121,12 @@ public final class ValidateProcessor implements ProcessorPlugin {
             .forEach(field -> errors.add("missing field: " + field));
       }
       types(config)
-          .forEach(
-              (field, type) -> {
-                final Object value = payload.get(field);
-                if (value != null && !matches(value, type)) {
-                  errors.add("field " + field + " is not " + type);
-                }
-              });
+          .forEach((field, type) -> {
+            final Object value = payload.get(field);
+            if (value != null && !matches(value, type)) {
+              errors.add("field " + field + " is not " + type);
+            }
+          });
     } else {
       errors.add("payload is not an object");
     }

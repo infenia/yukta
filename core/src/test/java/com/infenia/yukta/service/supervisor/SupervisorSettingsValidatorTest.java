@@ -52,27 +52,26 @@ class SupervisorSettingsValidatorTest {
 
     @Test
     void validSettingsPassWithCommonKeys() {
-      assertThatCode(
-              () ->
-                  SupervisorSettingsValidator.check(
-                      Map.of(
-                          URL,
-                          "http://x",
-                          "retries",
-                          2,
-                          VERBOSE,
-                          "true",
-                          MODE,
-                          "b",
-                          "canAnswer",
-                          true,
-                          "maxRisk",
-                          "MEDIUM",
-                          "observeInternal",
-                          false,
-                          "allowedCommands",
-                          List.of("PauseWorkflowCommand")),
-                      SCHEMA))
+      assertThatCode(() ->
+              SupervisorSettingsValidator.check(
+                  Map.of(
+                      URL,
+                      "http://x",
+                      "retries",
+                      2,
+                      VERBOSE,
+                      "true",
+                      MODE,
+                      "b",
+                      "canAnswer",
+                      true,
+                      "maxRisk",
+                      "MEDIUM",
+                      "observeInternal",
+                      false,
+                      "allowedCommands",
+                      List.of("PauseWorkflowCommand")),
+                  SCHEMA))
           .doesNotThrowAnyException();
     }
 
@@ -97,10 +96,9 @@ class SupervisorSettingsValidatorTest {
 
     @Test
     void secretValueIsNeverQuoted() {
-      assertThatThrownBy(
-              () ->
-                  SupervisorSettingsValidator.check(
-                      Map.of(URL, "u", TOKEN, List.of("hunter2")), SCHEMA))
+      assertThatThrownBy(() ->
+              SupervisorSettingsValidator.check(
+                  Map.of(URL, "u", TOKEN, List.of("hunter2")), SCHEMA))
           .isInstanceOf(SettingsValidationException.class)
           .hasMessageNotContaining("hunter2");
     }
@@ -189,11 +187,10 @@ class SupervisorSettingsValidatorTest {
 
     @Test
     void choiceWithoutDeclaredOptionsAcceptsAnyText() {
-      assertThatCode(
-              () ->
-                  SupervisorSettingsValidator.check(
-                      Map.of("free", "anything"),
-                      List.of(ConfigField.choice("free", false, null, "any"))))
+      assertThatCode(() ->
+              SupervisorSettingsValidator.check(
+                  Map.of("free", "anything"),
+                  List.of(ConfigField.choice("free", false, null, "any"))))
           .doesNotThrowAnyException();
     }
 

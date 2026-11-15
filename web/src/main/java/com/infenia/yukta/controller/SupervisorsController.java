@@ -153,16 +153,15 @@ public class SupervisorsController {
   @Operation(summary = "List supervisors")
   public Mono<ApiResponse<List<SupervisorView>>> list() {
     return Mono.zip(service.supervisors().collectList(), service.attachments().collectList())
-        .map(
-            tuple -> {
-              final Map<String, SupervisorInfo> running = running();
-              final List<SupervisorView> views =
-                  Stream.concat(
-                          tuple.getT1().stream().map(s -> view(s, tuple.getT2(), running)),
-                          systemInfos().map(this::systemView))
-                      .toList();
-              return ApiResponse.success(200, "Supervisors retrieved", views);
-            });
+        .map(tuple -> {
+          final Map<String, SupervisorInfo> running = running();
+          final List<SupervisorView> views =
+              Stream.concat(
+                      tuple.getT1().stream().map(s -> view(s, tuple.getT2(), running)),
+                      systemInfos().map(this::systemView))
+                  .toList();
+          return ApiResponse.success(200, "Supervisors retrieved", views);
+        });
   }
 
   /**
@@ -177,17 +176,16 @@ public class SupervisorsController {
     return Mono.zip(
             find(id).map(java.util.Optional::of).defaultIfEmpty(java.util.Optional.empty()),
             service.attachments().collectList())
-        .map(
-            tuple -> {
-              if (tuple.getT1().isPresent()) {
-                return view(tuple.getT1().get(), tuple.getT2(), running());
-              }
-              return systemInfos()
-                  .filter(info -> info.id().equals(id))
-                  .findFirst()
-                  .map(this::systemView)
-                  .orElseThrow(() -> new NotFoundException("Supervisor not found: " + id));
-            })
+        .map(tuple -> {
+          if (tuple.getT1().isPresent()) {
+            return view(tuple.getT1().get(), tuple.getT2(), running());
+          }
+          return systemInfos()
+              .filter(info -> info.id().equals(id))
+              .findFirst()
+              .map(this::systemView)
+              .orElseThrow(() -> new NotFoundException("Supervisor not found: " + id));
+        })
         .map(view -> ApiResponse.success(200, "Supervisor retrieved", view));
   }
 
@@ -202,16 +200,13 @@ public class SupervisorsController {
   @Operation(summary = "Create a supervisor")
   public Mono<ApiResponse<SupervisorView>> create(@RequestBody final SupervisorBody body) {
     return Mono.fromSupplier(() -> draft(idOrNew(body.id()), body, body.settings()))
-        .flatMap(
-            draft ->
-                find(draft.id())
-                    .hasElement()
-                    .flatMap(
-                        exists ->
-                            exists || host.isBuiltIn(draft.id())
-                                ? Mono.error(
-                                    new ConflictException("Supervisor exists: " + draft.id()))
-                                : service.saveSupervisor(draft)))
+        .flatMap(draft ->
+            find(draft.id())
+                .hasElement()
+                .flatMap(exists ->
+                    exists || host.isBuiltIn(draft.id())
+                        ? Mono.error(new ConflictException("Supervisor exists: " + draft.id()))
+                        : service.saveSupervisor(draft)))
         .map(saved -> ApiResponse.success(201, "Supervisor created", shown(saved)));
   }
 
@@ -229,11 +224,10 @@ public class SupervisorsController {
     return find(id)
         .map(existing -> SupervisorSettingsMask.keepHidden(body.settings(), existing.settings()))
         .defaultIfEmpty(body.settings())
-        .flatMap(
-            settings ->
-                host.isBuiltIn(id)
-                    ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
-                    : service.saveSupervisor(draft(id, body, settings)))
+        .flatMap(settings ->
+            host.isBuiltIn(id)
+                ? Mono.error(new ConflictException(SYSTEM_MESSAGE))
+                : service.saveSupervisor(draft(id, body, settings)))
         .map(saved -> ApiResponse.success(200, "Supervisor saved", shown(saved)));
   }
 
@@ -314,14 +308,13 @@ public class SupervisorsController {
   public Mono<ApiResponse<List<VersionView>>> versions(@PathVariable final String id) {
     return service
         .versions(id)
-        .map(
-            found ->
-                ApiResponse.success(
-                    200,
-                    "Versions",
-                    found.stream()
-                        .map(v -> new VersionView(v.version(), v.savedAt(), shown(v.supervisor())))
-                        .toList()));
+        .map(found ->
+            ApiResponse.success(
+                200,
+                "Versions",
+                found.stream()
+                    .map(v -> new VersionView(v.version(), v.savedAt(), shown(v.supervisor())))
+                    .toList()));
   }
 
   /**
@@ -418,29 +411,25 @@ public class SupervisorsController {
               + " 200: look at valid and errors.")
   public Mono<ApiResponse<SupervisorValidation>> validate(@RequestBody final SupervisorBody body) {
     return Mono.fromSupplier(() -> body.id() == null || body.id().isBlank() ? "draft" : body.id())
-        .flatMap(
-            id ->
-                find(id)
-                    .map(
-                        existing ->
-                            SupervisorSettingsMask.keepHidden(body.settings(), existing.settings()))
-                    .defaultIfEmpty(body.settings())
-                    .flatMap(
-                        settings ->
-                            service.check(
-                                new Supervisor(
-                                    id,
-                                    required("type", body.type()),
-                                    settings,
-                                    Boolean.TRUE.equals(body.dryRun()),
-                                    body.description()))))
-        .map(
-            issues ->
-                new SupervisorValidation(
-                    issues.isEmpty(),
-                    issues.stream()
-                        .map(i -> new SupervisorValidation.FieldIssue(i.field(), i.message()))
-                        .toList()))
+        .flatMap(id ->
+            find(id)
+                .map(existing ->
+                    SupervisorSettingsMask.keepHidden(body.settings(), existing.settings()))
+                .defaultIfEmpty(body.settings())
+                .flatMap(settings ->
+                    service.check(
+                        new Supervisor(
+                            id,
+                            required("type", body.type()),
+                            settings,
+                            Boolean.TRUE.equals(body.dryRun()),
+                            body.description()))))
+        .map(issues ->
+            new SupervisorValidation(
+                issues.isEmpty(),
+                issues.stream()
+                    .map(i -> new SupervisorValidation.FieldIssue(i.field(), i.message()))
+                    .toList()))
         .map(result -> ApiResponse.success(200, "Supervisor checked", result));
   }
 
@@ -486,12 +475,11 @@ public class SupervisorsController {
     }
     return Mono.fromSupplier(() -> wanted(body))
         .flatMap(wanted -> assignments.set(id, wanted, unlock))
-        .map(
-            saved ->
-                ApiResponse.success(
-                    200,
-                    "Assignments saved",
-                    saved.stream().map(SupervisorsController::assignmentView).toList()));
+        .map(saved ->
+            ApiResponse.success(
+                200,
+                "Assignments saved",
+                saved.stream().map(SupervisorsController::assignmentView).toList()));
   }
 
   /**
@@ -507,14 +495,13 @@ public class SupervisorsController {
       @PathVariable final String id, @RequestBody final List<AssignmentBody> body) {
     return Mono.fromSupplier(() -> wanted(body))
         .flatMap(wanted -> assignments.check(id, wanted))
-        .map(
-            issues ->
-                ApiResponse.success(
-                    200,
-                    issues.isEmpty() ? "No problems" : "Problems found",
-                    new ValidationView(
-                        issues.isEmpty(),
-                        issues.stream().map(i -> i.field() + ": " + i.message()).toList())));
+        .map(issues ->
+            ApiResponse.success(
+                200,
+                issues.isEmpty() ? "No problems" : "Problems found",
+                new ValidationView(
+                    issues.isEmpty(),
+                    issues.stream().map(i -> i.field() + ": " + i.message()).toList())));
   }
 
   /**
@@ -532,12 +519,11 @@ public class SupervisorsController {
       @RequestParam(required = false) final @Nullable String workflow,
       @RequestParam(required = false) final @Nullable String source) {
     return assignmentViews()
-        .map(
-            all ->
-                all.stream()
-                    .filter(a -> source == null || a.source().equalsIgnoreCase(source))
-                    .filter(a -> applies(SupervisorScope.parse(a.scope()), session, workflow))
-                    .toList())
+        .map(all ->
+            all.stream()
+                .filter(a -> source == null || a.source().equalsIgnoreCase(source))
+                .filter(a -> applies(SupervisorScope.parse(a.scope()), session, workflow))
+                .toList())
         .map(list -> ApiResponse.success(200, "Assignments retrieved", list));
   }
 
@@ -560,18 +546,17 @@ public class SupervisorsController {
       throw new IllegalArgumentException("A list of assignments is required");
     }
     return body.stream()
-        .map(
-            a -> {
-              final String target = a.target();
-              if (target == null || target.isBlank()) {
-                throw new IllegalArgumentException("target is required");
-              }
-              final Boolean enabled = a.enabled();
-              return new SupervisorAssignments.Assignment(
-                  SupervisorScope.parse(target),
-                  enabled == null || enabled,
-                  Boolean.TRUE.equals(a.locked()));
-            })
+        .map(a -> {
+          final String target = a.target();
+          if (target == null || target.isBlank()) {
+            throw new IllegalArgumentException("target is required");
+          }
+          final Boolean enabled = a.enabled();
+          return new SupervisorAssignments.Assignment(
+              SupervisorScope.parse(target),
+              enabled == null || enabled,
+              Boolean.TRUE.equals(a.locked()));
+        })
         .toList();
   }
 
@@ -638,11 +623,10 @@ public class SupervisorsController {
         .attachments()
         .map(SupervisorsController::assignmentView)
         .collectList()
-        .map(
-            stored ->
-                Stream.concat(
-                        stored.stream(), systemInfos().map(SupervisorsController::systemAttachment))
-                    .toList());
+        .map(stored ->
+            Stream.concat(
+                    stored.stream(), systemInfos().map(SupervisorsController::systemAttachment))
+                .toList());
   }
 
   private Map<String, SupervisorInfo> running() {
@@ -695,11 +679,10 @@ public class SupervisorsController {
     final Map<String, SupervisorView.DelegationView> view = new java.util.TreeMap<>();
     supervisor
         .delegation()
-        .forEach(
-            (kind, d) ->
-                view.put(
-                    kind.name(),
-                    new SupervisorView.DelegationView(d.mode().name(), d.timeout().toSeconds())));
+        .forEach((kind, d) ->
+            view.put(
+                kind.name(),
+                new SupervisorView.DelegationView(d.mode().name(), d.timeout().toSeconds())));
     return view;
   }
 
@@ -713,29 +696,28 @@ public class SupervisorsController {
             com.infenia.yukta.plugin.control.Delegation>
         out = new java.util.EnumMap<>(com.infenia.yukta.plugin.control.DelegationKind.class);
     if (body != null) {
-      body.forEach(
-          (kind, d) -> {
-            final String mode = d.mode();
-            final Long timeoutSeconds = d.timeoutSeconds();
-            try {
-              out.put(
-                  com.infenia.yukta.plugin.control.DelegationKind.valueOf(
-                      kind.toUpperCase(java.util.Locale.ROOT)),
-                  new com.infenia.yukta.plugin.control.Delegation(
-                      mode == null
-                          ? com.infenia.yukta.plugin.control.DelegationMode.ORDERED
-                          : com.infenia.yukta.plugin.control.DelegationMode.valueOf(
-                              mode.toUpperCase(java.util.Locale.ROOT)),
-                      timeoutSeconds == null
-                          ? com.infenia.yukta.plugin.control.Delegation.DEFAULT_TIMEOUT
-                          : java.time.Duration.ofSeconds(timeoutSeconds)));
-            } catch (IllegalArgumentException e) {
-              throw new IllegalArgumentException(
-                  "delegation: unknown kind or mode, or a bad timeout (kinds APPROVAL, INPUT,"
-                      + " CONSULT; modes ORDERED, ALL, ANY)",
-                  e);
-            }
-          });
+      body.forEach((kind, d) -> {
+        final String mode = d.mode();
+        final Long timeoutSeconds = d.timeoutSeconds();
+        try {
+          out.put(
+              com.infenia.yukta.plugin.control.DelegationKind.valueOf(
+                  kind.toUpperCase(java.util.Locale.ROOT)),
+              new com.infenia.yukta.plugin.control.Delegation(
+                  mode == null
+                      ? com.infenia.yukta.plugin.control.DelegationMode.ORDERED
+                      : com.infenia.yukta.plugin.control.DelegationMode.valueOf(
+                          mode.toUpperCase(java.util.Locale.ROOT)),
+                  timeoutSeconds == null
+                      ? com.infenia.yukta.plugin.control.Delegation.DEFAULT_TIMEOUT
+                      : java.time.Duration.ofSeconds(timeoutSeconds)));
+        } catch (IllegalArgumentException e) {
+          throw new IllegalArgumentException(
+              "delegation: unknown kind or mode, or a bad timeout (kinds APPROVAL, INPUT,"
+                  + " CONSULT; modes ORDERED, ALL, ANY)",
+              e);
+        }
+      });
     }
     return out;
   }

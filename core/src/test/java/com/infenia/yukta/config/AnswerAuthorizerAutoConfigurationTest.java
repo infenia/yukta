@@ -44,12 +44,11 @@ class AnswerAuthorizerAutoConfigurationTest {
 
   @Test
   void withNothingElseTheDefaultRulesApply() {
-    runner.run(
-        context -> {
-          assertThat(context).hasSingleBean(AnswerAuthorizer.class);
-          assertThat(context.getBean(AnswerAuthorizer.class))
-              .isInstanceOf(DefaultAnswerAuthorizer.class);
-        });
+    runner.run(context -> {
+      assertThat(context).hasSingleBean(AnswerAuthorizer.class);
+      assertThat(context.getBean(AnswerAuthorizer.class))
+          .isInstanceOf(DefaultAnswerAuthorizer.class);
+    });
   }
 
   @Test
@@ -57,10 +56,9 @@ class AnswerAuthorizerAutoConfigurationTest {
     runner
         .withBean(ExecutionControlStore.class, InMemoryExecutionControlStore::new)
         .withBean(MeterRegistry.class, SimpleMeterRegistry::new)
-        .run(
-            context ->
-                assertThat(context.getBean(AnswerAuthorizer.class))
-                    .isInstanceOf(DefaultAnswerAuthorizer.class));
+        .run(context ->
+            assertThat(context.getBean(AnswerAuthorizer.class))
+                .isInstanceOf(DefaultAnswerAuthorizer.class));
   }
 
   @Test
@@ -74,27 +72,26 @@ class AnswerAuthorizerAutoConfigurationTest {
 
     runner
         .withBean(CommandProposals.class, () -> proposals)
-        .run(
-            context -> {
-              final var request =
-                  InputTestSupport.request(
-                      "r7",
-                      InputTestSupport.spec(
-                          "k",
-                          InputKind.APPROVAL,
-                          InputRisk.LOW,
-                          Audience.CURRENT_TIER,
-                          List.of(),
-                          null,
-                          Map.of()));
-              context
-                  .getBean(AnswerAuthorizer.class)
-                  .authorize(
-                      new AnswerContext(
-                          request, ActorInfo.human("alice", ApiRole.OPERATOR, Set.of()), false))
-                  .block();
-              assertThat(asked).containsExactly("r7");
-            });
+        .run(context -> {
+          final var request =
+              InputTestSupport.request(
+                  "r7",
+                  InputTestSupport.spec(
+                      "k",
+                      InputKind.APPROVAL,
+                      InputRisk.LOW,
+                      Audience.CURRENT_TIER,
+                      List.of(),
+                      null,
+                      Map.of()));
+          context
+              .getBean(AnswerAuthorizer.class)
+              .authorize(
+                  new AnswerContext(
+                      request, ActorInfo.human("alice", ApiRole.OPERATOR, Set.of()), false))
+              .block();
+          assertThat(asked).containsExactly("r7");
+        });
   }
 
   @Test
@@ -103,11 +100,10 @@ class AnswerAuthorizerAutoConfigurationTest {
 
     runner
         .withBean("mine", AnswerAuthorizer.class, () -> allowAll)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(AnswerAuthorizer.class);
-              assertThat(context.getBean(AnswerAuthorizer.class)).isSameAs(allowAll);
-              assertThat(context).doesNotHaveBean(DefaultAnswerAuthorizer.class);
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(AnswerAuthorizer.class);
+          assertThat(context.getBean(AnswerAuthorizer.class)).isSameAs(allowAll);
+          assertThat(context).doesNotHaveBean(DefaultAnswerAuthorizer.class);
+        });
   }
 }

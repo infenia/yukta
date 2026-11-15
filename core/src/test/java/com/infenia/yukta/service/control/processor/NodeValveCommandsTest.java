@@ -67,11 +67,10 @@ class NodeValveCommandsTest {
   @Test
   void process_stepOutsideStepMode_failsWithoutEvent() {
     StepVerifier.create(commands.process(new StepNodeCommand(RUN, NODE)))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage("Node is not in step mode: " + NODE))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Node is not in step mode: " + NODE))
         .verify();
   }
 
@@ -79,11 +78,10 @@ class NodeValveCommandsTest {
   void process_unknownExecution_failsNotFound() {
     when(registry.findByExecutionId("gone")).thenReturn(Optional.empty());
     StepVerifier.create(commands.process(new PauseNodeCommand("gone", NODE)))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(NotFoundException.class)
-                    .hasMessage("Execution not found: gone"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(NotFoundException.class)
+                .hasMessage("Execution not found: gone"))
         .verify();
   }
 

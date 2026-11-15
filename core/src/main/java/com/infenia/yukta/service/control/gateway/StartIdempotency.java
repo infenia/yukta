@@ -110,14 +110,13 @@ public class StartIdempotency implements SmartInitializingSingleton {
     if (remembered != null) {
       // Only a remembered id is vetted; the run this call starts is not registered yet.
       return remembered
-          .flatMap(
-              id -> {
-                if (reusable.test(id)) {
-                  return Mono.just(id);
-                }
-                entries.asMap().remove(mapKey, remembered);
-                return once(scope, key, start, reusable);
-              })
+          .flatMap(id -> {
+            if (reusable.test(id)) {
+              return Mono.just(id);
+            }
+            entries.asMap().remove(mapKey, remembered);
+            return once(scope, key, start, reusable);
+          })
           .doOnError(_ -> entries.asMap().remove(mapKey, remembered));
     }
     final Mono<String> result =
@@ -126,9 +125,8 @@ public class StartIdempotency implements SmartInitializingSingleton {
             _ ->
                 start
                     .get()
-                    .doOnNext(
-                        executionId ->
-                            log.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey)))
+                    .doOnNext(executionId ->
+                        log.append(ExecutionLogEvent.idempotencyKey(executionId, mapKey)))
                     .cache());
     // A failed start is not remembered, so the client can retry with the same key.
     return result.doOnError(_ -> entries.asMap().remove(mapKey, result));

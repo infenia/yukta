@@ -76,18 +76,17 @@ public class ConsoleRunner implements ApplicationListener<ApplicationReadyEvent>
     Thread.ofPlatform()
         .name("yukta-console")
         .daemon(true)
-        .start(
-            () -> {
-              int code = 0;
-              try {
-                loop(view, "http://127.0.0.1:" + port, key);
-              } catch (Exception | LinkageError e) {
-                System.err.println("console failed: " + e);
-                code = 1;
-              }
-              final int exit = SpringApplication.exit(ctx, () -> 0);
-              System.exit(code != 0 ? code : exit);
-            });
+        .start(() -> {
+          int code = 0;
+          try {
+            loop(view, "http://127.0.0.1:" + port, key);
+          } catch (Exception | LinkageError e) {
+            System.err.println("console failed: " + e);
+            code = 1;
+          }
+          final int exit = SpringApplication.exit(ctx, () -> 0);
+          System.exit(code != 0 ? code : exit);
+        });
   }
 
   private static void loop(final ConsoleView view, final String base, final String key)

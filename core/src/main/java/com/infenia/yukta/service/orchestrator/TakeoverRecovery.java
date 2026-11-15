@@ -79,24 +79,21 @@ public class TakeoverRecovery implements SmartInitializingSingleton {
   /** Resumes the interrupted runs one after the other; one that cannot be resumed is skipped. */
   /* default */ void resumeAll(final List<String> aborted) {
     Flux.fromIterable(aborted)
-        .concatMap(
-            id ->
-                resumer
-                    .resume(id)
-                    .doOnNext(
-                        resumed ->
-                            log.atInfo()
-                                .addKeyValue("executionId", id)
-                                .addKeyValue("resumedAs", resumed)
-                                .log("Resumed an interrupted run"))
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .addKeyValue("executionId", id)
-                              .setCause(error)
-                              .log("Could not resume an interrupted run");
-                          return Mono.empty();
-                        }))
+        .concatMap(id ->
+            resumer
+                .resume(id)
+                .doOnNext(resumed ->
+                    log.atInfo()
+                        .addKeyValue("executionId", id)
+                        .addKeyValue("resumedAs", resumed)
+                        .log("Resumed an interrupted run"))
+                .onErrorResume(error -> {
+                  log.atWarn()
+                      .addKeyValue("executionId", id)
+                      .setCause(error)
+                      .log("Could not resume an interrupted run");
+                  return Mono.empty();
+                }))
         .subscribeOn(Schedulers.boundedElastic())
         .subscribe();
   }

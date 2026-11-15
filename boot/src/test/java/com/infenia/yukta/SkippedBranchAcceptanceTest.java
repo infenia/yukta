@@ -80,11 +80,10 @@ class SkippedBranchAcceptanceTest {
 
     await()
         .atMost(WAIT)
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && progress.status().isTerminal();
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && progress.status().isTerminal();
+        });
     final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
     final Map<String, TaskStatus> statuses =
         progress.tasks().stream()

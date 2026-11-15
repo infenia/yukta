@@ -242,17 +242,15 @@ public class DefinitionSupervisors implements DefinitionUsage {
    */
   public Mono<Void> require(final String sessionId, final WorkflowDefinition workflow) {
     return Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
-        .flatMap(
-            stored -> {
-              final Map<String, WorkflowDefinition> workflows = new LinkedHashMap<>(stored.getT2());
-              workflows.put(workflow.workflowId(), workflow);
-              return checks.check(sessionId, stored.getT1(), workflows, workflow);
-            })
-        .flatMap(
-            issues ->
-                issues.isEmpty()
-                    ? Mono.<Void>empty()
-                    : Mono.error(new SettingsValidationException(issues)));
+        .flatMap(stored -> {
+          final Map<String, WorkflowDefinition> workflows = new LinkedHashMap<>(stored.getT2());
+          workflows.put(workflow.workflowId(), workflow);
+          return checks.check(sessionId, stored.getT1(), workflows, workflow);
+        })
+        .flatMap(issues ->
+            issues.isEmpty()
+                ? Mono.<Void>empty()
+                : Mono.error(new SettingsValidationException(issues)));
   }
 
   // ---- reconcile
@@ -266,27 +264,24 @@ public class DefinitionSupervisors implements DefinitionUsage {
    * @return completes when done
    */
   public Mono<Void> reconcile(final String sessionId) {
-    return Mono.defer(
-        () -> {
-          final Sinks.Empty<Void> mine = Sinks.empty();
-          final Mono<Void> mineMono = mine.asMono();
-          final Mono<Void> previous = tails.put(sessionId, mineMono);
-          return (previous == null ? Mono.<Void>empty() : previous)
-              .then(Mono.defer(() -> doReconcile(sessionId)))
-              .onErrorResume(
-                  error -> {
-                    log.atWarn()
-                        .setCause(error)
-                        .addKeyValue(SESSION_KEY, sessionId)
-                        .log("Could not reconcile the supervisors a session declares");
-                    return Mono.empty();
-                  })
-              .doFinally(
-                  _ -> {
-                    mine.tryEmitEmpty();
-                    tails.remove(sessionId, mineMono);
-                  });
-        });
+    return Mono.defer(() -> {
+      final Sinks.Empty<Void> mine = Sinks.empty();
+      final Mono<Void> mineMono = mine.asMono();
+      final Mono<Void> previous = tails.put(sessionId, mineMono);
+      return (previous == null ? Mono.<Void>empty() : previous)
+          .then(Mono.defer(() -> doReconcile(sessionId)))
+          .onErrorResume(error -> {
+            log.atWarn()
+                .setCause(error)
+                .addKeyValue(SESSION_KEY, sessionId)
+                .log("Could not reconcile the supervisors a session declares");
+            return Mono.empty();
+          })
+          .doFinally(_ -> {
+            mine.tryEmitEmpty();
+            tails.remove(sessionId, mineMono);
+          });
+    });
   }
 
   /**
@@ -298,18 +293,17 @@ public class DefinitionSupervisors implements DefinitionUsage {
     return sessions
         .getSessionIds()
         .collect(Collectors.toSet())
-        .flatMapMany(
-            known ->
-                Flux.concat(
-                    Flux.fromIterable(known).concatMap(this::reconcile),
-                    service
-                        .attachments()
-                        .filter(a -> a.source() == SupervisorSource.DEFINITION)
-                        .mapNotNull(SupervisorAttachment::originSessionId)
-                        .distinct()
-                        .filter(id -> !known.contains(id))
-                        // the session is gone: drop the declarations it left behind first
-                        .concatMap(this::forget)))
+        .flatMapMany(known ->
+            Flux.concat(
+                Flux.fromIterable(known).concatMap(this::reconcile),
+                service
+                    .attachments()
+                    .filter(a -> a.source() == SupervisorSource.DEFINITION)
+                    .mapNotNull(SupervisorAttachment::originSessionId)
+                    .distinct()
+                    .filter(id -> !known.contains(id))
+                    // the session is gone: drop the declarations it left behind first
+                    .concatMap(this::forget)))
         .then();
   }
 
@@ -355,51 +349,48 @@ public class DefinitionSupervisors implements DefinitionUsage {
             definitions.findAll(sessionId),
             service
                 .attachments()
-                .filter(
-                    a ->
-                        a.source() == SupervisorSource.DEFINITION
-                            && sessionId.equals(a.originSessionId()))
+                .filter(a ->
+                    a.source() == SupervisorSource.DEFINITION
+                        && sessionId.equals(a.originSessionId()))
                 .collectMap(SupervisorAttachment::id))
-        .flatMap(
-            tuple -> {
-              final Map<String, SupervisorAttachment> desired =
-                  desired(sessionId, tuple.getT1(), tuple.getT2());
-              final Map<String, SupervisorAttachment> existing = tuple.getT3();
-              final Mono<Void> detach =
-                  Flux.fromIterable(existing.keySet())
-                      .filter(id -> !desired.containsKey(id))
-                      .concatMap(id -> detachQuietly(sessionId, id))
-                      .then();
-              final Mono<Void> attach =
-                  Flux.fromIterable(desired.values())
-                      .filter(a -> !a.equals(existing.get(a.id())))
-                      .concatMap(a -> attachQuietly(sessionId, a))
-                      .then();
-              final NodeGroupIndex groups = nodeGroups;
-              final Mono<Void> regroup =
-                  groups != null && groups.put(sessionId, tuple.getT2())
-                      ? service.regroup(sessionId)
-                      : Mono.empty();
-              return regroup.then(detach).then(attach);
-            });
+        .flatMap(tuple -> {
+          final Map<String, SupervisorAttachment> desired =
+              desired(sessionId, tuple.getT1(), tuple.getT2());
+          final Map<String, SupervisorAttachment> existing = tuple.getT3();
+          final Mono<Void> detach =
+              Flux.fromIterable(existing.keySet())
+                  .filter(id -> !desired.containsKey(id))
+                  .concatMap(id -> detachQuietly(sessionId, id))
+                  .then();
+          final Mono<Void> attach =
+              Flux.fromIterable(desired.values())
+                  .filter(a -> !a.equals(existing.get(a.id())))
+                  .concatMap(a -> attachQuietly(sessionId, a))
+                  .then();
+          final NodeGroupIndex groups = nodeGroups;
+          final Mono<Void> regroup =
+              groups != null && groups.put(sessionId, tuple.getT2())
+                  ? service.regroup(sessionId)
+                  : Mono.empty();
+          return regroup.then(detach).then(attach);
+        });
   }
 
   private Mono<Void> attachQuietly(final String sessionId, final SupervisorAttachment a) {
     return service
         .attach(a)
         .then()
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .setCause(error)
-                  .addKeyValue("runId", SupervisorService.AUDIT_RUN)
-                  .addKeyValue(SESSION_KEY, sessionId)
-                  .addKeyValue("supervisor", a.supervisorId())
-                  .addKeyValue("scope", a.scope().key())
-                  .log("Could not attach a supervisor declared in a definition");
-              failed("attach");
-              return Mono.empty();
-            });
+        .onErrorResume(error -> {
+          log.atWarn()
+              .setCause(error)
+              .addKeyValue("runId", SupervisorService.AUDIT_RUN)
+              .addKeyValue(SESSION_KEY, sessionId)
+              .addKeyValue("supervisor", a.supervisorId())
+              .addKeyValue("scope", a.scope().key())
+              .log("Could not attach a supervisor declared in a definition");
+          failed("attach");
+          return Mono.empty();
+        });
   }
 
   /** Counts a failure and has the next retry reconcile again. */
@@ -411,16 +402,15 @@ public class DefinitionSupervisors implements DefinitionUsage {
   private Mono<Void> detachQuietly(final String sessionId, final String id) {
     return service
         .detach(id)
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .setCause(error)
-                  .addKeyValue(SESSION_KEY, sessionId)
-                  .addKeyValue("attachment", id)
-                  .log("Could not detach a supervisor no definition declares any more");
-              failed("detach");
-              return Mono.empty();
-            });
+        .onErrorResume(error -> {
+          log.atWarn()
+              .setCause(error)
+              .addKeyValue(SESSION_KEY, sessionId)
+              .addKeyValue("attachment", id)
+              .log("Could not detach a supervisor no definition declares any more");
+          failed("detach");
+          return Mono.empty();
+        });
   }
 
   /** The attachments the declarations ask for, by id. */
@@ -513,28 +503,24 @@ public class DefinitionSupervisors implements DefinitionUsage {
   public Mono<List<String>> declaredBy(final String supervisorId) {
     return sessions
         .getSessionIds()
-        .concatMap(
-            sessionId ->
-                Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
-                    .map(
-                        tuple -> {
-                          final List<String> users = new ArrayList<>();
-                          if (tuple.getT1().stream()
-                              .anyMatch(r -> r.supervisor().equals(supervisorId))) {
-                            users.add("session " + sessionId);
-                          }
-                          tuple
-                              .getT2()
-                              .values()
-                              .forEach(
-                                  w -> {
-                                    if (w.supervisors().stream()
-                                        .anyMatch(r -> r.supervisor().equals(supervisorId))) {
-                                      users.add("workflow " + sessionId + "/" + w.workflowId());
-                                    }
-                                  });
-                          return users;
-                        }))
+        .concatMap(sessionId ->
+            Mono.zip(store.sessionRefs(sessionId), definitions.findAll(sessionId))
+                .map(tuple -> {
+                  final List<String> users = new ArrayList<>();
+                  if (tuple.getT1().stream().anyMatch(r -> r.supervisor().equals(supervisorId))) {
+                    users.add("session " + sessionId);
+                  }
+                  tuple
+                      .getT2()
+                      .values()
+                      .forEach(w -> {
+                        if (w.supervisors().stream()
+                            .anyMatch(r -> r.supervisor().equals(supervisorId))) {
+                          users.add("workflow " + sessionId + "/" + w.workflowId());
+                        }
+                      });
+                  return users;
+                }))
         .flatMapIterable(users -> users)
         .collectList();
   }

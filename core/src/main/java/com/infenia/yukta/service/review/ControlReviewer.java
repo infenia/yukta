@@ -150,22 +150,21 @@ public class ControlReviewer {
    */
   public Mono<Void> review(final ControlRequest request) {
     return verdict(request, Set.of())
-        .flatMap(
-            verdict ->
-                switch (verdict) {
-                  case ReviewVerdict.Allowed _ -> Mono.<Void>empty();
-                  case ReviewVerdict.Denied denied ->
-                      Mono.<Void>error(new ControlRejectedException(denied.reason()));
-                  case ReviewVerdict.Controlled controlled ->
-                      Mono.<Void>error(
-                          new ControlledBySupervisorException(
-                              controlled.supervisorId(), controlled.reason()));
-                  case ReviewVerdict.NeedsApproval needs ->
-                      Mono.<Void>error(
-                          new ControlRejectedException(
-                              needs.reason()
-                                  + " (needs approval, which this command cannot wait for)"));
-                });
+        .flatMap(verdict ->
+            switch (verdict) {
+              case ReviewVerdict.Allowed _ -> Mono.<Void>empty();
+              case ReviewVerdict.Denied denied ->
+                  Mono.<Void>error(new ControlRejectedException(denied.reason()));
+              case ReviewVerdict.Controlled controlled ->
+                  Mono.<Void>error(
+                      new ControlledBySupervisorException(
+                          controlled.supervisorId(), controlled.reason()));
+              case ReviewVerdict.NeedsApproval needs ->
+                  Mono.<Void>error(
+                      new ControlRejectedException(
+                          needs.reason()
+                              + " (needs approval, which this command cannot wait for)"));
+            });
   }
 
   /**
@@ -184,38 +183,37 @@ public class ControlReviewer {
    * @return the verdict; a supervisor that fails or times out answers as in {@link #review}
    */
   public Mono<ReviewVerdict> verdict(final ControlRequest request, final Set<String> satisfied) {
-    return Mono.deferContextual(
-        context -> {
-          final boolean byPerson =
-              context.getOrDefault(ControlActor.KIND_KEY, null) != ControlActor.Kind.SUPERVISOR;
-          final Optional<BoundSupervisor> owner = owner(request);
-          final boolean operator =
-              ControlActor.Channel.OPERATOR
-                  .name()
-                  .equals(context.getOrDefault(ControlActor.CHANNEL_KEY, null));
-          if (!operator) {
-            // an engine's own command was scope-checked by the host, and the server's own
-            // housekeeping is never reviewed
-            return Mono.just(ReviewVerdict.ALLOWED);
-          }
-          via(context, owner.map(bound -> bound.attachment().supervisorId()).orElse(DEFAULT_VIA));
-          if (owner.isEmpty()) {
-            return Mono.just(
-                defaultEnabled
-                    ? ReviewVerdict.ALLOWED
-                    : new ReviewVerdict.Controlled(
-                        null, "Nothing owns this and the default supervisor is off"));
-          }
-          final BoundSupervisor bound = owner.get();
-          if (!bound.capabilities().allowsOperator(request.command())) {
-            final String name = bound.attachment().supervisorId();
-            return Mono.just(
-                new ReviewVerdict.Controlled(
-                    name, name + " controls this. People cannot do this directly."));
-          }
-          return ask(List.of(bound), request, satisfied, byPerson)
-              .flatMap(verdict -> delegated(bound, request, verdict));
-        });
+    return Mono.deferContextual(context -> {
+      final boolean byPerson =
+          context.getOrDefault(ControlActor.KIND_KEY, null) != ControlActor.Kind.SUPERVISOR;
+      final Optional<BoundSupervisor> owner = owner(request);
+      final boolean operator =
+          ControlActor.Channel.OPERATOR
+              .name()
+              .equals(context.getOrDefault(ControlActor.CHANNEL_KEY, null));
+      if (!operator) {
+        // an engine's own command was scope-checked by the host, and the server's own
+        // housekeeping is never reviewed
+        return Mono.just(ReviewVerdict.ALLOWED);
+      }
+      via(context, owner.map(bound -> bound.attachment().supervisorId()).orElse(DEFAULT_VIA));
+      if (owner.isEmpty()) {
+        return Mono.just(
+            defaultEnabled
+                ? ReviewVerdict.ALLOWED
+                : new ReviewVerdict.Controlled(
+                    null, "Nothing owns this and the default supervisor is off"));
+      }
+      final BoundSupervisor bound = owner.get();
+      if (!bound.capabilities().allowsOperator(request.command())) {
+        final String name = bound.attachment().supervisorId();
+        return Mono.just(
+            new ReviewVerdict.Controlled(
+                name, name + " controls this. People cannot do this directly."));
+      }
+      return ask(List.of(bound), request, satisfied, byPerson)
+          .flatMap(verdict -> delegated(bound, request, verdict));
+    });
   }
 
   /**
@@ -242,18 +240,17 @@ public class ControlReviewer {
     }
     final Delegation how = shell.get().delegationFor(DelegationKind.APPROVAL);
     return DelegationChain.resolve(how, shell.get().parents(), parent -> askParent(parent, request))
-        .map(
-            outcome ->
-                switch (outcome.kind()) {
-                  case ALLOWED -> ReviewVerdict.ALLOWED;
-                  case REFUSED -> new ReviewVerdict.Denied(outcome.by() + ": " + outcome.reason());
-                  case PERSON ->
-                      new ReviewVerdict.NeedsApproval(
-                          needs.need(),
-                          needs.reason() + " (asked " + outcome.asked() + ")",
-                          needs.askedBy(),
-                          outcome.asked());
-                });
+        .map(outcome ->
+            switch (outcome.kind()) {
+              case ALLOWED -> ReviewVerdict.ALLOWED;
+              case REFUSED -> new ReviewVerdict.Denied(outcome.by() + ": " + outcome.reason());
+              case PERSON ->
+                  new ReviewVerdict.NeedsApproval(
+                      needs.need(),
+                      needs.reason() + " (asked " + outcome.asked() + ")",
+                      needs.askedBy(),
+                      outcome.asked());
+            });
   }
 
   /** One parent's answer: its own review of the command, if it runs; silent if it does not. */
@@ -263,14 +260,13 @@ public class ControlReviewer {
         .findFirst()
         .map(bound -> decide(bound, request))
         .orElseGet(Mono::empty)
-        .map(
-            decision ->
-                decision.allowed()
-                    ? DelegationChain.Reply.allow()
-                    : decision.requiresApproval()
-                        ? DelegationChain.Reply.noOpinion()
-                        : DelegationChain.Reply.deny(
-                            Objects.requireNonNullElse(decision.reason(), "refused")));
+        .map(decision ->
+            decision.allowed()
+                ? DelegationChain.Reply.allow()
+                : decision.requiresApproval()
+                    ? DelegationChain.Reply.noOpinion()
+                    : DelegationChain.Reply.deny(
+                        Objects.requireNonNullElse(decision.reason(), "refused")));
   }
 
   /**
@@ -290,10 +286,9 @@ public class ControlReviewer {
       final Set<String> satisfied,
       final boolean byPerson) {
     return Flux.fromIterable(reviewers)
-        .concatMap(
-            supervisor ->
-                decide(supervisor, request)
-                    .map(decision -> new ReviewVerdicts.Vote(supervisor.id(), decision)))
+        .concatMap(supervisor ->
+            decide(supervisor, request)
+                .map(decision -> new ReviewVerdicts.Vote(supervisor.id(), decision)))
         .filter(vote -> !vote.decision().allowed() && !vote.satisfiedBy(satisfied))
         .takeUntil(vote -> !vote.decision().requiresApproval())
         .collectList()
@@ -389,9 +384,8 @@ public class ControlReviewer {
             ? SERVER_COMMANDS
             : nodeId != null ? NODE_COMMANDS : RUN_COMMANDS;
     final Map<String, Capability> answer = new java.util.TreeMap<>();
-    commands.forEach(
-        (name, sample) ->
-            answer.put(name, capability(sessionId, workflowId, nodeId, sample.get())));
+    commands.forEach((name, sample) ->
+        answer.put(name, capability(sessionId, workflowId, nodeId, sample.get())));
     return java.util.Collections.unmodifiableMap(answer);
   }
 
@@ -415,11 +409,10 @@ public class ControlReviewer {
         (int)
             attached.stream()
                 .filter(bound -> !(bound.scope() instanceof SupervisorScope.Global))
-                .filter(
-                    bound ->
-                        sessions == null
-                            || bound.scope().sessionId() != null
-                                && sessions.contains(bound.scope().sessionId()))
+                .filter(bound ->
+                    sessions == null
+                        || bound.scope().sessionId() != null
+                            && sessions.contains(bound.scope().sessionId()))
                 .map(bound -> bound.attachment().supervisorId())
                 .distinct()
                 .count();
@@ -445,15 +438,14 @@ public class ControlReviewer {
   private Optional<BoundSupervisor> owner(final ControlRequest request) {
     final List<BoundSupervisor> owners =
         attached.stream()
-            .filter(
-                bound ->
-                    bound
-                        .scope()
-                        .owns(
-                            request.command(),
-                            request.sessionId(),
-                            request.workflowId(),
-                            request.nodeId()))
+            .filter(bound ->
+                bound
+                    .scope()
+                    .owns(
+                        request.command(),
+                        request.sessionId(),
+                        request.workflowId(),
+                        request.nodeId()))
             .sorted(Comparator.comparing(BoundSupervisor::id))
             .toList();
     if (owners.size() > OWNERS_PER_UNIT) {
@@ -472,14 +464,13 @@ public class ControlReviewer {
             timeout, Mono.fromSupplier(() -> fallback(supervisor, request, "review timed out")))
         .switchIfEmpty(
             Mono.fromSupplier(() -> fallback(supervisor, request, "review returned nothing")))
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .setCause(error)
-                  .addKeyValue("supervisor", supervisor.id())
-                  .log("Supervisor review failed");
-              return Mono.just(fallback(supervisor, request, "review failed"));
-            })
+        .onErrorResume(error -> {
+          log.atWarn()
+              .setCause(error)
+              .addKeyValue("supervisor", supervisor.id())
+              .log("Supervisor review failed");
+          return Mono.just(fallback(supervisor, request, "review failed"));
+        })
         .map(decision -> dryRunned(supervisor, request, decision));
   }
 

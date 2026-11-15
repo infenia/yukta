@@ -72,14 +72,8 @@ class InputRequestSpecTest {
 
   @Test
   void choiceNeedsTwoOptions() {
-    assertThatThrownBy(
-            () ->
-                make(
-                    InputKind.CHOICE,
-                    List.of(new InputOption("a")),
-                    null,
-                    TimeoutAction.FAIL,
-                    null))
+    assertThatThrownBy(() ->
+            make(InputKind.CHOICE, List.of(new InputOption("a")), null, TimeoutAction.FAIL, null))
         .hasMessage("A CHOICE request needs at least two options");
     assertThat(make(InputKind.CHOICE, TWO, null, TimeoutAction.FAIL, null).options()).hasSize(2);
   }
@@ -94,14 +88,13 @@ class InputRequestSpecTest {
 
   @Test
   void optionIdsAreUniqueAndFew() {
-    assertThatThrownBy(
-            () ->
-                make(
-                    InputKind.CHOICE,
-                    List.of(new InputOption("a"), new InputOption("a", "other")),
-                    null,
-                    TimeoutAction.FAIL,
-                    null))
+    assertThatThrownBy(() ->
+            make(
+                InputKind.CHOICE,
+                List.of(new InputOption("a"), new InputOption("a", "other")),
+                null,
+                TimeoutAction.FAIL,
+                null))
         .hasMessage("Option id used twice: a");
     final List<InputOption> many =
         java.util.stream.IntStream.range(0, 21).mapToObj(i -> new InputOption("o" + i)).toList();
@@ -124,14 +117,13 @@ class InputRequestSpecTest {
         .hasMessage("responseSchema is not valid JSON");
     assertThatThrownBy(() -> make(InputKind.STRUCTURED, List.of(), "[1]", TimeoutAction.FAIL, null))
         .hasMessage("responseSchema must be a JSON object");
-    assertThatThrownBy(
-            () ->
-                make(
-                    InputKind.STRUCTURED,
-                    List.of(),
-                    "{\"d\":\"" + "x".repeat(17_000) + "\"}",
-                    TimeoutAction.FAIL,
-                    null))
+    assertThatThrownBy(() ->
+            make(
+                InputKind.STRUCTURED,
+                List.of(),
+                "{\"d\":\"" + "x".repeat(17_000) + "\"}",
+                TimeoutAction.FAIL,
+                null))
         .hasMessageContaining("responseSchema is longer than");
   }
 
@@ -166,22 +158,21 @@ class InputRequestSpecTest {
   @Test
   void theTtlIsPositive() {
     for (final Duration bad : List.of(Duration.ZERO, Duration.ofSeconds(-1))) {
-      assertThatThrownBy(
-              () ->
-                  new InputRequestSpec(
-                      "k",
-                      InputKind.TEXT,
-                      "p",
-                      Map.of(),
-                      List.of(),
-                      null,
-                      InputRisk.LOW,
-                      Audience.CURRENT_TIER,
-                      bad,
-                      TimeoutAction.FAIL,
-                      null,
-                      null,
-                      "X"))
+      assertThatThrownBy(() ->
+              new InputRequestSpec(
+                  "k",
+                  InputKind.TEXT,
+                  "p",
+                  Map.of(),
+                  List.of(),
+                  null,
+                  InputRisk.LOW,
+                  Audience.CURRENT_TIER,
+                  bad,
+                  TimeoutAction.FAIL,
+                  null,
+                  null,
+                  "X"))
           .hasMessage("ttl must be positive");
     }
   }
@@ -217,22 +208,21 @@ class InputRequestSpecTest {
     assertThat(spec.context()).containsOnlyKeys("a");
     assertThatThrownBy(() -> spec.context().put("c", "d"))
         .isInstanceOf(UnsupportedOperationException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of("big", "x".repeat(17_000)),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    Audience.CURRENT_TIER,
-                    Duration.ofMinutes(1),
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                InputKind.TEXT,
+                "p",
+                Map.of("big", "x".repeat(17_000)),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                Audience.CURRENT_TIER,
+                Duration.ofMinutes(1),
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .hasMessage("context is longer than 16384 bytes");
   }
 
@@ -285,107 +275,101 @@ class InputRequestSpecTest {
 
   @Test
   void theRequiredFieldsAreChecked() {
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    " ",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    Audience.CURRENT_TIER,
-                    Duration.ofMinutes(1),
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                " ",
+                InputKind.TEXT,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                Audience.CURRENT_TIER,
+                Duration.ofMinutes(1),
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .hasMessage("key must not be blank");
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    null,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    Audience.CURRENT_TIER,
-                    Duration.ofMinutes(1),
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                null,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                Audience.CURRENT_TIER,
+                Duration.ofMinutes(1),
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    null,
-                    Audience.CURRENT_TIER,
-                    Duration.ofMinutes(1),
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                InputKind.TEXT,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                null,
+                Audience.CURRENT_TIER,
+                Duration.ofMinutes(1),
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    null,
-                    Duration.ofMinutes(1),
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                InputKind.TEXT,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                null,
+                Duration.ofMinutes(1),
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    Audience.CURRENT_TIER,
-                    Duration.ofMinutes(1),
-                    null,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                InputKind.TEXT,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                Audience.CURRENT_TIER,
+                Duration.ofMinutes(1),
+                null,
+                null,
+                null,
+                "X"))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequestSpec(
-                    "k",
-                    InputKind.TEXT,
-                    "p",
-                    Map.of(),
-                    List.of(),
-                    null,
-                    InputRisk.LOW,
-                    Audience.CURRENT_TIER,
-                    null,
-                    TimeoutAction.FAIL,
-                    null,
-                    null,
-                    "X"))
+    assertThatThrownBy(() ->
+            new InputRequestSpec(
+                "k",
+                InputKind.TEXT,
+                "p",
+                Map.of(),
+                List.of(),
+                null,
+                InputRisk.LOW,
+                Audience.CURRENT_TIER,
+                null,
+                TimeoutAction.FAIL,
+                null,
+                null,
+                "X"))
         .isInstanceOf(NullPointerException.class);
   }
 }

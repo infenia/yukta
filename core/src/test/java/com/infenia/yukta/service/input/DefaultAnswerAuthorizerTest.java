@@ -155,13 +155,12 @@ class DefaultAnswerAuthorizerTest {
       StepVerifier.create(result).verifyComplete();
     } else {
       StepVerifier.create(result)
-          .expectErrorSatisfies(
-              error ->
-                  assertThat(error)
-                      .isInstanceOf(InputForbiddenException.class)
-                      .hasMessageContaining("Rule '" + failedRule + "'")
-                      .extracting(e -> ((InputForbiddenException) e).rule())
-                      .isEqualTo(failedRule))
+          .expectErrorSatisfies(error ->
+              assertThat(error)
+                  .isInstanceOf(InputForbiddenException.class)
+                  .hasMessageContaining("Rule '" + failedRule + "'")
+                  .extracting(e -> ((InputForbiddenException) e).rule())
+                  .isEqualTo(failedRule))
           .verify();
       assertThat(meters.counter("yukta.input.denied", "rule", failedRule).count()).isEqualTo(1.0);
     }
@@ -327,11 +326,10 @@ class DefaultAnswerAuthorizerTest {
 
     StepVerifier.create(
             authorizer.authorize(new AnswerContext(adminsOnly, human(ApiRole.OPERATOR), false)))
-        .expectErrorSatisfies(
-            error -> {
-              assertThat(((InputForbiddenException) error).rule()).isEqualTo("tier");
-              assertThat(error).hasMessageContaining("tier 'second'");
-            })
+        .expectErrorSatisfies(error -> {
+          assertThat(((InputForbiddenException) error).rule()).isEqualTo("tier");
+          assertThat(error).hasMessageContaining("tier 'second'");
+        })
         .verify();
     StepVerifier.create(
             authorizer.authorize(new AnswerContext(adminsOnly, human(ApiRole.ADMIN), false)))
@@ -485,11 +483,10 @@ class DefaultAnswerAuthorizerTest {
     StepVerifier.create(
             withRoute(ResponderType.AUTO)
                 .authorize(new AnswerContext(inTier(InputRisk.HIGH, "hook", "r"), token, false)))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(InputForbiddenException.class)
-                    .hasMessageContaining("tier made for people"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(InputForbiddenException.class)
+                .hasMessageContaining("tier made for people"))
         .verify();
   }
 

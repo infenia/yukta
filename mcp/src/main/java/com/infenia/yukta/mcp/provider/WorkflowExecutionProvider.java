@@ -83,15 +83,14 @@ public class WorkflowExecutionProvider {
         .getSessionWorkflow(sessionId, workflowId)
         .map(configRedactor::redact)
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new IllegalArgumentException(
-                        "Workflow not found: "
-                            + workflowId
-                            + " in session "
-                            + sessionId
-                            + ". Use list_sessions to see the sessions and get_session_details"
-                            + " for the workflows of one.")));
+            Mono.error(() ->
+                new IllegalArgumentException(
+                    "Workflow not found: "
+                        + workflowId
+                        + " in session "
+                        + sessionId
+                        + ". Use list_sessions to see the sessions and get_session_details"
+                        + " for the workflows of one.")));
   }
 
   /**
@@ -119,16 +118,14 @@ public class WorkflowExecutionProvider {
     final boolean keyed = idempotencyKey != null && !idempotencyKey.isBlank();
     // Without a key the server derives one from the session and workflow: a model that repeats a
     // start it got no answer to is merged for a short window; a deliberate later start is not.
-    return Mono.deferContextual(
-        context -> {
-          final Map<String, Object> payload =
-              StartOptions.withInitiator(Map.of(), initiator(context));
-          return keyed
-              ? workflowService
-                  .start(sessionId, workflowId, payload, idempotencyKey.strip())
-                  .map(executionId -> new WorkflowStartResult(executionId, false))
-              : startMergingRepeats(sessionId, workflowId, payload);
-        });
+    return Mono.deferContextual(context -> {
+      final Map<String, Object> payload = StartOptions.withInitiator(Map.of(), initiator(context));
+      return keyed
+          ? workflowService
+              .start(sessionId, workflowId, payload, idempotencyKey.strip())
+              .map(executionId -> new WorkflowStartResult(executionId, false))
+          : startMergingRepeats(sessionId, workflowId, payload);
+    });
   }
 
   /** Who started the run: an agent over MCP, with the name of its key when it has one. */
@@ -149,11 +146,10 @@ public class WorkflowExecutionProvider {
         .once(
             sessionId + "\0" + workflowId,
             () ->
-                Mono.defer(
-                    () -> {
-                      started.set(true);
-                      return workflowService.start(sessionId, workflowId, payload, null);
-                    }))
+                Mono.defer(() -> {
+                  started.set(true);
+                  return workflowService.start(sessionId, workflowId, payload, null);
+                }))
         .map(executionId -> new WorkflowStartResult(executionId, !started.get()));
   }
 
@@ -181,11 +177,10 @@ public class WorkflowExecutionProvider {
         .getSessionConfig(sessionId)
         .flatMap(config -> controlBus.getHistory(sessionId))
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new IllegalArgumentException(
-                        "Session not found: "
-                            + sessionId
-                            + ". Use list_sessions to see available sessions.")));
+            Mono.error(() ->
+                new IllegalArgumentException(
+                    "Session not found: "
+                        + sessionId
+                        + ". Use list_sessions to see available sessions.")));
   }
 }

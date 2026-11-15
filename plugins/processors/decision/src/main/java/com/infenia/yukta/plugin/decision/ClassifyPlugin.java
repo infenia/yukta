@@ -113,21 +113,18 @@ public final class ClassifyPlugin extends DecisionPlugin {
     final Question question =
         new Question.Choice(string(config, "question", "Which label fits this?"), labels);
     return ask(message, config, state(message, config), Map.of(QUESTION, question))
-        .map(
-            answers -> {
-              final Answer.Choice choice = answer(answers, QUESTION, Answer.Choice.class);
-              final boolean uncertain =
-                  !labels.containsKey(choice.choice())
-                      || choice.probability() < number(config, "minProbability", 0.6);
-              final Map<String, Object> result = new LinkedHashMap<>(choice.toMap());
-              result.put("label", choice.choice());
-              result.put(PORT_UNCERTAIN, uncertain);
-              final String port =
-                  !routeByLabel(config)
-                      ? PORT_DEFAULT
-                      : uncertain ? PORT_UNCERTAIN : choice.choice();
-              return emit(message, config, "classification", result, port);
-            });
+        .map(answers -> {
+          final Answer.Choice choice = answer(answers, QUESTION, Answer.Choice.class);
+          final boolean uncertain =
+              !labels.containsKey(choice.choice())
+                  || choice.probability() < number(config, "minProbability", 0.6);
+          final Map<String, Object> result = new LinkedHashMap<>(choice.toMap());
+          result.put("label", choice.choice());
+          result.put(PORT_UNCERTAIN, uncertain);
+          final String port =
+              !routeByLabel(config) ? PORT_DEFAULT : uncertain ? PORT_UNCERTAIN : choice.choice();
+          return emit(message, config, "classification", result, port);
+        });
   }
 
   private static boolean routeByLabel(final Map<String, Object> config) {

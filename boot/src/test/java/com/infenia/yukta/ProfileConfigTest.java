@@ -25,38 +25,33 @@ class ProfileConfigTest {
   void prodHasNoPayloadLoggingOrDebugActuator() {
     runner
         .withPropertyValues("spring.profiles.active=prod")
-        .run(
-            ctx -> {
-              assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
-              assertThat(ctx.getEnvironment().getProperty("logging.level.com.infenia.yukta"))
-                  .isEqualTo("INFO");
-              assertThat(ctx.getEnvironment().getProperty(EXPOSURE))
-                  .isEqualTo("health,info,metrics");
-              assertThat(
-                      ctx.getEnvironment()
-                          .getProperty("spring.main.lazy-initialization", Boolean.class, false))
-                  .isFalse();
-            });
+        .run(ctx -> {
+          assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
+          assertThat(ctx.getEnvironment().getProperty("logging.level.com.infenia.yukta"))
+              .isEqualTo("INFO");
+          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("health,info,metrics");
+          assertThat(
+                  ctx.getEnvironment()
+                      .getProperty("spring.main.lazy-initialization", Boolean.class, false))
+              .isFalse();
+        });
   }
 
   @Test
   void defaultProfileIsProdWithNoPayloadLoggingOrDebugActuator() {
-    runner.run(
-        ctx -> {
-          assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
-          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("health,info,metrics");
-        });
+    runner.run(ctx -> {
+      assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
+      assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("health,info,metrics");
+    });
   }
 
   @Test
   void devHasNoPayloadTraceAndNoDebugActuators() {
     runner
         .withPropertyValues("spring.profiles.active=dev")
-        .run(
-            ctx -> {
-              assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
-              assertThat(ctx.getEnvironment().getProperty(EXPOSURE))
-                  .isEqualTo("health,info,metrics");
-            });
+        .run(ctx -> {
+          assertThat(ctx.getEnvironment().getProperty(STREAM)).isNull();
+          assertThat(ctx.getEnvironment().getProperty(EXPOSURE)).isEqualTo("health,info,metrics");
+        });
   }
 }

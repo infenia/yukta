@@ -133,19 +133,16 @@ public class WorkflowOrchestrator {
   public Mono<PreparedWorkflow> prepareWorkflow(@NotNull @Valid final WorkflowDefinition def) {
     return preparator
         .prepareWorkflow(def)
-        .doOnSuccess(
-            prepared ->
-                log.atDebug()
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, def.workflowId())
-                    .addKeyValue(
-                        "nodeCount", prepared != null ? prepared.topologicalOrder().size() : 0)
-                    .log("Successfully prepared workflow for execution"))
-        .doOnError(
-            e ->
-                log.atError()
-                    .setCause(e)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, def.workflowId())
-                    .log("Failed to prepare workflow"));
+        .doOnSuccess(prepared ->
+            log.atDebug()
+                .addKeyValue(LOG_KEY_WORKFLOW_ID, def.workflowId())
+                .addKeyValue("nodeCount", prepared != null ? prepared.topologicalOrder().size() : 0)
+                .log("Successfully prepared workflow for execution"))
+        .doOnError(e ->
+            log.atError()
+                .setCause(e)
+                .addKeyValue(LOG_KEY_WORKFLOW_ID, def.workflowId())
+                .log("Failed to prepare workflow"));
   }
 
   /**
@@ -191,41 +188,39 @@ public class WorkflowOrchestrator {
     // Registering, archiving and logging the start happen on subscription: a Mono that is never
     // subscribed leaves no registered control and no checkpoints to clear behind it.
     return releasing(
-        Mono.defer(
-            () -> {
-              log.atInfo()
-                  .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                  .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                  .addKeyValue(LOG_KEY_NODE_COUNT, prepared.topologicalOrder().size())
-                  .log("Starting workflow execution");
+        Mono.defer(() -> {
+          log.atInfo()
+              .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+              .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+              .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+              .addKeyValue(LOG_KEY_NODE_COUNT, prepared.topologicalOrder().size())
+              .log("Starting workflow execution");
 
-              final ExecutionControl control =
-                  executionControlFactory.create(
-                      sessionId, workflowId, executionId, prepared, payload);
-              executionControlStore.save(control);
-              log.atDebug()
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                  .log("Registered execution control");
+          final ExecutionControl control =
+              executionControlFactory.create(sessionId, workflowId, executionId, prepared, payload);
+          executionControlStore.save(control);
+          log.atDebug()
+              .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+              .log("Registered execution control");
 
-              final List<String> nodeIds =
-                  prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
+          final List<String> nodeIds =
+              prepared.topologicalOrder().stream().map(WorkflowNode::nodeId).toList();
 
-              // Subscribed together: tracking starts on this thread while the archive I/O runs
-              // elsewhere.
-              return Mono.when(
-                  archive(executionId, sessionId, workflowId, prepared, payload),
-                  runTracked(
-                      control,
-                      sessionId,
-                      workflowId,
-                      executionId,
-                      nodeIds,
-                      ExecutionScheduler.priorityOf(payload),
-                      admission,
-                      prepared.template().instantiate(executionId, payload),
-                      new Origin("Workflow execution", null)));
-            }),
+          // Subscribed together: tracking starts on this thread while the archive I/O runs
+          // elsewhere.
+          return Mono.when(
+              archive(executionId, sessionId, workflowId, prepared, payload),
+              runTracked(
+                  control,
+                  sessionId,
+                  workflowId,
+                  executionId,
+                  nodeIds,
+                  ExecutionScheduler.priorityOf(payload),
+                  admission,
+                  prepared.template().instantiate(executionId, payload),
+                  new Origin("Workflow execution", null)));
+        }),
         admission);
   }
 
@@ -360,60 +355,53 @@ public class WorkflowOrchestrator {
 
     // Registering and archiving happen on subscription, so an unsubscribed Mono leaks nothing.
     return releasing(
-        Mono.defer(
-            () -> {
-              final ExecutionControl control =
-                  executionControlFactory.create(
-                      sessionId, workflowId, newExecutionId, prepared, payload);
-              executionControlStore.save(control);
-              log.atDebug()
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
-                  .log("Registered execution control for restarted workflow");
+        Mono.defer(() -> {
+          final ExecutionControl control =
+              executionControlFactory.create(
+                  sessionId, workflowId, newExecutionId, prepared, payload);
+          executionControlStore.save(control);
+          log.atDebug()
+              .addKeyValue(LOG_KEY_EXECUTION_ID, newExecutionId)
+              .log("Registered execution control for restarted workflow");
 
-              // Record the replayed input under the new execution, so it can be restarted in turn.
-              final Mono<Void> recordReplayed =
-                  Flux.fromIterable(boundaryOutputs.entrySet())
-                      .concatMap(
-                          entry ->
-                              Flux.fromIterable(entry.getValue())
-                                  .concatMap(
-                                      message ->
-                                          checkpointStore.save(
-                                              newExecutionId, entry.getKey(), message))
-                                  // The replayed output is complete, so a resume of this run need
-                                  // not
-                                  // run the node again.
-                                  .then(
-                                      Mono.defer(
-                                              () ->
-                                                  checkpointStore.markComplete(
-                                                      newExecutionId, entry.getKey()))
-                                          .onErrorResume(_ -> Mono.empty())))
-                      .then();
+          // Record the replayed input under the new execution, so it can be restarted in turn.
+          final Mono<Void> recordReplayed =
+              Flux.fromIterable(boundaryOutputs.entrySet())
+                  .concatMap(entry ->
+                      Flux.fromIterable(entry.getValue())
+                          .concatMap(message ->
+                              checkpointStore.save(newExecutionId, entry.getKey(), message))
+                          // The replayed output is complete, so a resume of this run need
+                          // not
+                          // run the node again.
+                          .then(
+                              Mono.defer(() ->
+                                      checkpointStore.markComplete(newExecutionId, entry.getKey()))
+                                  .onErrorResume(_ -> Mono.empty())))
+                  .then();
 
-              return Mono.when(
-                  archive(newExecutionId, sessionId, workflowId, prepared, payload),
-                  runTracked(
-                      control,
-                      sessionId,
-                      workflowId,
-                      newExecutionId,
-                      nodeIds,
-                      ExecutionScheduler.priorityOf(payload),
-                      admission,
-                      recordReplayed.then(
-                          Mono.defer(
-                              () ->
-                                  compiler.executeTemplate(
-                                      newExecutionId,
-                                      payload,
-                                      nodeCount,
-                                      assemblers,
-                                      sessionId,
-                                      workflowId,
-                                      nodeIds))),
-                      new Origin("RestartFromNode execution", previousExecutionId)));
-            }),
+          return Mono.when(
+              archive(newExecutionId, sessionId, workflowId, prepared, payload),
+              runTracked(
+                  control,
+                  sessionId,
+                  workflowId,
+                  newExecutionId,
+                  nodeIds,
+                  ExecutionScheduler.priorityOf(payload),
+                  admission,
+                  recordReplayed.then(
+                      Mono.defer(() ->
+                          compiler.executeTemplate(
+                              newExecutionId,
+                              payload,
+                              nodeCount,
+                              assemblers,
+                              sessionId,
+                              workflowId,
+                              nodeIds))),
+                  new Origin("RestartFromNode execution", previousExecutionId)));
+        }),
         admission);
   }
 
@@ -424,21 +412,20 @@ public class WorkflowOrchestrator {
       final String executionId,
       final int priority,
       final ExecutionScheduler.@Nullable Admission reserved) {
-    return Mono.defer(
-        () -> {
-          final ExecutionScheduler.Admission admission =
-              reserved != null
-                  ? reserved
-                  : scheduler.acquire(sessionId, workflowId, priority, executionId);
-          // A refused admission is always immediate, so its permit errors without a wait.
-          if (admission.immediate()) {
-            return admission.permit();
-          }
-          tracker.emitWorkflowStatusEvent(executionId, TaskStatus.QUEUED);
-          return admission
-              .permit()
-              .doOnNext(_ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING));
-        });
+    return Mono.defer(() -> {
+      final ExecutionScheduler.Admission admission =
+          reserved != null
+              ? reserved
+              : scheduler.acquire(sessionId, workflowId, priority, executionId);
+      // A refused admission is always immediate, so its permit errors without a wait.
+      if (admission.immediate()) {
+        return admission.permit();
+      }
+      tracker.emitWorkflowStatusEvent(executionId, TaskStatus.QUEUED);
+      return admission
+          .permit()
+          .doOnNext(_ -> tracker.emitWorkflowStatusEvent(executionId, TaskStatus.RUNNING));
+    });
   }
 
   /**
@@ -457,14 +444,13 @@ public class WorkflowOrchestrator {
         .subscribeOn(Schedulers.boundedElastic())
         // The archive is bookkeeping for a restart: its failure (a log append, a checkpoint clear
         // of an old run) must not cancel the run it is archiving, which is joined with it.
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .setCause(error)
-                  .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                  .log("Could not archive the run; it cannot be restarted from the archive");
-              return Mono.empty();
-            });
+        .onErrorResume(error -> {
+          log.atWarn()
+              .setCause(error)
+              .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+              .log("Could not archive the run; it cannot be restarted from the archive");
+          return Mono.empty();
+        });
   }
 
   private void archiveBlocking(
@@ -530,14 +516,13 @@ public class WorkflowOrchestrator {
     if (broker != null) {
       broker
           .cancelExecution(executionId, "run-ended")
-          .onErrorResume(
-              error -> {
-                log.atWarn()
-                    .setCause(error)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("Could not cancel the input requests of the run");
-                return Mono.empty();
-              })
+          .onErrorResume(error -> {
+            log.atWarn()
+                .setCause(error)
+                .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                .log("Could not cancel the input requests of the run");
+            return Mono.empty();
+          })
           .subscribe();
     }
   }
@@ -585,17 +570,16 @@ public class WorkflowOrchestrator {
     final Mono<Void> execution =
         tracker
             .startWorkflow(executionId, sessionId, workflowId, nodeIds)
-            .doOnSuccess(
-                _ -> {
-                  // a sub-workflow names its parent in its start payload (see SubWorkflowRunner)
-                  final Object parent = control.payload().get(SubWorkflowGateway.PARENT_KEY);
-                  tracker.recordLineage(
-                      executionId, parent == null ? null : parent.toString(), origin.restartOf());
-                  if (control.prepared() != null) {
-                    tracker.recordDefinitionVersion(
-                        executionId, DefinitionVersion.of(control.prepared()));
-                  }
-                })
+            .doOnSuccess(_ -> {
+              // a sub-workflow names its parent in its start payload (see SubWorkflowRunner)
+              final Object parent = control.payload().get(SubWorkflowGateway.PARENT_KEY);
+              tracker.recordLineage(
+                  executionId, parent == null ? null : parent.toString(), origin.restartOf());
+              if (control.prepared() != null) {
+                tracker.recordDefinitionVersion(
+                    executionId, DefinitionVersion.of(control.prepared()));
+              }
+            })
             .then(
                 Mono.usingWhen(
                     awaitSlot(sessionId, workflowId, executionId, priority, reserved),
@@ -627,48 +611,41 @@ public class WorkflowOrchestrator {
                 Mono.fromSupplier(
                     () -> control.stopRequested().get() ? TaskStatus.STOPPED : TaskStatus.SUCCESS)),
             control.safeStopSink().asMono().thenReturn(TaskStatus.STOPPED))
-        .flatMap(
-            status ->
-                Mono.deferContextual(
-                    ctx -> {
-                      // a caller that waits for the run (a sub-workflow) reads how it ended here
-                      ctx.<AtomicReference<TaskStatus>>getOrEmpty(END_STATUS_KEY)
-                          .ifPresent(ended -> ended.set(status));
-                      return tracker
-                          .finishWorkflow(executionId, status)
-                          .doFinally(_ -> resultService.complete(executionId, status.name()));
-                    }))
-        .doOnSuccess(
-            _ ->
-                log.atInfo()
-                    .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                    .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                    .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                    .log("{} completed", origin.label()))
-        .onErrorResume(
-            e ->
-                tracker
-                    .finishWorkflow(executionId, failureStatus(e))
-                    .doFinally(_ -> resultService.complete(executionId, failureStatus(e).name()))
-                    .doOnSuccess(
-                        _ ->
-                            log.atError()
-                                .setCause(e)
-                                .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
-                                .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
-                                .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
-                                .log("{} failed", origin.label()))
-                    .then(Mono.error(e)))
-        .doOnCancel(
-            () ->
-                // A caller that goes away ends the run too; if a stop already did, the tracker
-                // ignores this second end.
-                tracker
-                    .finishWorkflow(executionId, TaskStatus.CANCELLED)
-                    .doFinally(
-                        _ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
-                    .onErrorComplete()
-                    .subscribe())
+        .flatMap(status ->
+            Mono.deferContextual(ctx -> {
+              // a caller that waits for the run (a sub-workflow) reads how it ended here
+              ctx.<AtomicReference<TaskStatus>>getOrEmpty(END_STATUS_KEY)
+                  .ifPresent(ended -> ended.set(status));
+              return tracker
+                  .finishWorkflow(executionId, status)
+                  .doFinally(_ -> resultService.complete(executionId, status.name()));
+            }))
+        .doOnSuccess(_ ->
+            log.atInfo()
+                .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                .log("{} completed", origin.label()))
+        .onErrorResume(e ->
+            tracker
+                .finishWorkflow(executionId, failureStatus(e))
+                .doFinally(_ -> resultService.complete(executionId, failureStatus(e).name()))
+                .doOnSuccess(_ ->
+                    log.atError()
+                        .setCause(e)
+                        .addKeyValue(LOG_KEY_SESSION_ID, sessionId)
+                        .addKeyValue(LOG_KEY_WORKFLOW_ID, workflowId)
+                        .addKeyValue(LOG_KEY_EXECUTION_ID, executionId)
+                        .log("{} failed", origin.label()))
+                .then(Mono.error(e)))
+        .doOnCancel(() ->
+            // A caller that goes away ends the run too; if a stop already did, the tracker
+            // ignores this second end.
+            tracker
+                .finishWorkflow(executionId, TaskStatus.CANCELLED)
+                .doFinally(_ -> resultService.complete(executionId, TaskStatus.CANCELLED.name()))
+                .onErrorComplete()
+                .subscribe())
         .doOnCancel(cleanup)
         .doOnTerminate(cleanup)
         .contextWrite(

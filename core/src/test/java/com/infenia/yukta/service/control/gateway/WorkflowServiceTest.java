@@ -63,10 +63,8 @@ class WorkflowServiceTest {
                     "Workflow not found for session: " + sessionId + ", workflow: " + workflowId)));
 
     StepVerifier.create(workflowService.start(sessionId, workflowId, Map.of(), null))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Workflow not found"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException && e.getMessage().contains("Workflow not found"))
         .verify();
   }
 

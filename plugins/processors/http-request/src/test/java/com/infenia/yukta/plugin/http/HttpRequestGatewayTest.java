@@ -81,14 +81,13 @@ class HttpRequestGatewayTest {
             "POST", base + "/echo", Map.of("X-T", "t"), "hello", Duration.ofSeconds(5));
 
     StepVerifier.create(gateway.execute(spec))
-        .assertNext(
-            r -> {
-              assertThat(r.status()).isEqualTo(201);
-              assertThat(r.isSuccess()).isTrue();
-              assertThat(r.json()).isTrue();
-              assertThat(r.body()).isEqualTo("POST|t|hello");
-              assertThat(r.headers().keySet()).anyMatch("content-type"::equalsIgnoreCase);
-            })
+        .assertNext(r -> {
+          assertThat(r.status()).isEqualTo(201);
+          assertThat(r.isSuccess()).isTrue();
+          assertThat(r.json()).isTrue();
+          assertThat(r.body()).isEqualTo("POST|t|hello");
+          assertThat(r.headers().keySet()).anyMatch("content-type"::equalsIgnoreCase);
+        })
         .verifyComplete();
   }
 
@@ -135,13 +134,12 @@ class HttpRequestGatewayTest {
         new HttpRequestSpec("GET", base + "/empty", Map.of(), null, Duration.ofSeconds(5));
 
     StepVerifier.create(gateway.execute(spec))
-        .assertNext(
-            r -> {
-              assertThat(r.status()).isEqualTo(500);
-              assertThat(r.isSuccess()).isFalse();
-              assertThat(r.json()).isFalse();
-              assertThat(r.body()).isEmpty();
-            })
+        .assertNext(r -> {
+          assertThat(r.status()).isEqualTo(500);
+          assertThat(r.isSuccess()).isFalse();
+          assertThat(r.json()).isFalse();
+          assertThat(r.body()).isEmpty();
+        })
         .verifyComplete();
   }
 

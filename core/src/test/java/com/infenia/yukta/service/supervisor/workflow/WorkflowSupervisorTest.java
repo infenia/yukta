@@ -76,12 +76,11 @@ class WorkflowSupervisorTest {
     ends(success(Map.of("type", "AnswerInput", "requestId", "r1", "decision", "approve")));
 
     StepVerifier.create(supervisor.decide(requested("r1")))
-        .assertNext(
-            decision -> {
-              assertThat(decision.commands()).hasSize(1);
-              assertThat(decision.commands().getFirst())
-                  .isInstanceOf(ExecutionControlCommand.AnswerInputCommand.class);
-            })
+        .assertNext(decision -> {
+          assertThat(decision.commands()).hasSize(1);
+          assertThat(decision.commands().getFirst())
+              .isInstanceOf(ExecutionControlCommand.AnswerInputCommand.class);
+        })
         .verifyComplete();
 
     @SuppressWarnings("unchecked")
@@ -145,12 +144,11 @@ class WorkflowSupervisorTest {
     final WorkflowSupervisor supervisor = supervisor(Set.of());
     ends(new RunResult("SUCCESS", "ESCALATE", "too risky", List.of()));
     StepVerifier.create(supervisor.decide(requested("r1")))
-        .assertNext(
-            d ->
-                assertThat(d.commands())
-                    .containsExactly(
-                        new ExecutionControlCommand.EscalateInputCommand(
-                            "exec", "r1", "workflow-escalated", "too risky")))
+        .assertNext(d ->
+            assertThat(d.commands())
+                .containsExactly(
+                    new ExecutionControlCommand.EscalateInputCommand(
+                        "exec", "r1", "workflow-escalated", "too risky")))
         .verifyComplete();
 
     ends(new RunResult("SUCCESS", "ESCALATE", null, List.of()));

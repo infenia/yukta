@@ -101,12 +101,11 @@ public class WorkflowVersionController {
         .switchIfEmpty(
             Mono.error(
                 () -> new NotFoundException("Version of workflow " + workflowId + " not found")))
-        .map(
-            pair ->
-                ApiResponse.success(
-                    200,
-                    "Workflow versions compared",
-                    WorkflowDiff.between(pair.getT1(), pair.getT2())));
+        .map(pair ->
+            ApiResponse.success(
+                200,
+                "Workflow versions compared",
+                WorkflowDiff.between(pair.getT1(), pair.getT2())));
   }
 
   /**
@@ -127,29 +126,26 @@ public class WorkflowVersionController {
     return definitions
         .findRevision(sessionId, workflowId, version)
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new NotFoundException(
-                        "Version " + version + " of workflow " + workflowId + " not found")))
-        .flatMap(
-            definition ->
-                // the revision may declare a supervisor deleted since: refuse it as a save would
-                declared
-                    .require(sessionId, definition)
-                    .then(
-                        Mono.defer(
-                            () ->
-                                SaveAndPrepare.run(
-                                    definitions,
-                                    sessionId,
-                                    definition,
-                                    saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))))
-                    .then(Mono.defer(() -> declared.reconcile(sessionId)))
-                    .thenReturn(
-                        ApiResponse.success(
-                            200,
-                            "Workflow rolled back to version " + version,
-                            Map.of("workflowId", workflowId, "version", version))));
+            Mono.error(() ->
+                new NotFoundException(
+                    "Version " + version + " of workflow " + workflowId + " not found")))
+        .flatMap(definition ->
+            // the revision may declare a supervisor deleted since: refuse it as a save would
+            declared
+                .require(sessionId, definition)
+                .then(
+                    Mono.defer(() ->
+                        SaveAndPrepare.run(
+                            definitions,
+                            sessionId,
+                            definition,
+                            saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))))
+                .then(Mono.defer(() -> declared.reconcile(sessionId)))
+                .thenReturn(
+                    ApiResponse.success(
+                        200,
+                        "Workflow rolled back to version " + version,
+                        Map.of("workflowId", workflowId, "version", version))));
   }
 
   /** The body of a note request: the version and its note. */

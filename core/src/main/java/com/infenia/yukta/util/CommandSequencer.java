@@ -33,25 +33,23 @@ public final class CommandSequencer {
    * @return a Mono that runs {@code work} after its predecessors and mirrors its result
    */
   public Mono<Void> sequence(final String key, final Mono<Void> work) {
-    return Mono.defer(
-        () -> {
-          final Sinks.One<Void> mine = Sinks.one();
-          final Sinks.One<Void> previous = tails.put(key, mine);
-          final Mono<Void> turn = previous == null ? Mono.empty() : previous.asMono();
-          final AtomicBoolean turnReached = new AtomicBoolean();
-          return turn.doOnTerminate(() -> turnReached.set(true))
-              .then(work)
-              .doFinally(
-                  _ -> {
-                    if (turnReached.get()) {
-                      release(key, mine);
-                    } else {
-                      // Cancelled while still waiting: later jobs must keep waiting for the
-                      // predecessor, so hand over only once it is done.
-                      turn.doFinally(_ -> release(key, mine)).subscribe(_ -> {}, _ -> {});
-                    }
-                  });
-        });
+    return Mono.defer(() -> {
+      final Sinks.One<Void> mine = Sinks.one();
+      final Sinks.One<Void> previous = tails.put(key, mine);
+      final Mono<Void> turn = previous == null ? Mono.empty() : previous.asMono();
+      final AtomicBoolean turnReached = new AtomicBoolean();
+      return turn.doOnTerminate(() -> turnReached.set(true))
+          .then(work)
+          .doFinally(_ -> {
+            if (turnReached.get()) {
+              release(key, mine);
+            } else {
+              // Cancelled while still waiting: later jobs must keep waiting for the
+              // predecessor, so hand over only once it is done.
+              turn.doFinally(_ -> release(key, mine)).subscribe(_ -> {}, _ -> {});
+            }
+          });
+    });
   }
 
   private void release(final String key, final Sinks.One<Void> mine) {

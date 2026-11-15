@@ -283,18 +283,17 @@ public class VariableResolver {
   }
 
   private Mono<String> resolveSecret(final String key) {
-    return Mono.deferContextual(
-        ctx ->
-            secretProvider
-                .getSecret(
-                    key,
-                    new SecretContext(
-                        ctx.getOrDefault("tenant", null),
-                        ctx.getOrDefault("sessionId", null),
-                        ctx.getOrDefault("workflowId", null),
-                        ctx.getOrDefault("nodeId", null)))
-                .switchIfEmpty(
-                    Mono.error(new IllegalArgumentException("Secret not found for key: " + key))));
+    return Mono.deferContextual(ctx ->
+        secretProvider
+            .getSecret(
+                key,
+                new SecretContext(
+                    ctx.getOrDefault("tenant", null),
+                    ctx.getOrDefault("sessionId", null),
+                    ctx.getOrDefault("workflowId", null),
+                    ctx.getOrDefault("nodeId", null)))
+            .switchIfEmpty(
+                Mono.error(new IllegalArgumentException("Secret not found for key: " + key))));
   }
 
   private Object castValue(final Object value, final String type) {
@@ -328,14 +327,13 @@ public class VariableResolver {
     }
 
     return Flux.fromIterable(segments)
-        .flatMapSequential(
-            segment -> {
-              if (segment.expression() != null) {
-                return resolveExpression(segment.expression(), message).map(String::valueOf);
-              } else {
-                return Mono.just(segment.literal());
-              }
-            })
+        .flatMapSequential(segment -> {
+          if (segment.expression() != null) {
+            return resolveExpression(segment.expression(), message).map(String::valueOf);
+          } else {
+            return Mono.just(segment.literal());
+          }
+        })
         .collectList()
         .map(list -> String.join("", list));
   }

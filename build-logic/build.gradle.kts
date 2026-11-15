@@ -33,7 +33,7 @@ dependencies {
     implementation("org.gradle:test-retry-gradle-plugin:${libs.versions.testRetry.get()}")
     implementation("info.solidsoft.gradle.pitest:gradle-pitest-plugin:${libs.versions.pitestPlugin.get()}")
     testImplementation(gradleTestKit())
-    testImplementation(platform("org.junit:junit-bom:6.0.3"))
+    testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 

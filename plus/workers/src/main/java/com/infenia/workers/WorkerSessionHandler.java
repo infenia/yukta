@@ -181,12 +181,11 @@ public class WorkerSessionHandler {
     log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker registered");
     return Flux.concat(Flux.just(WorkerFrame.ack()), all.skip(1).map(frame -> answer(info, frame)))
         .takeUntil(frame -> frame.type() == WorkerFrame.Type.REJECT)
-        .doFinally(
-            _ -> {
-              connections.remove(info.workerId(), requester);
-              registry.remove(info.workerId(), info.registeredAt());
-              log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker gone");
-            });
+        .doFinally(_ -> {
+          connections.remove(info.workerId(), requester);
+          registry.remove(info.workerId(), info.registeredAt());
+          log.atInfo().addKeyValue(WORKER_ID, info.workerId()).log("Worker gone");
+        });
   }
 
   private WorkerFrame answer(final WorkerInfo info, final WorkerFrame frame) {

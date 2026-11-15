@@ -457,10 +457,9 @@ class WorkflowCompilerTest {
 
     final NodeAssembler[] assemblers = new NodeAssembler[0];
 
-    assertThatThrownBy(
-            () ->
-                compiler.executeTemplate(
-                    EXECUTION_ID, Map.of(), 0, assemblers, SESSION_ID, WORKFLOW_ID, List.of()))
+    assertThatThrownBy(() ->
+            compiler.executeTemplate(
+                EXECUTION_ID, Map.of(), 0, assemblers, SESSION_ID, WORKFLOW_ID, List.of()))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining(EXECUTION_ID);
   }

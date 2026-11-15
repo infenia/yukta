@@ -218,15 +218,13 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   private Flux<Message<?>> request(final Message<?> message, final Map<String, Object> config) {
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
     return resolveSpec(message, config)
-        .flatMap(
-            spec ->
-                gateway
-                    .execute(spec)
-                    .onErrorResume(
-                        error ->
-                            failureMode == FailureMode.CONTINUE
-                                ? Mono.just(HttpRequestResult.transportFailure(error.toString()))
-                                : Mono.error(error)))
+        .flatMap(spec ->
+            gateway
+                .execute(spec)
+                .onErrorResume(error ->
+                    failureMode == FailureMode.CONTINUE
+                        ? Mono.just(HttpRequestResult.transportFailure(error.toString()))
+                        : Mono.error(error)))
         .flatMapMany(result -> toMessage(message, config, failureMode, result));
   }
 
@@ -276,20 +274,19 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
             resolve(config.get(BODY), message)
                 .map(Optional::<Object>of)
                 .defaultIfEmpty(Optional.empty()))
-        .map(
-            tuple -> {
-              final long timeout = MapUtils.convert(tuple.getT4(), Long.class);
-              if (timeout <= 0) {
-                throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
-              }
-              final Object body = tuple.getT5().orElse(null);
-              return new HttpRequestSpec(
-                  tuple.getT2().toUpperCase(Locale.ROOT),
-                  tuple.getT1(),
-                  tuple.getT3(),
-                  body,
-                  Duration.ofSeconds(timeout));
-            });
+        .map(tuple -> {
+          final long timeout = MapUtils.convert(tuple.getT4(), Long.class);
+          if (timeout <= 0) {
+            throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
+          }
+          final Object body = tuple.getT5().orElse(null);
+          return new HttpRequestSpec(
+              tuple.getT2().toUpperCase(Locale.ROOT),
+              tuple.getT1(),
+              tuple.getT3(),
+              body,
+              Duration.ofSeconds(timeout));
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -298,10 +295,9 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
       return Mono.just(Map.of());
     }
     return Flux.fromIterable(((Map<String, Object>) headers).entrySet())
-        .flatMapSequential(
-            entry ->
-                resolve(entry.getValue(), message)
-                    .map(value -> Map.entry(entry.getKey(), value.toString())))
+        .flatMapSequential(entry ->
+            resolve(entry.getValue(), message)
+                .map(value -> Map.entry(entry.getKey(), value.toString())))
         .collectMap(Map.Entry::getKey, Map.Entry::getValue);
   }
 
@@ -319,10 +315,8 @@ public final class HttpRequestPlugin implements ProcessorPlugin {
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
     return Mono.<Void>fromRunnable(() -> checkConfig(config))
-        .doOnError(
-            e ->
-                log.atWarn()
-                    .log("HTTP request configuration validation failed: {}", e.getMessage()));
+        .doOnError(e ->
+            log.atWarn().log("HTTP request configuration validation failed: {}", e.getMessage()));
   }
 
   private static void checkConfig(final Map<String, Object> config) {

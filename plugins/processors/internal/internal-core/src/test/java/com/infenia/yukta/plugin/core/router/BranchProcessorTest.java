@@ -257,11 +257,10 @@ class BranchProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(Context.of("nodeId", "test-node")))
-        .expectNextMatches(
-            m ->
-                "error_port".equals(m.sourcePort())
-                    && m.failureReason().contains("evaluation failed")
-                    && m.messageHistory().isEmpty())
+        .expectNextMatches(m ->
+            "error_port".equals(m.sourcePort())
+                && m.failureReason().contains("evaluation failed")
+                && m.messageHistory().isEmpty())
         .verifyComplete();
   }
 
@@ -343,10 +342,8 @@ class BranchProcessorTest {
                 new com.infenia.yukta.plugin.core.WorkflowContext.WorkflowEdge(NODE1, "t1", PORT1)),
             List.of());
     StepVerifier.create(processor.validateInContext(errorContext, config))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("no outgoing edge"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException && e.getMessage().contains("no outgoing edge"))
         .verify();
 
     // Cases null handled by getOrDefault
@@ -426,10 +423,8 @@ class BranchProcessorTest {
     final Message msg = DefaultMessage.create(UUID.randomUUID(), Map.of());
 
     StepVerifier.create(processor.process(Flux.just(msg), config))
-        .expectErrorMatches(
-            e ->
-                e instanceof RuntimeException
-                    && e.getMessage().contains("Branch evaluation failed"))
+        .expectErrorMatches(e ->
+            e instanceof RuntimeException && e.getMessage().contains("Branch evaluation failed"))
         .verify();
   }
 

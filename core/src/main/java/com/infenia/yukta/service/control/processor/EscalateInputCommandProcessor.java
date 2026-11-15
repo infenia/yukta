@@ -41,13 +41,9 @@ public class EscalateInputCommandProcessor {
   public Mono<Void> process(final EscalateInputCommand escalate) {
     return guard
         .clear(escalate.executionId(), escalate.requestId(), true)
-        .flatMap(
-            cleared ->
-                broker.escalate(
-                    escalate.requestId(),
-                    escalate.reason(),
-                    escalate.advice(),
-                    cleared.responder()))
+        .flatMap(cleared ->
+            broker.escalate(
+                escalate.requestId(), escalate.reason(), escalate.advice(), cleared.responder()))
         .switchIfEmpty(
             Mono.error(
                 () -> new NotFoundException("Input request not found: " + escalate.requestId())))

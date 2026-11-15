@@ -123,18 +123,15 @@ class SupervisorServiceCatalogTest {
     final SupervisorService service = service(factory("t", () -> mock(ExecutionSupervisor.class)));
 
     StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of("url", 1, "x", 2), false)))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .extracting(SettingsValidationException.Issue::field)
-                    .contains("settings.x"))
+        .assertNext(issues ->
+            assertThat(issues)
+                .extracting(SettingsValidationException.Issue::field)
+                .contains("settings.x"))
         .verifyComplete();
     StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of("url", "bad"), false)))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .containsExactly(
-                        new SettingsValidationException.Issue("settings", "url is bad")))
+        .assertNext(issues ->
+            assertThat(issues)
+                .containsExactly(new SettingsValidationException.Issue("settings", "url is bad")))
         .verifyComplete();
     StepVerifier.create(service.check(new Supervisor("s1", "nope", Map.of(), false)))
         .assertNext(issues -> assertThat(issues).hasSize(1))
@@ -152,11 +149,10 @@ class SupervisorServiceCatalogTest {
     service.setWorkflowChecks(checks);
 
     StepVerifier.create(service.check(new Supervisor("s1", "t", Map.of(), false)))
-        .assertNext(
-            issues ->
-                assertThat(issues)
-                    .containsExactly(
-                        new SettingsValidationException.Issue("settings", "no such session")))
+        .assertNext(issues ->
+            assertThat(issues)
+                .containsExactly(
+                    new SettingsValidationException.Issue("settings", "no such session")))
         .verifyComplete();
   }
 

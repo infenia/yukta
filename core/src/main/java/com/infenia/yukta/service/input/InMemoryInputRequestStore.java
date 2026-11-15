@@ -63,18 +63,16 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   @Override
   public Mono<InputRequest> createIfAbsent(final InputRequest request) {
-    return Mono.fromSupplier(
-        () ->
-            locked(
-                () -> {
-                  for (final InputRequest existing : requests.values()) {
-                    if (!existing.state().isTerminal() && existing.key().equals(request.key())) {
-                      return existing;
-                    }
-                  }
-                  requests.put(request.id(), request);
-                  return request;
-                }));
+    return Mono.fromSupplier(() ->
+        locked(() -> {
+          for (final InputRequest existing : requests.values()) {
+            if (!existing.state().isTerminal() && existing.key().equals(request.key())) {
+              return existing;
+            }
+          }
+          requests.put(request.id(), request);
+          return request;
+        }));
   }
 
   @Override
@@ -84,50 +82,46 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   @Override
   public Mono<InputRequest> findAnsweredByKey(final String key) {
-    return Mono.fromSupplier(
-        () ->
-            locked(
-                () -> {
-                  InputRequest found = null;
-                  for (final InputRequest candidate : requests.values()) {
-                    if (candidate.state() == InputState.ANSWERED && candidate.key().equals(key)) {
-                      found = candidate;
-                    }
-                  }
-                  return found;
-                }));
+    return Mono.fromSupplier(() ->
+        locked(() -> {
+          InputRequest found = null;
+          for (final InputRequest candidate : requests.values()) {
+            if (candidate.state() == InputState.ANSWERED && candidate.key().equals(key)) {
+              found = candidate;
+            }
+          }
+          return found;
+        }));
   }
 
   @Override
   public Mono<Boolean> compareAndSet(
       final String id, final long expectedVersion, final InputRequest next) {
-    return Mono.fromSupplier(
-        () ->
-            locked(
-                () -> {
-                  final InputRequest current = requests.get(id);
-                  if (current == null
-                      || current.state().isTerminal()
-                      || current.version() != expectedVersion
-                      || !id.equals(next.id())) {
-                    return false;
-                  }
-                  // putLast: a request that just finished is the newest finished one, whatever its
-                  // age, so the oldest finished request is the one evicted
-                  requests.putLast(id, next);
-                  if (next.state().isTerminal()) {
-                    // drops the oldest finished requests beyond the bound
-                    final List<String> finished =
-                        requests.values().stream()
-                            .filter(r -> r.state().isTerminal())
-                            .map(InputRequest::id)
-                            .toList();
-                    for (int i = 0; i < finished.size() - memoryMax; i++) {
-                      forget(finished.get(i));
-                    }
-                  }
-                  return true;
-                }));
+    return Mono.fromSupplier(() ->
+        locked(() -> {
+          final InputRequest current = requests.get(id);
+          if (current == null
+              || current.state().isTerminal()
+              || current.version() != expectedVersion
+              || !id.equals(next.id())) {
+            return false;
+          }
+          // putLast: a request that just finished is the newest finished one, whatever its
+          // age, so the oldest finished request is the one evicted
+          requests.putLast(id, next);
+          if (next.state().isTerminal()) {
+            // drops the oldest finished requests beyond the bound
+            final List<String> finished =
+                requests.values().stream()
+                    .filter(r -> r.state().isTerminal())
+                    .map(InputRequest::id)
+                    .toList();
+            for (int i = 0; i < finished.size() - memoryMax; i++) {
+              forget(finished.get(i));
+            }
+          }
+          return true;
+        }));
   }
 
   @Override
@@ -150,30 +144,22 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
   @Override
   public Flux<InputRequest> list(
       final @Nullable String sessionId, final @Nullable String executionId) {
-    return Flux.defer(
-        () ->
-            Flux.fromIterable(
-                locked(
-                    () ->
-                        requests.values().stream()
-                            .filter(
-                                request ->
-                                    (sessionId == null || sessionId.equals(request.sessionId()))
-                                        && (executionId == null
-                                            || executionId.equals(request.executionId())))
-                            .toList())));
+    return Flux.defer(() ->
+        Flux.fromIterable(
+            locked(() ->
+                requests.values().stream()
+                    .filter(request ->
+                        (sessionId == null || sessionId.equals(request.sessionId()))
+                            && (executionId == null || executionId.equals(request.executionId())))
+                    .toList())));
   }
 
   @Override
   public Flux<InputRequest> dueBefore(final Instant now) {
-    return Flux.defer(
-        () ->
-            Flux.fromIterable(
-                locked(
-                    () ->
-                        requests.values().stream()
-                            .filter(request -> isDue(request, now))
-                            .toList())));
+    return Flux.defer(() ->
+        Flux.fromIterable(
+            locked(
+                () -> requests.values().stream().filter(request -> isDue(request, now)).toList())));
   }
 
   /** Tells whether an open request has a deadline that is not after the given time. */
@@ -188,35 +174,32 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   @Override
   public Mono<InputDelivery> enqueueDelivery(final InputDelivery delivery) {
-    return Mono.fromSupplier(
-        () -> {
-          deliveries.put(delivery.id(), delivery);
-          return delivery;
-        });
+    return Mono.fromSupplier(() -> {
+      deliveries.put(delivery.id(), delivery);
+      return delivery;
+    });
   }
 
   @Override
   public Flux<InputDelivery> dueDeliveries(final Instant now) {
-    return Flux.defer(
-        () ->
-            Flux.fromStream(
-                deliveries.values().stream()
-                    .filter(d -> d.state() == InputDelivery.State.PENDING)
-                    .filter(d -> !d.nextAttempt().isAfter(now))
-                    .sorted(Comparator.comparing(InputDelivery::nextAttempt))));
+    return Flux.defer(() ->
+        Flux.fromStream(
+            deliveries.values().stream()
+                .filter(d -> d.state() == InputDelivery.State.PENDING)
+                .filter(d -> !d.nextAttempt().isAfter(now))
+                .sorted(Comparator.comparing(InputDelivery::nextAttempt))));
   }
 
   @Override
   public Mono<Void> saveDelivery(final InputDelivery delivery) {
     // a delivery of a request that is gone (the worker saw it end) is not kept
-    return Mono.fromRunnable(
-        () -> {
-          if (requests.containsKey(delivery.requestId())) {
-            deliveries.put(delivery.id(), delivery);
-          } else {
-            deliveries.remove(delivery.id());
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      if (requests.containsKey(delivery.requestId())) {
+        deliveries.put(delivery.id(), delivery);
+      } else {
+        deliveries.remove(delivery.id());
+      }
+    });
   }
 
   /** Drops a request with its response and its deliveries: all are bounded by {@code memoryMax}. */
@@ -228,18 +211,16 @@ public final class InMemoryInputRequestStore implements InputRequestStore {
 
   @Override
   public Mono<Long> purgeTerminalOlderThan(final Instant cutoff) {
-    return Mono.fromSupplier(
-        () ->
-            locked(
-                () -> {
-                  final List<String> old =
-                      requests.values().stream()
-                          .filter(r -> r.state().isTerminal() && r.updatedAt().isBefore(cutoff))
-                          .map(InputRequest::id)
-                          .toList();
-                  old.forEach(this::forget);
-                  return (long) old.size();
-                }));
+    return Mono.fromSupplier(() ->
+        locked(() -> {
+          final List<String> old =
+              requests.values().stream()
+                  .filter(r -> r.state().isTerminal() && r.updatedAt().isBefore(cutoff))
+                  .map(InputRequest::id)
+                  .toList();
+          old.forEach(this::forget);
+          return (long) old.size();
+        }));
   }
 
   /** Runs the action under the lock, so the maps are never seen half-changed. */

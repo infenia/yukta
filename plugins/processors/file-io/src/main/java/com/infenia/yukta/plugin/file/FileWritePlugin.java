@@ -87,11 +87,10 @@ public final class FileWritePlugin extends AbstractFilePlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          FileSandbox.baseDir(config);
-          FailureMode.from(config.get(FAILURE_MODE));
-        });
+    return Mono.fromRunnable(() -> {
+      FileSandbox.baseDir(config);
+      FailureMode.from(config.get(FAILURE_MODE));
+    });
   }
 
   @Override

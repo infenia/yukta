@@ -307,11 +307,10 @@ class TerminalNodeAssemblerStrategyTest {
     resultService.complete(EXECUTION_ID, "SUCCESS");
 
     StepVerifier.create(resultService.stream(EXECUTION_ID))
-        .assertNext(
-            event -> {
-              assertThat(event.nodeId()).isEqualTo(NODE_ID);
-              assertThat(event.payload()).isEqualTo("final-answer");
-            })
+        .assertNext(event -> {
+          assertThat(event.nodeId()).isEqualTo(NODE_ID);
+          assertThat(event.payload()).isEqualTo("final-answer");
+        })
         .assertNext(event -> assertThat(event.status()).isEqualTo("SUCCESS"))
         .assertNext(event -> assertThat(event.kind().name()).isEqualTo("EXECUTION_END"))
         .verifyComplete();
@@ -375,11 +374,10 @@ class TerminalNodeAssemblerStrategyTest {
   void createAssembler_stalledAfterFirstInput_timesOut() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
@@ -401,12 +399,11 @@ class TerminalNodeAssemblerStrategyTest {
   void createAssembler_hangsAfterItsLastInput_timesOut() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              // takes all its input, then never finishes (a flush that hangs)
-              return input.then(Mono.never());
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          // takes all its input, then never finishes (a flush that hangs)
+          return input.then(Mono.never());
+        });
     when(terminal.isBlocking()).thenReturn(false);
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Flux<Message<?>> one = Flux.just(DefaultMessage.create(UUID.randomUUID(), "data"));
@@ -426,11 +423,10 @@ class TerminalNodeAssemblerStrategyTest {
   void createAssembler_cancelledTerminal_reportsCancelled() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Flux<Message<?>> waiting = Flux.never();
@@ -452,11 +448,10 @@ class TerminalNodeAssemblerStrategyTest {
   void createAssembler_stalledAfterFirstInput_reportsTimedOut() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
     final Message<?> first = DefaultMessage.create(UUID.randomUUID(), "data");
@@ -480,11 +475,10 @@ class TerminalNodeAssemblerStrategyTest {
   void createAssembler_noInputYet_doesNotTimeOut() {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
@@ -534,11 +528,10 @@ class TerminalNodeAssemblerStrategyTest {
     final ResultCollector collector = mock(ResultCollector.class);
 
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
@@ -568,11 +561,10 @@ class TerminalNodeAssemblerStrategyTest {
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     final ResultCollector collector = mock(ResultCollector.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());
@@ -595,11 +587,10 @@ class TerminalNodeAssemblerStrategyTest {
     final Message<?> msg = DefaultMessage.create(UUID.randomUUID(), "data");
     final TerminalPlugin terminal = mock(TerminalPlugin.class);
     when(terminal.consume(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Flux<Message<?>> input = inv.getArgument(0);
-              return input.then();
-            });
+        .thenAnswer(inv -> {
+          final Flux<Message<?>> input = inv.getArgument(0);
+          return input.then();
+        });
     when(terminal.isBlocking()).thenReturn(false);
 
     final WorkflowNode node = new WorkflowNode(NODE_ID, "terminal", Map.of());

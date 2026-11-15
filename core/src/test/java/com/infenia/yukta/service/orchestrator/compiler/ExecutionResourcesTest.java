@@ -65,10 +65,9 @@ class ExecutionResourcesTest {
     org.mockito.Mockito.doThrow(new IllegalStateException("x")).when(bad).dispose();
     final Disposable good = mock(Disposable.class);
     final List<Runnable> connectors =
-        List.of(
-            () -> {
-              throw new IllegalStateException("connector failed");
-            });
+        List.of(() -> {
+          throw new IllegalStateException("connector failed");
+        });
 
     StepVerifier.create(
             run(A_MINUTE, List.of(Mono.empty()), connectors, new ArrayList<>(List.of(bad, good))))
@@ -114,15 +113,14 @@ class ExecutionResourcesTest {
   void runDeadline_doesNotFireWhilePaused_butFiresAfterResume() {
     final AtomicBoolean paused = new AtomicBoolean(true);
 
-    StepVerifier.withVirtualTime(
-            () ->
-                ExecutionResources.run(
-                    A_MINUTE,
-                    Schedulers.parallel(),
-                    List.of(Mono.never()),
-                    List.of(),
-                    new ArrayList<>(),
-                    paused::get))
+    StepVerifier.withVirtualTime(() ->
+            ExecutionResources.run(
+                A_MINUTE,
+                Schedulers.parallel(),
+                List.of(Mono.never()),
+                List.of(),
+                new ArrayList<>(),
+                paused::get))
         .expectSubscription()
         .expectNoEvent(Duration.ofMinutes(10))
         .then(() -> paused.set(false))

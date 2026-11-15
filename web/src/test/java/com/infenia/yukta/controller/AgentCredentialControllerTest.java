@@ -35,12 +35,11 @@ class AgentCredentialControllerTest {
     has("a1", "http");
     final String[] token = new String[1];
     StepVerifier.create(controller.issue("a1", 2, null))
-        .assertNext(
-            r -> {
-              assertThat(r.status()).isEqualTo(201);
-              assertThat(r.data().expiresAt()).isNotNull();
-              token[0] = r.data().token();
-            })
+        .assertNext(r -> {
+          assertThat(r.status()).isEqualTo(201);
+          assertThat(r.data().expiresAt()).isNotNull();
+          token[0] = r.data().token();
+        })
         .verifyComplete();
     assertThat(credentials.authenticate(token[0])).contains("a1");
 
@@ -56,11 +55,10 @@ class AgentCredentialControllerTest {
         java.util.Objects.requireNonNull(controller.issue("a1", null, null).block()).data().token();
 
     StepVerifier.create(controller.show("a1"))
-        .assertNext(
-            r -> {
-              assertThat(r.data().issuedAt()).isNotNull();
-              assertThat(r.data().toString()).doesNotContain(token);
-            })
+        .assertNext(r -> {
+          assertThat(r.data().issuedAt()).isNotNull();
+          assertThat(r.data().toString()).doesNotContain(token);
+        })
         .verifyComplete();
     controller.revoke("a1").block();
     assertThatThrownBy(() -> controller.show("a1")).isInstanceOf(NotFoundException.class);

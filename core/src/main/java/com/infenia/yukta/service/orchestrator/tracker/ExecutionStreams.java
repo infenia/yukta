@@ -136,28 +136,26 @@ final class ExecutionStreams {
   /* default */ Flux<PluginLogEntry> logFlux() {
     return logFeed
         .asFlux()
-        .map(
-            event -> {
-              final WorkflowState state = states.apply(event.executionId());
-              final String sessionId = state != null ? state.sessionId : "unknown";
-              final String module =
-                  state != null && state.taskMap.get(event.nodeId()) != null
-                      ? state.taskMap.get(event.nodeId()).module()
-                      : "unknown";
+        .map(event -> {
+          final WorkflowState state = states.apply(event.executionId());
+          final String sessionId = state != null ? state.sessionId : "unknown";
+          final String module =
+              state != null && state.taskMap.get(event.nodeId()) != null
+                  ? state.taskMap.get(event.nodeId()).module()
+                  : "unknown";
 
-              return new PluginLogEntry(
-                  event.executionId(),
-                  sessionId,
-                  event.nodeId(), // Use nodeId as pluginId
-                  module, // Use module as pluginName
-                  event.stderr() ? LogStream.STDERR : LogStream.STDOUT,
-                  event.line(),
-                  Objects.requireNonNull(
-                      event.level(), "the tracker rates a line before it is fed"),
-                  event.timestamp(),
-                  null,
-                  null);
-            });
+          return new PluginLogEntry(
+              event.executionId(),
+              sessionId,
+              event.nodeId(), // Use nodeId as pluginId
+              module, // Use module as pluginName
+              event.stderr() ? LogStream.STDERR : LogStream.STDOUT,
+              event.line(),
+              Objects.requireNonNull(event.level(), "the tracker rates a line before it is fed"),
+              event.timestamp(),
+              null,
+              null);
+        });
   }
 
   /**
@@ -189,14 +187,13 @@ final class ExecutionStreams {
             // a snapshot is the whole state: a slow watcher gets the latest, never a gap that
             // would hide the terminal one (the sink drops for a subscriber without demand)
             sink.asFlux().onBackpressureLatest(),
-            Flux.defer(
-                () -> {
-                  final WorkflowState state = states.apply(executionId);
-                  final WorkflowProgress progress = state == null ? null : progressOf.apply(state);
-                  return progress != null && isWorkflowTerminal(progress)
-                      ? Flux.just(progress)
-                      : Flux.<WorkflowProgress>empty();
-                }));
+            Flux.defer(() -> {
+              final WorkflowState state = states.apply(executionId);
+              final WorkflowProgress progress = state == null ? null : progressOf.apply(state);
+              return progress != null && isWorkflowTerminal(progress)
+                  ? Flux.just(progress)
+                  : Flux.<WorkflowProgress>empty();
+            }));
 
     if (includeHistory) {
       final List<WorkflowProgress> history = statusHistoryCache.get(executionId);
@@ -208,22 +205,18 @@ final class ExecutionStreams {
     }
 
     return statusFlux
-        .takeUntil(
-            progress -> {
-              final boolean isTerminal = isWorkflowTerminal(progress);
-              if (isTerminal) {
-                log.atDebug()
-                    .addKeyValue("executionId", executionId)
-                    .addKeyValue("status", progress.status())
-                    .log("Workflow terminal status detected, terminating stream");
-              }
-              return isTerminal;
-            })
-        .doOnComplete(
-            () ->
-                log.atInfo()
-                    .addKeyValue("executionId", executionId)
-                    .log("Status stream completed"));
+        .takeUntil(progress -> {
+          final boolean isTerminal = isWorkflowTerminal(progress);
+          if (isTerminal) {
+            log.atDebug()
+                .addKeyValue("executionId", executionId)
+                .addKeyValue("status", progress.status())
+                .log("Workflow terminal status detected, terminating stream");
+          }
+          return isTerminal;
+        })
+        .doOnComplete(() ->
+            log.atInfo().addKeyValue("executionId", executionId).log("Status stream completed"));
   }
 
   /** A workflow is over when its status is terminal and its end time is set. */

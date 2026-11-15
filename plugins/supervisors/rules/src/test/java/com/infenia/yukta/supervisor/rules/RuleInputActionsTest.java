@@ -85,12 +85,11 @@ class RuleInputActionsTest {
 
     assertThat(commands)
         .hasSize(3)
-        .allSatisfy(
-            command ->
-                assertThat(command)
-                    .isEqualTo(
-                        new EscalateInputCommand(
-                            "e1", "r1", "not covered by policy 7", "check the change log")));
+        .allSatisfy(command ->
+            assertThat(command)
+                .isEqualTo(
+                    new EscalateInputCommand(
+                        "e1", "r1", "not covered by policy 7", "check the change log")));
   }
 
   @Test
@@ -165,19 +164,16 @@ class RuleInputActionsTest {
 
   @Test
   void invalidInputRulesFailWhenTheyAreLoaded() {
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    rule(
-                        "{\"event\":\"NodeStatusChanged\"}",
-                        "{\"answer\":{\"decision\":\"approve\"}}")))
+    assertThatThrownBy(() ->
+            supervisor(
+                rule(
+                    "{\"event\":\"NodeStatusChanged\"}",
+                    "{\"answer\":{\"decision\":\"approve\"}}")))
         .hasMessageContaining("must react to InputRequested or InputEscalated");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    rule(
-                        "{}",
-                        "{\"command\":\"PauseWorkflow\",\"answer\":{\"decision\":\"approve\"}}")))
+    assertThatThrownBy(() ->
+            supervisor(
+                rule(
+                    "{}", "{\"command\":\"PauseWorkflow\",\"answer\":{\"decision\":\"approve\"}}")))
         .hasMessageContaining("exactly one of command, answer and escalate");
     assertThatThrownBy(
             () -> supervisor(rule("{}", "{\"answer\":{\"decision\":\"approve\"},\"escalate\":{}}")))
@@ -185,9 +181,8 @@ class RuleInputActionsTest {
     assertThatThrownBy(() -> supervisor(rule("{}", "{\"answer\":{\"text\":\"no decision\"}}")))
         .hasMessageContaining("invalid answer or escalation")
         .hasMessageContaining("decision");
-    assertThatThrownBy(
-            () ->
-                supervisor(rule("{}", "{\"answer\":{\"decision\":\"approve\",\"confidence\":2}}")))
+    assertThatThrownBy(() ->
+            supervisor(rule("{}", "{\"answer\":{\"decision\":\"approve\",\"confidence\":2}}")))
         .hasMessageContaining("confidence");
   }
 
@@ -203,9 +198,8 @@ class RuleInputActionsTest {
     final RuleSet rules = RuleSupervisor.read(STAGING_RULES);
 
     assertThat(new RuleSupervisor(rules, Clock.systemUTC()).warning())
-        .hasValueSatisfying(
-            warning ->
-                assertThat(warning).contains("[approve-staging]").contains("canAnswer is off"));
+        .hasValueSatisfying(warning ->
+            assertThat(warning).contains("[approve-staging]").contains("canAnswer is off"));
     assertThat(
             new RuleSupervisor(
                     rules,

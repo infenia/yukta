@@ -51,17 +51,16 @@ public class DirectNodeMessageChannel implements NodeMessageChannel {
   private Flux<Message<?>> limited(final String nodeId, final Flux<Message<?>> flux) {
     return maxPayloadBytes <= 0
         ? flux
-        : flux.doOnNext(
-            msg -> {
-              // the payload, but also the headers and failure text, which travel every edge too
-              final long size =
-                  PayloadSize.bytesIn(msg.payload())
-                      + PayloadSize.bytesIn(msg.metadata())
-                      + PayloadSize.bytesIn(msg.failureReason())
-                      + PayloadSize.bytesIn(msg.exceptionDetail());
-              if (size > maxPayloadBytes) {
-                throw new PayloadTooLargeException(nodeId, size, maxPayloadBytes);
-              }
-            });
+        : flux.doOnNext(msg -> {
+          // the payload, but also the headers and failure text, which travel every edge too
+          final long size =
+              PayloadSize.bytesIn(msg.payload())
+                  + PayloadSize.bytesIn(msg.metadata())
+                  + PayloadSize.bytesIn(msg.failureReason())
+                  + PayloadSize.bytesIn(msg.exceptionDetail());
+          if (size > maxPayloadBytes) {
+            throw new PayloadTooLargeException(nodeId, size, maxPayloadBytes);
+          }
+        });
   }
 }

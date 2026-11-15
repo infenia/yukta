@@ -126,9 +126,8 @@ public class WorkflowControlProvider {
           new IllegalArgumentException("fromNodeId is required for action RESTART_FROM_NODE."));
     }
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(
-            ignored ->
-                executeWorkflowAction(action, executionId, fromNodeId, reason, tree, stopMode));
+        .flatMap(ignored ->
+            executeWorkflowAction(action, executionId, fromNodeId, reason, tree, stopMode));
   }
 
   /**
@@ -139,14 +138,13 @@ public class WorkflowControlProvider {
   public Mono<SchedulerLimitsResult> getSchedulerLimits() {
     return controlBus
         .limits()
-        .map(
-            limits ->
-                new SchedulerLimitsResult(
-                    limits.maxConcurrent(),
-                    limits.maxPerWorkflow(),
-                    limits.running(),
-                    limits.queued(),
-                    limits.queueCapacity()));
+        .map(limits ->
+            new SchedulerLimitsResult(
+                limits.maxConcurrent(),
+                limits.maxPerWorkflow(),
+                limits.running(),
+                limits.queued(),
+                limits.queueCapacity()));
   }
 
   /**
@@ -202,27 +200,25 @@ public class WorkflowControlProvider {
           new IllegalArgumentException("nodeId is required for action " + action + "."));
     }
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(
-            ignored ->
-                action == NodeControlAction.RETRY
-                    ? control
-                        .retryNode(executionId, nodeId)
-                        .map(
-                            newId ->
-                                new ControlActionResult(
-                                    action.name(),
-                                    executionId,
-                                    nodeId,
-                                    List.of(newId),
-                                    "Retried from node " + nodeId + " as execution " + newId + "."))
-                    : executeNodeAction(action, executionId, nodeId, immediate, reason)
-                        .thenReturn(
-                            new ControlActionResult(
-                                action.name(),
-                                executionId,
-                                nodeId,
-                                List.of(),
-                                action + " signal sent to node " + nodeId + ".")));
+        .flatMap(ignored ->
+            action == NodeControlAction.RETRY
+                ? control
+                    .retryNode(executionId, nodeId)
+                    .map(newId ->
+                        new ControlActionResult(
+                            action.name(),
+                            executionId,
+                            nodeId,
+                            List.of(newId),
+                            "Retried from node " + nodeId + " as execution " + newId + "."))
+                : executeNodeAction(action, executionId, nodeId, immediate, reason)
+                    .thenReturn(
+                        new ControlActionResult(
+                            action.name(),
+                            executionId,
+                            nodeId,
+                            List.of(),
+                            action + " signal sent to node " + nodeId + ".")));
   }
 
   /**
@@ -253,17 +249,16 @@ public class WorkflowControlProvider {
               "executionId, nodeId, field and equalsValue are required to set a breakpoint."));
     }
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
-        .flatMap(
-            ignored ->
-                control
-                    .addBreakpoint(executionId, nodeId, field, equalsValue)
-                    .thenReturn(
-                        new ControlActionResult(
-                            "BREAKPOINT_SET",
-                            executionId,
-                            nodeId,
-                            List.of(),
-                            "Breakpoint set on node " + nodeId + ".")));
+        .flatMap(ignored ->
+            control
+                .addBreakpoint(executionId, nodeId, field, equalsValue)
+                .thenReturn(
+                    new ControlActionResult(
+                        "BREAKPOINT_SET",
+                        executionId,
+                        nodeId,
+                        List.of(),
+                        "Breakpoint set on node " + nodeId + ".")));
   }
 
   private Mono<ControlActionResult> stopAllExecutions(
@@ -274,14 +269,13 @@ public class WorkflowControlProvider {
     }
     return control
         .stopWorkflow(sessionId, workflowId, reasonOrDefault(reason), mode)
-        .map(
-            stopped ->
-                new ControlActionResult(
-                    WorkflowControlAction.STOP_ALL.name(),
-                    null,
-                    null,
-                    stopped,
-                    "Stopped " + stopped.size() + " execution(s) of workflow " + workflowId + "."));
+        .map(stopped ->
+            new ControlActionResult(
+                WorkflowControlAction.STOP_ALL.name(),
+                null,
+                null,
+                stopped,
+                "Stopped " + stopped.size() + " execution(s) of workflow " + workflowId + "."));
   }
 
   private Mono<ControlActionResult> executeWorkflowAction(
@@ -311,33 +305,30 @@ public class WorkflowControlProvider {
       case RESTART ->
           control
               .restartWorkflow(executionId)
-              .map(
-                  newId ->
-                      result(
-                          action,
-                          executionId,
-                          List.of(newId),
-                          "Restarted as execution " + newId + "."));
+              .map(newId ->
+                  result(
+                      action,
+                      executionId,
+                      List.of(newId),
+                      "Restarted as execution " + newId + "."));
       case RESTART_FROM_NODE ->
           control
               .restartFromNode(executionId, fromNodeId)
-              .map(
-                  newId ->
-                      result(
-                          action,
-                          executionId,
-                          List.of(newId),
-                          "Restarted from node " + fromNodeId + " as execution " + newId + "."));
+              .map(newId ->
+                  result(
+                      action,
+                      executionId,
+                      List.of(newId),
+                      "Restarted from node " + fromNodeId + " as execution " + newId + "."));
       case RECOVER ->
           control
               .recover(executionId)
-              .map(
-                  newId ->
-                      result(
-                          action,
-                          executionId,
-                          List.of(newId),
-                          "Recovered as execution " + newId + "."));
+              .map(newId ->
+                  result(
+                      action,
+                      executionId,
+                      List.of(newId),
+                      "Recovered as execution " + newId + "."));
       // STOP_ALL is dispatched before the ownership check; PAUSE is the remaining action.
       default ->
           treeControl

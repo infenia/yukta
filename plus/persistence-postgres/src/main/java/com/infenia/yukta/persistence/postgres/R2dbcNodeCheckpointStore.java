@@ -93,26 +93,23 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
     return Mono.fromCallable(() -> CheckpointJson.write(mapper, message))
-        .flatMap(
-            json ->
-                insert(executionId, nodeId, json)
-                    .doOnNext(
-                        written -> {
-                          if (written == 0) {
-                            fencing.refused(1);
-                          } else {
-                            held.addAndGet(json.length());
-                          }
-                        }))
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .addKeyValue("executionId", executionId)
-                  .addKeyValue("nodeId", nodeId)
-                  .setCause(error)
-                  .log("Could not record node output, the node cannot be restarted from");
-              return state(executionId, nodeId, INCOMPLETE).then(Mono.empty());
-            })
+        .flatMap(json ->
+            insert(executionId, nodeId, json)
+                .doOnNext(written -> {
+                  if (written == 0) {
+                    fencing.refused(1);
+                  } else {
+                    held.addAndGet(json.length());
+                  }
+                }))
+        .onErrorResume(error -> {
+          log.atWarn()
+              .addKeyValue("executionId", executionId)
+              .addKeyValue("nodeId", nodeId)
+              .setCause(error)
+              .log("Could not record node output, the node cannot be restarted from");
+          return state(executionId, nodeId, INCOMPLETE).then(Mono.empty());
+        })
         .then();
   }
 
@@ -184,15 +181,14 @@ public class R2dbcNodeCheckpointStore implements NodeCheckpointStore, ByteCounte
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
     return state(executionId, nodeId, DONE)
-        .onErrorResume(
-            error -> {
-              log.atError()
-                  .addKeyValue("executionId", executionId)
-                  .addKeyValue("nodeId", nodeId)
-                  .setCause(error)
-                  .log("Could not make the end of a node durable, a resume will run it again");
-              return state(executionId, nodeId, INCOMPLETE).onErrorResume(_ -> Mono.empty());
-            });
+        .onErrorResume(error -> {
+          log.atError()
+              .addKeyValue("executionId", executionId)
+              .addKeyValue("nodeId", nodeId)
+              .setCause(error)
+              .log("Could not make the end of a node durable, a resume will run it again");
+          return state(executionId, nodeId, INCOMPLETE).onErrorResume(_ -> Mono.empty());
+        });
   }
 
   @Override

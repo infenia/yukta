@@ -83,12 +83,10 @@ public class NodePolicies {
     final AtomicInteger attempts = new AtomicInteger();
     // Every attempt counts as activity, so a retrying node is not seen as idle.
     Flux<Message<?>> result =
-        Flux.defer(
-            () -> {
-              onAttempt.run();
-              return processing.apply(
-                  message.withHeader(ATTEMPT_HEADER, attempts.incrementAndGet()));
-            });
+        Flux.defer(() -> {
+          onAttempt.run();
+          return processing.apply(message.withHeader(ATTEMPT_HEADER, attempts.incrementAndGet()));
+        });
     if (policy.elementTimeout() != null) {
       result = result.timeout(policy.elementTimeout());
     }
@@ -106,37 +104,34 @@ public class NodePolicies {
                   .maxBackoff(retry.maxBackoff())
                   .jitter(JITTER)
                   .filter(error -> !RunAbortedException.isAbort(error) && retry.shouldRetry(error))
-                  .doBeforeRetry(
-                      signal ->
-                          log.atWarn()
-                              .addKeyValue("nodeId", nodeId)
-                              .addKeyValue("attempt", signal.totalRetries() + 2)
-                              .setCause(signal.failure())
-                              .log("Retrying failed message"))
+                  .doBeforeRetry(signal ->
+                      log.atWarn()
+                          .addKeyValue("nodeId", nodeId)
+                          .addKeyValue("attempt", signal.totalRetries() + 2)
+                          .setCause(signal.failure())
+                          .log("Retrying failed message"))
                   .onRetryExhaustedThrow((spec, signal) -> signal.failure()));
     }
     return switch (policy.onError()) {
       case FAIL -> result;
       case CONTINUE ->
-          result.onErrorResume(
-              error -> {
-                if (RunAbortedException.isAbort(error)) {
-                  return Flux.error(error);
-                }
-                log.atWarn()
-                    .addKeyValue("nodeId", nodeId)
-                    .setCause(error)
-                    .log("Dropping failed message (onError=CONTINUE)");
-                return overBudget(ledger) ? budgetError(nodeId, policy, error) : Flux.empty();
-              });
+          result.onErrorResume(error -> {
+            if (RunAbortedException.isAbort(error)) {
+              return Flux.error(error);
+            }
+            log.atWarn()
+                .addKeyValue("nodeId", nodeId)
+                .setCause(error)
+                .log("Dropping failed message (onError=CONTINUE)");
+            return overBudget(ledger) ? budgetError(nodeId, policy, error) : Flux.empty();
+          });
       case ROUTE ->
-          result.onErrorResume(
-              error ->
-                  RunAbortedException.isAbort(error)
-                      ? Flux.error(error)
-                      : overBudget(ledger)
-                          ? budgetError(nodeId, policy, error)
-                          : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
+          result.onErrorResume(error ->
+              RunAbortedException.isAbort(error)
+                  ? Flux.error(error)
+                  : overBudget(ledger)
+                      ? budgetError(nodeId, policy, error)
+                      : Flux.just(deadLetter(message, nodeId, error, attempts.get())));
     };
   }
 

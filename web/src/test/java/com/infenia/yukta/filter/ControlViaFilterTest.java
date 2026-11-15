@@ -24,11 +24,10 @@ class ControlViaFilterTest {
         .filter(
             exchange,
             ex ->
-                Mono.deferContextual(
-                    ctx -> {
-                      ctx.<AtomicReference<String>>get(ControlReviewer.VIA_KEY).set("guard");
-                      return ex.getResponse().setComplete();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  ctx.<AtomicReference<String>>get(ControlReviewer.VIA_KEY).set("guard");
+                  return ex.getResponse().setComplete();
+                }))
         .block();
     assertThat(exchange.getResponse().getHeaders().getFirst(ControlViaFilter.HEADER))
         .isEqualTo("guard");
@@ -47,11 +46,10 @@ class ControlViaFilterTest {
         .filter(
             get,
             ex ->
-                Mono.deferContextual(
-                    ctx -> {
-                      assertThat(ctx.hasKey(ControlReviewer.VIA_KEY)).isFalse();
-                      return ex.getResponse().setComplete();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  assertThat(ctx.hasKey(ControlReviewer.VIA_KEY)).isFalse();
+                  return ex.getResponse().setComplete();
+                }))
         .block();
     assertThat(get.getResponse().getHeaders().getFirst(ControlViaFilter.HEADER)).isNull();
   }

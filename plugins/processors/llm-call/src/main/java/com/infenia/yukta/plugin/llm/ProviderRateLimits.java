@@ -38,12 +38,11 @@ final class ProviderRateLimits {
    */
   /* default */ void configure(final Map<String, Integer> perMinute) {
     final Map<String, Long> next = new HashMap<>();
-    perMinute.forEach(
-        (provider, limit) -> {
-          if (limit != null && limit > 0) {
-            next.put(provider.toLowerCase(Locale.ROOT), TimeUnit.MINUTES.toNanos(1) / limit);
-          }
-        });
+    perMinute.forEach((provider, limit) -> {
+      if (limit != null && limit > 0) {
+        next.put(provider.toLowerCase(Locale.ROOT), TimeUnit.MINUTES.toNanos(1) / limit);
+      }
+    });
     lock.lock();
     try {
       spacing = next;

@@ -300,13 +300,12 @@ class StreamTopologyDecoratorTest {
             decorator
                 .applyEdgeRouting(streams, new ParentEdgeInfo(0, PARENT_1, null))
                 .contextWrite(ctx -> ctx.put("workflowId", "mine")))
-        .assertNext(
-            m -> {
-              assertThat(m.controlMessage()).isFalse();
-              assertThat(m.workflowId()).isEqualTo("mine");
-              assertThat(m.sourceNodeId()).isEqualTo(PARENT_1);
-              assertThat(m.metadata()).containsOnlyKeys("keep");
-            })
+        .assertNext(m -> {
+          assertThat(m.controlMessage()).isFalse();
+          assertThat(m.workflowId()).isEqualTo("mine");
+          assertThat(m.sourceNodeId()).isEqualTo(PARENT_1);
+          assertThat(m.metadata()).containsOnlyKeys("keep");
+        })
         .verifyComplete();
   }
 

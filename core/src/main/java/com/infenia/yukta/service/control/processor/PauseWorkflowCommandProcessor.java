@@ -32,26 +32,25 @@ public class PauseWorkflowCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final PauseWorkflowCommand pause) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(pause.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + pause.executionId()));
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(pause.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + pause.executionId()));
 
-          if (control.globalPauseValve() == null) {
-            throw new IllegalStateException("Global pause valve not initialized");
-          }
+      if (control.globalPauseValve() == null) {
+        throw new IllegalStateException("Global pause valve not initialized");
+      }
 
-          control.globalPauseValve().pause();
+      control.globalPauseValve().pause();
 
-          taskTracker.emitControlStateEvent(pause.executionId(), ControlState.PAUSED);
+      taskTracker.emitControlStateEvent(pause.executionId(), ControlState.PAUSED);
 
-          log.atDebug()
-              .addKeyValue("executionId", pause.executionId())
-              .addKeyValue("status", "PAUSED")
-              .log("Paused workflow");
-        });
+      log.atDebug()
+          .addKeyValue("executionId", pause.executionId())
+          .addKeyValue("status", "PAUSED")
+          .log("Paused workflow");
+    });
   }
 }

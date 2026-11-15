@@ -30,12 +30,11 @@ public class ExecutionAccess {
    *     belongs to another session
    */
   public Mono<WorkflowProgress> require(final String sessionId, final String executionId) {
-    return Mono.defer(
-            () ->
-                Mono.justOrEmpty(
-                    sessionId == null
-                        ? controlBus.getCurrentProgress(executionId)
-                        : controlBus.getProgress(sessionId, executionId)))
+    return Mono.defer(() ->
+            Mono.justOrEmpty(
+                sessionId == null
+                    ? controlBus.getCurrentProgress(executionId)
+                    : controlBus.getProgress(sessionId, executionId)))
         .switchIfEmpty(
             Mono.error(() -> new NotFoundException("Execution not found: " + executionId)));
   }

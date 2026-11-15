@@ -53,12 +53,11 @@ public class ConsoleTerminalPlugin implements TerminalPlugin {
   @Override
   public Mono<Void> consume(final Flux<Message<?>> input, final Map<String, Object> config) {
     return input
-        .doOnNext(
-            msg -> {
-              if (log.isDebugEnabled()) {
-                log.debug("Consuming message: {}", msg.payload());
-              }
-            })
+        .doOnNext(msg -> {
+          if (log.isDebugEnabled()) {
+            log.debug("Consuming message: {}", msg.payload());
+          }
+        })
         .count()
         .doOnNext(count -> log.info("Consumed {} message(s)", count))
         .then();

@@ -60,10 +60,9 @@ public class ConfigRedactor {
         workflow.workflowId(),
         workflow.description(),
         workflow.nodes().stream()
-            .map(
-                node ->
-                    new WorkflowDefinition.Node(
-                        node.nodeId(), node.type(), redactNode(node), node.group(), node.color()))
+            .map(node ->
+                new WorkflowDefinition.Node(
+                    node.nodeId(), node.type(), redactNode(node), node.group(), node.color()))
             .toList(),
         workflow.edges(),
         workflow.supervisors(),
@@ -113,13 +112,12 @@ public class ConfigRedactor {
     for (final WorkflowDefinition.Node node : workflow.nodes()) {
       final Set<String> secretFields = secretFields(node.type());
       node.config()
-          .forEach(
-              (key, value) ->
-                  collectLiterals(
-                      node.nodeId() + "." + key,
-                      value,
-                      secretFields.contains(key) || isSecretName(key),
-                      found));
+          .forEach((key, value) ->
+              collectLiterals(
+                  node.nodeId() + "." + key,
+                  value,
+                  secretFields.contains(key) || isSecretName(key),
+                  found));
     }
     return found;
   }
@@ -127,10 +125,9 @@ public class ConfigRedactor {
   private static void collectLiterals(
       final String path, final Object value, final boolean secret, final List<String> found) {
     if (value instanceof final Map<?, ?> map) {
-      map.forEach(
-          (key, inner) ->
-              collectLiterals(
-                  path + "." + key, inner, secret || isSecretName(String.valueOf(key)), found));
+      map.forEach((key, inner) ->
+          collectLiterals(
+              path + "." + key, inner, secret || isSecretName(String.valueOf(key)), found));
     } else if (value instanceof final List<?> list) {
       for (int i = 0; i < list.size(); i++) {
         collectLiterals(path + "." + i, list.get(i), secret, found);
@@ -144,10 +141,8 @@ public class ConfigRedactor {
     final Set<String> secretFields = secretFields(node.type());
     final Map<String, Object> redacted = new LinkedHashMap<>();
     node.config()
-        .forEach(
-            (key, value) ->
-                redacted.put(
-                    key, redactValue(value, secretFields.contains(key) || isSecretName(key))));
+        .forEach((key, value) ->
+            redacted.put(key, redactValue(value, secretFields.contains(key) || isSecretName(key))));
     return redacted;
   }
 
@@ -164,11 +159,10 @@ public class ConfigRedactor {
   private Object redactValue(final Object value, final boolean secret) {
     if (value instanceof final Map<?, ?> map) {
       final Map<String, Object> redacted = new LinkedHashMap<>();
-      map.forEach(
-          (key, inner) ->
-              redacted.put(
-                  String.valueOf(key),
-                  redactValue(inner, secret || isSecretName(String.valueOf(key)))));
+      map.forEach((key, inner) ->
+          redacted.put(
+              String.valueOf(key),
+              redactValue(inner, secret || isSecretName(String.valueOf(key)))));
       return redacted;
     }
     if (value instanceof final List<?> list) {

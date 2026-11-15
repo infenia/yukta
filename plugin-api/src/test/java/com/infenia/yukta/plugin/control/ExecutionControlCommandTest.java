@@ -45,52 +45,37 @@ class ExecutionControlCommandTest {
                     "e", "r", null, "approve", null, null, null, null)
                 .data())
         .isEmpty();
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", " ", null, "approve", null, null, null, null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", " ", null, "approve", null, null, null, null))
         .hasMessage("requestId must not be blank");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    " ", "r", null, "approve", null, null, null, null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                " ", "r", null, "approve", null, null, null, null))
         .hasMessage("executionId must not be blank");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", "r", -1L, "approve", null, null, null, null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", -1L, "approve", null, null, null, null))
         .hasMessage("expectedVersion must not be negative");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", "r", null, " ", null, null, null, null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", null, " ", null, null, null, null))
         .hasMessage("decision must not be blank");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", "r", null, "a", "x".repeat(9000), null, null, null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", null, "a", "x".repeat(9000), null, null, null))
         .hasMessage("text is longer than 8192 bytes");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e",
-                    "r",
-                    null,
-                    "a",
-                    null,
-                    java.util.Map.of("k", "x".repeat(17_000)),
-                    null,
-                    null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", null, "a", null, java.util.Map.of("k", "x".repeat(17_000)), null, null))
         .hasMessage("data is longer than 16384 bytes");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", "r", null, "a", null, null, "x".repeat(9000), null))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", null, "a", null, null, "x".repeat(9000), null))
         .hasMessage("rationale is longer than 8192 bytes");
-    assertThatThrownBy(
-            () ->
-                new ExecutionControlCommand.AnswerInputCommand(
-                    "e", "r", null, "a", null, null, null, 1.5))
+    assertThatThrownBy(() ->
+            new ExecutionControlCommand.AnswerInputCommand(
+                "e", "r", null, "a", null, null, null, 1.5))
         .hasMessage("confidence must be between 0 and 1");
   }
 

@@ -97,11 +97,10 @@ class ChaosTest {
         StepVerifier.create(run(executor, "HOLD", "x"))
             .expectNextCount(1)
             .then(doomed::destroyForcibly)
-            .verifyErrorSatisfies(
-                error ->
-                    assertThat(error)
-                        .isInstanceOf(WorkflowExecutionException.class)
-                        .hasMessageContaining("w1"));
+            .verifyErrorSatisfies(error ->
+                assertThat(error)
+                    .isInstanceOf(WorkflowExecutionException.class)
+                    .hasMessageContaining("w1"));
 
         await().atMost(Duration.ofSeconds(30)).until(() -> registry.find("w1").isEmpty());
         StepVerifier.create(run(executor, "UPPER", "again"))

@@ -100,12 +100,10 @@ public class SessionService {
         ? Mono.empty()
         : declared
             .check(data)
-            .flatMap(
-                issues ->
-                    issues.isEmpty()
-                        ? Mono.<Void>empty()
-                        : Mono.error(
-                            new SettingsValidationException("Invalid supervisors", issues)));
+            .flatMap(issues ->
+                issues.isEmpty()
+                    ? Mono.<Void>empty()
+                    : Mono.error(new SettingsValidationException("Invalid supervisors", issues)));
   }
 
   /** Attaches what the session declares, and detaches what it no longer does. */
@@ -149,61 +147,52 @@ public class SessionService {
                 staleWorkflowId ->
                     workflowDefinitionStore
                         .remove(data.sessionId(), staleWorkflowId)
-                        .doOnSuccess(
-                            _ ->
-                                log.atDebug().log(
-                                    "Removed stale workflow: {} no longer present in config for"
-                                        + " session: {}",
-                                    staleWorkflowId,
-                                    data.sessionId()))
-                        .doOnError(
-                            err ->
-                                log.atWarn()
-                                    .addArgument(staleWorkflowId)
-                                    .addArgument(data.sessionId())
-                                    .setCause(err)
-                                    .log("Failed to remove stale workflow: {} for session: {}")),
+                        .doOnSuccess(_ ->
+                            log.atDebug().log(
+                                "Removed stale workflow: {} no longer present in config for"
+                                    + " session: {}",
+                                staleWorkflowId,
+                                data.sessionId()))
+                        .doOnError(err ->
+                            log.atWarn()
+                                .addArgument(staleWorkflowId)
+                                .addArgument(data.sessionId())
+                                .setCause(err)
+                                .log("Failed to remove stale workflow: {} for session: {}")),
                 REMOVAL_CONCURRENCY,
                 1)
             .then();
     final Mono<Void> cacheInvalidation =
-        Mono.fromRunnable(
-            () -> {
-              log.atDebug().log(
-                  "Invalidating prepared workflow cache for session: {}", data.sessionId());
-              preparedWorkflowCache.invalidateAll(data.sessionId());
-            });
+        Mono.fromRunnable(() -> {
+          log.atDebug().log(
+              "Invalidating prepared workflow cache for session: {}", data.sessionId());
+          preparedWorkflowCache.invalidateAll(data.sessionId());
+        });
     final Mono<Void> workflowCompilation =
         data.workflows().isEmpty()
             ? Mono.<Void>empty()
-                .doOnSuccess(
-                    _ ->
-                        log.atDebug().log(
-                            "No workflows to compile for session: {}", data.sessionId()))
+                .doOnSuccess(_ ->
+                    log.atDebug().log("No workflows to compile for session: {}", data.sessionId()))
             : Flux.fromIterable(data.workflows().values())
-                .doOnSubscribe(
-                    _ ->
-                        log.atDebug().log(
-                            "Starting compilation of {} workflows for session: {}",
-                            data.workflows().size(),
-                            data.sessionId()))
-                .flatMap(
-                    def ->
-                        controlBus
-                            .compileAndCacheWorkflow(data.sessionId(), def)
-                            .doOnSuccess(
-                                _ ->
-                                    log.atDebug().log(
-                                        "Successfully compiled workflow: {} for session: {}",
-                                        def.workflowId(),
-                                        data.sessionId()))
-                            .doOnError(
-                                err ->
-                                    log.atError()
-                                        .addArgument(def.workflowId())
-                                        .addArgument(data.sessionId())
-                                        .setCause(err)
-                                        .log("Failed to compile workflow: {} for session: {}")))
+                .doOnSubscribe(_ ->
+                    log.atDebug().log(
+                        "Starting compilation of {} workflows for session: {}",
+                        data.workflows().size(),
+                        data.sessionId()))
+                .flatMap(def ->
+                    controlBus
+                        .compileAndCacheWorkflow(data.sessionId(), def)
+                        .doOnSuccess(_ ->
+                            log.atDebug().log(
+                                "Successfully compiled workflow: {} for session: {}",
+                                def.workflowId(),
+                                data.sessionId()))
+                        .doOnError(err ->
+                            log.atError()
+                                .addArgument(def.workflowId())
+                                .addArgument(data.sessionId())
+                                .setCause(err)
+                                .log("Failed to compile workflow: {} for session: {}")))
                 .then();
     final Mono<Void> applyRest = cacheInvalidation.then(workflowCompilation);
     // One bad workflow must not replace the stored good one: prepare all of them first.
@@ -218,35 +207,30 @@ public class SessionService {
         // store
         // would otherwise differ from the declared config while the caller is told it worked.
         .then(
-            Mono.defer(
-                () ->
-                    staleWorkflowCleanup
-                        .onErrorResume(err -> applyRest.then(Mono.error(err)))
-                        .then(applyRest)
-                        // The session is stored by now: what it declares must be attached even if
-                        // a later step failed, or the stored definition and the supervisors differ.
-                        .onErrorResume(
-                            err ->
-                                Mono.defer(() -> reconcileDeclared(data))
-                                    .onErrorComplete()
-                                    .then(Mono.<Void>error(err)))))
+            Mono.defer(() ->
+                staleWorkflowCleanup
+                    .onErrorResume(err -> applyRest.then(Mono.error(err)))
+                    .then(applyRest)
+                    // The session is stored by now: what it declares must be attached even if
+                    // a later step failed, or the stored definition and the supervisors differ.
+                    .onErrorResume(err ->
+                        Mono.defer(() -> reconcileDeclared(data))
+                            .onErrorComplete()
+                            .then(Mono.<Void>error(err)))))
         .then(Mono.defer(() -> reconcileDeclared(data)))
-        .doOnSuccess(
-            _ ->
-                log.atDebug().log(
-                    "Configuration applied successfully for session: {}", data.sessionId()))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(data.sessionId())
-                    .setCause(err)
-                    .log("Failed to apply configuration for session: {}"))
-        .doFinally(
-            _ -> {
-              if (internalSessions != null) {
-                internalSessions.invalidate(data.sessionId());
-              }
-            });
+        .doOnSuccess(_ ->
+            log.atDebug().log(
+                "Configuration applied successfully for session: {}", data.sessionId()))
+        .doOnError(err ->
+            log.atError()
+                .addArgument(data.sessionId())
+                .setCause(err)
+                .log("Failed to apply configuration for session: {}"))
+        .doFinally(_ -> {
+          if (internalSessions != null) {
+            internalSessions.invalidate(data.sessionId());
+          }
+        });
   }
 
   /**
@@ -294,31 +278,28 @@ public class SessionService {
         .getSessionIds()
         .filter(sessionId::equals)
         .hasElements()
-        .flatMap(
-            known ->
-                known
-                    ? Mono.<Void>empty()
-                    : Mono.error(new NotFoundException("Session not found: " + sessionId)))
+        .flatMap(known ->
+            known
+                ? Mono.<Void>empty()
+                : Mono.error(new NotFoundException("Session not found: " + sessionId)))
         .doFirst(() -> preparedWorkflowCache.beginDelete(sessionId, null))
         .then(Mono.defer(() -> ActiveRuns.clear(controlBus, control, sessionId, null, force)))
         .then(Mono.defer(() -> workflowDefinitionStore.removeAll(sessionId)))
         .then(Mono.defer(() -> configService.removeSession(sessionId)))
         .then(
-            Mono.defer(
-                () ->
-                    definitionSupervisors == null
-                        ? Mono.empty()
-                        : definitionSupervisors.forget(sessionId)))
+            Mono.defer(() ->
+                definitionSupervisors == null
+                    ? Mono.empty()
+                    : definitionSupervisors.forget(sessionId)))
         .then(
             Mono.defer(
                 () -> supervisors == null ? Mono.empty() : supervisors.removeForSession(sessionId)))
-        .doOnSuccess(
-            _ -> {
-              preparedWorkflowCache.invalidateAll(sessionId);
-              if (internalSessions != null) {
-                internalSessions.invalidate(sessionId);
-              }
-            })
+        .doOnSuccess(_ -> {
+          preparedWorkflowCache.invalidateAll(sessionId);
+          if (internalSessions != null) {
+            internalSessions.invalidate(sessionId);
+          }
+        })
         .then(Mono.defer(() -> audited(command, sessionId)))
         .onErrorResume(error -> auditedFailure(error, command, sessionId))
         .doFinally(_ -> preparedWorkflowCache.endDelete(sessionId, null));
@@ -381,18 +362,16 @@ public class SessionService {
         .getAllConfigs(sessionId)
         .doOnSubscribe(_ -> log.atDebug().log("Fetching configuration for session: {}", sessionId))
         .flatMap(this::mapToSessionConfigResponse)
-        .doOnNext(
-            config ->
-                log.atDebug().log(
-                    "Retrieved configuration for session: {} with {} workflows",
-                    sessionId,
-                    config.workflows().size()))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(sessionId)
-                    .setCause(err)
-                    .log("Failed to retrieve configuration for session: {}"));
+        .doOnNext(config ->
+            log.atDebug().log(
+                "Retrieved configuration for session: {} with {} workflows",
+                sessionId,
+                config.workflows().size()))
+        .doOnError(err ->
+            log.atError()
+                .addArgument(sessionId)
+                .setCause(err)
+                .log("Failed to retrieve configuration for session: {}"));
   }
 
   private Mono<SessionConfigResponse> mapToSessionConfigResponse(final SessionSnapshot config) {
@@ -400,17 +379,16 @@ public class SessionService {
     return (declared == null
             ? Mono.just(List.<SupervisorRef>of())
             : declared.sessionRefs(config.sessionId()))
-        .map(
-            refs ->
-                new SessionConfigResponse(
-                    config.sessionId(),
-                    config.name(),
-                    config.description(),
-                    config.initiator(),
-                    config.tags(),
-                    config.projectPath(),
-                    config.workflows(),
-                    refs));
+        .map(refs ->
+            new SessionConfigResponse(
+                config.sessionId(),
+                config.name(),
+                config.description(),
+                config.initiator(),
+                config.tags(),
+                config.projectPath(),
+                config.workflows(),
+                refs));
   }
 
   /**
@@ -424,19 +402,17 @@ public class SessionService {
   public Flux<SessionConfigResponse> getAllSessionConfigs() {
     return getSessionIds()
         .doOnSubscribe(_ -> log.atDebug().log("Fetching all session configurations"))
-        .flatMap(
-            sessionId ->
-                getSessionConfig(sessionId)
-                    .onErrorResume(
-                        err -> {
-                          log.atWarn()
-                              .addKeyValue("sessionId", sessionId)
-                              .setCause(err)
-                              .log(
-                                  "Skipping unreadable session config, continuing with other"
-                                      + " sessions");
-                          return Mono.empty();
-                        }))
+        .flatMap(sessionId ->
+            getSessionConfig(sessionId)
+                .onErrorResume(err -> {
+                  log.atWarn()
+                      .addKeyValue("sessionId", sessionId)
+                      .setCause(err)
+                      .log(
+                          "Skipping unreadable session config, continuing with other"
+                              + " sessions");
+                  return Mono.empty();
+                }))
         .doOnComplete(() -> log.atDebug().log("All session configurations retrieved"));
   }
 
@@ -453,21 +429,19 @@ public class SessionService {
         .find(sessionId, workflowId)
         .doOnSubscribe(
             _ -> log.atDebug().log("Fetching workflow: {} for session: {}", workflowId, sessionId))
-        .doOnSuccess(
-            workflow ->
-                log.atDebug().log(
-                    "Retrieved workflow: {} with {} nodes and {} edges for session: {}",
-                    workflowId,
-                    workflow != null ? workflow.nodes().size() : 0,
-                    workflow != null ? workflow.edges().size() : 0,
-                    sessionId))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(workflowId)
-                    .addArgument(sessionId)
-                    .setCause(err)
-                    .log("Failed to retrieve workflow: {} for session: {}"));
+        .doOnSuccess(workflow ->
+            log.atDebug().log(
+                "Retrieved workflow: {} with {} nodes and {} edges for session: {}",
+                workflowId,
+                workflow != null ? workflow.nodes().size() : 0,
+                workflow != null ? workflow.edges().size() : 0,
+                sessionId))
+        .doOnError(err ->
+            log.atError()
+                .addArgument(workflowId)
+                .addArgument(sessionId)
+                .setCause(err)
+                .log("Failed to retrieve workflow: {} for session: {}"));
   }
 
   /**
@@ -481,16 +455,14 @@ public class SessionService {
     return workflowDefinitionStore
         .findAll(sessionId)
         .doOnSubscribe(_ -> log.atDebug().log("Fetching all workflows for session: {}", sessionId))
-        .doOnSuccess(
-            workflows ->
-                log.atDebug().log(
-                    "Retrieved {} workflows for session: {}", workflows.size(), sessionId))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(sessionId)
-                    .setCause(err)
-                    .log("Failed to retrieve workflows for session: {}"));
+        .doOnSuccess(workflows ->
+            log.atDebug().log(
+                "Retrieved {} workflows for session: {}", workflows.size(), sessionId))
+        .doOnError(err ->
+            log.atError()
+                .addArgument(sessionId)
+                .setCause(err)
+                .log("Failed to retrieve workflows for session: {}"));
   }
 
   /**
@@ -507,21 +479,19 @@ public class SessionService {
       @SessionId final String sessionId) {
     return controlBus
         .getHistory(sessionId)
-        .map(
-            history ->
-                history.stream()
-                    .collect(
-                        Collectors.toMap(
-                            WorkflowExecutionSummary::workflowId,
-                            Function.identity(),
-                            (first, second) -> first)))
+        .map(history ->
+            history.stream()
+                .collect(
+                    Collectors.toMap(
+                        WorkflowExecutionSummary::workflowId,
+                        Function.identity(),
+                        (first, second) -> first)))
         .doOnSubscribe(
             _ -> log.atDebug().log("Fetching execution history for session: {}", sessionId))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(sessionId)
-                    .setCause(err)
-                    .log("Failed to retrieve execution history for session: {}"));
+        .doOnError(err ->
+            log.atError()
+                .addArgument(sessionId)
+                .setCause(err)
+                .log("Failed to retrieve execution history for session: {}"));
   }
 }

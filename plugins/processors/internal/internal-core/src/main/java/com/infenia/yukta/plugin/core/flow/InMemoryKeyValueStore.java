@@ -29,25 +29,23 @@ public final class InMemoryKeyValueStore implements KeyValueStore {
 
   @Override
   public Mono<Object> put(final String key, final Object value, final int maxEntries) {
-    return Mono.fromSupplier(
-        () -> {
-          synchronized (lock) {
-            checkCapacity(key, maxEntries);
-            store.put(key, value);
-          }
-          return value;
-        });
+    return Mono.fromSupplier(() -> {
+      synchronized (lock) {
+        checkCapacity(key, maxEntries);
+        store.put(key, value);
+      }
+      return value;
+    });
   }
 
   @Override
   public Mono<Number> incr(final String key, final long delta, final int maxEntries) {
-    return Mono.fromSupplier(
-        () -> {
-          synchronized (lock) {
-            checkCapacity(key, maxEntries);
-            return (Number) store.merge(key, delta, InMemoryKeyValueStore::sum);
-          }
-        });
+    return Mono.fromSupplier(() -> {
+      synchronized (lock) {
+        checkCapacity(key, maxEntries);
+        return (Number) store.merge(key, delta, InMemoryKeyValueStore::sum);
+      }
+    });
   }
 
   @Override

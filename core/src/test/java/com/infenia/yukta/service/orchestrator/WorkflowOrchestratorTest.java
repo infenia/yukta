@@ -518,10 +518,9 @@ class WorkflowOrchestratorTest {
         orchestrator.restartFromNode("s", "w", "prev", "new", prepared, "ghost", Map.of());
 
     StepVerifier.create(restart)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Unknown restart node: ghost"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Unknown restart node: ghost"))
         .verify();
     verify(executionControlStore, never()).save(any());
   }
@@ -730,12 +729,11 @@ class WorkflowOrchestratorTest {
 
     StepVerifier.create(queued.execute("s", "w", "e-queued", prepared, Map.of()))
         .expectSubscription()
-        .then(
-            () -> {
-              verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.QUEUED);
-              verify(tracker, never()).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
-              holder.release();
-            })
+        .then(() -> {
+          verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.QUEUED);
+          verify(tracker, never()).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
+          holder.release();
+        })
         .verifyComplete();
 
     verify(tracker).emitWorkflowStatusEvent("e-queued", TaskStatus.RUNNING);
@@ -1018,11 +1016,10 @@ class WorkflowOrchestratorTest {
     // The nodes form a chain: each one feeds the next.
     final Map<String, List<WorkflowNode>> children = new java.util.concurrent.ConcurrentHashMap<>();
     final Map<String, List<WorkflowNode>> parents = new java.util.concurrent.ConcurrentHashMap<>();
-    nodes.forEach(
-        n -> {
-          children.put(n.nodeId(), List.of());
-          parents.put(n.nodeId(), List.of());
-        });
+    nodes.forEach(n -> {
+      children.put(n.nodeId(), List.of());
+      parents.put(n.nodeId(), List.of());
+    });
     for (int i = 0; i + 1 < nodes.size(); i++) {
       children.put(nodes.get(i).nodeId(), List.of(nodes.get(i + 1)));
       parents.put(nodes.get(i + 1).nodeId(), List.of(nodes.get(i)));

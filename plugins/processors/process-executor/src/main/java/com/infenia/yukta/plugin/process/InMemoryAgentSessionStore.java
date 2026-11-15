@@ -26,16 +26,15 @@ public final class InMemoryAgentSessionStore implements AgentSessionStore {
 
   @Override
   public @Nullable Lease tryAcquire(final String key) {
-    return locked(
-        () -> {
-          final State state = sessions.computeIfAbsent(key, k -> new State());
-          if (state.busy) {
-            return null;
-          }
-          state.busy = true;
-          evict();
-          return new TurnLease(state);
-        });
+    return locked(() -> {
+      final State state = sessions.computeIfAbsent(key, k -> new State());
+      if (state.busy) {
+        return null;
+      }
+      state.busy = true;
+      evict();
+      return new TurnLease(state);
+    });
   }
 
   private <T> T locked(final Supplier<T> action) {
@@ -87,26 +86,24 @@ public final class InMemoryAgentSessionStore implements AgentSessionStore {
 
     @Override
     public void complete(final String token) {
-      locked(
-          () -> {
-            if (token != null && !token.isBlank()) {
-              state.token = token;
-            }
-            state.turns++;
-            return null;
-          });
+      locked(() -> {
+        if (token != null && !token.isBlank()) {
+          state.token = token;
+        }
+        state.turns++;
+        return null;
+      });
     }
 
     @Override
     public void close() {
-      locked(
-          () -> {
-            if (!closed) {
-              closed = true;
-              state.busy = false;
-            }
-            return null;
-          });
+      locked(() -> {
+        if (!closed) {
+          closed = true;
+          state.busy = false;
+        }
+        return null;
+      });
     }
   }
 }

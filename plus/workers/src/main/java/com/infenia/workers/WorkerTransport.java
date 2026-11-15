@@ -91,10 +91,9 @@ class WorkerTransport {
     return TcpClient.create()
         .host(host)
         .port(port)
-        .secure(
-            spec ->
-                spec.sslContext(context)
-                    .handlerConfigurator(handler -> verifyHostName(handler.engine())));
+        .secure(spec ->
+            spec.sslContext(context)
+                .handlerConfigurator(handler -> verifyHostName(handler.engine())));
   }
 
   private static SslContext context(final SslBundle bundle) throws SSLException {

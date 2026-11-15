@@ -34,20 +34,19 @@ class ActiveRuns {
       @Nullable final String workflowId,
       final boolean force) {
     return active(controlBus, sessionId, workflowId)
-        .flatMap(
-            runs -> {
-              if (runs.isEmpty()) {
-                return Mono.<Void>empty();
-              }
-              if (!force) {
-                return Mono.error(new ActiveRunsException(ids(runs), false));
-              }
-              return Flux.fromIterable(
-                      runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
-                  .concatMap(
-                      id -> control.stopWorkflowAsSystem(sessionId, id, "Deleted", StopMode.CANCEL))
-                  .then(awaitEnded(controlBus, sessionId, workflowId));
-            });
+        .flatMap(runs -> {
+          if (runs.isEmpty()) {
+            return Mono.<Void>empty();
+          }
+          if (!force) {
+            return Mono.error(new ActiveRunsException(ids(runs), false));
+          }
+          return Flux.fromIterable(
+                  runs.stream().map(WorkflowExecutionSummary::workflowId).distinct().toList())
+              .concatMap(
+                  id -> control.stopWorkflowAsSystem(sessionId, id, "Deleted", StopMode.CANCEL))
+              .then(awaitEnded(controlBus, sessionId, workflowId));
+        });
   }
 
   private static Mono<Void> awaitEnded(
@@ -61,10 +60,9 @@ class ActiveRuns {
         .timeout(
             FORCE_WAIT,
             active(controlBus, sessionId, workflowId)
-                .flatMap(
-                    left ->
-                        Mono.<List<WorkflowExecutionSummary>>error(
-                            new ActiveRunsException(ids(left), true))))
+                .flatMap(left ->
+                    Mono.<List<WorkflowExecutionSummary>>error(
+                        new ActiveRunsException(ids(left), true))))
         .then();
   }
 
@@ -79,11 +77,10 @@ class ActiveRuns {
       @Nullable final String workflowId) {
     return controlBus
         .getHistory(sessionId)
-        .map(
-            history ->
-                history.stream()
-                    .filter(run -> !run.status().isTerminal())
-                    .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
-                    .toList());
+        .map(history ->
+            history.stream()
+                .filter(run -> !run.status().isTerminal())
+                .filter(run -> workflowId == null || workflowId.equals(run.workflowId()))
+                .toList());
   }
 }

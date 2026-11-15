@@ -28,22 +28,20 @@ class AppMcpResourcesTest {
   @Test
   void testGetYuktaOverview() {
     StepVerifier.create(mcpResources.getYuktaOverview())
-        .assertNext(
-            overview -> {
-              assertTrue(overview.contains("Yukta"));
-              assertTrue(overview.contains("DAG"));
-            })
+        .assertNext(overview -> {
+          assertTrue(overview.contains("Yukta"));
+          assertTrue(overview.contains("DAG"));
+        })
         .verifyComplete();
   }
 
   @Test
   void testGetYuktaArchitectureDocs() {
     StepVerifier.create(mcpResources.getYuktaArchitectureDocs())
-        .assertNext(
-            docs -> {
-              assertTrue(docs.contains("Architecture"));
-              assertTrue(docs.contains("Reactive"));
-            })
+        .assertNext(docs -> {
+          assertTrue(docs.contains("Architecture"));
+          assertTrue(docs.contains("Reactive"));
+        })
         .verifyComplete();
   }
 

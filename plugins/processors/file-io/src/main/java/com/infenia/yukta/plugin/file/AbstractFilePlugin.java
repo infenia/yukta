@@ -69,15 +69,14 @@ abstract class AbstractFilePlugin implements ProcessorPlugin {
       final String metric,
       final FileTask work) {
     final FailureMode mode = FailureMode.from(config.get(FAILURE_MODE));
-    return input.concatMap(
-        message ->
-            PluginGuard.guard(
-                Mono.<Message<?>>fromCallable(() -> work.apply(message))
-                    .subscribeOn(Schedulers.boundedElastic()),
-                message,
-                mode,
-                reporter,
-                metric));
+    return input.concatMap(message ->
+        PluginGuard.guard(
+            Mono.<Message<?>>fromCallable(() -> work.apply(message))
+                .subscribeOn(Schedulers.boundedElastic()),
+            message,
+            mode,
+            reporter,
+            metric));
   }
 
   /** Blocking per-message work. */

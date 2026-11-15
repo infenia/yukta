@@ -129,14 +129,13 @@ class McpEndpointFilterTest {
         .filter(
             exchange,
             (ServerWebExchange e) ->
-                Mono.deferContextual(
-                    ctx -> {
-                      actor.set(
-                          ctx.getOrDefault(
-                              com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, null));
-                      seenPath.set(e.getRequest().getPath().value());
-                      return Mono.empty();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  actor.set(
+                      ctx.getOrDefault(
+                          com.infenia.yukta.plugin.control.ControlActor.CONTEXT_KEY, null));
+                  seenPath.set(e.getRequest().getPath().value());
+                  return Mono.empty();
+                }))
         .block();
 
     assertThat(actor.get()).isEqualTo("key:bot");
@@ -184,12 +183,11 @@ class McpEndpointFilterTest {
             (ServerWebExchange e) ->
                 e.getRequest()
                     .getBody()
-                    .map(
-                        buffer -> {
-                          final byte[] bytes = new byte[buffer.readableByteCount()];
-                          buffer.read(bytes);
-                          return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
-                        })
+                    .map(buffer -> {
+                      final byte[] bytes = new byte[buffer.readableByteCount()];
+                      buffer.read(bytes);
+                      return new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                    })
                     .collectList()
                     .doOnNext(parts -> seenBody.set(String.join("", parts)))
                     .then(Mono.fromRunnable(() -> seenPath.set(e.getRequest().getPath().value()))))

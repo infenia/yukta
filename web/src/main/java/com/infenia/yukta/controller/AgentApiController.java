@@ -209,12 +209,11 @@ public class AgentApiController {
         .bufferTimeout(MAX_BATCH, Duration.ofMillis(POLL_WINDOW_MILLIS))
         .next()
         .timeout(wait.plusMillis(2 * POLL_WINDOW_MILLIS), Mono.just(List.of()))
-        .map(
-            batch -> {
-              final List<SignalEnvelope> some = batch.stream().limit(MAX_BATCH).toList();
-              final long cursor = some.isEmpty() ? after : some.get(some.size() - 1).cursor();
-              return ApiResponse.success(200, "Signals", new SignalBatch(cursor, some));
-            });
+        .map(batch -> {
+          final List<SignalEnvelope> some = batch.stream().limit(MAX_BATCH).toList();
+          final long cursor = some.isEmpty() ? after : some.get(some.size() - 1).cursor();
+          return ApiResponse.success(200, "Signals", new SignalBatch(cursor, some));
+        });
   }
 
   /**
@@ -246,13 +245,12 @@ public class AgentApiController {
     return Mono.zip(
             channel.reads().executions(null, SupervisorContract.SELECTOR_CAP).collectList(),
             channel.reads().openInputs(SupervisorContract.SELECTOR_CAP).collectList())
-        .map(
-            both ->
-                ApiResponse.success(
-                    200,
-                    "Snapshot",
-                    new SnapshotView(
-                        cursor, both.getT1(), both.getT2(), host.held(supervisor(exchange)))));
+        .map(both ->
+            ApiResponse.success(
+                200,
+                "Snapshot",
+                new SnapshotView(
+                    cursor, both.getT1(), both.getT2(), host.held(supervisor(exchange)))));
   }
 
   /**
@@ -435,31 +433,24 @@ public class AgentApiController {
     final Map<String, Object> raw = body.command();
     if (raw.get("executionId") == null && raw.get("target") != null) {
       return expand(supervisor, channel, raw.get("target").toString())
-          .map(
-              ids -> {
-                for (final String id : ids) {
-                  final Map<String, Object> one = new HashMap<>(raw);
-                  one.remove("target");
-                  one.put("executionId", id);
-                  offer(
-                      channel,
-                      new Directive.Command(
-                          body.key() + "#" + id,
-                          command(one),
-                          cause,
-                          body.reason(),
-                          body.ifStatus()));
-                }
-                return ApiResponse.<Void>success(
-                    202,
-                    "Directive accepted for "
-                        + ids.size()
-                        + " executions"
-                        + (ids.size() >= SupervisorContract.SELECTOR_CAP
-                            ? " (the most allowed)"
-                            : ""),
-                    null);
-              });
+          .map(ids -> {
+            for (final String id : ids) {
+              final Map<String, Object> one = new HashMap<>(raw);
+              one.remove("target");
+              one.put("executionId", id);
+              offer(
+                  channel,
+                  new Directive.Command(
+                      body.key() + "#" + id, command(one), cause, body.reason(), body.ifStatus()));
+            }
+            return ApiResponse.<Void>success(
+                202,
+                "Directive accepted for "
+                    + ids.size()
+                    + " executions"
+                    + (ids.size() >= SupervisorContract.SELECTOR_CAP ? " (the most allowed)" : ""),
+                null);
+          });
     }
     offer(
         channel,
@@ -566,10 +557,8 @@ public class AgentApiController {
 
   private AgentHub.Channel channel(final String supervisor) {
     return hub.channel(supervisor)
-        .orElseThrow(
-            () ->
-                new NotFoundException(
-                    "Supervisor " + supervisor + " is not running an http engine"));
+        .orElseThrow(() ->
+            new NotFoundException("Supervisor " + supervisor + " is not running an http engine"));
   }
 
   private static String supervisor(final ServerWebExchange exchange) {

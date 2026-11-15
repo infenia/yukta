@@ -37,11 +37,8 @@ class NodeActivityTest {
   void deadline_endsBusyNodeThatKeepsShowingActivity() {
     final var verifier =
         guarded(Duration.ofSeconds(1), Duration.ofSeconds(5), new AtomicBoolean())
-            .expectErrorSatisfies(
-                e ->
-                    assertThat(e)
-                        .isInstanceOf(TimeoutException.class)
-                        .hasMessageContaining("deadline"))
+            .expectErrorSatisfies(e ->
+                assertThat(e).isInstanceOf(TimeoutException.class).hasMessageContaining("deadline"))
             .verifyLater();
 
     run(Duration.ofSeconds(8), Duration.ofMillis(200));

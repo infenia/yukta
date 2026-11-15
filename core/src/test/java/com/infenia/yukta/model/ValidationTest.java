@@ -95,9 +95,8 @@ class ValidationTest {
     final Set<ConstraintViolation<SessionConfigData>> violations = validator.validate(data);
     assertThat(violations)
         .isNotEmpty()
-        .anySatisfy(
-            v ->
-                assertThat(v.getMessage())
-                    .contains("Session description must be at most 256 characters"));
+        .anySatisfy(v ->
+            assertThat(v.getMessage())
+                .contains("Session description must be at most 256 characters"));
   }
 }

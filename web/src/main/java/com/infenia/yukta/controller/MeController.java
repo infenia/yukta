@@ -70,21 +70,20 @@ public class MeController {
               + " key can reach.")
   @SuppressWarnings("PMD.ShortMethodName")
   public Mono<ApiResponse<Me>> me() {
-    return Mono.deferContextual(
-        ctx -> {
-          final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
-          return Mono.just(
-              ApiResponse.success(
-                  200,
-                  "Caller described",
-                  new Me(
-                      who.authenticated(),
-                      who.keyName(),
-                      who.role(),
-                      who.sessions(),
-                      who.authEnabled(),
-                      who.permissions(),
-                      reviewer.summary(who.sessions()))));
-        });
+    return Mono.deferContextual(ctx -> {
+      final CallerIdentity.Whoami who = CallerIdentity.whoami(ctx);
+      return Mono.just(
+          ApiResponse.success(
+              200,
+              "Caller described",
+              new Me(
+                  who.authenticated(),
+                  who.keyName(),
+                  who.role(),
+                  who.sessions(),
+                  who.authEnabled(),
+                  who.permissions(),
+                  reviewer.summary(who.sessions()))));
+    });
   }
 }

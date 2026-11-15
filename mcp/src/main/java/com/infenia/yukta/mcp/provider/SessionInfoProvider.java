@@ -43,12 +43,11 @@ public class SessionInfoProvider {
         .getSessionConfig(sessionId)
         .map(config -> new SessionDetails(sessionId, List.copyOf(config.workflows().keySet())))
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new IllegalArgumentException(
-                        "Session not found: "
-                            + sessionId
-                            + ". Use list_sessions to see available sessions.")));
+            Mono.error(() ->
+                new IllegalArgumentException(
+                    "Session not found: "
+                        + sessionId
+                        + ". Use list_sessions to see available sessions.")));
   }
 
   /**
@@ -96,21 +95,16 @@ public class SessionInfoProvider {
   public Mono<List<SessionSummary>> listSessions(final boolean includeInternal) {
     return sessionService
         .getSessionIds(includeInternal)
-        .flatMap(
-            sessionId ->
-                sessionService
-                    .getSessionConfig(sessionId)
-                    .map(config -> new SessionSummary(sessionId, config.workflows().size()))
-                    .onErrorResume(
-                        e -> {
-                          log.atWarn()
-                              .setCause(e)
-                              .log(
-                                  "Failed to load session config for {}: {}",
-                                  sessionId,
-                                  e.getMessage());
-                          return Mono.empty();
-                        }))
+        .flatMap(sessionId ->
+            sessionService
+                .getSessionConfig(sessionId)
+                .map(config -> new SessionSummary(sessionId, config.workflows().size()))
+                .onErrorResume(e -> {
+                  log.atWarn()
+                      .setCause(e)
+                      .log("Failed to load session config for {}: {}", sessionId, e.getMessage());
+                  return Mono.empty();
+                }))
         .collectList();
   }
 
@@ -190,10 +184,9 @@ public class SessionInfoProvider {
 
     final List<PluginReference> availablePlugins =
         registry.listPlugins().stream()
-            .map(
-                p ->
-                    new PluginReference(
-                        p.getType(), p.getCategory().toString(), p.describe().description()))
+            .map(p ->
+                new PluginReference(
+                    p.getType(), p.getCategory().toString(), p.describe().description()))
             .toList();
 
     final List<String> commonErrors =

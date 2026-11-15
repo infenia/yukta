@@ -85,12 +85,11 @@ class EngineLimitsAcceptanceTest {
         .isEqualTo(TaskStatus.SUCCESS);
     assertThat(warnings)
         .singleElement()
-        .satisfies(
-            warning -> {
-              assertThat(warning.executionId()).isEqualTo(executionId);
-              assertThat(warning.nodeId()).isEqualTo("slow");
-              assertThat(warning.level().name()).isEqualTo("WARN");
-            });
+        .satisfies(warning -> {
+          assertThat(warning.executionId()).isEqualTo(executionId);
+          assertThat(warning.nodeId()).isEqualTo("slow");
+          assertThat(warning.level().name()).isEqualTo("WARN");
+        });
   }
 
   @Test

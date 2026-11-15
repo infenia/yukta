@@ -74,22 +74,20 @@ class ExecutionResultServiceTest {
 
     StepVerifier.create(results.stream("e1"))
         .then(() -> results.publish("e1", "t1", "hello"))
-        .assertNext(
-            event -> {
-              assertThat(event.kind()).isEqualTo(Kind.RESULT);
-              assertThat(event.nodeId()).isEqualTo("t1");
-              assertThat(event.payload()).isEqualTo("hello");
-              assertThat(event.sequence()).isZero();
-            })
+        .assertNext(event -> {
+          assertThat(event.kind()).isEqualTo(Kind.RESULT);
+          assertThat(event.nodeId()).isEqualTo("t1");
+          assertThat(event.payload()).isEqualTo("hello");
+          assertThat(event.sequence()).isZero();
+        })
         .then(() -> results.nodeEnd("e1", "t1", "SUCCESS"))
         .assertNext(event -> assertThat(event.kind()).isEqualTo(Kind.NODE_END))
         .then(() -> results.complete("e1", "SUCCESS"))
-        .assertNext(
-            event -> {
-              assertThat(event.kind()).isEqualTo(Kind.EXECUTION_END);
-              assertThat(event.status()).isEqualTo("SUCCESS");
-              assertThat(event.truncated()).isFalse();
-            })
+        .assertNext(event -> {
+          assertThat(event.kind()).isEqualTo(Kind.EXECUTION_END);
+          assertThat(event.status()).isEqualTo("SUCCESS");
+          assertThat(event.truncated()).isFalse();
+        })
         .verifyComplete();
   }
 

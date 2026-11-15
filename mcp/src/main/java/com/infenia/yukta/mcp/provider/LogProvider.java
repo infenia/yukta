@@ -106,44 +106,40 @@ public class LogProvider {
       @Nullable final Integer limit,
       @Nullable final String grep,
       @Nullable final Integer context) {
-    return Mono.defer(
-        () -> {
-          final String which = stream == null ? "all" : stream.toLowerCase(java.util.Locale.ROOT);
-          if (!List.of("all", "stdout", "stderr").contains(which)) {
-            return Mono.error(new IllegalArgumentException("stream must be stdout, stderr or all"));
-          }
-          return ExecutionOwnership.require(controlBus, sessionId, executionId)
-              .then(
-                  Mono.defer(
-                      () ->
-                          logStore
-                              .readExecution(executionId)
-                              .filter(
-                                  entry ->
-                                      nodeId.equals(entry.pluginId())
-                                          && ("all".equals(which)
-                                              || entry.stream()
-                                                  == ("stderr".equals(which)
-                                                      ? LogStream.STDERR
-                                                      : LogStream.STDOUT)))
-                              .map(entry -> sanitizer.clean(entry.message()))
-                              .collectList()
-                              .map(
-                                  lines ->
-                                      new NodeOutputResult(
-                                          executionId,
-                                          NodeOutputPager.slice(
-                                              nodeId,
-                                              which,
-                                              lines,
-                                              tail,
-                                              head,
-                                              offset == null ? null : offset.longValue(),
-                                              limit,
-                                              grep,
-                                              context),
-                                          ExecutionLogs.UNTRUSTED_NOTICE))));
-        });
+    return Mono.defer(() -> {
+      final String which = stream == null ? "all" : stream.toLowerCase(java.util.Locale.ROOT);
+      if (!List.of("all", "stdout", "stderr").contains(which)) {
+        return Mono.error(new IllegalArgumentException("stream must be stdout, stderr or all"));
+      }
+      return ExecutionOwnership.require(controlBus, sessionId, executionId)
+          .then(
+              Mono.defer(() ->
+                  logStore
+                      .readExecution(executionId)
+                      .filter(entry ->
+                          nodeId.equals(entry.pluginId())
+                              && ("all".equals(which)
+                                  || entry.stream()
+                                      == ("stderr".equals(which)
+                                          ? LogStream.STDERR
+                                          : LogStream.STDOUT)))
+                      .map(entry -> sanitizer.clean(entry.message()))
+                      .collectList()
+                      .map(lines ->
+                          new NodeOutputResult(
+                              executionId,
+                              NodeOutputPager.slice(
+                                  nodeId,
+                                  which,
+                                  lines,
+                                  tail,
+                                  head,
+                                  offset == null ? null : offset.longValue(),
+                                  limit,
+                                  grep,
+                                  context),
+                              ExecutionLogs.UNTRUSTED_NOTICE))));
+    });
   }
 
   /**
@@ -183,12 +179,11 @@ public class LogProvider {
       final Integer tailLines,
       final String filterPattern,
       final Integer afterCursor) {
-    return Mono.defer(
-        () -> {
-          final Pattern pattern = RegexPatternValidator.compile(filterPattern);
-          return ExecutionOwnership.require(controlBus, sessionId, executionId)
-              .then(readTail(executionId, pattern, limit(tailLines), afterCursor));
-        });
+    return Mono.defer(() -> {
+      final Pattern pattern = RegexPatternValidator.compile(filterPattern);
+      return ExecutionOwnership.require(controlBus, sessionId, executionId)
+          .then(readTail(executionId, pattern, limit(tailLines), afterCursor));
+    });
   }
 
   /**
@@ -203,32 +198,30 @@ public class LogProvider {
       @Nullable final Integer afterCursor) {
     final boolean forward = afterCursor != null;
     final int after = cursor(afterCursor);
-    return Mono.defer(
-        () -> {
-          final AtomicInteger total = new AtomicInteger();
-          final AtomicInteger stored = new AtomicInteger();
-          final Deque<Line> kept = new ArrayDeque<>();
-          return logStore
-              .readIndexed(executionId)
-              // the end of the log, counting lines the store dropped: where a follower resumes
-              .doOnNext(line -> stored.set((int) line.sequence() + 1))
-              .filter(line -> line.sequence() >= after)
-              .map(line -> new Line((int) line.sequence(), sanitizer.clean(line.entry().format())))
-              .filter(line -> RegexPatternValidator.matches(line.text(), pattern))
-              .doOnNext(
-                  line -> {
-                    total.incrementAndGet();
-                    if (!forward || kept.size() < limit) {
-                      kept.addLast(line);
-                    }
-                    if (!forward && kept.size() > limit) {
-                      kept.removeFirst();
-                    }
-                  })
-              .then(
-                  Mono.fromSupplier(
-                      () -> result(executionId, forward, total.get(), stored.get(), after, kept)));
-        });
+    return Mono.defer(() -> {
+      final AtomicInteger total = new AtomicInteger();
+      final AtomicInteger stored = new AtomicInteger();
+      final Deque<Line> kept = new ArrayDeque<>();
+      return logStore
+          .readIndexed(executionId)
+          // the end of the log, counting lines the store dropped: where a follower resumes
+          .doOnNext(line -> stored.set((int) line.sequence() + 1))
+          .filter(line -> line.sequence() >= after)
+          .map(line -> new Line((int) line.sequence(), sanitizer.clean(line.entry().format())))
+          .filter(line -> RegexPatternValidator.matches(line.text(), pattern))
+          .doOnNext(line -> {
+            total.incrementAndGet();
+            if (!forward || kept.size() < limit) {
+              kept.addLast(line);
+            }
+            if (!forward && kept.size() > limit) {
+              kept.removeFirst();
+            }
+          })
+          .then(
+              Mono.fromSupplier(
+                  () -> result(executionId, forward, total.get(), stored.get(), after, kept)));
+    });
   }
 
   private ExecutionLogs result(

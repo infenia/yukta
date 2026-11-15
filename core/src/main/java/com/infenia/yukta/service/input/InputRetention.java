@@ -91,17 +91,15 @@ public class InputRetention implements SmartLifecycle {
    */
   /* default */ Mono<Void> purge() {
     return Mono.defer(() -> store.purgeTerminalOlderThan(clock.instant().minus(retention)))
-        .doOnNext(
-            removed -> {
-              if (removed > 0) {
-                log.atInfo().addKeyValue("removed", removed).log("Old input requests removed");
-              }
-            })
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Input request purge failed");
-              return Mono.empty();
-            })
+        .doOnNext(removed -> {
+          if (removed > 0) {
+            log.atInfo().addKeyValue("removed", removed).log("Old input requests removed");
+          }
+        })
+        .onErrorResume(error -> {
+          log.atWarn().setCause(error).log("Input request purge failed");
+          return Mono.empty();
+        })
         .then();
   }
 

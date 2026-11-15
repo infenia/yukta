@@ -255,11 +255,10 @@ class ExecutionResumerTest {
     when(definitions.find("s", "w")).thenReturn(Mono.empty());
 
     StepVerifier.create(resumer.resume("old"))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(com.infenia.yukta.service.NotFoundException.class)
-                    .hasMessage("Workflow no longer exists: s/w"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(com.infenia.yukta.service.NotFoundException.class)
+                .hasMessage("Workflow no longer exists: s/w"))
         .verify();
   }
 

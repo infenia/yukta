@@ -152,13 +152,11 @@ public final class FilterProcessor implements ProcessorPlugin {
     final boolean strictMode = (Boolean) config.getOrDefault(CONFIG_STRICT, true);
     final String discardPort = (String) config.get(DISCARD_PORT);
 
-    return input.flatMap(
-        message ->
-            Mono.deferContextual(
-                ctx -> {
-                  final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-                  return executeFilter(message, nodeId, condition, engine, strictMode, discardPort);
-                }));
+    return input.flatMap(message ->
+        Mono.deferContextual(ctx -> {
+          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+          return executeFilter(message, nodeId, condition, engine, strictMode, discardPort);
+        }));
   }
 
   private Mono<Message<?>> executeFilter(

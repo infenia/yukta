@@ -61,12 +61,11 @@ public record WorkflowDiff(
     final Map<String, Node> before = byId(older);
     final Map<String, Node> after = byId(newer);
     final List<String> changed = new ArrayList<>();
-    before.forEach(
-        (id, node) -> {
-          if (after.containsKey(id) && !node.equals(after.get(id))) {
-            changed.add(id);
-          }
-        });
+    before.forEach((id, node) -> {
+      if (after.containsKey(id) && !node.equals(after.get(id))) {
+        changed.add(id);
+      }
+    });
     final Set<String> oldEdges =
         older.edges().stream().map(WorkflowDiff::edge).collect(Collectors.toSet());
     final Set<String> newEdges =

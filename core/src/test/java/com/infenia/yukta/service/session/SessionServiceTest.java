@@ -150,11 +150,10 @@ class SessionServiceTest {
     // Then
     assertThat(configDataCaptor.getValue())
         .isNotNull()
-        .satisfies(
-            capturedData -> {
-              assertThat(capturedData.sessionId()).isEqualTo(sessionId);
-              assertThat(capturedData.workflows()).containsKey("w1");
-            });
+        .satisfies(capturedData -> {
+          assertThat(capturedData.sessionId()).isEqualTo(sessionId);
+          assertThat(capturedData.workflows()).containsKey("w1");
+        });
     assertThat(workflowCaptor.getValue()).isNotNull().isEqualTo(workflow);
   }
 
@@ -190,11 +189,10 @@ class SessionServiceTest {
     // Then
     assertThat(configDataCaptor.getValue())
         .isNotNull()
-        .satisfies(
-            capturedData -> {
-              assertThat(capturedData.sessionId()).isEqualTo(sessionId);
-              assertThat(capturedData.workflows()).isEmpty();
-            });
+        .satisfies(capturedData -> {
+          assertThat(capturedData.sessionId()).isEqualTo(sessionId);
+          assertThat(capturedData.workflows()).isEmpty();
+        });
   }
 
   @Test
@@ -276,13 +274,12 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(
-            response ->
-                sessionId.equals(response.sessionId())
-                    && DESC.equals(response.description())
-                    && INITIATOR.equals(response.initiator())
-                    && PATH.equals(response.projectPath())
-                    && response.workflows().containsKey("w1"))
+        .expectNextMatches(response ->
+            sessionId.equals(response.sessionId())
+                && DESC.equals(response.description())
+                && INITIATOR.equals(response.initiator())
+                && PATH.equals(response.projectPath())
+                && response.workflows().containsKey("w1"))
         .verifyComplete();
   }
 
@@ -342,11 +339,10 @@ class SessionServiceTest {
 
     assertThat(configDataCaptor.getValue())
         .isNotNull()
-        .satisfies(
-            capturedData -> {
-              assertThat(capturedData.sessionId()).isEqualTo(sessionId);
-              assertThat(capturedData.workflows()).hasSize(2).containsKeys("w1", "w2");
-            });
+        .satisfies(capturedData -> {
+          assertThat(capturedData.sessionId()).isEqualTo(sessionId);
+          assertThat(capturedData.workflows()).hasSize(2).containsKeys("w1", "w2");
+        });
   }
 
   @Test
@@ -478,11 +474,10 @@ class SessionServiceTest {
     // Then
     assertThat(configDataCaptor.getValue())
         .isNotNull()
-        .satisfies(
-            capturedData -> {
-              assertThat(capturedData.sessionId()).isEqualTo(sessionId);
-              assertThat(capturedData.workflows()).hasSize(1).containsKey("w1");
-            });
+        .satisfies(capturedData -> {
+          assertThat(capturedData.sessionId()).isEqualTo(sessionId);
+          assertThat(capturedData.workflows()).hasSize(1).containsKey("w1");
+        });
     assertThat(workflowCaptor.getValue()).isEqualTo(workflow);
   }
 
@@ -510,11 +505,10 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(
-            response ->
-                response.workflows().size() == 2
-                    && response.workflows().containsKey("w1")
-                    && response.workflows().containsKey("w2"))
+        .expectNextMatches(response ->
+            response.workflows().size() == 2
+                && response.workflows().containsKey("w1")
+                && response.workflows().containsKey("w2"))
         .verifyComplete();
   }
 
@@ -534,11 +528,10 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(
-            response ->
-                response.tags().size() == 2
-                    && "test".equals(response.tags().get(TEST_ENV))
-                    && "backend".equals(response.tags().get("team")))
+        .expectNextMatches(response ->
+            response.tags().size() == 2
+                && "test".equals(response.tags().get(TEST_ENV))
+                && "backend".equals(response.tags().get("team")))
         .verifyComplete();
   }
 
@@ -585,14 +578,13 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(
-            response ->
-                sessionId.equals(response.sessionId())
-                    && "Full description".equals(response.description())
-                    && "user@example.com".equals(response.initiator())
-                    && "us-east-1".equals(response.tags().get("region"))
-                    && "/home/user/project".equals(response.projectPath())
-                    && response.workflows().containsKey("main"))
+        .expectNextMatches(response ->
+            sessionId.equals(response.sessionId())
+                && "Full description".equals(response.description())
+                && "user@example.com".equals(response.initiator())
+                && "us-east-1".equals(response.tags().get("region"))
+                && "/home/user/project".equals(response.projectPath())
+                && response.workflows().containsKey("main"))
         .verifyComplete();
   }
 
@@ -647,18 +639,17 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getSessionConfig(sessionId))
-        .expectNextMatches(
-            response ->
-                sessionId.equals(response.sessionId())
-                    && "Multi workflow session".equals(response.description())
-                    && "admin@example.com".equals(response.initiator())
-                    && response.tags().size() == 2
-                    && "high".equals(response.tags().get("priority"))
-                    && "staging".equals(response.tags().get(TEST_ENV))
-                    && "/projects/test".equals(response.projectPath())
-                    && response.workflows().size() == 2
-                    && response.workflows().containsKey("workflow-a")
-                    && response.workflows().containsKey("workflow-b"))
+        .expectNextMatches(response ->
+            sessionId.equals(response.sessionId())
+                && "Multi workflow session".equals(response.description())
+                && "admin@example.com".equals(response.initiator())
+                && response.tags().size() == 2
+                && "high".equals(response.tags().get("priority"))
+                && "staging".equals(response.tags().get(TEST_ENV))
+                && "/projects/test".equals(response.projectPath())
+                && response.workflows().size() == 2
+                && response.workflows().containsKey("workflow-a")
+                && response.workflows().containsKey("workflow-b"))
         .verifyComplete();
   }
 
@@ -843,11 +834,8 @@ class SessionServiceTest {
 
     // When & Then: only the first (most recent) status per workflow is kept
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
-        .expectNextMatches(
-            result ->
-                result.size() == 1
-                    && result.containsKey(WF1)
-                    && result.get(WF1).status() == RUNNING)
+        .expectNextMatches(result ->
+            result.size() == 1 && result.containsKey(WF1) && result.get(WF1).status() == RUNNING)
         .verifyComplete();
 
     verify(controlBus).getHistory(sessionId);
@@ -894,11 +882,10 @@ class SessionServiceTest {
 
     // When & Then
     StepVerifier.create(sessionService.getLatestExecutionStatusByWorkflow(sessionId))
-        .expectNextMatches(
-            result ->
-                result.size() == 2
-                    && result.get(WF1).status() == SUCCESS
-                    && result.get(WF2).status() == FAILURE)
+        .expectNextMatches(result ->
+            result.size() == 2
+                && result.get(WF1).status() == SUCCESS
+                && result.get(WF2).status() == FAILURE)
         .verifyComplete();
 
     verify(controlBus).getHistory(sessionId);
@@ -951,14 +938,12 @@ class SessionServiceTest {
                     run("e5", "w", SUCCESS))));
 
     StepVerifier.create(sessionService.deleteWorkflow("s", "w", false))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ActiveRunsException.class)
-                    .satisfies(
-                        e ->
-                            assertThat(((ActiveRunsException) e).runIds())
-                                .containsExactly("e1", "e2", "e3")))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ActiveRunsException.class)
+                .satisfies(e ->
+                    assertThat(((ActiveRunsException) e).runIds())
+                        .containsExactly("e1", "e2", "e3")))
         .verify();
     verify(workflowDefinitionStore, never()).remove(any(), any());
     verify(controlBus)
@@ -1059,14 +1044,12 @@ class SessionServiceTest {
 
     StepVerifier.withVirtualTime(() -> sessionService.deleteWorkflow("s", "w", true))
         .thenAwait(java.time.Duration.ofSeconds(30))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ActiveRunsException.class)
-                    .satisfies(
-                        e ->
-                            assertThat(((ActiveRunsException) e).getMessage())
-                                .contains("did not end in time")))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ActiveRunsException.class)
+                .satisfies(e ->
+                    assertThat(((ActiveRunsException) e).getMessage())
+                        .contains("did not end in time")))
         .verify();
     verify(workflowDefinitionStore, never()).remove(any(), any());
   }
@@ -1139,12 +1122,11 @@ class SessionServiceTest {
                         "assignments[0].supervisor", "no supervisor 'nope'"))));
 
     StepVerifier.create(sessionService.applyConfig(data))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(
-                        com.infenia.yukta.service.supervisor.SettingsValidationException.class)
-                    .hasMessageContaining("assignments[0].supervisor"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(
+                    com.infenia.yukta.service.supervisor.SettingsValidationException.class)
+                .hasMessageContaining("assignments[0].supervisor"))
         .verify();
 
     verify(configService, never()).applySessionConfig(any());
@@ -1216,12 +1198,11 @@ class SessionServiceTest {
             mock(WorkflowPreparator.class));
     when(configs.getSessionIds()).thenReturn(Flux.just("a", SYS, "b"));
     when(configs.getTags(any()))
-        .thenAnswer(
-            call ->
-                Mono.just(
-                    SYS.equals(call.getArgument(0))
-                        ? Map.of(InternalSessions.TAG, "true")
-                        : Map.<String, String>of()));
+        .thenAnswer(call ->
+            Mono.just(
+                SYS.equals(call.getArgument(0))
+                    ? Map.of(InternalSessions.TAG, "true")
+                    : Map.<String, String>of()));
 
     StepVerifier.create(service.getSessionIds(true).collectList())
         .assertNext(ids -> assertThat(ids).containsExactly("a", SYS, "b"))

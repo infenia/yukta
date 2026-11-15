@@ -171,12 +171,11 @@ public class MetricsSampler {
   private Map<String, Double> shareKeys(final Map<String, Double> values) {
     final Map<String, String> next = HashMap.newHashMap(values.size());
     final Map<String, Double> shared = HashMap.newHashMap(values.size());
-    values.forEach(
-        (key, value) -> {
-          final String canonical = keys.getOrDefault(key, key);
-          next.put(canonical, canonical);
-          shared.put(canonical, value);
-        });
+    values.forEach((key, value) -> {
+      final String canonical = keys.getOrDefault(key, key);
+      next.put(canonical, canonical);
+      shared.put(canonical, value);
+    });
     keys = next;
     return Map.copyOf(shared);
   }
@@ -301,12 +300,11 @@ public class MetricsSampler {
     // the samples are immutable: copy the references under the lock, scan without it
     for (final MetricSample s : recent(range, now)) {
       s.values()
-          .forEach(
-              (k, v) -> {
-                if (wanted.stream().anyMatch(k::startsWith)) {
-                  out.computeIfAbsent(k, _ -> new ArrayList<>()).add(new Point(s.time(), v));
-                }
-              });
+          .forEach((k, v) -> {
+            if (wanted.stream().anyMatch(k::startsWith)) {
+              out.computeIfAbsent(k, _ -> new ArrayList<>()).add(new Point(s.time(), v));
+            }
+          });
     }
     return out;
   }

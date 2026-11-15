@@ -49,13 +49,12 @@ public class ReplayNodeAssembler {
       final Flux<Message<?>> source =
           Flux.fromIterable(recorded)
               .doOnSubscribe(_ -> emit(executionId, node, TaskStatus.RUNNING, Map.of()))
-              .doOnComplete(
-                  () ->
-                      emit(
-                          executionId,
-                          node,
-                          TaskStatus.SUCCESS,
-                          Map.of("replayedFrom", previousExecutionId)))
+              .doOnComplete(() ->
+                  emit(
+                      executionId,
+                      node,
+                      TaskStatus.SUCCESS,
+                      Map.of("replayedFrom", previousExecutionId)))
               .doOnCancel(() -> emit(executionId, node, TaskStatus.CANCELLED, Map.of()));
       context.streams()[index] = decorated(node, bufferSize, source, context);
     };

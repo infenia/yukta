@@ -465,13 +465,12 @@ class InputDeliveryWorkerTest {
     final ObjectProvider<com.infenia.yukta.service.input.EligibleSupervisors> directory =
         org.mockito.Mockito.mock(ObjectProvider.class);
     org.mockito.Mockito.when(directory.getIfAvailable())
-        .thenReturn(
-            () ->
-                List.of(
-                    new com.infenia.yukta.service.input.EligibleSupervisors.Candidate(
-                        "watch",
-                        com.infenia.yukta.plugin.control.SupervisorScope.parse(
-                            "workflow:session/workflow"))));
+        .thenReturn(() ->
+            List.of(
+                new com.infenia.yukta.service.input.EligibleSupervisors.Candidate(
+                    "watch",
+                    com.infenia.yukta.plugin.control.SupervisorScope.parse(
+                        "workflow:session/workflow"))));
     return new InputBroker(
         store,
         new ExecutionEventFeed(),

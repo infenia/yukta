@@ -223,12 +223,11 @@ class FileNodeCheckpointStoreTest {
     try (var files = Files.list(run)) {
       assertThat(files.toList())
           .isNotEmpty()
-          .allSatisfy(
-              file ->
-                  assertThat(
-                          java.nio.file.attribute.PosixFilePermissions.toString(
-                              Files.getPosixFilePermissions(file)))
-                      .isEqualTo("rw-------"));
+          .allSatisfy(file ->
+              assertThat(
+                      java.nio.file.attribute.PosixFilePermissions.toString(
+                          Files.getPosixFilePermissions(file)))
+                  .isEqualTo("rw-------"));
     }
   }
 
@@ -398,11 +397,10 @@ class FileNodeCheckpointStoreTest {
         "not json\n");
 
     StepVerifier.create(store().getAll("e1", "n1"))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(java.io.UncheckedIOException.class)
-                    .hasMessageContaining("Unreadable output of node n1"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(java.io.UncheckedIOException.class)
+                .hasMessageContaining("Unreadable output of node n1"))
         .verify();
   }
 

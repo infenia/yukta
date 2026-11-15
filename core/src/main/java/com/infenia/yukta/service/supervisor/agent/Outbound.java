@@ -130,27 +130,25 @@ public final class Outbound {
     return egress
         .check(config.url())
         .then(
-            Mono.defer(
-                () ->
-                    client
-                        .post()
-                        .uri(URI.create(config.url()))
-                        .headers(headers -> config.headers().forEach(headers::set))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(json.writeValueAsString(body))
-                        .retrieve()
-                        .toBodilessEntity()
-                        .timeout(config.timeout())))
+            Mono.defer(() ->
+                client
+                    .post()
+                    .uri(URI.create(config.url()))
+                    .headers(headers -> config.headers().forEach(headers::set))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(json.writeValueAsString(body))
+                    .retrieve()
+                    .toBodilessEntity()
+                    .timeout(config.timeout())))
         .then()
-        .onErrorResume(
-            error -> {
-              log.atWarn()
-                  .addKeyValue("supervisor", supervisorId)
-                  .addKeyValue("cursor", sequenced.cursor())
-                  .addKeyValue("error", error.getClass().getSimpleName())
-                  .log("Could not post a signal to the external system; it can read it again");
-              return Mono.empty();
-            });
+        .onErrorResume(error -> {
+          log.atWarn()
+              .addKeyValue("supervisor", supervisorId)
+              .addKeyValue("cursor", sequenced.cursor())
+              .addKeyValue("error", error.getClass().getSimpleName())
+              .log("Could not post a signal to the external system; it can read it again");
+          return Mono.empty();
+        });
   }
 
   private Map<String, String> readHeaders(final @Nullable Object value, final String key) {

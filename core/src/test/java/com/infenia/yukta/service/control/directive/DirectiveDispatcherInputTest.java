@@ -120,10 +120,9 @@ class DirectiveDispatcherInputTest {
 
   private List<ExecutionLogEvent> controlEntries() {
     return flow.log.readAll().stream()
-        .filter(
-            entry ->
-                entry.type() == ExecutionLogEvent.Type.CONTROL_APPLIED
-                    || entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED)
+        .filter(entry ->
+            entry.type() == ExecutionLogEvent.Type.CONTROL_APPLIED
+                || entry.type() == ExecutionLogEvent.Type.CONTROL_REJECTED)
         .toList();
   }
 
@@ -169,14 +168,13 @@ class DirectiveDispatcherInputTest {
   @Test
   void reviewerThatDeniesTheAnswerStopsItAndTheRequestStaysOpen() {
     when(reviewer.review(any()))
-        .thenAnswer(
-            call -> {
-              final ControlRequest request = call.getArgument(0);
-              return Mono.just(
-                  request.command() instanceof AnswerInputCommand
-                      ? Decision.deny("answers are frozen")
-                      : Decision.ALLOW);
-            });
+        .thenAnswer(call -> {
+          final ControlRequest request = call.getArgument(0);
+          return Mono.just(
+              request.command() instanceof AnswerInputCommand
+                  ? Decision.deny("answers are frozen")
+                  : Decision.ALLOW);
+        });
     final InputRequest request = ask(InputRisk.LOW);
 
     StepVerifier.create(
@@ -189,11 +187,10 @@ class DirectiveDispatcherInputTest {
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
     assertThat(controlEntries())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).contains("answers are frozen");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains("answers are frozen");
+        });
   }
 
   @Test
@@ -210,14 +207,11 @@ class DirectiveDispatcherInputTest {
 
     assertThat(controlEntries())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status())
-                  .contains("Rule 'risk'")
-                  .doesNotContain("my-private-answer");
-              assertThat(String.valueOf(entry.payload())).doesNotContain("my-private-answer");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).contains("Rule 'risk'").doesNotContain("my-private-answer");
+          assertThat(String.valueOf(entry.payload())).doesNotContain("my-private-answer");
+        });
   }
 
   @Test
@@ -235,11 +229,10 @@ class DirectiveDispatcherInputTest {
 
     assertThat(controlEntries())
         .singleElement()
-        .satisfies(
-            entry -> {
-              assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
-              assertThat(entry.status()).containsIgnoringCase("cancel");
-            });
+        .satisfies(entry -> {
+          assertThat(entry.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_REJECTED);
+          assertThat(entry.status()).containsIgnoringCase("cancel");
+        });
     assertThat(flow.current(request.id()).state()).isEqualTo(InputState.OPEN);
   }
 }

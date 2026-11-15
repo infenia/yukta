@@ -30,10 +30,9 @@ class AppConfigurationTest {
   @Test
   @SuppressWarnings("PMD.UnitTestShouldIncludeAssert")
   void shouldProvideDefaultBeans() {
-    this.contextRunner.run(
-        context -> {
-          assertThat(context).hasSingleBean(Scheduler.class);
-        });
+    this.contextRunner.run(context -> {
+      assertThat(context).hasSingleBean(Scheduler.class);
+    });
   }
 
   @Test
@@ -42,11 +41,10 @@ class AppConfigurationTest {
     final SessionConfigStore customStore = mock(SessionConfigStore.class);
     this.contextRunner
         .withBean(SessionConfigStore.class, () -> customStore)
-        .run(
-            context -> {
-              assertThat(context).hasSingleBean(SessionConfigStore.class);
-              assertThat(context.getBean(SessionConfigStore.class)).isSameAs(customStore);
-            });
+        .run(context -> {
+          assertThat(context).hasSingleBean(SessionConfigStore.class);
+          assertThat(context.getBean(SessionConfigStore.class)).isSameAs(customStore);
+        });
   }
 
   @Test

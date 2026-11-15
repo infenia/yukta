@@ -66,28 +66,25 @@ public final class DefinitionChecks {
         .supervisors()
         .map(Supervisor::id)
         .collect(Collectors.toSet())
-        .map(
-            known -> {
-              final List<Issue> issues = new ArrayList<>();
-              checkRefs(data.supervisors(), "", known, null, null, data.sessionId(), issues);
-              data.workflows()
-                  .forEach(
-                      (key, workflow) ->
-                          checkRefs(
-                              workflow.supervisors(),
-                              WORKFLOWS + key + ".",
-                              known,
-                              workflow,
-                              key,
-                              data.sessionId(),
-                              issues));
-              return issues;
-            })
-        .flatMap(
-            issues ->
-                issues.isEmpty()
-                    ? ownershipIssues(data.sessionId(), data.supervisors(), data.workflows())
-                    : Mono.just(issues));
+        .map(known -> {
+          final List<Issue> issues = new ArrayList<>();
+          checkRefs(data.supervisors(), "", known, null, null, data.sessionId(), issues);
+          data.workflows()
+              .forEach((key, workflow) ->
+                  checkRefs(
+                      workflow.supervisors(),
+                      WORKFLOWS + key + ".",
+                      known,
+                      workflow,
+                      key,
+                      data.sessionId(),
+                      issues));
+          return issues;
+        })
+        .flatMap(issues ->
+            issues.isEmpty()
+                ? ownershipIssues(data.sessionId(), data.supervisors(), data.workflows())
+                : Mono.just(issues));
   }
 
   /**
@@ -101,13 +98,12 @@ public final class DefinitionChecks {
         .supervisors()
         .map(Supervisor::id)
         .collect(Collectors.toSet())
-        .map(
-            known -> {
-              final List<Issue> issues = new ArrayList<>();
-              checkRefs(
-                  workflow.supervisors(), "", known, workflow, workflow.workflowId(), null, issues);
-              return issues;
-            });
+        .map(known -> {
+          final List<Issue> issues = new ArrayList<>();
+          checkRefs(
+              workflow.supervisors(), "", known, workflow, workflow.workflowId(), null, issues);
+          return issues;
+        });
   }
 
   /**
@@ -127,11 +123,10 @@ public final class DefinitionChecks {
       final Map<String, WorkflowDefinition> workflows,
       final WorkflowDefinition workflow) {
     return check(workflow)
-        .flatMap(
-            issues ->
-                issues.isEmpty()
-                    ? ownershipIssues(sessionId, sessionRefs, workflows)
-                    : Mono.just(issues));
+        .flatMap(issues ->
+            issues.isEmpty()
+                ? ownershipIssues(sessionId, sessionRefs, workflows)
+                : Mono.just(issues));
   }
 
   /**
@@ -143,11 +138,10 @@ public final class DefinitionChecks {
    */
   public Mono<Void> require(final WorkflowDefinition workflow) {
     return check(workflow)
-        .flatMap(
-            issues ->
-                issues.isEmpty()
-                    ? Mono.<Void>empty()
-                    : Mono.error(new SettingsValidationException(issues)));
+        .flatMap(issues ->
+            issues.isEmpty()
+                ? Mono.<Void>empty()
+                : Mono.error(new SettingsValidationException(issues)));
   }
 
   /**
@@ -160,63 +154,55 @@ public final class DefinitionChecks {
       final List<SupervisorRef> sessionRefs,
       final Map<String, WorkflowDefinition> workflows) {
     final OwnershipValidator validator =
-        new OwnershipValidator(
-            (session, workflow) ->
-                session != null && !session.equals(sessionId)
-                    ? Optional.empty()
-                    : Optional.ofNullable(workflows.get(workflow)).map(WorkflowShape::from));
+        new OwnershipValidator((session, workflow) ->
+            session != null && !session.equals(sessionId)
+                ? Optional.empty()
+                : Optional.ofNullable(workflows.get(workflow)).map(WorkflowShape::from));
     return service
         .attachments()
-        .filter(
-            a ->
-                a.enabled()
-                    && !(a.source() == SupervisorSource.DEFINITION
-                        && sessionId.equals(a.originSessionId())))
+        .filter(a ->
+            a.enabled()
+                && !(a.source() == SupervisorSource.DEFINITION
+                    && sessionId.equals(a.originSessionId())))
         .collectList()
-        .map(
-            kept -> {
-              final List<Issue> issues = new ArrayList<>();
-              final List<OwnershipValidator.Claim> claims =
-                  new ArrayList<>(
-                      kept.stream()
-                          .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
-                          .toList());
-              final Map<String, SupervisorAttachment> declared =
-                  DefinitionSupervisors.desired(sessionId, sessionRefs, workflows);
-              declared.values().stream()
-                  .filter(SupervisorAttachment::enabled)
-                  .forEach(
-                      a -> {
-                        final OwnershipValidator.Claim claim =
-                            new OwnershipValidator.Claim(a.supervisorId(), a.scope());
-                        validator
-                            .conflicts(claim, claims)
-                            .forEach(
-                                c ->
-                                    issues.add(
-                                        new Issue(
-                                            fieldOf(a, sessionRefs, workflows), c.message())));
-                        claims.add(claim);
-                      });
-              final List<OwnershipValidator.Claim> keptClaims =
+        .map(kept -> {
+          final List<Issue> issues = new ArrayList<>();
+          final List<OwnershipValidator.Claim> claims =
+              new ArrayList<>(
                   kept.stream()
-                      .map(o -> new OwnershipValidator.Claim(o.supervisorId(), o.scope()))
-                      .toList();
-              for (int i = 0; i < kept.size(); i++) {
-                final SupervisorAttachment a = kept.get(i);
+                      .map(a -> new OwnershipValidator.Claim(a.supervisorId(), a.scope()))
+                      .toList());
+          final Map<String, SupervisorAttachment> declared =
+              DefinitionSupervisors.desired(sessionId, sessionRefs, workflows);
+          declared.values().stream()
+              .filter(SupervisorAttachment::enabled)
+              .forEach(a -> {
+                final OwnershipValidator.Claim claim =
+                    new OwnershipValidator.Claim(a.supervisorId(), a.scope());
                 validator
-                    .conflicts(keptClaims.get(i), keptClaims.subList(i + 1, keptClaims.size()))
-                    .forEach(
-                        c ->
-                            issues.add(
-                                new Issue(
-                                    a.scope().workflowId() == null
-                                        ? "assignments"
-                                        : WORKFLOWS + a.scope().workflowId() + ".nodes",
-                                    c.message())));
-              }
-              return issues;
-            });
+                    .conflicts(claim, claims)
+                    .forEach(c ->
+                        issues.add(new Issue(fieldOf(a, sessionRefs, workflows), c.message())));
+                claims.add(claim);
+              });
+          final List<OwnershipValidator.Claim> keptClaims =
+              kept.stream()
+                  .map(o -> new OwnershipValidator.Claim(o.supervisorId(), o.scope()))
+                  .toList();
+          for (int i = 0; i < kept.size(); i++) {
+            final SupervisorAttachment a = kept.get(i);
+            validator
+                .conflicts(keptClaims.get(i), keptClaims.subList(i + 1, keptClaims.size()))
+                .forEach(c ->
+                    issues.add(
+                        new Issue(
+                            a.scope().workflowId() == null
+                                ? "assignments"
+                                : WORKFLOWS + a.scope().workflowId() + ".nodes",
+                            c.message())));
+          }
+          return issues;
+        });
   }
 
   /** The field of a declaration, such as {@code workflows.build.assignments[0].supervisor}. */

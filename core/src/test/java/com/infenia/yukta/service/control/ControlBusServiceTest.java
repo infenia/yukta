@@ -79,11 +79,10 @@ class ControlBusServiceTest {
   @Test
   void emit_commandBeforeAnExecutorIsSet_isRefused() {
     StepVerifier.create(controlBusService.emit(pause()))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("Not an execution control command: PauseWorkflowCommand"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("Not an execution control command: PauseWorkflowCommand"))
         .verify();
   }
 
@@ -146,10 +145,9 @@ class ControlBusServiceTest {
   @DisplayName("sendCommand fails when no plugin is registered")
   void sendCommand_noPlugin_returnsError() {
     StepVerifier.create(controlBusService.sendCommand(WORKFLOW_ID, EXEC_ID, NODE_ID, message))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Node not found: workflow-123/node-456"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Node not found: workflow-123/node-456"))
         .verify(Duration.ofSeconds(2));
   }
 

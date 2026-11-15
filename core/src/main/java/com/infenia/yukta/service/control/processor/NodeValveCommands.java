@@ -88,25 +88,23 @@ public class NodeValveCommands {
       final Consumer<ReactiveControlValve> action,
       final ControlState state,
       final String verb) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(command.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + command.executionId()));
-          final ReactiveControlValve valve = control.nodePauseValves().get(command.nodeId());
-          if (valve == null) {
-            throw new NotFoundException(
-                "Node not found or " + unsupported + ": " + command.nodeId());
-          }
-          action.accept(valve);
-          taskTracker.emitControlStateEvent(command.executionId(), state);
-          log.atDebug()
-              .addKeyValue("executionId", command.executionId())
-              .addKeyValue("nodeId", command.nodeId())
-              .addKeyValue("status", state.name())
-              .log("{} node", verb);
-        });
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(command.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + command.executionId()));
+      final ReactiveControlValve valve = control.nodePauseValves().get(command.nodeId());
+      if (valve == null) {
+        throw new NotFoundException("Node not found or " + unsupported + ": " + command.nodeId());
+      }
+      action.accept(valve);
+      taskTracker.emitControlStateEvent(command.executionId(), state);
+      log.atDebug()
+          .addKeyValue("executionId", command.executionId())
+          .addKeyValue("nodeId", command.nodeId())
+          .addKeyValue("status", state.name())
+          .log("{} node", verb);
+    });
   }
 }

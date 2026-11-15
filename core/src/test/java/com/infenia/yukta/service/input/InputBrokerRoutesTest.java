@@ -554,12 +554,11 @@ class InputBrokerRoutesTest {
             call -> {
               final Mono<InputRequest> read = (Mono<InputRequest>) call.callRealMethod();
               // the first read is the loser's snapshot; the winner moves the request after it
-              return read.doOnNext(
-                  _ -> {
-                    if (!raced.getAndSet(true)) {
-                      broker.escalate(request.id(), "winner", null, null).block();
-                    }
-                  });
+              return read.doOnNext(_ -> {
+                if (!raced.getAndSet(true)) {
+                  broker.escalate(request.id(), "winner", null, null).block();
+                }
+              });
             })
         .when(racing)
         .findById(request.id());
@@ -572,10 +571,9 @@ class InputBrokerRoutesTest {
     // the feed delivers to its subscribers on another thread
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
-                    .hasSize(1));
+        .untilAsserted(() ->
+            assertThat(events.stream().filter(ExecutionEvent.InputEscalated.class::isInstance))
+                .hasSize(1));
   }
 
   @Test
@@ -606,12 +604,11 @@ class InputBrokerRoutesTest {
     assertThat(now.targets()).containsExactly("supervisor:workflow");
     assertThat(now.asked())
         .singleElement()
-        .satisfies(
-            step -> {
-              assertThat(step.who()).isEqualTo("section");
-              assertThat(step.said()).isEqualTo("escalated");
-              assertThat(step.reason()).isEqualTo("unsure");
-            });
+        .satisfies(step -> {
+          assertThat(step.who()).isEqualTo("section");
+          assertThat(step.said()).isEqualTo("escalated");
+          assertThat(step.reason()).isEqualTo("unsure");
+        });
   }
 
   @Test

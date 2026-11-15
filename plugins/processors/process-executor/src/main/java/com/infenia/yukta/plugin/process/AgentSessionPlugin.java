@@ -151,20 +151,19 @@ public final class AgentSessionPlugin implements ProcessorPlugin {
             resolve(config.get(AgentSessionConfig.MODEL), message),
             resolveEnv(config.get(AgentSessionConfig.ENV), message),
             resolve(config.get(AgentSessionConfig.SESSION), message))
-        .flatMap(
-            t -> {
-              final Turn turn = new Turn(t.getT1(), t.getT2(), t.getT3(), t.getT4());
-              final String key = t.getT5();
-              if (key.isEmpty()) {
-                return turn(message, config, preset, turn, null);
-              }
-              return Mono.usingWhen(
-                  acquire(key, AgentSessionConfig.waitsWhenBusy(config)),
-                  lease -> turn(message, config, preset, turn, lease),
-                  lease -> Mono.fromRunnable(lease::close),
-                  (lease, e) -> Mono.fromRunnable(lease::close),
-                  lease -> Mono.fromRunnable(lease::close));
-            })
+        .flatMap(t -> {
+          final Turn turn = new Turn(t.getT1(), t.getT2(), t.getT3(), t.getT4());
+          final String key = t.getT5();
+          if (key.isEmpty()) {
+            return turn(message, config, preset, turn, null);
+          }
+          return Mono.usingWhen(
+              acquire(key, AgentSessionConfig.waitsWhenBusy(config)),
+              lease -> turn(message, config, preset, turn, lease),
+              lease -> Mono.fromRunnable(lease::close),
+              (lease, e) -> Mono.fromRunnable(lease::close),
+              lease -> Mono.fromRunnable(lease::close));
+        })
         .onErrorResume(
             SessionBusyException.class,
             e ->

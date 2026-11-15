@@ -111,19 +111,17 @@ public class WorkflowCompiler {
         .log("Workflow template compiled successfully");
 
     return (executionId, payload) ->
-        Mono.deferContextual(
-            ctx ->
-                Mono.defer(
-                        () ->
-                            executeTemplate(
-                                executionId,
-                                payload,
-                                nodeCount,
-                                assemblers,
-                                ctx.get(ExecutionContextBuilder.CTX_SESSION_ID),
-                                ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID),
-                                nodeIds))
-                    .contextWrite(c -> c.put(ExecutionContextBuilder.CTX_PAYLOAD, payload)));
+        Mono.deferContextual(ctx ->
+            Mono.defer(() ->
+                    executeTemplate(
+                        executionId,
+                        payload,
+                        nodeCount,
+                        assemblers,
+                        ctx.get(ExecutionContextBuilder.CTX_SESSION_ID),
+                        ctx.get(ExecutionContextBuilder.CTX_WORKFLOW_ID),
+                        nodeIds))
+                .contextWrite(c -> c.put(ExecutionContextBuilder.CTX_PAYLOAD, payload)));
   }
 
   /**
@@ -264,10 +262,9 @@ public class WorkflowCompiler {
     final var control =
         executionControlStore
             .findByExecutionId(executionId)
-            .orElseThrow(
-                () ->
-                    new IllegalStateException(
-                        "ExecutionControl not registered for execution: " + executionId));
+            .orElseThrow(() ->
+                new IllegalStateException(
+                    "ExecutionControl not registered for execution: " + executionId));
 
     final AssemblyContext context =
         new AssemblyContext(
@@ -327,10 +324,9 @@ public class WorkflowCompiler {
         NodePolicy.from(node.config()).trigger() != NodePolicy.JoinRule.ALL_SUCCESS;
     final ParentEdgeInfo[] parentEdges =
         edges.stream()
-            .map(
-                e ->
-                    new ParentEdgeInfo(
-                        nodeToIndex.get(e.source()), e.source(), e.sourcePort(), tolerateFailure))
+            .map(e ->
+                new ParentEdgeInfo(
+                    nodeToIndex.get(e.source()), e.source(), e.sourcePort(), tolerateFailure))
             .toArray(ParentEdgeInfo[]::new);
 
     log.atTrace()
@@ -343,19 +339,17 @@ public class WorkflowCompiler {
     return assemblerStrategies.stream()
         .filter(strategy -> strategy.supports(plugin, hasParents))
         .findFirst()
-        .map(
-            strategy -> {
-              log.atTrace()
-                  .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                  .addKeyValue(
-                      LOG_KEY_PLUGIN_TYPE,
-                      plugin != null ? plugin.getClass().getSimpleName() : "null")
-                  .addKeyValue("timeout", nodeTimeout.toMillis() + "ms")
-                  .addKeyValue("bufferSize", bufferSize)
-                  .log("Assembler strategy selected");
-              return strategy.createAssembler(
-                  node, plugin, nodeTimeout, nodeIndex, bufferSize, parentEdges);
-            })
+        .map(strategy -> {
+          log.atTrace()
+              .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+              .addKeyValue(
+                  LOG_KEY_PLUGIN_TYPE, plugin != null ? plugin.getClass().getSimpleName() : "null")
+              .addKeyValue("timeout", nodeTimeout.toMillis() + "ms")
+              .addKeyValue("bufferSize", bufferSize)
+              .log("Assembler strategy selected");
+          return strategy.createAssembler(
+              node, plugin, nodeTimeout, nodeIndex, bufferSize, parentEdges);
+        })
         .orElseThrow(
             () -> new IllegalStateException("No assembler strategy for node type: " + node.type()));
   }

@@ -78,12 +78,11 @@ public class LogManagementController {
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     return access
         .require(sessionId, executionId)
-        .flatMapMany(
-            progress ->
-                SseStreams.events(
-                    entries(executionId, progress.status()).map(PluginLogEntry::format),
-                    lastEventId,
-                    SseStreams.HEARTBEAT));
+        .flatMapMany(progress ->
+            SseStreams.events(
+                entries(executionId, progress.status()).map(PluginLogEntry::format),
+                lastEventId,
+                SseStreams.HEARTBEAT));
   }
 
   /**
@@ -107,12 +106,11 @@ public class LogManagementController {
       @RequestHeader(value = "Last-Event-ID", required = false) final String lastEventId) {
     return access
         .require(sessionId, executionId)
-        .flatMapMany(
-            progress ->
-                SseStreams.events(
-                    entries(executionId, progress.status()).map(workflowMapper::toLogEntry),
-                    lastEventId,
-                    SseStreams.HEARTBEAT));
+        .flatMapMany(progress ->
+            SseStreams.events(
+                entries(executionId, progress.status()).map(workflowMapper::toLogEntry),
+                lastEventId,
+                SseStreams.HEARTBEAT));
   }
 
   private Flux<PluginLogEntry> entries(final String executionId, final TaskStatus status) {
@@ -120,33 +118,31 @@ public class LogManagementController {
   }
 
   private Flux<PluginLogEntry> historyThenLive(final String executionId) {
-    return Flux.defer(
-        () -> {
-          final Instant seamStart = Instant.now();
-          final AtomicReference<Disposable> upstream = new AtomicReference<>();
-          // autoConnect(0) subscribes right away, so nothing written from here on is missed.
-          final Flux<PluginLogEntry> live =
-              taskTracker
-                  .getLogFlux()
-                  .filter(entry -> executionId.equals(entry.executionId()))
-                  .takeUntilOther(terminated(executionId))
-                  .replay(LIVE_BUFFER)
-                  .autoConnect(0, upstream::set);
-          return logStore
-              .readExecution(executionId)
-              .collectList()
-              .flatMapMany(
-                  history -> {
-                    final Instant snapshot = Instant.now();
-                    final Map<String, Integer> seam = new ConcurrentHashMap<>();
-                    history.stream()
-                        .filter(entry -> !entry.timestamp().isBefore(seamStart))
-                        .forEach(entry -> seam.merge(entry.message(), 1, Integer::sum));
-                    return Flux.fromIterable(history)
-                        .concatWith(live.filter(entry -> !alreadySent(entry, snapshot, seam)));
-                  })
-              .doFinally(_ -> upstream.get().dispose());
-        });
+    return Flux.defer(() -> {
+      final Instant seamStart = Instant.now();
+      final AtomicReference<Disposable> upstream = new AtomicReference<>();
+      // autoConnect(0) subscribes right away, so nothing written from here on is missed.
+      final Flux<PluginLogEntry> live =
+          taskTracker
+              .getLogFlux()
+              .filter(entry -> executionId.equals(entry.executionId()))
+              .takeUntilOther(terminated(executionId))
+              .replay(LIVE_BUFFER)
+              .autoConnect(0, upstream::set);
+      return logStore
+          .readExecution(executionId)
+          .collectList()
+          .flatMapMany(history -> {
+            final Instant snapshot = Instant.now();
+            final Map<String, Integer> seam = new ConcurrentHashMap<>();
+            history.stream()
+                .filter(entry -> !entry.timestamp().isBefore(seamStart))
+                .forEach(entry -> seam.merge(entry.message(), 1, Integer::sum));
+            return Flux.fromIterable(history)
+                .concatWith(live.filter(entry -> !alreadySent(entry, snapshot, seam)));
+          })
+          .doFinally(_ -> upstream.get().dispose());
+    });
   }
 
   /**

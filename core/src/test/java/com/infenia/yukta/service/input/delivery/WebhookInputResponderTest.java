@@ -78,11 +78,10 @@ class WebhookInputResponderTest {
   private WebhookInputResponder responder(final MockEnvironment env, final EgressPolicy egress) {
     final WebClient.Builder builder =
         WebClient.builder()
-            .exchangeFunction(
-                call -> {
-                  sent.add(call);
-                  return Mono.just(ClientResponse.create(answer).build());
-                });
+            .exchangeFunction(call -> {
+              sent.add(call);
+              return Mono.just(ClientResponse.create(answer).build());
+            });
     return new WebhookInputResponder(builder, egress, env, JsonMapper.builder().build());
   }
 

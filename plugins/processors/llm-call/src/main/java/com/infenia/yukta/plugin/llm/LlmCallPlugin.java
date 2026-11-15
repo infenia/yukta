@@ -321,43 +321,35 @@ public final class LlmCallPlugin implements ProcessorPlugin {
 
   private Flux<Message<?>> call(final Message<?> message, final Map<String, Object> config) {
     final FailureMode failureMode = FailureMode.from(config.get(FAILURE_MODE));
-    return Flux.deferContextual(
-        ctx -> {
-          final String runId = String.valueOf(ctx.getOrDefault("executionId", "unknown"));
-          final String nodeId = String.valueOf(ctx.getOrDefault("nodeId", "unknown"));
-          return resolveRequest(message, config)
-              .flatMapMany(
-                  request -> {
-                    final long start = System.nanoTime();
-                    return budgeted(runId, nodeId, config, attempt(request, retries(config)))
-                        .<Message<?>>map(
-                            response -> {
-                              final Map<String, Object> payload =
-                                  success(config, response, elapsedMillis(start));
-                              budgets.add(
-                                  RunBudgets.key(runId, budgetOf(config)),
-                                  response.inputTokens() + response.outputTokens(),
-                                  payload.get("cost") instanceof final Double cost ? cost : 0.0);
-                              count(request, response, payload);
-                              return output(message, config, payload, null);
-                            })
-                        .onErrorResume(
-                            error ->
-                                RunAbortedException.isAbort(error)
-                                    ? Mono.<Message<?>>error(error)
-                                    : failureMode == FailureMode.CONTINUE
-                                        ? Mono.<Message<?>>just(
-                                            output(
-                                                message,
-                                                config,
-                                                message.payload(),
-                                                failureText(error)))
-                                        : Mono.error(
-                                            new WorkflowExecutionException(
-                                                "LLM call failed: " + error.getMessage(), error)))
-                        .flux();
-                  });
-        });
+    return Flux.deferContextual(ctx -> {
+      final String runId = String.valueOf(ctx.getOrDefault("executionId", "unknown"));
+      final String nodeId = String.valueOf(ctx.getOrDefault("nodeId", "unknown"));
+      return resolveRequest(message, config)
+          .flatMapMany(request -> {
+            final long start = System.nanoTime();
+            return budgeted(runId, nodeId, config, attempt(request, retries(config)))
+                .<Message<?>>map(response -> {
+                  final Map<String, Object> payload =
+                      success(config, response, elapsedMillis(start));
+                  budgets.add(
+                      RunBudgets.key(runId, budgetOf(config)),
+                      response.inputTokens() + response.outputTokens(),
+                      payload.get("cost") instanceof final Double cost ? cost : 0.0);
+                  count(request, response, payload);
+                  return output(message, config, payload, null);
+                })
+                .onErrorResume(error ->
+                    RunAbortedException.isAbort(error)
+                        ? Mono.<Message<?>>error(error)
+                        : failureMode == FailureMode.CONTINUE
+                            ? Mono.<Message<?>>just(
+                                output(message, config, message.payload(), failureText(error)))
+                            : Mono.error(
+                                new WorkflowExecutionException(
+                                    "LLM call failed: " + error.getMessage(), error)))
+                .flux();
+          });
+    });
   }
 
   /**
@@ -392,16 +384,15 @@ public final class LlmCallPlugin implements ProcessorPlugin {
     return config.get(BUDGET) instanceof final Map<?, ?> budget
         ? budgets
             .exceeded(RunBudgets.key(runId, budget), budget)
-            .<Mono<LlmResponse>>map(
-                why -> {
-                  reporter.increment(nodeId, "llm.budget.exceeded", "llm");
-                  return Mono.error(
-                      // hardStop ends the whole run; otherwise it is a failed call like any
-                      // other and failureMode / routeByStatus decide what follows
-                      Boolean.TRUE.equals(budget.get(HARD_STOP))
-                          ? new RunAbortedException("LLM budget exceeded: " + why)
-                          : new IllegalStateException("LLM budget exceeded: " + why));
-                })
+            .<Mono<LlmResponse>>map(why -> {
+              reporter.increment(nodeId, "llm.budget.exceeded", "llm");
+              return Mono.error(
+                  // hardStop ends the whole run; otherwise it is a failed call like any
+                  // other and failureMode / routeByStatus decide what follows
+                  Boolean.TRUE.equals(budget.get(HARD_STOP))
+                      ? new RunAbortedException("LLM budget exceeded: " + why)
+                      : new IllegalStateException("LLM budget exceeded: " + why));
+            })
             .orElse(call)
         : call;
   }
@@ -487,25 +478,24 @@ public final class LlmCallPlugin implements ProcessorPlugin {
                 resolve(config.get("maxTokens"), message),
                 Mono.fromSupplier(() -> messages(config.get("tools"), message))),
             resolve(config.getOrDefault(TIMEOUT, DEFAULT_TIMEOUT_SECONDS), message))
-        .map(
-            t -> {
-              final Long configured = number(t.getT6(), Long.class);
-              final long timeout = configured == null ? DEFAULT_TIMEOUT_SECONDS : configured;
-              if (timeout <= 0) {
-                throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
-              }
-              return new LlmRequest(
-                  Provider.from(t.getT1()),
-                  text(t.getT3()),
-                  text(t.getT4()),
-                  t.getT2().toString(),
-                  number(t.getT5().getT4(), Double.class),
-                  number(t.getT5().getT5(), Integer.class),
-                  Duration.ofSeconds(timeout),
-                  text(t.getT5().getT1()),
-                  turns(t.getT5().getT2(), t.getT5().getT3()),
-                  ToolSpecs.withAskInput(config, ToolSpecs.parse(t.getT5().getT6())));
-            });
+        .map(t -> {
+          final Long configured = number(t.getT6(), Long.class);
+          final long timeout = configured == null ? DEFAULT_TIMEOUT_SECONDS : configured;
+          if (timeout <= 0) {
+            throw new IllegalArgumentException("timeout must be positive, got: " + timeout);
+          }
+          return new LlmRequest(
+              Provider.from(t.getT1()),
+              text(t.getT3()),
+              text(t.getT4()),
+              t.getT2().toString(),
+              number(t.getT5().getT4(), Double.class),
+              number(t.getT5().getT5(), Integer.class),
+              Duration.ofSeconds(timeout),
+              text(t.getT5().getT1()),
+              turns(t.getT5().getT2(), t.getT5().getT3()),
+              ToolSpecs.withAskInput(config, ToolSpecs.parse(t.getT5().getT6())));
+        });
   }
 
   /**

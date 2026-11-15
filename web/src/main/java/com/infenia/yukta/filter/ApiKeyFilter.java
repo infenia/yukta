@@ -197,11 +197,10 @@ public class ApiKeyFilter implements WebFilter {
           "Missing or invalid API key. Send X-API-Key or Authorization: Bearer <key>");
     }
     return permitted(match, exchange, path)
-        .flatMap(
-            allowed ->
-                allowed
-                    ? proceed(exchange, chain, match, path)
-                    : reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that"));
+        .flatMap(allowed ->
+            allowed
+                ? proceed(exchange, chain, match, path)
+                : reject(exchange, HttpStatus.FORBIDDEN, "This API key may not do that"));
   }
 
   /** Counts the request against the key's rate limit, then hands it on naming the actor. */
@@ -219,10 +218,9 @@ public class ApiKeyFilter implements WebFilter {
     return chain
         .filter(exchange)
         .contextWrite(ctx -> ctx.put(CallerIdentity.CONTEXT_KEY, match))
-        .contextWrite(
-            ctx ->
-                ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
-                    .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
+        .contextWrite(ctx ->
+            ctx.put(ControlActor.CONTEXT_KEY, "key:" + match.name())
+                .put(ControlActor.KIND_KEY, ControlActor.Kind.KEY));
   }
 
   /** Who is calling, by network address. */
@@ -289,12 +287,11 @@ public class ApiKeyFilter implements WebFilter {
     if (executionLog == null) {
       return Mono.just(false);
     }
-    return Mono.fromCallable(
-            () ->
-                executionLog
-                    .header(executionId)
-                    .map(header -> match.reaches(header.sessionId()))
-                    .orElse(false))
+    return Mono.fromCallable(() ->
+            executionLog
+                .header(executionId)
+                .map(header -> match.reaches(header.sessionId()))
+                .orElse(false))
         .subscribeOn(Schedulers.boundedElastic());
   }
 

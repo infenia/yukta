@@ -50,21 +50,20 @@ final class AgentTurn {
 
   /** Runs the harness; emits the outcome map when it ends. */
   /* default */ Mono<Map<String, Object>> run(final Message<?> message, final Plan plan) {
-    return Mono.deferContextual(
-        ctx -> {
-          final AgentOutput output =
-              new AgentOutput(
-                  plan.preset().output(),
-                  plan.talk(),
-                  ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
-                      .orElse(PluginLogSink.NOOP),
-                  json);
-          final Mono<ProcessExecutionResult> ended =
-              plan.talk() == null
-                  ? gateway.executeForResult(plan.spec(), output)
-                  : converse(message, plan, plan.talk(), output, InputIdentity.from(ctx));
-          return ended.map(r -> output.outcome(r.exitCode(), r.timedOut(), plan.timeoutSeconds()));
-        });
+    return Mono.deferContextual(ctx -> {
+      final AgentOutput output =
+          new AgentOutput(
+              plan.preset().output(),
+              plan.talk(),
+              ctx.<PluginLogSink>getOrEmpty(WorkflowContext.LOG_SINK_KEY)
+                  .orElse(PluginLogSink.NOOP),
+              json);
+      final Mono<ProcessExecutionResult> ended =
+          plan.talk() == null
+              ? gateway.executeForResult(plan.spec(), output)
+              : converse(message, plan, plan.talk(), output, InputIdentity.from(ctx));
+      return ended.map(r -> output.outcome(r.exitCode(), r.timedOut(), plan.timeoutSeconds()));
+    });
   }
 
   private Mono<ProcessExecutionResult> converse(

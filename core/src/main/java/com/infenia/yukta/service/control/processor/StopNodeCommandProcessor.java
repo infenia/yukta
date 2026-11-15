@@ -32,36 +32,35 @@ public class StopNodeCommandProcessor {
 
   /** Applies the command. */
   public Mono<Void> process(final StopNodeCommand stop) {
-    return Mono.fromRunnable(
-        () -> {
-          final ExecutionControl control =
-              registry
-                  .findByExecutionId(stop.executionId())
-                  .orElseThrow(
-                      () -> new NotFoundException("Execution not found: " + stop.executionId()));
+    return Mono.fromRunnable(() -> {
+      final ExecutionControl control =
+          registry
+              .findByExecutionId(stop.executionId())
+              .orElseThrow(
+                  () -> new NotFoundException("Execution not found: " + stop.executionId()));
 
-          final String nodeId = stop.nodeId();
-          final Sinks.One<Void> sink =
-              stop.immediate()
-                  ? control.nodeImmediateStopSinks().get(nodeId)
-                  : control.nodeSafeStopSinks().get(nodeId);
+      final String nodeId = stop.nodeId();
+      final Sinks.One<Void> sink =
+          stop.immediate()
+              ? control.nodeImmediateStopSinks().get(nodeId)
+              : control.nodeSafeStopSinks().get(nodeId);
 
-          if (sink == null) {
-            throw new NotFoundException("Node not found or not stoppable: " + nodeId);
-          }
+      if (sink == null) {
+        throw new NotFoundException("Node not found or not stoppable: " + nodeId);
+      }
 
-          // Already-stopped sinks are terminated; stopping twice is a no-op.
-          sink.tryEmitEmpty();
+      // Already-stopped sinks are terminated; stopping twice is a no-op.
+      sink.tryEmitEmpty();
 
-          taskTracker.emitControlStateEvent(stop.executionId(), ControlState.NODE_STOPPED);
+      taskTracker.emitControlStateEvent(stop.executionId(), ControlState.NODE_STOPPED);
 
-          log.atDebug()
-              .addKeyValue("executionId", stop.executionId())
-              .addKeyValue("nodeId", nodeId)
-              .addKeyValue("immediate", stop.immediate())
-              .addKeyValue("reason", stop.reason())
-              .addKeyValue("status", "NODE_STOPPED")
-              .log("Stopped node");
-        });
+      log.atDebug()
+          .addKeyValue("executionId", stop.executionId())
+          .addKeyValue("nodeId", nodeId)
+          .addKeyValue("immediate", stop.immediate())
+          .addKeyValue("reason", stop.reason())
+          .addKeyValue("status", "NODE_STOPPED")
+          .log("Stopped node");
+    });
   }
 }

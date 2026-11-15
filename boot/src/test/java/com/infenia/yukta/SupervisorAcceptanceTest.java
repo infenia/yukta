@@ -95,16 +95,13 @@ class SupervisorAcceptanceTest {
     // the control log entry is written after the state flips, so wait for it too
     await()
         .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(executionLog.readAll())
-                    .filteredOn(event -> event.executionId().equals(executionId))
-                    .anySatisfy(
-                        event -> {
-                          assertThat(event.type())
-                              .isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
-                          assertThat(event.status()).isEqualTo("PauseWorkflowCommand [by rules]");
-                        }));
+        .untilAsserted(() ->
+            assertThat(executionLog.readAll())
+                .filteredOn(event -> event.executionId().equals(executionId))
+                .anySatisfy(event -> {
+                  assertThat(event.type()).isEqualTo(ExecutionLogEvent.Type.CONTROL_APPLIED);
+                  assertThat(event.status()).isEqualTo("PauseWorkflowCommand [by rules]");
+                }));
 
     // a supervisor from a rules file is a bean: it owns nothing, so it no longer reviews other
     // senders' commands (owner-only review); its refusals return with the rules engine

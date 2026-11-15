@@ -161,11 +161,10 @@ class ProcessExecutorGatewayTest {
 
     await()
         .atMost(Duration.ofSeconds(5))
-        .untilAsserted(
-            () ->
-                assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
-                    .as("the background child is gone")
-                    .isFalse());
+        .untilAsserted(() ->
+            assertThat(ProcessHandle.of(childPid).map(ProcessHandle::isAlive).orElse(false))
+                .as("the background child is gone")
+                .isFalse());
   }
 
   @BeforeEach
@@ -339,12 +338,11 @@ class ProcessExecutorGatewayTest {
                 DEFAULT_TIMEOUT_SECONDS,
                 Map.of("VAR1", "a", "VAR2", "b", "VAR3", "c"),
                 false))
-        .assertNext(
-            output -> {
-              assertThat(output).contains("a");
-              assertThat(output).contains("b");
-              assertThat(output).contains("c");
-            })
+        .assertNext(output -> {
+          assertThat(output).contains("a");
+          assertThat(output).contains("b");
+          assertThat(output).contains("c");
+        })
         .verifyComplete();
   }
 
@@ -407,12 +405,11 @@ class ProcessExecutorGatewayTest {
                 DEFAULT_TIMEOUT_SECONDS,
                 env,
                 false))
-        .assertNext(
-            output -> {
-              assertThat(output).contains("value1");
-              assertThat(output).contains("value2");
-              assertThat(output).contains("value3");
-            })
+        .assertNext(output -> {
+          assertThat(output).contains("value1");
+          assertThat(output).contains("value2");
+          assertThat(output).contains("value3");
+        })
         .verifyComplete();
   }
 
@@ -567,10 +564,9 @@ class ProcessExecutorGatewayTest {
     // Normal completion flow - process cleanup happens
     StepVerifier.create(
             executeStream(List.of("echo", TEST), null, DEFAULT_TIMEOUT_SECONDS, Map.of(), false))
-        .assertNext(
-            output -> {
-              assertThat(output).isNotNull();
-            })
+        .assertNext(output -> {
+          assertThat(output).isNotNull();
+        })
         .verifyComplete();
   }
 
@@ -850,10 +846,8 @@ class ProcessExecutorGatewayTest {
         List.of(
             "LD_PRELOAD", "PATH", "GIT_SSH_COMMAND", "JAVA_TOOL_OPTIONS", "ld_preload", "HOME")) {
       StepVerifier.create(gateway.executeForResult(echoWith(Map.of(name, "x"), null)))
-          .expectErrorMatches(
-              e ->
-                  e.getMessage().contains("'" + name + "'")
-                      && e.getMessage().contains("allowed-env"))
+          .expectErrorMatches(e ->
+              e.getMessage().contains("'" + name + "'") && e.getMessage().contains("allowed-env"))
           .verify();
     }
     StepVerifier.create(gateway.executeForResult(echoWith(Map.of("GREETING", "x"), null)))
@@ -961,17 +955,16 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.exitCode()).isZero();
-              assertThat(result.isSuccess()).isTrue();
-              assertThat(result.stdoutLines()).containsExactly("line1", "line2");
-              assertThat(result.stdout()).isEqualTo("line1\nline2");
-              assertThat(result.stderrLines()).isEmpty();
-              assertThat(result.timedOut()).isFalse();
-              assertThat(result.outputTruncated()).isFalse();
-              assertThat(result.durationMillis()).isNotNegative();
-            })
+        .assertNext(result -> {
+          assertThat(result.exitCode()).isZero();
+          assertThat(result.isSuccess()).isTrue();
+          assertThat(result.stdoutLines()).containsExactly("line1", "line2");
+          assertThat(result.stdout()).isEqualTo("line1\nline2");
+          assertThat(result.stderrLines()).isEmpty();
+          assertThat(result.timedOut()).isFalse();
+          assertThat(result.outputTruncated()).isFalse();
+          assertThat(result.durationMillis()).isNotNegative();
+        })
         .verifyComplete();
   }
 
@@ -984,13 +977,12 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.exitCode()).isEqualTo(42);
-              assertThat(result.isSuccess()).isFalse();
-              assertThat(result.timedOut()).isFalse();
-              assertThat(result.stdoutLines()).containsExactly("boom");
-            })
+        .assertNext(result -> {
+          assertThat(result.exitCode()).isEqualTo(42);
+          assertThat(result.isSuccess()).isFalse();
+          assertThat(result.timedOut()).isFalse();
+          assertThat(result.stdoutLines()).containsExactly("boom");
+        })
         .verifyComplete();
   }
 
@@ -1003,11 +995,10 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines()).containsExactlyInAnyOrder("out", "err");
-              assertThat(result.stderrLines()).isEmpty();
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines()).containsExactlyInAnyOrder("out", "err");
+          assertThat(result.stderrLines()).isEmpty();
+        })
         .verifyComplete();
   }
 
@@ -1021,12 +1012,11 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines()).containsExactly("out");
-              assertThat(result.stderrLines()).containsExactly("err");
-              assertThat(result.stderr()).isEqualTo("err");
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines()).containsExactly("out");
+          assertThat(result.stderrLines()).containsExactly("err");
+          assertThat(result.stderr()).isEqualTo("err");
+        })
         .verifyComplete();
   }
 
@@ -1036,14 +1026,13 @@ class ProcessExecutorGatewayTest {
         ProcessExecutionSpec.builder().command(List.of("sleep", "10")).timeoutSeconds(1L).build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.timedOut()).isTrue();
-              assertThat(result.exitCode()).isEqualTo(ProcessExecutionResult.TIMEOUT_EXIT_CODE);
-              assertThat(result.isSuccess()).isFalse();
-              assertThat(result.stdoutLines()).isEmpty();
-              assertThat(result.durationMillis()).isGreaterThanOrEqualTo(500L);
-            })
+        .assertNext(result -> {
+          assertThat(result.timedOut()).isTrue();
+          assertThat(result.exitCode()).isEqualTo(ProcessExecutionResult.TIMEOUT_EXIT_CODE);
+          assertThat(result.isSuccess()).isFalse();
+          assertThat(result.stdoutLines()).isEmpty();
+          assertThat(result.durationMillis()).isGreaterThanOrEqualTo(500L);
+        })
         .verifyComplete();
   }
 
@@ -1057,11 +1046,10 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.exitCode()).isZero();
-              assertThat(result.stdoutLines()).containsExactly("hello", "world");
-            })
+        .assertNext(result -> {
+          assertThat(result.exitCode()).isZero();
+          assertThat(result.stdoutLines()).containsExactly("hello", "world");
+        })
         .verifyComplete();
   }
 
@@ -1072,12 +1060,11 @@ class ProcessExecutorGatewayTest {
         ProcessExecutionSpec.builder().command(List.of("cat")).timeoutSeconds(5L).build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.exitCode()).isZero();
-              assertThat(result.timedOut()).isFalse();
-              assertThat(result.stdoutLines()).isEmpty();
-            })
+        .assertNext(result -> {
+          assertThat(result.exitCode()).isZero();
+          assertThat(result.timedOut()).isFalse();
+          assertThat(result.stdoutLines()).isEmpty();
+        })
         .verifyComplete();
   }
 
@@ -1091,12 +1078,11 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.exitCode()).isZero();
-              assertThat(result.stdoutLines()).containsExactly("1", "2");
-              assertThat(result.outputTruncated()).isTrue();
-            })
+        .assertNext(result -> {
+          assertThat(result.exitCode()).isZero();
+          assertThat(result.stdoutLines()).containsExactly("1", "2");
+          assertThat(result.outputTruncated()).isTrue();
+        })
         .verifyComplete();
   }
 
@@ -1111,11 +1097,10 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines()).containsExactly("aaaaa");
-              assertThat(result.outputTruncated()).isTrue();
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines()).containsExactly("aaaaa");
+          assertThat(result.outputTruncated()).isTrue();
+        })
         .verifyComplete();
   }
 
@@ -1132,11 +1117,10 @@ class ProcessExecutorGatewayTest {
 
     StepVerifier.create(
             gateway.executeForResult(spec, (stream, line, level) -> seen.add(stream + ":" + line)))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines()).containsExactly("1");
-              assertThat(result.outputTruncated()).isTrue();
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines()).containsExactly("1");
+          assertThat(result.outputTruncated()).isTrue();
+        })
         .verifyComplete();
 
     assertThat(seen).containsExactlyInAnyOrder("stdout:1", "stdout:2", "stdout:3", "stderr:e1");
@@ -1198,12 +1182,11 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines()).isEmpty();
-              assertThat(result.stderrLines()).containsExactly("e1");
-              assertThat(result.outputTruncated()).isTrue();
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines()).isEmpty();
+          assertThat(result.stderrLines()).containsExactly("e1");
+          assertThat(result.outputTruncated()).isTrue();
+        })
         .verifyComplete();
   }
 
@@ -1232,11 +1215,10 @@ class ProcessExecutorGatewayTest {
             .build();
 
     StepVerifier.create(gateway.executeForResult(spec))
-        .assertNext(
-            result -> {
-              assertThat(result.stdoutLines().get(0)).contains("tmp");
-              assertThat(result.stdoutLines().get(1)).isEqualTo("abc");
-            })
+        .assertNext(result -> {
+          assertThat(result.stdoutLines().get(0)).contains("tmp");
+          assertThat(result.stdoutLines().get(1)).isEqualTo("abc");
+        })
         .verifyComplete();
   }
 

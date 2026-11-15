@@ -62,10 +62,8 @@ class RouteModelTest {
     assertThatThrownBy(
             () -> new Tier("t", List.of("supervisor:*"), Duration.ZERO, null, 0, 0, null, null))
         .hasMessageContaining("timeout must be positive");
-    assertThatThrownBy(
-            () ->
-                new Tier(
-                    "t", List.of("supervisor:*"), Duration.ofSeconds(-1), null, 0, 0, null, null))
+    assertThatThrownBy(() ->
+            new Tier("t", List.of("supervisor:*"), Duration.ofSeconds(-1), null, 0, 0, null, null))
         .hasMessageContaining("timeout must be positive");
     assertThatThrownBy(
             () -> new Tier("t", List.of("supervisor:*"), null, Mode.QUORUM, 1, 0, null, null))
@@ -115,12 +113,11 @@ class RouteModelTest {
     assertThat(settings.onFinalTimeout()).isEqualTo(FinalAction.FAIL);
     assertThat(settings.named("default").name()).isEqualTo("default");
 
-    assertThatThrownBy(
-            () ->
-                YuktaSettings.bind(
-                    Map.of(
-                        "yukta.input.routes.bad.tiers[0].name", "auto",
-                        "yukta.input.routes.bad.tiers[0].responders[0]", "supervisor:*")))
+    assertThatThrownBy(() ->
+            YuktaSettings.bind(
+                Map.of(
+                    "yukta.input.routes.bad.tiers[0].name", "auto",
+                    "yukta.input.routes.bad.tiers[0].responders[0]", "supervisor:*")))
         .hasRootCauseMessage(
             "Route bad: the last tier must be of type HUMAN or the route needs on-final-timeout");
   }

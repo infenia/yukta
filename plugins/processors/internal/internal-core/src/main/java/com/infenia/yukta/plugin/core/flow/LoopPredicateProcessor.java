@@ -140,16 +140,14 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
 
     final LoopContext context = LoopContext.from(config, processor);
 
-    return input.concatMap(
-        initialMessage ->
-            Mono.deferContextual(
-                ctx -> {
-                  final String eId = ctx.getOrDefault("executionId", "unknown");
-                  final String nId = ctx.getOrDefault("nodeId", "unknown");
-                  final long start = System.currentTimeMillis();
+    return input.concatMap(initialMessage ->
+        Mono.deferContextual(ctx -> {
+          final String eId = ctx.getOrDefault("executionId", "unknown");
+          final String nId = ctx.getOrDefault("nodeId", "unknown");
+          final long start = System.currentTimeMillis();
 
-                  return executeLoop(initialMessage, context, eId, nId, start);
-                }));
+          return executeLoop(initialMessage, context, eId, nId, start);
+        }));
   }
 
   private Mono<Message<?>> executeLoop(
@@ -160,53 +158,45 @@ public class LoopPredicateProcessor implements ProcessorPlugin {
       final long startTime) {
 
     return Mono.just(new LoopState(initialMessage, 0, false, null))
-        .expand(
-            state -> {
-              if (state.terminated()) {
-                return Mono.empty();
-              }
+        .expand(state -> {
+          if (state.terminated()) {
+            return Mono.empty();
+          }
 
-              if (state.iteration() >= context.maxIterations()) {
-                return logAndTerminate(
-                    executionId, nodeId, "Max iterations (" + context.maxIterations() + ")", state);
-              }
-              if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
-                return logAndTerminate(
-                    executionId, nodeId, "Max duration (" + context.maxDuration() + ")", state);
-              }
+          if (state.iteration() >= context.maxIterations()) {
+            return logAndTerminate(
+                executionId, nodeId, "Max iterations (" + context.maxIterations() + ")", state);
+          }
+          if (System.currentTimeMillis() - startTime > context.maxDuration().toMillis()) {
+            return logAndTerminate(
+                executionId, nodeId, "Max duration (" + context.maxDuration() + ")", state);
+          }
 
-              return logIteration(executionId, nodeId, state.iteration() + 1)
-                  .then(
-                      context
-                          .processor()
-                          .process(Flux.just(state.message()), context.targetConfig())
-                          .last())
-                  .flatMap(
-                      resultMessage -> {
-                        final long elapsed = System.currentTimeMillis() - startTime;
-                        return checkExit(
-                                resultMessage,
-                                context.exitCondition(),
-                                state.iteration() + 1,
-                                elapsed)
-                            .flatMap(
-                                exit -> {
-                                  if (Boolean.TRUE.equals(exit)) {
-                                    return logAndTerminate(
-                                        executionId,
-                                        nodeId,
-                                        "Exit condition met",
-                                        state.next(resultMessage, true));
-                                  }
-                                  return Mono.just(state.next(resultMessage, false))
-                                      .delayElement(context.delayInterval());
-                                });
-                      })
-                  .onErrorResume(
-                      e ->
-                          handleFailure(
-                              e, context.failureStrategy(), state, context.delayInterval()));
-            })
+          return logIteration(executionId, nodeId, state.iteration() + 1)
+              .then(
+                  context
+                      .processor()
+                      .process(Flux.just(state.message()), context.targetConfig())
+                      .last())
+              .flatMap(resultMessage -> {
+                final long elapsed = System.currentTimeMillis() - startTime;
+                return checkExit(
+                        resultMessage, context.exitCondition(), state.iteration() + 1, elapsed)
+                    .flatMap(exit -> {
+                      if (Boolean.TRUE.equals(exit)) {
+                        return logAndTerminate(
+                            executionId,
+                            nodeId,
+                            "Exit condition met",
+                            state.next(resultMessage, true));
+                      }
+                      return Mono.just(state.next(resultMessage, false))
+                          .delayElement(context.delayInterval());
+                    });
+              })
+              .onErrorResume(
+                  e -> handleFailure(e, context.failureStrategy(), state, context.delayInterval()));
+        })
         .filter(LoopState::terminated)
         .last()
         .map(LoopState::message);

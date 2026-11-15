@@ -184,49 +184,48 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   @Override
   public Mono<Void> save(final String executionId, final String nodeId, final Message<?> message) {
-    return Mono.defer(
-        () -> {
-          final Recorded recorded =
-              store
-                  .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
-                  .computeIfAbsent(nodeId, _ -> new Recorded());
-          // After the insert, not before: a clear that ran in between has already set the flag, so
-          // a late message cannot leave state behind that no later clear removes.
-          if (cleared.contains(executionId)) {
-            store.remove(executionId);
-            return Mono.empty();
-          }
-          final long size = sizeOf(message);
-          final List<Message<?>> toSpill = new ArrayList<>();
-          Mono<Void> write = Mono.empty();
-          synchronized (recorded) {
-            if (recorded.cleared) {
-              return Mono.empty();
-            }
-            if (recorded.spilled) {
-              toSpill.add(message);
-            } else if (recorded.messages.size() < messagesPerNode
-                && recorded.bytes + size <= bytesPerNode) {
-              recorded.messages.add(message);
-              recorded.bytes += size;
-              held.addAndGet(size);
-            } else if (spill == null) {
-              recorded.truncated = true;
-            } else {
-              // The whole output moves, so a replay never mixes Java objects with JSON values.
-              recorded.spilled = true;
-              toSpill.addAll(recorded.messages);
-              toSpill.add(message);
-              held.addAndGet(-recorded.bytes);
-              recorded.messages.clear();
-              recorded.bytes = 0;
-            }
-            if (!toSpill.isEmpty()) {
-              write = queueSpill(recorded, executionId, nodeId, toSpill);
-            }
-          }
-          return write;
-        });
+    return Mono.defer(() -> {
+      final Recorded recorded =
+          store
+              .computeIfAbsent(executionId, _ -> new ConcurrentHashMap<>())
+              .computeIfAbsent(nodeId, _ -> new Recorded());
+      // After the insert, not before: a clear that ran in between has already set the flag, so
+      // a late message cannot leave state behind that no later clear removes.
+      if (cleared.contains(executionId)) {
+        store.remove(executionId);
+        return Mono.empty();
+      }
+      final long size = sizeOf(message);
+      final List<Message<?>> toSpill = new ArrayList<>();
+      Mono<Void> write = Mono.empty();
+      synchronized (recorded) {
+        if (recorded.cleared) {
+          return Mono.empty();
+        }
+        if (recorded.spilled) {
+          toSpill.add(message);
+        } else if (recorded.messages.size() < messagesPerNode
+            && recorded.bytes + size <= bytesPerNode) {
+          recorded.messages.add(message);
+          recorded.bytes += size;
+          held.addAndGet(size);
+        } else if (spill == null) {
+          recorded.truncated = true;
+        } else {
+          // The whole output moves, so a replay never mixes Java objects with JSON values.
+          recorded.spilled = true;
+          toSpill.addAll(recorded.messages);
+          toSpill.add(message);
+          held.addAndGet(-recorded.bytes);
+          recorded.messages.clear();
+          recorded.bytes = 0;
+        }
+        if (!toSpill.isEmpty()) {
+          write = queueSpill(recorded, executionId, nodeId, toSpill);
+        }
+      }
+      return write;
+    });
   }
 
   /**
@@ -250,36 +249,33 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
                     .then())
             .cache();
     recorded.spillTail = mine;
-    return mine.doFinally(
-        _ -> {
-          synchronized (recorded) {
-            if (recorded.spillTail == mine) {
-              recorded.spillTail = Mono.empty();
-            }
-          }
-        });
+    return mine.doFinally(_ -> {
+      synchronized (recorded) {
+        if (recorded.spillTail == mine) {
+          recorded.spillTail = Mono.empty();
+        }
+      }
+    });
   }
 
   @Override
   public Mono<Message<?>> get(final String executionId, final String nodeId) {
-    return Mono.defer(
-        () -> {
-          final Recorded recorded = recorded(executionId, nodeId);
-          if (isSpilled(recorded)) {
-            return spill.get(executionId, nodeId);
-          }
-          final List<Message<?>> all = snapshot(executionId, nodeId);
-          return all.isEmpty() ? Mono.empty() : Mono.just(all.getLast());
-        });
+    return Mono.defer(() -> {
+      final Recorded recorded = recorded(executionId, nodeId);
+      if (isSpilled(recorded)) {
+        return spill.get(executionId, nodeId);
+      }
+      final List<Message<?>> all = snapshot(executionId, nodeId);
+      return all.isEmpty() ? Mono.empty() : Mono.just(all.getLast());
+    });
   }
 
   @Override
   public Flux<Message<?>> getAll(final String executionId, final String nodeId) {
-    return Flux.defer(
-        () ->
-            isSpilled(recorded(executionId, nodeId))
-                ? spill.getAll(executionId, nodeId)
-                : Flux.fromIterable(snapshot(executionId, nodeId)));
+    return Flux.defer(() ->
+        isSpilled(recorded(executionId, nodeId))
+            ? spill.getAll(executionId, nodeId)
+            : Flux.fromIterable(snapshot(executionId, nodeId)));
   }
 
   @Override
@@ -304,14 +300,13 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
 
   @Override
   public Mono<Void> markComplete(final String executionId, final String nodeId) {
-    return Mono.fromRunnable(
-        () -> {
-          finished.computeIfAbsent(executionId, _ -> ConcurrentHashMap.newKeySet()).add(nodeId);
-          if (cleared.contains(executionId)) {
-            // a late marker of a cleared run
-            finished.remove(executionId);
-          }
-        });
+    return Mono.fromRunnable(() -> {
+      finished.computeIfAbsent(executionId, _ -> ConcurrentHashMap.newKeySet()).add(nodeId);
+      if (cleared.contains(executionId)) {
+        // a late marker of a cleared run
+        finished.remove(executionId);
+      }
+    });
   }
 
   @Override
@@ -331,14 +326,13 @@ public class InMemoryNodeCheckpointStore implements NodeCheckpointStore, ByteCou
     if (removed != null) {
       removed
           .values()
-          .forEach(
-              recorded -> {
-                synchronized (recorded) {
-                  recorded.cleared = true;
-                  held.addAndGet(-recorded.bytes);
-                  recorded.bytes = 0;
-                }
-              });
+          .forEach(recorded -> {
+            synchronized (recorded) {
+              recorded.cleared = true;
+              held.addAndGet(-recorded.bytes);
+              recorded.bytes = 0;
+            }
+          });
     }
   }
 

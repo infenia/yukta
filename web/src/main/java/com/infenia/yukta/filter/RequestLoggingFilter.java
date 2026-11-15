@@ -34,26 +34,25 @@ public class RequestLoggingFilter implements WebFilter {
 
     return chain
         .filter(exchange)
-        .doFinally(
-            signalType -> {
-              final long duration = System.currentTimeMillis() - startTime;
-              final var response = exchange.getResponse();
-              final var statusCodeObj = response.getStatusCode();
-              final int statusCode = statusCodeObj != null ? statusCodeObj.value() : 0;
+        .doFinally(signalType -> {
+          final long duration = System.currentTimeMillis() - startTime;
+          final var response = exchange.getResponse();
+          final var statusCodeObj = response.getStatusCode();
+          final int statusCode = statusCodeObj != null ? statusCodeObj.value() : 0;
 
-              if (isRejection(statusCode)) {
-                log.atWarn()
-                    .log(
-                        "{} {} -> {} in {}ms from {}",
-                        method,
-                        path,
-                        statusCode,
-                        duration,
-                        remote(exchange));
-              } else {
-                log.info("{} {} -> {} in {}ms", method, path, statusCode, duration);
-              }
-            });
+          if (isRejection(statusCode)) {
+            log.atWarn()
+                .log(
+                    "{} {} -> {} in {}ms from {}",
+                    method,
+                    path,
+                    statusCode,
+                    duration,
+                    remote(exchange));
+          } else {
+            log.info("{} {} -> {} in {}ms", method, path, statusCode, duration);
+          }
+        });
   }
 
   /** 400, 401, 403 and 429 are what the host and key filters answer; worth a warning. */

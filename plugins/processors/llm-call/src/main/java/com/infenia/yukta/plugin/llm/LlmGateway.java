@@ -296,10 +296,9 @@ public class LlmGateway {
                   .content(turn.content())
                   .toolCalls(
                       turn.toolCalls().stream()
-                          .map(
-                              call ->
-                                  new AssistantMessage.ToolCall(
-                                      call.id(), "function", call.name(), call.arguments()))
+                          .map(call ->
+                              new AssistantMessage.ToolCall(
+                                  call.id(), "function", call.name(), call.arguments()))
                           .toList())
                   .build();
       case "tool" ->

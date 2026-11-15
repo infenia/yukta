@@ -179,32 +179,28 @@ class InputRequestQueriesTest {
         .expectNext("open")
         .verifyComplete();
     StepVerifier.create(queries.requireWaiting("e1", "answered"))
-        .expectErrorSatisfies(
-            e -> {
-              assertThat(e).isInstanceOf(InputAnsweredException.class);
-              final InputAnsweredException answered = (InputAnsweredException) e;
-              assertThat(answered.requestId()).isEqualTo("answered");
-              assertThat(answered.decision()).isEqualTo("approve");
-              assertThat(answered.responder()).isEqualTo("HUMAN:key:alice");
-              assertThat(answered.getMessage())
-                  .isEqualTo(
-                      "Input request answered is already answered: approve by HUMAN:key:alice");
-            })
+        .expectErrorSatisfies(e -> {
+          assertThat(e).isInstanceOf(InputAnsweredException.class);
+          final InputAnsweredException answered = (InputAnsweredException) e;
+          assertThat(answered.requestId()).isEqualTo("answered");
+          assertThat(answered.decision()).isEqualTo("approve");
+          assertThat(answered.responder()).isEqualTo("HUMAN:key:alice");
+          assertThat(answered.getMessage())
+              .isEqualTo("Input request answered is already answered: approve by HUMAN:key:alice");
+        })
         .verify();
     StepVerifier.create(queries.requireWaiting("e1", "forgotten"))
-        .expectErrorSatisfies(
-            e -> {
-              assertThat(e).isInstanceOf(InputAnsweredException.class);
-              assertThat(((InputAnsweredException) e).decision()).isNull();
-              assertThat(e.getMessage()).isEqualTo("Input request forgotten is already answered");
-            })
+        .expectErrorSatisfies(e -> {
+          assertThat(e).isInstanceOf(InputAnsweredException.class);
+          assertThat(((InputAnsweredException) e).decision()).isNull();
+          assertThat(e.getMessage()).isEqualTo("Input request forgotten is already answered");
+        })
         .verify();
     StepVerifier.create(queries.requireWaiting("e1", "expired"))
-        .expectErrorMatches(
-            e ->
-                e instanceof ConflictException
-                    && !(e instanceof InputAnsweredException)
-                    && e.getMessage().endsWith("is EXPIRED"))
+        .expectErrorMatches(e ->
+            e instanceof ConflictException
+                && !(e instanceof InputAnsweredException)
+                && e.getMessage().endsWith("is EXPIRED"))
         .verify();
   }
 }

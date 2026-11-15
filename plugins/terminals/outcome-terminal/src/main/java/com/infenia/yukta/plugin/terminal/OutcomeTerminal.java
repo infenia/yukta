@@ -84,12 +84,11 @@ public final class OutcomeTerminal implements TerminalPlugin {
     final String outcome = outcome(config);
     return input
         .count()
-        .doOnNext(
-            count -> {
-              if (count > 0) {
-                log.atInfo().addKeyValue(OUTCOME_KEY, outcome).log("Run ended with an outcome");
-              }
-            })
+        .doOnNext(count -> {
+          if (count > 0) {
+            log.atInfo().addKeyValue(OUTCOME_KEY, outcome).log("Run ended with an outcome");
+          }
+        })
         .then();
   }
 

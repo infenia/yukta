@@ -163,10 +163,9 @@ class PresetsAcceptanceTest {
     // the guard sees the failure and sends its command, whether or not the run is still alive
     await()
         .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
-                    .contains("PauseWorkflowCommand", executionId));
+        .untilAsserted(() ->
+            assertThat(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
+                .contains("PauseWorkflowCommand", executionId));
   }
 
   @Test
@@ -217,11 +216,10 @@ class PresetsAcceptanceTest {
 
     await()
         .atMost(WAIT)
-        .untilAsserted(
-            () ->
-                assertThat(tracker.getProgressByExecutionId(executionId).controlState())
-                    .as(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
-                    .isEqualTo("PAUSED"));
+        .untilAsserted(() ->
+            assertThat(tracker.getProgressByExecutionId(executionId).controlState())
+                .as(call("GET", "/api/supervisors/decisions?supervisor=" + id, "").body())
+                .isEqualTo("PAUSED"));
     gateway.stopWorkflow(session, workflowId, "cleanup", StopMode.CANCEL).block();
   }
 }

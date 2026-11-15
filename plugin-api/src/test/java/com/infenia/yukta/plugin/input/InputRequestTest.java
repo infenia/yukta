@@ -131,68 +131,63 @@ class InputRequestTest {
   @Test
   void everyRequiredPartIsChecked() {
     final InputRequest ok = request();
-    assertThatThrownBy(
-            () ->
-                new InputRequest(
-                    "r",
-                    "k",
-                    "s",
-                    "w",
-                    "e",
-                    "n",
-                    null,
-                    InputState.OPEN,
-                    0,
-                    "t",
-                    null,
-                    null,
-                    null,
-                    NOW,
-                    NOW))
+    assertThatThrownBy(() ->
+            new InputRequest(
+                "r",
+                "k",
+                "s",
+                "w",
+                "e",
+                "n",
+                null,
+                InputState.OPEN,
+                0,
+                "t",
+                null,
+                null,
+                null,
+                NOW,
+                NOW))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequest(
-                    "r", "k", "s", "w", "e", "n", ok.spec(), null, 0, "t", null, null, null, NOW,
-                    NOW))
+    assertThatThrownBy(() ->
+            new InputRequest(
+                "r", "k", "s", "w", "e", "n", ok.spec(), null, 0, "t", null, null, null, NOW, NOW))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequest(
-                    "r",
-                    "k",
-                    "s",
-                    "w",
-                    "e",
-                    "n",
-                    ok.spec(),
-                    InputState.OPEN,
-                    0,
-                    "t",
-                    null,
-                    null,
-                    null,
-                    null,
-                    NOW))
+    assertThatThrownBy(() ->
+            new InputRequest(
+                "r",
+                "k",
+                "s",
+                "w",
+                "e",
+                "n",
+                ok.spec(),
+                InputState.OPEN,
+                0,
+                "t",
+                null,
+                null,
+                null,
+                null,
+                NOW))
         .isInstanceOf(NullPointerException.class);
-    assertThatThrownBy(
-            () ->
-                new InputRequest(
-                    "r",
-                    "k",
-                    "s",
-                    "w",
-                    "e",
-                    "n",
-                    ok.spec(),
-                    InputState.OPEN,
-                    0,
-                    "t",
-                    null,
-                    null,
-                    null,
-                    NOW,
-                    null))
+    assertThatThrownBy(() ->
+            new InputRequest(
+                "r",
+                "k",
+                "s",
+                "w",
+                "e",
+                "n",
+                ok.spec(),
+                InputState.OPEN,
+                0,
+                "t",
+                null,
+                null,
+                null,
+                NOW,
+                null))
         .isInstanceOf(NullPointerException.class);
     for (final String blank :
         new String[] {"key", "session", "workflow", "execution", "node", "tier"}) {

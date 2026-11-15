@@ -108,16 +108,15 @@ class ToolApproval {
             e ->
                 new IllegalArgumentException(
                     "No '" + name + "' approval for tool '" + tool + "' within " + timeout, e))
-        .flatMap(
-            response ->
-                "reject".equalsIgnoreCase(response.decision())
-                    ? Mono.<Void>error(
-                        new IllegalArgumentException(
-                            "Tool '"
-                                + tool
-                                + "' was rejected: "
-                                + Objects.requireNonNullElse(response.text(), "")))
-                    : Mono.<Void>empty());
+        .flatMap(response ->
+            "reject".equalsIgnoreCase(response.decision())
+                ? Mono.<Void>error(
+                    new IllegalArgumentException(
+                        "Tool '"
+                            + tool
+                            + "' was rejected: "
+                            + Objects.requireNonNullElse(response.text(), "")))
+                : Mono.<Void>empty());
   }
 
   /**

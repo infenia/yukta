@@ -121,14 +121,13 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       // The idle clock starts at the terminal's first input and holds while paused.
       final NodeActivity activity = new NodeActivity();
       // RUNNING at the first input, like a processor, not when the pipeline is subscribed
-      activity.onFirstTouch(
-          () ->
-              tracker.emitTaskStatusEvent(
-                  context.executionId(),
-                  node.nodeId(),
-                  node.type(),
-                  TaskStatus.RUNNING,
-                  Collections.emptyMap()));
+      activity.onFirstTouch(() ->
+          tracker.emitTaskStatusEvent(
+              context.executionId(),
+              node.nodeId(),
+              node.type(),
+              TaskStatus.RUNNING,
+              Collections.emptyMap()));
       final Flux<Message<?>> guardedInput =
           activity
               .guard(
@@ -142,28 +141,26 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
                   policy.deadline(),
                   virtualThreadScheduler,
                   () -> control.isPaused(node.nodeId()))
-              .transformDeferredContextual(
-                  (flux, ctx) -> {
-                    final ResultCollector collector = ctx.getOrDefault("resultCollector", null);
-                    final Flux<Message<?>> published =
-                        flux.doOnNext(
-                            message -> {
-                              received.incrementAndGet();
-                              resultService.publish(
-                                  context.executionId(), node.nodeId(), message.payload());
-                            });
-                    if (collector != null) {
-                      log.atDebug()
-                          .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                          .log("Terminal node is collecting results");
-                      // a parent waiting on this run as a sub-workflow learns where it ended
-                      return published
-                          .doOnNext(collector::add)
-                          .doOnComplete(
-                              () -> reportCompletion(collector, terminal, node, received.get()));
-                    }
-                    return published;
-                  });
+              .transformDeferredContextual((flux, ctx) -> {
+                final ResultCollector collector = ctx.getOrDefault("resultCollector", null);
+                final Flux<Message<?>> published =
+                    flux.doOnNext(message -> {
+                      received.incrementAndGet();
+                      resultService.publish(
+                          context.executionId(), node.nodeId(), message.payload());
+                    });
+                if (collector != null) {
+                  log.atDebug()
+                      .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                      .log("Terminal node is collecting results");
+                  // a parent waiting on this run as a sub-workflow learns where it ended
+                  return published
+                      .doOnNext(collector::add)
+                      .doOnComplete(
+                          () -> reportCompletion(collector, terminal, node, received.get()));
+                }
+                return published;
+              });
       // subscribeOn moves only the subscription; a blocking terminal needs its elements moved too
       final Flux<Message<?>> inputToTerminal =
           terminal.isBlocking() ? guardedInput.publishOn(virtualThreadScheduler, 1) : guardedInput;
@@ -212,58 +209,54 @@ public class TerminalNodeAssemblerStrategy implements NodeAssemblerStrategy {
       completion =
           completion
               // A parent waiting on this run as a sub-workflow learns where it ended.
-              .doOnSubscribe(
-                  s -> {
-                    log.atDebug()
-                        .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                        .addKeyValue("executionId", context.executionId())
-                        .log("Terminal node execution started");
-                  })
-              .doOnSuccess(
-                  v -> {
-                    log.atInfo()
-                        .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                        .addKeyValue("executionId", context.executionId())
-                        .log("Terminal node execution completed successfully");
-                    // like a processor: a terminal no input reached did not run
-                    tracker.emitTaskStatusEvent(
-                        context.executionId(),
-                        node.nodeId(),
-                        node.type(),
-                        received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED,
-                        completionMetadata(terminal, node.config(), received.get()));
-                    resultService.nodeEnd(
-                        context.executionId(),
-                        node.nodeId(),
-                        (received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED).name());
-                  })
-              .doOnError(
-                  e -> {
-                    log.atWarn()
-                        .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
-                        .addKeyValue("executionId", context.executionId())
-                        .addKeyValue("error", e.getClass().getSimpleName())
-                        .log("Terminal node execution failed", e);
-                    tracker.emitTaskStatusEvent(
-                        context.executionId(),
-                        node.nodeId(),
-                        node.type(),
-                        NodeStreams.failureStatus(e),
-                        NodeStreams.failureMetadataOf(e));
-                    resultService.nodeEnd(
-                        context.executionId(), node.nodeId(), NodeStreams.failureStatus(e).name());
-                  })
-              .doOnCancel(
-                  () -> {
-                    tracker.emitTaskStatusEvent(
-                        context.executionId(),
-                        node.nodeId(),
-                        node.type(),
-                        TaskStatus.CANCELLED,
-                        Collections.emptyMap());
-                    resultService.nodeEnd(
-                        context.executionId(), node.nodeId(), TaskStatus.CANCELLED.name());
-                  });
+              .doOnSubscribe(s -> {
+                log.atDebug()
+                    .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                    .addKeyValue("executionId", context.executionId())
+                    .log("Terminal node execution started");
+              })
+              .doOnSuccess(v -> {
+                log.atInfo()
+                    .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                    .addKeyValue("executionId", context.executionId())
+                    .log("Terminal node execution completed successfully");
+                // like a processor: a terminal no input reached did not run
+                tracker.emitTaskStatusEvent(
+                    context.executionId(),
+                    node.nodeId(),
+                    node.type(),
+                    received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED,
+                    completionMetadata(terminal, node.config(), received.get()));
+                resultService.nodeEnd(
+                    context.executionId(),
+                    node.nodeId(),
+                    (received.get() > 0 ? TaskStatus.SUCCESS : TaskStatus.SKIPPED).name());
+              })
+              .doOnError(e -> {
+                log.atWarn()
+                    .addKeyValue(LOG_KEY_NODE_ID, node.nodeId())
+                    .addKeyValue("executionId", context.executionId())
+                    .addKeyValue("error", e.getClass().getSimpleName())
+                    .log("Terminal node execution failed", e);
+                tracker.emitTaskStatusEvent(
+                    context.executionId(),
+                    node.nodeId(),
+                    node.type(),
+                    NodeStreams.failureStatus(e),
+                    NodeStreams.failureMetadataOf(e));
+                resultService.nodeEnd(
+                    context.executionId(), node.nodeId(), NodeStreams.failureStatus(e).name());
+              })
+              .doOnCancel(() -> {
+                tracker.emitTaskStatusEvent(
+                    context.executionId(),
+                    node.nodeId(),
+                    node.type(),
+                    TaskStatus.CANCELLED,
+                    Collections.emptyMap());
+                resultService.nodeEnd(
+                    context.executionId(), node.nodeId(), TaskStatus.CANCELLED.name());
+              });
 
       context.terminals().add(completion);
     };

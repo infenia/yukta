@@ -118,12 +118,11 @@ class SupervisorsControllerTest {
         .expectNextCount(1)
         .verifyComplete();
     StepVerifier.create(controller.versions("s1"))
-        .assertNext(
-            r -> {
-              assertThat(r.data()).hasSize(2);
-              assertThat(r.data().get(0).version()).isEqualTo(2);
-              assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).hasSize(2);
+          assertThat(r.data().get(0).version()).isEqualTo(2);
+          assertThat(r.data().get(0).supervisor().settings().get("bearer")).isEqualTo("***");
+        })
         .verifyComplete();
     StepVerifier.create(controller.rollback("s1", 1))
         .assertNext(r -> assertThat(r.data().settings().get("url")).isEqualTo("u1"))
@@ -177,25 +176,23 @@ class SupervisorsControllerTest {
     final SupervisorsController rules = withRules();
 
     StepVerifier.create(rules.rules("r"))
-        .assertNext(
-            r -> {
-              assertThat(r.data().version()).isEqualTo(1);
-              assertThat(r.data().rules())
-                  .containsOnly(Map.entry("rules", List.of("first")), Map.entry("token", "***"));
-            })
+        .assertNext(r -> {
+          assertThat(r.data().version()).isEqualTo(1);
+          assertThat(r.data().rules())
+              .containsOnly(Map.entry("rules", List.of("first")), Map.entry("token", "***"));
+        })
         .verifyComplete();
 
     StepVerifier.create(rules.saveRules("r", Map.of("rules", List.of("second"), "token", "***")))
         .assertNext(r -> assertThat(r.data().version()).isEqualTo(2))
         .verifyComplete();
     StepVerifier.create(store.supervisors().filter(found -> "r".equals(found.id())))
-        .assertNext(
-            saved ->
-                assertThat(saved.settings())
-                    .containsOnly(
-                        Map.entry("rules", List.of("second")),
-                        Map.entry("token", "abc"),
-                        Map.entry("allowedCommands", List.of("PauseWorkflowCommand"))))
+        .assertNext(saved ->
+            assertThat(saved.settings())
+                .containsOnly(
+                    Map.entry("rules", List.of("second")),
+                    Map.entry("token", "abc"),
+                    Map.entry("allowedCommands", List.of("PauseWorkflowCommand"))))
         .verifyComplete();
   }
 
@@ -232,11 +229,10 @@ class SupervisorsControllerTest {
     when(host.isBuiltIn("sys")).thenReturn(true);
 
     StepVerifier.create(rules.saveRules("r", Map.of("initiative", List.of())))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("initiative"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("initiative"))
         .verify();
     StepVerifier.create(rules.saveRules("sys", Map.of()))
         .expectError(ConflictException.class)
@@ -279,22 +275,20 @@ class SupervisorsControllerTest {
   @Test
   void createdSupervisorIsListedWithItsCountsAndSecretsHidden() {
     StepVerifier.create(controller.create(body("s1", Map.of("bearer", "abc", "url", "u"))))
-        .assertNext(
-            r -> {
-              assertThat(r.status()).isEqualTo(201);
-              assertThat(r.data().settings()).isEqualTo(Map.of("bearer", "***", "url", "u"));
-              assertThat(r.data().description()).isEqualTo("for tests");
-            })
+        .assertNext(r -> {
+          assertThat(r.status()).isEqualTo(201);
+          assertThat(r.data().settings()).isEqualTo(Map.of("bearer", "***", "url", "u"));
+          assertThat(r.data().description()).isEqualTo("for tests");
+        })
         .verifyComplete();
     StepVerifier.create(attach("a1", "s1", "global", false)).expectNextCount(1).verifyComplete();
 
     StepVerifier.create(controller.list())
-        .assertNext(
-            r -> {
-              assertThat(r.data()).hasSize(1);
-              assertThat(r.data().get(0).attachments()).isEqualTo(1);
-              assertThat(r.data().get(0).system()).isFalse();
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).hasSize(1);
+          assertThat(r.data().get(0).attachments()).isEqualTo(1);
+          assertThat(r.data().get(0).system()).isFalse();
+        })
         .verifyComplete();
   }
 
@@ -313,11 +307,10 @@ class SupervisorsControllerTest {
   @Test
   void unknownKeyIsRefusedWithItsField() {
     StepVerifier.create(controller.create(body("s1", Map.of("bogus", 1))))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(((SettingsValidationException) e).getIssues())
-                    .extracting(SettingsValidationException.Issue::field)
-                    .containsExactly("settings.bogus"))
+        .expectErrorSatisfies(e ->
+            assertThat(((SettingsValidationException) e).getIssues())
+                .extracting(SettingsValidationException.Issue::field)
+                .containsExactly("settings.bogus"))
         .verify();
   }
 
@@ -369,12 +362,11 @@ class SupervisorsControllerTest {
     when(host.isBuiltIn("rules")).thenReturn(true);
 
     StepVerifier.create(controller.list())
-        .assertNext(
-            r -> {
-              assertThat(r.data()).hasSize(1);
-              assertThat(r.data().get(0).system()).isTrue();
-              assertThat(r.data().get(0).applied()).isEqualTo(3);
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).hasSize(1);
+          assertThat(r.data().get(0).system()).isTrue();
+          assertThat(r.data().get(0).applied()).isEqualTo(3);
+        })
         .verifyComplete();
     StepVerifier.create(controller.replace("rules", body("rules", Map.of())))
         .expectError(ConflictException.class)
@@ -384,24 +376,22 @@ class SupervisorsControllerTest {
         .expectError(ConflictException.class)
         .verify();
     StepVerifier.create(controller.assignments(null, null, "SYSTEM"))
-        .assertNext(
-            r -> {
-              assertThat(r.data()).hasSize(1);
-              assertThat(r.data().get(0).source()).isEqualTo("SYSTEM");
-            })
+        .assertNext(r -> {
+          assertThat(r.data()).hasSize(1);
+          assertThat(r.data().get(0).source()).isEqualTo("SYSTEM");
+        })
         .verifyComplete();
   }
 
   @Test
   void validateReportsProblemsByFieldWithoutSaving() {
     StepVerifier.create(controller.validate(body("s1", Map.of("bogus", 1))))
-        .assertNext(
-            r -> {
-              assertThat(r.data().valid()).isFalse();
-              assertThat(r.data().errors())
-                  .extracting(SupervisorValidation.FieldIssue::field)
-                  .containsExactly("settings.bogus");
-            })
+        .assertNext(r -> {
+          assertThat(r.data().valid()).isFalse();
+          assertThat(r.data().errors())
+              .extracting(SupervisorValidation.FieldIssue::field)
+              .containsExactly("settings.bogus");
+        })
         .verifyComplete();
     StepVerifier.create(controller.validate(body(null, Map.of())))
         .assertNext(r -> assertThat(r.data().valid()).isTrue())
@@ -415,14 +405,13 @@ class SupervisorsControllerTest {
     StepVerifier.create(
             controller.setAssignments(
                 "s1", false, List.of(new AssignmentBody("session:A", true, null))))
-        .assertNext(
-            r -> {
-              assertThat(r.data())
-                  .singleElement()
-                  .extracting(AssignmentView::source)
-                  .isEqualTo("MANUAL");
-              assertThat(r.data().get(0).id()).startsWith(SupervisorAssignments.ID_PREFIX);
-            })
+        .assertNext(r -> {
+          assertThat(r.data())
+              .singleElement()
+              .extracting(AssignmentView::source)
+              .isEqualTo("MANUAL");
+          assertThat(r.data().get(0).id()).startsWith(SupervisorAssignments.ID_PREFIX);
+        })
         .verifyComplete();
     StepVerifier.create(
             controller.setAssignments(
@@ -459,14 +448,10 @@ class SupervisorsControllerTest {
     StepVerifier.create(
             controller.checkAssignments(
                 "s2", List.of(new AssignmentBody("workflow:A/w1//build", true, null))))
-        .assertNext(
-            r -> {
-              assertThat(r.data().valid()).isFalse();
-              assertThat(r.data().problems())
-                  .singleElement()
-                  .asString()
-                  .startsWith("assignments[0]");
-            })
+        .assertNext(r -> {
+          assertThat(r.data().valid()).isFalse();
+          assertThat(r.data().problems()).singleElement().asString().startsWith("assignments[0]");
+        })
         .verifyComplete();
     StepVerifier.create(
             controller.setAssignments(
@@ -612,12 +597,11 @@ class SupervisorsControllerTest {
     when(host.isBuiltIn(org.mockito.ArgumentMatchers.anyString())).thenReturn(true);
 
     StepVerifier.create(controller.assignments(null, null, "SYSTEM"))
-        .assertNext(
-            r ->
-                assertThat(r.data())
-                    .extracting(AssignmentView::scope)
-                    .containsExactly(
-                        "global", "session:A", "workflow:A/w", "workflow:w", "workflow:A/w"))
+        .assertNext(r ->
+            assertThat(r.data())
+                .extracting(AssignmentView::scope)
+                .containsExactly(
+                    "global", "session:A", "workflow:A/w", "workflow:w", "workflow:A/w"))
         .verifyComplete();
   }
 
@@ -651,11 +635,10 @@ class SupervisorsControllerTest {
     StepVerifier.create(
             controller.setAssignments(
                 "s1", false, List.of(new AssignmentBody("server", null, null))))
-        .assertNext(
-            r -> {
-              assertThat(r.data().get(0).enabled()).isTrue();
-              assertThat(r.data().get(0).locked()).isFalse();
-            })
+        .assertNext(r -> {
+          assertThat(r.data().get(0).enabled()).isTrue();
+          assertThat(r.data().get(0).locked()).isFalse();
+        })
         .verifyComplete();
   }
 
@@ -711,18 +694,16 @@ class SupervisorsControllerTest {
                 new SupervisorBody.DelegationBody(null, null)));
 
     StepVerifier.create(controller.create(withParents))
-        .assertNext(
-            r -> {
-              assertThat(r.data().parents()).containsExactly("boss");
-              assertThat(r.data().delegation())
-                  .containsEntry(
-                      "APPROVAL",
-                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))
-                  .containsEntry(
-                      "INPUT",
-                      new com.infenia.yukta.dto.response.SupervisorView.DelegationView(
-                          "ORDERED", 30));
-            })
+        .assertNext(r -> {
+          assertThat(r.data().parents()).containsExactly("boss");
+          assertThat(r.data().delegation())
+              .containsEntry(
+                  "APPROVAL",
+                  new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ALL", 45))
+              .containsEntry(
+                  "INPUT",
+                  new com.infenia.yukta.dto.response.SupervisorView.DelegationView("ORDERED", 30));
+        })
         .verifyComplete();
 
     StepVerifier.create(
@@ -767,11 +748,10 @@ class SupervisorsControllerTest {
     created("s1");
 
     StepVerifier.create(controller.checkAssignments("s1", List.of()))
-        .assertNext(
-            r -> {
-              assertThat(r.data().valid()).isTrue();
-              assertThat(r.message()).isEqualTo("No problems");
-            })
+        .assertNext(r -> {
+          assertThat(r.data().valid()).isTrue();
+          assertThat(r.message()).isEqualTo("No problems");
+        })
         .verifyComplete();
     StepVerifier.create(controller.checkAssignments("s1", null))
         .expectError(IllegalArgumentException.class)

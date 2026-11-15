@@ -92,15 +92,14 @@ public class InputRequestsController {
     return queries
         .list(sessionId, workflowId, executionId, states)
         .collectList()
-        .flatMap(
-            all -> {
-              final Pagination.Slice<InputRequest> page =
-                  Pagination.slice(all, limit, cursor, InputRequest::id);
-              return Flux.fromIterable(page.items())
-                  .concatMap(this::view)
-                  .collectList()
-                  .map(items -> Pagination.respond(items, page.next(), "Input requests retrieved"));
-            });
+        .flatMap(all -> {
+          final Pagination.Slice<InputRequest> page =
+              Pagination.slice(all, limit, cursor, InputRequest::id);
+          return Flux.fromIterable(page.items())
+              .concatMap(this::view)
+              .collectList()
+              .map(items -> Pagination.respond(items, page.next(), "Input requests retrieved"));
+        });
   }
 
   /** Lists the input requests that wait in every session. */

@@ -454,9 +454,8 @@ class RunAnalyticsTest {
           new ExecutionEvent.WorkflowStatusChanged("x", "s1", "w1", SUCCESS, T0.plusMillis(10)));
       await()
           .atMost(10, TimeUnit.SECONDS)
-          .untilAsserted(
-              () ->
-                  assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS"));
+          .untilAsserted(() ->
+              assertThat(analytics.snapshot(RunAnalytics.GLOBAL)).containsKey("runs.SUCCESS"));
     } finally {
       analytics.stop();
     }
@@ -725,12 +724,11 @@ class RunAnalyticsTest {
         .containsEntry("runs.failed", 1.0);
     assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
         .singleElement()
-        .satisfies(
-            a -> {
-              assertThat(a.command()).isEqualTo("StopCommand");
-              assertThat(a.applied()).isFalse();
-              assertThat(a.reason()).isNull();
-            });
+        .satisfies(a -> {
+          assertThat(a.command()).isEqualTo("StopCommand");
+          assertThat(a.applied()).isFalse();
+          assertThat(a.reason()).isNull();
+        });
   }
 
   @Test
@@ -803,11 +801,10 @@ class RunAnalyticsTest {
 
     assertThat(analytics.annotations(RunAnalytics.GLOBAL, Duration.ofDays(1)))
         .singleElement()
-        .satisfies(
-            a -> {
-              assertThat(a.command()).isEqualTo("Pause\nnow");
-              assertThat(a.actor()).isNull();
-            });
+        .satisfies(a -> {
+          assertThat(a.command()).isEqualTo("Pause\nnow");
+          assertThat(a.actor()).isNull();
+        });
   }
 
   @Test

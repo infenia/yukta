@@ -151,29 +151,28 @@ class R2dbcInputRequestStoreTest extends PostgresTestSupport {
     store.createIfAbsent(first).block();
     final List<Mono<Boolean>> tries =
         java.util.stream.IntStream.range(0, 8)
-            .mapToObj(
-                i ->
-                    store.compareAndSet(
+            .mapToObj(i ->
+                store.compareAndSet(
+                    "r1",
+                    0,
+                    new InputRequest(
                         "r1",
-                        0,
-                        new InputRequest(
-                            "r1",
-                            "k1",
-                            "s",
-                            "w",
-                            "e1",
-                            "n",
-                            first.spec(),
-                            InputState.ANSWERED,
-                            1,
-                            "auto",
-                            List.of(),
-                            "by " + i,
-                            null,
-                            null,
-                            List.of(),
-                            T0,
-                            T0.plusSeconds(1))))
+                        "k1",
+                        "s",
+                        "w",
+                        "e1",
+                        "n",
+                        first.spec(),
+                        InputState.ANSWERED,
+                        1,
+                        "auto",
+                        List.of(),
+                        "by " + i,
+                        null,
+                        null,
+                        List.of(),
+                        T0,
+                        T0.plusSeconds(1))))
             .toList();
 
     final List<Boolean> results = Flux.merge(tries).collectList().block();

@@ -77,45 +77,40 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
       final String pool,
       final Flux<Message<?>> input,
       final Map<String, Object> config) {
-    return Flux.deferContextual(
-        ctx -> {
-          final Optional<Chosen> chosen = pick(pool, pluginType);
-          if (chosen.isEmpty()) {
-            return Flux.error(
-                new WorkflowExecutionException(
-                    "No connected worker in pool '"
-                        + pool
-                        + "' can run "
-                        + pluginType
-                        + " right now"));
-          }
-          final String workerId = chosen.get().info().workerId();
-          final AtomicInteger load = inFlight.computeIfAbsent(workerId, _ -> new AtomicInteger());
-          load.incrementAndGet();
-          final Runnable heartbeat =
-              ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
-                  ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
-                  : () -> {};
-          final Flux<NodeFrame> out =
-              Flux.concat(
-                  Mono.just(
-                      NodeFrame.start(
-                          ctx.getOrDefault("executionId", "unknown"),
-                          ctx.getOrDefault("nodeId", "unknown"),
-                          pluginType,
-                          config)),
-                  input.map(this::frame),
-                  Mono.just(NodeFrame.complete()));
-          return chosen
-              .get()
-              .requester()
-              .route("node.run")
-              .data(out)
-              .retrieveFlux(NodeFrame.class)
-              .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, sink))
-              .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
-              .doFinally(_ -> load.decrementAndGet());
-        });
+    return Flux.deferContextual(ctx -> {
+      final Optional<Chosen> chosen = pick(pool, pluginType);
+      if (chosen.isEmpty()) {
+        return Flux.error(
+            new WorkflowExecutionException(
+                "No connected worker in pool '" + pool + "' can run " + pluginType + " right now"));
+      }
+      final String workerId = chosen.get().info().workerId();
+      final AtomicInteger load = inFlight.computeIfAbsent(workerId, _ -> new AtomicInteger());
+      load.incrementAndGet();
+      final Runnable heartbeat =
+          ctx.hasKey(WorkflowContext.HEARTBEAT_KEY)
+              ? ctx.get(WorkflowContext.HEARTBEAT_KEY)
+              : () -> {};
+      final Flux<NodeFrame> out =
+          Flux.concat(
+              Mono.just(
+                  NodeFrame.start(
+                      ctx.getOrDefault("executionId", "unknown"),
+                      ctx.getOrDefault("nodeId", "unknown"),
+                      pluginType,
+                      config)),
+              input.map(this::frame),
+              Mono.just(NodeFrame.complete()));
+      return chosen
+          .get()
+          .requester()
+          .route("node.run")
+          .data(out)
+          .retrieveFlux(NodeFrame.class)
+          .<Message<?>>handle((frame, sink) -> answer(workerId, frame, heartbeat, sink))
+          .onErrorMap(WorkerNodeExecutor::isTransport, error -> lost(workerId, error))
+          .doFinally(_ -> load.decrementAndGet());
+    });
   }
 
   /** A worker that may run the attempt, with the way into it. */
@@ -126,12 +121,11 @@ public class WorkerNodeExecutor implements RemoteNodeExecutor {
     return registry.list().stream()
         .filter(info -> info.pools().contains(pool) && info.pluginTypes().contains(pluginType))
         .filter(info -> !info.draining() && free(info) > 0)
-        .flatMap(
-            info ->
-                connections
-                    .find(info.workerId())
-                    .map(requester -> new Chosen(info, requester))
-                    .stream())
+        .flatMap(info ->
+            connections
+                .find(info.workerId())
+                .map(requester -> new Chosen(info, requester))
+                .stream())
         .max(
             Comparator.comparingInt((Chosen chosen) -> free(chosen.info()))
                 .thenComparing(chosen -> chosen.info().workerId(), Comparator.reverseOrder()));

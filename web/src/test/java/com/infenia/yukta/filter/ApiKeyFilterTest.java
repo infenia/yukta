@@ -69,12 +69,11 @@ class ApiKeyFilterTest {
         .filter(
             exchange,
             _ ->
-                Mono.deferContextual(
-                    ctx -> {
-                      passed.set(true);
-                      actor.set(ctx.getOrDefault(ControlActor.CONTEXT_KEY, null));
-                      return Mono.empty();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  passed.set(true);
+                  actor.set(ctx.getOrDefault(ControlActor.CONTEXT_KEY, null));
+                  return Mono.empty();
+                }))
         .block();
     return exchange;
   }
@@ -511,11 +510,10 @@ class ApiKeyFilterTest {
         .filter(
             me,
             _ ->
-                Mono.deferContextual(
-                    ctx -> {
-                      principal.set(ctx.getOrDefault(CallerIdentity.CONTEXT_KEY, null));
-                      return Mono.empty();
-                    }))
+                Mono.deferContextual(ctx -> {
+                  principal.set(ctx.getOrDefault(CallerIdentity.CONTEXT_KEY, null));
+                  return Mono.empty();
+                }))
         .block();
 
     assertThat(principal.get()).isInstanceOf(ApiKeys.Match.class);

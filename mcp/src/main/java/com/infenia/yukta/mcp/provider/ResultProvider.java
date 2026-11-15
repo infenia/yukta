@@ -85,16 +85,15 @@ public class ResultProvider {
   private ExecutionResultView fence(final ExecutionResults read) {
     final List<ResultEvent> events =
         read.events().stream()
-            .map(
-                event ->
-                    new ResultEvent(
-                        event.kind(),
-                        event.nodeId(),
-                        event.sequence(),
-                        sanitizer.redact(event.payload()),
-                        event.status(),
-                        event.truncated(),
-                        event.timestamp()))
+            .map(event ->
+                new ResultEvent(
+                    event.kind(),
+                    event.nodeId(),
+                    event.sequence(),
+                    sanitizer.redact(event.payload()),
+                    event.status(),
+                    event.truncated(),
+                    event.timestamp()))
             .toList();
     return new ExecutionResultView(
         read.executionId(),

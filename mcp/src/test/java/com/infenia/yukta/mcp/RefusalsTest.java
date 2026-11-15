@@ -18,13 +18,12 @@ class RefusalsTest {
             Refusals.named(
                 Mono.<String>error(
                     new ControlledBySupervisorException("guard", "guard controls this"))))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("CONTROLLED_BY_SUPERVISOR (supervisor guard)")
-                    .hasMessageContaining("guard controls this")
-                    .hasMessageContaining("not an error to retry"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("CONTROLLED_BY_SUPERVISOR (supervisor guard)")
+                .hasMessageContaining("guard controls this")
+                .hasMessageContaining("not an error to retry"))
         .verify();
   }
 

@@ -82,12 +82,11 @@ class ClassifyPluginTest {
 
     StepVerifier.create(
             plugin(model).process(Flux.just(FakeModel.message("x".repeat(5000))), capped))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(WorkflowExecutionException.class)
-                    .hasMessageContaining("5000 characters")
-                    .hasMessageContaining("maxStateChars 2000"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(WorkflowExecutionException.class)
+                .hasMessageContaining("5000 characters")
+                .hasMessageContaining("maxStateChars 2000"))
         .verify();
     assertThat(model.asked).isEmpty();
 
@@ -339,11 +338,10 @@ class ClassifyPluginTest {
         plugin(new FakeModel(_ -> Mono.error(new IllegalStateException("down"))));
 
     StepVerifier.create(plugin.process(Flux.just(FakeModel.message("x")), config()))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(WorkflowExecutionException.class)
-                    .hasMessage("Decision model failed: down"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(WorkflowExecutionException.class)
+                .hasMessage("Decision model failed: down"))
         .verify();
   }
 

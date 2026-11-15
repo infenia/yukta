@@ -224,10 +224,9 @@ class CorePluginsAcceptanceTest {
         gateway.startWorkflow(key.session(), key.workflowId(), Map.of(), null).block();
     await()
         .atMost(PluginWorkflows.WAIT)
-        .until(
-            () ->
-                tracker.getProgressByExecutionId(executionId).tasks().stream()
-                    .anyMatch(t -> "w".equals(t.nodeId()) && TaskStatus.RUNNING == t.status()));
+        .until(() ->
+            tracker.getProgressByExecutionId(executionId).tasks().stream()
+                .anyMatch(t -> "w".equals(t.nodeId()) && TaskStatus.RUNNING == t.status()));
     assertThat(tracker.getProgressByExecutionId(executionId).status())
         .isEqualTo(TaskStatus.RUNNING);
 

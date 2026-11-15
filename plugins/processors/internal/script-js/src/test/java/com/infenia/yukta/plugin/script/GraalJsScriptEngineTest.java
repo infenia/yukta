@@ -180,11 +180,9 @@ class GraalJsScriptEngineTest {
     System.setProperty("yukta.script.timeout-ms", "120000");
     try {
       final GraalJsScriptEngine patient = new GraalJsScriptEngine();
-      assertThatThrownBy(
-              () ->
-                  patient.eval(
-                      "new Array(1500000).fill(0)",
-                      DefaultMessage.create(UUID.randomUUID(), Map.of())))
+      assertThatThrownBy(() ->
+              patient.eval(
+                  "new Array(1500000).fill(0)", DefaultMessage.create(UUID.randomUUID(), Map.of())))
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("too large");
     } finally {
@@ -203,10 +201,8 @@ class GraalJsScriptEngineTest {
     System.setProperty("yukta.script.timeout-ms", "300");
     try {
       final GraalJsScriptEngine limited = new GraalJsScriptEngine();
-      assertThatThrownBy(
-              () ->
-                  limited.eval(
-                      "while (true) {}", DefaultMessage.create(UUID.randomUUID(), Map.of())))
+      assertThatThrownBy(() ->
+              limited.eval("while (true) {}", DefaultMessage.create(UUID.randomUUID(), Map.of())))
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("cancelled");
     } finally {
@@ -219,11 +215,10 @@ class GraalJsScriptEngineTest {
     System.setProperty("yukta.script.max-statements", "10000");
     try {
       final GraalJsScriptEngine limited = new GraalJsScriptEngine();
-      assertThatThrownBy(
-              () ->
-                  limited.eval(
-                      "var i = 0; while (i < 1000000) { i++; }",
-                      DefaultMessage.create(UUID.randomUUID(), Map.of())))
+      assertThatThrownBy(() ->
+              limited.eval(
+                  "var i = 0; while (i < 1000000) { i++; }",
+                  DefaultMessage.create(UUID.randomUUID(), Map.of())))
           .isInstanceOf(IllegalStateException.class)
           .hasMessageContaining("statements");
     } finally {

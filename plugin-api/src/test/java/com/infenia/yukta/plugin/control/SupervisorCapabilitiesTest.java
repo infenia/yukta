@@ -80,10 +80,9 @@ class SupervisorCapabilitiesTest {
     assertThatThrownBy(
             () -> SupervisorCapabilities.from(profile(Map.of("allowedCommands", "Pause"))))
         .hasMessage("allowedCommands must be a list of command names");
-    assertThatThrownBy(
-            () ->
-                SupervisorCapabilities.from(
-                    profile(Map.of("allowedCommands", List.of("NukeEverythingCommand")))))
+    assertThatThrownBy(() ->
+            SupervisorCapabilities.from(
+                profile(Map.of("allowedCommands", List.of("NukeEverythingCommand")))))
         .hasMessageContaining("Unknown command in allowedCommands: 'NukeEverythingCommand'")
         .hasMessageContaining("AnswerInputCommand");
     assertThatThrownBy(

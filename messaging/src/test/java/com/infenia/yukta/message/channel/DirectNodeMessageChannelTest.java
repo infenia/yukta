@@ -58,13 +58,12 @@ class DirectNodeMessageChannelTest {
     final Flux<Message<?>> upstream = Flux.just(DefaultMessage.create(UUID.randomUUID(), "12345"));
 
     StepVerifier.create(limited.inbound("n1", "e1", upstream))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(PayloadTooLargeException.class)
-                    .hasMessageContaining("'n1'")
-                    .hasMessageContaining("5 bytes")
-                    .hasMessageContaining("limit of 4"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(PayloadTooLargeException.class)
+                .hasMessageContaining("'n1'")
+                .hasMessageContaining("5 bytes")
+                .hasMessageContaining("limit of 4"))
         .verify();
   }
 

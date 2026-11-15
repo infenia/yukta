@@ -56,24 +56,22 @@ class ExecutionEventFeedTest {
     final CountDownLatch release = new CountDownLatch(1);
     final Disposable subscription =
         feed.events()
-            .subscribe(
-                e -> {
-                  try {
-                    release.await();
-                  } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                  }
-                });
+            .subscribe(e -> {
+              try {
+                release.await();
+              } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+              }
+            });
 
     final CountDownLatch published = new CountDownLatch(1);
     final Thread publisher =
-        new Thread(
-            () -> {
-              for (int i = 0; i < 1000; i++) {
-                feed.publish(event("e" + i));
-              }
-              published.countDown();
-            });
+        new Thread(() -> {
+          for (int i = 0; i < 1000; i++) {
+            feed.publish(event("e" + i));
+          }
+          published.countDown();
+        });
     publisher.start();
 
     final boolean finished = published.await(5, TimeUnit.SECONDS);
@@ -90,14 +88,13 @@ class ExecutionEventFeedTest {
     final CountDownLatch release = new CountDownLatch(1);
     final Disposable subscription =
         feed.events()
-            .subscribe(
-                e -> {
-                  try {
-                    release.await();
-                  } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                  }
-                });
+            .subscribe(e -> {
+              try {
+                release.await();
+              } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+              }
+            });
     try {
       for (int i = 0; i < 11_000; i++) {
         feed.publish(event("e" + i));

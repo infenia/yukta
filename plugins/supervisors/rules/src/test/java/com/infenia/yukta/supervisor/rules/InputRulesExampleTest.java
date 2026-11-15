@@ -61,11 +61,10 @@ class InputRulesExampleTest {
               assertThat(answer.rationale()).startsWith("rule approve-low-risk-staging: policy 7");
             });
     assertThat(commands.subList(1, 3))
-        .allSatisfy(
-            command ->
-                assertThat(command)
-                    .isInstanceOfSatisfying(
-                        EscalateInputCommand.class,
-                        escalate -> assertThat(escalate.advice()).contains("staging")));
+        .allSatisfy(command ->
+            assertThat(command)
+                .isInstanceOfSatisfying(
+                    EscalateInputCommand.class,
+                    escalate -> assertThat(escalate.advice()).contains("staging")));
   }
 }

@@ -484,22 +484,20 @@ class RuleSupervisorTest {
 
   @Test
   void constructor_invalidRules_failWithTheRuleId() {
-    assertThatThrownBy(
-            () ->
-                supervisor("{\"rules\":[{\"when\":{},\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor("{\"rules\":[{\"when\":{},\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
         .hasMessageContaining("needs an id");
     assertThatThrownBy(
             () -> supervisor("{\"rules\":[{\"id\":\" \",\"deny\":{\"command\":\"X\"}}]}"))
         .hasMessageContaining("needs an id");
     assertThatThrownBy(() -> supervisor("{\"rules\":[{\"id\":\"r\"}]}"))
         .hasMessageContaining("Rule 'r' needs either");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    """
-                    {"rules":[{"id":"r","when":{},"then":{"command":"PauseWorkflow"},
-                      "deny":{"command":"X"}}]}
-                    """))
+    assertThatThrownBy(() ->
+            supervisor(
+                """
+                {"rules":[{"id":"r","when":{},"then":{"command":"PauseWorkflow"},
+                  "deny":{"command":"X"}}]}
+                """))
         .hasMessageContaining("Rule 'r' needs either");
     assertThatThrownBy(() -> supervisor("{\"rules\":[{\"id\":\"r\",\"when\":{}}]}"))
         .hasMessageContaining("Rule 'r' needs both");
@@ -508,23 +506,19 @@ class RuleSupervisorTest {
     assertThatThrownBy(
             () -> supervisor("{\"rules\":[{\"id\":\"r\",\"deny\":{\"command\":\" \"}}]}"))
         .hasMessageContaining("must name the command");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"r\",\"when\":{},\"then\":{\"command\":\"Explode\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"r\",\"when\":{},\"then\":{\"command\":\"Explode\"}}]}"))
         .hasMessageContaining("Unknown command in rule: 'Explode'");
     assertThatThrownBy(() -> supervisor("{\"rules\":[{\"id\":\"r\",\"when\":{},\"then\":{}}]}"))
         .hasMessageContaining("Unknown command in rule");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"bad\",\"when\":{\"if\":\"a"
-                        + " ==\"},\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor(
+                "{\"rules\":[{\"id\":\"bad\",\"when\":{\"if\":\"a"
+                    + " ==\"},\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
         .hasMessageContaining("Rule 'bad' has an invalid condition");
-    assertThatThrownBy(
-            () ->
-                supervisor(
-                    "{\"rules\":[{\"id\":\"bad\",\"deny\":{\"command\":\"X\",\"if\":\"(\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor("{\"rules\":[{\"id\":\"bad\",\"deny\":{\"command\":\"X\",\"if\":\"(\"}}]}"))
         .hasMessageContaining("Rule 'bad' has an invalid condition");
   }
 
@@ -552,9 +546,8 @@ class RuleSupervisorTest {
 
   @Test
   void constructor_ruleWithOnlyThen_failsAsNeedingBoth() {
-    assertThatThrownBy(
-            () ->
-                supervisor("{\"rules\":[{\"id\":\"r\",\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
+    assertThatThrownBy(() ->
+            supervisor("{\"rules\":[{\"id\":\"r\",\"then\":{\"command\":\"PauseWorkflow\"}}]}"))
         .hasMessageContaining("Rule 'r' needs both");
   }
 

@@ -32,19 +32,16 @@ public class SupervisorSettingsMask {
   public static Map<String, Object> hide(
       final Map<String, Object> settings, final Set<String> secrets) {
     final Map<String, Object> out = new ConcurrentHashMap<>();
-    settings.forEach(
-        (key, value) -> {
-          if (value == null) {
-            return;
-          }
-          out.put(
-              key,
-              SECRET.matcher(key).matches()
-                      || ConfigRedactor.isSecretName(key)
-                      || secrets.contains(key)
-                  ? HIDDEN
-                  : deep(value));
-        });
+    settings.forEach((key, value) -> {
+      if (value == null) {
+        return;
+      }
+      out.put(
+          key,
+          SECRET.matcher(key).matches() || ConfigRedactor.isSecretName(key) || secrets.contains(key)
+              ? HIDDEN
+              : deep(value));
+    });
     return out;
   }
 
@@ -70,17 +67,16 @@ public class SupervisorSettingsMask {
   public static Map<String, Object> keepHidden(
       final Map<String, Object> incoming, final Map<String, Object> stored) {
     final Map<String, Object> out = new LinkedHashMap<>();
-    incoming.forEach(
-        (key, value) -> {
-          final Object before = stored.get(key);
-          if (HIDDEN.equals(value) && before != null) {
-            out.put(key, before);
-          } else if (value instanceof Map<?, ?> nested && before instanceof Map<?, ?> old) {
-            out.put(key, keepHidden((Map<String, Object>) nested, (Map<String, Object>) old));
-          } else {
-            out.put(key, value);
-          }
-        });
+    incoming.forEach((key, value) -> {
+      final Object before = stored.get(key);
+      if (HIDDEN.equals(value) && before != null) {
+        out.put(key, before);
+      } else if (value instanceof Map<?, ?> nested && before instanceof Map<?, ?> old) {
+        out.put(key, keepHidden((Map<String, Object>) nested, (Map<String, Object>) old));
+      } else {
+        out.put(key, value);
+      }
+    });
     return out;
   }
 }

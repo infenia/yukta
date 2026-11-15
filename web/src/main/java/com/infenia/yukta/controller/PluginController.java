@@ -70,35 +70,31 @@ public class PluginController {
       description = "Internal server error",
       content = @Content(mediaType = APPLICATION_JSON))
   public Mono<ResponseEntity<ApiResponse<List<PluginSummary>>>> listPlugins() {
-    return Mono.fromCallable(
-            () ->
-                Stream.concat(
-                        registry.listPlugins().stream()
-                            .map(
-                                p ->
-                                    new PluginSummary(
-                                        p.getType(),
-                                        p.getCategory(),
-                                        p.getTier(),
-                                        p.isRestricted(),
-                                        true,
-                                        null)),
-                        registry.listDisabled().stream()
-                            .map(
-                                p ->
-                                    new PluginSummary(
-                                        p.getType(),
-                                        p.getCategory(),
-                                        p.getTier(),
-                                        p.isRestricted(),
-                                        false,
-                                        registry.enableHint(p.getType()))))
-                    .toList())
-        .map(
-            summaries ->
-                ResponseEntity.ok(
-                    ApiResponse.success(
-                        HttpStatus.OK.value(), "Plugins retrieved successfully", summaries)));
+    return Mono.fromCallable(() ->
+            Stream.concat(
+                    registry.listPlugins().stream()
+                        .map(p ->
+                            new PluginSummary(
+                                p.getType(),
+                                p.getCategory(),
+                                p.getTier(),
+                                p.isRestricted(),
+                                true,
+                                null)),
+                    registry.listDisabled().stream()
+                        .map(p ->
+                            new PluginSummary(
+                                p.getType(),
+                                p.getCategory(),
+                                p.getTier(),
+                                p.isRestricted(),
+                                false,
+                                registry.enableHint(p.getType()))))
+                .toList())
+        .map(summaries ->
+            ResponseEntity.ok(
+                ApiResponse.success(
+                    HttpStatus.OK.value(), "Plugins retrieved successfully", summaries)));
   }
 
   /**
@@ -132,39 +128,36 @@ public class PluginController {
       final ServerWebExchange exchange) {
     return Mono.fromCallable(() -> registry.get(type))
         .flatMap(Mono::justOrEmpty)
-        .map(
-            p ->
-                ResponseEntity.ok(
-                    ApiResponse.success(
-                        HttpStatus.OK.value(),
-                        "Plugin details retrieved",
-                        new PluginDetails(
-                            p.getType(),
-                            p.getCategory(),
-                            p.describe().description(),
-                            p.describe().usagePattern(),
-                            p.describe().uiDesign().orElse(null),
-                            p.getOutputPorts(),
-                            p.getConfigSchema(),
-                            p.getTier(),
-                            p.isRestricted()))))
+        .map(p ->
+            ResponseEntity.ok(
+                ApiResponse.success(
+                    HttpStatus.OK.value(),
+                    "Plugin details retrieved",
+                    new PluginDetails(
+                        p.getType(),
+                        p.getCategory(),
+                        p.describe().description(),
+                        p.describe().usagePattern(),
+                        p.describe().uiDesign().orElse(null),
+                        p.getOutputPorts(),
+                        p.getConfigSchema(),
+                        p.getTier(),
+                        p.isRestricted()))))
         .switchIfEmpty(
-            Mono.fromSupplier(
-                () -> {
-                  final List<ApiResponse.FieldError> errors =
-                      List.of(
-                          new ApiResponse.FieldError("type", "Plugin not found: '" + type + "'"));
-                  final var request = exchange.getRequest();
-                  final String path = request.getPath().value();
-                  return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                      .body(
-                          ApiResponse.error(
-                              HttpStatus.NOT_FOUND.value(),
-                              "Not Found",
-                              "Plugin not found",
-                              path,
-                              errors));
-                }));
+            Mono.fromSupplier(() -> {
+              final List<ApiResponse.FieldError> errors =
+                  List.of(new ApiResponse.FieldError("type", "Plugin not found: '" + type + "'"));
+              final var request = exchange.getRequest();
+              final String path = request.getPath().value();
+              return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                  .body(
+                      ApiResponse.error(
+                          HttpStatus.NOT_FOUND.value(),
+                          "Not Found",
+                          "Plugin not found",
+                          path,
+                          errors));
+            }));
   }
 
   /**
@@ -184,20 +177,18 @@ public class PluginController {
           final String type) {
     return sessionService
         .getAllSessionConfigs()
-        .flatMapIterable(
-            session ->
-                session.workflows().values().stream()
-                    .map(
-                        workflow ->
-                            new Usage(
-                                session.sessionId(),
-                                workflow.workflowId(),
-                                (int)
-                                    workflow.nodes().stream()
-                                        .filter(node -> type.equals(node.type()))
-                                        .count()))
-                    .filter(usage -> usage.nodes() > 0)
-                    .toList())
+        .flatMapIterable(session ->
+            session.workflows().values().stream()
+                .map(workflow ->
+                    new Usage(
+                        session.sessionId(),
+                        workflow.workflowId(),
+                        (int)
+                            workflow.nodes().stream()
+                                .filter(node -> type.equals(node.type()))
+                                .count()))
+                .filter(usage -> usage.nodes() > 0)
+                .toList())
         .sort(Comparator.comparing(Usage::sessionId).thenComparing(Usage::workflowId))
         .collectList()
         .map(usages -> ApiResponse.success(HttpStatus.OK.value(), "Plugin usage", usages));

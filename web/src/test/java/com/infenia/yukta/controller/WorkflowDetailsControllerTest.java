@@ -63,12 +63,11 @@ class WorkflowDetailsControllerTest {
     when(graph.computeTopologicalOrder(DEF)).thenReturn(List.of());
     when(graph.computeTopologicalOrder(WITH_NODE)).thenReturn(List.of("a", "b"));
     when(graph.enrichNode(any()))
-        .thenAnswer(
-            call -> {
-              final WorkflowDefinition.Node node = call.getArgument(0);
-              return new WorkflowGraphService.EnrichedNodeMetadata(
-                  node.nodeId(), node.type(), null, "d", null, List.of("default"));
-            });
+        .thenAnswer(call -> {
+          final WorkflowDefinition.Node node = call.getArgument(0);
+          return new WorkflowGraphService.EnrichedNodeMetadata(
+              node.nodeId(), node.type(), null, "d", null, List.of("default"));
+        });
     client =
         WebTestClient.bindToController(
                 new WorkflowDetailsController(

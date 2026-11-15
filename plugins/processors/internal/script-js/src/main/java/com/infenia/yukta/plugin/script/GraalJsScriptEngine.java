@@ -89,12 +89,11 @@ public class GraalJsScriptEngine implements ScriptEngine {
 
   /** Cancels scripts that outlive {@link #timeoutMs}. */
   private static final ScheduledExecutorService WATCHDOG =
-      Executors.newSingleThreadScheduledExecutor(
-          runnable -> {
-            final Thread thread = new Thread(runnable, "js-script-watchdog");
-            thread.setDaemon(true);
-            return thread;
-          });
+      Executors.newSingleThreadScheduledExecutor(runnable -> {
+        final Thread thread = new Thread(runnable, "js-script-watchdog");
+        thread.setDaemon(true);
+        return thread;
+      });
 
   /** Most scripts kept parsed; the least recently used are dropped beyond this many. */
   private static final long SOURCE_CACHE_MAX = 1_000;

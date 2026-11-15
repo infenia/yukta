@@ -120,11 +120,10 @@ public final class InputFlow {
    */
   public ExecutionLogEvent logged(final String event) {
     return log.readAll().stream()
-        .filter(
-            entry -> {
-              final Map<String, Object> payload = entry.payload();
-              return payload != null && event.equals(payload.get("event"));
-            })
+        .filter(entry -> {
+          final Map<String, Object> payload = entry.payload();
+          return payload != null && event.equals(payload.get("event"));
+        })
         .findFirst()
         .orElseThrow();
   }

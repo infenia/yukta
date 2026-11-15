@@ -146,27 +146,24 @@ class RemoteNodeTest {
   @ExpectedErrorLog(sometimes = "dropped error: .*CancellationException")
   void workerFailure_comesBackAndBadInputKeepsItsMeaning() {
     StepVerifier.create(run("BOOM", Flux.empty()))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(WorkflowExecutionException.class)
-                    .hasMessageContaining("IllegalStateException")
-                    .hasMessageContaining("boom"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(WorkflowExecutionException.class)
+                .hasMessageContaining("IllegalStateException")
+                .hasMessageContaining("boom"));
     awaitFreeSlot();
     StepVerifier.create(run("BAD", Flux.empty()))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e).isInstanceOf(IllegalArgumentException.class).hasMessage("bad input"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e).isInstanceOf(IllegalArgumentException.class).hasMessage("bad input"));
   }
 
   @Test
   void hardStop_comesBackAsRunAborted_soTheEngineEndsTheRun() {
     StepVerifier.create(run("ABORT", Flux.empty()))
-        .verifyErrorSatisfies(
-            e -> {
-              assertThat(RunAbortedException.isAbort(e)).isTrue();
-              assertThat(e).hasMessage("budget");
-            });
+        .verifyErrorSatisfies(e -> {
+          assertThat(RunAbortedException.isAbort(e)).isTrue();
+          assertThat(e).hasMessage("budget");
+        });
   }
 
   @Test
@@ -201,10 +198,9 @@ class RemoteNodeTest {
     final reactor.core.Disposable running = run("HOLD", Flux.just(message("x"))).subscribe();
     await()
         .atMost(Duration.ofSeconds(10))
-        .untilAsserted(
-            () ->
-                StepVerifier.create(run("UPPER", Flux.just(message("y"))))
-                    .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("right now")));
+        .untilAsserted(() ->
+            StepVerifier.create(run("UPPER", Flux.just(message("y"))))
+                .verifyErrorSatisfies(e -> assertThat(e).hasMessageContaining("right now")));
     running.dispose();
 
     StepVerifier.create(run("NOT_ALLOWED", Flux.empty()))

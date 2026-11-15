@@ -138,12 +138,11 @@ class LogManagementControllerTest {
     // "seam" is written during the history read: it appears in the store and on the live feed.
     when(logStore.readExecution("e1"))
         .thenReturn(
-            Flux.defer(
-                () -> {
-                  final Instant seamAt = Instant.now();
-                  live.tryEmitNext(entry("seam", seamAt));
-                  return Flux.just(entry("old", before), entry("seam", seamAt));
-                }));
+            Flux.defer(() -> {
+              final Instant seamAt = Instant.now();
+              live.tryEmitNext(entry("seam", seamAt));
+              return Flux.just(entry("old", before), entry("seam", seamAt));
+            }));
 
     final var result =
         client
@@ -198,11 +197,10 @@ class LogManagementControllerTest {
   @Test
   void testLiveRepeatOfHistoryEntryIsDroppedOnceThenSent() {
     final String body =
-        logsWithLiveEntries(
-            live -> {
-              live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
-              live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
-            });
+        logsWithLiveEntries(live -> {
+          live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
+          live.tryEmitNext(entry("seam", Instant.now().minusSeconds(60)));
+        });
 
     assertThat(body.split("seam", -1).length - 1).isEqualTo(2);
   }

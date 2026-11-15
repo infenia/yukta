@@ -104,10 +104,9 @@ public class InputRequestQueries {
     return (onlyWaiting
             ? store.listOpen(sessionId, executionId)
             : store.list(sessionId, executionId))
-        .filter(
-            request ->
-                states.contains(request.state())
-                    && (workflowId == null || workflowId.equals(request.workflowId())))
+        .filter(request ->
+            states.contains(request.state())
+                && (workflowId == null || workflowId.equals(request.workflowId())))
         .sort(NEWEST_FIRST);
   }
 
@@ -160,12 +159,11 @@ public class InputRequestQueries {
     }
     return store
         .findResponse(request.id())
-        .map(
-            stored ->
-                new InputAnsweredException(
-                    request.id(),
-                    stored.decision(),
-                    stored.responder().type() + ":" + stored.responder().id()))
+        .map(stored ->
+            new InputAnsweredException(
+                request.id(),
+                stored.decision(),
+                stored.responder().type() + ":" + stored.responder().id()))
         .defaultIfEmpty(new InputAnsweredException(request.id(), null, null))
         .flatMap(Mono::error);
   }

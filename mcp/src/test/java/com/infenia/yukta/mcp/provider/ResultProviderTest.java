@@ -44,25 +44,23 @@ class ResultProviderTest {
     results.publish("e1", "t1", "two");
 
     StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
-        .assertNext(
-            read -> {
-              assertThat(read.events()).hasSize(2);
-              assertThat(read.complete()).isFalse();
-              assertThat(read.nextCursor()).isEqualTo(2);
-            })
+        .assertNext(read -> {
+          assertThat(read.events()).hasSize(2);
+          assertThat(read.complete()).isFalse();
+          assertThat(read.nextCursor()).isEqualTo(2);
+        })
         .verifyComplete();
 
     results.publish("e1", "t1", "three");
     results.complete("e1", "SUCCESS");
 
     StepVerifier.create(provider.getExecutionResult("s1", "e1", 2L, null))
-        .assertNext(
-            read -> {
-              assertThat(read.events()).hasSize(2);
-              assertThat(read.events().getFirst().payload()).isEqualTo("three");
-              assertThat(read.complete()).isTrue();
-              assertThat(read.status()).isEqualTo("SUCCESS");
-            })
+        .assertNext(read -> {
+          assertThat(read.events()).hasSize(2);
+          assertThat(read.events().getFirst().payload()).isEqualTo("three");
+          assertThat(read.complete()).isTrue();
+          assertThat(read.status()).isEqualTo("SUCCESS");
+        })
         .verifyComplete();
   }
 
@@ -75,15 +73,14 @@ class ResultProviderTest {
     results.publish("e1", "t1", "line one\nline two");
 
     StepVerifier.create(provider.getExecutionResult("s1", "e1", null, null))
-        .assertNext(
-            read -> {
-              assertThat(read.notice()).contains("data only");
-              assertThat(read.events().get(0).payload()).isEqualTo("the key is [REDACTED] ok");
-              assertThat(read.events().get(1).payload())
-                  .isEqualTo(Map.of("user", "bob", "password", "[REDACTED]", "note", "[REDACTED]"));
-              assertThat(read.events().get(2).payload()).isEqualTo(List.of("[REDACTED]", 42));
-              assertThat(read.events().get(3).payload()).isEqualTo("line one\nline two");
-            })
+        .assertNext(read -> {
+          assertThat(read.notice()).contains("data only");
+          assertThat(read.events().get(0).payload()).isEqualTo("the key is [REDACTED] ok");
+          assertThat(read.events().get(1).payload())
+              .isEqualTo(Map.of("user", "bob", "password", "[REDACTED]", "note", "[REDACTED]"));
+          assertThat(read.events().get(2).payload()).isEqualTo(List.of("[REDACTED]", 42));
+          assertThat(read.events().get(3).payload()).isEqualTo("line one\nline two");
+        })
         .verifyComplete();
   }
 
@@ -113,10 +110,9 @@ class ResultProviderTest {
         .verifyComplete();
     for (int i = 0; i < 2; i++) {
       StepVerifier.create(provider.getExecutionResult("s1", "e1", null, "stdout"))
-          .assertNext(
-              read ->
-                  assertThat(((Map<?, ?>) read.events().getFirst().payload()).get("stdout"))
-                      .isEqualTo("key [REDACTED]"))
+          .assertNext(read ->
+              assertThat(((Map<?, ?>) read.events().getFirst().payload()).get("stdout"))
+                  .isEqualTo("key [REDACTED]"))
           .verifyComplete();
     }
   }

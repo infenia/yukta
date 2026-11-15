@@ -59,12 +59,11 @@ class SubWorkflowRunnerTest {
 
   /** A child run whose terminal delivers one message to the collector in the context. */
   private Mono<Void> delivering(final Object payload) {
-    return Mono.deferContextual(
-        ctx -> {
-          ctx.<ResultCollector>get("resultCollector")
-              .add(DefaultMessage.create(UUID.randomUUID(), payload));
-          return Mono.empty();
-        });
+    return Mono.deferContextual(ctx -> {
+      ctx.<ResultCollector>get("resultCollector")
+          .add(DefaultMessage.create(UUID.randomUUID(), payload));
+      return Mono.empty();
+    });
   }
 
   @Test
@@ -91,12 +90,11 @@ class SubWorkflowRunnerTest {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(
-            Mono.deferContextual(
-                ctx -> {
-                  ctx.<AtomicReference<TaskStatus>>get(WorkflowOrchestrator.END_STATUS_KEY)
-                      .set(TaskStatus.STOPPED);
-                  return Mono.empty();
-                }));
+            Mono.deferContextual(ctx -> {
+              ctx.<AtomicReference<TaskStatus>>get(WorkflowOrchestrator.END_STATUS_KEY)
+                  .set(TaskStatus.STOPPED);
+              return Mono.empty();
+            }));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .assertNext(result -> assertThat(result.status()).isEqualTo("STOPPED"))
@@ -145,14 +143,13 @@ class SubWorkflowRunnerTest {
         .thenReturn(Mono.error(new IllegalStateException("child failed")));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
-        .verifyErrorSatisfies(
-            e -> {
-              assertThat(e).isInstanceOf(SubWorkflowGateway.ChildFailed.class);
-              assertThat(e).hasMessage("child failed");
-              final SubWorkflowGateway.ChildFailed failed = (SubWorkflowGateway.ChildFailed) e;
-              assertThat(failed.status()).isEqualTo("FAILURE");
-              assertThat(failed.executionId()).isNotBlank();
-            });
+        .verifyErrorSatisfies(e -> {
+          assertThat(e).isInstanceOf(SubWorkflowGateway.ChildFailed.class);
+          assertThat(e).hasMessage("child failed");
+          final SubWorkflowGateway.ChildFailed failed = (SubWorkflowGateway.ChildFailed) e;
+          assertThat(failed.status()).isEqualTo("FAILURE");
+          assertThat(failed.executionId()).isNotBlank();
+        });
   }
 
   @Test
@@ -190,12 +187,10 @@ class SubWorkflowRunnerTest {
                     "grandchild", "FAILURE", new IllegalStateException("deep"))));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
-        .verifyErrorSatisfies(
-            e -> {
-              assertThat(e).hasMessage("deep");
-              assertThat(((SubWorkflowGateway.ChildFailed) e).executionId())
-                  .isNotEqualTo("grandchild");
-            });
+        .verifyErrorSatisfies(e -> {
+          assertThat(e).hasMessage("deep");
+          assertThat(((SubWorkflowGateway.ChildFailed) e).executionId()).isNotEqualTo("grandchild");
+        });
   }
 
   @Test
@@ -203,23 +198,20 @@ class SubWorkflowRunnerTest {
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
         .thenReturn(
-            Mono.deferContextual(
-                ctx -> {
-                  final ResultCollector collector = ctx.get("resultCollector");
-                  collector.addCompletion("done", Map.of("reached", true));
-                  collector.addCompletion(
-                      "escalate",
-                      Map.of("reached", true, "outcome", "ESCALATE", "reason", "flaky"));
-                  return Mono.empty();
-                }));
+            Mono.deferContextual(ctx -> {
+              final ResultCollector collector = ctx.get("resultCollector");
+              collector.addCompletion("done", Map.of("reached", true));
+              collector.addCompletion(
+                  "escalate", Map.of("reached", true, "outcome", "ESCALATE", "reason", "flaky"));
+              return Mono.empty();
+            }));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
-        .assertNext(
-            result -> {
-              assertThat(result.status()).isEqualTo("SUCCESS");
-              assertThat(result.outcome()).isEqualTo("ESCALATE");
-              assertThat(result.reason()).isEqualTo("flaky");
-            })
+        .assertNext(result -> {
+          assertThat(result.status()).isEqualTo("SUCCESS");
+          assertThat(result.outcome()).isEqualTo("ESCALATE");
+          assertThat(result.reason()).isEqualTo("flaky");
+        })
         .verifyComplete();
   }
 
@@ -230,11 +222,10 @@ class SubWorkflowRunnerTest {
         .thenReturn(delivering("out"));
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
-        .assertNext(
-            result -> {
-              assertThat(result.outcome()).isNull();
-              assertThat(result.reason()).isNull();
-            })
+        .assertNext(result -> {
+          assertThat(result.outcome()).isNull();
+          assertThat(result.reason()).isNull();
+        })
         .verifyComplete();
   }
 
@@ -243,11 +234,10 @@ class SubWorkflowRunnerTest {
     scheduler.acquire("s", "parent", 0, null); // the parent holds the only slot
     when(cache.get("s", "child")).thenReturn(Optional.of(prepared));
     when(orchestrator.execute(anyString(), anyString(), anyString(), any(), anyMap(), any()))
-        .thenAnswer(
-            call -> {
-              final ExecutionScheduler.Admission admission = call.getArgument(5);
-              return admission.permit().doOnNext(ExecutionScheduler.Permit::release).then();
-            });
+        .thenAnswer(call -> {
+          final ExecutionScheduler.Admission admission = call.getArgument(5);
+          return admission.permit().doOnNext(ExecutionScheduler.Permit::release).then();
+        });
 
     StepVerifier.create(runner.run("s", "child", Map.of(), "parent", 1))
         .expectNextCount(1)

@@ -85,13 +85,12 @@ class FilterProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
-        .expectNextMatches(
-            m -> {
-              assertEquals(msg.payload(), m.payload(), "Test spel match");
-              assertEquals(DEFAULT, m.sourcePort(), "Test spel match (2)");
-              assertTrue(m.messageHistory().isEmpty(), "Test spel match (3)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals(msg.payload(), m.payload(), "Test spel match");
+          assertEquals(DEFAULT, m.sourcePort(), "Test spel match (2)");
+          assertTrue(m.messageHistory().isEmpty(), "Test spel match (3)");
+          return true;
+        })
         .verifyComplete();
 
     verify(reporter).increment(TEST_NODE, FILTER_2, "MATCH");
@@ -132,13 +131,12 @@ class FilterProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
-        .expectNextMatches(
-            m -> {
-              assertEquals(msg.payload(), m.payload(), "Test simple engine match");
-              assertEquals(DEFAULT, m.sourcePort(), "Test simple engine match (2)");
-              assertTrue(m.messageHistory().isEmpty(), "Test simple engine match (3)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals(msg.payload(), m.payload(), "Test simple engine match");
+          assertEquals(DEFAULT, m.sourcePort(), "Test simple engine match (2)");
+          assertTrue(m.messageHistory().isEmpty(), "Test simple engine match (3)");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -152,12 +150,11 @@ class FilterProcessorTest {
             processor
                 .process(Flux.just(msg), config)
                 .contextWrite(ctx -> ctx.put(NODEID, TEST_NODE)))
-        .expectNextMatches(
-            m -> {
-              assertEquals("dead-letter", m.sourcePort(), "Test discard port");
-              assertTrue(m.messageHistory().isEmpty(), "Test discard port (2)");
-              return true;
-            })
+        .expectNextMatches(m -> {
+          assertEquals("dead-letter", m.sourcePort(), "Test discard port");
+          assertTrue(m.messageHistory().isEmpty(), "Test discard port (2)");
+          return true;
+        })
         .verifyComplete();
 
     verify(reporter).increment(TEST_NODE, FILTER_2, "DISCARD");
@@ -299,10 +296,9 @@ class FilterProcessorTest {
     // Switch to manual initialization if needed, but here we just test process with bad engine
     StepVerifier.create(
             processor.process(Flux.just(msg), config).contextWrite(ctx -> ctx.put(NODEID, "test")))
-        .expectErrorMatches(
-            e ->
-                e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException
-                    && e.getCause().getMessage().contains("Unsupported engine"))
+        .expectErrorMatches(e ->
+            e instanceof com.infenia.yukta.plugin.exception.FilterEvaluationException
+                && e.getCause().getMessage().contains("Unsupported engine"))
         .verify();
   }
 

@@ -169,9 +169,8 @@ class DagPropertyAcceptanceTest {
   private static Map<String, Set<String>> allowedStatuses(final Dag dag) {
     final Map<String, List<String>> parents = new HashMap<>();
     dag.edges()
-        .forEach(
-            edge ->
-                parents.computeIfAbsent(edge.target(), k -> new ArrayList<>()).add(edge.source()));
+        .forEach(edge ->
+            parents.computeIfAbsent(edge.target(), k -> new ArrayList<>()).add(edge.source()));
     final Map<String, Delivers> delivers = new HashMap<>();
     final Map<String, Set<String>> allowed = new HashMap<>();
     // dag.nodes() lists a node after all its parents.
@@ -227,11 +226,10 @@ class DagPropertyAcceptanceTest {
     await()
         .atMost(WAIT)
         .pollInterval(Duration.ofMillis(10))
-        .until(
-            () -> {
-              final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
-              return progress != null && !RUNNING.contains(progress.status());
-            });
+        .until(() -> {
+          final WorkflowProgress progress = tracker.getProgressByExecutionId(executionId);
+          return progress != null && !RUNNING.contains(progress.status());
+        });
     return tracker.getProgressByExecutionId(executionId);
   }
 
@@ -266,11 +264,10 @@ class DagPropertyAcceptanceTest {
       final Map<String, TaskProgress> tasks = new HashMap<>();
       progress.tasks().forEach(task -> tasks.put(task.nodeId(), task));
       assertThat(tasks.keySet()).as("nodes reported for %s", dag).isEqualTo(expected.keySet());
-      expected.forEach(
-          (id, statuses) ->
-              assertThat(tasks.get(id).status().name())
-                  .as("status of %s in %s", id, dag)
-                  .isIn(statuses.toArray()));
+      expected.forEach((id, statuses) ->
+          assertThat(tasks.get(id).status().name())
+              .as("status of %s in %s", id, dag)
+              .isIn(statuses.toArray()));
       // A failing run ends early (the first failing terminal cancels the rest), so order only holds
       // when the run completes normally.
       for (final Edge edge : dag.failing().isEmpty() ? dag.edges() : List.<Edge>of()) {
@@ -298,13 +295,10 @@ class DagPropertyAcceptanceTest {
       await()
           .atMost(WAIT)
           .pollInterval(Duration.ofMillis(10))
-          .until(
-              () ->
-                  tracker.getProgressByExecutionId(executionId).tasks().stream()
-                      .anyMatch(
-                          task ->
-                              slowNode.equals(task.nodeId())
-                                  && TaskStatus.RUNNING == task.status()));
+          .until(() ->
+              tracker.getProgressByExecutionId(executionId).tasks().stream()
+                  .anyMatch(task ->
+                      slowNode.equals(task.nodeId()) && TaskStatus.RUNNING == task.status()));
 
       gateway.stopWorkflow(session, workflowId, "property", StopMode.CANCEL).block();
 

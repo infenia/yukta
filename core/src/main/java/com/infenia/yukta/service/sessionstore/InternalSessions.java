@@ -70,10 +70,8 @@ public class InternalSessions {
         .map(tags -> "true".equalsIgnoreCase(tags.get(TAG)))
         .defaultIfEmpty(false)
         .onErrorReturn(true)
-        .doOnNext(
-            internal ->
-                cache.put(
-                    sessionId, new Answer(internal, now.plus(Duration.ofSeconds(TTL_SECONDS)))));
+        .doOnNext(internal ->
+            cache.put(sessionId, new Answer(internal, now.plus(Duration.ofSeconds(TTL_SECONDS)))));
   }
 
   /**

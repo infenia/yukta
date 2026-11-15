@@ -114,11 +114,10 @@ class EscalateInputCommandProcessorTest {
         .block();
 
     run(escalate(request.id()), InputFlow.asKey("op", ApiRole.OPERATOR))
-        .expectErrorSatisfies(
-            error ->
-                assertThat(error)
-                    .isInstanceOf(ConflictException.class)
-                    .hasMessageContaining("ANSWERED"))
+        .expectErrorSatisfies(error ->
+            assertThat(error)
+                .isInstanceOf(ConflictException.class)
+                .hasMessageContaining("ANSWERED"))
         .verify();
   }
 

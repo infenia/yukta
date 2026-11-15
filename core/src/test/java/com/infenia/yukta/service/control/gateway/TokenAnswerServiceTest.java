@@ -109,13 +109,11 @@ class TokenAnswerServiceTest {
             new SimpleMeterRegistry());
     when(controlBus.answerInput(
             anyString(), anyString(), any(), anyString(), any(), any(), any(), any()))
-        .thenAnswer(
-            call ->
-                Mono.deferContextual(
-                    ctx -> {
-                      seen.set(ctx);
-                      return Mono.empty();
-                    }));
+        .thenAnswer(call ->
+            Mono.deferContextual(ctx -> {
+              seen.set(ctx);
+              return Mono.empty();
+            }));
   }
 
   private InputRequest ask(final String run, final String route, final InputRisk risk) {
@@ -199,22 +197,21 @@ class TokenAnswerServiceTest {
     // the control bus really answers: the request ends, as it does in the server
     when(controlBus.answerInput(
             anyString(), anyString(), any(), anyString(), any(), any(), any(), any()))
-        .thenAnswer(
-            call ->
-                broker
-                    .answer(
+        .thenAnswer(call ->
+            broker
+                .answer(
+                    request.id(),
+                    null,
+                    new InputResponse(
                         request.id(),
+                        "approve",
                         null,
-                        new InputResponse(
-                            request.id(),
-                            "approve",
-                            null,
-                            Map.of(),
-                            new Responder(Responder.Type.EXTERNAL, "token:hook"),
-                            null,
-                            null,
-                            clock.instant()))
-                    .then());
+                        Map.of(),
+                        new Responder(Responder.Type.EXTERNAL, "token:hook"),
+                        null,
+                        null,
+                        clock.instant()))
+                .then());
     final TokenAnswerService.Answer answer = answer(request, expiry());
     StepVerifier.create(service.answer(answer)).verifyComplete();
 

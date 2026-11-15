@@ -125,10 +125,9 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
   void lostLease_runsLossActions_andOneFailingDoesNotStopOthers() {
     final AtomicInteger lost = new AtomicInteger();
     first = election("one");
-    first.onLoss(
-        () -> {
-          throw new IllegalStateException("boom");
-        });
+    first.onLoss(() -> {
+      throw new IllegalStateException("boom");
+    });
     first.onLoss(lost::incrementAndGet);
     first.start();
     await().atMost(WAIT).until(first::isLeader);
@@ -146,10 +145,9 @@ class R2dbcLeaderElectionTest extends PostgresTestSupport {
   void failingTakeoverAction_doesNotStopOthers() {
     final AtomicInteger ran = new AtomicInteger();
     first = election("one");
-    first.onTakeover(
-        () -> {
-          throw new IllegalStateException("boom");
-        });
+    first.onTakeover(() -> {
+      throw new IllegalStateException("boom");
+    });
     first.onTakeover(ran::incrementAndGet);
 
     first.start();

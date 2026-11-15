@@ -195,12 +195,11 @@ class R2dbcSupervisorStoreTest extends PostgresTestSupport {
                 3))
         .verifyComplete();
     StepVerifier.create(store.versions("v"))
-        .assertNext(
-            v -> {
-              assertThat(v.version()).isEqualTo(1);
-              assertThat(v.savedAt()).isEqualTo(Instant.EPOCH);
-              assertThat(v.supervisor()).isEqualTo(full);
-            })
+        .assertNext(v -> {
+          assertThat(v.version()).isEqualTo(1);
+          assertThat(v.savedAt()).isEqualTo(Instant.EPOCH);
+          assertThat(v.supervisor()).isEqualTo(full);
+        })
         .verifyComplete();
 
     for (int level = 3; level <= 6; level++) {

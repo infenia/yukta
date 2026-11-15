@@ -43,13 +43,12 @@ public class InputAsk {
    */
   public static Mono<InputResponse> ask(
       final Supplier<@Nullable InputGateway> gateway, final InputRequestSpec spec) {
-    return Mono.defer(
-        () -> {
-          final InputGateway found = gateway.get();
-          return found == null
-              ? Mono.<InputResponse>error(new IllegalStateException(NO_GATEWAY))
-              : found.ask(spec);
-        });
+    return Mono.defer(() -> {
+      final InputGateway found = gateway.get();
+      return found == null
+          ? Mono.<InputResponse>error(new IllegalStateException(NO_GATEWAY))
+          : found.ask(spec);
+    });
   }
 
   /**

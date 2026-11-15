@@ -63,17 +63,16 @@ class SubWorkflowProcessorTest {
         .thenReturn(Mono.just(new SubWorkflowGateway.Result("child-1", List.of("a", "b"))));
 
     StepVerifier.create(run(Map.of("k", "v"), Map.of("workflowId", "child")))
-        .assertNext(
-            out ->
-                assertThat(out.payload())
-                    .isEqualTo(
-                        Map.of(
-                            "executionId",
-                            "child-1",
-                            "results",
-                            List.of("a", "b"),
-                            "status",
-                            "SUCCESS")))
+        .assertNext(out ->
+            assertThat(out.payload())
+                .isEqualTo(
+                    Map.of(
+                        "executionId",
+                        "child-1",
+                        "results",
+                        List.of("a", "b"),
+                        "status",
+                        "SUCCESS")))
         .verifyComplete();
 
     final ArgumentCaptor<Map<String, Object>> start = ArgumentCaptor.forClass(Map.class);
@@ -147,11 +146,8 @@ class SubWorkflowProcessorTest {
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
         .thenReturn(Mono.never());
 
-    StepVerifier.withVirtualTime(
-            () ->
-                run(
-                    "x",
-                    Map.of("workflowId", "child", "timeoutSeconds", 2, "routeByOutcome", true)))
+    StepVerifier.withVirtualTime(() ->
+            run("x", Map.of("workflowId", "child", "timeoutSeconds", 2, "routeByOutcome", true)))
         .thenAwait(Duration.ofSeconds(3))
         .verifyError(java.util.concurrent.TimeoutException.class);
   }
@@ -180,27 +176,24 @@ class SubWorkflowProcessorTest {
     final Map<String, String> ports =
         Map.of("SUCCESS", "success", "RETRY", "retry", "ESCALATE", "escalate", "FAILED", "failure");
 
-    ports.forEach(
-        (outcome, port) -> {
-          childEnds(outcome);
-          StepVerifier.create(run("x", config))
-              .assertNext(
-                  out -> {
-                    assertThat(out.sourcePort()).isEqualTo(port);
-                    assertThat((Map<String, Object>) out.payload())
-                        .containsEntry("outcome", outcome)
-                        .containsEntry("reason", "why")
-                        .containsEntry("status", "SUCCESS");
-                  })
-              .verifyComplete();
-        });
+    ports.forEach((outcome, port) -> {
+      childEnds(outcome);
+      StepVerifier.create(run("x", config))
+          .assertNext(out -> {
+            assertThat(out.sourcePort()).isEqualTo(port);
+            assertThat((Map<String, Object>) out.payload())
+                .containsEntry("outcome", outcome)
+                .containsEntry("reason", "why")
+                .containsEntry("status", "SUCCESS");
+          })
+          .verifyComplete();
+    });
     childEnds(null);
     StepVerifier.create(run("x", config))
-        .assertNext(
-            out -> {
-              assertThat(out.sourcePort()).isEqualTo("success");
-              assertThat((Map<String, Object>) out.payload()).doesNotContainKeys("outcome");
-            })
+        .assertNext(out -> {
+          assertThat(out.sourcePort()).isEqualTo("success");
+          assertThat((Map<String, Object>) out.payload()).doesNotContainKeys("outcome");
+        })
         .verifyComplete();
   }
 
@@ -214,14 +207,13 @@ class SubWorkflowProcessorTest {
                     "c9", "TIMED_OUT", new IllegalStateException("too slow"))));
 
     StepVerifier.create(run("x", Map.of("workflowId", "child", "routeByOutcome", "true")))
-        .assertNext(
-            out -> {
-              assertThat(out.sourcePort()).isEqualTo("failure");
-              assertThat((Map<String, Object>) out.payload())
-                  .containsEntry("executionId", "c9")
-                  .containsEntry("status", "TIMED_OUT")
-                  .containsEntry("reason", "too slow");
-            })
+        .assertNext(out -> {
+          assertThat(out.sourcePort()).isEqualTo("failure");
+          assertThat((Map<String, Object>) out.payload())
+              .containsEntry("executionId", "c9")
+              .containsEntry("status", "TIMED_OUT")
+              .containsEntry("reason", "too slow");
+        })
         .verifyComplete();
   }
 
@@ -235,11 +227,10 @@ class SubWorkflowProcessorTest {
                     "c9", "FAILURE", new IllegalStateException("child broke"))));
 
     StepVerifier.create(run("x", Map.of("workflowId", "child")))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(SubWorkflowGateway.ChildFailed.class)
-                    .hasMessage("child broke"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(SubWorkflowGateway.ChildFailed.class)
+                .hasMessage("child broke"));
   }
 
   @Test
@@ -264,29 +255,25 @@ class SubWorkflowProcessorTest {
     final AtomicInteger running = new AtomicInteger();
     final AtomicInteger most = new AtomicInteger();
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
-        .thenAnswer(
-            call -> {
-              final Object number = ((Map<String, Object>) call.getArgument(2)).get("n");
-              return Mono.defer(
-                  () -> {
-                    most.accumulateAndGet(running.incrementAndGet(), Math::max);
-                    // the first message is the slowest, so a wrong order would show
-                    return Mono.delay(Duration.ofMillis("1".equals(number) ? 150 : 50))
-                        .map(
-                            _ -> {
-                              // done before the result goes on: the next child may start right
-                              // after
-                              running.decrementAndGet();
-                              return new SubWorkflowGateway.Result("child-" + number, List.of());
-                            });
-                  });
-            });
+        .thenAnswer(call -> {
+          final Object number = ((Map<String, Object>) call.getArgument(2)).get("n");
+          return Mono.defer(() -> {
+            most.accumulateAndGet(running.incrementAndGet(), Math::max);
+            // the first message is the slowest, so a wrong order would show
+            return Mono.delay(Duration.ofMillis("1".equals(number) ? 150 : 50))
+                .map(_ -> {
+                  // done before the result goes on: the next child may start right
+                  // after
+                  running.decrementAndGet();
+                  return new SubWorkflowGateway.Result("child-" + number, List.of());
+                });
+          });
+        });
     final Flux<Message<?>> input =
         Flux.range(1, 4)
-            .map(
-                i ->
-                    (Message<?>)
-                        DefaultMessage.create(UUID.randomUUID(), Map.of("n", String.valueOf(i))));
+            .map(i ->
+                (Message<?>)
+                    DefaultMessage.create(UUID.randomUUID(), Map.of("n", String.valueOf(i))));
 
     StepVerifier.create(
             processor
@@ -305,18 +292,15 @@ class SubWorkflowProcessorTest {
     final AtomicInteger running = new AtomicInteger();
     final AtomicInteger most = new AtomicInteger();
     when(runner.run(anyString(), anyString(), anyMap(), anyString(), anyInt()))
-        .thenAnswer(
-            call ->
-                Mono.defer(
-                    () -> {
-                      most.accumulateAndGet(running.incrementAndGet(), Math::max);
-                      return Mono.delay(Duration.ofMillis(20))
-                          .map(
-                              _ -> {
-                                running.decrementAndGet();
-                                return new SubWorkflowGateway.Result("c", List.of());
-                              });
-                    }));
+        .thenAnswer(call ->
+            Mono.defer(() -> {
+              most.accumulateAndGet(running.incrementAndGet(), Math::max);
+              return Mono.delay(Duration.ofMillis(20))
+                  .map(_ -> {
+                    running.decrementAndGet();
+                    return new SubWorkflowGateway.Result("c", List.of());
+                  });
+            }));
     final Flux<Message<?>> input =
         Flux.range(1, 3).map(i -> (Message<?>) DefaultMessage.create(UUID.randomUUID(), "x"));
 
@@ -349,11 +333,8 @@ class SubWorkflowProcessorTest {
     StepVerifier.create(
             processor.validateConfig(Map.of("workflowId", "child", "payload", Map.of("a", 1))))
         .verifyComplete();
-    assertThatThrownBy(
-            () ->
-                processor
-                    .validateConfig(Map.of("workflowId", "c", "timeoutSeconds", "soon"))
-                    .block())
+    assertThatThrownBy(() ->
+            processor.validateConfig(Map.of("workflowId", "c", "timeoutSeconds", "soon")).block())
         .isInstanceOf(IllegalArgumentException.class);
     assertThatThrownBy(() -> processor.validateConfig(Map.of("workflowId", " ")).block())
         .isInstanceOf(IllegalArgumentException.class);

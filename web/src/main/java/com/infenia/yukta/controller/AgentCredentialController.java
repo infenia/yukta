@@ -63,21 +63,20 @@ public class AgentCredentialController {
         .filter(found -> found.id().equals(id))
         .next()
         .switchIfEmpty(Mono.error(new NotFoundException("Supervisor not found: " + id)))
-        .map(
-            found -> {
-              if (!HttpEngineFactory.HTTP_TYPE.equals(found.type())) {
-                throw new ConflictException("Only a supervisor of type http has a credential");
-              }
-              final AgentCredentials.Issued issued =
-                  credentials.issue(
-                      id,
-                      ttlHours == null ? null : Duration.ofHours(ttlHours),
-                      allowedAddresses == null
-                          ? java.util.Set.of()
-                          : java.util.Set.copyOf(allowedAddresses));
-              return ApiResponse.success(
-                  201, "Credential issued", new IssuedView(issued.token(), issued.expiresAt()));
-            });
+        .map(found -> {
+          if (!HttpEngineFactory.HTTP_TYPE.equals(found.type())) {
+            throw new ConflictException("Only a supervisor of type http has a credential");
+          }
+          final AgentCredentials.Issued issued =
+              credentials.issue(
+                  id,
+                  ttlHours == null ? null : Duration.ofHours(ttlHours),
+                  allowedAddresses == null
+                      ? java.util.Set.of()
+                      : java.util.Set.copyOf(allowedAddresses));
+          return ApiResponse.success(
+              201, "Credential issued", new IssuedView(issued.token(), issued.expiresAt()));
+        });
   }
 
   /**

@@ -52,12 +52,11 @@ class DelegationChainTest {
 
     StepVerifier.create(
             DelegationChain.resolve(mode(DelegationMode.ORDERED), List.of("a", "b", "c", "d"), ask))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.ALLOWED);
-              assertThat(o.by()).isEqualTo("c");
-              assertThat(o.asked()).containsExactly("a:NO_OPINION", "b:silent", "c:ALLOW");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.ALLOWED);
+          assertThat(o.by()).isEqualTo("c");
+          assertThat(o.asked()).containsExactly("a:NO_OPINION", "b:silent", "c:ALLOW");
+        })
         .verifyComplete();
   }
 
@@ -67,13 +66,12 @@ class DelegationChainTest {
 
     StepVerifier.create(
             DelegationChain.resolve(mode(DelegationMode.ORDERED), List.of("a", "b"), ask))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
-              assertThat(o.by()).isEqualTo("a");
-              assertThat(o.reason()).isEqualTo("closed");
-              assertThat(o.asked()).containsExactly("a:DENY");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
+          assertThat(o.by()).isEqualTo("a");
+          assertThat(o.reason()).isEqualTo("closed");
+          assertThat(o.asked()).containsExactly("a:DENY");
+        })
         .verifyComplete();
   }
 
@@ -95,12 +93,10 @@ class DelegationChainTest {
                 mode(DelegationMode.ALL),
                 List.of("a", "b", "c"),
                 parents(Map.of("a", allow(), "b", silent(), "c", Mono.never()))))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
-              assertThat(o.asked())
-                  .containsExactlyInAnyOrder("a:ALLOW", "b:NO_OPINION", "c:silent");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
+          assertThat(o.asked()).containsExactlyInAnyOrder("a:ALLOW", "b:NO_OPINION", "c:silent");
+        })
         .verifyComplete();
   }
 
@@ -111,11 +107,10 @@ class DelegationChainTest {
                 mode(DelegationMode.ALL),
                 List.of("a", "b"),
                 parents(Map.of("a", allow(), "b", deny()))))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
-              assertThat(o.by()).isEqualTo("b");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
+          assertThat(o.by()).isEqualTo("b");
+        })
         .verifyComplete();
   }
 
@@ -126,11 +121,10 @@ class DelegationChainTest {
                 mode(DelegationMode.ANY),
                 List.of("a", "b"),
                 parents(Map.of("a", Mono.never(), "b", allow()))))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.ALLOWED);
-              assertThat(o.by()).isEqualTo("b");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.ALLOWED);
+          assertThat(o.by()).isEqualTo("b");
+        })
         .verifyComplete();
   }
 
@@ -149,11 +143,10 @@ class DelegationChainTest {
   void noParentsAllSilentOrFailingParentsGoToPersonWithTheChainRecorded() {
     for (final DelegationMode m : DelegationMode.values()) {
       StepVerifier.create(DelegationChain.resolve(mode(m), List.of(), parents(Map.of())))
-          .assertNext(
-              o -> {
-                assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
-                assertThat(o.asked()).isEmpty();
-              })
+          .assertNext(o -> {
+            assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
+            assertThat(o.asked()).isEmpty();
+          })
           .verifyComplete();
       StepVerifier.create(
               DelegationChain.resolve(
@@ -161,11 +154,10 @@ class DelegationChainTest {
                   List.of("a", "b"),
                   parents(
                       Map.of("a", Mono.error(new IllegalStateException("down")), "b", silent()))))
-          .assertNext(
-              o -> {
-                assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
-                assertThat(o.asked()).hasSize(2);
-              })
+          .assertNext(o -> {
+            assertThat(o.kind()).isEqualTo(Outcome.Kind.PERSON);
+            assertThat(o.asked()).hasSize(2);
+          })
           .verifyComplete();
     }
   }
@@ -185,11 +177,10 @@ class DelegationChainTest {
                 mode(DelegationMode.ORDERED),
                 List.of("a"),
                 id -> Mono.just(new Reply(DelegationChain.Answer.DENY, null))))
-        .assertNext(
-            o -> {
-              assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
-              assertThat(o.reason()).isEqualTo("refused");
-            })
+        .assertNext(o -> {
+          assertThat(o.kind()).isEqualTo(Outcome.Kind.REFUSED);
+          assertThat(o.reason()).isEqualTo("refused");
+        })
         .verifyComplete();
   }
 }

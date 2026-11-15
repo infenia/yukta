@@ -143,19 +143,15 @@ public class DefaultAnswerAuthorizer implements AnswerAuthorizer {
     }
     return routes
         .resolve(request.spec(), request.sessionId())
-        .doOnNext(
-            route -> {
-              final boolean person =
-                  route.tiers().stream()
-                      .anyMatch(
-                          tier ->
-                              tier.name().equals(request.tier())
-                                  && tier.type() == ResponderType.HUMAN);
-              if (!person) {
-                throw deny(
-                    request, RULE_RISK, actor, "may answer HIGH only in a tier made for people");
-              }
-            })
+        .doOnNext(route -> {
+          final boolean person =
+              route.tiers().stream()
+                  .anyMatch(tier ->
+                      tier.name().equals(request.tier()) && tier.type() == ResponderType.HUMAN);
+          if (!person) {
+            throw deny(request, RULE_RISK, actor, "may answer HIGH only in a tier made for people");
+          }
+        })
         .then();
   }
 

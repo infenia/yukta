@@ -159,17 +159,15 @@ public class InputDeliveryWorker implements SmartLifecycle {
    */
   public Mono<Void> deliverDue() {
     return Flux.defer(() -> store.dueDeliveries(clock.instant()))
-        .concatMap(
-            delivery ->
-                attempt(delivery)
-                    .onErrorResume(
-                        error -> {
-                          log.atWarn()
-                              .setCause(error)
-                              .addKeyValue("deliveryId", delivery.id())
-                              .log("Could not deliver an input request");
-                          return Mono.empty();
-                        }))
+        .concatMap(delivery ->
+            attempt(delivery)
+                .onErrorResume(error -> {
+                  log.atWarn()
+                      .setCause(error)
+                      .addKeyValue("deliveryId", delivery.id())
+                      .log("Could not deliver an input request");
+                  return Mono.empty();
+                }))
         .then();
   }
 
@@ -206,21 +204,20 @@ public class InputDeliveryWorker implements SmartLifecycle {
       final InputDelivery delivery, final InputRequest request, final String name) {
     return routes
         .resolve(request.spec(), request.sessionId())
-        .map(
-            route -> {
-              final Map<String, Object> out = new LinkedHashMap<>();
-              route.tiers().stream()
-                  .filter(tier -> tier.name().equals(request.tier()))
-                  .map(Tier::settings)
-                  .findFirst()
-                  .ifPresent(out::putAll);
-              final Instant expires = expiry(request);
-              out.put(KEY_RESPONDER, delivery.responder());
-              out.put("name", name);
-              out.put("answerExpires", expires.getEpochSecond());
-              out.put("answerToken", tokens.mint(request.id(), request.tier(), expires));
-              return out;
-            });
+        .map(route -> {
+          final Map<String, Object> out = new LinkedHashMap<>();
+          route.tiers().stream()
+              .filter(tier -> tier.name().equals(request.tier()))
+              .map(Tier::settings)
+              .findFirst()
+              .ifPresent(out::putAll);
+          final Instant expires = expiry(request);
+          out.put(KEY_RESPONDER, delivery.responder());
+          out.put("name", name);
+          out.put("answerExpires", expires.getEpochSecond());
+          out.put("answerToken", tokens.mint(request.id(), request.tier(), expires));
+          return out;
+        });
   }
 
   private Instant expiry(final InputRequest request) {

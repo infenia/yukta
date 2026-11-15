@@ -90,25 +90,22 @@ public class WorkflowVersionProvider {
     return definitions
         .findRevision(sessionId, workflowId, version)
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new NotFoundException(
-                        "Version " + version + " of workflow " + workflowId + " not found")))
-        .flatMap(
-            definition ->
-                // the revision may declare a supervisor deleted since: refuse it as a save would
-                declared
-                    .require(sessionId, definition)
-                    .then(
-                        Mono.defer(
-                            () ->
-                                SaveAndPrepare.run(
-                                    definitions,
-                                    sessionId,
-                                    definition,
-                                    saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))))
-                    .then(Mono.defer(() -> declared.reconcile(sessionId)))
-                    .thenReturn(new WorkflowRollback(workflowId, version)));
+            Mono.error(() ->
+                new NotFoundException(
+                    "Version " + version + " of workflow " + workflowId + " not found")))
+        .flatMap(definition ->
+            // the revision may declare a supervisor deleted since: refuse it as a save would
+            declared
+                .require(sessionId, definition)
+                .then(
+                    Mono.defer(() ->
+                        SaveAndPrepare.run(
+                            definitions,
+                            sessionId,
+                            definition,
+                            saved -> controlBus.compileAndCacheWorkflow(sessionId, saved))))
+                .then(Mono.defer(() -> declared.reconcile(sessionId)))
+                .thenReturn(new WorkflowRollback(workflowId, version)));
   }
 
   /**

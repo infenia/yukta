@@ -215,20 +215,18 @@ public class MapperProcessor implements ProcessorPlugin {
     final boolean dropOriginal = (Boolean) config.getOrDefault(DROP_ORIG, true);
     final boolean strictMode = (Boolean) config.getOrDefault(STRICT, true);
 
-    return input.flatMap(
-        message -> {
-          try {
-            final Object resultPayload =
-                executeInternal(mode, mapping, message, dropOriginal, strictMode);
+    return input.flatMap(message -> {
+      try {
+        final Object resultPayload =
+            executeInternal(mode, mapping, message, dropOriginal, strictMode);
 
-            return Flux.just(DefaultMessage.from(message, resultPayload));
-          } catch (RuntimeException e) {
-            log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
-            return Flux.error(
-                new WorkflowExecutionException(
-                    ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
-          }
-        });
+        return Flux.just(DefaultMessage.from(message, resultPayload));
+      } catch (RuntimeException e) {
+        log.error("Mapping failed for message {}: {}", message.id(), e.getMessage());
+        return Flux.error(
+            new WorkflowExecutionException(ERR_PREFIX + "Mapping failed: " + e.getMessage(), e));
+      }
+    });
   }
 
   @SuppressWarnings(UNCHECKED)

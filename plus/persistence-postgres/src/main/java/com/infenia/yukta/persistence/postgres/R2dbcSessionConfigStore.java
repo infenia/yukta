@@ -44,29 +44,28 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
   /** The session row and every workflow, written in one transaction by the caller. */
   private Mono<Void> apply(final SessionConfigData data) {
     return Mono.fromCallable(() -> mapper.writeValueAsString(data.tags()))
-        .flatMap(
-            tags ->
-                client
-                    .sql(
-                        """
-                        INSERT INTO session_config
-                          (session_id, project_path, initiator, initiated_time, description, name, tags)
-                        VALUES (:s, :p, :i, :t, :d, :n, CAST(:g AS jsonb))
-                        ON CONFLICT (session_id) DO UPDATE SET
-                          project_path = EXCLUDED.project_path, initiator = EXCLUDED.initiator,
-                          initiated_time = EXCLUDED.initiated_time,
-                          description = EXCLUDED.description, name = EXCLUDED.name,
-                          tags = EXCLUDED.tags
-                        """)
-                    .bind("s", data.sessionId())
-                    .bind("p", orEmpty(data.projectPath()))
-                    .bind("i", orEmpty(data.initiator()))
-                    .bind("t", Instant.now().toString())
-                    .bind("d", orEmpty(data.description()))
-                    .bind("n", orEmpty(data.name()))
-                    .bind("g", tags)
-                    .fetch()
-                    .rowsUpdated())
+        .flatMap(tags ->
+            client
+                .sql(
+                    """
+                    INSERT INTO session_config
+                      (session_id, project_path, initiator, initiated_time, description, name, tags)
+                    VALUES (:s, :p, :i, :t, :d, :n, CAST(:g AS jsonb))
+                    ON CONFLICT (session_id) DO UPDATE SET
+                      project_path = EXCLUDED.project_path, initiator = EXCLUDED.initiator,
+                      initiated_time = EXCLUDED.initiated_time,
+                      description = EXCLUDED.description, name = EXCLUDED.name,
+                      tags = EXCLUDED.tags
+                    """)
+                .bind("s", data.sessionId())
+                .bind("p", orEmpty(data.projectPath()))
+                .bind("i", orEmpty(data.initiator()))
+                .bind("t", Instant.now().toString())
+                .bind("d", orEmpty(data.description()))
+                .bind("n", orEmpty(data.name()))
+                .bind("g", tags)
+                .fetch()
+                .rowsUpdated())
         .thenMany(Flux.fromIterable(data.workflows().values()))
         .concatMap(def -> workflowDefinitionStore.save(data.sessionId(), def))
         .then();
@@ -115,16 +114,15 @@ public class R2dbcSessionConfigStore implements SessionConfigStore {
         .bind("s", sessionId)
         .map(row -> row.get("name", String.class))
         .one()
-        .flatMap(
-            name ->
-                Mono.zip(
-                    arr -> SessionSnapshot.fromValues(sessionId, name, arr),
-                    getProjectPath(sessionId),
-                    getInitiator(sessionId),
-                    getInitiatedTime(sessionId),
-                    getTags(sessionId),
-                    getDescription(sessionId),
-                    workflowDefinitionStore.findAll(sessionId)));
+        .flatMap(name ->
+            Mono.zip(
+                arr -> SessionSnapshot.fromValues(sessionId, name, arr),
+                getProjectPath(sessionId),
+                getInitiator(sessionId),
+                getInitiatedTime(sessionId),
+                getTags(sessionId),
+                getDescription(sessionId),
+                workflowDefinitionStore.findAll(sessionId)));
   }
 
   @Override

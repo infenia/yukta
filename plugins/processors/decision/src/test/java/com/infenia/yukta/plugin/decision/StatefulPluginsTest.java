@@ -213,10 +213,9 @@ class StatefulPluginsTest {
   void dedupe_duplicatesAreNotRememberedAndLongItemsAreShortened() {
     final AtomicInteger calls = new AtomicInteger();
     final FakeModel model =
-        new FakeModel(
-            _ ->
-                Mono.just(
-                    Map.of("same", calls.incrementAndGet() == 1 ? same("1", 1) : same("none", 1))));
+        new FakeModel(_ ->
+            Mono.just(
+                Map.of("same", calls.incrementAndGet() == 1 ? same("1", 1) : same("none", 1))));
     final DedupePlugin plugin = new DedupePlugin(model, FakeModel.plainResolver());
 
     run(plugin, config(), "w".repeat(900), "again", "third");
@@ -263,9 +262,8 @@ class StatefulPluginsTest {
       final String... items) {
     return plugin
         .process(Flux.fromArray(items).map(FakeModel::message), config)
-        .contextWrite(
-            context ->
-                context.put("sessionId", session).put("executionId", execution).put("nodeId", node))
+        .contextWrite(context ->
+            context.put("sessionId", session).put("executionId", execution).put("nodeId", node))
         .collectList()
         .block();
   }

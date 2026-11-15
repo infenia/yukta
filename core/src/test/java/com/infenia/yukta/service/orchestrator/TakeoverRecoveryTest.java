@@ -67,11 +67,10 @@ class TakeoverRecoveryTest {
     listener.getValue().accept(List.of("a", "b", "c"));
 
     org.awaitility.Awaitility.await()
-        .untilAsserted(
-            () -> {
-              verify(resumer).resume("a");
-              verify(resumer).resume("b");
-              verify(resumer).resume("c");
-            });
+        .untilAsserted(() -> {
+          verify(resumer).resume("a");
+          verify(resumer).resume("b");
+          verify(resumer).resume("c");
+        });
   }
 }

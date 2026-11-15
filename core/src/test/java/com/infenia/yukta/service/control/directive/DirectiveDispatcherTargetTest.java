@@ -85,11 +85,10 @@ class DirectiveDispatcherTargetTest {
     when(supervisor.scope()).thenReturn(new SupervisorScope.Global());
     when(supervisor.id()).thenReturn("guard");
     when(supervisor.review(any()))
-        .thenAnswer(
-            call -> {
-              reviewed.add(call.getArgument(0));
-              return Mono.just(Decision.ALLOW);
-            });
+        .thenAnswer(call -> {
+          reviewed.add(call.getArgument(0));
+          return Mono.just(Decision.ALLOW);
+        });
     dispatcher =
         new DirectiveDispatcher(
             handler,
@@ -126,12 +125,11 @@ class DirectiveDispatcherTargetTest {
 
     assertThat(reviewed)
         .singleElement()
-        .satisfies(
-            request -> {
-              assertThat(request.sessionId()).isEqualTo("session");
-              assertThat(request.workflowId()).isEqualTo("workflow");
-              assertThat(request.nodeId()).isEqualTo("n1");
-            });
+        .satisfies(request -> {
+          assertThat(request.sessionId()).isEqualTo("session");
+          assertThat(request.workflowId()).isEqualTo("workflow");
+          assertThat(request.nodeId()).isEqualTo("n1");
+        });
     Awaitility.await().until(() -> !events.isEmpty());
     assertThat(events.getFirst().nodeId()).isEqualTo("n1");
   }

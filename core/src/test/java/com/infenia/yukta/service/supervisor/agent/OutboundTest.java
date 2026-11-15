@@ -179,14 +179,9 @@ class OutboundTest {
         .hasMessageContaining("with a host");
     assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "headers", "A: b")))
         .hasMessageContaining("headers must be an object");
-    assertThatThrownBy(
-            () ->
-                OPEN.read(
-                    Map.of(
-                        "url",
-                        "https://x.example",
-                        "secretHeaders",
-                        Map.of("X", "${env.MISSING}"))))
+    assertThatThrownBy(() ->
+            OPEN.read(
+                Map.of("url", "https://x.example", "secretHeaders", Map.of("X", "${env.MISSING}"))))
         .hasMessageContaining("MISSING")
         .hasMessageContaining("secretHeaders.X");
     assertThatThrownBy(() -> OPEN.read(Map.of("url", "https://x.example", "timeoutMs", 0)))

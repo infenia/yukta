@@ -81,29 +81,26 @@ public class InputProvider {
    * @return the requests
    */
   public Mono<PendingInputs> list(final @Nullable String sessionId, final @Nullable String state) {
-    return Mono.defer(
-        () -> {
-          final Set<InputState> states = InputRequestQueries.states(state);
-          final String session = sessionId == null || sessionId.isBlank() ? null : sessionId;
-          return queries
-              .list(session, null, null, states)
-              .take(MAX_INPUTS + 1L)
-              .concatMap(
-                  request ->
-                      queries
-                          .answer(request)
-                          .map(InputResponse::decision)
-                          .map(decision -> entry(request, decision))
-                          .switchIfEmpty(Mono.fromSupplier(() -> entry(request, null))))
-              .collectList()
-              .map(
-                  entries ->
-                      new PendingInputs(
-                          session,
-                          states.stream().sorted().map(InputState::name).toList(),
-                          entries.subList(0, Math.min(entries.size(), MAX_INPUTS)),
-                          entries.size() > MAX_INPUTS));
-        });
+    return Mono.defer(() -> {
+      final Set<InputState> states = InputRequestQueries.states(state);
+      final String session = sessionId == null || sessionId.isBlank() ? null : sessionId;
+      return queries
+          .list(session, null, null, states)
+          .take(MAX_INPUTS + 1L)
+          .concatMap(request ->
+              queries
+                  .answer(request)
+                  .map(InputResponse::decision)
+                  .map(decision -> entry(request, decision))
+                  .switchIfEmpty(Mono.fromSupplier(() -> entry(request, null))))
+          .collectList()
+          .map(entries ->
+              new PendingInputs(
+                  session,
+                  states.stream().sorted().map(InputState::name).toList(),
+                  entries.subList(0, Math.min(entries.size(), MAX_INPUTS)),
+                  entries.size() > MAX_INPUTS));
+    });
   }
 
   /**
@@ -126,23 +123,22 @@ public class InputProvider {
       final @Nullable String text,
       final @Nullable String data,
       final @Nullable String rationale) {
-    return Mono.defer(
-        () -> {
-          requireIds(executionId, requestId);
-          if (decision == null || decision.isBlank()) {
-            return Mono.error(new IllegalArgumentException("decision is required."));
-          }
-          final Map<String, Object> values = data(data);
-          return act(
-              sessionId,
-              executionId,
-              requestId,
-              "ANSWER_INPUT",
-              "Answered input request " + requestId + " with " + decision + ".",
-              () ->
-                  control.answerInput(
-                      executionId, requestId, null, decision, text, values, rationale, null));
-        });
+    return Mono.defer(() -> {
+      requireIds(executionId, requestId);
+      if (decision == null || decision.isBlank()) {
+        return Mono.error(new IllegalArgumentException("decision is required."));
+      }
+      final Map<String, Object> values = data(data);
+      return act(
+          sessionId,
+          executionId,
+          requestId,
+          "ANSWER_INPUT",
+          "Answered input request " + requestId + " with " + decision + ".",
+          () ->
+              control.answerInput(
+                  executionId, requestId, null, decision, text, values, rationale, null));
+    });
   }
 
   /**
@@ -161,20 +157,19 @@ public class InputProvider {
       final String requestId,
       final String reason,
       final @Nullable String advice) {
-    return Mono.defer(
-        () -> {
-          requireIds(executionId, requestId);
-          if (reason == null || reason.isBlank()) {
-            return Mono.error(new IllegalArgumentException("reason is required."));
-          }
-          return act(
-              sessionId,
-              executionId,
-              requestId,
-              "ESCALATE_INPUT",
-              "Escalated input request " + requestId + ".",
-              () -> control.escalateInput(executionId, requestId, reason, advice));
-        });
+    return Mono.defer(() -> {
+      requireIds(executionId, requestId);
+      if (reason == null || reason.isBlank()) {
+        return Mono.error(new IllegalArgumentException("reason is required."));
+      }
+      return act(
+          sessionId,
+          executionId,
+          requestId,
+          "ESCALATE_INPUT",
+          "Escalated input request " + requestId + ".",
+          () -> control.escalateInput(executionId, requestId, reason, advice));
+    });
   }
 
   private Mono<ControlActionResult> act(
@@ -186,13 +181,12 @@ public class InputProvider {
       final Supplier<Mono<Void>> command) {
     return ExecutionOwnership.require(controlBus, sessionId, executionId)
         .then(Mono.defer(() -> queries.requireWaiting(executionId, requestId)))
-        .flatMap(
-            request ->
-                command
-                    .get()
-                    .thenReturn(
-                        new ControlActionResult(
-                            action, executionId, request.nodeId(), List.of(), message)))
+        .flatMap(request ->
+            command
+                .get()
+                .thenReturn(
+                    new ControlActionResult(
+                        action, executionId, request.nodeId(), List.of(), message)))
         .onErrorMap(
             InputForbiddenException.class,
             e ->

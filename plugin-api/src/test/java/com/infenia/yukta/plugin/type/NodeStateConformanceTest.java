@@ -60,20 +60,18 @@ class NodeStateConformanceTest {
 
   @Test
   void sharedFieldState_failsTheCheck() {
-    assertThatThrownBy(
-            () ->
-                NodeStateConformance.assertNodesDoNotShareState(
-                    new FieldStatePlugin(), CONFIG_A, CONFIG_B, List.of("1", "2"), List.of("1")))
+    assertThatThrownBy(() ->
+            NodeStateConformance.assertNodesDoNotShareState(
+                new FieldStatePlugin(), CONFIG_A, CONFIG_B, List.of("1", "2"), List.of("1")))
         .isInstanceOf(AssertionError.class)
         .hasMessageContaining("changed when another node ran");
   }
 
   @Test
   void perNodeState_passesTheCheck() {
-    assertThatCode(
-            () ->
-                NodeStateConformance.assertNodesDoNotShareState(
-                    new PerNodePlugin(), CONFIG_A, CONFIG_B, List.of("1", "2"), List.of("1")))
+    assertThatCode(() ->
+            NodeStateConformance.assertNodesDoNotShareState(
+                new PerNodePlugin(), CONFIG_A, CONFIG_B, List.of("1", "2"), List.of("1")))
         .doesNotThrowAnyException();
   }
 }

@@ -64,12 +64,11 @@ public class ApiDocsCustomizer implements OpenApiCustomizer {
     openApi.addSecurityItem(new SecurityRequirement().addList("apiKeyAuth"));
     openApi
         .getPaths()
-        .forEach(
-            (path, item) -> {
-              if (isLegacyAlias(path)) {
-                item.readOperations().forEach(operation -> operation.setDeprecated(true));
-              }
-            });
+        .forEach((path, item) -> {
+          if (isLegacyAlias(path)) {
+            item.readOperations().forEach(operation -> operation.setDeprecated(true));
+          }
+        });
   }
 
   /** True for the /api/workflow paths that alias a current route. */

@@ -49,11 +49,10 @@ class LlmCallPluginTest {
   void setUp() {
     plugin = new LlmCallPlugin(gateway, resolver);
     when(resolver.resolve(any(), any()))
-        .thenAnswer(
-            inv -> {
-              final Object arg = inv.getArgument(0);
-              return Mono.justOrEmpty(arg);
-            });
+        .thenAnswer(inv -> {
+          final Object arg = inv.getArgument(0);
+          return Mono.justOrEmpty(arg);
+        });
   }
 
   private static Map<String, Object> config(final Object... extra) {
@@ -83,17 +82,16 @@ class LlmCallPluginTest {
     final AtomicInteger inFlight = new AtomicInteger();
     final AtomicInteger peak = new AtomicInteger();
     when(gateway.call(any()))
-        .thenAnswer(
-            invocation -> {
-              peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
-              try {
-                // simulated call duration so calls overlap
-                Thread.sleep(30); // nosem: yukta-test-thread-sleep
-              } finally {
-                inFlight.decrementAndGet();
-              }
-              return new LlmResponse("ok", 1, 1, "m");
-            });
+        .thenAnswer(invocation -> {
+          peak.accumulateAndGet(inFlight.incrementAndGet(), Math::max);
+          try {
+            // simulated call duration so calls overlap
+            Thread.sleep(30); // nosem: yukta-test-thread-sleep
+          } finally {
+            inFlight.decrementAndGet();
+          }
+          return new LlmResponse("ok", 1, 1, "m");
+        });
     StepVerifier.create(
             plugin.process(
                 Flux.range(0, count).map(i -> DefaultMessage.create(UUID.randomUUID(), "in")),
@@ -145,11 +143,10 @@ class LlmCallPluginTest {
 
     StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
     StepVerifier.create(runInRun(config, "r1"))
-        .assertNext(
-            m -> {
-              assertThat(m.metadata()).containsEntry("llmSuccess", false);
-              assertThat(String.valueOf(m.metadata().get("llmError"))).contains("cost budget");
-            })
+        .assertNext(m -> {
+          assertThat(m.metadata()).containsEntry("llmSuccess", false);
+          assertThat(String.valueOf(m.metadata().get("llmError"))).contains("cost budget");
+        })
         .verifyComplete();
   }
 
@@ -161,11 +158,10 @@ class LlmCallPluginTest {
 
     StepVerifier.create(runInRun(config, "r1")).expectNextCount(1).verifyComplete();
     StepVerifier.create(runInRun(config, "r1"))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(com.infenia.yukta.plugin.exception.RunAbortedException.class)
-                    .hasMessageContaining("budget exceeded"));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(com.infenia.yukta.plugin.exception.RunAbortedException.class)
+                .hasMessageContaining("budget exceeded"));
   }
 
   @Test
@@ -271,12 +267,11 @@ class LlmCallPluginTest {
 
     StepVerifier.create(
             run(config("tools", List.of(Map.of("name", "weather", "description", "Weather")))))
-        .assertNext(
-            m ->
-                assertThat((List<Object>) payload(m).get("actions"))
-                    .containsExactly(
-                        Map.of("x", 1),
-                        Map.of("tool", "weather", "arguments", Map.of("city", "Pune"), "id", "c1")))
+        .assertNext(m ->
+            assertThat((List<Object>) payload(m).get("actions"))
+                .containsExactly(
+                    Map.of("x", 1),
+                    Map.of("tool", "weather", "arguments", Map.of("city", "Pune"), "id", "c1")))
         .verifyComplete();
 
     final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -367,19 +362,18 @@ class LlmCallPluginTest {
             Map.of("input", 2.0, "output", 4.0));
 
     StepVerifier.create(run(config))
-        .assertNext(
-            m -> {
-              final Map<String, Object> out = payload(m);
-              assertThat(out).containsEntry("success", true).containsEntry("content", "Sure");
-              assertThat(out).containsEntry("actions", List.of(Map.of("a", 1)));
-              assertThat(out).containsEntry("model", "served");
-              assertThat(out.get("usage"))
-                  .isEqualTo(Map.of("inputTokens", 1000L, "outputTokens", 500L));
-              assertThat((Double) out.get("cost")).isEqualTo(0.004);
-              assertThat((Long) out.get("latencyMs")).isNotNegative();
-              assertThat(m.metadata()).containsEntry("llmSuccess", true);
-              assertThat(m.sourcePort()).isEqualTo("default");
-            })
+        .assertNext(m -> {
+          final Map<String, Object> out = payload(m);
+          assertThat(out).containsEntry("success", true).containsEntry("content", "Sure");
+          assertThat(out).containsEntry("actions", List.of(Map.of("a", 1)));
+          assertThat(out).containsEntry("model", "served");
+          assertThat(out.get("usage"))
+              .isEqualTo(Map.of("inputTokens", 1000L, "outputTokens", 500L));
+          assertThat((Double) out.get("cost")).isEqualTo(0.004);
+          assertThat((Long) out.get("latencyMs")).isNotNegative();
+          assertThat(m.metadata()).containsEntry("llmSuccess", true);
+          assertThat(m.sourcePort()).isEqualTo("default");
+        })
         .verifyComplete();
 
     final ArgumentCaptor<LlmRequest> captor = ArgumentCaptor.forClass(LlmRequest.class);
@@ -524,11 +518,10 @@ class LlmCallPluginTest {
     when(gateway.call(any())).thenThrow(new IllegalStateException("429 rate limited"));
 
     StepVerifier.create(run(config()))
-        .expectErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(WorkflowExecutionException.class)
-                    .hasMessageContaining("429 rate limited"))
+        .expectErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(WorkflowExecutionException.class)
+                .hasMessageContaining("429 rate limited"))
         .verify();
   }
 
@@ -538,14 +531,13 @@ class LlmCallPluginTest {
 
     when(gateway.call(any())).thenThrow(new IllegalStateException("boom"));
     StepVerifier.create(run(config))
-        .assertNext(
-            m -> {
-              assertThat(m.sourcePort()).isEqualTo("failure");
-              assertThat(m.payload()).isEqualTo("in");
-              assertThat(m.metadata())
-                  .containsEntry("llmSuccess", false)
-                  .containsEntry("llmError", "boom");
-            })
+        .assertNext(m -> {
+          assertThat(m.sourcePort()).isEqualTo("failure");
+          assertThat(m.payload()).isEqualTo("in");
+          assertThat(m.metadata())
+              .containsEntry("llmSuccess", false)
+              .containsEntry("llmError", "boom");
+        })
         .verifyComplete();
 
     org.mockito.Mockito.reset(gateway);

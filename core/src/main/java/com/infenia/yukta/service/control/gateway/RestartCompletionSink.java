@@ -50,11 +50,10 @@ public interface RestartCompletionSink {
                 completeRestartSuccess(newExecutionId);
               }
             })
-        .doOnError(
-            error -> {
-              if (!reported.get()) {
-                completeRestartFailure(newExecutionId, error);
-              }
-            });
+        .doOnError(error -> {
+          if (!reported.get()) {
+            completeRestartFailure(newExecutionId, error);
+          }
+        });
   }
 }

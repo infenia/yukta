@@ -107,19 +107,18 @@ public final class McpListToolsPlugin implements ProcessorPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          if (!(config.get(URL) instanceof final String url) || url.isBlank()) {
-            throw new IllegalArgumentException("url is mandatory");
-          }
-          if (!url.contains("${")) {
-            final String scheme = URI.create(url).getScheme();
-            if (!"http".equals(scheme) && !"https".equals(scheme)) {
-              throw new IllegalArgumentException("url must be http(s), got: " + url);
-            }
-          }
-          timeoutSeconds(config);
-        });
+    return Mono.fromRunnable(() -> {
+      if (!(config.get(URL) instanceof final String url) || url.isBlank()) {
+        throw new IllegalArgumentException("url is mandatory");
+      }
+      if (!url.contains("${")) {
+        final String scheme = URI.create(url).getScheme();
+        if (!"http".equals(scheme) && !"https".equals(scheme)) {
+          throw new IllegalArgumentException("url must be http(s), got: " + url);
+        }
+      }
+      timeoutSeconds(config);
+    });
   }
 
   @Override
@@ -154,20 +153,19 @@ public final class McpListToolsPlugin implements ProcessorPlugin {
             resolver.resolve(config.get(URL), message).map(Object::toString),
             resolveHeaders(config.get(HEADERS), message),
             resolver.resolve(config.getOrDefault(AUTH_TOKEN, ""), message).map(Object::toString))
-        .map(
-            tuple -> {
-              final Map<String, String> headers = new HashMap<>(tuple.getT2());
-              if (!tuple.getT3().isEmpty()) {
-                headers.put("Authorization", "Bearer " + tuple.getT3());
-              }
-              return new McpCallSpec(
-                  tuple.getT1(),
-                  "tools/list",
-                  Map.of(),
-                  headers,
-                  Map.of(),
-                  Duration.ofSeconds(timeoutSeconds(config)));
-            });
+        .map(tuple -> {
+          final Map<String, String> headers = new HashMap<>(tuple.getT2());
+          if (!tuple.getT3().isEmpty()) {
+            headers.put("Authorization", "Bearer " + tuple.getT3());
+          }
+          return new McpCallSpec(
+              tuple.getT1(),
+              "tools/list",
+              Map.of(),
+              headers,
+              Map.of(),
+              Duration.ofSeconds(timeoutSeconds(config)));
+        });
   }
 
   @SuppressWarnings("unchecked")
@@ -175,11 +173,10 @@ public final class McpListToolsPlugin implements ProcessorPlugin {
       final Object configured, final Message<?> message) {
     return configured instanceof final Map<?, ?> map
         ? Flux.fromIterable(((Map<String, Object>) map).entrySet())
-            .flatMapSequential(
-                entry ->
-                    resolver
-                        .resolve(entry.getValue(), message)
-                        .map(value -> Map.entry(entry.getKey(), String.valueOf(value))))
+            .flatMapSequential(entry ->
+                resolver
+                    .resolve(entry.getValue(), message)
+                    .map(value -> Map.entry(entry.getKey(), String.valueOf(value))))
             .collectMap(Map.Entry::getKey, Map.Entry::getValue)
         : Mono.just(Map.of());
   }

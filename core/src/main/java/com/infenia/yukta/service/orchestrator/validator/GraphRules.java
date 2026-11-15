@@ -45,12 +45,9 @@ final class GraphRules {
       def.nodes().stream()
           .filter(node -> registry.get(node.type()) == null)
           .findFirst()
-          .ifPresent(
-              node ->
-                  problems.add(
-                      "Plugin not found for type: "
-                          + node.type()
-                          + registry.missingHint(node.type())));
+          .ifPresent(node ->
+              problems.add(
+                  "Plugin not found for type: " + node.type() + registry.missingHint(node.type())));
       return problems;
     }
     final Set<String> targetIds =
@@ -143,17 +140,15 @@ final class GraphRules {
     final Map<String, Integer> inDegree = new ConcurrentHashMap<>();
     final Map<String, List<String>> adj = new ConcurrentHashMap<>();
     def.nodes()
-        .forEach(
-            node -> {
-              inDegree.put(node.nodeId(), 0);
-              adj.put(node.nodeId(), new ArrayList<>());
-            });
+        .forEach(node -> {
+          inDegree.put(node.nodeId(), 0);
+          adj.put(node.nodeId(), new ArrayList<>());
+        });
     def.edges()
-        .forEach(
-            edge -> {
-              adj.get(edge.source()).add(edge.target());
-              inDegree.merge(edge.target(), 1, Integer::sum);
-            });
+        .forEach(edge -> {
+          adj.get(edge.source()).add(edge.target());
+          inDegree.merge(edge.target(), 1, Integer::sum);
+        });
     final Deque<String> ready = new ArrayDeque<>();
     inDegree.forEach((nodeId, degree) -> addIfZero(ready, nodeId, degree));
     int removed = 0;

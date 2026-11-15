@@ -128,12 +128,11 @@ public final class NotifyTerminal implements TerminalPlugin {
 
   @Override
   public Mono<Void> validateConfig(final Map<String, Object> config) {
-    return Mono.fromRunnable(
-        () -> {
-          checkUrl(ConfigValidation.requiredString(config, "url"));
-          ConfigValidation.positiveLong(config, "timeoutMs", DEFAULT_TIMEOUT_MS);
-          FailureMode.from(config.get("failureMode"));
-        });
+    return Mono.fromRunnable(() -> {
+      checkUrl(ConfigValidation.requiredString(config, "url"));
+      ConfigValidation.positiveLong(config, "timeoutMs", DEFAULT_TIMEOUT_MS);
+      FailureMode.from(config.get("failureMode"));
+    });
   }
 
   @Override
@@ -145,20 +144,18 @@ public final class NotifyTerminal implements TerminalPlugin {
     final FailureMode mode = FailureMode.from(config.get("failureMode"));
     final WebClient client = webClientBuilder.build();
     return input
-        .concatMap(
-            message ->
-                PluginGuard.guard(
-                    send(client, url, timeout, message, config).<Message<?>>thenReturn(message),
-                    message,
-                    mode,
-                    reporter,
-                    "notify"))
-        .doOnNext(
-            m -> {
-              if (PluginGuard.ERROR_PORT.equals(m.sourcePort())) {
-                log.atWarn().log("Notification failed: {}", m.exceptionDetail());
-              }
-            })
+        .concatMap(message ->
+            PluginGuard.guard(
+                send(client, url, timeout, message, config).<Message<?>>thenReturn(message),
+                message,
+                mode,
+                reporter,
+                "notify"))
+        .doOnNext(m -> {
+          if (PluginGuard.ERROR_PORT.equals(m.sourcePort())) {
+            log.atWarn().log("Notification failed: {}", m.exceptionDetail());
+          }
+        })
         .then();
   }
 
@@ -181,16 +178,15 @@ public final class NotifyTerminal implements TerminalPlugin {
         .post()
         .uri(url)
         .bodyValue(Map.of(TEXT_KEY, text(message, config)))
-        .<Void>exchangeToMono(
-            response ->
-                response
-                    .releaseBody()
-                    .then(
-                        response.statusCode().is2xxSuccessful()
-                            ? Mono.empty()
-                            : Mono.error(
-                                new IllegalStateException(
-                                    "Webhook answered " + response.statusCode()))))
+        .<Void>exchangeToMono(response ->
+            response
+                .releaseBody()
+                .then(
+                    response.statusCode().is2xxSuccessful()
+                        ? Mono.empty()
+                        : Mono.error(
+                            new IllegalStateException(
+                                "Webhook answered " + response.statusCode()))))
         .timeout(timeout);
   }
 

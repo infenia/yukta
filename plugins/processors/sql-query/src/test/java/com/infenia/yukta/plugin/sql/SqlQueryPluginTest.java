@@ -199,12 +199,11 @@ class SqlQueryPluginTest {
   @Test
   void describe_pluginProvidesNodeDesign() {
     assertThat(plugin.describe().uiDesign())
-        .hasValueSatisfying(
-            design -> {
-              assertThat(design.label()).isNotBlank();
-              assertThat(design.width()).isEqualTo(140);
-              assertThat(design.height()).isEqualTo(80);
-            });
+        .hasValueSatisfying(design -> {
+          assertThat(design.label()).isNotBlank();
+          assertThat(design.width()).isEqualTo(140);
+          assertThat(design.height()).isEqualTo(80);
+        });
   }
 
   @Test

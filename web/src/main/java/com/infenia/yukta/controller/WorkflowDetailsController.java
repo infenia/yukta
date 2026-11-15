@@ -99,28 +99,22 @@ public class WorkflowDetailsController {
       @RequestParam(required = false) final String cursor) {
     return definition(sessionId, workflowId)
         .flatMap(def -> controlBus.getHistory(sessionId, workflowId))
-        .map(
-            executions ->
-                Pagination.page(
-                    executions,
-                    limit,
-                    cursor,
-                    WorkflowExecutionSummary::executionId,
-                    "Workflow executions retrieved"));
+        .map(executions ->
+            Pagination.page(
+                executions,
+                limit,
+                cursor,
+                WorkflowExecutionSummary::executionId,
+                "Workflow executions retrieved"));
   }
 
   private Mono<WorkflowDefinition> definition(final String sessionId, final String workflowId) {
     return sessionService
         .getSessionWorkflow(sessionId, workflowId)
         .switchIfEmpty(
-            Mono.error(
-                () ->
-                    new NotFoundException(
-                        "Workflow not found: '"
-                            + workflowId
-                            + "' in session: '"
-                            + sessionId
-                            + "'")));
+            Mono.error(() ->
+                new NotFoundException(
+                    "Workflow not found: '" + workflowId + "' in session: '" + sessionId + "'")));
   }
 
   /** The workflow a SUB_WORKFLOW node runs, so the UI can open it; null for any other node. */
@@ -133,20 +127,19 @@ public class WorkflowDetailsController {
   private WorkflowGraph buildGraph(final WorkflowDefinition definition) {
     final List<WorkflowGraphNode> nodes =
         definition.nodes().stream()
-            .map(
-                node -> {
-                  final var enriched = workflowGraphService.enrichNode(node);
-                  return new WorkflowGraphNode(
-                      enriched.nodeId(),
-                      enriched.type(),
-                      enriched.category(),
-                      enriched.description(),
-                      enriched.uiDesign(),
-                      enriched.outputPorts(),
-                      node.group(),
-                      subWorkflowId(node),
-                      node.color());
-                })
+            .map(node -> {
+              final var enriched = workflowGraphService.enrichNode(node);
+              return new WorkflowGraphNode(
+                  enriched.nodeId(),
+                  enriched.type(),
+                  enriched.category(),
+                  enriched.description(),
+                  enriched.uiDesign(),
+                  enriched.outputPorts(),
+                  node.group(),
+                  subWorkflowId(node),
+                  node.color());
+            })
             .toList();
     return new WorkflowGraph(
         definition.workflowId(),

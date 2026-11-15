@@ -30,17 +30,16 @@ public class R2dbcAgentCredentialStore implements AgentCredentialStore {
     return client
         .sql(
             "SELECT supervisor_id, token_hash, expires_at, allowed_addresses FROM agent_credential")
-        .map(
-            row -> {
-              final OffsetDateTime expires = row.get("expires_at", OffsetDateTime.class);
-              return new Stored(
-                  row.get("supervisor_id", String.class),
-                  row.get("token_hash", String.class),
-                  expires == null ? null : expires.toInstant(),
-                  addressesOf(
-                      java.util.Objects.requireNonNullElse(
-                          row.get("allowed_addresses", String.class), "")));
-            })
+        .map(row -> {
+          final OffsetDateTime expires = row.get("expires_at", OffsetDateTime.class);
+          return new Stored(
+              row.get("supervisor_id", String.class),
+              row.get("token_hash", String.class),
+              expires == null ? null : expires.toInstant(),
+              addressesOf(
+                  java.util.Objects.requireNonNullElse(
+                      row.get("allowed_addresses", String.class), "")));
+        })
         .all();
   }
 

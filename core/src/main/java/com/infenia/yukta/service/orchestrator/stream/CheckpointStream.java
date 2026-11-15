@@ -53,15 +53,14 @@ class CheckpointStream {
             logStream
                 .doOnNext(last::set)
                 .concatWith(
-                    Mono.defer(
-                            () ->
-                                last.get() == null
-                                    ? Mono.<Void>empty()
-                                    : tolerate(
-                                        store.save(executionId, nodeId, last.get()),
-                                        executionId,
-                                        nodeId,
-                                        saveFailed))
+                    Mono.defer(() ->
+                            last.get() == null
+                                ? Mono.<Void>empty()
+                                : tolerate(
+                                    store.save(executionId, nodeId, last.get()),
+                                    executionId,
+                                    nodeId,
+                                    saveFailed))
                         .then(Mono.empty()));
       }
       default ->
@@ -72,33 +71,28 @@ class CheckpointStream {
               logStream
                   .bufferTimeout(
                       CHECKPOINT_BATCH_SIZE, Duration.ofMillis(CHECKPOINT_BATCH_WAIT_MILLIS), true)
-                  .concatMap(
-                      batch ->
-                          tolerate(
-                                  store.saveAll(executionId, nodeId, batch),
-                                  executionId,
-                                  nodeId,
-                                  saveFailed)
-                              .thenMany(Flux.fromIterable(batch)));
+                  .concatMap(batch ->
+                      tolerate(
+                              store.saveAll(executionId, nodeId, batch),
+                              executionId,
+                              nodeId,
+                              saveFailed)
+                          .thenMany(Flux.fromIterable(batch)));
     }
     // Only a node that completed normally is marked, and its completion goes on downstream once the
     // marker is durable. A store that cannot write it must not fail the run.
     logStream =
         logStream.concatWith(
-            Mono.defer(
-                    () ->
-                        saveFailed.get()
-                            ? Mono.<Void>empty()
-                            : store.markComplete(executionId, nodeId))
-                .onErrorResume(
-                    error -> {
-                      log.atError()
-                          .addKeyValue("executionId", executionId)
-                          .addKeyValue("nodeId", nodeId)
-                          .setCause(error)
-                          .log("Could not mark the node as complete");
-                      return Mono.empty();
-                    })
+            Mono.defer(() ->
+                    saveFailed.get() ? Mono.<Void>empty() : store.markComplete(executionId, nodeId))
+                .onErrorResume(error -> {
+                  log.atError()
+                      .addKeyValue("executionId", executionId)
+                      .addKeyValue("nodeId", nodeId)
+                      .setCause(error)
+                      .log("Could not mark the node as complete");
+                  return Mono.empty();
+                })
                 .then(Mono.empty()));
     return logStream;
   }
@@ -117,15 +111,14 @@ class CheckpointStream {
       final String executionId,
       final String nodeId,
       final AtomicBoolean saveFailed) {
-    return save.onErrorResume(
-        error -> {
-          saveFailed.set(true);
-          log.atError()
-              .addKeyValue("executionId", executionId)
-              .addKeyValue("nodeId", nodeId)
-              .setCause(error)
-              .log("Could not save a checkpoint");
-          return Mono.empty();
-        });
+    return save.onErrorResume(error -> {
+      saveFailed.set(true);
+      log.atError()
+          .addKeyValue("executionId", executionId)
+          .addKeyValue("nodeId", nodeId)
+          .setCause(error)
+          .log("Could not save a checkpoint");
+      return Mono.empty();
+    });
   }
 }

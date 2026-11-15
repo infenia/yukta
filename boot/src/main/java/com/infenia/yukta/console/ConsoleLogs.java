@@ -57,12 +57,11 @@ public final class ConsoleLogs extends AppenderBase<ILoggingEvent> {
         instance.setName("yukta-console-ring");
         instance.start();
         root.iteratorForAppenders()
-            .forEachRemaining(
-                a -> {
-                  if (a instanceof ConsoleAppender<ILoggingEvent> c) {
-                    stdout = c;
-                  }
-                });
+            .forEachRemaining(a -> {
+              if (a instanceof ConsoleAppender<ILoggingEvent> c) {
+                stdout = c;
+              }
+            });
         if (stdout != null) {
           root.detachAppender(stdout);
         }

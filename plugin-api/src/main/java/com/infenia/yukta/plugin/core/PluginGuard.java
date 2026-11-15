@@ -36,24 +36,22 @@ public class PluginGuard {
       final FailureMode mode,
       final PluginMetricsReporter reporter,
       final String metric) {
-    return Mono.deferContextual(
-        ctx -> {
-          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-          return operation
-              .doOnNext(m -> reporter.increment(nodeId, metric, "OK"))
-              .onErrorResume(
-                  e -> {
-                    reporter.increment(nodeId, metric, "ERROR");
-                    // a hard abort ends the run whatever the node's own failureMode says
-                    if (mode == FailureMode.ERROR || RunAbortedException.isAbort(e)) {
-                      return Mono.error(e);
-                    }
-                    return Mono.just(
-                        input
-                            .withFailure(nodeId, e.getClass().getSimpleName(), e.getMessage())
-                            .withSourcePort(ERROR_PORT));
-                  });
-        });
+    return Mono.deferContextual(ctx -> {
+      final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+      return operation
+          .doOnNext(m -> reporter.increment(nodeId, metric, "OK"))
+          .onErrorResume(e -> {
+            reporter.increment(nodeId, metric, "ERROR");
+            // a hard abort ends the run whatever the node's own failureMode says
+            if (mode == FailureMode.ERROR || RunAbortedException.isAbort(e)) {
+              return Mono.error(e);
+            }
+            return Mono.just(
+                input
+                    .withFailure(nodeId, e.getClass().getSimpleName(), e.getMessage())
+                    .withSourcePort(ERROR_PORT));
+          });
+    });
   }
 
   /**
@@ -68,11 +66,10 @@ public class PluginGuard {
    */
   public static <T> Flux<T> counted(
       final Flux<T> flux, final PluginMetricsReporter reporter, final String metric) {
-    return Flux.deferContextual(
-        ctx -> {
-          final String nodeId = ctx.getOrDefault("nodeId", "unknown");
-          return flux.doOnNext(m -> reporter.increment(nodeId, metric, "OK"))
-              .doOnError(e -> reporter.increment(nodeId, metric, "ERROR"));
-        });
+    return Flux.deferContextual(ctx -> {
+      final String nodeId = ctx.getOrDefault("nodeId", "unknown");
+      return flux.doOnNext(m -> reporter.increment(nodeId, metric, "OK"))
+          .doOnError(e -> reporter.increment(nodeId, metric, "ERROR"));
+    });
   }
 }

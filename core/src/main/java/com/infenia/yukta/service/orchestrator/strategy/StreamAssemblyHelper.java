@@ -81,13 +81,12 @@ class StreamAssemblyHelper {
     built = control.applyPostProcessingControls(node.nodeId(), built);
     return contextBuilder
         .applyContextTo(built)
-        .doOnError(
-            error ->
-                log.atError()
-                    .addKeyValue("nodeId", node.nodeId())
-                    .addKeyValue("executionId", context.executionId())
-                    .setCause(error)
-                    .log("Stream assembly failed for node"));
+        .doOnError(error ->
+            log.atError()
+                .addKeyValue("nodeId", node.nodeId())
+                .addKeyValue("executionId", context.executionId())
+                .setCause(error)
+                .log("Stream assembly failed for node"));
   }
 
   /**

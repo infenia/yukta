@@ -100,15 +100,13 @@ class LoopPredicateProcessorTest {
     when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              final Flux<Message> input = invocation.getArgument(0);
-              return input.map(
-                  msg -> {
-                    final int val = (int) msg.payload();
-                    return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
-                  });
-            });
+        .thenAnswer(invocation -> {
+          final Flux<Message> input = invocation.getArgument(0);
+          return input.map(msg -> {
+            final int val = (int) msg.payload();
+            return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
+          });
+        });
 
     final Map<String, Object> config =
         Map.of(
@@ -139,15 +137,13 @@ class LoopPredicateProcessorTest {
     when(registry.find(targetId)).thenReturn(Optional.<Plugin>of(targetPlugin));
 
     when(targetPlugin.process(any(), any()))
-        .thenAnswer(
-            invocation -> {
-              final Flux<Message> input = invocation.getArgument(0);
-              return input.map(
-                  msg -> {
-                    final int val = (int) msg.payload();
-                    return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
-                  });
-            });
+        .thenAnswer(invocation -> {
+          final Flux<Message> input = invocation.getArgument(0);
+          return input.map(msg -> {
+            final int val = (int) msg.payload();
+            return DefaultMessage.create(UUID.fromString(msg.traceId()), val + 1);
+          });
+        });
 
     final Map<String, Object> config =
         Map.of(
@@ -188,11 +184,10 @@ class LoopPredicateProcessorTest {
             processor
                 .process(Flux.just(inputMsg), config)
                 .contextWrite(Context.of("executionId", "e1", "nodeId", "n1")))
-        .expectErrorMatches(
-            e ->
-                e instanceof RunAbortedException
-                    && e.getMessage().contains("Loop execution failed")
-                    && "Failure".equals(e.getCause().getMessage()))
+        .expectErrorMatches(e ->
+            e instanceof RunAbortedException
+                && e.getMessage().contains("Loop execution failed")
+                && "Failure".equals(e.getCause().getMessage()))
         .verify();
   }
 

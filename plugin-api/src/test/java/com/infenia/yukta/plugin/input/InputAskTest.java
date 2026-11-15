@@ -19,11 +19,10 @@ class InputAskTest {
   @Test
   void ask_failsClearlyWithoutGateway() {
     StepVerifier.create(InputAsk.ask(() -> null, InputFixtures.spec()))
-        .verifyErrorSatisfies(
-            e ->
-                assertThat(e)
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessage(InputAsk.NO_GATEWAY));
+        .verifyErrorSatisfies(e ->
+            assertThat(e)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage(InputAsk.NO_GATEWAY));
   }
 
   @Test

@@ -41,11 +41,10 @@ class RequestTracingFilterTest {
             exchange,
             e -> {
               seen.set(e);
-              return Mono.deferContextual(
-                  ctx -> {
-                    contextId.set(ctx.getOrDefault(RequestTracingFilter.REQUEST_ID_KEY, null));
-                    return Mono.empty();
-                  });
+              return Mono.deferContextual(ctx -> {
+                contextId.set(ctx.getOrDefault(RequestTracingFilter.REQUEST_ID_KEY, null));
+                return Mono.empty();
+              });
             })
         .block();
     return exchange;

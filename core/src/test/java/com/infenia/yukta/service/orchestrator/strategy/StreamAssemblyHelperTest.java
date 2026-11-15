@@ -130,17 +130,16 @@ class StreamAssemblyHelperTest {
     final Flux<Message<?>> result =
         StreamAssemblyHelper.buildStreamWithContext(
             node,
-            Flux.deferContextual(
-                ctx -> {
-                  final PluginLogSink sink = ctx.get(WorkflowContext.LOG_SINK_KEY);
-                  sink.line("stdout", "first");
-                  sink.line("stderr", "  ");
-                  sink.line("stdout", null);
-                  sink.line("stdout", "careful", LogLevel.WARN);
-                  sink.line("stderr", "boom");
-                  sink.line("stdout", longLine);
-                  return Flux.empty();
-                }),
+            Flux.deferContextual(ctx -> {
+              final PluginLogSink sink = ctx.get(WorkflowContext.LOG_SINK_KEY);
+              sink.line("stdout", "first");
+              sink.line("stderr", "  ");
+              sink.line("stdout", null);
+              sink.line("stdout", "careful", LogLevel.WARN);
+              sink.line("stderr", "boom");
+              sink.line("stdout", longLine);
+              return Flux.empty();
+            }),
             Duration.ofSeconds(5),
             activity,
             tracker,

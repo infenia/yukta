@@ -34,9 +34,8 @@ class DirectNodeMessageChannelProviderTest {
   @Test
   void channelFor_withNullConfig_doesNotThrow() {
     assertThatNoException()
-        .isThrownBy(
-            () -> {
-              assertThat(provider.channelFor("node-1", null)).isNotNull();
-            });
+        .isThrownBy(() -> {
+          assertThat(provider.channelFor("node-1", null)).isNotNull();
+        });
   }
 }

@@ -67,10 +67,9 @@ class ResumeWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: " + executionId))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Execution not found: " + executionId))
         .verify();
   }
 
@@ -87,10 +86,9 @@ class ResumeWorkflowCommandProcessorTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalStateException
-                    && e.getMessage().contains("Global pause valve not initialized"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalStateException
+                && e.getMessage().contains("Global pause valve not initialized"))
         .verify();
   }
 }

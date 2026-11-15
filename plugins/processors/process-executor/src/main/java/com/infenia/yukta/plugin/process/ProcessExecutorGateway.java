@@ -344,33 +344,28 @@ public class ProcessExecutorGateway {
             .subscribeOn(Schedulers.boundedElastic())
             .thenReturn(Boolean.TRUE);
     final Mono<OutputCapture> stdoutCapture =
-        Mono.fromCallable(
-                () ->
-                    readOutput(
-                        process.getInputStream(),
-                        spec.maxOutputLines(),
-                        spec.maxOutputBytes(),
-                        line -> sink.line("stdout", line)))
+        Mono.fromCallable(() ->
+                readOutput(
+                    process.getInputStream(),
+                    spec.maxOutputLines(),
+                    spec.maxOutputBytes(),
+                    line -> sink.line("stdout", line)))
             .subscribeOn(Schedulers.boundedElastic());
     final Mono<OutputCapture> stderrCapture =
         spec.captureStderr()
-            ? Mono.fromCallable(
-                    () ->
-                        readOutput(
-                            process.getErrorStream(),
-                            spec.maxOutputLines(),
-                            spec.maxOutputBytes(),
-                            line -> sink.line("stderr", line)))
+            ? Mono.fromCallable(() ->
+                    readOutput(
+                        process.getErrorStream(),
+                        spec.maxOutputLines(),
+                        spec.maxOutputBytes(),
+                        line -> sink.line("stderr", line)))
                 .subscribeOn(Schedulers.boundedElastic())
             : Mono.just(OutputCapture.EMPTY);
 
     return Mono.zip(stdoutCapture, stderrCapture, stdinWriter)
-        .flatMap(
-            outputs ->
-                Mono.fromFuture(process.onExit())
-                    .map(
-                        exited ->
-                            buildResult(exited, outputs.getT1(), outputs.getT2(), startNanos)));
+        .flatMap(outputs ->
+            Mono.fromFuture(process.onExit())
+                .map(exited -> buildResult(exited, outputs.getT1(), outputs.getT2(), startNanos)));
   }
 
   /**
@@ -644,19 +639,18 @@ public class ProcessExecutorGateway {
                   .onErrorResume(
                       TimeoutException.class,
                       _ ->
-                          Mono.fromRunnable(
-                              () -> {
-                                log.atWarn()
-                                    .setMessage(
-                                        "Process ignored graceful termination; destroying forcibly")
-                                    .log();
-                                if (grouped) {
-                                  signalGroup("KILL", process.pid());
-                                }
-                                tree.stream()
-                                    .filter(ProcessHandle::isAlive)
-                                    .forEach(ProcessHandle::destroyForcibly);
-                              }));
+                          Mono.fromRunnable(() -> {
+                            log.atWarn()
+                                .setMessage(
+                                    "Process ignored graceful termination; destroying forcibly")
+                                .log();
+                            if (grouped) {
+                              signalGroup("KILL", process.pid());
+                            }
+                            tree.stream()
+                                .filter(ProcessHandle::isAlive)
+                                .forEach(ProcessHandle::destroyForcibly);
+                          }));
             })
         .subscribeOn(Schedulers.boundedElastic());
   }

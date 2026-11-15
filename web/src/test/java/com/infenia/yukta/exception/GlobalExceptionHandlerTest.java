@@ -76,16 +76,15 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleWebExchangeBindException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return resp.getStatusCode() == HttpStatus.BAD_REQUEST
-                  && body.status() == 400
-                  && VALIDATION_FAILED.equals(body.message())
-                  && API_PATH.equals(body.path())
-                  && body.errors().size() == 1
-                  && "field".equals(body.errors().get(0).field());
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return resp.getStatusCode() == HttpStatus.BAD_REQUEST
+              && body.status() == 400
+              && VALIDATION_FAILED.equals(body.message())
+              && API_PATH.equals(body.path())
+              && body.errors().size() == 1
+              && "field".equals(body.errors().get(0).field());
+        })
         .verifyComplete();
   }
 
@@ -101,27 +100,25 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.createResponseEntity(
                 "error msg", new HttpHeaders(), HttpStatusCode.valueOf(404), exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return resp.getStatusCode().value() == 404
-                  && body.status() == 404
-                  && "error msg".equals(body.message())
-                  && "/create".equals(body.path());
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return resp.getStatusCode().value() == 404
+              && body.status() == 404
+              && "error msg".equals(body.message())
+              && "/create".equals(body.path());
+        })
         .verifyComplete();
 
     // Case body not ApiResponse and not String
     StepVerifier.create(
             handler.createResponseEntity(
                 null, new HttpHeaders(), HttpStatusCode.valueOf(500), exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return resp.getStatusCode().value() == 500
-                  && body.status() == 500
-                  && "500 INTERNAL_SERVER_ERROR".equals(body.message());
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return resp.getStatusCode().value() == 500
+              && body.status() == 500
+              && "500 INTERNAL_SERVER_ERROR".equals(body.message());
+        })
         .verifyComplete();
 
     // Case body IS ApiResponse
@@ -129,11 +126,10 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.createResponseEntity(
                 existing, new HttpHeaders(), HttpStatusCode.valueOf(200), exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return resp.getStatusCode().value() == 200 && body.equals(existing);
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return resp.getStatusCode().value() == 200 && body.equals(existing);
+        })
         .verifyComplete();
   }
 
@@ -315,15 +311,14 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleWebExchangeBindException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body != null
-                  && body.errors().size() == 2
-                  && "field1".equals(body.errors().get(0).field())
-                  && "field2".equals(body.errors().get(1).field())
-                  && body.status() == 400;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return body != null
+              && body.errors().size() == 2
+              && "field1".equals(body.errors().get(0).field())
+              && "field2".equals(body.errors().get(1).field())
+              && body.status() == 400;
+        })
         .verifyComplete();
   }
 
@@ -344,16 +339,15 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleServerWebInputException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return resp.getStatusCode() == HttpStatus.BAD_REQUEST
-                  && body.status() == 400
-                  && INVALID_REQUEST_BODY.equals(body.message())
-                  && body.errors().size() == 1
-                  && "extraField".equals(body.errors().get(0).field())
-                  && "Unknown field: 'extraField'".equals(body.errors().get(0).message());
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return resp.getStatusCode() == HttpStatus.BAD_REQUEST
+              && body.status() == 400
+              && INVALID_REQUEST_BODY.equals(body.message())
+              && body.errors().size() == 1
+              && "extraField".equals(body.errors().get(0).field())
+              && "Unknown field: 'extraField'".equals(body.errors().get(0).message());
+        })
         .verifyComplete();
   }
 
@@ -374,11 +368,10 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleServerWebInputException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body != null && "nestedField".equals(body.errors().get(0).field());
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return body != null && "nestedField".equals(body.errors().get(0).field());
+        })
         .verifyComplete();
   }
 
@@ -393,14 +386,13 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.createResponseEntity(
                 "custom error message", new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body != null
-                  && "custom error message".equals(body.message())
-                  && resp.getStatusCode() == HttpStatus.BAD_REQUEST
-                  && body.status() == 400;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return body != null
+              && "custom error message".equals(body.message())
+              && resp.getStatusCode() == HttpStatus.BAD_REQUEST
+              && body.status() == 400;
+        })
         .verifyComplete();
   }
 
@@ -415,14 +407,13 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.createResponseEntity(
                 null, new HttpHeaders(), HttpStatus.INTERNAL_SERVER_ERROR, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body != null
-                  && "500 INTERNAL_SERVER_ERROR".equals(body.message())
-                  && resp.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR
-                  && body.status() == 500;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return body != null
+              && "500 INTERNAL_SERVER_ERROR".equals(body.message())
+              && resp.getStatusCode() == HttpStatus.INTERNAL_SERVER_ERROR
+              && body.status() == 500;
+        })
         .verifyComplete();
   }
 
@@ -440,13 +431,12 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.createResponseEntity(
                 existingResponse, new HttpHeaders(), HttpStatus.OK, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              return body != null
-                  && body.equals(existingResponse)
-                  && resp.getStatusCode() == HttpStatus.OK;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          return body != null
+              && body.equals(existingResponse)
+              && resp.getStatusCode() == HttpStatus.OK;
+        })
         .verifyComplete();
   }
 
@@ -691,13 +681,12 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleServerWebInputException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              assertThat(body.errors()).isEmpty();
-              assertThat(body.message()).doesNotContain("Unknown field");
-              return true;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          assertThat(body.errors()).isEmpty();
+          assertThat(body.message()).doesNotContain("Unknown field");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -718,12 +707,11 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleServerWebInputException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .expectNextMatches(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              assertThat(body.errors().get(0).field()).isEqualTo("unknown");
-              return true;
-            })
+        .expectNextMatches(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          assertThat(body.errors().get(0).field()).isEqualTo("unknown");
+          return true;
+        })
         .verifyComplete();
   }
 
@@ -754,12 +742,11 @@ class GlobalExceptionHandlerTest {
     StepVerifier.create(
             handler.handleServerWebInputException(
                 exception, new HttpHeaders(), HttpStatus.BAD_REQUEST, exchange))
-        .assertNext(
-            resp -> {
-              final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
-              assertThat(body).isNotNull();
-              assertThat(body.message()).isEqualTo("Invalid request");
-            })
+        .assertNext(resp -> {
+          final ApiResponse<Object> body = (ApiResponse<Object>) resp.getBody();
+          assertThat(body).isNotNull();
+          assertThat(body.message()).isEqualTo("Invalid request");
+        })
         .verifyComplete();
   }
 

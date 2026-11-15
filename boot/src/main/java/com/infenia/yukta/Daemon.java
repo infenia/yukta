@@ -108,16 +108,14 @@ import java.util.Set;
     final String[] parts = Files.readString(pidFile()).strip().split("\\s+", -1);
     final Optional<ProcessHandle> handle = ProcessHandle.of(Long.parseLong(parts[0]));
     // the start time guards against a recycled pid
-    return handle.filter(
-        h ->
-            h.isAlive()
-                && h.info()
-                    .startInstant()
-                    .map(
-                        t ->
-                            parts.length < 2
-                                || Math.abs(t.toEpochMilli() - Long.parseLong(parts[1])) < 2000)
-                    .orElse(true));
+    return handle.filter(h ->
+        h.isAlive()
+            && h.info()
+                .startInstant()
+                .map(t ->
+                    parts.length < 2
+                        || Math.abs(t.toEpochMilli() - Long.parseLong(parts[1])) < 2000)
+                .orElse(true));
   }
 
   private int start(final List<String> serverArgs) throws IOException, InterruptedException {

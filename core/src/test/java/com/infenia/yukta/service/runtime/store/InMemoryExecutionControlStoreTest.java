@@ -118,17 +118,16 @@ class InMemoryExecutionControlStoreTest {
     for (int t = 0; t < numThreads; t++) {
       final int threadId = t;
       threads[t] =
-          new Thread(
-              () -> {
-                for (int i = 0; i < executionsPerThread; i++) {
-                  final String execId = "exec-" + threadId + "-" + i;
-                  final ExecutionControl control = createControl("session-1", "workflow-1", execId);
-                  store.save(control);
-                  assertThat(store.findByExecutionId(execId)).isPresent();
-                  store.remove(execId);
-                  assertThat(store.findByExecutionId(execId)).isEmpty();
-                }
-              });
+          new Thread(() -> {
+            for (int i = 0; i < executionsPerThread; i++) {
+              final String execId = "exec-" + threadId + "-" + i;
+              final ExecutionControl control = createControl("session-1", "workflow-1", execId);
+              store.save(control);
+              assertThat(store.findByExecutionId(execId)).isPresent();
+              store.remove(execId);
+              assertThat(store.findByExecutionId(execId)).isEmpty();
+            }
+          });
       threads[t].start();
     }
 

@@ -54,20 +54,19 @@ public class ControlAuditController {
       @RequestParam(required = false) final String executionId) {
     return Mono.fromCallable(executionLog::readAll)
         .subscribeOn(Schedulers.boundedElastic())
-        .map(
-            events -> {
-              // newest first, without copying and reversing the whole list; stops at the limit
-              final int max = Math.clamp(limit, 1, MAX_LIMIT);
-              final List<ControlAuditEntry> entries = new ArrayList<>();
-              for (int i = events.size() - 1; i >= 0 && entries.size() < max; i--) {
-                final ExecutionLogEvent event = events.get(i);
-                if (CONTROL.contains(event.type())
-                    && (executionId == null || executionId.equals(event.executionId()))) {
-                  entries.add(ControlAuditEntry.from(event));
-                }
-              }
-              return entries;
-            })
+        .map(events -> {
+          // newest first, without copying and reversing the whole list; stops at the limit
+          final int max = Math.clamp(limit, 1, MAX_LIMIT);
+          final List<ControlAuditEntry> entries = new ArrayList<>();
+          for (int i = events.size() - 1; i >= 0 && entries.size() < max; i--) {
+            final ExecutionLogEvent event = events.get(i);
+            if (CONTROL.contains(event.type())
+                && (executionId == null || executionId.equals(event.executionId()))) {
+              entries.add(ControlAuditEntry.from(event));
+            }
+          }
+          return entries;
+        })
         .map(entries -> ApiResponse.success(200, "Control commands retrieved", entries));
   }
 }

@@ -62,58 +62,51 @@ public class RestartCommandProcessor {
   }
 
   private Mono<Void> executeAtomicRestart(final RestartCommand restart) {
-    return Mono.fromSupplier(
-            () ->
-                archive
-                    .find(restart.executionId())
-                    .orElseThrow(
-                        () ->
-                            new NotFoundException(
-                                "Execution not found or no longer restartable: "
-                                    + restart.executionId())))
+    return Mono.fromSupplier(() ->
+            archive
+                .find(restart.executionId())
+                .orElseThrow(() ->
+                    new NotFoundException(
+                        "Execution not found or no longer restartable: " + restart.executionId())))
         .flatMap(archived -> performAtomicHandoff(archived, restart))
         .then(Mono.<Void>empty())
-        .onErrorResume(
-            e -> {
-              log.atError()
-                  .addKeyValue("executionId", restart.executionId())
-                  .setCause(e)
-                  .log("Restart failed");
-              completionSink.completeRestartFailure(restart.newExecutionId(), e);
-              // Failing the command, not only the caller's wait, is what the audit records.
-              return Mono.error(e);
-            });
+        .onErrorResume(e -> {
+          log.atError()
+              .addKeyValue("executionId", restart.executionId())
+              .setCause(e)
+              .log("Restart failed");
+          completionSink.completeRestartFailure(restart.newExecutionId(), e);
+          // Failing the command, not only the caller's wait, is what the audit records.
+          return Mono.error(e);
+        });
   }
 
   private Mono<Void> performAtomicHandoff(
       final ArchivedExecution archived, final RestartCommand restart) {
-    return Mono.defer(
-        () -> {
-          final Optional<ExecutionControl> running =
-              registry.findByExecutionId(restart.executionId());
-          ExecutionScheduler.Admission admission = null;
-          if (running.isEmpty()) {
-            // The slot is taken now, before the new id is reported, so two restarts cannot both
-            // use the last one. A running run gives up its slot when stopped, so it is not asked.
-            admission =
-                scheduler.acquireRerun(
-                    archived.sessionId(),
-                    archived.workflowId(),
-                    ExecutionScheduler.priorityOf(archived.payload()),
-                    restart.newExecutionId());
-            if (admission.refused()) {
-              return admission.permit().then();
-            }
-          }
-          // If the old run is still going it is stopped first, so it cannot repeat effects.
-          running.ifPresent(
-              control -> {
-                control.safeStopSink().tryEmitEmpty();
-                registry.remove(control.executionId());
-              });
-          start(archived, restart, admission);
-          return Mono.empty();
-        });
+    return Mono.defer(() -> {
+      final Optional<ExecutionControl> running = registry.findByExecutionId(restart.executionId());
+      ExecutionScheduler.Admission admission = null;
+      if (running.isEmpty()) {
+        // The slot is taken now, before the new id is reported, so two restarts cannot both
+        // use the last one. A running run gives up its slot when stopped, so it is not asked.
+        admission =
+            scheduler.acquireRerun(
+                archived.sessionId(),
+                archived.workflowId(),
+                ExecutionScheduler.priorityOf(archived.payload()),
+                restart.newExecutionId());
+        if (admission.refused()) {
+          return admission.permit().then();
+        }
+      }
+      // If the old run is still going it is stopped first, so it cannot repeat effects.
+      running.ifPresent(control -> {
+        control.safeStopSink().tryEmitEmpty();
+        registry.remove(control.executionId());
+      });
+      start(archived, restart, admission);
+      return Mono.empty();
+    });
   }
 
   private void start(
@@ -132,13 +125,12 @@ public class RestartCommandProcessor {
                 admission),
             () -> registry.findByExecutionId(restart.newExecutionId()).isPresent())
         .subscribeOn(Schedulers.boundedElastic())
-        .doOnError(
-            err ->
-                log.atError()
-                    .setCause(err)
-                    .addKeyValue("oldExecutionId", restart.executionId())
-                    .addKeyValue("newExecutionId", restart.newExecutionId())
-                    .log("Restarted execution failed"))
+        .doOnError(err ->
+            log.atError()
+                .setCause(err)
+                .addKeyValue("oldExecutionId", restart.executionId())
+                .addKeyValue("newExecutionId", restart.newExecutionId())
+                .log("Restarted execution failed"))
         .onErrorComplete()
         .subscribe();
 

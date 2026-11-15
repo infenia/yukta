@@ -80,10 +80,9 @@ class StopNodeCommandProcessorTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: " + executionId))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Execution not found: " + executionId))
         .verify();
   }
 
@@ -101,10 +100,9 @@ class StopNodeCommandProcessorTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Node not found or not stoppable: " + nodeId))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Node not found or not stoppable: " + nodeId))
         .verify();
   }
 
@@ -122,10 +120,9 @@ class StopNodeCommandProcessorTest {
 
     // Then
     StepVerifier.create(result)
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Node not found or not stoppable: " + nodeId))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Node not found or not stoppable: " + nodeId))
         .verify();
   }
 }

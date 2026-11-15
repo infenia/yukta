@@ -69,11 +69,10 @@ class SinkEmitTest {
     final AtomicInteger clashes = new AtomicInteger();
     final Sinks.Many<String> sink = mock(Sinks.Many.class);
     when(sink.tryEmitNext("a"))
-        .thenAnswer(
-            call ->
-                clashes.incrementAndGet() < 1_100
-                    ? Sinks.EmitResult.FAIL_NON_SERIALIZED
-                    : Sinks.EmitResult.OK);
+        .thenAnswer(call ->
+            clashes.incrementAndGet() < 1_100
+                ? Sinks.EmitResult.FAIL_NON_SERIALIZED
+                : Sinks.EmitResult.OK);
 
     assertThat(SinkEmit.offer(sink, "a", TimeUnit.MINUTES.toNanos(1))).isTrue();
   }

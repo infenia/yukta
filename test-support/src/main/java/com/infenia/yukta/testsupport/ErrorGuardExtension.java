@@ -116,9 +116,8 @@ public final class ErrorGuardExtension
       collect(Optional.of(type), type, "class " + type.getSimpleName(), declared);
       final List<String> offenders =
           declared.stream()
-              .filter(
-                  expectation ->
-                      expectation.required() && !matched(context).contains(key(expectation)))
+              .filter(expectation ->
+                  expectation.required() && !matched(context).contains(key(expectation)))
               .map(ErrorGuardExtension::unused)
               .toList();
       report(context, offenders);
@@ -268,15 +267,14 @@ public final class ErrorGuardExtension
       final List<Expectation> into) {
     element
         .map(e -> e.getAnnotation(ExpectedErrorLog.class))
-        .ifPresent(
-            annotation -> {
-              for (final String regex : annotation.value()) {
-                into.add(new Expectation(owner, where, Pattern.compile(regex), true));
-              }
-              for (final String regex : annotation.sometimes()) {
-                into.add(new Expectation(owner, where, Pattern.compile(regex), false));
-              }
-            });
+        .ifPresent(annotation -> {
+          for (final String regex : annotation.value()) {
+            into.add(new Expectation(owner, where, Pattern.compile(regex), true));
+          }
+          for (final String regex : annotation.sometimes()) {
+            into.add(new Expectation(owner, where, Pattern.compile(regex), false));
+          }
+        });
   }
 
   /* default */ static boolean present(final String className) {

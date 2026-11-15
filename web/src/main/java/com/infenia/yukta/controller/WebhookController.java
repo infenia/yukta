@@ -92,11 +92,10 @@ public class WebhookController {
     final byte[] raw = body == null ? new byte[0] : body;
     return sessionService
         .getSessionWorkflows(sessionId)
-        .flatMap(
-            workflows ->
-                Mono.justOrEmpty(find(workflows, path))
-                    .switchIfEmpty(Mono.error(() -> unknown(sessionId, path)))
-                    .flatMap(hook -> start(sessionId, hook, headers, raw)))
+        .flatMap(workflows ->
+            Mono.justOrEmpty(find(workflows, path))
+                .switchIfEmpty(Mono.error(() -> unknown(sessionId, path)))
+                .flatMap(hook -> start(sessionId, hook, headers, raw)))
         .switchIfEmpty(Mono.error(() -> unknown(sessionId, path)));
   }
 
@@ -108,19 +107,16 @@ public class WebhookController {
         .switchIfEmpty(
             Mono.error(
                 () -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid signature")))
-        .flatMap(
-            _ ->
-                workflowService.start(
-                    sessionId,
-                    hook.workflowId(),
-                    StartOptions.withInitiator(payload(hook, headers, raw), "webhook"),
-                    text(hook.config(), "idempotencyHeader") == null
-                        ? null
-                        : headers.getFirst(text(hook.config(), "idempotencyHeader"))))
-        .map(
-            executionId ->
-                ApiResponse.success(
-                    202, "Webhook accepted", new WorkflowStartResponse(executionId)));
+        .flatMap(_ ->
+            workflowService.start(
+                sessionId,
+                hook.workflowId(),
+                StartOptions.withInitiator(payload(hook, headers, raw), "webhook"),
+                text(hook.config(), "idempotencyHeader") == null
+                    ? null
+                    : headers.getFirst(text(hook.config(), "idempotencyHeader"))))
+        .map(executionId ->
+            ApiResponse.success(202, "Webhook accepted", new WorkflowStartResponse(executionId)));
   }
 
   private Mono<String> secret(final String sessionId, final Hook hook) {
@@ -180,12 +176,11 @@ public class WebhookController {
 
   private static Hook find(final Map<String, WorkflowDefinition> workflows, final String path) {
     return workflows.values().stream()
-        .flatMap(
-            workflow ->
-                workflow.nodes().stream()
-                    .filter(node -> TYPE.equals(node.type()))
-                    .filter(node -> path.equals(text(node.config(), "path")))
-                    .map(node -> new Hook(workflow.workflowId(), node.nodeId(), node.config())))
+        .flatMap(workflow ->
+            workflow.nodes().stream()
+                .filter(node -> TYPE.equals(node.type()))
+                .filter(node -> path.equals(text(node.config(), "path")))
+                .map(node -> new Hook(workflow.workflowId(), node.nodeId(), node.config())))
         .findFirst()
         .orElse(null);
   }

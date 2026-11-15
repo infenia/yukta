@@ -133,23 +133,19 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
               // ends the loop after abandon() without cancelling a statement that is in flight
               .takeWhile(_ -> running.get())
               // a lease that ran out (database unreachable, long pause) is a loss too
-              .doOnNext(
-                  _ -> {
-                    if (wasLeader.get() && !isLeader()) {
-                      lost();
-                    }
-                  })
+              .doOnNext(_ -> {
+                if (wasLeader.get() && !isLeader()) {
+                  lost();
+                }
+              })
               // defer: an exception while the statement is being built must not end the loop
               .concatMap(
                   _ ->
                       Mono.defer(this::renew)
-                          .onErrorResume(
-                              error -> {
-                                log.atWarn()
-                                    .setCause(error)
-                                    .log("Could not renew the leader lease");
-                                return Mono.empty();
-                              }),
+                          .onErrorResume(error -> {
+                            log.atWarn().setCause(error).log("Could not renew the leader lease");
+                            return Mono.empty();
+                          }),
                   1)
               .subscribe();
     }
@@ -192,11 +188,10 @@ public class R2dbcLeaderElection implements LeaderElection, SmartLifecycle {
         .doOnNext(held -> held(held, sentAt))
         .switchIfEmpty(Mono.fromRunnable(this::lost))
         .timeout(STATEMENT_TIMEOUT)
-        .onErrorResume(
-            error -> {
-              log.atWarn().setCause(error).log("Could not renew the leader lease");
-              return Mono.empty();
-            })
+        .onErrorResume(error -> {
+          log.atWarn().setCause(error).log("Could not renew the leader lease");
+          return Mono.empty();
+        })
         .then();
   }
 

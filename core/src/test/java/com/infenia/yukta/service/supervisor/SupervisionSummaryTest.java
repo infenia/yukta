@@ -25,11 +25,10 @@ class SupervisionSummaryTest {
         .thenReturn(Flux.range(0, 101).map(i -> new OwnershipMap.WorkflowRef("s", "w" + i)));
 
     StepVerifier.create(summary.summarize())
-        .assertNext(
-            found -> {
-              assertThat(found.unowned()).isEqualTo(101);
-              assertThat(found.unownedWorkflows()).hasSize(SupervisionSummary.MAX_NAMED);
-            })
+        .assertNext(found -> {
+          assertThat(found.unowned()).isEqualTo(101);
+          assertThat(found.unownedWorkflows()).hasSize(SupervisionSummary.MAX_NAMED);
+        })
         .verifyComplete();
   }
 }

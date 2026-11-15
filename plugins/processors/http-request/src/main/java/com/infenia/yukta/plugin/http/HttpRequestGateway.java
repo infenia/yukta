@@ -73,22 +73,20 @@ public class HttpRequestGateway {
     final WebClient.RequestHeadersSpec<?> ready =
         spec.body() == null ? request : request.bodyValue(spec.body());
     return ready
-        .exchangeToMono(
-            response ->
-                response
-                    .bodyToMono(String.class)
-                    .defaultIfEmpty("")
-                    .map(
-                        body ->
-                            new HttpRequestResult(
-                                response.statusCode().value(),
-                                response.headers().asHttpHeaders().toSingleValueMap(),
-                                response
-                                    .headers()
-                                    .contentType()
-                                    .filter(type -> type.getSubtype().contains("json"))
-                                    .isPresent(),
-                                body)))
+        .exchangeToMono(response ->
+            response
+                .bodyToMono(String.class)
+                .defaultIfEmpty("")
+                .map(body ->
+                    new HttpRequestResult(
+                        response.statusCode().value(),
+                        response.headers().asHttpHeaders().toSingleValueMap(),
+                        response
+                            .headers()
+                            .contentType()
+                            .filter(type -> type.getSubtype().contains("json"))
+                            .isPresent(),
+                        body)))
         .timeout(spec.timeout());
   }
 }

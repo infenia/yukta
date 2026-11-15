@@ -205,10 +205,9 @@ class StopWorkflowCommandProcessorTest {
     when(registry.findByExecutionId("nope")).thenReturn(Optional.empty());
 
     StepVerifier.create(processor.process(new StopWorkflowCommand("nope", "r")))
-        .expectErrorMatches(
-            e ->
-                e instanceof IllegalArgumentException
-                    && e.getMessage().contains("Execution not found: nope"))
+        .expectErrorMatches(e ->
+            e instanceof IllegalArgumentException
+                && e.getMessage().contains("Execution not found: nope"))
         .verify();
   }
 }

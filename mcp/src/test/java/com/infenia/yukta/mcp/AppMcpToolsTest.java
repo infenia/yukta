@@ -213,10 +213,8 @@ class AppMcpToolsTest {
     when(workflowControlProvider.getExecutionTree("s1", "e1")).thenReturn(Mono.just(List.of(run)));
 
     StepVerifier.create(mcpTools.getExecutionTree("s1", "e1"))
-        .assertNext(
-            history ->
-                org.assertj.core.api.Assertions.assertThat(history.executions())
-                    .containsExactly(run))
+        .assertNext(history ->
+            org.assertj.core.api.Assertions.assertThat(history.executions()).containsExactly(run))
         .verifyComplete();
   }
 

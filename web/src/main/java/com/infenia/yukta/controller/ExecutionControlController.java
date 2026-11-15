@@ -117,10 +117,9 @@ public class ExecutionControlController {
     return access
         .require(sessionId, executionId)
         .then(Mono.defer(() -> control.recover(executionId)))
-        .map(
-            newId ->
-                ApiResponse.success(
-                    200, "Execution recovered as a new run", new WorkflowStartResponse(newId)));
+        .map(newId ->
+            ApiResponse.success(
+                200, "Execution recovered as a new run", new WorkflowStartResponse(newId)));
   }
 
   /** Pause a node. */
@@ -291,9 +290,8 @@ public class ExecutionControlController {
     return access
         .require(null, executionId)
         .then(Mono.defer(() -> control.retryNode(executionId, nodeId)))
-        .map(
-            newId ->
-                ApiResponse.success(200, "Node retry accepted", new WorkflowStartResponse(newId)));
+        .map(newId ->
+            ApiResponse.success(200, "Node retry accepted", new WorkflowStartResponse(newId)));
   }
 
   /** Set a breakpoint on a node. */

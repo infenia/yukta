@@ -236,9 +236,8 @@ public class ParkedCommands implements CommandProposals {
   @Override
   public Optional<Proposal> find(final String requestId) {
     return Optional.ofNullable(parked.get(requestId))
-        .map(
-            held ->
-                new Proposal(held.command.getClass().getSimpleName(), held.proposer, held.askedBy));
+        .map(held ->
+            new Proposal(held.command.getClass().getSimpleName(), held.proposer, held.askedBy));
   }
 
   /**
@@ -268,12 +267,11 @@ public class ParkedCommands implements CommandProposals {
               InputCancelledException.class,
               error -> dropped(request, candidate, "cancelled", error.getMessage()))
           .doFinally(_ -> parked.remove(request.id(), candidate))
-          .doOnError(
-              error ->
-                  log.atWarn()
-                      .setCause(error)
-                      .addKeyValue(REQUEST_ID, request.id())
-                      .log("A parked control command ended with an error"))
+          .doOnError(error ->
+              log.atWarn()
+                  .setCause(error)
+                  .addKeyValue(REQUEST_ID, request.id())
+                  .log("A parked control command ended with an error"))
           .onErrorComplete()
           .subscribe();
     }
@@ -303,42 +301,38 @@ public class ParkedCommands implements CommandProposals {
         .getObject()
         .dispatchOrdered(held.command)
         .contextWrite(held.sender.put(ControlActor.APPROVED_REQUEST, grant))
-        .onErrorResume(
-            error -> {
-              log.atInfo()
-                  .addKeyValue(REQUEST_ID, request.id())
-                  .addKeyValue("reason", error.getMessage())
-                  .log("An approved control command was not applied");
-              return Mono.empty();
-            })
+        .onErrorResume(error -> {
+          log.atInfo()
+              .addKeyValue(REQUEST_ID, request.id())
+              .addKeyValue("reason", error.getMessage())
+              .log("An approved control command was not applied");
+          return Mono.empty();
+        })
         .doFinally(_ -> grants.remove(request.id(), grant));
   }
 
   private Mono<Void> dropped(
       final InputRequest request, final Parked held, final String outcome, final String why) {
-    return Mono.fromRunnable(
-        () -> {
-          count(outcome);
-          final String reason =
-              "approval " + outcome + " (input request " + request.id() + "): " + why;
-          final Instant now = Instant.now();
-          ControlAudit.record(
-              executionLog,
-              auditSink,
-              new AuditRecord(
-                  false, held.command.executionId(), held.name(), held.actor, reason, now));
-          feed.publish(
-              new ExecutionEvent.ControlOutcome(
-                  held.command.executionId(),
-                  held.run.sessionId(),
-                  held.run.workflowId(),
-                  held.name(),
-                  held.actor,
-                  false,
-                  reason,
-                  now,
-                  held.run.nodeId()));
-        });
+    return Mono.fromRunnable(() -> {
+      count(outcome);
+      final String reason = "approval " + outcome + " (input request " + request.id() + "): " + why;
+      final Instant now = Instant.now();
+      ControlAudit.record(
+          executionLog,
+          auditSink,
+          new AuditRecord(false, held.command.executionId(), held.name(), held.actor, reason, now));
+      feed.publish(
+          new ExecutionEvent.ControlOutcome(
+              held.command.executionId(),
+              held.run.sessionId(),
+              held.run.workflowId(),
+              held.name(),
+              held.actor,
+              false,
+              reason,
+              now,
+              held.run.nodeId()));
+    });
   }
 
   private void count(final String outcome) {

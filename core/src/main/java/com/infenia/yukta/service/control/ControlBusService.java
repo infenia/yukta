@@ -102,18 +102,16 @@ public class ControlBusService {
         .log("Sending control command of type {} to node: {} in workflow: {}");
     return plugin
         .onControlSignal(command)
-        .doOnSuccess(
-            response ->
-                log.atDebug()
-                    .addArgument(nodeId)
-                    .addArgument(workflowId)
-                    .log("Received response from node: {} in workflow: {}"))
-        .doOnError(
-            err ->
-                log.atError()
-                    .addArgument(nodeId)
-                    .addArgument(workflowId)
-                    .setCause(err)
-                    .log("Error sending command to node: {} in workflow: {}"));
+        .doOnSuccess(response ->
+            log.atDebug()
+                .addArgument(nodeId)
+                .addArgument(workflowId)
+                .log("Received response from node: {} in workflow: {}"))
+        .doOnError(err ->
+            log.atError()
+                .addArgument(nodeId)
+                .addArgument(workflowId)
+                .setCause(err)
+                .log("Error sending command to node: {} in workflow: {}"));
   }
 }

@@ -115,12 +115,11 @@ class SupervisorHostCapabilitiesTest {
     verify(dispatcher).dispatchOrdered(new PauseWorkflowCommand("e2"));
     final List<SupervisorDecision> decisions = host.decisions("guard", 10);
     assertThat(decisions)
-        .anySatisfy(
-            decision -> {
-              assertThat(decision.outcome()).isEqualTo("forbidden");
-              assertThat(decision.command()).isEqualTo("StopWorkflowCommand");
-              assertThat(decision.reason()).contains("not in allowedCommands");
-            });
+        .anySatisfy(decision -> {
+          assertThat(decision.outcome()).isEqualTo("forbidden");
+          assertThat(decision.command()).isEqualTo("StopWorkflowCommand");
+          assertThat(decision.reason()).contains("not in allowedCommands");
+        });
   }
 
   @Test
@@ -141,11 +140,10 @@ class SupervisorHostCapabilitiesTest {
     final AtomicReference<ContextView> seen = new AtomicReference<>();
     when(dispatcher.dispatchOrdered(any()))
         .thenReturn(
-            Mono.deferContextual(
-                context -> {
-                  seen.set(context);
-                  return Mono.empty();
-                }));
+            Mono.deferContextual(context -> {
+              seen.set(context);
+              return Mono.empty();
+            }));
     attach(new SupervisorCapabilities(null, false, InputRisk.LOW), new PauseWorkflowCommand("e1"));
 
     await().atMost(3, TimeUnit.SECONDS).until(() -> seen.get() != null);
