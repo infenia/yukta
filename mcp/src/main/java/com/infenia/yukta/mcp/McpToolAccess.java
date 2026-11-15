@@ -58,6 +58,8 @@ class McpToolAccess {
           Map.entry("control_node", ApiRole.OPERATOR),
           Map.entry("set_node_breakpoint", ApiRole.OPERATOR),
           Map.entry("list_pending_inputs", ApiRole.VIEWER),
+          Map.entry("list_notifications", ApiRole.VIEWER),
+          Map.entry("mark_notifications_read", ApiRole.VIEWER),
           Map.entry("answer_input", ApiRole.OPERATOR),
           Map.entry("escalate_input", ApiRole.OPERATOR));
 
@@ -73,6 +75,8 @@ class McpToolAccess {
           "get_supervisor_engine",
           "get_supervisor_contract",
           "list_supervisor_presets",
+          "list_notifications",
+          "mark_notifications_read",
           "whoami");
 
   /** Resources that name no session, so a session key may read them. */

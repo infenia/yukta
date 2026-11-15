@@ -36,12 +36,25 @@ func (c *Client) followSSE(
 	onEvent func(SSEEvent) error,
 ) error {
 	lastID := ""
+	return c.followSSEFrom(ctx, path, finished, &lastID, onEvent)
+}
+
+// followSSEFrom is followSSE that resumes after *lastID and leaves there the id of the last event it
+// saw, so a caller that opens the stream again later (a long-running watcher) can pick up where the
+// last call stopped.
+func (c *Client) followSSEFrom(
+	ctx context.Context,
+	path string,
+	finished func() bool,
+	lastID *string,
+	onEvent func(SSEEvent) error,
+) error {
 	failures := 0
 	connected := false
 	for {
-		events, err := c.streamOnce(ctx, path, lastID, func(e SSEEvent) error {
+		events, err := c.streamOnce(ctx, path, *lastID, func(e SSEEvent) error {
 			if e.ID != "" {
-				lastID = e.ID
+				*lastID = e.ID
 			}
 			return onEvent(e)
 		}, &connected)

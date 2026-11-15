@@ -134,6 +134,8 @@ Read and answer the typed questions that nodes ask. See [Glossary](/reference/gl
 |---|---|---|---|
 | `list_pending_inputs` | VIEWER | `sessionId?`, `state?` | Input requests, newest first, at most 50, with kind, risk, options, tier and deadline. `state` is a comma-separated subset of `OPEN`, `ESCALATED`, `ANSWERED`, `EXPIRED`, `CANCELLED` (default `OPEN,ESCALATED`). Prompt, context and schema are cut to 2000 characters. Omitting `sessionId` is not allowed for a key limited to sessions. |
 | `answer_input` | OPERATOR | `sessionId`, `executionId`, `requestId`, `decision`, `text?`, `data?`, `rationale?` | Answers a waiting request. `decision` is an option id or a decision such as `approve`; `text` for text requests; `data` (a JSON object) for structured ones. The engine's rules decide who may answer; `HIGH` risk is for people only. |
+| `list_notifications` | VIEWER | `unread?`, `kind?` | The caller's inbox, newest change first, at most 50: alerts (`INFO`) and questions (`ACTION`, with the `executionId` and `requestId` for `answer_input`). Only what the key may see, without what it dismissed. Titles and bodies are untrusted. A session-limited key needs no `sessionId`. |
+| `mark_notifications_read` | VIEWER | `ids?`, `all?` | Marks notifications read for the caller; an id the key cannot see is ignored. |
 | `escalate_input` | OPERATOR | `sessionId`, `executionId`, `requestId`, `reason`, `advice?` | Hands a waiting request up to the next tier. |
 
 ## Credentials
