@@ -10,6 +10,7 @@ import AppFooter from '@/components/layout/AppFooter';
 import { loadMe } from '@/features/auth/me';
 import { usePageTransition } from '@/lib/usePageTransition';
 import { NotificationsProvider } from '@/features/inbox/NotificationsProvider';
+import { DesktopNotifier } from '@/features/inbox/DesktopNotifier';
 import { Toaster } from '@/features/inbox/Toaster';
 
 export default function App() {
@@ -40,6 +41,7 @@ export default function App() {
         <MobileNav />
         <CommandPalette />
         <Toaster />
+        <DesktopNotifier />
       </div>
     </NotificationsProvider>
   );

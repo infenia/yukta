@@ -60,3 +60,30 @@ export const dismissNotification = (id: string) =>
     method: 'POST',
     body: '{}',
   });
+
+export type NotificationLevel = 'OFF' | 'INBOX' | 'DESKTOP';
+
+/** The categories a person can set a level for (the server rejects any other). */
+export const CATEGORIES = [
+  'input',
+  'run.failed',
+  'run.finished',
+  'run.held',
+  'delivery.failed',
+  'workflow',
+] as const;
+
+export interface NotificationPreferences {
+  /** A category without an entry keeps the server default. */
+  levels: Record<string, NotificationLevel>;
+  mutedSessions: string[];
+}
+
+export const getPreferences = () =>
+  fetchApi<NotificationPreferences>('/api/notifications/preferences');
+
+export const savePreferences = (preferences: NotificationPreferences) =>
+  fetchApi<NotificationPreferences>('/api/notifications/preferences', {
+    method: 'PUT',
+    body: JSON.stringify(preferences),
+  });

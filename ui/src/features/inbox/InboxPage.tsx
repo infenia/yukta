@@ -13,6 +13,7 @@ import {
   SheetContent,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { PreferencesSheet } from './PreferencesSheet';
 import { Tabs } from '@/components/ui/tabs';
 import { useNow } from '@/features/control/dashboard/useNow';
 import { InputAnswerForm } from '@/features/workflow/components/InputAnswerForm';
@@ -232,13 +233,16 @@ export function InboxPage() {
         title="Inbox"
         description="Questions that wait for you, what you were told and what has ended."
         actions={
-          <Button
-            variant="outline"
-            disabled={unread.length === 0}
-            onClick={() => markRead()}
-          >
-            Mark all read
-          </Button>
+          <div className="flex gap-2">
+            <PreferencesSheet sessions={sessions} />
+            <Button
+              variant="outline"
+              disabled={unread.length === 0}
+              onClick={() => markRead()}
+            >
+              Mark all read
+            </Button>
+          </div>
         }
       />
       {!connected && (

@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as apiClient from '@/lib/apiClient';
 import {
   dismissNotification,
+  getPreferences,
+  savePreferences,
   listNotifications,
   markNotificationsRead,
 } from '../api';
@@ -56,6 +58,21 @@ describe('notifications api', () => {
     expect(apiClient.fetchApi).toHaveBeenCalledWith(
       '/api/notifications/a%20b/dismiss',
       { method: 'POST', body: '{}' }
+    );
+  });
+
+  it('reads and replaces the preferences', async () => {
+    const prefs = { levels: { input: 'DESKTOP' as const }, mutedSessions: [] };
+    await getPreferences();
+    await savePreferences(prefs);
+    expect(apiClient.fetchApi).toHaveBeenNthCalledWith(
+      1,
+      '/api/notifications/preferences'
+    );
+    expect(apiClient.fetchApi).toHaveBeenNthCalledWith(
+      2,
+      '/api/notifications/preferences',
+      { method: 'PUT', body: JSON.stringify(prefs) }
     );
   });
 
