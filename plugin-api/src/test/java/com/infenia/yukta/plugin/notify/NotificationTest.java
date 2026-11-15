@@ -161,4 +161,43 @@ class NotificationTest {
     assertThat(context.settings()).containsOnlyKeys("url");
     assertThat(context.answerToken()).isNull();
   }
+
+  @Test
+  void specAudienceSelectorsAndTitleAreChecked() {
+    assertThat(
+            new NotificationSpec(
+                    "t",
+                    null,
+                    NotificationSeverity.INFO,
+                    List.of("role:ADMIN", "key:arun"),
+                    null,
+                    List.of())
+                .audience())
+        .hasSize(2);
+    assertThatThrownBy(() ->
+            new NotificationSpec(
+                "t", null, NotificationSeverity.INFO, List.of("supervisor:*"), null, List.of()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("supervisor:*");
+    assertThatThrownBy(() ->
+            new NotificationSpec(
+                "t",
+                null,
+                NotificationSeverity.INFO,
+                java.util.Collections.singletonList(null),
+                null,
+                List.of()))
+        .isInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() ->
+            new NotificationSpec(" ", null, NotificationSeverity.INFO, List.of(), null, List.of()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("title");
+  }
+
+  @Test
+  void theLimitExceptionCarriesItsMessageAndTheLimitsAreDocumented() {
+    assertThat(new NotificationLimitException("too many").getMessage()).isEqualTo("too many");
+    assertThat(NotificationGateway.MAX_PER_MINUTE)
+        .isLessThan(NotificationGateway.MAX_PER_EXECUTION);
+  }
 }

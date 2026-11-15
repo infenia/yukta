@@ -14,11 +14,19 @@ import org.springframework.web.reactive.function.client.WebClient;
 class NotifyTerminalConfigSchemaTest {
 
   @Test
-  void requiresTheWebhookUrl() {
+  void theWebhookUrlIsOptionalBecauseTheInboxNeedsNone() {
     final var schema = new NotifyTerminal(WebClient.builder()).getConfigSchema();
 
     assertThat(schema.stream().map(ConfigField::name))
-        .containsExactly("url", "text", "timeoutMs", "failureMode");
-    assertThat(schema.getFirst().required()).isTrue();
+        .containsExactly(
+            "target", "url", "text", "timeoutMs", "title", "severity", "audience", "failureMode");
+    assertThat(
+            schema.stream()
+                .filter(f -> "url".equals(f.name()))
+                .findFirst()
+                .orElseThrow()
+                .required())
+        .isFalse();
+    assertThat(schema.getFirst().defaultValue()).isEqualTo("webhook");
   }
 }

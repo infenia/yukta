@@ -4,6 +4,7 @@ package com.infenia.yukta.plugin.notify;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -26,10 +27,25 @@ public record NotificationSpec(
     @Nullable String key,
     List<String> channels) {
 
-  /** Checks the required fields and keeps immutable copies. */
+  /** The accepted shapes of an audience selector. */
+  private static final Pattern SELECTOR =
+      Pattern.compile("role:(VIEWER|OPERATOR|ADMIN)|key:\\S{1,128}");
+
+  /** Checks the required fields and the selectors, and keeps immutable copies. */
   public NotificationSpec {
     Objects.requireNonNull(title, "title");
     Objects.requireNonNull(severity, "severity");
+    if (title.isBlank()) {
+      throw new IllegalArgumentException("title must not be blank");
+    }
+    for (final String selector : audience) {
+      if (selector == null || !SELECTOR.matcher(selector).matches()) {
+        throw new IllegalArgumentException(
+            "Not an audience selector: '"
+                + selector
+                + "'; use role:VIEWER, role:OPERATOR, role:ADMIN or key:<name>");
+      }
+    }
     audience = List.copyOf(audience);
     channels = List.copyOf(channels);
   }
