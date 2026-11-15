@@ -130,22 +130,29 @@ class TriggerTerminalAcceptanceTest {
 
     wf.run(key, Map.of());
 
+    final var found =
+        new java.util.concurrent.atomic.AtomicReference<
+            List<com.infenia.yukta.plugin.notify.Notification>>(List.of());
     await()
         .atMost(PluginWorkflows.WAIT)
-        .untilAsserted(() ->
-            assertThat(
-                    notifications
-                        .visible(com.infenia.yukta.service.notify.NotificationQuery.ALL, null)
-                        .filter(n -> "Inbox from a workflow".equals(n.title()))
-                        .collectList()
-                        .block())
-                .singleElement()
-                .satisfies(n -> {
-                  assertThat(n.category()).isEqualTo("workflow");
-                  assertThat(n.body()).isEqualTo("look at this");
-                  assertThat(n.nodeId()).isEqualTo("end");
-                  assertThat(n.executionId()).isNotBlank();
-                  assertThat(n.audience()).containsExactly("role:OPERATOR");
-                }));
+        .until(() -> {
+          found.set(
+              notifications
+                  .visible(com.infenia.yukta.service.notify.NotificationQuery.ALL, null)
+                  .filter(n -> "Inbox from a workflow".equals(n.title()))
+                  .collectList()
+                  .block());
+          return !found.get().isEmpty();
+        });
+
+    assertThat(found.get())
+        .singleElement()
+        .satisfies(n -> {
+          assertThat(n.category()).isEqualTo("workflow");
+          assertThat(n.body()).isEqualTo("look at this");
+          assertThat(n.nodeId()).isEqualTo("end");
+          assertThat(n.executionId()).isNotBlank();
+          assertThat(n.audience()).containsExactly("role:OPERATOR");
+        });
   }
 }
