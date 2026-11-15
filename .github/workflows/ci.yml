@@ -388,7 +388,7 @@ jobs:
     runs-on: ubuntu-latest
     # Browsers and fonts come with the image, so local and CI screenshot baselines match.
     # Keep the tag in sync with @playwright/test in ui/package.json (1.64.1).
-    container: mcr.microsoft.com/playwright:v1.64.1-noble
+    container: mcr.microsoft.com/playwright:v1.65.0-noble
     timeout-minutes: 30
     # Not on push to main: the merge queue just ran the same tree through this job.
     # (The queue runs the full plan, e2e included, on the tree that lands; this holds only while the
