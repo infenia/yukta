@@ -126,11 +126,10 @@ public class MessageReflectionHints {
           .registerReflectionHints(
               hints.reflection(), ApiResponse.class, ApiResponse.FieldError.class);
       registerRecordArrays(hints);
-      EXPRESSION_TYPES.forEach(
-          name ->
-              hints
-                  .reflection()
-                  .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
+      EXPRESSION_TYPES.forEach(name ->
+          hints
+              .reflection()
+              .registerType(TypeReference.of(name), MemberCategory.INVOKE_PUBLIC_METHODS));
     }
 
     /**
@@ -147,9 +146,8 @@ public class MessageReflectionHints {
               return true;
             }
           };
-      scanner.addIncludeFilter(
-          (reader, factory) ->
-              "java.lang.Record".equals(reader.getClassMetadata().getSuperClassName()));
+      scanner.addIncludeFilter((reader, factory) ->
+          "java.lang.Record".equals(reader.getClassMetadata().getSuperClassName()));
       for (final String basePackage : RECORD_PACKAGES) {
         for (final BeanDefinition definition : scanner.findCandidateComponents(basePackage)) {
           hints.reflection().registerType(TypeReference.of(definition.getBeanClassName() + "[]"));
