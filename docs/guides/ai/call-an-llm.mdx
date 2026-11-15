@@ -113,7 +113,7 @@ The result from `out` has the answer in `payload.content` and token counts in `p
 
 ## Variations
 
-- **Several turns of history.** Pass a `messages` expression instead of a single `prompt`: [Keep session memory](/guides/ai/keep-session-memory).
+- **Several turns of history.** Pass a `messages` expression instead of a single `prompt`, built from turns the request carries. Yukta keeps no history between runs; a [community plugin](/guides/extend/write-a-community-plugin) with its own store can.
 - **Tools.** Offer the model tools with `tools`: [Use tools and MCP servers](/guides/ai/use-tools-and-mcp-servers).
 - **Spending limits.** Add a `budget`: [Set token budgets](/guides/ai/set-token-budgets).
 - **Server-wide guardrails.** Per-provider rate limits (`yukta.llm.rate-limit.<provider>`) and prompt or answer filters (`yukta.llm.deny-input-patterns`, `yukta.llm.deny-output-patterns`, `yukta.llm.max-input-chars`) are server settings: [Configuration](/reference/configuration).
