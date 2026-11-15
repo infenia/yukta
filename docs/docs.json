@@ -133,7 +133,8 @@
               "guides/operate/tune-capacity-and-limits",
               "guides/operate/troubleshoot",
               "guides/operate/use-the-web-ui",
-              "guides/operate/use-the-cli"
+              "guides/operate/use-the-cli",
+              "guides/operate/notifications-from-the-terminal"
             ]
           },
           {

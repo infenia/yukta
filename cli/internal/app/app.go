@@ -13,6 +13,7 @@ import (
 	"com.infenia.yukta/go-cli/internal/commands/controlbus"
 	"com.infenia.yukta/go-cli/internal/commands/inputs"
 	"com.infenia.yukta/go-cli/internal/commands/logs"
+	"com.infenia.yukta/go-cli/internal/commands/notifications"
 	"com.infenia.yukta/go-cli/internal/commands/plugin"
 	"com.infenia.yukta/go-cli/internal/commands/result"
 	"com.infenia.yukta/go-cli/internal/commands/scheduler"
@@ -57,6 +58,7 @@ func run() (int, error) {
 	rootCmd.AddCommand(server.ServerCmd(c))
 	rootCmd.AddCommand(scheduler.SchedulerCmd(c))
 	rootCmd.AddCommand(inputs.InputsCmd(c))
+	rootCmd.AddCommand(notifications.NotificationsCmd(c), notifications.NotifyCmd(c))
 	rootCmd.AddCommand(supervisors.SupervisorsCmd(c))
 	rootCmd.AddCommand(supervisors.SupervisionCmd(c))
 	rootCmd.AddCommand(supervisors.ContractCmd(c))

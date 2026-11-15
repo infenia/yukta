@@ -1,0 +1,96 @@
+---
+title: "Notifications from the terminal"
+sidebarTitle: "Notifications from the terminal"
+description: "Read your inbox from the command line, and get a desktop notification for each new alert or question without a browser: yukta notify, a systemd user unit and a launchd agent."
+keywords: ["notifications", "notify", "desktop", "inbox", "systemd", "launchd", "notify-send"]
+---
+
+Your inbox holds the alerts and questions Yukta has for you. The CLI reads it, and `yukta notify` raises a native desktop notification for each new item, so you do not need a browser tab open.
+
+## Read and acknowledge
+
+```bash
+yukta notifications list --unread
+yukta notifications read --all
+yukta notifications dismiss <id>
+```
+
+A question (`ACTION`) is answered with `yukta inputs answer`; reading or dismissing never answers it. You see only what your key may see.
+
+## Desktop notifications
+
+```bash
+yukta notify                       # a notification per new item
+yukta notify --min-severity WARN   # only warnings and errors
+yukta notify --kind ACTION         # only questions
+yukta notify --print               # print a line per item instead
+```
+
+`notify` runs the tool of your system, with no extra software: `notify-send` on Linux, `osascript` on macOS and PowerShell on Windows. With none of them found it prints instead. Titles and bodies reach the tool as arguments, never inside a shell string. For a question the text ends with the ready command, `yukta inputs answer <execution> <request> --decision ...`. Where `notify-send` supports actions, the notification has an Open button that opens the item in the web UI.
+
+It reconnects by itself. After a gap, such as a laptop that slept, the server replays what you missed. It honours your preferences: a category set to `OFF` or `INBOX`, and muted sessions, raise nothing here.
+
+### Run your own command
+
+`--exec` runs a command for each item instead, with no shell. The line is split into words first, then each word may use `{{.Title}}`, `{{.Body}}`, `{{.Severity}}`, `{{.Kind}}`, `{{.Category}}`, `{{.ID}}`, `{{.Session}}`, `{{.Execution}}`, `{{.Request}}`, `{{.Link}}` and `{{.Answer}}`, so a title with spaces stays one argument:
+
+```bash
+yukta notify --exec 'tmux display-message "{{.Severity}}: {{.Title}}"'
+```
+
+## Run it at login
+
+<Tabs>
+  <Tab title="Linux (systemd)">
+    Save as `~/.config/systemd/user/yukta-notify.service`, then `systemctl --user enable --now yukta-notify`:
+
+    ```ini
+    [Unit]
+    Description=Yukta desktop notifications
+    After=graphical-session.target
+
+    [Service]
+    Environment=YUKTA_SERVER_URL=https://yukta.example.com
+    EnvironmentFile=-%h/.config/yukta/env
+    ExecStart=%h/.local/bin/yukta-cli notify --min-severity WARN
+    Restart=on-failure
+    RestartSec=10
+
+    [Install]
+    WantedBy=default.target
+    ```
+
+    Put `YUKTA_TOKEN=...` in `~/.config/yukta/env` (mode `600`) rather than in the unit.
+  </Tab>
+  <Tab title="macOS (launchd)">
+    Save as `~/Library/LaunchAgents/com.example.yukta-notify.plist`, then `launchctl load ~/Library/LaunchAgents/com.example.yukta-notify.plist`:
+
+    ```xml
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0">
+    <dict>
+      <key>Label</key><string>com.example.yukta-notify</string>
+      <key>ProgramArguments</key>
+      <array>
+        <string>/usr/local/bin/yukta-cli</string>
+        <string>notify</string>
+        <string>--min-severity</string>
+        <string>WARN</string>
+      </array>
+      <key>EnvironmentVariables</key>
+      <dict>
+        <key>YUKTA_SERVER_URL</key><string>https://yukta.example.com</string>
+        <key>YUKTA_TOKEN</key><string>replace-me</string>
+      </dict>
+      <key>RunAtLoad</key><true/>
+      <key>KeepAlive</key><true/>
+    </dict>
+    </plist>
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  Pick one place for desktop notifications. A browser tab with the Yukta UI open, and `yukta notify`, would each raise one for the same item.
+</Note>

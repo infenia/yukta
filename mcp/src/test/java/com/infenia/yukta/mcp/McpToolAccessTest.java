@@ -188,4 +188,12 @@ class McpToolAccessTest {
             McpToolAccess.heavyCalls("not json".getBytes(java.nio.charset.StandardCharsets.UTF_8)))
         .isZero();
   }
+
+  @Test
+  void theInboxToolsNeedViewerAndNoSessionBecauseTheyFilterByRecipients() {
+    for (final String tool : List.of("list_notifications", "mark_notifications_read")) {
+      assertThat(McpToolAccess.permitted(key("VIEWER", null), tool, null)).isTrue();
+      assertThat(McpToolAccess.permitted(key("VIEWER", "a"), tool, null)).isTrue();
+    }
+  }
 }
