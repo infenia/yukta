@@ -4,6 +4,7 @@ package com.infenia.yukta.service.plugin;
 
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginApi;
+import com.infenia.yukta.plugin.core.PluginSource;
 import com.infenia.yukta.plugin.core.PluginTier;
 import com.infenia.yukta.plugin.gateway.PluginLookup;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -54,10 +56,38 @@ public class PluginRegistry implements PluginLookup {
    * @param pluginList the plugins on the classpath
    * @param enabled the types the operator enabled, or {@code all}
    */
+  public PluginRegistry(@NotEmpty final List<Plugin> pluginList, final List<String> enabled) {
+    this(pluginList, enabled, List.of());
+  }
+
+  /**
+   * Registers the bean plugins as {@link #PluginRegistry(List, List)} does, then every plugin of
+   * every {@link PluginSource} (community plugins): those are enabled by their source, and may not
+   * reuse the type of any other plugin, enabled or not.
+   *
+   * @param pluginList the plugins on the classpath
+   * @param enabled the types the operator enabled, or {@code all}
+   * @param sources the sources of plugins that are not beans
+   */
   @Autowired
   public PluginRegistry(
       @NotEmpty final List<Plugin> pluginList,
-      @Value("${yukta.plugins.enabled:}") final List<String> enabled) {
+      @Value("${yukta.plugins.enabled:}") final List<String> enabled,
+      final ObjectProvider<PluginSource> sources) {
+    this(pluginList, enabled, sources.orderedStream().toList());
+  }
+
+  /**
+   * Registers the bean plugins, then the plugins of the given sources.
+   *
+   * @param pluginList the plugins on the classpath
+   * @param enabled the types the operator enabled, or {@code all}
+   * @param sources the sources of plugins that are not beans
+   */
+  public PluginRegistry(
+      @NotEmpty final List<Plugin> pluginList,
+      final List<String> enabled,
+      final List<PluginSource> sources) {
     final boolean all = enabled.contains("all");
     log.atInfo().log("Plugin SPI {}", PluginApi.VERSION);
     for (final Plugin plugin : pluginList) {
@@ -78,6 +108,29 @@ public class PluginRegistry implements PluginLookup {
                 + " and "
                 + plugin.getClass().getName());
       }
+    }
+    sources.forEach(this::register);
+  }
+
+  /** Registers the plugins of a source; none may reuse a type of any other plugin. */
+  private void register(final PluginSource source) {
+    for (final Plugin plugin : source.plugins()) {
+      requireCompatible(plugin);
+      final Plugin previous =
+          plugins.containsKey(plugin.getType())
+              ? plugins.get(plugin.getType())
+              : disabled.get(plugin.getType());
+      if (previous != null) {
+        throw new IllegalStateException(
+            "Plugin type '"
+                + plugin.getType()
+                + "' of "
+                + plugin.getClass().getName()
+                + " is already used by "
+                + previous.getClass().getName());
+      }
+      plugins.put(plugin.getType(), plugin);
+      log.atInfo().log("Registered plugin {} from {}", plugin.getType(), source);
     }
   }
 

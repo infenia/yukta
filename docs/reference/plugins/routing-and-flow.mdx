@@ -1,8 +1,8 @@
 ---
 title: "Routing and flow reference"
 sidebarTitle: "Routing and flow"
-description: "Options, ports and errors of BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, the loop processors, SUB_WORKFLOW, WAIT_FOR_SIGNAL, ASK_INPUT and KV_STORE."
-keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "RECIPIENT_LIST", "DELAY", "LOOP_PREDICATE", "LOOP_STREAM", "SUB_WORKFLOW", "WAIT_FOR_SIGNAL", "ASK_INPUT", "KV_STORE"]
+description: "Options, ports and errors of BRANCH, FILTER, SPLITTER, AGGREGATE, RECIPIENT_LIST, DELAY, the loop processors, SUB_WORKFLOW, WAIT_FOR_SIGNAL and ASK_INPUT."
+keywords: ["BRANCH", "FILTER", "SPLITTER", "AGGREGATE", "RECIPIENT_LIST", "DELAY", "LOOP_PREDICATE", "LOOP_STREAM", "SUB_WORKFLOW", "WAIT_FOR_SIGNAL", "ASK_INPUT"]
 ---
 
 # Routing and flow reference
@@ -226,24 +226,6 @@ Asks a supervisor, a person or an agent a typed question per message and waits f
 
 ```json
 { "nodeId": "ok-to-deploy", "type": "ASK_INPUT", "config": { "prompt": "Deploy ${payload.version}?", "risk": "HIGH", "ttlSeconds": 900 } }
-```
-
-## `KV_STORE`
-
-A shared in-memory key-value store for state across runs. Needs the control plane.
-
-| Option | Type | Default | Required | Description |
-|---|---|---|---|---|
-| `op` | `get`, `put`, `incr` or `delete` | none | yes | Operation. `put` stores `payload.value`; `incr` adds `payload.value` (default 1) to a number. |
-| `key` | string | `payload.key` | no | Key to use. |
-| `namespace` | string | the workflow id | no | Prefix isolating keys; give two workflows the same value to share keys. |
-| `maxEntries` | number | `10000` | no | Most distinct keys; new keys beyond it fail. |
-
-- **Output port:** `default`; payload `{key, value}`, `value` is `null` when absent.
-- **Errors:** `op must be one of [...]`; `key is required (config or payload.key)`; `put requires payload.value`; `incr requires a whole-number payload.value`.
-
-```json
-{ "nodeId": "counter", "type": "KV_STORE", "config": { "op": "incr", "key": "builds" } }
 ```
 
 ## Related

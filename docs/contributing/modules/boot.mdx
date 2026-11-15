@@ -264,7 +264,7 @@ Gives operators health, info and metrics, and developers a few more diagnostics,
 
 Decides at build time which optional plugins are linked into the app.
 
-- -Pyukta.plugins accepts default (all except script-js, the default), all, none, or a comma list. The nine valid names are process-executor, http-request, file-io, sql-query, llm-call, session-memory, decision, mcp-tool-call and script-js. Two more modules are switched on by their own flags: -Pyukta.persistence=postgres (PostgreSQL stores) and -Pyukta.workers=true (remote workers).
+- -Pyukta.plugins accepts default (all except script-js, the default), all, none, or a comma list. The valid names are process-executor, external, http-request, file-io, sql-query, llm-call, decision, mcp-tool-call and script-js. Two more modules are switched on by their own flags: -Pyukta.persistence=postgres (PostgreSQL stores) and -Pyukta.workers=true (remote workers).
 - An unknown name fails the Gradle configuration with a message listing the valid names. Example: -Pyukta.plugins=http-requst stops before compiling anything.
 - Triggers (api, constant source, schedule), terminals (notify, console), the internal-core processors, the rule supervisor and three control planes are always included. Only nine processors are optional.
 - Reason: a pure data-pipeline deployment may not want a shell-command plugin or a JavaScript engine in the image. Fewer plugins means less code to secure and a smaller native image.
@@ -574,7 +574,6 @@ JVM vs native.
 | file-io | :plugins:processors:file-io | optional |
 | sql-query | :plugins:processors:sql-query | optional |
 | llm-call | :plugins:processors:llm-call | optional |
-| session-memory | :plugins:processors:session-memory | optional |
 | decision | :plugins:processors:decision | optional |
 | mcp-tool-call | :plugins:processors:mcp-tool-call | optional |
 | script-js | :plugins:processors:internal:script-js | optional |

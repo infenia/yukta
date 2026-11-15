@@ -5538,10 +5538,14 @@ export interface components {
         };
         /** @description A single node in the workflow DAG */
         NodeRequest: {
+            /** @description Palette color of the node, for display only: teal, sky, violet, magenta, stone */
+            color?: string | null;
             /** @description Plugin configuration */
             config?: {
                 [key: string]: unknown;
             };
+            /** @description The stage the node belongs to, for display only */
+            group?: string | null;
             /** @description Unique ID for the node */
             nodeId: string;
             /** @description Plugin type */
@@ -6244,6 +6248,10 @@ export interface components {
             description?: string;
             /** @description Edges connecting the nodes */
             edges: components["schemas"]["EdgeRequest"][];
+            /** @description Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone */
+            groupColors?: {
+                [key: string]: string;
+            } | null;
             /** @description Nodes in the workflow */
             nodes: components["schemas"]["NodeRequest"][];
             /** @description Unique workflow identifier */

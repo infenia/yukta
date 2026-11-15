@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: 2026 Infenia Private Limited
 package com.infenia.yukta.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -13,6 +14,7 @@ import com.infenia.yukta.exception.GlobalExceptionHandler;
 import com.infenia.yukta.mapper.SessionMapper;
 import com.infenia.yukta.model.execution.TaskStatus;
 import com.infenia.yukta.model.execution.WorkflowExecutionSummary;
+import com.infenia.yukta.model.session.SessionConfigData;
 import com.infenia.yukta.model.session.SessionConfigResponse;
 import com.infenia.yukta.model.workflow.WorkflowDefinition;
 import com.infenia.yukta.service.NotFoundException;
@@ -31,7 +33,10 @@ import java.util.Map;
 import lombok.NoArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mapstruct.factory.Mappers;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -45,6 +50,15 @@ import reactor.core.publisher.Mono;
   "PMD.TooManyStaticImports"
 })
 class SessionConfigControllerTest {
+
+  /** The apply endpoint. */
+  private static final String SESSIONS_URI = "/api/sessions";
+
+  /** The content type header. */
+  private static final String CONTENT_TYPE = "Content-Type";
+
+  /** The JSON media type. */
+  private static final String JSON = "application/json";
 
   /** A session id nothing is stored under. */
   private static final String NOPE = "nope";
@@ -293,22 +307,76 @@ class SessionConfigControllerTest {
             + "\"workflows\":{\"wf\":{\"workflowId\":\"wf\",\"description\":\"d\","
             + "\"nodes\":[{\"nodeId\":\"a\",\"type\":\"x\",\"config\":{}}],\"edges\":[]}}}";
 
-    client
-        .post()
-        .uri("/api/sessions")
-        .header("Content-Type", "application/json")
-        .bodyValue(valid)
-        .exchange()
+    postSession(valid).expectStatus().isOk();
+    postSession("{\"sessionId\":\"s1\"}").expectStatus().isBadRequest();
+  }
+
+  private WebTestClient.ResponseSpec postSession(final String body) {
+    return client.post().uri(SESSIONS_URI).header(CONTENT_TYPE, JSON).bodyValue(body).exchange();
+  }
+
+  private static String sessionBody(final String nodeExtra, final String workflowExtra) {
+    return "{\"sessionId\":\"s1\",\"name\":\"n\",\"description\":\"d\",\"projectPath\":\"/p\","
+        + "\"initiator\":\"i\",\"workflows\":{\"wf\":{\"workflowId\":\"wf\",\"description\":\"d\","
+        + "\"nodes\":[{\"nodeId\":\"a\",\"type\":\"x\",\"config\":{}"
+        + nodeExtra
+        + "}],\"edges\":[]"
+        + workflowExtra
+        + "}}}";
+  }
+
+  @Test
+  void testApplyConfigAcceptsNodeColorGroupAndGroupColors() {
+    when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
+
+    postSession(
+            sessionBody(",\"color\":\"teal\",\"group\":\"g\"", ",\"groupColors\":{\"g\":\"sky\"}"))
         .expectStatus()
         .isOk();
-    client
-        .post()
-        .uri("/api/sessions")
-        .header("Content-Type", "application/json")
-        .bodyValue("{\"sessionId\":\"s1\"}")
-        .exchange()
+
+    final ArgumentCaptor<SessionConfigData> captor =
+        ArgumentCaptor.forClass(SessionConfigData.class);
+    verify(sessionService).applyConfig(captor.capture());
+    final WorkflowDefinition stored = captor.getValue().workflows().get("wf");
+    assertThat(stored.nodes().get(0).color()).isEqualTo("teal");
+    assertThat(stored.nodes().get(0).group()).isEqualTo("g");
+    assertThat(stored.groupColors()).containsEntry("g", "sky");
+  }
+
+  @Test
+  void testApplyConfigWithoutColorFieldsKeepsThemEmpty() {
+    when(sessionService.applyConfig(any())).thenReturn(Mono.empty());
+
+    postSession(sessionBody("", "")).expectStatus().isOk();
+
+    final ArgumentCaptor<SessionConfigData> captor =
+        ArgumentCaptor.forClass(SessionConfigData.class);
+    verify(sessionService).applyConfig(captor.capture());
+    final WorkflowDefinition stored = captor.getValue().workflows().get("wf");
+    assertThat(stored.nodes().get(0).color()).isNull();
+    assertThat(stored.nodes().get(0).group()).isNull();
+    assertThat(stored.groupColors()).isEmpty();
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"red", "#ff0000", "Teal", ""})
+  void testApplyConfigRejectsNodeColorOutsideThePalette(final String color) {
+    postSession(sessionBody(",\"color\":\"" + color + "\"", ""))
+        .expectStatus()
+        .isBadRequest()
+        .expectBody()
+        .jsonPath("$.errors[0].field")
+        .value(f -> assertThat((String) f).endsWith("color"));
+    verify(sessionService, never()).applyConfig(any());
+  }
+
+  @ParameterizedTest
+  @ValueSource(strings = {"red", "Teal", ""})
+  void testApplyConfigRejectsGroupColorOutsideThePalette(final String color) {
+    postSession(sessionBody("", ",\"groupColors\":{\"g\":\"" + color + "\"}"))
         .expectStatus()
         .isBadRequest();
+    verify(sessionService, never()).applyConfig(any());
   }
 
   @Test
@@ -393,7 +461,6 @@ class SessionConfigControllerTest {
         .isEqualTo(409)
         .expectBody()
         .jsonPath("$.message")
-        .value(message ->
-            org.assertj.core.api.Assertions.assertThat((String) message).contains("e1, e2"));
+        .value(message -> assertThat((String) message).contains("e1, e2"));
   }
 }

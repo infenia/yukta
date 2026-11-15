@@ -56,4 +56,9 @@ class JsonPathsTest {
     assertThat(JsonPaths.firstOr("", null)).isEmpty();
     assertThat(JsonPaths.firstOr("v", "fallback")).isEqualTo("v");
   }
+
+  @Test
+  void values_dropEmptyStrings() {
+    assertThat(JsonPaths.values(node("{\"a\":[\"\",\"x\"]}"), "a[*]")).containsExactly("x");
+  }
 }

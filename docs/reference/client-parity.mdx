@@ -35,6 +35,7 @@ Roles apply to every client: a key without the needed role gets `403` from REST,
 | Versions, diff, note, rollback | `.../versions`, `.../versions/diff`, `.../versions/note`, `.../rollback` | `list_workflow_versions`, `diff_workflow_versions`, `note_workflow_version`, `rollback_workflow` | `session workflow versions\|diff\|note\|rollback` | Workflow page |
 | Templates | `GET /api/templates`, `GET /api/templates/{id}` | – | – | New session |
 | Plugin catalogue | `GET /api/plugins`, `.../{type}`, `.../{type}/usage` | `list_plugins`, `get_plugin_details` | `plugin list`, `plugin get` | Plugins page |
+| Check a community plugin before installing it | – | – | `plugin validate <dir>` (no server) | – |
 | AI backends | `GET /api/ai/backends` | `list_ai_backends` | none | none |
 
 ## Runs

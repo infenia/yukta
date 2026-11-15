@@ -11,7 +11,6 @@
   "plugins/processors/llm-call": 0.905,
   "plugins/processors/mcp-tool-call": 0.938,
   "plugins/processors/process-executor": 0.958,
-  "plugins/processors/session-memory": 0.96,
   "plugins/processors/sql-query": 1.0,
   "plugins/supervisors/rules": 0.936,
   "plugins/terminals/console-terminal": 1.0,

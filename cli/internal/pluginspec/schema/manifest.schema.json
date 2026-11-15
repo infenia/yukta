@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/infenia/yukta/main/plugin-api/src/main/resources/schema/plugin/v1/manifest.schema.json",
+  "title": "Yukta plugin manifest v1",
+  "description": "Describes a community plugin: a processor or terminal that runs outside the Yukta server. The operator places the plugin's directory in the plugins directory and lists its type in the enable list. Unknown properties are refused, so a typo fails at startup.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["apiVersion", "type", "category", "description", "run"],
+  "properties": {
+    "apiVersion": { "const": "yukta/plugin/v1" },
+    "type": {
+      "description": "Node type used in workflows. May not be the type of a built-in plugin.",
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9_]{1,63}$"
+    },
+    "category": { "enum": ["processor", "terminal"] },
+    "description": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "config": {
+      "description": "Node configuration fields; the UI builds a form from them.",
+      "type": "array",
+      "items": { "$ref": "#/$defs/configField" }
+    },
+    "ports": {
+      "description": "Output ports of a processor. Defaults to [\"default\"]. A terminal has none.",
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/port" }
+    },
+    "timeout": { "$ref": "#/$defs/duration" },
+    "run": { "$ref": "#/$defs/run" }
+  },
+  "if": { "properties": { "category": { "const": "terminal" } } },
+  "then": { "not": { "required": ["ports"] } },
+  "$defs": {
+    "configField": {
+      "description": "Same shape as ConfigField in plugin-api.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "type"],
+      "properties": {
+        "name": { "type": "string", "pattern": "^[a-zA-Z][a-zA-Z0-9_]{0,63}$" },
+        "type": {
+          "enum": ["STRING", "NUMBER", "BOOLEAN", "ENUM", "LIST", "MAP", "EXPRESSION", "SECRET"]
+        },
+        "required": { "type": "boolean" },
+        "default": {},
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": { "type": "string" }
+        },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "if": { "properties": { "type": { "const": "ENUM" } } },
+      "then": { "required": ["options"] }
+    },
+    "port": { "type": "string", "pattern": "^[a-z][a-zA-Z0-9_-]{0,63}$" },
+    "duration": {
+      "description": "A positive duration such as 500ms, 30s, 5m or 1h.",
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,8}(ms|s|m|h)$"
+    },
+    "argv": {
+      "description": "Executable and arguments. Run without a shell.",
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "image": {
+      "description": "Container image reference; pin it with @sha256:<digest>. It may not start with '-', so it cannot be read as an option of the container CLI.",
+      "type": "string",
+      "pattern": "^[a-z0-9][^\\s]{0,254}$"
+    },
+    "run": {
+      "description": "How the plugin runs: exactly one of command, image or mcp.",
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "maxProperties": 1,
+      "properties": {
+        "command": { "$ref": "#/$defs/argv" },
+        "image": { "$ref": "#/$defs/image" },
+        "mcp": { "$ref": "#/$defs/mcp" }
+      }
+    },
+    "mcp": {
+      "description": "An MCP tool, over stdio (command or image) or HTTP (url).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tool"],
+      "properties": {
+        "command": { "$ref": "#/$defs/argv" },
+        "image": { "$ref": "#/$defs/image" },
+        "url": { "type": "string", "pattern": "^https?://[^\\s]+$" },
+        "tool": { "type": "string", "minLength": 1, "maxLength": 128 }
+      },
+      "oneOf": [{ "required": ["command"] }, { "required": ["image"] }, { "required": ["url"] }]
+    }
+  }
+}

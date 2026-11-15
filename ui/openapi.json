@@ -4881,10 +4881,19 @@
       "NodeRequest" : {
         "description" : "A single node in the workflow DAG",
         "properties" : {
+          "color" : {
+            "description" : "Palette color of the node, for display only: teal, sky, violet, magenta, stone",
+            "pattern" : "teal|sky|violet|magenta|stone",
+            "type" : [ "string", "null" ]
+          },
           "config" : {
             "additionalProperties" : { },
             "description" : "Plugin configuration",
             "type" : "object"
+          },
+          "group" : {
+            "description" : "The stage the node belongs to, for display only",
+            "type" : [ "string", "null" ]
           },
           "nodeId" : {
             "description" : "Unique ID for the node",
@@ -6628,6 +6637,13 @@
               "$ref" : "#/components/schemas/EdgeRequest"
             },
             "type" : "array"
+          },
+          "groupColors" : {
+            "additionalProperties" : {
+              "type" : "string"
+            },
+            "description" : "Palette color of a group by group name, for display only: teal, sky, violet, magenta, stone",
+            "type" : [ "object", "null" ]
           },
           "nodes" : {
             "description" : "Nodes in the workflow",

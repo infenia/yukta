@@ -5,14 +5,17 @@ package com.infenia.yukta.dto.request;
 import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.infenia.yukta.model.supervisor.SupervisorRef;
+import com.infenia.yukta.model.workflow.WorkflowDefinition.Palette;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * API request DTO for workflow definitions.
@@ -26,6 +29,7 @@ import java.util.Map;
  * @param nodes the list of nodes in the DAG
  * @param edges the list of edges connecting the nodes
  * @param supervisors the supervisors declared for this workflow, attached when it is saved
+ * @param groupColors the palette color of a group (by group name), for display only
  */
 @Schema(description = "Definition of a reactive workflow DAG")
 public record WorkflowDefinitionRequest(
@@ -49,7 +53,32 @@ public record WorkflowDefinitionRequest(
         @JsonProperty("assignments")
         @JsonAlias("supervisors")
         @Size(max = 20, message = "A workflow declares at most 20 assignments")
-        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors) {
+        List<@Valid @NotNull(message = "Assignment cannot be null") SupervisorRef> supervisors,
+    @Schema(
+            description =
+                "Palette color of a group by group name, for display only: " + Palette.NAMES,
+            nullable = true)
+        @Size(max = 500, message = "At most 500 group colors")
+        Map<@NotBlank String, @Pattern(regexp = Palette.REGEX, message = Palette.MESSAGE) String>
+            groupColors) {
+
+  /**
+   * A workflow without group colors.
+   *
+   * @param workflowId unique identifier for the workflow
+   * @param description a human-readable description of the workflow
+   * @param nodes the list of nodes in the DAG
+   * @param edges the list of edges connecting the nodes
+   * @param supervisors the supervisors declared for this workflow
+   */
+  public WorkflowDefinitionRequest(
+      final String workflowId,
+      final String description,
+      final List<NodeRequest> nodes,
+      final List<EdgeRequest> edges,
+      final List<SupervisorRef> supervisors) {
+    this(workflowId, description, nodes, edges, supervisors, null);
+  }
 
   /**
    * A workflow that declares no supervisors.
@@ -64,7 +93,7 @@ public record WorkflowDefinitionRequest(
       final String description,
       final List<NodeRequest> nodes,
       final List<EdgeRequest> edges) {
-    this(workflowId, description, nodes, edges, List.of());
+    this(workflowId, description, nodes, edges, List.of(), null);
   }
 
   /** Compact constructor to ensure immutability. */
@@ -73,6 +102,7 @@ public record WorkflowDefinitionRequest(
     description = description == null || description.isBlank() ? workflowId : description;
     nodes = nodes != null ? List.copyOf(nodes) : List.of();
     edges = edges != null ? List.copyOf(edges) : List.of();
+    groupColors = groupColors != null ? Map.copyOf(groupColors) : Map.of();
   }
 
   /**
@@ -81,6 +111,8 @@ public record WorkflowDefinitionRequest(
    * @param nodeId unique identifier for the node
    * @param type the type of plugin to use
    * @param config configuration for the plugin
+   * @param group the stage the node belongs to, for display only; null when undeclared
+   * @param color the palette color of the node, for display only; null for the default look
    */
   @Schema(description = "A single node in the workflow DAG")
   public record NodeRequest(
@@ -92,7 +124,26 @@ public record WorkflowDefinitionRequest(
           @NotNull(message = "Plugin type cannot be null")
           @NotBlank(message = "Plugin type cannot be blank")
           String type,
-      @Schema(description = "Plugin configuration") Map<String, Object> config) {
+      @Schema(description = "Plugin configuration") Map<String, Object> config,
+      @Schema(description = "The stage the node belongs to, for display only", nullable = true)
+          @Nullable String group,
+      @Schema(
+              description = "Palette color of the node, for display only: " + Palette.NAMES,
+              nullable = true)
+          @Pattern(regexp = Palette.REGEX, message = Palette.MESSAGE)
+          @Nullable String color) {
+
+    /**
+     * A node without group or color.
+     *
+     * @param nodeId unique identifier for the node
+     * @param type the type of plugin to use
+     * @param config configuration for the plugin
+     */
+    public NodeRequest(final String nodeId, final String type, final Map<String, Object> config) {
+      this(nodeId, type, config, null, null);
+    }
+
     /** Compact constructor. */
     public NodeRequest {
       config = config != null ? Map.copyOf(config) : Map.of();

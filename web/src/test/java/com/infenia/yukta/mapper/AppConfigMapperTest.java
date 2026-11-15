@@ -136,6 +136,38 @@ class AppConfigMapperTest {
   }
 
   @Test
+  void testToNodeCarriesGroupAndColor() {
+    final Node result =
+        mapper.toNode(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of(), "stage", "stone"));
+
+    assertThat(result.group()).isEqualTo("stage");
+    assertThat(result.color()).isEqualTo("stone");
+  }
+
+  @Test
+  void testToWorkflowDefinitionCarriesGroupColors() {
+    final WorkflowDefinitionRequest request =
+        new WorkflowDefinitionRequest(
+            "wf",
+            "d",
+            List.of(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of())),
+            List.of(),
+            List.of(),
+            Map.of("stage", "violet"));
+
+    assertThat(mapper.toWorkflowDefinition(request).groupColors())
+        .isEqualTo(Map.of("stage", "violet"));
+  }
+
+  @Test
+  void testToNodeKeepsMissingGroupAndColorNull() {
+    final Node result = mapper.toNode(new NodeRequest(NODE_1, PROCESSOR_PLUGIN, Map.of()));
+
+    assertThat(result.group()).isNull();
+    assertThat(result.color()).isNull();
+  }
+
+  @Test
   void testToEdgeDefaultsMissingSourcePortLikeSessionMapper() {
     final EdgeRequest edgeRequest = new EdgeRequest(NODE_1, NODE_2, null);
 

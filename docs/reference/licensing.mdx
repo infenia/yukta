@@ -36,7 +36,6 @@ The Community build refuses to start when one of these is present, instead of ru
 | `yukta.session.store-type=file` | Plus |
 | `yukta.execution-log.dir` | Plus |
 | `yukta.restart.dir` | Plus |
-| `yukta.session-memory.dir` | Plus |
 | `yukta.session.store-type=postgres`, `yukta.ha.mode=postgres` | Plus with `-Pyukta.persistence=postgres` |
 | `yukta.workers.*`, `engine.placement` | Plus with `-Pyukta.workers=true` |
 
@@ -54,7 +53,7 @@ Community state is lost on restart; apply definitions again with the CLI or buil
 
 | Layer | Licence | Contents |
 |---|---|---|
-| Hooks, in `core` | Apache-2.0 | The stores (`SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `NodeCheckpointStore`, `KeyValueStore`, `SessionHistoryStore`), `LeaderElection`, `RemoteNodeExecutor`, `ApiAuthenticator`, `AuditSink`. A module provides a bean of the same type and the default steps aside. The Community build never depends on `plus`. |
+| Hooks, in `core` | Apache-2.0 | The stores (`SessionConfigStore`, `WorkflowDefinitionStore`, `ExecutionLogStore`, `NodeCheckpointStore`), `LeaderElection`, `RemoteNodeExecutor`, `ApiAuthenticator`, `AuditSink`. A module provides a bean of the same type and the default steps aside. The Community build never depends on `plus`. |
 | Integration layer, in `plus` | AGPL-3.0-only | The `EnterpriseModule` extension API and registry (version check, features, licence verification hook), `EditionInfo`, and the contract tests (`testFixtures` of `plus`) a store or election must pass. A module built on it is part of a Plus build and follows the AGPL. |
 
 Infenia's own Enterprise modules are built under Infenia's copyright and are not bound by the AGPL for that reason. How far the AGPL reaches into a module that only implements the Apache hooks is a legal question this page does not settle.

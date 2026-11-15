@@ -31,7 +31,7 @@ import tools.jackson.databind.ObjectMapper;
 /**
  * Notifications, receipts, preferences and the outbox in PostgreSQL (tables {@code notifications},
  * {@code notification_receipts}, {@code notification_preferences} and {@code
- * notification_deliveries}, migration V2), so the inbox, what each person read or dismissed and the
+ * notification_deliveries}, migration V3), so the inbox, what each person read or dismissed and the
  * queued deliveries survive a restart and a failover.
  *
  * <p>The change sequence is the database sequence {@code notification_seq}. A change of one

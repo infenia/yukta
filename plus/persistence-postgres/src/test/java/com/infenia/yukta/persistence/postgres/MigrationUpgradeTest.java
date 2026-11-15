@@ -71,15 +71,15 @@ class MigrationUpgradeTest extends PostgresTestSupport {
       assertThat(scalar(statement, "SELECT to_regclass('half_done')::text")).isNull();
       assertThat(scalar(statement, "SELECT count(*) FROM workflow_definition")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("2");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("3");
   }
 
   /**
-   * A database on the alpha.4 schema, with a queued delivery, takes V2 and keeps everything else.
+   * A database on the alpha.4 schema, with a queued delivery, takes V3 and keeps everything else.
    */
   @Test
   void notificationsMigrationDropsTheOldOutboxAndKeepsTheRest() throws SQLException {
-    final String schema = "upgrade_v2_test";
+    final String schema = "upgrade_v3_test";
     try (Connection connection = jdbc();
         Statement statement = connection.createStatement()) {
       statement.execute("DROP SCHEMA IF EXISTS " + schema + " CASCADE");
@@ -126,6 +126,6 @@ class MigrationUpgradeTest extends PostgresTestSupport {
           .isEqualTo("t");
       assertThat(scalar(statement, "SELECT nextval('notification_seq')")).isEqualTo("1");
     }
-    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("2");
+    assertThat(flywayFor(schema).load().info().current().getVersion().getVersion()).isEqualTo("3");
   }
 }
