@@ -177,12 +177,16 @@ export function WorkflowNodeCard({
       )}
 
       {color && (
-        // a marker only: borders and the status badge keep meaning status and category
+        // a marker only: a short cap under the top edge, clear of the ports on the side edges and
+        // the owner badge in the corner; borders and the status badge keep meaning status and category
         <span
           aria-hidden="true"
           data-testid="node-color-stripe"
-          className="absolute inset-y-3 left-0 w-1 rounded-r-full"
-          style={{ backgroundColor: color }}
+          className="absolute inset-x-10 top-0 h-0.5 rounded-b-full"
+          style={{
+            backgroundColor: color,
+            boxShadow: `0 1px 8px 0 color-mix(in oklab, ${color} 55%, transparent)`,
+          }}
         />
       )}
 
