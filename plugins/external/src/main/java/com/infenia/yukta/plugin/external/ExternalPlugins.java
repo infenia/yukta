@@ -5,6 +5,7 @@ package com.infenia.yukta.plugin.external;
 import com.infenia.yukta.plugin.core.Plugin;
 import com.infenia.yukta.plugin.core.PluginCategory;
 import com.infenia.yukta.plugin.core.PluginSource;
+import com.infenia.yukta.plugin.mcp.McpClientGateway;
 import com.infenia.yukta.plugin.process.ProcessExecutorGateway;
 import com.infenia.yukta.plugin.util.VariableResolver;
 import java.io.IOException;
@@ -15,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
@@ -29,8 +31,11 @@ import tools.jackson.databind.json.JsonMapper;
  * startup; one that is not enabled is only logged.
  */
 @Slf4j
-@SuppressWarnings("PMD.UseConcurrentHashMap") // filled once at startup, on one thread
-public final class ExternalPlugins implements PluginSource {
+@SuppressWarnings({
+  "PMD.UseConcurrentHashMap", // filled once at startup, on one thread
+  "PMD.TooManyMethods" // the loader: read, pin, connect, close
+})
+public final class ExternalPlugins implements PluginSource, AutoCloseable {
 
   private static final String PREFIX = "Plugin ";
 
@@ -42,6 +47,9 @@ public final class ExternalPlugins implements PluginSource {
   private final ProcessExecutorGateway gateway;
   private final VariableResolver resolver;
   private final CommandRun.OutputLimits limits;
+  private final Containers containers;
+  private final McpClientGateway mcpGateway;
+  private final Map<String, McpConnection> connections = new ConcurrentHashMap<>();
   private final JsonMapper json = JsonMapper.builder().build();
   private final WireSchemas schemas = new WireSchemas(json);
 
@@ -54,6 +62,8 @@ public final class ExternalPlugins implements PluginSource {
    * @param resolver resolves the node configuration per message
    * @param maxOutputBytes the most a plugin may write to stdout for one message
    * @param maxOutputs the most output objects a plugin may write for one message
+   * @param containers runs {@code run.image} plugins
+   * @param mcpGateway reaches {@code run.mcp} plugins over HTTP
    */
   public ExternalPlugins(
       final @Nullable Path dir,
@@ -61,12 +71,16 @@ public final class ExternalPlugins implements PluginSource {
       final ProcessExecutorGateway gateway,
       final VariableResolver resolver,
       final long maxOutputBytes,
-      final int maxOutputs) {
+      final int maxOutputs,
+      final Containers containers,
+      final McpClientGateway mcpGateway) {
     this.dir = dir;
     this.enabled = pins(enabled);
     this.gateway = gateway;
     this.resolver = resolver;
     this.limits = new CommandRun.OutputLimits(maxOutputBytes, maxOutputs);
+    this.containers = containers;
+    this.mcpGateway = mcpGateway;
   }
 
   /** Type to pinned digest ({@code ""} when not pinned). */
@@ -153,13 +167,86 @@ public final class ExternalPlugins implements PluginSource {
     }
     final PluginManifest manifest =
         PluginManifest.from((Map<String, Object>) doc, pluginDir.toAbsolutePath().normalize());
-    requirePin(manifest);
-    return withLocalExecutable(manifest);
+    return runnable(manifest);
+  }
+
+  /**
+   * The manifest ready to run, its pin checked: a local executable resolved, an image present, or
+   * the MCP tool found and its form read from the tool's schema.
+   */
+  private PluginManifest runnable(final PluginManifest manifest) {
+    return switch (manifest.runForm()) {
+      case "command" -> {
+        requirePin(manifest, PluginDigest.compute(manifest.dir()));
+        yield withLocalExecutable(manifest);
+      }
+      case "image" -> {
+        requirePin(manifest, PluginDigest.compute(manifest.dir()));
+        containers.ensureImage(manifest, gateway);
+        yield manifest;
+      }
+      default -> withTool(manifest);
+    };
+  }
+
+  /**
+   * Connects to the plugin's MCP server and reads its tool. The pin covers the directory and the
+   * tool's input schema, whose properties become the configuration form.
+   */
+  @SuppressWarnings({"unchecked", "PMD.CloseResource"}) // closed by close()
+  private PluginManifest withTool(final PluginManifest manifest) {
+    final String dirDigest = PluginDigest.compute(manifest.dir());
+    final McpConnection mcp = connect(manifest);
+    connections.put(manifest.type(), mcp);
+    final Map<String, Object> tool =
+        mcp.tool((String) manifest.mcp().get("tool")).blockOptional().orElseThrow();
+    final Map<String, Object> schema =
+        (Map<String, Object>) tool.getOrDefault("inputSchema", Map.of());
+    requirePin(manifest, McpTools.digest(dirDigest, schema));
+    return manifest.withConfig(McpTools.fields(manifest.config(), schema));
+  }
+
+  @SuppressWarnings("unchecked")
+  private McpConnection connect(final PluginManifest manifest) {
+    final Map<String, Object> run = manifest.mcp();
+    if (run.get("url") instanceof String url) {
+      return new HttpMcp(manifest.type(), url, manifest.timeout(), mcpGateway);
+    }
+    if (run.get("image") instanceof String image) {
+      final PluginManifest withImage = manifest.withImage(image);
+      containers.ensureImage(withImage, gateway);
+      final String name = Containers.name(manifest.type());
+      return new StdioMcp(
+          manifest.type(),
+          containers.run(withImage, name),
+          Containers.clientEnv(),
+          manifest.dir(),
+          manifest.timeout(),
+          gateway,
+          json,
+          () -> containers.remove(name, gateway).subscribe());
+    }
+    final PluginManifest local =
+        withLocalExecutable(manifest.withCommand((List<String>) run.get("command")));
+    return new StdioMcp(
+        manifest.type(),
+        local.command(),
+        Map.of(),
+        manifest.dir(),
+        manifest.timeout(),
+        gateway,
+        json,
+        () -> {});
+  }
+
+  /** Stops the MCP servers the plugins started. */
+  @Override
+  public void close() {
+    connections.values().forEach(McpConnection::close);
   }
 
   /** Checks the directory against the digest pinned in the enable list, if any, and logs it. */
-  private void requirePin(final PluginManifest manifest) {
-    final String digest = PluginDigest.compute(manifest.dir());
+  private void requirePin(final PluginManifest manifest, final String digest) {
     final String pin = enabled.get(manifest.type());
     if (!pin.isEmpty() && !pin.equals(digest)) {
       throw new IllegalStateException(
@@ -181,14 +268,6 @@ public final class ExternalPlugins implements PluginSource {
    */
   private static PluginManifest withLocalExecutable(final PluginManifest manifest) {
     final List<String> argv = manifest.command();
-    if (argv.isEmpty()) {
-      throw new IllegalStateException(
-          PREFIX
-              + manifest.type()
-              + ": run."
-              + manifest.runForm()
-              + " is not supported yet; use run.command");
-    }
     final String executable = argv.get(0);
     if (!executable.contains("/")) {
       return manifest;
@@ -200,20 +279,14 @@ public final class ExternalPlugins implements PluginSource {
     }
     final List<String> command = new ArrayList<>(argv);
     command.set(0, path.toString());
-    return new PluginManifest(
-        manifest.type(),
-        manifest.category(),
-        manifest.description(),
-        manifest.config(),
-        manifest.ports(),
-        manifest.timeout(),
-        List.copyOf(command),
-        manifest.runForm(),
-        manifest.dir());
+    return manifest.withCommand(List.copyOf(command));
   }
 
   private Plugin plugin(final PluginManifest manifest) {
-    final CommandRun run = new CommandRun(manifest, gateway, resolver, json, schemas, limits);
+    final PluginRun run =
+        "mcp".equals(manifest.runForm())
+            ? new McpRun(manifest, connections.get(manifest.type()), resolver)
+            : new CommandRun(manifest, gateway, resolver, json, schemas, limits, containers);
     return manifest.category() == PluginCategory.TERMINAL
         ? new ExternalTerminalPlugin(manifest, run)
         : new ExternalProcessorPlugin(manifest, run);
