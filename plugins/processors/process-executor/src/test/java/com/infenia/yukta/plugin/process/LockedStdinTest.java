@@ -51,6 +51,7 @@ class LockedStdinTest {
   }
 
   @Test
+  @SuppressWarnings("PMD.CloseResource") // closed through LockedStdin
   void closeClosesTheStream() {
     final boolean[] closed = {false};
     final OutputStream stream =
